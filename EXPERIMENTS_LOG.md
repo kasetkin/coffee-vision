@@ -54,11 +54,17 @@ than re-litigating it now.
 | 4 | resnet18, freeze_mode=last_block, backbone_lr=1e-5 | 0.7057 | 0.9023 | 0.9008 | **YES** | Strong clean win: val +0.056 (>>0.03 band), test +0.088/+0.091 (close to but combined with clear val signal, credible). 7/9 classes near-perfect. **New best/baseline for all subsequent experiments.** |
 | 5 | resnet18, freeze_mode=none (full fine-tune), backbone_lr=1e-5 | 0.7402 | 0.9277 | 0.9235 | YES (borderline) | vs last_block: val +0.0345 (just above 0.03 band), test +0.025/+0.023 (within noise band but positive, not contradicting). Kenya/Ethiopia-Sidamo confusion improved 19->11 misclassified, driving most of the gain. Took ~29min (vs ~15-20min for last_block) - real compute cost for a modest gain. Adopted as new best but flagged as the most borderline "adopt" so far; worth re-checking in Phase 6 multi-seed pass. |
 
+**Budget note (~2h24m in, at Phase 3 start)**: current best (full fine-tune) costs ~29min/run vs ~15-20min
+for frozen/last_block configs. Remaining Phase 3-5 experiments at full 20 epochs against this baseline would
+risk overshooting the 9h budget (esp. epochs=40 at ~58min and originally-planned 450 patches at ~85-90min).
+Trimming: train_patches_per_class experiment reduced to 150->300 (2x, not 3x) to control its cost; will drop
+stretch goals and/or shorten Phase 6 if still running long. Tracking actual elapsed time after each experiment.
+
 ## Phase 3 — Patch/data hypotheses
 
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | adopted? | notes |
 |---|---|---|---|---|---|---|
-| 6 | train_patches_per_class 150->450 | | | | | |
+| 6 | train_patches_per_class 150->300 (trimmed from 450) | 0.7495 | 0.9255 | 0.9204 | NO | val +0.009 (<<0.03 band), test/mcc essentially flat (-0.002/-0.003). Inconclusive/no real effect - more (still correlated) patches from the same 9 photos don't add real information once the model already sees enough views. Reverted to 150. |
 | 7 | patch_crop_size 512->768 | | | | | |
 | 8 | patch_crop_size 512->320 | | | | | |
 
