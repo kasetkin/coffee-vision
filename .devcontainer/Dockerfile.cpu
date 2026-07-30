@@ -1,0 +1,59 @@
+# Dev image for this machine: no NVIDIA GPU, so no CUDA toolkit. Training
+# also happens here (no separate GPU/cloud build planned).
+FROM python:3.12-slim
+
+ARG TZ
+ENV TZ="$TZ"
+ENV DEVCONTAINER=true
+# Opt-in flag for Mesa's rusticl OpenCL backend; ignored if unsupported.
+ENV RUSTICL_ENABLE=radeonsi
+
+# Dev tools, Mesa OpenCL (AMD iGPU), libgl1 (cv2 needs it).
+# Kept in one RUN: apt clean in a later layer wouldn't shrink the image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        less git procps sudo curl ca-certificates \
+        mesa-opencl-icd ocl-icd-libopencl1 clinfo libgl1 libglib2.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user; UID/GID 1000 usually matches the host's first user.
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
+
+# Dirs this user owns: bash history, Claude config, Jupyter/IPython state
+# (all volume-mounted), workspace.
+RUN mkdir -p /commandhistory /workspace /home/$USERNAME/.claude \
+        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter \
+    && touch /commandhistory/.bash_history \
+    && chown -R $USERNAME:$USERNAME /commandhistory /workspace /home/$USERNAME/.claude \
+        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter
+
+# Persist history to that volume, flushed after every command.
+RUN echo "export PROMPT_COMMAND='history -a'" >> /home/$USERNAME/.bashrc \
+    && echo "export HISTFILE=/commandhistory/.bash_history" >> /home/$USERNAME/.bashrc
+
+# OpenCL device script; sudo scoped to only this one command.
+COPY setup-opencl-device.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/setup-opencl-device.sh
+
+RUN echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/setup-opencl-device.sh" > /etc/sudoers.d/$USERNAME-opencl \
+    && chmod 0440 /etc/sudoers.d/$USERNAME-opencl
+
+WORKDIR /workspace
+USER $USERNAME
+
+# venv owned by this user, so later pip installs don't need sudo.
+RUN python -m venv /home/$USERNAME/.venv
+ENV PATH="/home/$USERNAME/.venv/bin:$PATH"
+
+# CPU wheel index avoids the NVIDIA CUDA deps plain `pip install torch` pulls in.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.13.0 torchvision torchaudio
+
+# Deliberately excludes torch/torchvision — installed above instead.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt

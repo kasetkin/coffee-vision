@@ -1,0 +1,44 @@
+{
+  "name": "Coffee bean CV classifier",
+  "build": {
+    "context": ".",
+    "dockerfile": "./Dockerfile.cpu",
+    "args": {
+      "TZ": "${localEnv:TZ:UTC}"
+    }
+  },
+  "runArgs": [
+    "--ipc=host",
+    "--device=/dev/dri"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "lakeFS.lakefs-dvc"
+      ]
+    }
+  },
+  "remoteUser": "vscode",
+  "mounts": [
+//    "source=${localWorkspaceFolder}/.claude,target=/home/vscode/.claude,type=bind"
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=jupyter-ipython-${devcontainerId},target=/home/vscode/.ipython,type=volume",
+    "source=jupyter-config-${devcontainerId},target=/home/vscode/.jupyter,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {}
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  "postStartCommand": "sudo /usr/local/bin/setup-opencl-device.sh",
+  "waitFor": "postStartCommand"
+
+}

@@ -1,0 +1,15 @@
+# Do NOT add torch / torchvision / torchaudio here. Dockerfile.cpu installs
+# them explicitly with the CPU wheel index. Adding them here risks pip
+# "helpfully" replacing that with a mismatched CUDA build on the next rebuild.
+
+numpy
+pillow
+pillow-heif
+rawpy
+opencv-python-headless
+scikit-learn
+matplotlib
+albumentations
+tensorboard
+tqdm
+dvc

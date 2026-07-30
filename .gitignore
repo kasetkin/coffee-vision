@@ -1,0 +1,7 @@
+build/
+/sdkconfig.old
+/.claude/settings.local.json
+secrets.yaml
+/managed_components/
+/logs/
+/tools/__pycache__/
