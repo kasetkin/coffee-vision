@@ -25,7 +25,7 @@ stages:
         dropout: 0.5
         epochs: 20
         freeze_backbone: true
-        label_smoothing: 0.1
+        label_smoothing: 0.0
         lr: 0.001
         model_name: mobilenet_v3_small
         optimizer: adamw
@@ -37,29 +37,29 @@ stages:
         test_patches_per_class: 40
         train_patches_per_class: 150
         val_patches_per_class: 40
-        weight_decay: 0.01
+        weight_decay: 0.0001
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: d933deba651b32f46f28be58fa06d74c
+      md5: 160f8fc7fb516355315e670627173669
       size: 6227945
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: c8210938332de7f0856960a9d2f19615
+      md5: 5a7600ba1c489ba8263ec8e9a5eb5c57
       size: 6227945
     - path: outputs/history.json
       hash: md5
-      md5: f801c35ef55f2202abd7d2fd7575973d
-      size: 4100
+      md5: ec80f8dce1dfc89c0b75793c71900c63
+      size: 4114
     - path: outputs/metrics.json
       hash: md5
-      md5: 8f01389bc1149dff4709deb67baa9873
-      size: 8310
+      md5: 438533595d9542dc03ff87ad88ceed5d
+      size: 8296
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: bbad52c36572f1b8ec6d1ef4d7596802
+      md5: c39e4391e2f205498118831e5f99f932
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 351b2057b40ddd5ecdec10a636573f91
+      md5: 801ec7504259e6190c787d1fc626e519
       size: 3263
