@@ -2,9 +2,9 @@
 
 Started: 2026-07-30 18:48 UTC. Target budget: ~9h. One hypothesis changed per experiment, isolated from all others.
 
-**Current best**: `resnet18-lastblock` (model_name=resnet18, freeze_mode=last_block, backbone_lr=1e-5,
-all else default) — val_macro_f1=0.7057, test_macro_f1=0.9023, test_mcc=0.9008 (best_epoch=15/20).
-(Superseded `resnet18-frozen`: val_macro_f1=0.6500, test_macro_f1=0.8146, test_mcc=0.8094.)
+**Current best**: `resnet18-finetune-full` (model_name=resnet18, freeze_mode=none, backbone_lr=1e-5,
+all else default) — val_macro_f1=0.7402, test_macro_f1=0.9277, test_mcc=0.9235 (best_epoch=17/20).
+(Superseded `resnet18-lastblock`: 0.7057/0.9023/0.9008; `resnet18-frozen`: 0.6500/0.8146/0.8094.)
 
 **Decision rule (revised after Phase 1 — see noise band below)**: val_macro_f1's noise band (~0.03) is much
 tighter than test_macro_f1's (~0.11, measured from only 3 seeds so treat as rough) — with 40 samples/class,
@@ -52,7 +52,7 @@ than re-litigating it now.
 |---|---|---|---|---|---|---|
 | 3 | efficientnet_b0, frozen | 0.5479 | 0.5526 | 0.5212 | NO | Clear reject - both drops far exceed noise bands (val -0.10, test -0.26). resnet18's frozen features transfer better to this task; not investigating why (e.g. preprocessing mismatch) given time budget. |
 | 4 | resnet18, freeze_mode=last_block, backbone_lr=1e-5 | 0.7057 | 0.9023 | 0.9008 | **YES** | Strong clean win: val +0.056 (>>0.03 band), test +0.088/+0.091 (close to but combined with clear val signal, credible). 7/9 classes near-perfect. **New best/baseline for all subsequent experiments.** |
-| 5 | resnet18, freeze_mode=none (full fine-tune), backbone_lr=1e-5 | | | | | time-boxed 60min |
+| 5 | resnet18, freeze_mode=none (full fine-tune), backbone_lr=1e-5 | 0.7402 | 0.9277 | 0.9235 | YES (borderline) | vs last_block: val +0.0345 (just above 0.03 band), test +0.025/+0.023 (within noise band but positive, not contradicting). Kenya/Ethiopia-Sidamo confusion improved 19->11 misclassified, driving most of the gain. Took ~29min (vs ~15-20min for last_block) - real compute cost for a modest gain. Adopted as new best but flagged as the most borderline "adopt" so far; worth re-checking in Phase 6 multi-seed pass. |
 
 ## Phase 3 — Patch/data hypotheses
 

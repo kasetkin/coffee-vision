@@ -26,7 +26,7 @@ stages:
         dataset_dir: dataset/2026-07-24__first_pictures
         dropout: 0.2
         epochs: 20
-        freeze_mode: last_block
+        freeze_mode: none
         label_smoothing: 0.0
         lr: 0.001
         model_name: resnet18
@@ -43,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 6cb39d18419ae073d57ddd120173cdb5
+      md5: e97a30f7eca28ea390c3b5fa6643e122
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 049389bdd57b4ff05219781d580ef463
+      md5: 922c4d2314809dae5e0a39a9d00bc117
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 5f897a477ad00f715eb8fd0702418373
-      size: 4125
+      md5: c6ff907a9bab8166f71b9876ee5f9bcb
+      size: 4121
     - path: outputs/metrics.json
       hash: md5
-      md5: b418741768289ef6b264d410540745f7
-      size: 8166
+      md5: 240d3ccfecc4749384847d2bc37b1418
+      size: 8268
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: b19024ab2b3e7ef074af6cf96e13b061
+      md5: cc1b429d95ae87c4a1f05152928f7cf4
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 895f8bf7543eb7439a45ddcfedba47ac
+      md5: 4a3a35df79ca988da434f667619f3972
       size: 3263

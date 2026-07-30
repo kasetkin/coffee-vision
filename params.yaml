@@ -16,7 +16,7 @@ test_patches_per_class: 40
 
 # Model
 model_name: resnet18
-freeze_mode: last_block  # isolated test: was full
+freeze_mode: none  # isolated test: was last_block
 dropout: 0.2
 label_smoothing: 0.0
 color_jitter_strength: 0.2
