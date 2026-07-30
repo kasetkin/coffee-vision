@@ -15,7 +15,7 @@ val_patches_per_class: 40
 test_patches_per_class: 40
 
 # Model
-model_name: resnet18  # best so far: switched from mobilenet_v3_small
+model_name: resnet18
 freeze_mode: full  # full | last_block | none
 dropout: 0.2
 label_smoothing: 0.0

@@ -49,7 +49,7 @@ than re-litigating it now.
 
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | adopted? | notes |
 |---|---|---|---|---|---|---|
-| 3 | efficientnet_b0, frozen | | | | | |
+| 3 | efficientnet_b0, frozen | 0.5479 | 0.5526 | 0.5212 | NO | Clear reject - both drops far exceed noise bands (val -0.10, test -0.26). resnet18's frozen features transfer better to this task; not investigating why (e.g. preprocessing mismatch) given time budget. |
 | 4 | resnet18, freeze_mode=last_block, backbone_lr=1e-5 | | | | | |
 | 5 | resnet18, freeze_mode=none (full fine-tune), backbone_lr=1e-5 | | | | | time-boxed 60min |
 
