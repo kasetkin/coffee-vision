@@ -35,6 +35,8 @@ class RunConfig:
 
     model_name: str = "mobilenet_v3_small"
     freeze_backbone: bool = True
+    dropout: float = 0.2
+    label_smoothing: float = 0.0
 
     batch_size: int = 32
     epochs: int = 20

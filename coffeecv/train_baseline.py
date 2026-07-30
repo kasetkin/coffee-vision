@@ -120,8 +120,10 @@ def main() -> None:
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
 
-    model = build_model(cfg.model_name, num_classes=len(class_ids), freeze_backbone=cfg.freeze_backbone).to(DEVICE)
-    criterion = nn.CrossEntropyLoss(reduction="none")
+    model = build_model(
+        cfg.model_name, num_classes=len(class_ids), freeze_backbone=cfg.freeze_backbone, dropout=cfg.dropout
+    ).to(DEVICE)
+    criterion = nn.CrossEntropyLoss(reduction="none", label_smoothing=cfg.label_smoothing)
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable_params, lr=cfg.lr, weight_decay=cfg.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs)

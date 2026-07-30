@@ -17,11 +17,13 @@ test_patches_per_class: 40
 # Model
 model_name: mobilenet_v3_small  # or resnet18
 freeze_backbone: true
+dropout: 0.5          # was 0.2 (torchvision default) - raised to fight overfitting on the tiny head
+label_smoothing: 0.1   # was 0.0
 
 # Training
 batch_size: 32
 epochs: 20
 optimizer: adamw
 lr: 0.001
-weight_decay: 0.0001
+weight_decay: 0.01    # was 0.0001 - 100x bump, same overfitting fix
 scheduler: cosine
