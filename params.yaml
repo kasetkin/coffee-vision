@@ -15,7 +15,7 @@ val_patches_per_class: 40
 test_patches_per_class: 40
 
 # Model
-model_name: mobilenet_v3_small  # or resnet18
+model_name: resnet18  # isolated test: was mobilenet_v3_small
 freeze_backbone: true
 dropout: 0.2
 label_smoothing: 0.0
