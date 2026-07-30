@@ -24,6 +24,6 @@ label_smoothing: 0.0
 batch_size: 32
 epochs: 20
 optimizer: adamw
-lr: 0.001
+lr: 0.0003    # isolated test: was 0.001 - resnet18-frozen's val_macro_f1 oscillated 0.60-0.65 all 20 epochs instead of settling
 weight_decay: 0.0001
 scheduler: cosine
