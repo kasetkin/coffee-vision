@@ -1,0 +1,63 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python -m coffeecv.train_baseline
+    deps:
+    - path: coffeecv
+      hash: md5
+      md5: 5928d9e1670cf7ffd66d5a8af27cc750.dir
+      size: 71838
+      nfiles: 18
+    - path: dataset/2026-07-24__first_pictures
+      hash: md5
+      md5: 93fc7722ef59eff9b250a9d0937a6b61.dir
+      size: 888285333
+      nfiles: 61
+    - path: dataset/classes.txt
+      hash: md5
+      md5: 83d6af3dde5611f406d18131552a3a57
+      size: 184
+    params:
+      params.yaml:
+        batch_size: 32
+        classes_file: dataset/classes.txt
+        dataset_dir: dataset/2026-07-24__first_pictures
+        epochs: 20
+        freeze_backbone: true
+        lr: 0.001
+        model_name: mobilenet_v3_small
+        optimizer: adamw
+        patch_crop_size: 512
+        patch_resize: 224
+        safety_margin: 0.97
+        scheduler: cosine
+        seed: 42
+        test_patches_per_class: 40
+        train_patches_per_class: 150
+        val_patches_per_class: 40
+        weight_decay: 0.0001
+    outs:
+    - path: outputs/checkpoints/best.pt
+      hash: md5
+      md5: 7100f1086b78af23ca4a3d2838a23dba
+      size: 6227945
+    - path: outputs/checkpoints/last.pt
+      hash: md5
+      md5: 22bbc3b3be2369eb1db2fea7518c2222
+      size: 6227945
+    - path: outputs/history.json
+      hash: md5
+      md5: bba8b6261982c27e788c96ec09152db7
+      size: 4117
+    - path: outputs/metrics.json
+      hash: md5
+      md5: 3f48a572eb5079cd433e916ecb595328
+      size: 8260
+    - path: outputs/predictions_test.csv
+      hash: md5
+      md5: 81635d0e86d75675552756e8a005b2b1
+      size: 3263
+    - path: outputs/predictions_val.csv
+      hash: md5
+      md5: 0f6ff3f8fc95d275bbf75f5fd86bc84f
+      size: 3263

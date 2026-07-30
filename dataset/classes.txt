@@ -1,1 +1,9 @@
-001;Ethiopia,grade 2,Sidamo
+001;Ethiopia,Sidamo
+002;Kenya,AA
+003;Colombia,PinkBourbon
+004;CostaRica,LaPastora
+005;Guatemala,Tata
+006;Brazil,Cerrado
+007;Brazil,MonteCristo
+008;Ethiopia,Kochere
+009;Vietnam,Robusta

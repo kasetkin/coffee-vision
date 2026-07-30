@@ -5,3 +5,7 @@ secrets.yaml
 /managed_components/
 /logs/
 /tools/__pycache__/
+__pycache__/
+/outputs/
+/tensorboard/
+/dvc_plots/

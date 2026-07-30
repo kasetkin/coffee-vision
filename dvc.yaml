@@ -1,0 +1,38 @@
+stages:
+  train:
+    cmd: python -m coffeecv.train_baseline
+    deps:
+      - coffeecv
+      - dataset/2026-07-24__first_pictures
+      - dataset/classes.txt
+    params:
+      - params.yaml:
+    outs:
+      - outputs/checkpoints/best.pt
+      - outputs/checkpoints/last.pt
+    metrics:
+      - outputs/metrics.json:
+          cache: false
+    plots:
+      - outputs/history.json:
+          cache: false
+          x: epoch
+          y: train_loss
+      - outputs/history.json:
+          cache: false
+          x: epoch
+          y: val_loss
+      - outputs/history.json:
+          cache: false
+          x: epoch
+          y: val_macro_f1
+      - outputs/predictions_val.csv:
+          cache: false
+          template: confusion
+          x: true_label
+          y: pred_label
+      - outputs/predictions_test.csv:
+          cache: false
+          template: confusion
+          x: true_label
+          y: pred_label
