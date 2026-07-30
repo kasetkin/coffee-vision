@@ -23,16 +23,23 @@ class RandomRightAngleRotation:
         return img
 
 
-def build_train_transform(resize: int) -> T.Compose:
-    return T.Compose([
+def build_train_transform(resize: int, jitter_strength: float = 0.2) -> T.Compose:
+    steps = [
         RandomRightAngleRotation(),
         T.RandomHorizontalFlip(p=0.5),
         T.RandomVerticalFlip(p=0.5),
-        T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.02),
+    ]
+    if jitter_strength > 0:
+        steps.append(T.ColorJitter(
+            brightness=jitter_strength, contrast=jitter_strength,
+            saturation=jitter_strength, hue=min(jitter_strength * 0.1, 0.5),
+        ))
+    steps += [
         T.Resize((resize, resize), interpolation=T.InterpolationMode.BILINEAR),
         T.ToTensor(),
         T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-    ])
+    ]
+    return T.Compose(steps)
 
 
 def build_eval_transform(resize: int) -> T.Compose:

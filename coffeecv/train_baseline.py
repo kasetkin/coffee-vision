@@ -32,8 +32,8 @@ DEVICE = torch.device("cpu")  # this project trains on a CPU-only devcontainer
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train the baseline coffee-bean-origin classifier.")
-    p.add_argument("--model-name", choices=["mobilenet_v3_small", "resnet18"], default=None)
-    p.add_argument("--no-freeze-backbone", action="store_true")
+    p.add_argument("--model-name", choices=["mobilenet_v3_small", "resnet18", "efficientnet_b0"], default=None)
+    p.add_argument("--freeze-mode", choices=["full", "last_block", "none"], default=None)
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
@@ -44,8 +44,8 @@ def parse_args() -> argparse.Namespace:
 def apply_overrides(cfg: RunConfig, args: argparse.Namespace) -> RunConfig:
     if args.model_name is not None:
         cfg.model_name = args.model_name
-    if args.no_freeze_backbone:
-        cfg.freeze_backbone = False
+    if args.freeze_mode is not None:
+        cfg.freeze_mode = args.freeze_mode
     if args.epochs is not None:
         cfg.epochs = args.epochs
     if args.batch_size is not None:
@@ -111,7 +111,8 @@ def main() -> None:
         safety_margin=cfg.safety_margin,
         patches_per_class=patches_per_class,
     )
-    train_ds = PatchCoffeeDataset(split="train", transform=build_train_transform(cfg.patch_resize), **common_kwargs)
+    train_transform = build_train_transform(cfg.patch_resize, cfg.color_jitter_strength)
+    train_ds = PatchCoffeeDataset(split="train", transform=train_transform, **common_kwargs)
     val_ds = PatchCoffeeDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
     test_ds = PatchCoffeeDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
 
@@ -120,12 +121,25 @@ def main() -> None:
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
 
-    model = build_model(
-        cfg.model_name, num_classes=len(class_ids), freeze_backbone=cfg.freeze_backbone, dropout=cfg.dropout
-    ).to(DEVICE)
+    model, head_module = build_model(
+        cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout
+    )
+    model = model.to(DEVICE)
     criterion = nn.CrossEntropyLoss(reduction="none", label_smoothing=cfg.label_smoothing)
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(trainable_params, lr=cfg.lr, weight_decay=cfg.weight_decay)
+
+    head_param_ids = {id(p) for p in head_module.parameters()}
+    head_params = [p for p in model.parameters() if p.requires_grad and id(p) in head_param_ids]
+    backbone_params = [p for p in model.parameters() if p.requires_grad and id(p) not in head_param_ids]
+    param_groups = [{"params": head_params, "lr": cfg.lr}]
+    if backbone_params:
+        param_groups.append({"params": backbone_params, "lr": cfg.backbone_lr})
+
+    if cfg.optimizer == "adamw":
+        optimizer = torch.optim.AdamW(param_groups, weight_decay=cfg.weight_decay)
+    elif cfg.optimizer == "sgd":
+        optimizer = torch.optim.SGD(param_groups, weight_decay=cfg.weight_decay, momentum=0.9)
+    else:
+        raise ValueError(f"Unknown optimizer: {cfg.optimizer!r}")
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs)
 
     OUTPUTS_DIR.mkdir(exist_ok=True)

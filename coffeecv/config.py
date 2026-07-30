@@ -34,14 +34,16 @@ class RunConfig:
     test_patches_per_class: int = 40
 
     model_name: str = "mobilenet_v3_small"
-    freeze_backbone: bool = True
+    freeze_mode: str = "full"  # full | last_block | none
     dropout: float = 0.2
     label_smoothing: float = 0.0
+    color_jitter_strength: float = 0.2
 
     batch_size: int = 32
     epochs: int = 20
-    optimizer: str = "adamw"
+    optimizer: str = "adamw"  # adamw | sgd
     lr: float = 1e-3
+    backbone_lr: float = 1e-5  # used only when freeze_mode != "full"
     weight_decay: float = 1e-4
     scheduler: str = "cosine"
 
