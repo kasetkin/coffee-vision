@@ -31,7 +31,7 @@ Status: IN PROGRESS
 | # | seed | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | notes |
 |---|------|---|---|---|---|---|
 | 0 | 42 (baseline, already known) | 0.6500 | 0.6358 | 0.8146 | 0.8094 | resnet18-frozen |
-| 1 | 123 | | | | | |
+| 1 | 123 | 0.6788 | (n/a) | 0.7724 | 0.7760 | best_epoch=12 |
 | 2 | 7 | | | | | |
 
 Noise band (max-min across the 3 seeds): TBD

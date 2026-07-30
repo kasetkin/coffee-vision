@@ -5,8 +5,8 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: d2a178a8f62fb1314ba7a2158a8ac422.dir
-      size: 72579
+      md5: 605364f07fdb7614b223a09eac768da9.dir
+      size: 77504
       nfiles: 18
     - path: dataset/2026-07-24__first_pictures
       hash: md5
@@ -19,12 +19,14 @@ stages:
       size: 184
     params:
       params.yaml:
+        backbone_lr: 1e-05
         batch_size: 32
         classes_file: dataset/classes.txt
+        color_jitter_strength: 0.2
         dataset_dir: dataset/2026-07-24__first_pictures
         dropout: 0.2
         epochs: 20
-        freeze_backbone: true
+        freeze_mode: full
         label_smoothing: 0.0
         lr: 0.001
         model_name: resnet18
@@ -33,7 +35,7 @@ stages:
         patch_resize: 224
         safety_margin: 0.97
         scheduler: cosine
-        seed: 42
+        seed: 123
         test_patches_per_class: 40
         train_patches_per_class: 150
         val_patches_per_class: 40
@@ -41,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 8bce35b91d27f2029eaef93161655a23
+      md5: 6b03e4f3a3a66b7b5eb60fdae7f4bdbe
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 6e59e09a2c77dbaf8b99533489482823
+      md5: 3e578dd868a568ec7dbf3525ec1032a0
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 458413b6e1f1886f85be8060ad4a5e56
+      md5: d91a2f418e26721b2d75e06d209147bf
       size: 4105
     - path: outputs/metrics.json
       hash: md5
-      md5: df3373d314f1fedff71e29f53b354751
-      size: 8231
+      md5: a33080030639f8d5ee4231818a49c302
+      size: 8253
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 332f5bdc0be33a9b14c82b75567b66c7
+      md5: b643bc99da0952a6ae07a892faf26266
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 172a40cb9f6ee3d3ba1ef34ae426f12a
+      md5: ffeb5f4c0ea2d21605f1617584099410
       size: 3263
