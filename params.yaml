@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 123  # Phase 1 noise calibration: was 42
+seed: 42
 
 dataset_dir: dataset/2026-07-24__first_pictures
 classes_file: dataset/classes.txt

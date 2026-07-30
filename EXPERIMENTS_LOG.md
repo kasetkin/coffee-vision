@@ -5,9 +5,13 @@ Started: 2026-07-30 18:48 UTC. Target budget: ~9h. One hypothesis changed per ex
 **Current best going in**: `resnet18-frozen` (model_name=resnet18, freeze_mode=full, all else default) —
 val_macro_f1=0.6500, val_mcc=0.6358, test_macro_f1=0.8146, test_mcc=0.8094 (best_epoch=15/20).
 
-**Decision rule**: a change is *adopted* (becomes the new baseline for subsequent experiments) only if it
-beats the Phase 1 noise band on both val_macro_f1 and test_macro_f1. Otherwise it's recorded as
-negative/neutral, params.yaml is reverted to the last-adopted baseline, and we move to the next experiment.
+**Decision rule (revised after Phase 1 — see noise band below)**: val_macro_f1's noise band (~0.03) is much
+tighter than test_macro_f1's (~0.11, measured from only 3 seeds so treat as rough) — with 40 samples/class,
+test is just noisier because it isn't the checkpoint-selection signal. So: treat val_macro_f1 improvement
+>0.03 as the primary adopt/reject signal; treat test_macro_f1/mcc as directional confirmation only —
+a large test swing (>0.09) corroborates, a small one is inconclusive either way. All Phase 2-5 experiments
+below are single-seed (seed=42) for time budget reasons, so borderline results get labeled "inconclusive,"
+not confidently adopted or rejected. Only Phase 6's final combined config gets a multi-seed check.
 
 If this log's "Status" says IN PROGRESS for an experiment with no result recorded, and you're reading this
 after a context reset/interruption: check `dvc exp show` / `git log` for whether that experiment's `dvc exp
@@ -32,9 +36,14 @@ Status: IN PROGRESS
 |---|------|---|---|---|---|---|
 | 0 | 42 (baseline, already known) | 0.6500 | 0.6358 | 0.8146 | 0.8094 | resnet18-frozen |
 | 1 | 123 | 0.6788 | (n/a) | 0.7724 | 0.7760 | best_epoch=12 |
-| 2 | 7 | | | | | |
+| 2 | 7 | 0.6687 | (n/a) | 0.7050 | 0.7083 | best_epoch=9 |
 
-Noise band (max-min across the 3 seeds): TBD
+**Noise band (max-min across the 3 seeds)**: val_macro_f1 spread=0.0288 (mean 0.666, ~0.03),
+test_macro_f1 spread=0.1096 (mean 0.764, ~0.11), test_mcc spread=0.1011 (mean 0.765, ~0.10).
+Test is far noisier than val at this sample size (40/class) - see revised decision rule above.
+Retrospective note: the earlier lr=3e-4 "regression" (pre-Phase-1, val 0.65->0.658, test 0.81->0.72)
+was likely mostly/entirely this same noise, not a real optimization effect - flagging honestly rather
+than re-litigating it now.
 
 ## Phase 2 — Backbone/feature-quality hypotheses
 
