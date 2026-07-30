@@ -15,24 +15,19 @@ stages:
           cache: false
     plots:
       - outputs/history.json:
-          cache: false
           x: epoch
           y: train_loss
       - outputs/history.json:
-          cache: false
           x: epoch
           y: val_loss
       - outputs/history.json:
-          cache: false
           x: epoch
           y: val_macro_f1
       - outputs/predictions_val.csv:
-          cache: false
           template: confusion
           x: true_label
           y: pred_label
       - outputs/predictions_test.csv:
-          cache: false
           template: confusion
           x: true_label
           y: pred_label
