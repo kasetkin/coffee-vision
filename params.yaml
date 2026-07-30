@@ -15,7 +15,7 @@ val_patches_per_class: 40
 test_patches_per_class: 40
 
 # Model
-model_name: resnet18  # isolated test: was mobilenet_v3_small
+model_name: resnet18  # best so far: switched from mobilenet_v3_small
 freeze_backbone: true
 dropout: 0.2
 label_smoothing: 0.0
@@ -24,6 +24,6 @@ label_smoothing: 0.0
 batch_size: 32
 epochs: 20
 optimizer: adamw
-lr: 0.0003    # isolated test: was 0.001 - resnet18-frozen's val_macro_f1 oscillated 0.60-0.65 all 20 epochs instead of settling
+lr: 0.001
 weight_decay: 0.0001
 scheduler: cosine
