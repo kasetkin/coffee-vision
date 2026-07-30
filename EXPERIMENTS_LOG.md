@@ -2,9 +2,10 @@
 
 Started: 2026-07-30 18:48 UTC. Target budget: ~9h. One hypothesis changed per experiment, isolated from all others.
 
-**Current best**: `resnet18-finetune-full` (model_name=resnet18, freeze_mode=none, backbone_lr=1e-5,
-all else default) — val_macro_f1=0.7402, test_macro_f1=0.9277, test_mcc=0.9235 (best_epoch=17/20).
-(Superseded `resnet18-lastblock`: 0.7057/0.9023/0.9008; `resnet18-frozen`: 0.6500/0.8146/0.8094.)
+**Current best**: `crop-700` (resnet18, freeze_mode=none, backbone_lr=1e-5, patch_crop_size=700,
+all else default) — val_macro_f1=0.8034, test_macro_f1=0.9296, test_mcc=0.9284 (best_epoch=15/20).
+(Superseded `resnet18-finetune-full`: 0.7402/0.9277/0.9235; `resnet18-lastblock`: 0.7057/0.9023/0.9008;
+`resnet18-frozen`: 0.6500/0.8146/0.8094.)
 
 **Decision rule (revised after Phase 1 — see noise band below)**: val_macro_f1's noise band (~0.03) is much
 tighter than test_macro_f1's (~0.11, measured from only 3 seeds so treat as rough) — with 40 samples/class,
@@ -65,7 +66,7 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | adopted? | notes |
 |---|---|---|---|---|---|---|
 | 6 | train_patches_per_class 150->300 (trimmed from 450) | 0.7495 | 0.9255 | 0.9204 | NO | val +0.009 (<<0.03 band), test/mcc essentially flat (-0.002/-0.003). Inconclusive/no real effect - more (still correlated) patches from the same 9 photos don't add real information once the model already sees enough views. Reverted to 150. |
-| 7 | patch_crop_size 512->768 | | | | | |
+| 7 | patch_crop_size 512->700 (was 768 in plan - val/test regions are only ~757-758px, 768 doesn't fit) | 0.8034 | 0.9296 | 0.9284 | YES | val +0.063 (>>0.03 band), test/mcc essentially flat (already near-ceiling at ~0.93). BUT per-class picture is mixed, not uniform: Brazil-MonteCristo went 92%->100%, while Ethiopia-Sidamo dropped to 15/40 and CostaRica to 11/40 (both previously much stronger). Aggregate macro-F1 clearly passes the decision rule so adopting, but flagging this isn't a clean "better everywhere" result - larger crops seem to trade some classes for others. |
 | 8 | patch_crop_size 512->320 | | | | | |
 
 ## Phase 4 — Augmentation hypotheses

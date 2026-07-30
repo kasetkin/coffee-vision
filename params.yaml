@@ -7,7 +7,7 @@ dataset_dir: dataset/2026-07-24__first_pictures
 classes_file: dataset/classes.txt
 
 # Patch geometry
-patch_crop_size: 512
+patch_crop_size: 700  # isolated test: was 512 (768 doesn't fit val/test regions, ~757-758px)
 patch_resize: 224
 safety_margin: 0.97
 train_patches_per_class: 150
