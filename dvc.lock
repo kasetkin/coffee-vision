@@ -26,10 +26,10 @@ stages:
         dataset_dir: dataset/2026-07-24__first_pictures
         dropout: 0.2
         epochs: 20
-        freeze_mode: full
+        freeze_mode: last_block
         label_smoothing: 0.0
         lr: 0.001
-        model_name: efficientnet_b0
+        model_name: resnet18
         optimizer: adamw
         patch_crop_size: 512
         patch_resize: 224
@@ -43,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 950aaacfa1c20c9ef63ec60cc5ed5e66
-      size: 16350501
+      md5: 6cb39d18419ae073d57ddd120173cdb5
+      size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 9c2ee26c42be7bd519fcef1a86d4e000
-      size: 16350501
+      md5: 049389bdd57b4ff05219781d580ef463
+      size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 2acd6971fa7fec102ff7bd7c41b9d1f7
-      size: 4116
+      md5: 5f897a477ad00f715eb8fd0702418373
+      size: 4125
     - path: outputs/metrics.json
       hash: md5
-      md5: cd71d20d09086b3fd5ed1d5136c676f5
-      size: 8321
+      md5: b418741768289ef6b264d410540745f7
+      size: 8166
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: a30dcfe4912315cafc3912c84494196d
+      md5: b19024ab2b3e7ef074af6cf96e13b061
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: ae30bd0a72c4defdc29f791a6afc0054
+      md5: 895f8bf7543eb7439a45ddcfedba47ac
       size: 3263
