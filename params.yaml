@@ -18,12 +18,12 @@ test_patches_per_class: 40
 model_name: mobilenet_v3_small  # or resnet18
 freeze_backbone: true
 dropout: 0.2
-label_smoothing: 0.0
+label_smoothing: 0.1   # isolated test: was 0.0
 
 # Training
 batch_size: 32
 epochs: 20
 optimizer: adamw
 lr: 0.001
-weight_decay: 0.01    # isolated test: was 0.0001
+weight_decay: 0.0001
 scheduler: cosine
