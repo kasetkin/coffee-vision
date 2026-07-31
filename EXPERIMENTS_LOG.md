@@ -82,7 +82,7 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 |---|---|---|---|---|---|---|
 | 11 | optimizer sgd (momentum=0.9), same lr/backbone_lr as adamw | 0.7389 | 0.8801 | 0.8888 | NO | Clear reject: val -0.065, test -0.050, mcc -0.040, all beyond noise. SGD as a drop-in swap at AdamW's LR underperforms - not surprising, SGD typically wants its own (often higher) LR to match adaptive-optimizer convergence in the same epoch budget, but tuning that is out of scope for a one-variable test. Reverted to adamw. |
 | 12 | batch_size 32->64 | 0.7992 | 0.9403 | 0.9361 | NO | Essentially a wash: val -0.004, test +0.011, mcc +0.008, all well within noise. No meaningful effect. Reverted to 32. |
-| 13 | epochs 20->40 | | | | | |
+| 13 | epochs 20->40 | 0.8039 | 0.9634 | 0.9602 | NO | val essentially flat (+0.0005, negligible), test/mcc up modestly (+0.034/+0.032) but well below the ~0.09 confirmatory bar. best_epoch=29 shows some continued slow improvement past epoch 20, but not enough to justify ~2x the compute (~58min vs ~29min) for zero clear val gain. Reverted to 20 epochs. |
 
 ## Phase 6 — Combine winners
 

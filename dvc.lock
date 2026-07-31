@@ -20,12 +20,12 @@ stages:
     params:
       params.yaml:
         backbone_lr: 1e-05
-        batch_size: 64
+        batch_size: 32
         classes_file: dataset/classes.txt
         color_jitter_strength: 0.2
         dataset_dir: dataset/2026-07-24__first_pictures
         dropout: 0.2
-        epochs: 20
+        epochs: 40
         freeze_mode: none
         label_smoothing: 0.0
         lr: 0.001
@@ -43,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 0c7ece8e160a2f650cbe4f8f91cac214
+      md5: 8cfb9b088dd79f4677d2746b7051342b
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 4c333d1dc548bc37ce1933a4cb1cee0f
+      md5: 47eb7bfff14bb64d8f53cdb89f2b3bdf
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 32faa41df538b0e214e5375238baa49e
-      size: 4121
+      md5: e43131ae3467b73a7a6be5ce4e20b337
+      size: 8331
     - path: outputs/metrics.json
       hash: md5
-      md5: 7aab87155d14f42ce89120ac3781aa45
-      size: 8203
+      md5: 1f172c8b199fb961fbef82019bd91568
+      size: 8180
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: afc4677f1b7116ba9479f2d22fe28d33
+      md5: 4e2d8ba327f6bb6698042d1b73aad906
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 82768648e156f07ab36712675caf2d8e
+      md5: a21648ddcc875615028c1de507630587
       size: 3263
