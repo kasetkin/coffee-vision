@@ -25,7 +25,7 @@ stages:
         color_jitter_strength: 0.2
         dataset_dir: dataset/2026-07-24__first_pictures
         dropout: 0.2
-        epochs: 40
+        epochs: 20
         freeze_mode: none
         label_smoothing: 0.0
         lr: 0.001
@@ -43,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 8cfb9b088dd79f4677d2746b7051342b
+      md5: 804f63d6aebd49e91c2d588549dc8601
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 47eb7bfff14bb64d8f53cdb89f2b3bdf
+      md5: 12bba483b6012be66d5989d96fd11197
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: e43131ae3467b73a7a6be5ce4e20b337
-      size: 8331
+      md5: 763a1d7f1a2894d1edfed233073b7804
+      size: 4130
     - path: outputs/metrics.json
       hash: md5
-      md5: 1f172c8b199fb961fbef82019bd91568
-      size: 8180
+      md5: 43c03b7c93cda525f4de74e803af1c8d
+      size: 8104
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 4e2d8ba327f6bb6698042d1b73aad906
+      md5: f6c208f4b639a6b32ab53f8957635d98
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: a21648ddcc875615028c1de507630587
+      md5: 30f2ec07d8efd1aea02a15e168bff5fb
       size: 3263

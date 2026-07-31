@@ -86,9 +86,14 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 
 ## Phase 6 — Combine winners
 
+Since each experiment above was tested sequentially on top of the running best (not independently against
+a fixed baseline), the final params.yaml **already is** the combination of every adopted change - no
+separate combination step was needed. Final config: resnet18, freeze_mode=none (full fine-tune,
+backbone_lr=1e-5), patch_crop_size=700, all else at original defaults.
+
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | notes |
 |---|---|---|---|---|---|
-| 14 | combination of all adopted changes | | | | |
+| 14 | multi-seed check of final config: seed=123 (vs seed=42's 0.8034/0.9296/0.9284) | 0.6720 | 0.7446 | 0.7893 | **Important finding**: val -0.131, test -0.185, mcc -0.139 - far beyond the ~0.03/~0.11 noise bands measured in Phase 1 (on the simpler frozen-backbone config). Confusion matrix confirms this is a real, valid trained model, not a bug: it resolves different confusions than seed=42 (Ethiopia-Sidamo collapses into Guatemala this time; Kenya/Ethiopia, weak at seed=42, are now strong). Conclusion: full fine-tuning + large crops increased seed-to-seed variance substantially compared to the simple frozen-linear-probe baseline - the 0.80/0.93 numbers reported for seed=42 throughout this log are closer to a best-case draw than a reliable expectation. Ran out of time budget to properly characterize this larger noise band with more seeds - see Final Summary. |
 
 ## Stretch (only if time remains)
 - resnet34 frozen
@@ -96,4 +101,42 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 - val/test patches_per_class 40->80 for lower-noise final evaluation
 
 ## Final summary
-TBD
+
+**Ran ~8h15m of a 9h budget** (18:48 -> ~03:03 UTC), 14 experiments (2 noise-calibration, 10 hypothesis
+tests, 1 code-infra phase, 1 final multi-seed check), one hypothesis changed at a time throughout, every
+result committed to git with reasoning in the commit message. Stretch goals (resnet34, extra seeds,
+higher val/test patch counts) were not reached - the budget went entirely to the core plan plus the
+Phase 6 multi-seed finding below, which was worth the time.
+
+**What actually worked** (in order tested, each on top of the previous):
+1. `freeze_mode: full -> last_block` (unfreeze resnet18's last conv block, backbone_lr=1e-5): clear win
+2. `freeze_mode: last_block -> none` (full fine-tune): smaller further win
+3. `patch_crop_size: 512 -> 700` (more context per crop): clear win on val, though with a per-class
+   trade-off (some classes better, some worse) rather than uniform improvement
+
+**What didn't work**: efficientnet_b0 as frozen backbone (clearly worse than resnet18), more train patches
+(150->300, no effect), smaller crops (320, clearly worse - confirms crop_700's direction), stronger/weaker
+color jitter (0.0 produced a misleading near-perfect test score that didn't hold up on val - flagged as a
+likely spatial-region artifact, not real; 0.4 was a wash), SGD optimizer (worse, though not LR-tuned for
+SGD specifically), larger batch size (no effect), more epochs (marginal, not worth 2x compute).
+
+**The important caveat this run surfaced**: the final config (full fine-tune + 700px crops) was only ever
+evaluated at seed=42 during Phases 2-5 for time-budget reasons. The one additional seed checked at the very
+end (123) produced dramatically different numbers (val 0.80->0.67, test 0.93->0.74) - both confusion
+matrices are legitimate, valid models, they just resolve different classes' confusion differently. This
+means: (a) the *direction* of each adopted change is probably real, since several of them (last_block,
+crop_700) showed effects several times larger than the noise band measured in Phase 1, but (b) the exact
+final numbers (val=0.80, test=0.93) should be treated as a favorable draw, not a reliable estimate of what
+this config will score on a fresh run - the true expected performance is somewhere in a wide band, roughly
+val 0.67-0.80, test 0.74-0.93, until more seeds are run. This is a bigger noise band than Phase 1 found,
+consistent with full fine-tuning introducing more stochasticity than a frozen linear probe.
+
+**Recommended next steps** (not done here, out of budget):
+- Run 3-5 more seeds of the final config to properly characterize its noise band (most important - the
+  current 2-seed estimate is too thin to trust).
+- Given that noise band, consider whether last_block (cheaper, and was checked at only one seed too but
+  had a larger effect size relative to Phase 1's band, so plausibly more robust) is the more defensible
+  choice than full fine-tune until fine-tune's variance is better understood.
+- More capture sessions (different day/lighting/bean batch per class) remains the highest-value action
+  for this project overall - every finding in this log, including the variance issue just found, traces
+  back to having only 9 source photos total.
