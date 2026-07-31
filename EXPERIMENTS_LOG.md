@@ -74,7 +74,7 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | adopted? | notes |
 |---|---|---|---|---|---|---|
 | 9 | color_jitter_strength 0.2->0.0 | 0.7338 | 0.9972 | 0.9969 | NO | Val/test sharply DISAGREE for the first time in this run: val -0.070 (clear reject), test +0.068 to near-perfect (359/360). Checked both confusion matrices: val still shows the same real confusion (Ethiopia-Sidamo, CostaRica) as before, test is essentially solved. This looks like a methodological artifact, not genuine improvement - without jitter the model can lock onto exact color values, and since train/val/test are fixed spatial regions of the same photo (likely with a smooth lighting/color gradient across the frame), test's region apparently happens to align well with train's color statistics while val's region doesn't. Rejecting based on val (the more principled, non-inflated signal here) despite the eye-catching test number. Reverted to 0.2. |
-| 10 | color_jitter_strength 0.2->0.4 | | | | | |
+| 10 | color_jitter_strength 0.2->0.4 | 0.8264 | 0.8694 | 0.8788 | NO | val +0.023 (just under the 0.03 threshold, not clearly beating noise), test/mcc both down (-0.060/-0.050). best_epoch=4 (very early, suggests noisy/unstable peak rather than a real improvement). Not a clear win either direction; reverted to 0.2 which remains best. |
 
 ## Phase 5 — Optimization hypotheses
 
