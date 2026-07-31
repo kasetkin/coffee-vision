@@ -20,7 +20,7 @@ stages:
     params:
       params.yaml:
         backbone_lr: 1e-05
-        batch_size: 32
+        batch_size: 64
         classes_file: dataset/classes.txt
         color_jitter_strength: 0.2
         dataset_dir: dataset/2026-07-24__first_pictures
@@ -30,7 +30,7 @@ stages:
         label_smoothing: 0.0
         lr: 0.001
         model_name: resnet18
-        optimizer: sgd
+        optimizer: adamw
         patch_crop_size: 700
         patch_resize: 224
         safety_margin: 0.97
@@ -43,25 +43,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 476e8e78e29aa80e6b5f983f0eac7ace
+      md5: 0c7ece8e160a2f650cbe4f8f91cac214
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 2fcb65cbf18f0221fec744cc1051a9bc
+      md5: 4c333d1dc548bc37ce1933a4cb1cee0f
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 02f404267cd4b61e6c463ce0381902d7
-      size: 4112
+      md5: 32faa41df538b0e214e5375238baa49e
+      size: 4121
     - path: outputs/metrics.json
       hash: md5
-      md5: 747c1d80fafb7d708d679fdf4749093b
-      size: 8217
+      md5: 7aab87155d14f42ce89120ac3781aa45
+      size: 8203
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 40758942ed8af1ae99e948bda93b124f
+      md5: afc4677f1b7116ba9479f2d22fe28d33
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: d6434f717133d116b514ce02d445c340
+      md5: 82768648e156f07ab36712675caf2d8e
       size: 3263
