@@ -80,7 +80,7 @@ stretch goals and/or shorten Phase 6 if still running long. Tracking actual elap
 
 | # | change | val_macro_f1 | test_macro_f1 | test_mcc | adopted? | notes |
 |---|---|---|---|---|---|---|
-| 11 | optimizer sgd (momentum=0.9) | | | | | |
+| 11 | optimizer sgd (momentum=0.9), same lr/backbone_lr as adamw | 0.7389 | 0.8801 | 0.8888 | NO | Clear reject: val -0.065, test -0.050, mcc -0.040, all beyond noise. SGD as a drop-in swap at AdamW's LR underperforms - not surprising, SGD typically wants its own (often higher) LR to match adaptive-optimizer convergence in the same epoch budget, but tuning that is out of scope for a one-variable test. Reverted to adamw. |
 | 12 | batch_size 32->64 | | | | | |
 | 13 | epochs 20->40 | | | | | |
 
