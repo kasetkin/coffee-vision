@@ -9,3 +9,4 @@ __pycache__/
 /outputs/
 /tensorboard/
 /dvc_plots/
+*.pt
