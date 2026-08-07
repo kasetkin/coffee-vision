@@ -231,3 +231,33 @@ That's a legitimate target for more data on that class specifically, not a train
 reasonable representative result, expected true performance band is roughly val 0.90-0.92 /
 test 0.89-0.91 / test_mcc 0.88-0.90 - a real, narrow band now, not the wide 2-seed guess Phase 6 left
 off with.
+
+### Exp 18: epochs 20->50 with early stopping
+
+Motivation: all 3 seeds above hit `best_epoch` at 18 or 19 out of the 20-epoch cap - unlike the old
+dataset's Phase 5 exp 13 (`epochs 20->40`, best_epoch=29, "not adopted, marginal at 2x cost"), which
+peaked mid-run rather than at the ceiling. That pattern here looked like the run might be getting cut off
+early. Added early stopping first (patience=8 on val_macro_f1, see separate infra commit - doesn't change
+what `best.pt` selects, only saves compute) so testing a much higher ceiling (50) doesn't cost a full 50
+epochs if it plateaus sooner. Same config as exp 15 otherwise (seed=42).
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run | wall time |
+|---|---|---|---|---|---|---|---|---|
+| 15 | epochs=20 (baseline) | 0.8998 | 0.8880 | 0.9145 | 0.9040 | 18 | 20 | ~33min |
+| 18 | epochs=50, early_stop_patience=8 | 0.9086 | 0.8975 | 0.9228 | 0.9129 | 17 | 25 (early-stopped) | ~43min |
+
+**By this run alone, not a clear win**: given a much longer runway, it still peaked at epoch 17 -
+essentially the same point exp 15 found at epoch 18 within its tighter 20-epoch cap - then plateaued for
+8 more epochs before early-stopping triggered at 25. The 18/19-out-of-20 pattern across the 3 seeds
+wasn't the ceiling truncating real improvement; it's just where this config's optimum happens to land.
+The deltas that did show up (val +0.0088, test_macro_f1 +0.0083, test_mcc +0.0089) are all smaller than
+the noise band exp 16-17 just measured on this exact setup (val spread 0.0216, test spread 0.0286) - not
+distinguishable from run-to-run noise off a single data point, at ~30% more wall time (43min vs 33min).
+
+**Decision (user call): adopt epochs=50 as the standing default anyway.** The reasoning above is about
+whether *this specific run* proved a win, not about what the right standing ceiling is now that early
+stopping exists - those are different questions. With early_stop_patience=8 bounding the typical-case
+cost automatically (this run cost 43min, not the full 83min a fixed 50-epoch run would take), the risk of
+setting the ceiling higher is small in most cases, while a 20-epoch cap risks silently truncating some
+*future* hyperparameter config whose optimum happens to land later than this one's did - and there'd be
+no signal that it happened short of noticing best_epoch pinned at the cap again. Set in params.yaml.
