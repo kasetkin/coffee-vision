@@ -1,0 +1,6 @@
+outs:
+- md5: f91b2905a40db5b69eef2d9ebf754f02.dir
+  size: 19918866
+  nfiles: 9
+  hash: md5
+  path: classes_labels_only

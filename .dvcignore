@@ -1,3 +1,7 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Derived crop outputs (coffeecv/crop_tray.py) are 100% regenerable from the
+# raw photos + code, so don't version them -- only the raw captures below.
+**/cropped/
