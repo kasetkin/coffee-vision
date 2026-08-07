@@ -29,6 +29,7 @@ color_jitter_strength: 0.2
 # Training
 batch_size: 32
 epochs: 20
+early_stop_patience: 8  # stop if val_macro_f1 hasn't improved in this many epochs
 optimizer: adamw  # adamw | sgd
 lr: 0.001
 backbone_lr: 0.00001  # used only when freeze_mode != full

@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--model-name", choices=["mobilenet_v3_small", "resnet18", "efficientnet_b0"], default=None)
     p.add_argument("--freeze-mode", choices=["full", "last_block", "none"], default=None)
     p.add_argument("--epochs", type=int, default=None)
+    p.add_argument("--early-stop-patience", type=int, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--seed", type=int, default=None)
@@ -48,6 +49,8 @@ def apply_overrides(cfg: RunConfig, args: argparse.Namespace) -> RunConfig:
         cfg.freeze_mode = args.freeze_mode
     if args.epochs is not None:
         cfg.epochs = args.epochs
+    if args.early_stop_patience is not None:
+        cfg.early_stop_patience = args.early_stop_patience
     if args.batch_size is not None:
         cfg.batch_size = args.batch_size
     if args.lr is not None:
@@ -161,6 +164,7 @@ def main() -> None:
     history: list[dict] = []
     best_epoch, best_val_macro_f1 = 0, -1.0
     best_val_metrics, best_val_true, best_val_pred = None, None, None
+    epochs_since_improvement = 0
 
     for epoch in range(1, cfg.epochs + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion)
@@ -197,8 +201,16 @@ def main() -> None:
             best_val_metrics = val_metrics
             best_val_true, best_val_pred = val_true, val_pred
             torch.save(model.state_dict(), CHECKPOINTS_DIR / "best.pt")
+            epochs_since_improvement = 0
+        else:
+            epochs_since_improvement += 1
 
         scheduler.step()
+
+        if epochs_since_improvement >= cfg.early_stop_patience:
+            print(f"Early stopping at epoch {epoch}: no val_macro_f1 improvement in "
+                  f"{cfg.early_stop_patience} epochs (best={best_val_macro_f1:.4f} at epoch {best_epoch})")
+            break
 
     torch.save(model.state_dict(), CHECKPOINTS_DIR / "last.pt")
     writer.close()
@@ -211,7 +223,7 @@ def main() -> None:
     test_metrics = compute_split_metrics(test_true, test_pred, test_losses, class_ids, class_labels)
 
     metrics_json = build_metrics_json(
-        class_ids, class_labels, epochs_trained=cfg.epochs, best_epoch=best_epoch,
+        class_ids, class_labels, epochs_trained=epoch, best_epoch=best_epoch,
         val_metrics=best_val_metrics, test_metrics=test_metrics,
     )
     (OUTPUTS_DIR / "metrics.json").write_text(json.dumps(metrics_json, indent=2))

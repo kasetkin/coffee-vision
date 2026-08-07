@@ -47,6 +47,7 @@ class RunConfig:
 
     batch_size: int = 32
     epochs: int = 20
+    early_stop_patience: int = 8  # stop if val_macro_f1 hasn't improved in this many epochs
     optimizer: str = "adamw"  # adamw | sgd
     lr: float = 1e-3
     backbone_lr: float = 1e-5  # used only when freeze_mode != "full"
