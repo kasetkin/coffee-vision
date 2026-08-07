@@ -291,3 +291,29 @@ mechanism for *why* has shifted (less about needing translation diversity now th
 exists, more likely just about how much bean-pile context a smaller crop can hold before the model runs
 out of texture to distinguish from). Reverted params.yaml and dvc.lock to the exp 18 (700) state - no
 retrain needed to restore it, that state was already correctly captured in the last commit.
+
+## 16h autonomous run (started 2026-08-07 18:30 UTC, budget ends ~2026-08-08 10:30 UTC)
+
+User-directed: patch_crop_size=900 first, then learning rate, then self-directed one-variable-at-a-time
+hyperparameter search for the rest of the budget. Same methodology as Phases 1-6: sequential (each test
+modifies the current adopted best by one variable), single seed=42 per test unless a result is close to
+the noise band and worth confirming, decision rule is "beat the exp 16-17 noise band" (val spread 0.0216,
+test_macro_f1 spread 0.0286, test_mcc spread 0.0285). Every experiment - adopted or rejected - gets its
+own commit + push, per explicit instruction, using `dvc repro` (not direct python) so dvc.lock stays in
+sync automatically (see the DVC workflow memory note for why that matters).
+
+### Exp 20: patch_crop_size 700->900
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 18 | patch_crop_size=700 (baseline) | 0.9086 | 0.8972 | 0.9228 | 0.9129 | 17 | 25 |
+| 20 | patch_crop_size=900 | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+
+**Clear adopt.** val +0.0493 (>2x the 0.0216 band), test_mcc +0.0312 (exceeds its 0.0285 band),
+test_macro_f1 +0.0271 (just under its 0.0286 band alone, but all three metrics moved the same direction
+together, not a mixed/ambiguous signal). Notably, Brazil-MonteCristo - the weakest, most seed-sensitive
+class in every prior experiment (f1 0.61-0.79 at patch_crop_size=700) - jumped to f1=0.929 here. More
+spatial context per patch seems to specifically help resolve exactly the confusion (with Guatemala-Tata
+and Brazil-Cerrado) that's been showing up since exp 15. Combined with exp 19's reject at 500, this
+brackets a clean picture: bigger patches keep winning up to at least 900, on both sides of 700. Kept
+patch_crop_size=900 in params.yaml as the new baseline for everything below.

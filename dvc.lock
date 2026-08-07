@@ -32,7 +32,7 @@ stages:
         lr: 0.001
         model_name: resnet18
         optimizer: adamw
-        patch_crop_size: 700
+        patch_crop_size: 900
         patch_resize: 224
         safety_margin: 0.97
         scheduler: cosine
@@ -47,25 +47,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 73e12581776d01ea7172cc8e77017b71
+      md5: 18e9b6bda7fd6d1de84ac8aa6e64c751
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: c5b0acc688667a09a4c95f3ef34748d9
+      md5: 22f0e47d36180ece1079914839c879ab
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 658b59675547da05a3664b5a88e64380
-      size: 5167
+      md5: de0944f730275ceef4b33771dfab6911
+      size: 4550
     - path: outputs/metrics.json
       hash: md5
-      md5: 5911a4015d0cde1f284f37f15dd06242
-      size: 8291
+      md5: 08db243c8a5bdcac91e51a05df66faec
+      size: 8168
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 0d1905f9dd3b2eb2b72b2a81862853b8
+      md5: 53bd67b267c6526a6d7cc98813040146
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: a1900a2ae0c5f8a2070402e60beda0e4
+      md5: 7eaf168c1e2f4d4ab417b3de0027550b
       size: 3263
