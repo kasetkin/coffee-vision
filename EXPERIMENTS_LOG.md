@@ -182,8 +182,52 @@ noise: Brazil-MonteCristo <-> Guatemala-Tata (8/40 test) and Brazil-Cerrado <-> 
 test) - both same-continent/visually-similar green-bean pairs, not a random scatter. No single-class
 collapse like Phase 3 exp 7 saw on the old data.
 
-**Not yet done**: multi-seed check on this new dataset/config (Phase 6 exp 14's variance warning hasn't
-been re-tested here - though photo-level splits should structurally reduce that variance vs. the old
-single-photo spatial splits, that's an expectation, not yet a measurement). Patch_crop_size sweep above
-700 also not tried - see the discussion that motivated keeping 700 as the starting point rather than
-assuming bigger is still better on this different geometry.
+Patch_crop_size sweep above 700 not tried yet - see the discussion that motivated keeping 700 as the
+starting point rather than assuming bigger is still better on this different geometry.
+
+### Exp 16-17: multi-seed check
+
+Same config as exp 15, only `seed` changed (123, then 7 - the same two extra seeds Phase 1 used, for
+direct comparability). This directly answers the open question flagged above and in the original Final
+summary ("the current 2-seed estimate is too thin to trust").
+
+| # | seed | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch |
+|---|------|---|---|---|---|---|
+| 15 | 42 | 0.8998 | 0.8880 | 0.9145 | 0.9040 | 18 |
+| 16 | 123 | 0.9195 | 0.9142 | 0.8915 | 0.8796 | 19 |
+| 17 | 7 | 0.8979 | 0.8888 | 0.8859 | 0.8755 | 19 |
+
+**Noise band (max-min across the 3 seeds)**: val_macro_f1 spread=0.0216 (mean 0.906), test_macro_f1
+spread=0.0286 (mean 0.897), test_mcc spread=0.0285 (mean 0.886).
+
+**This confirms the expectation from exp 15**: photo-level splits collapsed the noise band dramatically.
+Compare to Phase 6 exp 14's 2-seed check on this exact hyperparameter config but the *old* single-photo
+dataset (val spread 0.13, test spread ~0.19) - here, with 3 seeds instead of 2, test spread is ~7x
+smaller (0.029 vs ~0.19), and even beats Phase 1's noise band from the old dataset's much simpler frozen-
+backbone config (test spread 0.11). The 20-photo/class dataset isn't just adding raw signal, it's making
+the whole evaluation trustworthy in a way patch-level augmentation on 1 photo/class never could be.
+
+Per-class f1 also stayed a consistent *ranking* across seeds rather than reshuffling per seed the way
+Phase 6 exp 14 found (there, Ethiopia-Sidamo swung from strong to collapsed and back):
+
+| class | seed 42 | seed 123 | seed 7 |
+|---|---|---|---|
+| 001 Ethiopia,Sidamo | 0.894 | 0.925 | 0.929 |
+| 002 Kenya,AA | 0.892 | 0.827 | 0.911 |
+| 003 Colombia,PinkBourbon | 0.937 | 0.895 | 0.925 |
+| 004 CostaRica,LaPastora | 0.962 | 0.864 | 0.962 |
+| 005 Guatemala,Tata | 0.867 | 0.873 | 0.785 |
+| 006 Brazil,Cerrado | 0.889 | 0.851 | 0.851 |
+| 007 Brazil,MonteCristo | 0.790 | 0.789 | 0.611 |
+| 008 Ethiopia,Kochere | 1.000 | 1.000 | 1.000 |
+| 009 Vietnam,Robusta | 1.000 | 1.000 | 1.000 |
+
+008/009 are perfect on every seed (visually distinctive beans). 007 (Brazil-MonteCristo) is the weakest
+class on every seed too, and the most seed-sensitive (0.79/0.79/0.61) - a genuine hard class (confusable
+with Guatemala-Tata and Brazil-Cerrado per exp 15's confusion matrix), not a fluke of one bad draw.
+That's a legitimate target for more data on that class specifically, not a training instability.
+
+**Conclusion**: the exp 15 config (resnet18, full fine-tune, patch_crop_size=700, seed=42) is a
+reasonable representative result, expected true performance band is roughly val 0.90-0.92 /
+test 0.89-0.91 / test_mcc 0.88-0.90 - a real, narrow band now, not the wide 2-seed guess Phase 6 left
+off with.
