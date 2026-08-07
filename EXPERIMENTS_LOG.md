@@ -333,3 +333,27 @@ consistent with noise. AdamW's already handling per-parameter adaptive scaling a
 anneals either starting point down over the run, so this isn't too surprising - the head lr doesn't seem
 to be a sensitive knob at either value tried. Reverted to lr=0.001. (backbone_lr, the other learning rate
 in this full-fine-tune config, is a separate untested variable - candidate for later if time allows.)
+
+### Exp 22: backbone_lr 1e-5->3e-5
+
+The other learning rate in this full-fine-tune config (governs how much the pretrained resnet18 backbone
+itself adapts, vs. `lr` which is head-only). Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | backbone_lr=1e-5 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 22 | backbone_lr=3e-5 | 0.9860 | 0.9844 | 0.9358 | 0.9331 | 23 | 31 |
+
+**Rejected - val/test disagree, and not in the reassuring direction.** val jumped +0.0281 (beyond the
+0.0216 band, looks like a clear win by itself), but test_macro_f1 moved -0.0141 and test_mcc -0.0110
+(both within their own noise bands, but the wrong direction to corroborate val's jump). Per-class test
+breakdown shows why this looks like overfitting to the validation set rather than genuine improvement:
+Vietnam-Robusta - perfect (f1=1.000) in literally every prior experiment, including every seed of the
+multi-seed check - dropped to f1=0.952, and Kenya-AA fell to f1=0.750 (from 0.868 at baseline). train_loss
+also collapsed to ~0.005-0.02 by epoch 20+, far lower than exp 20 ever reached. The mechanism fits: a 3x
+higher backbone_lr gives the pretrained backbone much more freedom to specialize, and best.pt is selected
+by peak val_macro_f1 off a val set of only 3 photos/class - exactly the setup where a more flexible
+backbone can start fitting idiosyncrasies of those specific 3 photos rather than the class in general.
+Unlike Phase 4 exp 9's old-dataset val/test disagreement (a structural artifact from spatial splits
+sharing lighting), val/test are genuinely disjoint photos now, so this reflects a real generalization gap,
+not a leakage artifact - the higher backbone_lr itself is the problem. Reverted to backbone_lr=1e-5.
