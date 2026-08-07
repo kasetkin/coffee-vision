@@ -5,14 +5,14 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: 605364f07fdb7614b223a09eac768da9.dir
-      size: 77504
-      nfiles: 18
-    - path: dataset/2026-07-24__first_pictures
+      md5: d81f0f9d66cbe355cd548e1b451e706a.dir
+      size: 188299
+      nfiles: 24
+    - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: 93fc7722ef59eff9b250a9d0937a6b61.dir
-      size: 888285333
-      nfiles: 61
+      md5: cc2f6d9fe926a012cf1330b808220889.dir
+      size: 403667130
+      nfiles: 180
     - path: dataset/classes.txt
       hash: md5
       md5: 83d6af3dde5611f406d18131552a3a57
@@ -23,9 +23,10 @@ stages:
         batch_size: 32
         classes_file: dataset/classes.txt
         color_jitter_strength: 0.2
-        dataset_dir: dataset/2026-07-24__first_pictures
+        dataset_dir: dataset/2026-08-07__box_pictures_all_classes
         dropout: 0.2
-        epochs: 20
+        early_stop_patience: 8
+        epochs: 50
         freeze_mode: none
         label_smoothing: 0.0
         lr: 0.001
@@ -37,31 +38,34 @@ stages:
         scheduler: cosine
         seed: 42
         test_patches_per_class: 40
+        test_photos_per_class: 3
         train_patches_per_class: 150
+        train_photos_per_class: 14
         val_patches_per_class: 40
+        val_photos_per_class: 3
         weight_decay: 0.0001
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 804f63d6aebd49e91c2d588549dc8601
+      md5: 73e12581776d01ea7172cc8e77017b71
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 12bba483b6012be66d5989d96fd11197
+      md5: c5b0acc688667a09a4c95f3ef34748d9
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 763a1d7f1a2894d1edfed233073b7804
-      size: 4130
+      md5: 658b59675547da05a3664b5a88e64380
+      size: 5167
     - path: outputs/metrics.json
       hash: md5
-      md5: 43c03b7c93cda525f4de74e803af1c8d
-      size: 8104
+      md5: 5911a4015d0cde1f284f37f15dd06242
+      size: 8291
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: f6c208f4b639a6b32ab53f8957635d98
+      md5: 0d1905f9dd3b2eb2b72b2a81862853b8
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 30f2ec07d8efd1aea02a15e168bff5fb
+      md5: a1900a2ae0c5f8a2070402e60beda0e4
       size: 3263
