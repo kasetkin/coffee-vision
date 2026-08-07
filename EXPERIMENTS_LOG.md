@@ -140,3 +140,50 @@ consistent with full fine-tuning introducing more stochasticity than a frozen li
 - More capture sessions (different day/lighting/bean batch per class) remains the highest-value action
   for this project overall - every finding in this log, including the variance issue just found, traces
   back to having only 9 source photos total.
+
+## Phase 7 — New dataset: 180-photo box rig, photo-level splits
+
+New capture session `dataset/2026-08-07__box_pictures_all_classes`: 20 photos/class x 9 classes (180
+total) from a fixed-position (tripod) box rig, vs. the single circular-lens photo/class used in every
+experiment above. This is the "more capture sessions" recommendation from the Final summary, acted on.
+
+Crop pipeline needed rework before this was usable: the adaptive saturation-threshold crop
+(`crop_tray.py`'s stage 2) broke on ~a third of the photos, traced to directional lighting drift over
+the ~2h shoot fooling per-image Otsu thresholding (verified at full res - the bad crops were 100% clean
+bean pixels, just needlessly tiny, down to 178x1065 in the worst case). Replaced with a fixed 10% trim
+off the stage-1 rough tray box (that stage is texture-based, not lighting-sensitive, and measured
+sub-2% box variance across all 180 photos - the rig is effectively fixed). All 180 crops now land in a
+uniform ~1048-1137px band. New `crop_dataset_fixed_trim()` in `coffeecv/crop_tray.py`.
+
+New dataset loader (`MultiPhotoPatchDataset` in `coffeecv/dataset.py`, `compute_valid_region_rect` in
+`coffeecv/geometry.py`): unlike `PatchCoffeeDataset`, which had to split train/val/test as *spatial
+regions of one photo* (the thing that produced Phase 4 exp 9's val/test color-gradient artifact), splits
+are now done at the *photo* level - 14/3/3 photos per class for train/val/test, shuffled per-class with
+a seeded RNG (not sliced in filename/timestamp order, to avoid reintroducing a time-correlated split
+given the lighting-drift finding above), then patches sampled per-photo as before. Verified zero
+train/val/test photo overlap across all 9 classes before training.
+
+Same hyperparameters as the Phase 6 best config (resnet18, freeze_mode=none, patch_crop_size=700,
+batch_size=32, epochs=20, adamw, lr=1e-3/backbone_lr=1e-5, seed=42) - only the dataset and split
+mechanism changed, so this is a clean one-variable comparison against that config's numbers.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | notes |
+|---|---|---|---|---|---|---|
+| 15 | switch to 180-photo multi-photo dataset, photo-level splits (Phase 6 config unchanged otherwise) | 0.8998 | 0.8880 | 0.9145 | 0.9040 | best_epoch=18. Compare to Phase 6's seed=42 numbers (val 0.8034/0.9284mcc... test 0.9296/0.9284) - val up ~0.10, test/mcc essentially flat. |
+
+**Read**: raw numbers are close to the old best run, but the old run's val and test were two quarters of
+the *same single photo* - val/test agreement there was never a real generalization check, just a
+same-photo consistency check, and Phase 6 exp 14 showed the whole config's seed-to-seed band was wide
+(val 0.67-0.80, test 0.74-0.93) on that data. Here val/test are disjoint *photos* for the first time, and
+they agree closely (macro_f1 0.900 vs 0.915, mcc 0.888 vs 0.904) - that agreement is a much stronger
+signal now that it isn't structurally guaranteed by sharing a photo. Per-class f1 is broadly solid
+(Ethiopia-Kochere and Vietnam-Robusta both ~1.0 on test) with two plausible real confusions rather than
+noise: Brazil-MonteCristo <-> Guatemala-Tata (8/40 test) and Brazil-Cerrado <-> Brazil-MonteCristo (6/40
+test) - both same-continent/visually-similar green-bean pairs, not a random scatter. No single-class
+collapse like Phase 3 exp 7 saw on the old data.
+
+**Not yet done**: multi-seed check on this new dataset/config (Phase 6 exp 14's variance warning hasn't
+been re-tested here - though photo-level splits should structurally reduce that variance vs. the old
+single-photo spatial splits, that's an expectation, not yet a measurement). Patch_crop_size sweep above
+700 also not tried - see the discussion that motivated keeping 700 as the starting point rather than
+assuming bigger is still better on this different geometry.

@@ -71,6 +71,18 @@ def sample_patch_boxes(rng: np.random.Generator, region: Region, n: int, crop_si
     return [Region(y0=int(y), y1=int(y) + crop_size, x0=int(x), x1=int(x) + crop_size) for y, x in zip(ys, xs)]
 
 
+def compute_valid_region_rect(img_h: int, img_w: int, safety_margin: float = 0.97) -> Region:
+    """Whole-image region shrunk by `safety_margin`, for already-cropped
+    rectangular photos with no lens circle to inscribe within (see
+    coffeecv.dataset.MultiPhotoPatchDataset, used for the box-rig dataset)."""
+    my = img_h * (1 - safety_margin) / 2
+    mx = img_w * (1 - safety_margin) / 2
+    return Region(
+        y0=math.ceil(my), y1=math.floor(img_h - my),
+        x0=math.ceil(mx), x1=math.floor(img_w - mx),
+    )
+
+
 def assert_region_fully_opaque(alpha: np.ndarray, region: Region) -> None:
     """Defensive check: every pixel in `region` must be inside the lens circle
     (alpha != 0). Fails loudly if a future capture session has different lens

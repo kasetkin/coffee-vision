@@ -21,7 +21,7 @@ from coffeecv.config import (
     config_to_dict,
     set_seed,
 )
-from coffeecv.dataset import PatchCoffeeDataset, discover_classes, load_class_labels
+from coffeecv.dataset import MultiPhotoPatchDataset, discover_classes_multi, load_class_labels
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
 from coffeecv.model import build_model
 from coffeecv.plotting import plot_confusion_matrix, plot_patch_samples, plot_training_curves
@@ -93,12 +93,17 @@ def main() -> None:
     set_seed(cfg.seed)
 
     dataset_dir, classes_file = cfg.resolve_paths()
-    class_ids = discover_classes(dataset_dir)
+    class_ids = discover_classes_multi(dataset_dir)
     class_labels = load_class_labels(classes_file)
     patches_per_class = {
         "train": cfg.train_patches_per_class,
         "val": cfg.val_patches_per_class,
         "test": cfg.test_patches_per_class,
+    }
+    photos_per_split = {
+        "train": cfg.train_photos_per_class,
+        "val": cfg.val_photos_per_class,
+        "test": cfg.test_photos_per_class,
     }
 
     common_kwargs = dict(
@@ -110,11 +115,12 @@ def main() -> None:
         resize=cfg.patch_resize,
         safety_margin=cfg.safety_margin,
         patches_per_class=patches_per_class,
+        photos_per_split=photos_per_split,
     )
     train_transform = build_train_transform(cfg.patch_resize, cfg.color_jitter_strength)
-    train_ds = PatchCoffeeDataset(split="train", transform=train_transform, **common_kwargs)
-    val_ds = PatchCoffeeDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
-    test_ds = PatchCoffeeDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
+    train_ds = MultiPhotoPatchDataset(split="train", transform=train_transform, **common_kwargs)
+    val_ds = MultiPhotoPatchDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
+    test_ds = MultiPhotoPatchDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
 
     gen = torch.Generator().manual_seed(cfg.seed)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, generator=gen)

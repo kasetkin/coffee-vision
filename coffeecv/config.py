@@ -23,7 +23,7 @@ TENSORBOARD_DIR = REPO_ROOT / "tensorboard"
 class RunConfig:
     seed: int = 42
 
-    dataset_dir: str = "dataset/2026-07-24__first_pictures"
+    dataset_dir: str = "dataset/2026-08-07__box_pictures_all_classes"
     classes_file: str = "dataset/classes.txt"
 
     patch_crop_size: int = 512
@@ -32,6 +32,12 @@ class RunConfig:
     train_patches_per_class: int = 150
     val_patches_per_class: int = 40
     test_patches_per_class: int = 40
+
+    # Photo-level split sizes for the multi-photo box-rig dataset (must sum to
+    # the number of cropped photos per class -- 20 for 2026-08-07).
+    train_photos_per_class: int = 14
+    val_photos_per_class: int = 3
+    test_photos_per_class: int = 3
 
     model_name: str = "mobilenet_v3_small"
     freeze_mode: str = "full"  # full | last_block | none

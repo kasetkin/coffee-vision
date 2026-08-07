@@ -305,6 +305,66 @@ def crop_dataset(
     return reports
 
 
+def crop_dataset_fixed_trim(
+    images_dir: Path,
+    out_dir: Path,
+    trim_frac: float = 0.10,
+    aspect_range: tuple[float, float] = (0.5, 1.3),
+    area_frac_range: tuple[float, float] = (0.01, 0.6),
+    center_frac: tuple[float, float] = (0.15, 0.85),
+) -> list[dict]:
+    """Crop by trimming a fixed fraction off each side of the stage-1 rough
+    tray box, skipping locate_bean_region's adaptive saturation trim (stage 2)
+    entirely.
+
+    Exists for rigs filmed from a fixed position (tripod): stage 1's
+    texture-based localization is then extremely stable run-to-run (sub-2%
+    box variance measured across a 180-photo/9-class session), while stage
+    2's per-image Otsu threshold is not -- it reacts to directional lighting
+    drift over a long shoot, which can make it split the bean texture's own
+    saturation variance instead of the true bean/rim boundary, trimming a
+    valid box down to a sliver (verified: one file collapsed to 178x1065
+    despite the crop being 100% clean bean pixels, zero contamination). A
+    fixed trim avoids that failure mode entirely, at the cost of needing
+    re-tuning if the rig's physical rim width changes.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    image_paths = sorted(images_dir.glob("*.jpg")) + sorted(images_dir.glob("*.jpeg"))
+    if not image_paths:
+        raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
+
+    reports = []
+    for p in image_paths:
+        img = cv2.imread(str(p))
+        entry = {"file": p.name}
+        try:
+            (x, y, w, h), method = locate_tray_rough(img, aspect_range, area_frac_range, center_frac)
+            tx, ty = int(w * trim_frac), int(h * trim_frac)
+            box = (x + tx, y + ty, w - 2 * tx, h - 2 * ty)
+            needs_review = method != "otsu"  # ladder fallback = unusual lighting, flag it
+
+            bx, by, bw, bh = box
+            crop = img[by:by + bh, bx:bx + bw]
+            out_path = out_dir / p.name.replace(".jpg", "__cropped.jpg").replace(".jpeg", "__cropped.jpg")
+            cv2.imwrite(str(out_path), crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+            entry.update({
+                "box": list(box), "rough_method": method, "trim_frac": trim_frac, "needs_review": needs_review,
+            })
+            entry["rough_box"] = [x, y, w, h]
+            entry["out_path"] = str(out_path)
+            entry["error"] = None
+        except Exception as e:
+            entry["error"] = str(e)
+            entry["needs_review"] = True
+        reports.append(entry)
+
+    n_flagged = sum(1 for r in reports if r.get("needs_review"))
+    print(f"Cropped {len(reports)} images (fixed {trim_frac:.0%} trim), {n_flagged} flagged for review.")
+    (out_dir / "crop_report.json").write_text(json.dumps(reports, indent=2))
+    return reports
+
+
 def build_contact_sheet(out_dir: Path, thumb_size: int = 260, cols: int = 5) -> Path:
     """Tile all `*__cropped.jpg` / `*__bbox.jpg` images in out_dir into one grid
     with filename captions, so review is one glance instead of one file open per
@@ -328,7 +388,7 @@ def build_contact_sheet(out_dir: Path, thumb_size: int = 260, cols: int = 5) -> 
     for i, p in enumerate(crop_paths):
         img = cv2.imread(str(p))
         mask_path = p.with_name(p.name.replace("__bbox.jpg", "__mask.png"))
-        if mask_path.exists():
+        if p.name.endswith("__bbox.jpg") and mask_path.exists():
             mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
             m = mask > 127
             img = img.copy()
@@ -363,11 +423,20 @@ def main() -> None:
     p.add_argument("--out-dir", required=True)
     p.add_argument("--border-max-contamination", type=float, default=0.22)
     p.add_argument("--contact-sheet", action="store_true")
+    p.add_argument(
+        "--fixed-trim", type=float, default=None,
+        help="Skip the adaptive saturation-based crop (stage 2) and instead trim this fraction "
+             "off each side of the stage-1 rough tray box. Use for fixed-position (tripod) rigs "
+             "where stage 2's per-image Otsu threshold is unstable under lighting drift.",
+    )
     args = p.parse_args()
 
-    reports = crop_dataset(
-        Path(args.images_dir), Path(args.out_dir), border_max_contamination=args.border_max_contamination
-    )
+    if args.fixed_trim is not None:
+        reports = crop_dataset_fixed_trim(Path(args.images_dir), Path(args.out_dir), trim_frac=args.fixed_trim)
+    else:
+        reports = crop_dataset(
+            Path(args.images_dir), Path(args.out_dir), border_max_contamination=args.border_max_contamination
+        )
     for r in reports:
         if r.get("needs_review"):
             print(f"  REVIEW: {r['file']} -> {r.get('error') or r}")

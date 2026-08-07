@@ -3,7 +3,7 @@
 
 seed: 42
 
-dataset_dir: dataset/2026-07-24__first_pictures
+dataset_dir: dataset/2026-08-07__box_pictures_all_classes
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -13,6 +13,11 @@ safety_margin: 0.97
 train_patches_per_class: 150
 val_patches_per_class: 40
 test_patches_per_class: 40
+
+# Photo-level split sizes (multi-photo box-rig dataset; must sum to 20 photos/class)
+train_photos_per_class: 14
+val_photos_per_class: 3
+test_photos_per_class: 3
 
 # Model
 model_name: resnet18

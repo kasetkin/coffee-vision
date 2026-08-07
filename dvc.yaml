@@ -3,7 +3,7 @@ stages:
     cmd: python -m coffeecv.train_baseline
     deps:
       - coffeecv
-      - dataset/2026-07-24__first_pictures
+      - dataset/2026-08-07__box_pictures_all_classes
       - dataset/classes.txt
     params:
       - params.yaml:
