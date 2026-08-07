@@ -2,6 +2,10 @@
 
 Computer-vision-first classification of coffee bean origin/quality from photos. Camera-only CV is the active approach; a multi-modal hardware sensor rig (NIR spectroscopy, gas sensing, RF dielectric sensing) is documented as a fallback in `hardware/`, only worth building if plain-image CV underperforms.
 
+Sample train patches, one row per class, cropped from the current dataset (`dataset/2026-08-07__box_pictures_all_classes`):
+
+![Sample patches per class](docs/patch_samples.png)
+
 ## Repo layout
 
 - `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` maps class id → origin/grade/region and is a plain git-tracked text file.
@@ -30,4 +34,4 @@ This keeps the actual images out of git (only a small `.dvc` pointer + hash gets
 
 ## Status
 
-Early stage: devcontainer and dataset pipeline are set up; no model/training code yet. First git commit hasn't been made — `git status` still shows everything untracked/staged.
+Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current best result (resnet18, full fine-tune, 700px patches, trained on the 180-photo multi-photo dataset above): test macro-F1 ~0.89-0.91 across a 3-seed check. Full experiment history and reasoning is in `EXPERIMENTS_LOG.md`.
