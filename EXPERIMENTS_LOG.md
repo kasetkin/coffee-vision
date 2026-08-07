@@ -317,3 +317,19 @@ spatial context per patch seems to specifically help resolve exactly the confusi
 and Brazil-Cerrado) that's been showing up since exp 15. Combined with exp 19's reject at 500, this
 brackets a clean picture: bigger patches keep winning up to at least 900, on both sides of 700. Kept
 patch_crop_size=900 in params.yaml as the new baseline for everything below.
+
+### Exp 21: lr (head) 0.001->0.002
+
+User's suggested starting point. Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | lr=0.001 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 21 | lr=0.002 | 0.9609 | 0.9565 | 0.9384 | 0.9323 | 23 | 31 |
+
+**No effect - not adopted.** val +0.0030 (well inside the 0.0216 band), test_macro_f1 -0.0115 and
+test_mcc -0.0118 (both well inside the ~0.0286 band too) - a small, mixed-direction result fully
+consistent with noise. AdamW's already handling per-parameter adaptive scaling and the cosine schedule
+anneals either starting point down over the run, so this isn't too surprising - the head lr doesn't seem
+to be a sensitive knob at either value tried. Reverted to lr=0.001. (backbone_lr, the other learning rate
+in this full-fine-tune config, is a separate untested variable - candidate for later if time allows.)
