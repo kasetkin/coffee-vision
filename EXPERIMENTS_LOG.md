@@ -375,3 +375,25 @@ baseline's, confirming this isn't just aggregate coincidence. Worse, it took sub
 there - best_epoch 29 vs. 14, 37 epochs run vs. 22 (~68% more compute) for zero test improvement, the
 same "not worth it" shape as Phase 5 exp 13's old-dataset epochs finding. 10x more weight decay just
 slows convergence without changing where it ends up. Reverted to weight_decay=1e-4.
+
+### Exp 24: color_jitter_strength 0.2->0.0 (retest)
+
+Phase 4 exp 9 rejected this exact change on the old dataset, but for a specific structural reason that no
+longer applies: without jitter, the model could lock onto exact color values, and since train/val/test
+were spatial regions of the *same* photo back then, one region's color statistics happening to align with
+train's inflated an old-dataset-only artifact. Photo-level splits removed that mechanism entirely, so this
+was worth a clean retest rather than assuming the old verdict still holds. Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | color_jitter_strength=0.2 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 24 | color_jitter_strength=0.0 | 0.9471 | 0.9408 | 0.9609 | 0.9568 | 28 | 36 |
+
+**No effect - not adopted.** val -0.0108 and test +0.0110/+0.0127 - opposite directions again, but
+unlike exp 22/23, *both* deltas sit comfortably inside their respective noise bands (0.0216 val, ~0.0286
+test) this time, so this reads as genuinely flat rather than a real but small effect. Per-class breakdown
+is clean either way (no class regressed, Kenya-AA actually ticked up to its best test f1 yet at 0.880).
+Useful confirmation though: the old rejection really was about the spatial-split artifact specifically,
+not jitter itself being necessary - removing it here doesn't reproduce anything like Phase 4 exp 9's
+sharp val/test disagreement, it's just noise. Reverted to color_jitter_strength=0.2 (no clear reason to
+drop it, and it's free regularization).
