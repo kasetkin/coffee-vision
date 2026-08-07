@@ -261,3 +261,33 @@ cost automatically (this run cost 43min, not the full 83min a fixed 50-epoch run
 setting the ceiling higher is small in most cases, while a 20-epoch cap risks silently truncating some
 *future* hyperparameter config whose optimum happens to land later than this one's did - and there'd be
 no signal that it happened short of noticing best_epoch pinned at the cap again. Set in params.yaml.
+
+### Exp 19: patch_crop_size 700->500
+
+Discussed going bigger (headroom now exists up to ~1000px given the new crop sizes) but the user wanted
+to check the other direction first: does a smaller patch still hold up now that per-photo diversity comes
+from 20 real photos instead of needing translation variety squeezed out of one? Same config as exp 18
+otherwise (seed=42, epochs=50 cap, early_stop_patience=8).
+
+Run via `dvc repro` after editing `patch_crop_size` directly in params.yaml (no `-S` override attempted -
+`dvc exp run`'s isolated temp-workspace mode failed to materialize the dataset there, see the separate
+DVC workflow note; `dvc repro` runs in the actual workspace and worked fine). Verified `outputs/config.json`
+reflects patch_crop_size=500 before trusting the result, since `dvc repro --dry` gave a misleading
+"cached, skipping run" message that `dvc status` did not corroborate.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 18 | patch_crop_size=700 (baseline) | 0.9086 | 0.8972 | 0.9228 | 0.9129 | 17 | 25 |
+| 19 | patch_crop_size=500 | 0.8867 | 0.8756 | 0.8527 | 0.8387 | 23 | 31 |
+
+**Clear reject.** val -0.022 (right at the noise band edge), but test_macro_f1 -0.070 and test_mcc -0.074
+- both more than double the noise band exp 16-17 measured on this dataset (test spread 0.0286), so this
+isn't run-to-run noise, it's a real effect. Per-class breakdown shows it's not uniform: Kenya-AA (f1 0.69)
+and Colombia-PinkBourbon (f1 0.74) took the biggest hits, while Ethiopia-Kochere/Vietnam-Robusta stayed
+at 1.000 regardless (same pattern as the multi-seed check - those two classes appear to be "easy" under
+any reasonable patch size). Directionally consistent with Phase 3 exp 8's finding on the old dataset
+(700->320 also a clear reject) - bigger patches still win on the new dataset and rig, even though the
+mechanism for *why* has shifted (less about needing translation diversity now that real photo diversity
+exists, more likely just about how much bean-pile context a smaller crop can hold before the model runs
+out of texture to distinguish from). Reverted params.yaml and dvc.lock to the exp 18 (700) state - no
+retrain needed to restore it, that state was already correctly captured in the last commit.
