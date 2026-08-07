@@ -357,3 +357,21 @@ backbone can start fitting idiosyncrasies of those specific 3 photos rather than
 Unlike Phase 4 exp 9's old-dataset val/test disagreement (a structural artifact from spatial splits
 sharing lighting), val/test are genuinely disjoint photos now, so this reflects a real generalization gap,
 not a leakage artifact - the higher backbone_lr itself is the problem. Reverted to backbone_lr=1e-5.
+
+### Exp 23: weight_decay 1e-4->1e-3
+
+Motivated directly by exp 22: if higher backbone flexibility overfits the tiny val set, more L2
+regularization seemed like a plausible way to buy back some of that generalization margin. Same config
+as exp 20 otherwise (backbone_lr back at 1e-5).
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | weight_decay=1e-4 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 23 | weight_decay=1e-3 | 0.9693 | 0.9658 | 0.9497 | 0.9443 | 29 | 37 |
+
+**No effect - not adopted.** val +0.0114 (about half the 0.0216 band, not a clear exceedance), test
+essentially dead flat (macro_f1 -0.0002, mcc +0.0002). Per-class breakdown is nearly identical to the
+baseline's, confirming this isn't just aggregate coincidence. Worse, it took substantially longer to get
+there - best_epoch 29 vs. 14, 37 epochs run vs. 22 (~68% more compute) for zero test improvement, the
+same "not worth it" shape as Phase 5 exp 13's old-dataset epochs finding. 10x more weight decay just
+slows convergence without changing where it ends up. Reverted to weight_decay=1e-4.
