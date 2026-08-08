@@ -569,3 +569,52 @@ Same config as exp 20 otherwise.
 **No effect - not adopted, confirms the old finding transfers.** All four deltas small and negative
 (val -0.0032, test -0.0057/-0.0060), well inside noise. Took ~1.45x more compute to get there
 (best_epoch 24 vs 14). Same verdict as Phase 5 exp 12 on the old dataset. Reverted to batch_size=32.
+
+### Run summary (stopped at 14h4m of the 16h budget, 2026-08-07 18:30 -> 2026-08-08 08:34 UTC)
+
+14 experiments (exp 20-33), one variable at a time, every result (adopted or rejected) committed
+individually with `dvc repro`/`dvc checkout` keeping `dvc.lock` in sync. Stopped short of the full 16h
+once the sweep had covered every category with a reasonable candidate (patch geometry, both learning
+rates, four regularization knobs alone plus one combined, data density, all three implemented
+architectures, and the two structural sanity-checks) rather than filling time with lower-value reruns.
+
+**Adopted (1)**: `patch_crop_size` 700->900 (exp 20) - the only clear, robust win. Also the only variable
+that showed a real *bracketed optimum* rather than a flat monotonic trend or pure noise: exp 32 pushed to
+1000 and the trend reversed (test dropped well beyond its noise band), pinned down by a well-supported
+mechanism (the tightest photos in the dataset losing randomized-placement room near the crop-size
+ceiling), not just "went too far." 700 < 900 (best) > 1000.
+
+**Rejected, real effects found (4)**: `backbone_lr` 3x up (exp 22, val/test disagree - looks like
+overfitting a 3-photo/class val set), `label_smoothing` 0.1 (exp 26, diffuse per-class damage), and both
+alternative architectures - `efficientnet_b0` (exp 29) and `mobilenet_v3_small` (exp 31, the largest gap
+in the whole log) - plus the `freeze_mode=last_block` sanity-check (exp 28), which confirmed the standing
+full-fine-tune decision holds up (more decisively, even) at the new patch size.
+
+**No measurable effect (8)**: head `lr` 2x (exp 21), `weight_decay` 10x (exp 23) and `dropout` 2x
+(exp 25) each nudged all-metrics mildly positive alone but the combination (exp 30) was flat -
+individually-noisy nudges don't compound. `color_jitter_strength`=0 (exp 24, a clean retest now that the
+old dataset's spatial-split confound is gone) and `train_patches_per_class` 2x (exp 27, retested given
+richer per-photo data) both transferred their old-dataset "no effect" verdict cleanly. `batch_size` 2x
+(exp 33) also reconfirmed its old verdict. Several of the "no effect" tests cost meaningfully more compute
+for the same or worse quality (weight_decay, dropout, batch_size all took ~1.5-2x longer to plateau) -
+worth remembering as a reason *not* to adopt a change even when it isn't harmful.
+
+**Standing config after this run**: identical to the Phase 6/exp 18 best except `patch_crop_size=900`
+(was 700). Current numbers (exp 20, the last time this exact config was retested from scratch):
+val_macro_f1=0.9579, test_macro_f1=0.9499, test_mcc=0.9441, best_epoch=14/22 with early stopping.
+
+**Open threads for later**:
+- Brazil-MonteCristo remains the hardest class across every experiment in this run (f1 in the 0.76-0.94
+  range depending on config) - a data problem (more/different capture angles for that class specifically)
+  more than a hyperparameter one at this point, given how consistently hyperparameter changes moved it
+  the same direction as everything else rather than fixing it specifically.
+- No multi-seed check has been run on the patch_crop_size=900 config yet - everything in this run is
+  single-seed (seed=42), same discipline as Phases 1-5 originally used, but worth eventually confirming
+  the noise band still looks like exp 16-17's characterization at the new patch size before fully trusting
+  it, especially since exp 32's finding shows patch_crop_size interacts with per-photo geometry in a way
+  that could plausibly also affect variance, not just the mean.
+- `cfg.scheduler` in params.yaml is dead config - `train_baseline.py` hardcodes `CosineAnnealingLR`
+  regardless of its value. Not tested here since trying an alternative would need new code, not just a
+  value change; noted as a gap rather than fixed.
+- `git push` has not worked all run (no SSH key/agent in this container) - everything above is committed
+  locally only, pending credentials to actually reach `origin`.
