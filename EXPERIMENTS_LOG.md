@@ -686,7 +686,7 @@ the old dataset. Phase 8 not yet started/scoped (candidates discussed with the u
 Brazil-MonteCristo's persistent weakness with more capture data, or validating against real unlabeled
 photos via the existing `coffeecv/infer.py` - to be decided in a future session).
 
-# Phase 8 (planned, not started) - Dataset augmentation
+# Phase 8 (plan) - Dataset augmentation
 
 Written 2026-08-08 for a future session to pick up cold. Focus: augmentation, not more hyperparameter
 tuning of the existing knobs (Phase 7 exhausted the reasonably-testable ones - see its closing summary).
@@ -761,3 +761,118 @@ noise-band width itself has already moved once in this project (exp 32/34/35).
 was already swept (0.0 vs 0.2) at this exact patch_crop_size in Phase 7 exp 24, no effect found. Only
 worth another look if, e.g., the zoom or rotation work changes what the model is sensitive to enough to
 plausibly change that verdict.
+
+# Phase 8 (running) - 12h autonomous augmentation run
+
+Started 2026-08-08 18:45 UTC, budget ends ~2026-08-09 06:45 UTC. User's brief: execute the Phase 8 plan
+above, ~12h first pass, review together afterwards and continue in later sessions. Four scoping decisions
+taken with the user at the top of the session:
+
+1. **Breadth, then confirm**: single-seed (42) first pass over all six queued hypotheses, then a 3-seed
+   check on the best candidate, then a combined run if budget remains. Same discipline as Phases 1-7.
+2. **Hypotheses 4-5 (perspective, illumination) judged on a "costs nothing" bar**: they target robustness
+   to a *future* capture session, and the current test set is same-rig/same-session, so it structurally
+   cannot validate them. Adopt if in-distribution metrics stay flat (free robustness is worth having),
+   and record explicitly that the robustness win itself stays unvalidated until a second session exists.
+3. **Rotation uses the fill-based variant** - see the finding below, which resolved the plan's open
+   implementation question in a way the plan didn't anticipate.
+4. **Every experiment's metrics get kept in version control**, not just summarized in this file.
+
+## Phase 8 setup (code changes, no training)
+
+Six knobs added, each defaulting to a no-op: `rotation_degrees`, `zoom_scale_min`, `random_erasing_p`,
+`perspective_distortion`, `illum_gradient_strength` (all in `transforms.py:build_train_transform`) and
+`mixup_alpha` (in `train_baseline.py:train_one_epoch` - mixup is a loss-level change, not a transform).
+`build_eval_transform` untouched, as the plan requires. Rotation later moved out of `transforms.py` entirely -
+ see the section below.
+
+**The no-op default is load-bearing and was verified, not assumed.** Phase 8 compares against exp 20's
+recorded numbers instead of re-deriving them, which is only legitimate if the augmentation-off pipeline is
+*identical* to Phase 7's - a stray extra RNG draw would silently shift every result and quietly invalidate
+every verdict. `coffeecv/check_augmentation.py` asserts this bit-exactly: it reads the pre-Phase-8
+`transforms.py` straight out of git (ref a87c260), runs both pipelines over the same patches under the
+same seeds, and requires `torch.equal`. It also asserts the converse - that each knob *does* change the
+output when enabled - so a silently-dead param can't masquerade as a "no effect" result. All checks pass.
+(Exp 37 below re-verifies this end-to-end through a full training run, not just at the transform level.)
+
+### Finding: the plan's preferred rotation implementation is impossible on this dataset
+
+The plan left open whether to (a) oversample a ~1.4x larger source crop at the `dataset.py` level and
+rotate-then-center-crop back artifact-free, or (b) rotate at the transform level with a fill strategy and
+accept border artifacts. **(a) cannot be done here at all.** The cropped photos are only ~1050x1520px, so
+after `safety_margin=0.97` the valid region is ~1018px wide - and `patch_crop_size=900` already consumes
+all but ~118px of that horizontally. There is no headroom to oversample into: a 900px patch needs a
+1278px source to survive a +/-25 degree rotation, and even +/-15 degrees would need 1102px. Neither fits
+in 1018px. This is the same geometric ceiling exp 32 ran into from the other direction (patch_crop_size
+1000 left only ~17px of placement room and the trend reversed) - worth recording as one shared constraint
+rather than two coincidences: **this dataset's photo width is the binding limit on the whole patch
+pipeline**, and any future capture session that framed the tray slightly wider would relax both at once.
+
+The first attempt at (b) filled the corner wedges with the patch's own mean RGB, on the reasoning that it
+blends better than black. Measured cost (white-square test, share of the 900px frame that is fill): 4.4%
+mean at +/-10 deg, 6.1% at +/-15, **8.9% at the plan's suggested +/-25**, 12.2% at +/-45. That run was
+launched and then **aborted by the user, who rejected fill-based rotation outright** - correctly. A bean
+pile is *nothing but* texture, so ~9% of every patch becoming flat, information-free filler is not a minor
+border artifact here, it is deleting a tenth of the signal and asking the model to ignore the hole.
+
+### The design that actually works: small-angle jitter sampled from the source photo
+
+**User's proposal, and it dissolves the problem the plan and both of my alternatives were stuck on**: keep
+the exact 0/90/180/270 rotations, and jitter each by a *small* angle - small enough that the rotated patch
+still fits inside the source photo. The insight is that the plan's option (a) was never impossible in
+general, only impossible *at +/-25 degrees*. Shrink the angle and the headroom appears:
+
+| jitter | bounding box needed | placement room left on the tightest photo |
+|---|---|---|
+| +/-0 deg (Phase 7) | 900px | 116px |
+| +/-3 deg | 946px | 70px |
+| +/-5 deg | 976px | **40px** |
+| +/-6 deg | 990px | 26px |
+| +/-7 deg | 1003px | 13px - exp 32's danger zone |
+| +/-8 deg | 1017px | does not fit at all |
+
+So the implementation moved out of `transforms.py` and into the *sampling* stage
+(`geometry.sample_rotated_patch_boxes`): draw an angle, take the axis-aligned **bounding box** of the
+rotated 900px square from the source photo, rotate that, centre-crop back to 900. Every pixel of the
+result is real source content, the patch stays exactly 900px, and there is no fill anywhere - the extra
+content the rotation needs is *borrowed from the surrounding photo* instead of invented. This also avoids
+the scale confound that the inscribed-crop alternative would have introduced (it would have shrunk the
+effective patch to 677px, colliding head-on with patch_crop_size, the strongest known variable in the
+project).
+
+Verified directly rather than argued: `check_augmentation.py` runs the real crop-rotate-centre-crop path
+over an all-white source at +/-1/3/5/6 degrees and asserts **zero** fill pixels reach the output. (A
+black-pixel test on real photos would not have worked - the unrotated patches already contain 1000-8000
+pure-black pixels each, in the shadows between beans. Worth remembering as a trap for any future
+fill-detection check.)
+
+`assert_jitter_fits` fails loudly at dataset construction if the chosen jitter leaves under 25px of
+placement room, so exp 32's failure mode (patches from the tightest photos becoming near-identical every
+epoch) can't be reintroduced silently by a future angle change.
+
+**+/-5 degrees chosen for the first test**: the largest angle still clear of exp 32's danger zone, so the
+hypothesis gets its best chance to show an effect. Known confound to weigh against a *negative* result:
++/-5 also cuts placement room 116px -> 40px, so "rotation doesn't help" and "the lost translation
+diversity hurt" are not separable from this run alone. If it comes back negative, the clean control is a
+no-rotation run sampled from a region shrunk to leave the same 40px of room.
+
+## Experiment record now kept in version control
+
+Phase 7's metrics survived only as the hand-written tables in this file: `outputs/` is gitignored and
+overwritten by every run, and DVC only ever holds the *latest* run's outputs. Fixed for Phase 8 - split by
+what each tool is good at, **git for the small stuff, DVC for the bulk**:
+
+- `experiments/exp<N>__<slug>/` - metrics/config/history/predictions per run (~16KB), committed to git.
+  `index.csv` is rebuilt by scanning the archived runs, so it cannot drift out of sync.
+- 44MB checkpoints stay in DVC via `dvc.lock`, which is what DVC is for.
+- `outputs/metrics.json` un-ignored: `dvc.yaml` already declared it `cache: false` (i.e. "versioned in
+  git"), while `/outputs/` in `.gitignore` was quietly overriding that, leaving it tracked by neither.
+- `experiments/pre_phase8_from_log.csv` backfills exp 18-35 by hand from this file. Aggregate metrics only
+  - those runs' artifacts are gone, so no per-class data or curves could be recovered.
+
+**Knock-on effect on hypothesis 4 (perspective jitter)**: it had the same mean-fill problem, so its
+implementation was removed along with rotation's rather than left in as dead config. A perspective warp
+needs source margin too, and the same trick applies - warp within a slightly larger sampled box and crop
+back - but a mild `distortion_scale=0.2` needs up to ~90px of margin, which would leave ~26px of placement
+room, right at exp 32's edge. Hypothesis 4 therefore needs either a smaller distortion or an explicit
+decision to accept that trade; it is not testable as originally written. Deferred, not silently dropped.

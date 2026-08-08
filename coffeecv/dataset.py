@@ -10,12 +10,16 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
+import torchvision.transforms.functional as TF
+
 from coffeecv.geometry import (
     Region,
+    assert_jitter_fits,
     assert_region_fully_opaque,
     compute_valid_region,
     compute_valid_region_rect,
     sample_patch_boxes,
+    sample_rotated_patch_boxes,
     split_regions,
 )
 
@@ -217,17 +221,22 @@ class MultiPhotoPatchDataset(Dataset):
         patches_per_class: dict[str, int],
         photos_per_split: dict[str, int],
         transform=None,
+        rotation_jitter_degrees: float = 0.0,
     ):
         assert split in ("train", "val", "test")
         self.split = split
         self.class_ids = class_ids
         self.resize = resize
+        self.crop_size = crop_size
         self.transform = transform
+        # Train-only, like every other augmentation: val/test stay deterministic.
+        self.rotation_jitter_degrees = rotation_jitter_degrees if split == "train" else 0.0
+
         self.class_labels = load_class_labels(classes_file)
 
         n_patches_total = patches_per_class[split]
         self._images: dict[tuple[str, str], np.ndarray] = {}  # (class_id, photo_name) -> rgb
-        self._samples: list[tuple[str, str, Region]] = []  # (class_id, photo_name, box)
+        self._samples: list[tuple[str, str, Region, float]] = []  # (class_id, photo_name, box, angle)
 
         for class_idx, class_id in enumerate(class_ids):
             class_dir = find_class_dir(dataset_dir, class_id)
@@ -242,20 +251,35 @@ class MultiPhotoPatchDataset(Dataset):
                 h, w = rgb.shape[:2]
                 region = compute_valid_region_rect(h, w, safety_margin)
                 rng = np.random.default_rng([seed, class_idx, photo_idx, SPLIT_SEED_COMPONENT[split]])
-                boxes = sample_patch_boxes(rng, region, n_patches, crop_size)
+                if self.rotation_jitter_degrees > 0:
+                    assert_jitter_fits(region, crop_size, self.rotation_jitter_degrees)
+                    boxes = sample_rotated_patch_boxes(
+                        rng, region, n_patches, crop_size, self.rotation_jitter_degrees
+                    )
+                else:
+                    # Identical RNG consumption to pre-Phase-8, so jitter=0 stays
+                    # a bit-exact no-op against the Phase 7 baselines.
+                    boxes = [(box, 0.0) for box in sample_patch_boxes(rng, region, n_patches, crop_size)]
 
                 key = (class_id, photo_path.name)
                 self._images[key] = rgb
-                self._samples.extend((class_id, photo_path.name, box) for box in boxes)
+                self._samples.extend((class_id, photo_path.name, box, angle) for box, angle in boxes)
 
     def __len__(self) -> int:
         return len(self._samples)
 
     def __getitem__(self, idx: int):
-        class_id, photo_name, box = self._samples[idx]
+        class_id, photo_name, box, angle = self._samples[idx]
         rgb = self._images[(class_id, photo_name)]
         patch = rgb[box.y0:box.y1, box.x0:box.x1]
         pil_patch = Image.fromarray(patch)
+        if angle:
+            # `box` is the bounding box of the rotated crop, so rotating it and
+            # centre-cropping back lands entirely on real pixels — no fill.
+            pil_patch = TF.center_crop(
+                TF.rotate(pil_patch, angle, interpolation=TF.InterpolationMode.BILINEAR),
+                [self.crop_size, self.crop_size],
+            )
         label = self.class_ids.index(class_id)
         if self.transform is not None:
             tensor = self.transform(pil_patch)

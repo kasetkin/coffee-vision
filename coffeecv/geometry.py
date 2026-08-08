@@ -71,6 +71,68 @@ def sample_patch_boxes(rng: np.random.Generator, region: Region, n: int, crop_si
     return [Region(y0=int(y), y1=int(y) + crop_size, x0=int(x), x1=int(x) + crop_size) for y, x in zip(ys, xs)]
 
 
+def rotated_box_side(crop_size: int, angle_deg: float) -> int:
+    """Side of the axis-aligned bounding box of a crop_size square rotated by
+    `angle_deg`."""
+    r = math.radians(abs(angle_deg))
+    return math.ceil(crop_size * (math.cos(r) + math.sin(r)))
+
+
+def sample_rotated_patch_boxes(
+    rng: np.random.Generator, region: Region, n: int, crop_size: int, max_jitter_deg: float
+) -> list[tuple[Region, float]]:
+    """Sample n (bounding_box, angle) pairs for small-angle-jittered patches.
+
+    Each angle is drawn uniformly from [-max_jitter_deg, +max_jitter_deg], and
+    the returned box is the axis-aligned bounding box of the rotated crop_size
+    square, placed so it lies entirely inside `region`. Cropping that box,
+    rotating it by the angle and centre-cropping back to crop_size then yields a
+    patch whose every pixel is real source content — no fill, and no change to
+    the patch's scale, because the extra pixels the rotation needs are taken from
+    the source photo rather than invented.
+
+    Costs placement room: the bounding box is bigger than crop_size, so less of
+    the valid region is left to translate within. On this dataset (tightest valid
+    region 1016px wide, crop_size 900) that is 116px at 0 degrees, 40px at 5 and
+    negative beyond 7 — see exp 32, where ~17px of room was enough to measurably
+    hurt. `assert_jitter_fits` checks this up front rather than at sample time.
+    """
+    angles = rng.uniform(-max_jitter_deg, max_jitter_deg, size=n)
+    boxes = []
+    for angle in angles:
+        side = rotated_box_side(crop_size, angle)
+        max_y0, max_x0 = region.y1 - side, region.x1 - side
+        if max_y0 < region.y0 or max_x0 < region.x0:
+            raise ValueError(
+                f"rotated box (side {side} for crop_size={crop_size} at {angle:.2f} deg) "
+                f"does not fit inside region ({region.height}x{region.width})"
+            )
+        y = int(rng.integers(region.y0, max_y0 + 1))
+        x = int(rng.integers(region.x0, max_x0 + 1))
+        boxes.append((Region(y0=y, y1=y + side, x0=x, x1=x + side), float(angle)))
+    return boxes
+
+
+def assert_jitter_fits(
+    region: Region, crop_size: int, max_jitter_deg: float, min_room: int = 25
+) -> None:
+    """Fail loudly at dataset construction if the jittered bounding box leaves so
+    little placement room that patches from this photo would be near-identical
+    every time — the failure mode exp 32 found at patch_crop_size=1000."""
+    side = rotated_box_side(crop_size, max_jitter_deg)
+    room = min(region.width, region.height) - side
+    if room < 0:
+        raise ValueError(
+            f"rotation_jitter_degrees={max_jitter_deg} needs a {side}px box but the valid "
+            f"region is only {region.width}x{region.height} — reduce the jitter or crop_size"
+        )
+    if room < min_room:
+        raise ValueError(
+            f"rotation_jitter_degrees={max_jitter_deg} leaves only {room}px of placement room "
+            f"(need >={min_room}); patches from this photo would barely vary — see exp 32"
+        )
+
+
 def compute_valid_region_rect(img_h: int, img_w: int, safety_margin: float = 0.97) -> Region:
     """Whole-image region shrunk by `safety_margin`, for already-cropped
     rectangular photos with no lens circle to inscribe within (see

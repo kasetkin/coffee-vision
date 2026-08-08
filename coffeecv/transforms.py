@@ -1,6 +1,12 @@
 """Train/eval transforms. Full dihedral-group augmentation is valid here since
 these are top-down photos of a bean pile with no canonical "up".
 
+Rotation is deliberately *not* here. The 0/90/180/270 part is exact and lossless
+so it stays; the small-angle jitter around each of those is applied at patch
+*sampling* time instead (`geometry.sample_rotated_patch_boxes`), because that is
+the only way to rotate without inventing pixels — the extra content a rotation
+needs is taken from the surrounding source photo rather than filled in.
+
 Every augmentation below defaults to a no-op, so `build_train_transform` with
 default arguments composes exactly the pre-Phase-8 pipeline and consumes exactly
 the same RNG draws — that keeps Phase 7's recorded baselines valid without
@@ -19,14 +25,6 @@ IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
-def _mean_fill(img) -> list[int]:
-    """Per-patch mean RGB, used as the fill colour for geometric transforms that
-    leave undefined pixels. A bean pile's own mean colour blends into the border
-    far better than a constant black, which would otherwise put a hard
-    high-contrast frame around every rotated patch."""
-    return [int(c) for c in np.asarray(img).reshape(-1, 3).mean(axis=0)]
-
-
 class RandomRightAngleRotation:
     """Rotate by one of {0, 90, 180, 270} degrees. Exact and lossless on a
     square image — no interpolation/border artifacts, unlike arbitrary-angle
@@ -37,48 +35,6 @@ class RandomRightAngleRotation:
         if angle:
             img = TF.rotate(img, angle)
         return img
-
-
-class RandomArbitraryRotation:
-    """Rotate by a random angle in [-degrees, +degrees], keeping the patch size
-    fixed and filling the resulting corner wedges with the patch's mean colour.
-
-    The alternative — oversampling a larger source crop so the rotation can be
-    cropped back down artifact-free — is not available on this dataset: the
-    cropped photos are only ~1050x1520px, so after `safety_margin` the valid
-    region is ~1018px wide and a 900px patch already has just ~118px of
-    horizontal placement room. There is no headroom to oversample into.
-    """
-
-    def __init__(self, degrees: float):
-        self.degrees = degrees
-
-    def __call__(self, img):
-        angle = random.uniform(-self.degrees, self.degrees)
-        return TF.rotate(
-            img, angle, interpolation=T.InterpolationMode.BILINEAR, fill=_mean_fill(img)
-        )
-
-
-class RandomPerspectiveMeanFill:
-    """`T.RandomPerspective` with the same mean-colour fill as
-    `RandomArbitraryRotation`, instead of torchvision's constant fill."""
-
-    def __init__(self, distortion_scale: float, p: float = 0.5):
-        self.distortion_scale = distortion_scale
-        self.p = p
-
-    def __call__(self, img):
-        if random.random() >= self.p:
-            return img
-        width, height = img.size
-        startpoints, endpoints = T.RandomPerspective.get_params(
-            width, height, self.distortion_scale
-        )
-        return TF.perspective(
-            img, startpoints, endpoints,
-            interpolation=T.InterpolationMode.BILINEAR, fill=_mean_fill(img),
-        )
 
 
 class RandomIlluminationGradient:
@@ -114,10 +70,8 @@ class RandomIlluminationGradient:
 def build_train_transform(
     resize: int,
     jitter_strength: float = 0.2,
-    rotation_degrees: float = 0.0,
     zoom_scale_min: float = 1.0,
     random_erasing_p: float = 0.0,
-    perspective_distortion: float = 0.0,
     illum_gradient_strength: float = 0.0,
 ) -> T.Compose:
     steps = [
@@ -125,10 +79,6 @@ def build_train_transform(
         T.RandomHorizontalFlip(p=0.5),
         T.RandomVerticalFlip(p=0.5),
     ]
-    if rotation_degrees > 0:
-        steps.append(RandomArbitraryRotation(rotation_degrees))
-    if perspective_distortion > 0:
-        steps.append(RandomPerspectiveMeanFill(perspective_distortion))
     if jitter_strength > 0:
         steps.append(T.ColorJitter(
             brightness=jitter_strength, contrast=jitter_strength,
@@ -149,7 +99,8 @@ def build_train_transform(
         steps.append(RandomIlluminationGradient(illum_gradient_strength))
     steps.append(T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD))
     # After Normalize, so value=0 erases to the ImageNet mean colour rather than
-    # to black — the same reasoning as the mean fill used for rotation above.
+    # to black. Unlike a geometric fill this is the point of the augmentation —
+    # the region is meant to be missing, not to pass as real texture.
     if random_erasing_p > 0:
         steps.append(T.RandomErasing(p=random_erasing_p, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=0))
     return T.Compose(steps)

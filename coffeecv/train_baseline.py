@@ -135,13 +135,14 @@ def main() -> None:
     train_transform = build_train_transform(
         cfg.patch_resize,
         cfg.color_jitter_strength,
-        rotation_degrees=cfg.rotation_degrees,
         zoom_scale_min=cfg.zoom_scale_min,
         random_erasing_p=cfg.random_erasing_p,
-        perspective_distortion=cfg.perspective_distortion,
         illum_gradient_strength=cfg.illum_gradient_strength,
     )
-    train_ds = MultiPhotoPatchDataset(split="train", transform=train_transform, **common_kwargs)
+    train_ds = MultiPhotoPatchDataset(
+        split="train", transform=train_transform,
+        rotation_jitter_degrees=cfg.rotation_jitter_degrees, **common_kwargs,
+    )
     val_ds = MultiPhotoPatchDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
     test_ds = MultiPhotoPatchDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
 
