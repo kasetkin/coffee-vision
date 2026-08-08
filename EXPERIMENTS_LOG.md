@@ -494,3 +494,22 @@ actually improved to f1=0.930 (best result for that class in the whole log), but
 and Brazil-MonteCristo (0.763) both regressed notably, and those two dominate the aggregate. resnet18
 remains the better backbone for this problem even with the field leveled by full fine-tuning. Reverted to
 model_name=resnet18.
+
+### Exp 30: combined dropout=0.4 + weight_decay=1e-3
+
+Direct follow-up on the note left in exp 25: weight_decay=1e-3 (exp 23) and dropout=0.4 (exp 25) each
+nudged all four metrics mildly positive on their own, both within noise individually. Testing whether
+they compound when combined. Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | baseline (dropout=0.2, wd=1e-4) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 30 | dropout=0.4 + weight_decay=1e-3 | 0.9490 | 0.9441 | 0.9440 | 0.9382 | 9 | 17 |
+
+**No effect - not adopted, and answers the open question from exp 25.** All four deltas are small and
+slightly negative this time (val -0.0089, test -0.0059/-0.0059), well inside both noise bands. The two
+individually-mild-positive nudges don't compound - combined, they're flat-to-marginally-worse, not
+better. Interesting side note: it converged much faster this way (best_epoch 9, 17 total vs 14/22
+baseline) for essentially the same quality, so if training speed mattered more than squeezing out the
+last bit of accuracy, this combination would be a reasonable efficiency trade - it isn't given the
+current priority is quality. Reverted both to their exp 20 values (dropout=0.2, weight_decay=1e-4).
