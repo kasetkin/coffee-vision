@@ -475,3 +475,22 @@ worse direction (val -0.0392, test_macro_f1 -0.0608, test_mcc -0.0646). Full fin
 last_block isn't just holding up at the new patch size, it's if anything more decisive than the original
 Phase 2 finding. Reverted to freeze_mode=none. Useful negative result - confirms this isn't a decision
 worth revisiting again without a real reason to.
+
+### Exp 29: model_name resnet18->efficientnet_b0 (full fine-tune)
+
+Old dataset only tested efficientnet_b0 frozen ("clearly worse than resnet18") - worth retesting under
+full fine-tune since that's a very different regime (frozen features never adapted to this domain at all,
+full fine-tune lets them). Same config as exp 20 otherwise (freeze_mode=none in both).
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | model_name=resnet18 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 29 | model_name=efficientnet_b0 | 0.9354 | 0.9284 | 0.9125 | 0.9038 | 17 | 25 |
+
+**Clear reject.** val -0.0225 (just exceeds the 0.0216 band), test_macro_f1 -0.0374 and test_mcc -0.0403
+(both clearly exceed their ~0.0286/0.0285 bands). Also ~1.5x slower per batch (~4s vs ~2.6s), so this is
+worse *and* more expensive - unambiguous. Per-class picture is mixed rather than uniform though: Kenya-AA
+actually improved to f1=0.930 (best result for that class in the whole log), but Brazil-Cerrado (0.821)
+and Brazil-MonteCristo (0.763) both regressed notably, and those two dominate the aggregate. resnet18
+remains the better backbone for this problem even with the field leveled by full fine-tuning. Reverted to
+model_name=resnet18.
