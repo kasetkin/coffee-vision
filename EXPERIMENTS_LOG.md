@@ -904,3 +904,34 @@ run chasing that now: the result is *flat*, not negative, so any cancelling pair
 small; and val moved up while test moved down, which is the signature of noise rather than of two opposed
 mechanisms. Recorded as the natural follow-up if rotation ever looks worth revisiting: +/-3 degrees keeps
 70px of room, so it separates the two at a milder rotation.
+
+### Exp 37: baseline reproduction (all augmentation off)
+
+Not a hypothesis test. Two jobs: prove the Phase 8 refactor really is the no-op the transform-level check
+claimed, through a full training run rather than at the transform boundary only; and archive a *per-class*
+baseline, since exp 20 survived only as four aggregate numbers in a markdown table and Phase 7's most
+useful findings were all per-class. Ran 20:29-21:15 UTC, 46 min.
+
+| # | run | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | original (Phase 7) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 37 | reproduction (Phase 8 code) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+
+**Bit-for-bit identical** - all four metrics to 4 decimals, both epoch counts, on code that has since
+gained six augmentation knobs, a rewritten `transforms.py`, a new sampling path in `dataset.py` and two
+new `geometry.py` functions. Everything Phase 8 compares against exp 20 is therefore comparing against a
+number this environment still produces, not a historical artifact. Also confirms nothing drifted
+environmentally since 2026-08-07 (same torch 2.13.0+cpu / torchvision 0.28.0+cpu).
+
+Worth the ~46 min: every later experiment now gets a real per-class delta instead of an aggregate one, and
+`compare_experiments.py` has something to diff against.
+
+**Exp 36 re-read against the proper baseline** (now possible per-class): the aggregate verdict is
+unchanged - all four deltas flat - but the per-class picture is a clean illustration of why aggregate
+noise is not "nothing happening". Test moved almost entirely through the two Brazils (Cerrado -0.060,
+MonteCristo -0.055) while *val* moved MonteCristo the other way (+0.026) and Guatemala-Tata up (+0.029).
+The same class going up on val and down on test in one run is the same pattern exp 34/35 found across
+seeds: which specific confusions resolve is unstable run to run, even where the aggregate is stable.
+Five classes are pinned at or near 1.000 on test in both runs (CostaRica-LaPastora, Ethiopia-Kochere,
+Vietnam-Robusta perfect; Colombia-PinkBourbon ~0.95-0.96), so essentially all remaining headroom on this
+dataset is the Brazil-Cerrado / Brazil-MonteCristo / Kenya-AA cluster.

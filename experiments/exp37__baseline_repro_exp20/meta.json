@@ -1,0 +1,5 @@
+{
+  "exp": "37",
+  "slug": "baseline_repro_exp20",
+  "note": "baseline reproduction: all augmentation off, verifies Phase 8 refactor is a no-op end-to-end"
+}
