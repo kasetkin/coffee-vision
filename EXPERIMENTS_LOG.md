@@ -437,3 +437,24 @@ distribution, which trades away some of the model's ability to be confidently co
 more visually-similar classes - not a good trade here given how much of the remaining error is
 concentrated in genuine class confusion (MonteCristo/Cerrado/Tata) rather than overconfidence. Reverted
 to label_smoothing=0.0.
+
+### Exp 27: train_patches_per_class 150->300 (retest)
+
+The old dataset found this exact change had no effect (Phase 3 exp 6), but that was sampling more patches
+from a single fixed photo per class - the reasoning for why it might matter now is different (14 real
+train photos/class instead of 1, so more patches means covering more of that real variety, not just more
+correlated crops of the same image). Worth a clean retest rather than assuming the old verdict transfers.
+Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | train_patches_per_class=150 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 27 | train_patches_per_class=300 | 0.9583 | 0.9535 | 0.9524 | 0.9478 | 12 | 20 |
+
+**No effect - not adopted.** Every delta is negligible (val +0.0004, test +0.0025/+0.0037), nowhere near
+either noise band. It did converge in fewer epochs (best_epoch 12 vs 14, 20 vs 22 total) but each epoch
+has 2x the batches (2700 vs 1350 patches), so total compute is still ~1.8x higher for a flat result. Same
+verdict as the old dataset, and for basically the same reason once translated to the new setup: 150
+patches/class already covers what's learnable from 14 photos, doubling the patch count doesn't add real
+information, it just resamples the same underlying photos more densely. Reverted to
+train_patches_per_class=150.
