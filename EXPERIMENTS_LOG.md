@@ -532,3 +532,26 @@ capacity, and this is a fine-grained visual task (subtle bean surface/color/text
 benefits from more model capacity, not less. resnet18 and efficientnet_b0 (exp 29) both clearly beat it.
 Reverted to model_name=resnet18. Architecture question now closed for this project's three implemented
 options - resnet18 wins outright.
+
+### Exp 32: patch_crop_size 900->1000
+
+Following the strongest signal in the whole log (bigger patches have won every time so far) toward the
+practical ceiling - the tightest of the 180 crops is ~1048px, minus the 3% safety margin leaves ~1017px
+of valid region, so 1000 leaves only ~17px of random-placement room on the tightest photos specifically.
+Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | patch_crop_size=900 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 32 | patch_crop_size=1000 | 0.9426 | 0.9381 | 0.8968 | 0.8931 | 23 | 31 |
+
+**Reject - the trend reverses.** val -0.0153 (inside its band), but test_macro_f1 -0.0531 and test_mcc
+-0.0510 both clearly exceed their bands - a real regression, not noise. This brackets the optimum for the
+first time: 700 (exp 20 baseline before) < 900 (best) > 1000 (worse) - a genuine sweet spot, not
+monotonically-bigger-is-better after all. Per-class points at the likely mechanism: Kenya-AA collapsed to
+f1=0.667 (its worst result anywhere in this log). At 1000px, the tightest photos in the dataset have
+almost no room left for randomized patch placement, so patches sampled from those specific photos become
+nearly identical to each other every time - losing translation-augmentation diversity precisely for
+whichever photos happen to be near the small end of the size distribution, rather than a general "too
+much context" problem. Reverted to patch_crop_size=900 - confirmed as the adopted optimum, not just the
+best value tried so far.
