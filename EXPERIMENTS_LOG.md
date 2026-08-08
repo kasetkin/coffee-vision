@@ -458,3 +458,20 @@ verdict as the old dataset, and for basically the same reason once translated to
 patches/class already covers what's learnable from 14 photos, doubling the patch count doesn't add real
 information, it just resamples the same underlying photos more densely. Reverted to
 train_patches_per_class=150.
+
+### Exp 28: freeze_mode none->last_block (retest)
+
+Sanity check on a core architectural decision (Phase 2 found full fine-tune beat last_block on the old
+dataset) now that patch_crop_size=900 and the new dataset have changed the picture substantially. Same
+config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | freeze_mode=none (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 28 | freeze_mode=last_block | 0.9187 | 0.9097 | 0.8891 | 0.8795 | 25 | 33 |
+
+**Clear reject, confirms the standing decision.** All four metrics well beyond their noise bands in the
+worse direction (val -0.0392, test_macro_f1 -0.0608, test_mcc -0.0646). Full fine-tune's advantage over
+last_block isn't just holding up at the new patch size, it's if anything more decisive than the original
+Phase 2 finding. Reverted to freeze_mode=none. Useful negative result - confirms this isn't a decision
+worth revisiting again without a real reason to.
