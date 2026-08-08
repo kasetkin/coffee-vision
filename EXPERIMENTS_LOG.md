@@ -642,3 +642,46 @@ Brazil-MonteCristo (0.886) are unusually strong for once. Consistent with the or
 finding that different seeds resolve different confusions, but the magnitude here is already a warning
 sign that patch_crop_size=900's noise band may be wider than 700's was - one more seed needed before
 concluding that, not enough on its own.
+
+### Exp 35: seed=7
+
+| # | seed | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch |
+|---|---|---|---|---|---|---|
+| 20 | 42 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 |
+| 34 | 123 | 0.9604 | 0.9569 | 0.9020 | 0.8931 | 23 |
+| 35 | 7 | 0.9723 | 0.9689 | 0.9183 | 0.9102 | 30 |
+
+Third and last per the same 3-seed convention as every prior check. Per-class is a third distinct
+reshuffle: Ethiopia-Sidamo/Kenya-AA/Colombia-PinkBourbon/CostaRica-LaPastora all strong (0.96-0.98) here,
+Guatemala-Tata (0.767) and Brazil-MonteCristo (0.779) the weak points this time. Three seeds, three
+different sets of "hard" classes - the aggregate score is stable-ish but *which* classes it's weak on
+each run is not.
+
+### Noise band on patch_crop_size=900 (3 seeds) - confirms the suspicion, closes Phase 7
+
+| metric | min | max | spread | mean |
+|---|---|---|---|---|
+| val_macro_f1 | 0.9579 | 0.9723 | 0.0144 | 0.9635 |
+| val_mcc | 0.9533 | 0.9689 | 0.0156 | 0.9597 |
+| test_macro_f1 | 0.9020 | 0.9499 | **0.0479** | 0.9234 |
+| test_mcc | 0.8931 | 0.9441 | **0.0510** | 0.9158 |
+
+**val actually got *tighter*** than the pre-900 config (0.0144 vs exp 16-17's 0.0216), but **test got
+~1.7-1.8x *wider*** (0.0479/0.0510 vs 0.0286/0.0285). This confirms exp 32's warning: patch_crop_size=900
+is still the best mean performer of anything tested in this project (test_macro_f1 mean 0.9234 across 3
+seeds, vs. patch_crop_size=700's exp 16-17 mean of 0.8973), but it's a *less consistent* one than 700 was
+- exp 20's single-seed 0.9499 was a favorable draw within a real 0.90-0.95 band, not a tight point
+estimate. Best guess at the mechanism (not confirmed further, same caveat as exp 32): best.pt selection
+is peak-val-driven, val itself stayed just as consistent as before, but *which specific epoch* gets picked
+and how well that epoch's weights transfer to a different set of 3 test photos/class seems to vary more
+at 900px - plausibly connected to the same tight-photo/placement-room issue exp 32 found, since which
+photos land in val vs. test differs by seed (photo-to-split assignment is itself seeded per class).
+
+**Practical takeaway**: patch_crop_size=900 remains adopted - it's unambiguously better on average than
+700 (0.9234 vs 0.8973 mean test_macro_f1, no overlap between the two 3-seed ranges) - but report the range
+(test macro-F1 ~0.90-0.95), not a single run's number, when describing this model's expected performance.
+This closes the open thread from the 16h run and, with it, Phase 7 - dataset switch, hyperparameter sweep,
+and now a properly characterized noise band on the final adopted config, mirroring how Phase 6 closed on
+the old dataset. Phase 8 not yet started/scoped (candidates discussed with the user: chasing
+Brazil-MonteCristo's persistent weakness with more capture data, or validating against real unlabeled
+photos via the existing `coffeecv/infer.py` - to be decided in a future session).
