@@ -1,0 +1,19 @@
+exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trained,changed_vs_baseline,verdict,note
+18,patch_crop_size_700,42,0.9086,0.8972,0.9228,0.9129,17,25,patch_crop_size=700,baseline-at-the-time,Phase 7 config before the 900px adoption
+19,patch_crop_size_500,42,0.8867,0.8756,0.8527,0.8387,23,31,patch_crop_size=500,clear-reject,test -0.070/-0.074 well beyond noise
+20,patch_crop_size_900,42,0.9579,0.9533,0.9499,0.9441,14,22,,clear-adopt,"THE PHASE 8 BASELINE; Brazil-MonteCristo jumped to f1=0.929"
+21,lr_0.002,42,0.9609,0.9565,0.9384,0.9323,23,31,lr=0.002,no-effect,mixed directions inside noise
+22,backbone_lr_3e-5,42,0.9860,0.9844,0.9358,0.9331,23,31,backbone_lr=3e-05,reject,val jumped but test fell - overfits the 3-photo val set
+23,weight_decay_1e-3,42,0.9693,0.9658,0.9497,0.9443,29,37,weight_decay=0.001,no-effect,flat test for ~68% more compute
+24,color_jitter_0.0,42,0.9471,0.9408,0.9609,0.9568,28,36,color_jitter_strength=0.0,no-effect,clean retest once the spatial-split confound was gone
+25,dropout_0.4,42,0.9637,0.9596,0.9581,0.9538,37,45,dropout=0.4,marginal-not-adopted,all metrics mildly positive but ~2x compute
+26,label_smoothing_0.1,42,0.9468,0.9410,0.9202,0.9097,16,24,label_smoothing=0.1,reject,diffuse per-class damage
+27,train_patches_300,42,0.9583,0.9535,0.9524,0.9478,12,20,train_patches_per_class=300,no-effect,~1.8x compute for flat result
+28,freeze_last_block,42,0.9187,0.9097,0.8891,0.8795,25,33,freeze_mode=last_block,clear-reject,confirms full fine-tune
+29,efficientnet_b0,42,0.9354,0.9284,0.9125,0.9038,17,25,model_name=efficientnet_b0,clear-reject,worse and ~1.5x slower
+30,dropout_0.4_wd_1e-3,42,0.9490,0.9441,0.9440,0.9382,9,17,dropout=0.4; weight_decay=0.001,no-effect,individually-mild nudges do not compound
+31,mobilenet_v3_small,42,0.8490,0.8321,0.8559,0.8380,12,20,model_name=mobilenet_v3_small,clear-reject,largest gap in the whole log
+32,patch_crop_size_1000,42,0.9426,0.9381,0.8968,0.8931,23,31,patch_crop_size=1000,reject,"trend reverses; brackets 900 as a real optimum"
+33,batch_size_64,42,0.9547,0.9503,0.9442,0.9381,24,32,batch_size=64,no-effect,confirms the old-dataset verdict
+34,seed_123,123,0.9604,0.9569,0.9020,0.8931,23,,seed=123,noise-characterisation,multi-seed check on the 900px config
+35,seed_7,7,0.9723,0.9689,0.9183,0.9102,30,,seed=7,noise-characterisation,multi-seed check on the 900px config
