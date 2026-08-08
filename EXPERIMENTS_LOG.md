@@ -618,3 +618,27 @@ val_macro_f1=0.9579, test_macro_f1=0.9499, test_mcc=0.9441, best_epoch=14/22 wit
   value change; noted as a gap rather than fixed.
 - `git push` has not worked all run (no SSH key/agent in this container) - everything above is committed
   locally only, pending credentials to actually reach `origin`.
+
+## Multi-seed check on patch_crop_size=900 (closes Phase 7)
+
+The open thread flagged above: exp 32 showed patch_crop_size interacts with per-photo geometry (tighter
+photos lose randomized-placement room near the ceiling), which could plausibly affect variance and not
+just the mean - worth confirming exp 20's numbers are representative before trusting them the way exp
+16-17 did for the pre-900 config. Same two extra seeds as every other multi-seed check in this log
+(123, 7), same config as exp 20 otherwise.
+
+### Exp 34: seed=123
+
+| # | seed | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch |
+|---|---|---|---|---|---|---|
+| 20 | 42 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 |
+| 34 | 123 | 0.9604 | 0.9569 | 0.9020 | 0.8931 | 23 |
+
+val essentially matches (+0.0025), but test_macro_f1 -0.0479 and test_mcc -0.0510 - already larger than
+the *entire* noise band exp 16-17 measured for the pre-900 config (test spread 0.0286). Per-class shows
+this is a genuine reshuffle, not one collapse: Colombia-PinkBourbon (0.822) and CostaRica-LaPastora
+(0.806) - both near-perfect at seed 42 - are the weak points here, while Brazil-Cerrado (0.988) and
+Brazil-MonteCristo (0.886) are unusually strong for once. Consistent with the original multi-seed check's
+finding that different seeds resolve different confusions, but the magnitude here is already a warning
+sign that patch_crop_size=900's noise band may be wider than 700's was - one more seed needed before
+concluding that, not enough on its own.
