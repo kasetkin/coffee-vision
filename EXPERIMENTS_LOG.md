@@ -513,3 +513,22 @@ better. Interesting side note: it converged much faster this way (best_epoch 9, 
 baseline) for essentially the same quality, so if training speed mattered more than squeezing out the
 last bit of accuracy, this combination would be a reasonable efficiency trade - it isn't given the
 current priority is quality. Reverted both to their exp 20 values (dropout=0.2, weight_decay=1e-4).
+
+### Exp 31: model_name resnet18->mobilenet_v3_small
+
+Completes the architecture comparison (the third option implemented in `coffeecv/model.py`, never tested
+in this log before). Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | model_name=resnet18 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 31 | model_name=mobilenet_v3_small | 0.8490 | 0.8321 | 0.8559 | 0.8380 | 12 | 20 |
+
+**Clear reject, not close.** val -0.1089, test_macro_f1 -0.0940, test_mcc -0.1061 - several times each
+noise band, the largest single-experiment gap in the whole log. Per-class damage is broad, not
+concentrated in the usual hard classes alone (even Vietnam-Robusta, perfect in every other experiment,
+dropped to 0.962). Makes sense: mobilenet_v3_small is designed for mobile/edge efficiency at the cost of
+capacity, and this is a fine-grained visual task (subtle bean surface/color/texture differences) that
+benefits from more model capacity, not less. resnet18 and efficientnet_b0 (exp 29) both clearly beat it.
+Reverted to model_name=resnet18. Architecture question now closed for this project's three implemented
+options - resnet18 wins outright.
