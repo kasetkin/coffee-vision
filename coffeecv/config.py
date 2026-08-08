@@ -52,7 +52,6 @@ class RunConfig:
     lr: float = 1e-3
     backbone_lr: float = 1e-5  # used only when freeze_mode != "full"
     weight_decay: float = 1e-4
-    scheduler: str = "cosine"
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":

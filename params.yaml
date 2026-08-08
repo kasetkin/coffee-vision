@@ -34,4 +34,3 @@ optimizer: adamw  # adamw | sgd
 lr: 0.001
 backbone_lr: 0.00001  # used only when freeze_mode != full
 weight_decay: 0.0001
-scheduler: cosine
