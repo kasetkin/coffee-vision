@@ -417,3 +417,23 @@ row (weight_decay, jitter, dropout) have now each nudged in a mildly positive-bu
 their own - if there's a real small effect being masked by single-seed noise here, it might only show up
 combined, but combining untested single-variable nudges breaks the one-variable-at-a-time discipline, so
 leaving this as a note rather than acting on it now.
+
+### Exp 26: label_smoothing 0.0->0.1
+
+Untested regularization knob. Same config as exp 20 otherwise. (Loss values are on a different scale than
+usual, ~0.6-0.77 vs the typical ~0.01-0.3 - expected, not a bug: label smoothing raises cross-entropy's
+achievable floor since targets are no longer one-hot.)
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | label_smoothing=0.0 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 26 | label_smoothing=0.1 | 0.9468 | 0.9410 | 0.9202 | 0.9097 | 16 | 24 |
+
+**Reject.** val -0.0111 (inside its 0.0216 band), but test_macro_f1 -0.0297 and test_mcc -0.0344 both
+clearly exceed their ~0.0286/0.0285 bands - a real effect, and val understates it. Per-class shows diffuse
+damage rather than one collapse: Kenya-AA down to 0.800, Brazil-MonteCristo back down to 0.847 (undoing
+exp 20's gain on exactly the class patch_crop_size=900 helped most). Label smoothing softens the target
+distribution, which trades away some of the model's ability to be confidently correct on the harder,
+more visually-similar classes - not a good trade here given how much of the remaining error is
+concentrated in genuine class confusion (MonteCristo/Cerrado/Tata) rather than overconfidence. Reverted
+to label_smoothing=0.0.
