@@ -555,3 +555,17 @@ nearly identical to each other every time - losing translation-augmentation dive
 whichever photos happen to be near the small end of the size distribution, rather than a general "too
 much context" problem. Reverted to patch_crop_size=900 - confirmed as the adopted optimum, not just the
 best value tried so far.
+
+### Exp 33: batch_size 32->64 (retest)
+
+Quick close-out retest of Phase 5 exp 12's old-dataset "no effect" finding, on the now-adopted config.
+Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | batch_size=32 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 33 | batch_size=64 | 0.9547 | 0.9503 | 0.9442 | 0.9381 | 24 | 32 |
+
+**No effect - not adopted, confirms the old finding transfers.** All four deltas small and negative
+(val -0.0032, test -0.0057/-0.0060), well inside noise. Took ~1.45x more compute to get there
+(best_epoch 24 vs 14). Same verdict as Phase 5 exp 12 on the old dataset. Reverted to batch_size=32.
