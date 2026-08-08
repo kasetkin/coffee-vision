@@ -16,7 +16,7 @@
   "dropout": 0.2,
   "label_smoothing": 0.0,
   "color_jitter_strength": 0.2,
-  "rotation_jitter_degrees": 0.0,
+  "rotation_jitter_degrees": 5.0,
   "zoom_scale_min": 1.0,
   "random_erasing_p": 0.0,
   "illum_gradient_strength": 0.0,
@@ -27,5 +27,13 @@
   "optimizer": "adamw",
   "lr": 0.001,
   "backbone_lr": 1e-05,
-  "weight_decay": 0.0001
+  "weight_decay": 0.0001,
+  "env": {
+    "torch_version": "2.13.0+cpu",
+    "torchvision_version": "0.28.0+cpu",
+    "git_commit": "cda7cd25a24c540acfc277efe09cd1a9936e4733",
+    "argv": [
+      "/workspace/coffeecv/train_baseline.py"
+    ]
+  }
 }

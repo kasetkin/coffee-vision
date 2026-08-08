@@ -1,0 +1,2 @@
+exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trained,changed_vs_baseline,note,created_at,git_commit
+36,rotation_jitter_5deg,42,0.9638,0.9595,0.9384,0.9323,19,27,rotation_jitter_degrees=5.0,"rotation_jitter_degrees=5.0, sampled from source photo (zero fill)",2026-08-08T20:27:16.835030+00:00,cda7cd25a24c540acfc277efe09cd1a9936e4733

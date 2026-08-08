@@ -876,3 +876,31 @@ needs source margin too, and the same trick applies - warp within a slightly lar
 back - but a mild `distortion_scale=0.2` needs up to ~90px of margin, which would leave ~26px of placement
 room, right at exp 32's edge. Hypothesis 4 therefore needs either a smaller distortion or an explicit
 decision to accept that trade; it is not testable as originally written. Deferred, not silently dropped.
+
+### Exp 36: rotation_jitter_degrees 0 -> 5
+
+First test of the redesigned rotation (small-angle jitter sampled from the source photo, zero invented
+pixels). Same config as exp 20 otherwise. Ran 19:24-20:27 UTC, 63 min.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | baseline (no jitter) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 36 | rotation_jitter_degrees=5.0 | 0.9638 | 0.9595 | 0.9384 | 0.9323 | 19 | 27 |
+
+**No measurable effect - not adopted.** val +0.0059/+0.0062, test -0.0115/-0.0118. Every delta is well
+inside the patch_crop_size=900 noise band (val 0.0144, test 0.0479/0.0510) - the largest is under a
+quarter of its band - and the two splits point in opposite directions, the shape of noise rather than a
+small real effect. It also cost ~23% more compute to get there (best_epoch 19 vs 14, 27 epochs vs 22),
+the same "not worth it even if it were free" pattern as exp 23/25/27/33.
+
+Per-class test f1: CostaRica-LaPastora, Ethiopia-Kochere and Vietnam-Robusta all 1.000; Guatemala-Tata
+0.964, Colombia-PinkBourbon 0.961; the weak end is Kenya-AA 0.865, Brazil-Cerrado 0.873, Brazil-MonteCristo
+0.874. MonteCristo is down from the 0.929 exp 20 recorded, but that class swung 0.76-0.94 across Phase 7
+depending on nothing in particular, so this is not evidence of anything on its own.
+
+**Caveat that survives this result**: +/-5 degrees also cut placement room 116px -> 40px, so in principle a
+real rotation gain and a real translation-diversity loss could be cancelling. Two reasons not to spend a
+run chasing that now: the result is *flat*, not negative, so any cancelling pair would both have to be
+small; and val moved up while test moved down, which is the signature of noise rather than of two opposed
+mechanisms. Recorded as the natural follow-up if rotation ever looks worth revisiting: +/-3 degrees keeps
+70px of room, so it separates the two at a milder rotation.
