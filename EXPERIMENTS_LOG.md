@@ -935,3 +935,41 @@ seeds: which specific confusions resolve is unstable run to run, even where the 
 Five classes are pinned at or near 1.000 on test in both runs (CostaRica-LaPastora, Ethiopia-Kochere,
 Vietnam-Robusta perfect; Colombia-PinkBourbon ~0.95-0.96), so essentially all remaining headroom on this
 dataset is the Brazil-Cerrado / Brazil-MonteCristo / Kenya-AA cluster.
+
+### Exp 38: zoom_scale_min 1.0 -> 0.7 (RandomResizedCrop, area 0.7-1.0)
+
+The plan's second required-minimum hypothesis, in its light form: zoom into a random sub-region of the
+already-extracted 900px patch before the final resize to 224. `ratio` pinned at 1.0 so this is a pure
+zoom and doesn't smuggle in aspect distortion as a second variable. Same config as exp 37 otherwise.
+Ran 21:16-22:55 UTC, 99 min.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 37 | baseline | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 38 | zoom_scale_min=0.7 | 0.9693 | 0.9657 | 0.9213 | 0.9169 | 40 | 48 |
+
+**Not adopted.** Every delta is technically inside its noise band, so the honest aggregate verdict is "no
+measurable effect" - but this is the least reassuring possible version of that. val moved +0.0114/+0.0124,
+about 80% of the way to its band; test moved -0.0286/-0.0272, and the two splits disagree in direction.
+That is exp 22's signature (backbone_lr 3x), not exp 24's clean flatness. It also cost **2.2x the compute**
+(best_epoch 40 vs 14, 48 epochs vs 22) and nearly hit the 50-epoch cap, so early stopping barely saved it.
+
+**Mechanism, and it follows directly from Phase 7's strongest finding.** `scale` is an area fraction, so
+area 0.7-1.0 is *linear* 0.837-1.0 - the model trains on effective fields of view between ~753px and
+900px. Phase 7 established that patch scale is the single most consequential variable in this project and
+that 900 is a real bracketed optimum: 700 was worse (exp 18 vs 20), 500 clearly worse (exp 19), 1000
+clearly worse (exp 32). Zooming in therefore doesn't add neutral diversity - it spends most of training
+at scales *known to be worse than the one being evaluated*, and `build_eval_transform` is deterministic at
+the full patch, so it also opens a train/eval scale mismatch that didn't exist before.
+
+Per-class test damage lands exactly where that predicts - on the classes that need the most context:
+Kenya-AA -0.141 (0.868 -> 0.727, its worst since exp 32's 0.667, which was also a patch-geometry failure)
+and **CostaRica-LaPastora -0.082, the first time that class has scored below 1.000 anywhere in this log**.
+Meanwhile val shows Guatemala-Tata +0.094 and Kenya-AA *+0.023* - the same class moving opposite ways on
+the two splits again.
+
+**Not worth a milder retest** (e.g. 0.9): the mechanism above says a smaller zoom range is just a weaker
+dose of the same mismatch, not a different treatment. The plan's heavier follow-up - drawing `crop_size`
+itself per patch at the sampling stage - is genuinely different in one respect (it can sample *larger*
+than 900, up to the ~1016px valid-region ceiling, instead of only smaller), so it remains open; but it
+inherits the same fixed-scale-eval mismatch, so it is not an obvious win either. Recorded, not run.
