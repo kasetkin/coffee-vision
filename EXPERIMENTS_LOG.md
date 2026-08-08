@@ -397,3 +397,23 @@ Useful confirmation though: the old rejection really was about the spatial-split
 not jitter itself being necessary - removing it here doesn't reproduce anything like Phase 4 exp 9's
 sharp val/test disagreement, it's just noise. Reverted to color_jitter_strength=0.2 (no clear reason to
 drop it, and it's free regularization).
+
+### Exp 25: dropout 0.2->0.4
+
+Untested regularization knob. Same config as exp 20 otherwise.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 20 | dropout=0.2 (baseline) | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 25 | dropout=0.4 | 0.9637 | 0.9596 | 0.9581 | 0.9538 | 37 | 45 |
+
+**Marginal, not adopted - not worth 2x cost.** All four metrics moved positively this time (unlike exp
+23/24's mixed directions), but every delta (val +0.0058, test +0.0082/+0.0097) sits well inside the noise
+bands - directionally encouraging but not distinguishable from noise on a single seed. Per-class: Kenya-AA
+ticked up again to 0.889 (best yet, matching exp 24's pattern), no regressions. But it took roughly double
+the compute to get there (best_epoch 37 vs 14, 45 vs 22 epochs run) - same shape as exp 23 and Phase 5
+exp 13 before it. Reverted to dropout=0.2. Worth flagging: three regularization/augmentation knobs in a
+row (weight_decay, jitter, dropout) have now each nudged in a mildly positive-but-noisy direction on
+their own - if there's a real small effect being masked by single-seed noise here, it might only show up
+combined, but combining untested single-variable nudges breaks the one-variable-at-a-time discipline, so
+leaving this as a note rather than acting on it now.
