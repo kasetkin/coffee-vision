@@ -685,3 +685,79 @@ and now a properly characterized noise band on the final adopted config, mirrori
 the old dataset. Phase 8 not yet started/scoped (candidates discussed with the user: chasing
 Brazil-MonteCristo's persistent weakness with more capture data, or validating against real unlabeled
 photos via the existing `coffeecv/infer.py` - to be decided in a future session).
+
+# Phase 8 (planned, not started) - Dataset augmentation
+
+Written 2026-08-08 for a future session to pick up cold. Focus: augmentation, not more hyperparameter
+tuning of the existing knobs (Phase 7 exhausted the reasonably-testable ones - see its closing summary).
+User's brief: concentrate on augmentation, at minimum test rotations and zoom, plus other hypotheses.
+
+**Starting point**: the Phase 7-adopted config as of exp 20/35 (resnet18, freeze_mode=none,
+patch_crop_size=900, epochs=50/early_stop_patience=8, lr=1e-3, backbone_lr=1e-5, weight_decay=1e-4,
+dropout=0.2, label_smoothing=0.0, color_jitter_strength=0.2, batch_size=32, seed=42). All augmentation
+changes below are train-transform-only (`coffeecv/transforms.py:build_train_transform`) - `build_eval_transform`
+stays deterministic/unaugmented, same as every phase so far.
+
+**Decision rule stays the same discipline as Phases 1-7, but use the wider, patch_crop_size=900-specific
+noise band** characterized in the section just above (val spread 0.0144, test_macro_f1 spread 0.0479,
+test_mcc spread 0.0510) as the significance bar - not the tighter pre-900 band from exp 16-17, which no
+longer applies to this config. Single seed=42 first pass per hypothesis, matching every phase so far;
+anything that looks like a real win should get a 3-seed check before being called adopted, given how much
+noise-band width itself has already moved once in this project (exp 32/34/35).
+
+## Hypothesis queue
+
+1. **Arbitrary-angle rotation (required minimum).** Current augmentation only does 0/90/180/270°
+   (`RandomRightAngleRotation` in transforms.py) - exact and lossless, deliberately chosen to avoid
+   interpolation/border artifacts. The domain rationale for rotation at all ("top-down photos of a bean
+   pile, no canonical up" - transforms.py's own docstring) applies just as well to arbitrary angles, not
+   just multiples of 90. Open implementation question to resolve at the top of the session: arbitrary
+   rotation of an already-square crop_size x crop_size patch leaves corners with no valid content, so
+   either (a) oversample a larger source crop at the dataset.py level (e.g. crop_size * 1.4) with margin
+   to rotate-then-center-crop back down with zero artifacts, or (b) rotate at the transform level with a
+   fill/border strategy and accept minor edge artifacts for a much simpler change confined to
+   transforms.py. Start with (b) for a fast first test (e.g. angle range +/-25 degrees) since it's a
+   same-file change; only invest in (a) if (b) shows promise but the border artifacts look like they're
+   capping the effect.
+
+2. **Zoom / scale augmentation (required minimum).** Directly motivated by Phase 7's single biggest
+   finding - patch_crop_size massively affects results, with a real (if noisy) optimum at 900. Cheapest
+   version: add a `RandomResizedCrop`-style step in `build_train_transform` that zooms into a random
+   sub-region of the already-extracted crop_size x crop_size patch (e.g. scale=(0.7, 1.0) of area) before
+   the final resize to 224 - pure transforms.py change, no dataset.py/geometry.py touch needed. This is
+   "digital zoom" within a fixed physical patch, not literally varying the real-world field of view
+   captured. A heavier follow-up, only worth it if the light version underdelivers: draw crop_size itself
+   from a range per patch at the dataset.py sampling stage (touches `MultiPhotoPatchDataset`/
+   `sample_patch_boxes`, which currently precompute one fixed-size box per sample at construction time) -
+   this would give genuine multi-scale training and might explain/absorb some of the per-photo variance
+   exp 32/34/35 found sensitive to the exact crop_size choice, rather than just resampling within one
+   fixed-size crop.
+
+3. **Random erasing / Cutout.** Randomly mask small rectangular regions of the patch during training.
+   Forces the model to rely on distributed texture cues rather than a few salient beans - worth trying
+   specifically because Brazil-MonteCristo (and its confusions with Guatemala-Tata/Brazil-Cerrado) have
+   been the one persistent weakness that no hyperparameter change in Phase 7 fixed. If this helps anything,
+   it's the best candidate to check per-class, not just the aggregate.
+
+4. **Mild perspective/affine jitter.** The capture rig is fixed/tripod-mounted (confirmed in Phase 7's
+   crop-pipeline work - rough tray bounding box varies <2% across all 180 photos), so there's zero
+   real camera-angle diversity in the training data as-is. A small synthetic perspective warp could help
+   generalize to a *future* capture session that isn't perfectly perpendicular, at the cost of being
+   pure synthetic diversity with no matching real examples to validate against yet.
+
+5. **Illumination/vignette augmentation.** Grounded in something concretely observed in this exact
+   project, not generic advice: the original adaptive crop heuristic broke specifically because of real
+   directional lighting drift over the ~2h 2026-08-07 capture session (see Phase 7's crop-pipeline
+   writeup). A synthetic lighting-gradient/vignette augmentation during training could build robustness to
+   whatever lighting a *future* session has, rather than just the (now-corrected-for) lighting this one
+   session happened to have.
+
+6. **Mixup / CutMix (lower priority, exploratory).** Well-established regularizers, but the physical
+   interpretation is less clean here than for natural image classes - blending two different origins'
+   bean piles doesn't obviously correspond to anything real. Worth a quick single test if budget remains
+   after the above, not a priority.
+
+**Not a fresh hypothesis, skip unless something above motivates revisiting it**: color jitter *intensity*
+was already swept (0.0 vs 0.2) at this exact patch_crop_size in Phase 7 exp 24, no effect found. Only
+worth another look if, e.g., the zoom or rotation work changes what the model is sensitive to enough to
+plausibly change that verdict.
