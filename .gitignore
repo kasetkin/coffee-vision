@@ -7,6 +7,11 @@ secrets.yaml
 /tools/__pycache__/
 __pycache__/
 /outputs/
+# dvc.yaml declares this metric `cache: false`, i.e. "versioned in git, not the
+# DVC cache" — the blanket /outputs/ ignore above was quietly making that a lie,
+# leaving each run's metrics tracked by neither. Un-ignored so `dvc metrics
+# diff` works across commits. Per-experiment copies also live in experiments/.
+!/outputs/metrics.json
 /tensorboard/
 /dvc_plots/
 *.pt

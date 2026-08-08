@@ -45,6 +45,15 @@ class RunConfig:
     label_smoothing: float = 0.0
     color_jitter_strength: float = 0.2
 
+    # Phase 8 augmentation knobs. Every default here is a no-op, so the whole
+    # block off reproduces the Phase 7 pipeline exactly (see transforms.py).
+    rotation_degrees: float = 0.0  # arbitrary-angle rotation range, +/- this many degrees
+    zoom_scale_min: float = 1.0  # RandomResizedCrop min *area* fraction; 1.0 = plain resize
+    random_erasing_p: float = 0.0  # probability of erasing a rectangle per patch
+    perspective_distortion: float = 0.0  # RandomPerspective distortion_scale
+    illum_gradient_strength: float = 0.0  # +/- fraction of a corner-to-corner luminance ramp
+    mixup_alpha: float = 0.0  # Beta(a, a) mixing strength; applied in the train loop, not a transform
+
     batch_size: int = 32
     epochs: int = 20
     early_stop_patience: int = 8  # stop if val_macro_f1 hasn't improved in this many epochs

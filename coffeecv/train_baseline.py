@@ -75,14 +75,26 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module):
     return np.concatenate(all_true), np.concatenate(all_pred), np.concatenate(all_losses)
 
 
-def train_one_epoch(model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module) -> float:
+def train_one_epoch(
+    model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module, mixup_alpha: float = 0.0
+) -> float:
+    """`mixup_alpha` > 0 enables mixup: blend each batch with a shuffled copy of
+    itself and take the correspondingly weighted loss against both label sets.
+    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8."""
     model.train()
     total_loss, n = 0.0, 0
     for x, y in tqdm(loader, desc="train", leave=False):
         x, y = x.to(DEVICE), y.to(DEVICE)
         optimizer.zero_grad()
-        logits = model(x)
-        loss = criterion(logits, y).mean()
+        if mixup_alpha > 0:
+            lam = float(np.random.beta(mixup_alpha, mixup_alpha))
+            perm = torch.randperm(x.size(0), device=DEVICE)
+            x = lam * x + (1.0 - lam) * x[perm]
+            logits = model(x)
+            loss = (lam * criterion(logits, y) + (1.0 - lam) * criterion(logits, y[perm])).mean()
+        else:
+            logits = model(x)
+            loss = criterion(logits, y).mean()
         loss.backward()
         optimizer.step()
         total_loss += loss.item() * x.size(0)
@@ -120,7 +132,15 @@ def main() -> None:
         patches_per_class=patches_per_class,
         photos_per_split=photos_per_split,
     )
-    train_transform = build_train_transform(cfg.patch_resize, cfg.color_jitter_strength)
+    train_transform = build_train_transform(
+        cfg.patch_resize,
+        cfg.color_jitter_strength,
+        rotation_degrees=cfg.rotation_degrees,
+        zoom_scale_min=cfg.zoom_scale_min,
+        random_erasing_p=cfg.random_erasing_p,
+        perspective_distortion=cfg.perspective_distortion,
+        illum_gradient_strength=cfg.illum_gradient_strength,
+    )
     train_ds = MultiPhotoPatchDataset(split="train", transform=train_transform, **common_kwargs)
     val_ds = MultiPhotoPatchDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
     test_ds = MultiPhotoPatchDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
@@ -167,7 +187,7 @@ def main() -> None:
     epochs_since_improvement = 0
 
     for epoch in range(1, cfg.epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion)
+        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, cfg.mixup_alpha)
         val_true, val_pred, val_losses = evaluate(model, val_loader, criterion)
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 
