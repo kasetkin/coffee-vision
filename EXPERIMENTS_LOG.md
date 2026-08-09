@@ -1775,3 +1775,64 @@ accommodates without touching anything global.
 scale and both massively exceed the current rig. The lowest-risk option that captures most of c's benefit is
 **format b framed tighter** - keep the box (positive boundary, trivial brightness-based detection) but fill
 more of the frame with it. Failing that, c with the ingest QA gate above.
+
+## Cross-rig generalization test: the model does NOT transfer (2026-08-09)
+
+First real test of the adopted model on a different capture rig - the format-c photo (frame-filling, no
+container). User confirmed afterwards that **the bean is one of the 9 trained classes**, and that it is
+neither of the model's top two predictions. So this is not an open-set problem; the correct answer was
+available and the model missed it completely.
+
+**Result: the prediction carries essentially no information.**
+
+| evidence | value |
+|---|---|
+| top-1 as shot | Vietnam-Robusta, p=0.755 (40 patches; 0.972 on the same beans in format b) |
+| probability given to the true class | **<= 0.0098** |
+| embedding distance to nearest class centre | **1.92x** vs 0.97 mean / 1.24 max over 27 held-out training photos |
+| embedding distance to *all* nine centres | 1.91-2.86x - roughly equidistant, top three within 0.08 |
+| effect of a 15% brightness change | **flips top-1 between Vietnam and Kenya** |
+
+The last row is the decisive one. A classifier whose answer flips between its top two classes under a 15%
+global brightness change is not discriminating beans - it is responding to global appearance. Both of the
+classes it oscillates between are wrong.
+
+### What was diagnosed
+
+- **White balance is not the problem.** Image c's R/G/B ratio is 1.170/1.021/0.810 against training's
+  1.179/1.022/0.799 - inside the training spread.
+- **Absolute brightness is.** Mean RGB [147,128,102] vs training [102,88,69]; the new photo is ~46% brighter
+  in grey mean (126 vs 86). Training augmented brightness by `color_jitter_strength=0.2`, i.e. a factor of
+  0.8-1.2, so the new rig sits well outside the range the model ever saw.
+- **Scale is a lesser factor**: the prediction was stable across patch sizes 700-1400, so the ~9% bean-scale
+  difference is not what broke it.
+
+### The one thing that *did* work: an out-of-distribution guard
+
+Penultimate-layer (512-d) embedding distance to the nearest training-class centre, normalized by that
+class's own spread, separates cleanly: 27 held-out training photos score mean 0.97 / p95 1.19 / max 1.24,
+while the new photo scores 1.92-1.94 across three seeds. A threshold around 1.4 would have refused this
+prediction rather than emitting a confident wrong answer, where **softmax confidence was useless** (0.97 on
+format b, indistinguishable from its in-distribution 0.997).
+
+Note what the guard does *not* do: the embedding is roughly equidistant from all nine classes, so it flags
+"do not trust this" without offering a usable alternative. Explicitly not guessing a third class here - the
+brightness experiment shows the outputs are arbitrary on this input, and a further guess would be false
+precision.
+
+### Implications
+
+1. **Cross-rig generalization is now measured, and it is nil.** Every accuracy number in this log
+   (test macro-F1 ~0.91-0.96) describes performance *on the 2026-08-07 rig only*. That was always the
+   caveat; it is now a measurement rather than a caveat.
+2. **Phase 8's hypothesis 5 (illumination) deserves revisiting on this evidence.** It was rejected in exp 40
+   for a small in-distribution cost, with the explicit note that its actual claim could not be validated
+   against a single-session test set. This is the missing evidence - though note exp 40 tested a *spatial
+   gradient*, whereas the failure here is a *global* brightness offset, which `color_jitter` nominally
+   covers but only to +/-20%.
+3. **Concrete candidate fix**: per-photo brightness normalization as a preprocessing step (not augmentation)
+   at both train and inference, normalizing grey mean while preserving R/G/B ratios - which keeps the bean
+   colour information that ratio carries. Must be tested, not assumed: absolute brightness may itself carry
+   some class signal, so this could cost in-distribution accuracy.
+4. **Ship the OOD guard regardless.** Refusing to predict is strictly better than a confident wrong answer,
+   and the threshold is empirically supported.
