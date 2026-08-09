@@ -1687,3 +1687,48 @@ segmentation, more usable pixels. As shot today, it is a step sideways or slight
 lighting is exactly the missing piece for Phase 8's hypotheses 4 and 5 (perspective jitter, illumination
 gradient). Both were left unvalidated because train/val/test all came from one 2h shoot, so the current test
 set structurally cannot measure robustness to a new session. These photos could measure it, once labelled.
+
+### Format b (black box, 1 test photo) - clearly the best option tested
+
+Second candidate format: matte-black rectangular box, beans filling it, even lighting, shot landscape
+(4080x3072). One photo only, so treat as indicative.
+
+| | current tray rig | format a (white cup) | **format b (black box)** |
+|---|---|---|---|
+| usable square | 1067px | 912-968px | **2280px** |
+| bean pixel scale (texture period) | 110px | 115px | 120px |
+| focus edge/centre | 0.43 | 0.62 | 0.46 |
+| detection reliability | good | **fails 2/6** | good (first try) |
+| bean fill of frame | high | ~15-20% | 59% |
+
+**Correction to a number quoted earlier in this session**: the first measurement of format b returned a
+2904px usable square. That was wrong - the texture-based detector had swallowed the black box walls, since
+matte black is as texture-free as the beans are textured, so the "bean" contour engulfed the whole box. Re-measured
+with an Otsu threshold on brightness (the natural discriminator for a black box) and verified visually: the
+honest figure is **2280px**, and even that rectangle is conservative - there is bean area outside it.
+
+**Why this is the format to pursue:**
+
+- **2.1x the usable square** of the current rig, at essentially the same bean pixel scale (120 vs 110px,
+  confirmed at 1:1 side by side). So the data stays comparable in kind while carrying ~4.6x more bean area
+  per photo - far more patch diversity per photo, and fewer photos needed per class for the same volume.
+- **It unblocks every geometry constraint this project has hit.** Valid region ~2212px after safety margin:
+  `patch_crop_size=900` gets 1312px of placement room (vs 167px today), and 1500px patches would still have
+  712px. Exp 32 rejected 1000px purely for want of placement room; that whole line reopens. Arbitrary-angle
+  rotation also becomes possible artifact-free - the approach ruled out in Phase 8 needs a source of
+  patch x 1.42 (1278px at patch 900), which now fits comfortably.
+- **Detection is easier, not harder.** The black box separates from beans by plain brightness (Otsu on V,
+  worked first try). No metal rim, no rim-depth measurement, no asymmetric trim.
+- Lighting is even - no hard shadows, which is what broke detection on 2 of 6 format-a photos and what broke
+  the original adaptive crop heuristic on the 2026-08-07 session.
+
+**Caveats before committing to it:**
+
+- **One photo.** Consistency across a real session (box position, fill level, lighting drift over a shoot)
+  is unverified, and that is exactly where the previous two rigs sprang surprises.
+- Bean scale is ~9% larger than current data, so this is a **retrain, not a transfer** - existing checkpoints
+  would not apply directly, though `patch_crop_size` semantics carry over well enough to reuse the tuning.
+- The current `locate_tray_rough` is texture-based and, as shown above, is the wrong detector here. A new
+  `method` is needed - but that is precisely what the per-session `<session>.crop.yaml` from Phase 9 is for:
+  add `method: dark_box` for the new session and nothing global changes. The architecture the user insisted
+  on (crop settings per session, not in `params.yaml`) pays off exactly here.
