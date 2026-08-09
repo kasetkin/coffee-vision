@@ -1585,3 +1585,49 @@ output, so it must be **gitignored** (126MB of JPEGs belong in DVC, not git) whi
 itself is **git-tracked** - DVC writes that file so a fresh clone knows to ignore the path. That is now the
 state, and an audit confirms every DVC output is correctly handled: all cached outs gitignored,
 `outputs/metrics.json` and `outputs/summary.json` git-tracked deliberately (they are `cache: false` metrics).
+
+### Step 7 attempt: `trim_frac` 0.10 -> 0.05 REJECTED at QA, and the premise is largely disproven
+
+Regenerated crops at `trim_frac: 0.05` (crops 1048px -> 1178px min width, valid region 1016 -> 1142px) and
+QA'd before training, as the plan required. **Visibly contaminated**: the tray rim is inside the crop on most
+classes - dark metal edges along the borders - which is exactly what the 10% trim exists to prevent. No
+training run was spent. Reverted via `git checkout HEAD -- dvc.lock *.crop.yaml && dvc checkout`, which
+restored the trim-0.10 crops from the DVC cache and is only possible *because* Phase 9 made crops a tracked
+stage output.
+
+Then measured rim depth properly rather than guessing an intermediate value: local-texture standard deviation
+(illumination-robust, unlike the saturation-Otsu the adaptive method uses), scanning inward from each edge of
+the rough tray box until bean texture starts, over **all 180 photos**.
+
+| side | max rim depth | p99 |
+|---|---|---|
+| left | 0.056 | 0.047 |
+| right | **0.063** | 0.062 |
+| top | 0.012 | 0.012 |
+| bottom | 0.011 | 0.011 |
+
+**Why 0.05 failed**: it sits below the right side's 0.063 worst case. Confirms the visual, and confirms the
+detector agrees with the eye.
+
+**The finding that matters, and it kills the original motivation.** The rim is deep (~0.06) on *both*
+horizontal sides but shallow (~0.012) top and bottom. So:
+
+- **Width has almost no reclaimable headroom.** The current symmetric 0.10 is close to right for the
+  horizontal axis; the rim genuinely occupies ~6% of the rough box on each side. Trimming to a safe
+  asymmetric value recovers at most ~7-8% width, not the ~12.5% the plan assumed from a symmetric 0.05.
+- **Height wastes ~20%** (trimming 0.10 where ~0.02 would do) - but height was never the constraint. The
+  valid region is ~1464px tall against a 900px patch, already 564px of placement room.
+
+Step 7 was motivated by relaxing the **photo-width ceiling** that capped `patch_crop_size` at 900, limited
+rotation jitter to ~6 degrees, and blocked the preferred rotation implementation. That ceiling is now shown
+to be a property of **how the tray was framed at capture**, not of how conservatively it was cropped. The
+tray fills the frame and its rim is genuinely ~6% deep per side; no re-cropping recovers meaningfully more
+bean width. **The real unlock is a re-framed capture session** (tray smaller in frame, or higher-resolution
+capture), which is a hardware/process change, not a parameter.
+
+Recorded rather than pursued: an asymmetric trim at a *tight* margin (worst case + 0.01, i.e. left 0.066 /
+right 0.073 / top 0.022 / bottom 0.021) would keep ~86% of width instead of 80% - about +7.6%, taking the
+tightest valid region ~1016 -> ~1137px, which would give `patch_crop_size=1000` ~137px of placement room
+instead of the ~17px that made exp 32 fail. That is a real experiment, but it buys a modest gain by spending
+most of the measured safety margin, and the texture detector's own error is unquantified. Not taken
+unilaterally.
