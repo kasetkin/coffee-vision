@@ -1,0 +1,420 @@
+{
+  "created_at": "2026-08-09T04:50:33.794572+00:00",
+  "class_ids": [
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008",
+    "009"
+  ],
+  "class_labels": {
+    "001": "Ethiopia,Sidamo",
+    "002": "Kenya,AA",
+    "003": "Colombia,PinkBourbon",
+    "004": "CostaRica,LaPastora",
+    "005": "Guatemala,Tata",
+    "006": "Brazil,Cerrado",
+    "007": "Brazil,MonteCristo",
+    "008": "Ethiopia,Kochere",
+    "009": "Vietnam,Robusta"
+  },
+  "epochs_trained": 22,
+  "best_epoch": 14,
+  "best_epoch_selection_metric": "val_macro_f1",
+  "splits": {
+    "val": {
+      "n_samples": 360,
+      "loss_mean": 0.14396673440933228,
+      "accuracy": 0.9611111111111111,
+      "macro_precision": 0.9628425474916704,
+      "macro_recall": 0.9611111111111111,
+      "macro_f1": 0.9608622973174056,
+      "mcc": 0.9565406598126137,
+      "per_class": {
+        "001": {
+          "label": "Ethiopia,Sidamo",
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9473684210526315,
+          "support": 40,
+          "loss_mean": 0.34283751249313354
+        },
+        "002": {
+          "label": "Kenya,AA",
+          "precision": 0.9090909090909091,
+          "recall": 1.0,
+          "f1": 0.9523809523809523,
+          "support": 40,
+          "loss_mean": 0.06345047056674957
+        },
+        "003": {
+          "label": "Colombia,PinkBourbon",
+          "precision": 0.8888888888888888,
+          "recall": 1.0,
+          "f1": 0.9411764705882353,
+          "support": 40,
+          "loss_mean": 0.045405738055706024
+        },
+        "004": {
+          "label": "CostaRica,LaPastora",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.05260896682739258
+        },
+        "005": {
+          "label": "Guatemala,Tata",
+          "precision": 0.918918918918919,
+          "recall": 0.85,
+          "f1": 0.8831168831168831,
+          "support": 40,
+          "loss_mean": 0.31910550594329834
+        },
+        "006": {
+          "label": "Brazil,Cerrado",
+          "precision": 0.975,
+          "recall": 0.975,
+          "f1": 0.975,
+          "support": 40,
+          "loss_mean": 0.09539423137903214
+        },
+        "007": {
+          "label": "Brazil,MonteCristo",
+          "precision": 0.9736842105263158,
+          "recall": 0.925,
+          "f1": 0.9487179487179487,
+          "support": 40,
+          "loss_mean": 0.3673017919063568
+        },
+        "008": {
+          "label": "Ethiopia,Kochere",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.006208909675478935
+        },
+        "009": {
+          "label": "Vietnam,Robusta",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.003387418109923601
+        }
+      },
+      "confusion_matrix": [
+        [
+          36,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          40,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          40,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          40,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          1,
+          0,
+          34,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          39,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          2,
+          1,
+          37,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          40,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          40
+        ]
+      ],
+      "confusion_matrix_row_order": [
+        "001",
+        "002",
+        "003",
+        "004",
+        "005",
+        "006",
+        "007",
+        "008",
+        "009"
+      ]
+    },
+    "test": {
+      "n_samples": 360,
+      "loss_mean": 0.12644997239112854,
+      "accuracy": 0.9694444444444444,
+      "macro_precision": 0.9705845636078195,
+      "macro_recall": 0.9694444444444446,
+      "macro_f1": 0.9694130574440949,
+      "mcc": 0.9657759142777051,
+      "per_class": {
+        "001": {
+          "label": "Ethiopia,Sidamo",
+          "precision": 0.9069767441860465,
+          "recall": 0.975,
+          "f1": 0.9397590361445783,
+          "support": 40,
+          "loss_mean": 0.12002654373645782
+        },
+        "002": {
+          "label": "Kenya,AA",
+          "precision": 0.972972972972973,
+          "recall": 0.9,
+          "f1": 0.935064935064935,
+          "support": 40,
+          "loss_mean": 0.27611440420150757
+        },
+        "003": {
+          "label": "Colombia,PinkBourbon",
+          "precision": 0.9743589743589743,
+          "recall": 0.95,
+          "f1": 0.9620253164556962,
+          "support": 40,
+          "loss_mean": 0.08996561914682388
+        },
+        "004": {
+          "label": "CostaRica,LaPastora",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.09730587154626846
+        },
+        "005": {
+          "label": "Guatemala,Tata",
+          "precision": 0.9523809523809523,
+          "recall": 1.0,
+          "f1": 0.975609756097561,
+          "support": 40,
+          "loss_mean": 0.07965622842311859
+        },
+        "006": {
+          "label": "Brazil,Cerrado",
+          "precision": 1.0,
+          "recall": 0.925,
+          "f1": 0.961038961038961,
+          "support": 40,
+          "loss_mean": 0.2468605935573578
+        },
+        "007": {
+          "label": "Brazil,MonteCristo",
+          "precision": 0.9285714285714286,
+          "recall": 0.975,
+          "f1": 0.9512195121951219,
+          "support": 40,
+          "loss_mean": 0.18986698985099792
+        },
+        "008": {
+          "label": "Ethiopia,Kochere",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.01386031974107027
+        },
+        "009": {
+          "label": "Vietnam,Robusta",
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 40,
+          "loss_mean": 0.02439313754439354
+        }
+      },
+      "confusion_matrix": [
+        [
+          39,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          36,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          38,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          40,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          40,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          37,
+          3,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          39,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          40,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          40
+        ]
+      ],
+      "confusion_matrix_row_order": [
+        "001",
+        "002",
+        "003",
+        "004",
+        "005",
+        "006",
+        "007",
+        "008",
+        "009"
+      ]
+    }
+  }
+}

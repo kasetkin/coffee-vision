@@ -36,10 +36,10 @@ stages:
         optimizer: adamw
         patch_crop_size: 900
         patch_resize: 224
-        random_erasing_p: 0.5
+        random_erasing_p: 0.75
         rotation_jitter_degrees: 0.0
         safety_margin: 0.97
-        seed: 7
+        seed: 42
         test_patches_per_class: 40
         test_photos_per_class: 3
         train_patches_per_class: 150
@@ -51,25 +51,25 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 38cd0c2c6878ec73d905dff47fa15b5a
+      md5: 6f489c974e9404ed31cc37d2d4a5eece
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: eb04f6ffca325da3bdc3574fc18076be
+      md5: 6bc7d6c6c4e0beddbed27a82d92b6751
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 1862fe40d02e677d9f8bce6a3bbd2d05
-      size: 7906
+      md5: 9deee87128e2a970aae39239c1da365c
+      size: 4555
     - path: outputs/metrics.json
       hash: md5
-      md5: 147b36c19cf9d458c8df4021ec3d5e83
-      size: 8159
+      md5: c31f93a5a7d1b2cdaad75d663b19b854
+      size: 8182
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 854638990ed6b7c3686edea8cf2662ff
+      md5: 6f7f55d18a8124dd23314cfafc5cbcf1
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 1b8c1a715415414936bc4fbdea2f3b47
+      md5: efef57065554db20e96c715051d53159
       size: 3263

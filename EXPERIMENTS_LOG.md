@@ -1121,3 +1121,32 @@ exceeds ~0.98, "best epoch" is being chosen among near-ties on a 360-patch/3-pho
 plausibly a real contributor to the wide test spread Phase 7 attributed to patch geometry alone. Worth
 addressing before further tuning: more val photos per class, or selecting on val loss (which keeps
 resolving after F1 saturates) rather than on macro-F1.
+
+### Exp 44: random_erasing_p 0.5 -> 0.75 (bracketing the adopted value)
+
+Same move as exp 19/20/32 made for `patch_crop_size`: having adopted a value, push past it to find out
+whether it's an optimum or just the first thing tried. Seed 42, compared against exp 39 (p=0.5, same seed)
+and exp 37 (no erasing, same seed). Ran 04:05-04:50 UTC, 45 min.
+
+| # | change (seed 42) | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 37 | no erasing | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 39 | random_erasing_p=0.5 | 0.9635 | 0.9597 | 0.9554 | 0.9509 | 29 | 37 |
+| 44 | random_erasing_p=0.75 | 0.9609 | 0.9565 | **0.9694** | **0.9658** | 14 | 22 |
+
+**Promising, not yet adopted - needs the same paired multi-seed treatment p=0.5 got.** vs p=0.5: val
+-0.0027 (flat), test **+0.0140/+0.0149**. vs no erasing at all: test +0.0195/+0.0217. test_macro_f1 0.9694
+is **the highest single-run test macro-F1 anywhere in this project's log** (previous best 0.9609, exp 24).
+
+Two things make this more interesting than the raw delta:
+- **It's cheaper, not more expensive.** best_epoch 14 and 22 epochs run - identical to the un-augmented
+  baseline, and a third less compute than p=0.5's 29/37. Every other "mildly positive" result in Phases 7-8
+  (exp 23, 25, 27, 30, 33, 39) cost 1.5-2.2x compute for its nudge. This is the first one that doesn't.
+- **val and test diverge in the useful direction.** val went slightly *down* while test went up - the
+  opposite of the exp 22 / exp 38 / seed-123 overfitting signature, and consistent with the val-saturation
+  finding above: with val near its ceiling, val deltas are becoming uninformative and test is the more
+  trustworthy signal at this end of the range.
+
+Explicitly not adopted on this evidence. Exp 39 looked good at seed 42 too (+0.0055) and only became
+credible once seeds 123 and 7 agreed; a single seed showing +0.0140 inside a 0.0479 band is exactly the
+kind of favourable draw exp 34/35 caught out. Exp 45 (p=0.75, seed 123) started to pair against exp 42.

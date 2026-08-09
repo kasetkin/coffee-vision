@@ -1,0 +1,5 @@
+{
+  "exp": "44",
+  "slug": "random_erasing_0.75",
+  "note": "random_erasing_p=0.75 (bracket the adopted 0.5)"
+}

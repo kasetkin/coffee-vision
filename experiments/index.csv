@@ -7,3 +7,4 @@ exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trai
 41,mixup_alpha_0.2,42,0.9517,0.9472,0.9391,0.9320,18,26,mixup_alpha=0.2,"mixup_alpha=0.2 (Beta(0.2,0.2) batch mixing, loss-level)",2026-08-09T01:50:59.111535+00:00,6a4a6302986246a6c2f9f41e144bd5d95c03cddd
 42,random_erasing_seed123,123,0.9917,0.9907,0.9098,0.9018,18,26,random_erasing_p=0.5; seed=123,"random_erasing_p=0.5, seed=123 (multi-seed check)",2026-08-09T02:46:05.320594+00:00,5e9646a455b2ba15fac025fac57ceb1f43a2bd19
 43,random_erasing_seed7,7,0.9749,0.9720,0.9553,0.9503,30,38,random_erasing_p=0.5; seed=7,"random_erasing_p=0.5, seed=7 (multi-seed check)",2026-08-09T04:03:32.657264+00:00,5e9646a455b2ba15fac025fac57ceb1f43a2bd19
+44,random_erasing_0.75,42,0.9609,0.9565,0.9694,0.9658,14,22,random_erasing_p=0.75,random_erasing_p=0.75 (bracket the adopted 0.5),2026-08-09T04:50:33.794572+00:00,629a8d20d44d28a199e343998d6c676f4658cb5d
