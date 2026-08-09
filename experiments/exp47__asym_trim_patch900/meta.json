@@ -1,0 +1,5 @@
+{
+  "exp": "47",
+  "slug": "asym_trim_patch900",
+  "note": "asymmetric per-side crop trim (valid region 1016->1067px), patch_crop_size=900"
+}

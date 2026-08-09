@@ -5,13 +5,13 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: e5d98e148d8a2f6ae5bbd0562a83ac0c.dir
-      size: 109959
+      md5: 1eae5eb68d52dba4696e842eef2d1e0e.dir
+      size: 111049
       nfiles: 16
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: 90c46c84cc23074494876c71818a5ed0.dir
-      size: 127469973
+      md5: ccb155e898a08749c2bf55c3c93f5073.dir
+      size: 151680104
       nfiles: 190
     - path: dataset/classes.txt
       hash: md5
@@ -51,31 +51,31 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 34535ca9aa17883e51e21fd726579235
+      md5: 54519d82cebeb3b4e5baaeb66b81d146
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: cc286a24d1d1cf4b66676dc77016f3b2
+      md5: 6d2eb8a346bb3229272fc5af3455b75f
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: fa7f1690390f53f37074670a53a636db
-      size: 7693
+      md5: fe065aa0e8843d498853af6ba1f388ef
+      size: 8097
     - path: outputs/metrics.json
       hash: md5
-      md5: a7c0f398eaea2caf973f0e1b3e1102e9
-      size: 8172
+      md5: 11fc6201d1f825d79018f429c35e245e
+      size: 8238
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 55f08db253674b969d4658b9f4725063
+      md5: 353133ea846fafc381d016c5678547e4
       size: 3263
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: ef96424f8d0bff649b2899bfe259b0d9
+      md5: acd0aef26fecc33584ac3a9bc025096f
       size: 3263
     - path: outputs/summary.json
       hash: md5
-      md5: 72b8bbadfb3027e73c01a57503d5c528
+      md5: 964fe9a7115f71039768f815a240d141
       size: 142
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 

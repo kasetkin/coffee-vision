@@ -36,6 +36,13 @@ ARCHIVED_FILES = [
     "predictions_test.csv",
 ]
 
+# Crop settings live per session (dataset/<session>.crop.yaml) rather than in
+# params.yaml, which is right -- they describe a rig, not the model -- but it
+# means a run's config.json does not record them. Exp 47 exposed this: it changed
+# the crop and compare_experiments still reported "nothing changed". Copied in so
+# each archived run states the data it was actually trained on.
+CROP_CONFIGS = sorted((REPO_ROOT / "dataset").glob("*.crop.yaml"))
+
 # Charts are *regenerated* from the archived metrics.json/history.json rather than
 # copied from outputs/plots/. Same output either way, but regenerating means a run
 # archived after outputs/ has been overwritten still gets its charts -- which is how
@@ -164,6 +171,9 @@ def archive(exp_id: str, slug: str, note: str) -> Path:
             shutil.copy2(src, exp_dir / name)
         else:
             print(f"WARNING: {src} missing, not archived")
+    for cfg_path in CROP_CONFIGS:
+        shutil.copy2(cfg_path, exp_dir / cfg_path.name)
+
     (exp_dir / "meta.json").write_text(
         json.dumps({"exp": exp_id, "slug": slug, "note": note}, indent=2) + "\n"
     )

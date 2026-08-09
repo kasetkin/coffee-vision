@@ -1910,3 +1910,30 @@ cost stays within its noise band. This inverts Phase 8's bar, where in-distribut
 correct while cross-rig could not be measured, and is wrong now that it can.
 
 Keep the paired multi-seed standard from Phase 8: sign consistency across seeds, not effect size on one run.
+
+### Exp 47: asymmetric crop trim, patch_crop_size unchanged at 900
+
+Isolates the crop change from any patch-size change. Wider crops (valid region 1016 -> 1067px) mean more
+placement room at patch 900: 116px -> 167px. Same params as exp 39 in every respect; only the session's
+crop config differs. Ran 12:04-13:28 UTC, 84 min.
+
+| # | crop | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 39 | symmetric 0.10 | 0.9635 | 0.9597 | 0.9554 | 0.9509 | 29 | 37 |
+| 47 | asymmetric per-side | 0.9581 | 0.9537 | **0.9554** | 0.9503 | 31 | 39 |
+
+**No effect - and that is the useful outcome here.** test_macro_f1 is identical to four decimals
+(-0.0000) and test_mcc -0.0006; val is down 0.0054/0.0061, comfortably inside its band. So the extra
+placement room bought nothing at patch 900, which is not surprising in hindsight: 116px was evidently
+already enough, and exp 32's failure was at 17px, an order of magnitude tighter.
+
+The point of the wider crop was never a direct win at patch 900 - it was to make `patch_crop_size=1000`
+testable at all (placement room 17px -> 67px). Exp 47's value is that it establishes the crop change is
+**neutral**, so any effect exp 48 shows can be attributed to patch size rather than to the crop. Not
+adopted or rejected on its own merits; kept, because it is the enabler and costs nothing.
+
+**Tooling gap this exposed, now fixed**: `compare_experiments 47 --vs 39` reported "changed: (nothing -
+identical config)". That is literally true - `params.yaml` is byte-identical, because crop settings live per
+session in `<session>.crop.yaml` by design. Correct architecture, incomplete record: a run's `config.json`
+had no trace of the data it was trained on. `archive_experiment.py` now copies the session crop configs into
+each archived run, so the record states the data as well as the hyperparameters.
