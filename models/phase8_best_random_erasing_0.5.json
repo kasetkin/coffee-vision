@@ -1,0 +1,65 @@
+{
+  "name": "phase8_best_random_erasing_0.5.pt",
+  "source_experiment": "exp39__random_erasing_0.5",
+  "why_this_one": "Phase 8 adopted config (resnet18, full fine-tune, patch_crop_size=900, random_erasing_p=0.5) at seed 42. Not the highest single test score ever recorded -- exp 44 hit 0.9694 -- but exp 44's setting was rejected when a paired second seed reversed its sign, so this is the best *confirmed* config.",
+  "expected_performance": {
+    "test_macro_f1_3seed_mean": 0.9402,
+    "test_macro_f1_3seed_range": [
+      0.9098,
+      0.9694
+    ],
+    "note": "Quote the range, not this run's number. Seed-to-seed spread (~0.048) exceeds most effects measured in this project."
+  },
+  "this_run": {
+    "seed": 42,
+    "val_macro_f1": 0.9635480370580718,
+    "test_macro_f1": 0.9554292902671987,
+    "test_mcc": 0.9508918794015621,
+    "best_epoch": 29,
+    "epochs_trained": 37
+  },
+  "training_config": {
+    "seed": 42,
+    "dataset_dir": "dataset/2026-08-07__box_pictures_all_classes",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "train_photos_per_class": 14,
+    "val_photos_per_class": 3,
+    "test_photos_per_class": 3,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "batch_size": 32,
+    "epochs": 50,
+    "early_stop_patience": 8,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001
+  },
+  "env": {
+    "torch_version": "2.13.0+cpu",
+    "torchvision_version": "0.28.0+cpu",
+    "git_commit": "6501b8daec8de8d8dd9ff9ae8a4d60779a43f73b",
+    "argv": [
+      "/workspace/coffeecv/train_baseline.py"
+    ]
+  },
+  "known_weaknesses": {
+    "Kenya,AA -> Ethiopia,Sidamo": "7/40 test patches misclassified in this direction",
+    "Brazil,Cerrado -> Brazil,MonteCristo": "7/40 test patches misclassified in this direction",
+    "note": "Those two directional confusions are ~87% of this model's total test error (16/360)."
+  }
+}

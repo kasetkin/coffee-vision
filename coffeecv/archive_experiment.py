@@ -36,6 +36,14 @@ ARCHIVED_FILES = [
     "predictions_test.csv",
 ]
 
+# Charts are *regenerated* from the archived metrics.json/history.json rather than
+# copied from outputs/plots/. Same output either way, but regenerating means a run
+# archived after outputs/ has been overwritten still gets its charts -- which is how
+# exp 36-45 got theirs backfilled. `patch_samples.png` is deliberately not archived:
+# it is drawn from the *val* dataset, so it is near-identical across runs that don't
+# change patch geometry, and at 3.3MB it would dominate the archive.
+PLOT_FILES = ["confusion_matrix_val.png", "confusion_matrix_test.png", "training_curves.png"]
+
 INDEX_COLUMNS = [
     "exp", "slug", "seed", "val_macro_f1", "val_mcc", "test_macro_f1", "test_mcc",
     "best_epoch", "epochs_trained", "changed_vs_baseline", "note", "created_at", "git_commit",
@@ -78,6 +86,40 @@ def _row_for(exp_dir: Path) -> dict | None:
         "created_at": metrics.get("created_at", ""),
         "git_commit": (config.get("env") or {}).get("git_commit", ""),
     }
+
+
+def regenerate_plots(exp_dir: Path) -> list[str]:
+    """Rebuild this experiment's charts from its own archived JSON.
+
+    Deliberately regenerated rather than copied: `outputs/plots/` holds only the
+    most recent run, so copying would have left every earlier experiment
+    chartless and unrecoverable. Everything these plots draw is already in
+    metrics.json (confusion matrices) and history.json (curves).
+    """
+    from coffeecv.plotting import plot_confusion_matrix, plot_training_curves
+
+    metrics = json.loads((exp_dir / "metrics.json").read_text())
+    class_ids = metrics["class_ids"]
+    class_labels = metrics["class_labels"]
+    written = []
+
+    for split in ("val", "test"):
+        cm = metrics["splits"][split].get("confusion_matrix")
+        if not cm:
+            continue
+        title = f"exp{exp_dir.name.split('__')[0][3:]} {split} confusion matrix"
+        if split == "val":
+            title += f" (epoch {metrics.get('best_epoch')})"
+        out = exp_dir / f"confusion_matrix_{split}.png"
+        plot_confusion_matrix(cm, class_ids, class_labels, out, title)
+        written.append(out.name)
+
+    history_file = exp_dir / "history.json"
+    if history_file.exists():
+        out = exp_dir / "training_curves.png"
+        plot_training_curves(json.loads(history_file.read_text()), out)
+        written.append(out.name)
+    return written
 
 
 def rebuild_index() -> int:
@@ -126,17 +168,31 @@ def archive(exp_id: str, slug: str, note: str) -> Path:
         json.dumps({"exp": exp_id, "slug": slug, "note": note}, indent=2) + "\n"
     )
 
+    plots = regenerate_plots(exp_dir)
     n = rebuild_index()
-    print(f"Archived to {exp_dir.relative_to(REPO_ROOT)}; index.csv now has {n} runs")
+    print(f"Archived to {exp_dir.relative_to(REPO_ROOT)} (+{len(plots)} charts); "
+          f"index.csv now has {n} runs")
     return exp_dir
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--id", required=True, help="experiment number, e.g. 36")
-    p.add_argument("--slug", required=True, help="short kebab/snake name, e.g. rotation_25deg")
+    p.add_argument("--id", help="experiment number, e.g. 36")
+    p.add_argument("--slug", help="short kebab/snake name, e.g. rotation_25deg")
     p.add_argument("--note", default="", help="one-line description of the change")
+    p.add_argument("--replot-all", action="store_true",
+                   help="regenerate charts for every already-archived experiment, then rebuild the index")
     args = p.parse_args()
+
+    if args.replot_all:
+        for exp_dir in sorted(d for d in EXPERIMENTS_DIR.iterdir() if d.is_dir()):
+            written = regenerate_plots(exp_dir)
+            print(f"{exp_dir.name}: {len(written)} charts")
+        print(f"index.csv now has {rebuild_index()} runs")
+        return
+
+    if not (args.id and args.slug):
+        p.error("--id and --slug are required unless --replot-all is given")
     archive(args.id, args.slug, args.note)
 
 

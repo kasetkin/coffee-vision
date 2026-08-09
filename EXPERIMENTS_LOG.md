@@ -1250,3 +1250,43 @@ validating every Phase 8 comparison and providing the first archived per-class b
   hyperparameter and augmentation work have not moved them much. This looks like a data problem (more or
   different capture angles for those classes) rather than a training-configuration one.
 - `git push` still not possible in this container (no SSH key) - everything is committed locally only.
+
+## Post-run: widening what gets kept from `outputs/` (2026-08-09 08:00 UTC)
+
+Reviewing `outputs/` (90MB) for anything else worth version control, on the user's prompt. Resolved:
+
+| artifact | size | decision |
+|---|---|---|
+| `plots/confusion_matrix_{val,test}.png` | 116K each | **archived per experiment** |
+| `plots/training_curves.png` | 80K | **archived per experiment** |
+| `plots/patch_samples.png` | 3.3M | **skipped** - drawn from the *val* set, so nearly identical between runs that don't change patch geometry; would be ~10x the rest of the archive |
+| `checkpoints/best.pt` | 43M | **adopted one pinned** to `models/` via `dvc add` + a git-tracked model card |
+| `checkpoints/last.pt` | 43M | skipped - the test split is only ever evaluated with `best.pt` |
+| `inference/*.json` | 168K | **rescued** to `experiments/inference_runs/` |
+
+**The charts are regenerated, not copied - which is what made backfilling possible.** `outputs/plots/` only
+ever holds the most recent run, so copying would have given charts to exp 45 alone and left exp 36-44
+permanently chartless. But everything those two plots draw is already archived: the confusion matrix lives
+in `metrics.json` and the curves in `history.json`. So `archive_experiment.py` now *rebuilds* them from the
+run's own JSON, and `--replot-all` backfilled all 10 experiments retroactively. Archive went 252KB -> 3.5MB.
+
+**What the confusion matrices immediately showed, which the per-class F1 table did not.** On the adopted
+config (exp 39), the entire test error is 16 patches out of 360, and 14 of those are just two *directional*
+confusions: Kenya-AA predicted as Ethiopia-Sidamo (7/40) and Brazil-Cerrado predicted as Brazil-MonteCristo
+(7/40). Both are one-way - Sidamo is never called Kenya, MonteCristo is never called Cerrado. A symmetric
+confusion suggests two classes that simply look alike; a one-way one suggests the model has learned a
+decision boundary that swallows one class into the other, which is a different (and more fixable) problem.
+Worth pointing the next session's data-collection effort at specifically.
+
+**On the checkpoint.** `.dvc/cache` currently holds ~4.7GB across ~90 checkpoints - every run this project
+has ever done is still on disk. But they are referenced only by *historical* `dvc.lock` commits, so `dvc gc`
+would delete all but the current one, silently and irreversibly (there is still no DVC remote). Pinning the
+adopted model as its own `dvc add` artifact puts a `.dvc` file in the working tree, which is what actually
+protects it. Deliberately pinned exp 39 and **not** exp 44's 0.9694 - the best confirmed config, not the
+best number, since exp 45 showed that number was a favourable draw.
+
+**Provenance gap found while rescuing the inference JSONs**: they record `crop_size`/`patch_resize`/
+`n_patches_per_image` but not *which checkpoint produced them* - no model hash, no git commit. They are
+Phase 6-era, so two adopted-config generations behind. Kept as a record that the analysis happened, flagged
+as not comparable to current numbers. `infer.py` should write the same `env` block `train_baseline.py`
+already writes, plus the checkpoint hash, if inference is re-run.

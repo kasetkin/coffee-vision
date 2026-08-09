@@ -6,14 +6,49 @@ holds the *latest* run's outputs). Before Phase 8 the only surviving trace of a
 finished experiment was the hand-written table in `EXPERIMENTS_LOG.md`.
 
 Split of responsibilities: **git holds the small stuff** (metrics, config,
-history, predictions — ~16KB per run, diffable and greppable), **DVC holds the
-bulk** (44MB checkpoints per run, via `dvc.lock`).
+history, predictions, charts — ~330KB per run), **DVC holds the bulk** (44MB
+checkpoints, via `dvc.lock` and `models/*.dvc`).
+
+Budget note, since charts are 95% of an archived run's size: the archive grows
+~330KB per experiment (3.5MB for the first 10). If that ever becomes unwelcome,
+the charts are the thing to drop — they are fully derived from the JSON beside
+them and `--replot-all` recreates them on demand.
+
+## The adopted model
+
+`models/phase8_best_random_erasing_0.5.pt` is DVC-tracked (git holds the `.dvc`
+pointer) with a git-tracked `.json` model card next to it recording provenance,
+expected performance as a *range*, and known failure modes.
+
+It is pinned deliberately rather than relied on via `dvc.lock` history: the DVC
+cache does still hold every run's checkpoint (~4.7GB, 90 of them), but those are
+referenced only by *historical* `dvc.lock` commits, so a `dvc gc` would delete
+them. A `.dvc` file in the working tree is what makes this one survive that.
+
+Note it is **not** the highest test score ever recorded — exp 44 scored 0.9694 —
+because exp 44's setting was rejected when a paired second seed reversed its
+sign. This is the best *confirmed* config, which is the one worth keeping.
 
 ## Contents
 
 - `exp<N>__<slug>/` — one directory per Phase 8 run: `metrics.json` (aggregate +
   per-class), `config.json` (full resolved config + torch/torchvision/git env),
-  `history.json` (per-epoch curves), `predictions_{val,test}.csv`, `meta.json`.
+  `history.json` (per-epoch curves), `predictions_{val,test}.csv`, `meta.json`,
+  and three charts: `confusion_matrix_{val,test}.png` and `training_curves.png`.
+
+  The charts are **regenerated** from that run's own `metrics.json`/`history.json`,
+  not copied from `outputs/plots/`. Same picture either way, but regenerating
+  means a run archived after `outputs/` was overwritten still gets its charts —
+  which is how exp 36-45 got theirs backfilled after the fact. Rebuild them all
+  any time with `python -m coffeecv.archive_experiment --replot-all`.
+
+  Deliberately **not** archived: `outputs/plots/patch_samples.png`. It is drawn
+  from the *val* dataset, so it barely changes between runs that don't touch
+  patch geometry, and at 3.3MB it would be ~10x the rest of the archive combined.
+
+- `inference_runs/` — rescued output of `coffeecv/infer.py` on the unlabeled
+  2026-08-06 session. See its README: these lack model provenance and are two
+  config generations old.
 - `index.csv` — one row per archived run. **Generated**, never hand-edited:
   `python -m coffeecv.archive_experiment` rebuilds it by scanning every
   `exp*/` directory, so a re-archived or deleted run can't leave a stale row.

@@ -1,0 +1,5 @@
+outs:
+- md5: 34535ca9aa17883e51e21fd726579235
+  size: 44795211
+  hash: md5
+  path: phase8_best_random_erasing_0.5.pt
