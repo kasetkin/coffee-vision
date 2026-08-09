@@ -4,3 +4,4 @@ exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trai
 38,zoom_scale_min_0.7,42,0.9693,0.9657,0.9213,0.9169,40,48,zoom_scale_min=0.7,"zoom_scale_min=0.7 (RandomResizedCrop area 0.7-1.0, ratio pinned 1.0)",2026-08-08T22:55:42.943303+00:00,65515f8893366f960aa50bf558d778feb03ad782
 39,random_erasing_0.5,42,0.9635,0.9597,0.9554,0.9509,29,37,random_erasing_p=0.5,"random_erasing_p=0.5 (scale 0.02-0.15 of area, after Normalize)",2026-08-09T00:12:18.404134+00:00,6501b8daec8de8d8dd9ff9ae8a4d60779a43f73b
 40,illum_gradient_0.2,42,0.9439,0.9377,0.9468,0.9412,12,20,illum_gradient_strength=0.2,illum_gradient_strength=0.2 (+/-20% directional luminance ramp),2026-08-09T00:55:12.189490+00:00,0c040202b4a757849eefead9b609dd23075855e6
+41,mixup_alpha_0.2,42,0.9517,0.9472,0.9391,0.9320,18,26,mixup_alpha=0.2,"mixup_alpha=0.2 (Beta(0.2,0.2) batch mixing, loss-level)",2026-08-09T01:50:59.111535+00:00,6a4a6302986246a6c2f9f41e144bd5d95c03cddd

@@ -1,0 +1,5 @@
+{
+  "exp": "41",
+  "slug": "mixup_alpha_0.2",
+  "note": "mixup_alpha=0.2 (Beta(0.2,0.2) batch mixing, loss-level)"
+}

@@ -1039,3 +1039,29 @@ all the same 2h shoot. It only measures the in-distribution price, which was the
 nothing" bar. The price is small but probably real, and the benefit remains entirely unvalidated. Verdict:
 leave it off, and revisit only once a second capture session exists to validate against - at which point
 the right test is "does a model trained with this do better on the *new* session", not this table.
+
+### Exp 41: mixup_alpha 0.0 -> 0.2
+
+Hypothesis 6, the plan's own lowest-priority item and the last of the first pass. Beta(0.2, 0.2) batch
+mixing with the correspondingly weighted loss against both label sets - a loss-level change in
+`train_one_epoch`, not a transform. Same config as exp 37 otherwise. Ran 00:56-01:51 UTC, 55 min.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 37 | baseline | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 41 | mixup_alpha=0.2 | 0.9517 | 0.9472 | 0.9391 | 0.9320 | 18 | 26 |
+
+**No effect - not adopted.** All four metrics mildly negative (val -0.0062/-0.0061, test -0.0108/-0.0121),
+every one comfortably inside its band. Uniformly-negative-but-inside-noise is a cleaner null than exp 38's
+split disagreement: nothing here suggests a real effect in either direction, just a mild consistent drag.
+~1.2x compute.
+
+Per-class test is mildly negative almost everywhere (Kenya-AA -0.042, Ethiopia-Sidamo -0.030, four more
+slightly down, three perfect classes unmoved, only Colombia-PinkBourbon +0.012) - diffuse rather than
+concentrated, matching the aggregate. Notably it moves Kenya-AA the *opposite* way from exp 39's random
+erasing (+0.036), so the two regularizers are not interchangeable despite both being "hide information
+from the model" strategies.
+
+Consistent with the plan's own stated scepticism: blending two origins' bean piles doesn't correspond to
+anything physical, unlike occluding part of one pile (exp 39), which is just a bean the camera didn't see.
+That distinction now has a small piece of evidence behind it rather than being purely a priori.
