@@ -27,15 +27,37 @@ class RunConfig:
     # raw session. The raw photos are `dvc add`-tracked data and are not read here;
     # which session the crops came from is recorded by the crop stage in dvc.yaml
     # and in data/cropped/<session>/crop_manifest.json.
-    cropped_dir: str = "data/cropped/2026-08-07__box_pictures_all_classes"
+    #
+    # Leave-one-rig-out: `train_rigs` are split into train/val/test at the photo
+    # level; `heldout_rig` contributes every one of its photos as a second,
+    # cross-rig test set and is never seen in training. Setting `heldout_rig` to
+    # "" disables the cross-rig split and reproduces a plain single-rig run.
+    train_rigs: tuple[str, ...] = (
+        "data/cropped/2026-08-07__box_pictures_all_classes",
+        "data/cropped/2026-08-09__pixel_cam",
+    )
+    heldout_rig: str = "data/cropped/2026-08-09__sony_cam"
     classes_file: str = "dataset/classes.txt"
 
     patch_crop_size: int = 512
     patch_resize: int = 224
     safety_margin: float = 0.97
+    # Edge length patches are stored at after extraction. Bounds memory: the
+    # 2026-08-09 rigs decode to 37-57 MB per photo, so holding whole photos would
+    # need ~18 GB across the four datasets. 0 means "keep full patch_crop_size"
+    # (single-rig, pre-Phase-11 behaviour). Keep this well above patch_resize so
+    # zoom augmentation crops into detail rather than upsampling.
+    patch_store_size: int = 448
     train_patches_per_class: int = 150
     val_patches_per_class: int = 40
     test_patches_per_class: int = 40
+    # The held-out rig gets a bigger patch budget than the in-distribution
+    # splits: it is the headline number of the whole phase, and at 40/class the
+    # measured noise band on macro-F1 is +/-0.048, wide enough to hide the effect
+    # sizes being chased. It also draws from 20 photos/class rather than 3, so
+    # the extra patches are spread over more independent photos rather than
+    # resampling the same few.
+    xrig_patches_per_class: int = 120
 
     # Photo-level split sizes for the multi-photo box-rig dataset (must sum to
     # the number of cropped photos per class -- 20 for 2026-08-07).
@@ -72,10 +94,18 @@ class RunConfig:
         with open(path) as f:
             raw = yaml.safe_load(f) or {}
         known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in raw.items() if k in known})
+        values = {k: v for k, v in raw.items() if k in known}
+        # YAML gives a list; the field is a tuple so the config stays hashable
+        # and cannot be mutated in place by a caller.
+        if isinstance(values.get("train_rigs"), list):
+            values["train_rigs"] = tuple(values["train_rigs"])
+        return cls(**values)
 
-    def resolve_paths(self) -> tuple[Path, Path]:
-        return REPO_ROOT / self.cropped_dir, REPO_ROOT / self.classes_file
+    def resolve_paths(self) -> tuple[list[Path], Path | None, Path]:
+        """(train rig dirs, held-out rig dir or None, classes file)."""
+        train = [REPO_ROOT / d for d in self.train_rigs]
+        heldout = (REPO_ROOT / self.heldout_rig) if self.heldout_rig else None
+        return train, heldout, REPO_ROOT / self.classes_file
 
 
 def set_seed(seed: int) -> None:

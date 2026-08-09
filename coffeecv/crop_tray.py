@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -301,6 +302,53 @@ def crop_dataset(
 
     n_flagged = sum(1 for r in reports if r.get("needs_review"))
     print(f"Cropped {len(reports)} images, {n_flagged} flagged for review.")
+    (out_dir / "crop_report.json").write_text(json.dumps(reports, indent=2))
+    return reports
+
+
+def crop_dataset_passthrough(images_dir: Path, out_dir: Path) -> list[dict]:
+    """No-crop 'crop' for frame-filling rigs, so every session still flows through
+    the same pipeline stage and naming convention.
+
+    The 2026-08-09 pixel_cam and sony_cam rigs photograph beans edge to edge --
+    all 360 frames were verified to contain no container, table or hand -- so
+    there is no tray to find and any trim would only discard good data.
+
+    A byte-exact file copy: the pixels are already what training should see, so
+    re-encoding would only cost a JPEG generation.
+
+    EXIF orientation is deliberately *not* applied. Bean texture has no canonical
+    "up" -- the training pipeline already samples right-angle rotations and
+    mirrors -- so normalising orientation would buy nothing and would couple the
+    pipeline to metadata being present and correct on every future rig. The
+    loader reads pixels without consulting EXIF, and that is the intended
+    behaviour, not an oversight to patch here.
+    """
+    from PIL import Image
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    image_paths = sorted(
+        p for p in images_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg")
+    )
+    if not image_paths:
+        raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
+
+    reports = []
+    for p in image_paths:
+        entry = {"file": p.name}
+        try:
+            out_path = out_dir / (p.stem + "__cropped.jpg")
+            shutil.copy2(p, out_path)
+            with Image.open(out_path) as im:
+                entry["size"] = list(im.size)
+            entry.update({"out_path": str(out_path), "needs_review": False, "error": None})
+        except Exception as e:
+            entry["error"] = str(e)
+            entry["needs_review"] = True
+        reports.append(entry)
+
+    n_flagged = sum(1 for r in reports if r.get("needs_review"))
+    print(f"Passed through {len(reports)} images byte-for-byte, {n_flagged} flagged for review.")
     (out_dir / "crop_report.json").write_text(json.dumps(reports, indent=2))
     return reports
 

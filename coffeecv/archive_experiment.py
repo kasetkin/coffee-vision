@@ -34,6 +34,7 @@ ARCHIVED_FILES = [
     "history.json",
     "predictions_val.csv",
     "predictions_test.csv",
+    "predictions_xrig.csv",  # held-out rig; absent on single-rig runs
 ]
 
 # Crop settings live per session (dataset/<session>.crop.yaml) rather than in
@@ -53,6 +54,9 @@ PLOT_FILES = ["confusion_matrix_val.png", "confusion_matrix_test.png", "training
 
 INDEX_COLUMNS = [
     "exp", "slug", "seed", "val_macro_f1", "val_mcc", "test_macro_f1", "test_mcc",
+    # Cross-rig columns are blank for pre-Phase-11 runs, which had no held-out
+    # rig. Blank means "not measured", never "scored zero".
+    "xrig_macro_f1", "xrig_mcc", "heldout_rig",
     "best_epoch", "epochs_trained", "changed_vs_baseline", "note", "created_at", "git_commit",
 ]
 
@@ -78,6 +82,7 @@ def _row_for(exp_dir: Path) -> dict | None:
     config = json.loads(config_file.read_text())
     meta = json.loads((exp_dir / "meta.json").read_text()) if (exp_dir / "meta.json").exists() else {}
     val, test = metrics["splits"]["val"], metrics["splits"]["test"]
+    xrig = metrics["splits"].get("test_xrig")
     return {
         "exp": meta.get("exp", exp_dir.name.split("__")[0]),
         "slug": meta.get("slug", exp_dir.name.split("__", 1)[-1]),
@@ -86,6 +91,9 @@ def _row_for(exp_dir: Path) -> dict | None:
         "val_mcc": f"{val['mcc']:.4f}",
         "test_macro_f1": f"{test['macro_f1']:.4f}",
         "test_mcc": f"{test['mcc']:.4f}",
+        "xrig_macro_f1": f"{xrig['macro_f1']:.4f}" if xrig else "",
+        "xrig_mcc": f"{xrig['mcc']:.4f}" if xrig else "",
+        "heldout_rig": (metrics.get("rigs") or {}).get("heldout") or "",
         "best_epoch": metrics.get("best_epoch"),
         "epochs_trained": metrics.get("epochs_trained"),
         "changed_vs_baseline": _changed_vs_baseline(config),

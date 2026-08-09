@@ -68,16 +68,28 @@ def build_metrics_json(
     best_epoch: int,
     val_metrics: dict,
     test_metrics: dict,
+    xrig_metrics: dict | None = None,
+    rigs: dict | None = None,
 ) -> dict:
-    return {
+    splits = {"val": val_metrics, "test": test_metrics}
+    if xrig_metrics is not None:
+        # Held-out rig: a camera/format the model never trained on. Kept as its
+        # own split rather than folded into `test`, because the two answer
+        # different questions and a change can easily improve one and cost the
+        # other.
+        splits["test_xrig"] = xrig_metrics
+    out = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "class_ids": class_ids,
         "class_labels": {cid: class_labels.get(cid, cid) for cid in class_ids},
         "epochs_trained": epochs_trained,
         "best_epoch": best_epoch,
         "best_epoch_selection_metric": "val_macro_f1",
-        "splits": {"val": val_metrics, "test": test_metrics},
+        "splits": splits,
     }
+    if rigs is not None:
+        out["rigs"] = rigs
+    return out
 
 
 def build_summary_json(metrics_json: dict) -> dict:
@@ -89,8 +101,9 @@ def build_summary_json(metrics_json: dict) -> dict:
     commits fits on a screen. The full per-class detail stays in metrics.json and in
     the experiments/ archive; this is for scanning, not for analysis.
     """
-    val, test = metrics_json["splits"]["val"], metrics_json["splits"]["test"]
-    return {
+    splits = metrics_json["splits"]
+    val, test = splits["val"], splits["test"]
+    out = {
         "val_macro_f1": round(val["macro_f1"], 4),
         "val_mcc": round(val["mcc"], 4),
         "test_macro_f1": round(test["macro_f1"], 4),
@@ -98,6 +111,14 @@ def build_summary_json(metrics_json: dict) -> dict:
         "best_epoch": metrics_json["best_epoch"],
         "epochs_trained": metrics_json["epochs_trained"],
     }
+    if "test_xrig" in splits:
+        # The headline generalization number, kept in the flat view so it lands
+        # in `dvc exp show` and the VS Code experiments table next to the
+        # in-distribution figures it should be read against.
+        xrig = splits["test_xrig"]
+        out["xrig_macro_f1"] = round(xrig["macro_f1"], 4)
+        out["xrig_mcc"] = round(xrig["mcc"], 4)
+    return out
 
 
 def write_predictions_csv(path: Path, y_true: np.ndarray, y_pred: np.ndarray, class_ids: list[str]) -> None:

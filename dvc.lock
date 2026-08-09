@@ -83,12 +83,12 @@ stages:
     deps:
     - path: coffeecv/crop_session.py
       hash: md5
-      md5: ffc33eebb1e06ed3d4d22c239585e94c
-      size: 3710
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: aea6b83f6b8df4baeadfe53eaccd9bc3
-      size: 20495
+      md5: b6dd5fdbe13a1a640e1565ec20ab3537
+      size: 22587
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: cc2f6d9fe926a012cf1330b808220889.dir
@@ -103,4 +103,56 @@ stages:
       hash: md5
       md5: ccb155e898a08749c2bf55c3c93f5073.dir
       size: 151680104
+      nfiles: 190
+  crop@2026-08-09__pixel_cam:
+    cmd: python -m coffeecv.crop_session --session 2026-08-09__pixel_cam
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: b6dd5fdbe13a1a640e1565ec20ab3537
+      size: 22587
+    - path: dataset/2026-08-09__pixel_cam
+      hash: md5
+      md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
+      size: 434695623
+      nfiles: 180
+    - path: dataset/2026-08-09__pixel_cam.crop.yaml
+      hash: md5
+      md5: bcbb473a98b7c8af3d8a42b8a160e47e
+      size: 1199
+    outs:
+    - path: data/cropped/2026-08-09__pixel_cam
+      hash: md5
+      md5: df4345ee13d4fcf357e567fea1120093.dir
+      size: 434744091
+      nfiles: 190
+  crop@2026-08-09__sony_cam:
+    cmd: python -m coffeecv.crop_session --session 2026-08-09__sony_cam
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: b6dd5fdbe13a1a640e1565ec20ab3537
+      size: 22587
+    - path: dataset/2026-08-09__sony_cam
+      hash: md5
+      md5: d9e73dda514dadd8597a74650fd93434.dir
+      size: 970211492
+      nfiles: 180
+    - path: dataset/2026-08-09__sony_cam.crop.yaml
+      hash: md5
+      md5: a913e0ae2b3af246e8333c1b5e564a37
+      size: 1603
+    outs:
+    - path: data/cropped/2026-08-09__sony_cam
+      hash: md5
+      md5: a066ff29bcda32aca6fc800242418f63.dir
+      size: 970258699
       nfiles: 190

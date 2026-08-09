@@ -21,7 +21,12 @@ from coffeecv.config import (
     config_to_dict,
     set_seed,
 )
-from coffeecv.dataset import MultiPhotoPatchDataset, discover_classes_multi, load_class_labels
+from coffeecv.dataset import (
+    MultiPhotoPatchDataset,
+    discover_classes_multi,
+    load_class_labels,
+    resolve_rigs,
+)
 from coffeecv.metrics import (
     build_metrics_json,
     build_summary_json,
@@ -112,13 +117,18 @@ def main() -> None:
     cfg = apply_overrides(RunConfig.from_params_yaml(), args)
     set_seed(cfg.seed)
 
-    cropped_dir, classes_file = cfg.resolve_paths()
-    class_ids = discover_classes_multi(cropped_dir)
+    train_rig_dirs, heldout_rig_dir, classes_file = cfg.resolve_paths()
+    train_rigs = resolve_rigs(train_rig_dirs)
+    heldout_rig = resolve_rigs([heldout_rig_dir])[0] if heldout_rig_dir else None
+    class_ids = discover_classes_multi(train_rigs[0].cropped_dir)
     class_labels = load_class_labels(classes_file)
+    print(f"train rigs: {[r.name for r in train_rigs]}")
+    print(f"held-out rig: {heldout_rig.name if heldout_rig else '(none)'}")
     patches_per_class = {
         "train": cfg.train_patches_per_class,
         "val": cfg.val_patches_per_class,
         "test": cfg.test_patches_per_class,
+        "all": cfg.xrig_patches_per_class,
     }
     photos_per_split = {
         "train": cfg.train_photos_per_class,
@@ -127,7 +137,7 @@ def main() -> None:
     }
 
     common_kwargs = dict(
-        cropped_dir=cropped_dir,
+        rigs=train_rigs,
         classes_file=classes_file,
         class_ids=class_ids,
         seed=cfg.seed,
@@ -136,6 +146,7 @@ def main() -> None:
         safety_margin=cfg.safety_margin,
         patches_per_class=patches_per_class,
         photos_per_split=photos_per_split,
+        patch_store_size=cfg.patch_store_size or None,
     )
     train_transform = build_train_transform(
         cfg.patch_resize,
@@ -148,13 +159,32 @@ def main() -> None:
         split="train", transform=train_transform,
         rotation_jitter_degrees=cfg.rotation_jitter_degrees, **common_kwargs,
     )
-    val_ds = MultiPhotoPatchDataset(split="val", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
-    test_ds = MultiPhotoPatchDataset(split="test", transform=build_eval_transform(cfg.patch_resize), **common_kwargs)
+    eval_transform = build_eval_transform(cfg.patch_resize)
+    val_ds = MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
+    test_ds = MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
+
+    # The cross-rig test set: every photo of a rig the model never trained on.
+    # This is the headline generalization number; `test_ds` above stays as the
+    # in-distribution control, so a change that trades one for the other is
+    # visible rather than hidden behind a single metric.
+    xrig_ds = (
+        MultiPhotoPatchDataset(
+            **{**common_kwargs, "rigs": [heldout_rig]},
+            split="all", transform=eval_transform,
+        )
+        if heldout_rig else None
+    )
 
     gen = torch.Generator().manual_seed(cfg.seed)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, generator=gen)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
+    xrig_loader = (
+        DataLoader(xrig_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
+        if xrig_ds else None
+    )
+    print(f"patches: train={len(train_ds)} val={len(val_ds)} test={len(test_ds)}"
+          + (f" xrig={len(xrig_ds)}" if xrig_ds else ""))
 
     model, head_module = build_model(
         cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout
@@ -198,14 +228,26 @@ def main() -> None:
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 
         current_lr = optimizer.param_groups[0]["lr"]
-        history.append({
+        epoch_row = {
             "epoch": epoch,
             "train_loss": train_loss,
             "val_loss": val_metrics["loss_mean"],
             "val_macro_f1": val_metrics["macro_f1"],
             "val_mcc": val_metrics["mcc"],
             "lr": current_lr,
-        })
+        }
+        if xrig_loader is not None:
+            # Recorded per epoch purely so the val/cross-rig gap is visible as a
+            # curve -- it is the whole subject of Phase 11. It is NOT used for
+            # checkpoint selection or early stopping: `best_epoch` is chosen on
+            # val_macro_f1 alone (see below), so the held-out rig never
+            # influences training. Treating it as a selection signal would make
+            # the reported transfer number meaningless.
+            xr_true, xr_pred, xr_losses = evaluate(model, xrig_loader, criterion)
+            xr = compute_split_metrics(xr_true, xr_pred, xr_losses, class_ids, class_labels)
+            epoch_row["xrig_macro_f1"] = xr["macro_f1"]
+            epoch_row["xrig_loss"] = xr["loss_mean"]
+        history.append(epoch_row)
         print(
             f"epoch {epoch}/{cfg.epochs}  train_loss={train_loss:.4f}  "
             f"val_loss={val_metrics['loss_mean']:.4f}  val_macro_f1={val_metrics['macro_f1']:.4f}  "
@@ -248,15 +290,34 @@ def main() -> None:
     test_true, test_pred, test_losses = evaluate(model, test_loader, criterion)
     test_metrics = compute_split_metrics(test_true, test_pred, test_losses, class_ids, class_labels)
 
+    xrig_metrics = None
+    if xrig_loader is not None:
+        xrig_true, xrig_pred, xrig_losses = evaluate(model, xrig_loader, criterion)
+        xrig_metrics = compute_split_metrics(
+            xrig_true, xrig_pred, xrig_losses, class_ids, class_labels
+        )
+
     metrics_json = build_metrics_json(
         class_ids, class_labels, epochs_trained=epoch, best_epoch=best_epoch,
         val_metrics=best_val_metrics, test_metrics=test_metrics,
+        xrig_metrics=xrig_metrics,
+        rigs={
+            "train": [r.name for r in train_rigs],
+            "heldout": heldout_rig.name if heldout_rig else None,
+        },
     )
     (OUTPUTS_DIR / "metrics.json").write_text(json.dumps(metrics_json, indent=2))
     (OUTPUTS_DIR / "summary.json").write_text(json.dumps(build_summary_json(metrics_json), indent=2))
 
     write_predictions_csv(OUTPUTS_DIR / "predictions_val.csv", best_val_true, best_val_pred, class_ids)
     write_predictions_csv(OUTPUTS_DIR / "predictions_test.csv", test_true, test_pred, class_ids)
+    if xrig_metrics is not None:
+        write_predictions_csv(OUTPUTS_DIR / "predictions_xrig.csv", xrig_true, xrig_pred, class_ids)
+        plot_confusion_matrix(
+            xrig_metrics["confusion_matrix"], class_ids, class_labels,
+            PLOTS_DIR / "confusion_matrix_xrig.png",
+            f"Cross-rig confusion matrix (held out: {heldout_rig.name})",
+        )
 
     plot_confusion_matrix(
         best_val_metrics["confusion_matrix"], class_ids, class_labels,

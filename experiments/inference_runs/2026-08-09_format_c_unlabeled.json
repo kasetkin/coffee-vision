@@ -1,6 +1,7 @@
 {
   "image": "dataset/2026-08-09__test_new_format/c/PXL_20260809_123148443.jpg",
   "image_md5": "3a586a2c60819b5b21fe3f31f8c5f795",
+  "image_deleted": "2026-08-09: the exploratory a/b/c format-test folder was deleted once the full labelled pixel_cam and sony_cam sessions superseded it. This run's numbers stand as recorded; the source frame is no longer on disk and was never DVC-tracked, so it cannot be re-run. The same capture format is now represented by the 2026-08-09__pixel_cam session (same camera, same frame-filling format, 180 labelled photos).",
   "checkpoint": "models/phase8_best_random_erasing_0.5.pt",
   "checkpoint_md5": "34535ca9aa17883e51e21fd726579235",
   "git_commit": "132f475af48153d51e68f3859df3bfbb0339034e",

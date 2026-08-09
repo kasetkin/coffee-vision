@@ -17,7 +17,11 @@ from pathlib import Path
 import yaml
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.crop_tray import crop_dataset, crop_dataset_fixed_trim
+from coffeecv.crop_tray import (
+    crop_dataset,
+    crop_dataset_fixed_trim,
+    crop_dataset_passthrough,
+)
 
 RAW_ROOT = REPO_ROOT / "dataset"
 CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
@@ -32,7 +36,7 @@ def load_crop_config(session: str) -> dict:
         )
     cfg = yaml.safe_load(path.read_text()) or {}
     if "method" not in cfg:
-        raise ValueError(f"{path} must set `method` (fixed_trim | adaptive)")
+        raise ValueError(f"{path} must set `method` (fixed_trim | adaptive | none)")
     return cfg
 
 
@@ -59,6 +63,8 @@ def crop_session(session: str) -> dict:
                 class_dir, out_dir,
                 border_max_contamination=float(cfg.get("border_max_contamination", 0.22)),
             )
+        elif method == "none":
+            reports = crop_dataset_passthrough(class_dir, out_dir)
         else:
             raise ValueError(f"Unknown crop method {method!r} in {session}.crop.yaml")
 

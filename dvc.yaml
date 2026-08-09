@@ -8,6 +8,8 @@ stages:
   crop:
     foreach:
       - 2026-08-07__box_pictures_all_classes
+      - 2026-08-09__pixel_cam
+      - 2026-08-09__sony_cam
     do:
       cmd: python -m coffeecv.crop_session --session ${item}
       deps:
@@ -26,7 +28,14 @@ stages:
       # is what the DAG must depend on. Before Phase 9 this pointed at the raw
       # photos while the crops were dvcignored, which made the pipeline
       # unreproducible anywhere the crops didn't already exist on disk.
+      #
+      # All three rigs are deps regardless of which one params.yaml holds out:
+      # the leave-one-rig-out fold is a *parameter* change, so a fold that swaps
+      # the held-out rig must invalidate the stage. Listing only the current
+      # fold's rigs would let a fold switch reuse a stale run.
       - data/cropped/2026-08-07__box_pictures_all_classes
+      - data/cropped/2026-08-09__pixel_cam
+      - data/cropped/2026-08-09__sony_cam
       - dataset/classes.txt
     params:
       - params.yaml:
@@ -55,11 +64,21 @@ stages:
       - outputs/history.json:
           x: epoch
           y: val_macro_f1
+      # The Phase 11 chart that matters: in-distribution val against the held-out
+      # rig, epoch by epoch. A model that learns the rig rather than the bean
+      # shows here as the two curves separating.
+      - outputs/history.json:
+          x: epoch
+          y: xrig_macro_f1
       - outputs/predictions_val.csv:
           template: confusion
           x: true_label
           y: pred_label
       - outputs/predictions_test.csv:
+          template: confusion
+          x: true_label
+          y: pred_label
+      - outputs/predictions_xrig.csv:
           template: confusion
           x: true_label
           y: pred_label
