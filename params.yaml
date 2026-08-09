@@ -29,8 +29,8 @@ color_jitter_strength: 0.2
 # Augmentation (Phase 8). Every value here is a no-op at the setting shown;
 # the Phase 7 baseline is this whole block off.
 rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch sampling (max ~6 here)
-zoom_scale_min: 0.7          # RandomResizedCrop min area fraction (1.0 = plain resize)
-random_erasing_p: 0.0        # per-patch probability of erasing a rectangle
+zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)
+random_erasing_p: 0.5        # per-patch probability of erasing a rectangle
 illum_gradient_strength: 0.0 # +/- fraction of a corner-to-corner luminance ramp
 mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a transform)
 

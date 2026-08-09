@@ -973,3 +973,34 @@ dose of the same mismatch, not a different treatment. The plan's heavier follow-
 itself per patch at the sampling stage - is genuinely different in one respect (it can sample *larger*
 than 900, up to the ~1016px valid-region ceiling, instead of only smaller), so it remains open; but it
 inherits the same fixed-scale-eval mismatch, so it is not an obvious win either. Recorded, not run.
+
+### Exp 39: random_erasing_p 0.0 -> 0.5
+
+Hypothesis 3: mask small rectangles during training to force reliance on distributed texture rather than
+a few salient beans. Erased region is 2-15% of patch area, applied after `Normalize` so the hole is the
+ImageNet mean colour - unlike the rejected rotation fill, an information-free region is the *point* here,
+not an artifact. Same config as exp 37 otherwise. Ran 22:57-00:12 UTC, 75 min.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 37 | baseline | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 39 | random_erasing_p=0.5 | 0.9635 | 0.9597 | 0.9554 | 0.9509 | 29 | 37 |
+
+**Mildly positive on every metric, but inside noise - the best Phase 8 candidate so far, and the only one
+that has earned a multi-seed check.** val +0.0057/+0.0064, test +0.0056/+0.0068. Each delta is ~40% of its
+val band and ~12% of its test band, so no single number is remotely significant on its own. What separates
+this from exp 36 and 38 is *coherence*: all four metrics moved the same direction, and val and test agree
+for the first time in Phase 8. Cost ~1.7x compute (best_epoch 29 vs 14).
+
+Per-class test is where it's most interesting, and this was the hypothesis the plan specifically said to
+check per-class rather than in aggregate. Five classes up, and the gains land on the exact cluster exp 37
+identified as holding all the remaining headroom: **Kenya-AA +0.036 (0.868 -> 0.904)**, its best result
+anywhere in Phase 8 and close to its all-time best (0.930, exp 29); Colombia-PinkBourbon +0.026,
+Ethiopia-Sidamo +0.015, Guatemala-Tata +0.012 (0.988). The three perfect classes stay perfect. Against
+that, Brazil-Cerrado -0.029 and MonteCristo -0.009 - so it did *not* fix the Brazil confusion the
+hypothesis was originally aimed at; it helped Kenya-AA instead, which was the other member of that cluster.
+
+**Explicit caution before reading too much into this.** Phase 7 exp 25 (dropout 0.4) looked almost
+identical - all four metrics mildly positive, all inside noise, ~2x compute - and when exp 30 combined it
+with the other mild-positive nudge, the combination was flat. Individually-noisy positives have already
+failed to compound once in this project. So: 3-seed check queued, and the verdict stays open until it runs.
