@@ -1732,3 +1732,46 @@ honest figure is **2280px**, and even that rectangle is conservative - there is 
   `method` is needed - but that is precisely what the per-session `<session>.crop.yaml` from Phase 9 is for:
   add `method: dark_box` for the new session and nothing global changes. The architecture the user insisted
   on (crop settings per session, not in `params.yaml`) pays off exactly here.
+
+### Format c (frame-filling, no container) - best measured, with one structural caveat
+
+Third candidate: beans filling the entire 4080x3072 frame, no container in shot at all. One photo.
+
+Measured with identical probes across all formats (sharpness at 35% of half-width from centre, brightness
+over a 4x4 grid, both restricted to each format's own bean region so the black box does not skew format b):
+
+| | current tray | format a (cup) | format b (black box) | **format c (frame-filling)** |
+|---|---|---|---|---|
+| usable square | 1067px | 912-968px | 2280px | **2979px** |
+| bean area vs current | 1.0x | ~0.8x | 4.6x | **7.8x** |
+| bean pixel scale | 110px | 115px | 120px | 120px |
+| focus edge/centre | 0.39 | - | 0.43 | **0.53** |
+| brightness spread | 13% | - | 10% | 15% |
+| non-bean frame content | rim | ~80% | 41% | **0.0%** |
+
+**A correction to an earlier reading in this analysis**: a first pass called format c's focus the *worst*
+(0.29-0.36). That was measured at the frame corners, which on a frame-filling shot sit much further from
+the optical centre than the probes used for the other formats - not a like-for-like comparison. Re-probed at
+the same *relative* radius for every format, c is the best of the three (0.53), not the worst.
+
+**c is the strongest format on every axis measured**: 2.8x the current usable square, the most uniform
+focus, the same bean scale as b, and literally zero non-bean pixels (texture map minimum 0.21 across the
+whole frame - there is no background anywhere in shot).
+
+**The one structural caveat, and it is not small**: with no container there is no *positive boundary check*.
+Format b's black box proves the frame contains only beans; format c relies on the pile actually covering the
+frame every time. A slightly shifted camera or a thin patch of beans would silently admit background into
+training data with nothing to catch it. That is exactly the class of silent-contamination failure this
+project has already been bitten by twice (the adaptive crop collapse, and the rim leak that the whole-box
+contamination metric averaged away).
+
+Cheap mitigation, if c is chosen: gate every photo on the texture map at ingest - this photo reads minimum
+0.21 / p1 0.26 across the frame, whereas any background or container region reads near zero, so a simple
+"p1 texture > 0.15" check per photo would catch a bad frame before it ever reaches training. That belongs in
+the crop stage as `method: full_frame` plus a QA assertion, which the per-session config from Phase 9
+accommodates without touching anything global.
+
+**Recommendation**: b and c differ mainly in whether a boundary marker exists; both give the same bean
+scale and both massively exceed the current rig. The lowest-risk option that captures most of c's benefit is
+**format b framed tighter** - keep the box (positive boundary, trivial brightness-based detection) but fill
+more of the frame with it. Failing that, c with the ingest QA gate above.
