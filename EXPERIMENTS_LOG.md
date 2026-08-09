@@ -1423,23 +1423,65 @@ pipeline stage write outputs inside a `dvc add`-tracked directory.** So the crop
 output where they currently sit. They must move to their own path, which is also the conventional split:
 raw captures tracked as data, derived crops produced by a stage.
 
+## Where crop settings live - `params.yaml` would be the wrong place (user's call, 2026-08-09)
+
+The first draft of this plan put `trim_frac` in `params.yaml` as a tracked param. **Rejected, correctly.**
+`trim_frac` is not a model hyperparameter; it is a property of *one rig* - fixed tripod, fixed distance,
+constant rim width as a fraction of the tray. Future sessions are expected to vary angle and tray shape, and
+under that variation a fractional trim off a rough box does not merely need a different *value*, it stops
+being the right *operation* (a tilted tray's rim is not a constant fraction of its bounding box; an
+irregular shape has no meaningful "trim off each side" at all).
+
+Putting it in `params.yaml` would conflate two things that scale differently:
+
+| | `params.yaml` | per-session crop config |
+|---|---|---|
+| contents | lr, patch_crop_size, augmentation... | crop method + its settings |
+| scope | the whole project | one capture session |
+| varies by | experiment | rig geometry |
+| sweeping it means | "is this a better model?" | "did I prepare this session's data well?" |
+
+It would also pollute the experiments table (already trimmed from 148 to 42 columns) with a column that is
+constant for every run of one session and meaningless across sessions.
+
+**Design instead**: each capture session carries its own git-tracked crop config, e.g.
+`dataset/2026-08-07__box_pictures_all_classes.crop.yaml`:
+
+```yaml
+method: fixed_trim   # fixed_trim | adaptive | (future: sam, perspective_corrected, manual_boxes)
+trim_frac: 0.10
+notes: fixed tripod rig; the adaptive path is unstable under this session's lighting drift
+```
+
+Declared as a **dep** of the crop stage, not a param - so changing it correctly invalidates the stage and
+its hash is recorded in `dvc.lock` for provenance, without ever entering the hyperparameter surface. A future
+session with a different geometry gets its own file and may name a different `method` entirely; nothing in
+`params.yaml` or the experiments table changes. This is the interface that survives the variation the user
+expects, whereas a global `trim_frac` is only correct until the second rig exists.
+
 ## Plan
 
-1. **Move crops out of the raw dataset dir** to `data/cropped/2026-08-07__box_pictures_all_classes/class_*/`.
-   Update `dataset.py` (`find_class_dir`/`list_cropped_photos`) and add a `cropped_dir` param to
-   `params.yaml` so the location is configuration, not a hardcoded `/ "cropped"` suffix.
-2. **Add a `crop` stage to `dvc.yaml`**, `foreach` the 9 class dirs, with `trim_frac` as a tracked param.
-   Deps: the raw dataset + `coffeecv/crop_tray.py`. Outs: the per-class cropped dir including
-   `crop_report.json`. `train` then depends on the crop stage's output, so the DAG is honest end to end.
+1. **Move crops out of the raw dataset dir** to `data/cropped/2026-08-07__box_pictures_all_classes/class_*/`,
+   because DVC will not let a stage write inside a `dvc add`-tracked directory. Update `dataset.py`
+   (`find_class_dir`/`list_cropped_photos`) so the crop location is configuration rather than a hardcoded
+   `/ "cropped"` suffix. `cropped_dir` (a *path*, like the existing `dataset_dir`) is fine in `params.yaml`;
+   the crop *method and its settings* are not.
+2. **Add a `crop` stage to `dvc.yaml`**, `foreach` over *sessions* rather than the 9 class dirs - a session
+   is the unit that gets added over time, and a per-session stage keeps adding session #2 to a one-line
+   change. Deps: the raw session dir, its `.crop.yaml`, and `coffeecv/crop_tray.py`. Outs: the session's
+   cropped tree including `crop_report.json` (which already records the per-photo boxes and is currently
+   untracked). `train` then depends on the crop output, so the DAG is honest end to end.
 3. **Drop `**/cropped/` from `.dvcignore`** (keeping the `__pycache__/` entry added 2026-08-09).
 4. **Acceptance test, non-negotiable**: re-run training at seed 42 and require it to reproduce exp 39
    exactly - val_macro_f1 0.9635, test_macro_f1 0.9554, best_epoch 29/37. Same bit-exactness discipline exp
    37 used for the augmentation refactor. If it does not match, the restructure changed something and gets
    reverted rather than explained away.
-5. **Then, and only then, sweep `trim_frac`** (0.10 -> 0.05, maybe 0.075) as a real experiment: wider crops,
-   more placement room, re-test `patch_crop_size` 1000 and rotation jitter above 6 degrees on top. Judge on
-   the paired multi-seed standard Phase 8 established, and QA the crops at full resolution for rim
-   contamination before trusting any metric.
+5. **Then, separately, try a wider crop** (`trim_frac` 0.10 -> 0.05, maybe 0.075) - but logged as a
+   *data-preparation* change for this session, not a hyperparameter sweep, and reported as such: its result
+   is a statement about this rig, not a project-wide finding, and it will not transfer to a session shot at
+   a different angle. Wider crops mean more placement room, so re-test `patch_crop_size` 1000 and rotation
+   jitter above 6 degrees on top. Judge on the paired multi-seed standard Phase 8 established, and QA the
+   crops at full resolution for rim contamination before trusting any metric.
 
 **Cost**: ~2-3h of code and verification, of which one ~50 min training run is the acceptance test. Cropping
 all 180 photos is a few minutes. **Risk**: low for steps 1-4 given the byte-identical reproduction; step 5
