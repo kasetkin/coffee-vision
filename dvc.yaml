@@ -11,6 +11,10 @@ stages:
       - outputs/checkpoints/best.pt
       - outputs/checkpoints/last.pt
     metrics:
+      # Flat six-number headline -- this is the one to read in
+      # `dvc metrics diff`; metrics.json flattens to 140+ columns.
+      - outputs/summary.json:
+          cache: false
       - outputs/metrics.json:
           cache: false
     plots:

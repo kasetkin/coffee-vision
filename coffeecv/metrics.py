@@ -80,6 +80,26 @@ def build_metrics_json(
     }
 
 
+def build_summary_json(metrics_json: dict) -> dict:
+    """A deliberately flat, six-number view of a run, for `dvc metrics diff`.
+
+    `metrics.json` nests per-class stats, and DVC flattens every leaf into its own
+    column — 140+ of them — which makes `dvc metrics show/diff` unreadable and so
+    unused. This is the same data's headline, one level deep, so a diff between two
+    commits fits on a screen. The full per-class detail stays in metrics.json and in
+    the experiments/ archive; this is for scanning, not for analysis.
+    """
+    val, test = metrics_json["splits"]["val"], metrics_json["splits"]["test"]
+    return {
+        "val_macro_f1": round(val["macro_f1"], 4),
+        "val_mcc": round(val["mcc"], 4),
+        "test_macro_f1": round(test["macro_f1"], 4),
+        "test_mcc": round(test["mcc"], 4),
+        "best_epoch": metrics_json["best_epoch"],
+        "epochs_trained": metrics_json["epochs_trained"],
+    }
+
+
 def write_predictions_csv(path: Path, y_true: np.ndarray, y_pred: np.ndarray, class_ids: list[str]) -> None:
     """Columns: true_label,pred_label — feeds DVC's built-in `confusion` plot template."""
     with open(path, "w", newline="") as f:

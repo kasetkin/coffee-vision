@@ -22,7 +22,12 @@ from coffeecv.config import (
     set_seed,
 )
 from coffeecv.dataset import MultiPhotoPatchDataset, discover_classes_multi, load_class_labels
-from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
+from coffeecv.metrics import (
+    build_metrics_json,
+    build_summary_json,
+    compute_split_metrics,
+    write_predictions_csv,
+)
 from coffeecv.model import build_model
 from coffeecv.plotting import plot_confusion_matrix, plot_patch_samples, plot_training_curves
 from coffeecv.transforms import build_eval_transform, build_train_transform
@@ -248,6 +253,7 @@ def main() -> None:
         val_metrics=best_val_metrics, test_metrics=test_metrics,
     )
     (OUTPUTS_DIR / "metrics.json").write_text(json.dumps(metrics_json, indent=2))
+    (OUTPUTS_DIR / "summary.json").write_text(json.dumps(build_summary_json(metrics_json), indent=2))
 
     write_predictions_csv(OUTPUTS_DIR / "predictions_val.csv", best_val_true, best_val_pred, class_ids)
     write_predictions_csv(OUTPUTS_DIR / "predictions_test.csv", test_true, test_pred, class_ids)
