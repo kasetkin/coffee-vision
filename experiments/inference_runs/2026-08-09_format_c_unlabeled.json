@@ -1,0 +1,53 @@
+{
+  "image": "dataset/2026-08-09__test_new_format/c/PXL_20260809_123148443.jpg",
+  "image_md5": "3a586a2c60819b5b21fe3f31f8c5f795",
+  "checkpoint": "models/phase8_best_random_erasing_0.5.pt",
+  "checkpoint_md5": "34535ca9aa17883e51e21fd726579235",
+  "git_commit": "132f475af48153d51e68f3859df3bfbb0339034e",
+  "crop_size": 982,
+  "crop_size_rationale": "training patch 900px at bean period 110px; image C measures 120px -> 900*120/110",
+  "n_patches_per_run": 40,
+  "runs": {
+    "42": {
+      "votes": {
+        "Kenya,AA": 5,
+        "Vietnam,Robusta": 35
+      },
+      "mean_probs": {
+        "Vietnam,Robusta": 0.7555,
+        "Kenya,AA": 0.2343,
+        "Ethiopia,Sidamo": 0.0098,
+        "Brazil,Cerrado": 0.0002
+      }
+    },
+    "123": {
+      "votes": {
+        "Kenya,AA": 7,
+        "Vietnam,Robusta": 33
+      },
+      "mean_probs": {
+        "Vietnam,Robusta": 0.7326,
+        "Kenya,AA": 0.2554,
+        "Ethiopia,Sidamo": 0.0116,
+        "Colombia,PinkBourbon": 0.0002
+      }
+    },
+    "7": {
+      "votes": {
+        "Kenya,AA": 4,
+        "Vietnam,Robusta": 36
+      },
+      "mean_probs": {
+        "Vietnam,Robusta": 0.766,
+        "Kenya,AA": 0.225,
+        "Ethiopia,Sidamo": 0.0087,
+        "Brazil,Cerrado": 0.0001
+      }
+    }
+  },
+  "caveats": [
+    "closed-set: model can only output one of the 9 trained classes and cannot say 'unknown'",
+    "out-of-distribution: different container, lighting and ~9% larger bean scale than training data",
+    "softmax confidence is uncalibrated and is visibly depressed vs in-distribution (~0.75 here vs ~0.997 on training-rig photos)"
+  ]
+}
