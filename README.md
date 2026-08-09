@@ -34,4 +34,8 @@ This keeps the actual images out of git (only a small `.dvc` pointer + hash gets
 
 ## Status
 
-Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current best result (resnet18, full fine-tune, 700px patches, trained on the 180-photo multi-photo dataset above): test macro-F1 ~0.89-0.91 across a 3-seed check. Full experiment history and reasoning is in `EXPERIMENTS_LOG.md`.
+Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current best config (resnet18, full fine-tune, 900px patches, random erasing p=0.5, trained on the 180-photo multi-photo dataset above): **test macro-F1 ~0.91-0.96**, mean 0.9402 across a 3-seed check. Quote the range, not a single run — seed-to-seed spread is wider than most of the effects being measured, which is why adoptions since Phase 8 require a *paired* multi-seed check rather than a single seed.
+
+Full experiment history and reasoning is in `EXPERIMENTS_LOG.md` (prose, authoritative). Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary.
+
+Known limitation worth reading before further tuning: the validation set is saturating (5 of 9 classes sit at or near f1=1.000, and one run hit val macro-F1 0.9917). Since `best.pt` is selected on peak val macro-F1, this degrades *checkpoint selection*, not just reporting — see the Phase 8 summary.

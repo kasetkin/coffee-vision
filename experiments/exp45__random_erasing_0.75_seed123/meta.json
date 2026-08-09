@@ -1,0 +1,5 @@
+{
+  "exp": "45",
+  "slug": "random_erasing_0.75_seed123",
+  "note": "random_erasing_p=0.75, seed=123 (pairs against exp 42)"
+}

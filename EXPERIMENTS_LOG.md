@@ -867,6 +867,15 @@ what each tool is good at, **git for the small stuff, DVC for the bulk**:
 - 44MB checkpoints stay in DVC via `dvc.lock`, which is what DVC is for.
 - `outputs/metrics.json` un-ignored: `dvc.yaml` already declared it `cache: false` (i.e. "versioned in
   git"), while `/outputs/` in `.gitignore` was quietly overriding that, leaving it tracked by neither.
+  **Correction (found at end of run, 06:05)**: the first attempt at this fix did not work and was reported
+  as done when it wasn't. `.gitignore` had `/outputs/` followed by `!/outputs/metrics.json`, and git
+  **cannot re-include a file whose parent directory is excluded** - a negation is silently dead against a
+  directory pattern. So metrics.json stayed untracked for the whole run. Fixed properly by changing the
+  pattern to `/outputs/*` (excluding the directory's *contents*, not the directory), after which
+  `git check-ignore` confirms metrics.json is trackable and history.json / config.json / predictions /
+  checkpoints all remain ignored. No results are affected - the `experiments/` archive was the primary
+  mechanism and worked correctly throughout, holding all 10 runs. Lesson worth keeping: verify a
+  `.gitignore` negation with `git check-ignore -v`, never by reading the file.
 - `experiments/pre_phase8_from_log.csv` backfills exp 18-35 by hand from this file. Aggregate metrics only
   - those runs' artifacts are gone, so no per-class data or curves could be recovered.
 
@@ -1150,3 +1159,94 @@ Two things make this more interesting than the raw delta:
 Explicitly not adopted on this evidence. Exp 39 looked good at seed 42 too (+0.0055) and only became
 credible once seeds 123 and 7 agreed; a single seed showing +0.0140 inside a 0.0479 band is exactly the
 kind of favourable draw exp 34/35 caught out. Exp 45 (p=0.75, seed 123) started to pair against exp 42.
+
+### Exp 45: random_erasing_p=0.75 at seed 123 - rejects p=0.75, p=0.5 stands
+
+Pairs exp 44 (p=0.75, seed 42) the way exp 42/43 paired exp 39. Ran 04:51-05:59 UTC, 68 min.
+
+| paired comparison | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc |
+|---|---|---|---|---|
+| p=0.75 vs p=0.5, seed 42 (44 vs 39) | -0.0027 | -0.0032 | **+0.0140** | +0.0149 |
+| p=0.75 vs p=0.5, seed 123 (45 vs 42) | -0.0028 | -0.0031 | **-0.0122** | -0.0120 |
+| p=0.75 vs none, seed 42 (44 vs 37) | +0.0030 | +0.0032 | +0.0195 | +0.0217 |
+| p=0.75 vs none, seed 123 (45 vs 34) | +0.0284 | +0.0307 | **-0.0044** | -0.0033 |
+
+**Reject p=0.75; `random_erasing_p=0.5` remains the adopted value.** The two seeds' test deltas against
+p=0.5 are near-equal and *opposite* (+0.0140, -0.0122), averaging to ~+0.001 - nothing. Exp 44's 0.9694,
+the highest test macro-F1 in this project, was a favourable draw, exactly as flagged when it landed.
+Against *no* erasing, p=0.75 even goes slightly negative at seed 123 (-0.0044), where p=0.5 was +0.0078 -
+so p=0.75 is not reliably better than the un-augmented baseline, let alone than p=0.5.
+
+Note the val column is the tell that the val metric has stopped being useful here: it is essentially
+constant across both seeds (-0.0027, -0.0028) while test swings +0.0140 to -0.0122. val is no longer
+tracking the thing that varies, which is the saturation problem described in the exp 42-43 section, now
+demonstrated rather than inferred.
+
+**This is the methodological point of Phase 8 in one experiment.** A single seed showing +0.0140 inside a
+0.0479 band, on a run that was also *cheaper*, with a plausible mechanism ("more occlusion, more
+distributed-texture pressure") and the best headline number in the project's history, was wrong. The only
+thing that caught it was refusing to adopt before pairing a second seed. Exp 20 was adopted on exactly that
+kind of evidence in Phase 7, and exp 34/35 later showed its headline was also a favourable draw.
+
+## Phase 8 run summary (2026-08-08 18:45 - 2026-08-09 06:00 UTC, 11h15m of a 12h budget)
+
+10 training runs (exp 36-45), one variable at a time, every result committed individually with `dvc repro`
+keeping `dvc.lock` in sync. Stopped at 11h15m rather than starting an 11th run that couldn't finish and be
+written up inside the budget.
+
+**Adopted (1)**: `random_erasing_p=0.5`. Mean test macro-F1 **0.9234 -> 0.9402**, val 0.9635 -> 0.9767,
+across a paired 3-seed check (exp 39/42/43 against exp 20/34/35 at the same seeds). All 12 deltas positive.
+
+**Rejected (5)**: arbitrary rotation jitter +/-5 deg (exp 36, flat), zoom/RandomResizedCrop 0.7 (exp 38,
+val up / test down at 2.2x compute), illumination gradient 0.2 (exp 40, fails the "costs nothing" bar),
+mixup 0.2 (exp 41, uniformly mildly negative), and `random_erasing_p=0.75` (exp 44/45, seeds disagree in
+sign). Hypothesis 4 (perspective) was **not tested** - see below.
+
+**Infrastructure (2 non-hypothesis runs)**: exp 37 reproduced exp 20 bit-for-bit on the refactored code,
+validating every Phase 8 comparison and providing the first archived per-class baseline.
+
+### What Phase 8 actually established
+
+1. **Random erasing works, modestly.** ~+0.017 mean test macro-F1. Report the model as **test macro-F1
+   ~0.91-0.96** (3-seed range with erasing), not as a point estimate - same discipline Phase 7 closed with.
+
+2. **The evidence standard changed, and it caught a false positive.** Phase 7 adopted on single seeds; exp
+   34/35 then showed its flagship adoption's headline number was a favourable draw. Phase 8 adopted only on
+   *paired* multi-seed evidence - and the one time a single seed looked spectacular (exp 44: 0.9694, best
+   in project history, cheaper to train, plausible mechanism), the paired seed reversed the sign. Pairing
+   against a same-seed baseline is the cheapest reliability upgrade available here and should be the
+   default from now on.
+
+3. **The val set is saturating, and this is now the top blocker.** Seed 123 reached val_macro_f1 0.9917;
+   in exp 44/45 val stayed flat (-0.0027, -0.0028) while test swung +0.0140 to -0.0122. val has stopped
+   tracking what varies. This is not merely a reporting problem: `best.pt` is selected on peak
+   val_macro_f1, so checkpoint selection is now choosing among near-ties on 3 photos/class - plausibly a
+   real contributor to the wide test spread Phase 7 attributed to patch geometry alone.
+
+4. **Five of nine classes are effectively solved** (CostaRica-LaPastora, Ethiopia-Kochere, Vietnam-Robusta
+   at ~1.000; Colombia-PinkBourbon and Guatemala-Tata ~0.95-0.99). All remaining headroom is
+   **Brazil-Cerrado / Brazil-MonteCristo / Kenya-AA**. Notably, random erasing helped Kenya-AA (+0.036) but
+   *not* the Brazil pair it was hypothesised to fix - the rationale failed even though the result held.
+
+5. **Photo width is the binding constraint on the whole patch pipeline.** The valid region is ~1016px
+   wide against a 900px patch. That one number blocked the plan's preferred rotation implementation,
+   capped rotation jitter at ~6 deg, and is the same ceiling exp 32 hit at patch_crop_size=1000. A future
+   capture session framing the tray slightly wider would relax all of these at once.
+
+### Open threads for the next session
+
+- **Fix val before more tuning** (highest value). Either more val photos per class, or select `best.pt` on
+  val *loss*, which keeps resolving after macro-F1 saturates. Almost everything else is limited by this.
+- **Hypothesis 4 (perspective) is untested.** Its mean-fill implementation was removed with rotation's. A
+  real-pixel version needs ~90px of source margin at `distortion_scale=0.2`, leaving ~26px of placement
+  room - right at exp 32's edge. Needs either a smaller distortion or an explicit decision to accept that.
+- **Rotation jitter at +/-3 deg** (70px room vs 40px at 5) would separate "rotation doesn't help" from
+  "lost translation diversity hurt" in exp 36. Low expected value given how flat exp 36 was.
+- **Erasing between 0.5 and 0.75, or larger erased areas** (`scale` is hardcoded at 0.02-0.15 and was never
+  swept). p=0.5 is adopted but was never bracketed from below - p=0.25 is untested.
+- **Combined runs were never reached.** Nothing else was positive enough to combine, and Phase 7 exp 30
+  showed individually-noisy nudges don't compound, so this stayed low priority.
+- **Brazil-Cerrado / MonteCristo / Kenya-AA** remain the only real headroom, and four phases of
+  hyperparameter and augmentation work have not moved them much. This looks like a data problem (more or
+  different capture angles for those classes) rather than a training-configuration one.
+- `git push` still not possible in this container (no SSH key) - everything is committed locally only.
