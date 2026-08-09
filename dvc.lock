@@ -83,12 +83,12 @@ stages:
     deps:
     - path: coffeecv/crop_session.py
       hash: md5
-      md5: e77200a2114daa790fe1fd50aee30452
-      size: 3615
+      md5: ffc33eebb1e06ed3d4d22c239585e94c
+      size: 3710
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 8bcec70b5c5f54c5ef1d895416a5bb79
-      size: 19500
+      md5: aea6b83f6b8df4baeadfe53eaccd9bc3
+      size: 20495
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: cc2f6d9fe926a012cf1330b808220889.dir
@@ -96,11 +96,11 @@ stages:
       nfiles: 180
     - path: dataset/2026-08-07__box_pictures_all_classes.crop.yaml
       hash: md5
-      md5: f0fa5a34e001f2b531d5427bb965ccf6
-      size: 1461
+      md5: edd2ec680845ebae6c89561118ae9cf3
+      size: 2456
     outs:
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: 90c46c84cc23074494876c71818a5ed0.dir
-      size: 127469973
+      md5: ccb155e898a08749c2bf55c3c93f5073.dir
+      size: 151680104
       nfiles: 190

@@ -52,7 +52,8 @@ def crop_session(session: str) -> dict:
     for class_dir in class_dirs:
         out_dir = out_session / class_dir.name
         if method == "fixed_trim":
-            reports = crop_dataset_fixed_trim(class_dir, out_dir, trim_frac=float(cfg["trim_frac"]))
+            # `trim` (per-side mapping) preferred; `trim_frac` scalar still accepted.
+            reports = crop_dataset_fixed_trim(class_dir, out_dir, trim=cfg.get("trim", cfg.get("trim_frac")))
         elif method == "adaptive":
             reports = crop_dataset(
                 class_dir, out_dir,

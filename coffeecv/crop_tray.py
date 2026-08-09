@@ -305,10 +305,23 @@ def crop_dataset(
     return reports
 
 
+SIDES = ("left", "right", "top", "bottom")
+
+
+def resolve_trim(trim) -> dict[str, float]:
+    """Accept either a scalar (same trim every side) or a per-side mapping."""
+    if isinstance(trim, (int, float)):
+        return {s: float(trim) for s in SIDES}
+    missing = [s for s in SIDES if s not in trim]
+    if missing:
+        raise ValueError(f"per-side trim is missing {missing}; needs all of {SIDES}")
+    return {s: float(trim[s]) for s in SIDES}
+
+
 def crop_dataset_fixed_trim(
     images_dir: Path,
     out_dir: Path,
-    trim_frac: float = 0.10,
+    trim: float | dict = 0.10,
     aspect_range: tuple[float, float] = (0.5, 1.3),
     area_frac_range: tuple[float, float] = (0.01, 0.6),
     center_frac: tuple[float, float] = (0.15, 0.85),
@@ -316,6 +329,13 @@ def crop_dataset_fixed_trim(
     """Crop by trimming a fixed fraction off each side of the stage-1 rough
     tray box, skipping locate_bean_region's adaptive saturation trim (stage 2)
     entirely.
+
+    `trim` is either a scalar or a per-side mapping. Per-side exists because the
+    rim is measurably asymmetric on this rig: over all 180 photos of the
+    2026-08-07 session the rim reaches 0.056 of the rough box on the left and
+    0.063 on the right, but only ~0.012 top and bottom. A symmetric trim big
+    enough for the right edge therefore throws away roughly 20% of the height
+    for nothing.
 
     Exists for rigs filmed from a fixed position (tripod): stage 1's
     texture-based localization is then extremely stable run-to-run (sub-2%
@@ -333,14 +353,16 @@ def crop_dataset_fixed_trim(
     if not image_paths:
         raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
 
+    t = resolve_trim(trim)
     reports = []
     for p in image_paths:
         img = cv2.imread(str(p))
         entry = {"file": p.name}
         try:
             (x, y, w, h), method = locate_tray_rough(img, aspect_range, area_frac_range, center_frac)
-            tx, ty = int(w * trim_frac), int(h * trim_frac)
-            box = (x + tx, y + ty, w - 2 * tx, h - 2 * ty)
+            tl, tr = int(w * t["left"]), int(w * t["right"])
+            tt, tb = int(h * t["top"]), int(h * t["bottom"])
+            box = (x + tl, y + tt, w - tl - tr, h - tt - tb)
             needs_review = method != "otsu"  # ladder fallback = unusual lighting, flag it
 
             bx, by, bw, bh = box
@@ -349,7 +371,7 @@ def crop_dataset_fixed_trim(
             cv2.imwrite(str(out_path), crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
             entry.update({
-                "box": list(box), "rough_method": method, "trim_frac": trim_frac, "needs_review": needs_review,
+                "box": list(box), "rough_method": method, "trim": t, "needs_review": needs_review,
             })
             entry["rough_box"] = [x, y, w, h]
             entry["out_path"] = str(out_path)
@@ -360,7 +382,8 @@ def crop_dataset_fixed_trim(
         reports.append(entry)
 
     n_flagged = sum(1 for r in reports if r.get("needs_review"))
-    print(f"Cropped {len(reports)} images (fixed {trim_frac:.0%} trim), {n_flagged} flagged for review.")
+    trim_desc = ", ".join(f"{k} {v:.1%}" for k, v in t.items())
+    print(f"Cropped {len(reports)} images (fixed trim: {trim_desc}), {n_flagged} flagged for review.")
     (out_dir / "crop_report.json").write_text(json.dumps(reports, indent=2))
     return reports
 
@@ -432,7 +455,7 @@ def main() -> None:
     args = p.parse_args()
 
     if args.fixed_trim is not None:
-        reports = crop_dataset_fixed_trim(Path(args.images_dir), Path(args.out_dir), trim_frac=args.fixed_trim)
+        reports = crop_dataset_fixed_trim(Path(args.images_dir), Path(args.out_dir), trim=args.fixed_trim)
     else:
         reports = crop_dataset(
             Path(args.images_dir), Path(args.out_dir), border_max_contamination=args.border_max_contamination

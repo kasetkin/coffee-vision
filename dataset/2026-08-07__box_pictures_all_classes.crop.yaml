@@ -13,9 +13,25 @@
 
 method: fixed_trim  # fixed_trim | adaptive
 
-# Fraction trimmed off each side of the stage-1 rough tray box. 0.10 discards 20%
-# of the rough box's width and height (e.g. 1361px -> 1089px).
-trim_frac: 0.10
+# Per-side trim, as a fraction of the stage-1 rough tray box. Asymmetric because
+# the rim measurably is: over all 180 photos of this session, rim depth reaches
+# 0.056 of the rough box on the left and 0.063 on the right, but only ~0.012 top
+# and ~0.011 bottom (measured with an illumination-robust local-texture scan, not
+# eyeballed). A symmetric trim large enough for the right edge therefore discards
+# ~20% of the height for nothing.
+#
+# Each value is the measured worst case + 0.020 of margin. A +0.010 margin was
+# tried first and measured dirtier than the old symmetric 0.10 baseline, so it
+# was rejected; +0.020 measures as clean as that baseline while keeping ~5% more
+# width. That is deliberately
+# tighter than the old symmetric 0.10, so it is QA'd visually at full resolution
+# after every change -- a 0.05 symmetric trim was tried first and rejected
+# exactly there, with the rim plainly inside the crop.
+trim:
+  left: 0.076    # measured max rim 0.056 + 0.020 margin
+  right: 0.083   # measured max rim 0.063 + 0.020 margin
+  top: 0.032     # measured max rim 0.012 + 0.020 margin
+  bottom: 0.031  # measured max rim 0.011 + 0.020 margin
 
 notes: >
   Fixed tripod rig, 180 photos over ~2h on 2026-08-07. The adaptive path
