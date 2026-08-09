@@ -1489,3 +1489,60 @@ is a real experiment with a real trade-off and should be treated as one.
 
 **Deliberately not in scope**: re-cropping with the *adaptive* path, and re-tracking the 2026-08-06 unlabeled
 session. Both are separate decisions.
+
+## Phase 9 executed (2026-08-09) - steps 1-6 complete
+
+### Exp 46: acceptance test - PASS
+
+The non-negotiable gate: after moving cropping into the pipeline, seed 42 must reproduce exp 39 exactly.
+
+| metric | exp 39 | exp 46 | |
+|---|---|---|---|
+| val_macro_f1 | 0.9635 | 0.9635 | match |
+| val_mcc | 0.9597 | 0.9597 | match |
+| test_macro_f1 | 0.9554 | 0.9554 | match |
+| test_mcc | 0.9509 | 0.9509 | match |
+| best_epoch | 29 | 29 | match |
+| epochs_trained | 37 | 37 | match |
+
+All six exact. Combined with the byte-identical crop check below, the restructure is a verified no-op: every
+number in Phases 7-8 still stands.
+
+### Verification performed
+
+1. **All 180 crops regenerate byte-identically.** Moved the existing crops aside, ran `dvc repro crop` from
+   the raw photos, compared md5s: 180/180 match, 0 flagged for review. The crop step's determinism was
+   spot-checked on 20 photos while planning; this confirms it across the whole session.
+2. **Raw dataset `.dvc` hash unchanged** (`cc2f6d9f...`) before and after the move, as predicted - the crops
+   were dvcignored, so they were never part of that hash.
+3. **The DAG is now honest end to end**: `dataset/<session>.dvc` -> `crop@<session>` -> `train`.
+4. **The original failure is fixed.** `dvc exp run --temp -f` no longer dies with `FileNotFoundError: No
+   cropped photos found`; the isolated workspace now materializes all 180 crops from the DVC cache plus the
+   session's `.crop.yaml` from git, and proceeds into training. (Stopped there deliberately - the failure
+   mode was materialization, and an hour of training in a temp dir would add no information.)
+
+### The retest caught the same bug class a second time
+
+First `--temp` attempt after the restructure still failed - but in the *crop* stage, not training, because
+`crop_session.py` and `<session>.crop.yaml` were written but **not yet committed**. The temp workspace is
+built from git + the DVC cache, so an uncommitted file simply isn't there. Exactly the original disease in
+new clothes: the pipeline depending on something that happens to be on disk. Worth keeping as the standing
+argument for why `dvc exp run --temp` is the right reproducibility check - the normal workspace cannot
+detect this class of problem *by construction*, because the file is sitting right there.
+
+### What is now true that wasn't
+
+- `git clone` + `dvc pull` + `dvc repro` reproduces the pipeline from scratch. Before, the 403MB of tracked
+  raw photos were unusable without a crop step nothing performed.
+- `crop_report.json` (per-photo boxes for all 180) and the new session-level `crop_manifest.json` are
+  tracked outputs instead of untracked files inside a dvcignored directory.
+- Crop settings are versioned per session and can vary by rig without touching `params.yaml`, the
+  experiments table, or any global config.
+
+### Not done: step 7 (wider crop trial)
+
+`trim_frac` 0.10 -> 0.05 remains untried, deliberately - it is a real experiment with a real trade-off (more
+tray-rim contamination risk) and needs full-resolution visual QA plus paired multi-seed evaluation, not a
+drive-by run at the end of a refactor. It is the most promising open thread, since wider crops (~1089px ->
+~1225px) would relax the photo-width ceiling that capped `patch_crop_size` at 900, limited rotation jitter
+to ~6 degrees, and blocked the preferred rotation implementation entirely.
