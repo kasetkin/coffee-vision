@@ -3,7 +3,10 @@
 
 seed: 42
 
-dataset_dir: dataset/2026-08-07__box_pictures_all_classes
+# Training reads the cropped tree produced by the `crop` stage, not the raw
+# session. Crop *method* settings live per-session in
+# dataset/<session>.crop.yaml -- they describe a rig, not the model.
+cropped_dir: data/cropped/2026-08-07__box_pictures_all_classes
 classes_file: dataset/classes.txt
 
 # Patch geometry

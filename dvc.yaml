@@ -1,9 +1,32 @@
 stages:
+  # Raw session photos -> cropped bean-tray images. Iterates over *sessions*
+  # rather than class directories: a session is the unit that gets added to this
+  # project over time, so a new capture session is a one-line change here.
+  # Crop settings live in dataset/<session>.crop.yaml and are declared as a dep,
+  # not a param -- they describe a rig, not the model, so they must not enter the
+  # hyperparameter surface or the experiments table.
+  crop:
+    foreach:
+      - 2026-08-07__box_pictures_all_classes
+    do:
+      cmd: python -m coffeecv.crop_session --session ${item}
+      deps:
+        - dataset/${item}
+        - dataset/${item}.crop.yaml
+        - coffeecv/crop_tray.py
+        - coffeecv/crop_session.py
+      outs:
+        - data/cropped/${item}
+
   train:
     cmd: python -m coffeecv.train_baseline
     deps:
       - coffeecv
-      - dataset/2026-08-07__box_pictures_all_classes
+      # The cropped tree, not the raw session: training reads only crops, so this
+      # is what the DAG must depend on. Before Phase 9 this pointed at the raw
+      # photos while the crops were dvcignored, which made the pipeline
+      # unreproducible anywhere the crops didn't already exist on disk.
+      - data/cropped/2026-08-07__box_pictures_all_classes
       - dataset/classes.txt
     params:
       - params.yaml:

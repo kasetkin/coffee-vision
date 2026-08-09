@@ -1,0 +1,5 @@
+{
+  "exp": "46",
+  "slug": "phase9_crop_stage_acceptance",
+  "note": "Phase 9 acceptance: crop as a pipeline stage; must reproduce exp 39 exactly"
+}

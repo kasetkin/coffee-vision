@@ -1,0 +1,26 @@
+# How this capture session's raw photos are cropped to bean-tray images.
+#
+# Deliberately NOT in params.yaml: these settings describe one *rig*, not the
+# model. `trim_frac` assumes a fixed tripod at a fixed distance, where the tray
+# rim is a constant fraction of the tray's bounding box. A session shot at a
+# different angle, or of a differently-shaped tray, does not just need a
+# different number here -- it may need a different `method` entirely. Keeping
+# this per-session means adding such a session changes nothing global.
+#
+# Consumed by coffeecv/crop_session.py, declared as a *dep* of the `crop` stage
+# in dvc.yaml (not a param), so edits invalidate the stage and the file's hash is
+# recorded in dvc.lock for provenance without entering the hyperparameter surface.
+
+method: fixed_trim  # fixed_trim | adaptive
+
+# Fraction trimmed off each side of the stage-1 rough tray box. 0.10 discards 20%
+# of the rough box's width and height (e.g. 1361px -> 1089px).
+trim_frac: 0.10
+
+notes: >
+  Fixed tripod rig, 180 photos over ~2h on 2026-08-07. The adaptive path
+  (locate_bean_region's per-image Otsu trim) is unstable here: directional
+  lighting drift over the shoot made it split the bean texture's own saturation
+  variance rather than the bean/rim boundary, once collapsing a valid box to
+  178x1065 despite zero rim contamination. The fixed trim avoids that failure
+  mode entirely, at the cost of needing re-tuning if the rig's rim width changes.

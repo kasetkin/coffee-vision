@@ -146,29 +146,36 @@ class PatchCoffeeDataset(Dataset):
 # ---- Multi-photo box-rig dataset (2026-08-07__box_pictures_all_classes and later) --------
 
 
-def discover_classes_multi(dataset_dir: Path) -> list[str]:
+def discover_classes_multi(cropped_dir: Path) -> list[str]:
     ids = set()
-    for p in Path(dataset_dir).iterdir():
+    for p in Path(cropped_dir).iterdir():
         if p.is_dir():
             m = CLASS_DIR_RE.match(p.name)
             if m:
                 ids.add(m.group(1))
     if not ids:
-        raise FileNotFoundError(f"No 'class_NNN__Label' directories found under {dataset_dir}")
+        raise FileNotFoundError(f"No 'class_NNN__Label' directories found under {cropped_dir}")
     return sorted(ids)
 
 
-def find_class_dir(dataset_dir: Path, class_id: str) -> Path:
-    matches = [p for p in Path(dataset_dir).iterdir() if p.is_dir() and p.name.startswith(f"class_{class_id}__")]
+def find_class_dir(cropped_dir: Path, class_id: str) -> Path:
+    matches = [p for p in Path(cropped_dir).iterdir() if p.is_dir() and p.name.startswith(f"class_{class_id}__")]
     if len(matches) != 1:
         raise FileNotFoundError(f"Expected exactly one directory for class={class_id}, found {len(matches)}")
     return matches[0]
 
 
 def list_cropped_photos(class_dir: Path) -> list[Path]:
-    photos = sorted((class_dir / "cropped").glob("*__cropped.jpg"))
+    """`class_dir` lives under the *cropped* root (`data/cropped/<session>/`), not
+    the raw session directory — the crops are a pipeline output produced by the
+    `crop` stage, while the raw photos stay `dvc add`-tracked data. Sibling files
+    such as `crop_report.json` are excluded by the `*__cropped.jpg` glob."""
+    photos = sorted(class_dir.glob("*__cropped.jpg"))
     if not photos:
-        raise FileNotFoundError(f"No cropped photos found in {class_dir / 'cropped'}")
+        raise FileNotFoundError(
+            f"No cropped photos found in {class_dir}. Run the crop stage first: "
+            f"`dvc repro crop` (or `python -m coffeecv.crop_session --session <name>`)."
+        )
     return photos
 
 
@@ -210,7 +217,7 @@ class MultiPhotoPatchDataset(Dataset):
 
     def __init__(
         self,
-        dataset_dir: Path,
+        cropped_dir: Path,
         classes_file: Path,
         split: str,
         class_ids: list[str],
@@ -239,7 +246,7 @@ class MultiPhotoPatchDataset(Dataset):
         self._samples: list[tuple[str, str, Region, float]] = []  # (class_id, photo_name, box, angle)
 
         for class_idx, class_id in enumerate(class_ids):
-            class_dir = find_class_dir(dataset_dir, class_id)
+            class_dir = find_class_dir(cropped_dir, class_id)
             photos = list_cropped_photos(class_dir)
             split_photos = split_photos_by_class(photos, seed, class_idx, photos_per_split)[split]
 

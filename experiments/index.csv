@@ -9,3 +9,4 @@ exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trai
 43,random_erasing_seed7,7,0.9749,0.9720,0.9553,0.9503,30,38,random_erasing_p=0.5; seed=7,"random_erasing_p=0.5, seed=7 (multi-seed check)",2026-08-09T04:03:32.657264+00:00,5e9646a455b2ba15fac025fac57ceb1f43a2bd19
 44,random_erasing_0.75,42,0.9609,0.9565,0.9694,0.9658,14,22,random_erasing_p=0.75,random_erasing_p=0.75 (bracket the adopted 0.5),2026-08-09T04:50:33.794572+00:00,629a8d20d44d28a199e343998d6c676f4658cb5d
 45,random_erasing_0.75_seed123,123,0.9888,0.9876,0.8976,0.8898,25,33,random_erasing_p=0.75; seed=123,"random_erasing_p=0.75, seed=123 (pairs against exp 42)",2026-08-09T05:59:08.139782+00:00,629a8d20d44d28a199e343998d6c676f4658cb5d
+46,phase9_crop_stage_acceptance,42,0.9635,0.9597,0.9554,0.9509,29,37,random_erasing_p=0.5,Phase 9 acceptance: crop as a pipeline stage; must reproduce exp 39 exactly,2026-08-09T11:09:30.891105+00:00,b064068bf8673d968c2d212ad31842d988617b8b

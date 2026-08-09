@@ -112,8 +112,8 @@ def main() -> None:
     cfg = apply_overrides(RunConfig.from_params_yaml(), args)
     set_seed(cfg.seed)
 
-    dataset_dir, classes_file = cfg.resolve_paths()
-    class_ids = discover_classes_multi(dataset_dir)
+    cropped_dir, classes_file = cfg.resolve_paths()
+    class_ids = discover_classes_multi(cropped_dir)
     class_labels = load_class_labels(classes_file)
     patches_per_class = {
         "train": cfg.train_patches_per_class,
@@ -127,7 +127,7 @@ def main() -> None:
     }
 
     common_kwargs = dict(
-        dataset_dir=dataset_dir,
+        cropped_dir=cropped_dir,
         classes_file=classes_file,
         class_ids=class_ids,
         seed=cfg.seed,

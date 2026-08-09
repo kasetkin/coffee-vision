@@ -23,7 +23,11 @@ TENSORBOARD_DIR = REPO_ROOT / "tensorboard"
 class RunConfig:
     seed: int = 42
 
-    dataset_dir: str = "dataset/2026-08-07__box_pictures_all_classes"
+    # Training reads the *cropped* tree, which the `crop` stage produces from the
+    # raw session. The raw photos are `dvc add`-tracked data and are not read here;
+    # which session the crops came from is recorded by the crop stage in dvc.yaml
+    # and in data/cropped/<session>/crop_manifest.json.
+    cropped_dir: str = "data/cropped/2026-08-07__box_pictures_all_classes"
     classes_file: str = "dataset/classes.txt"
 
     patch_crop_size: int = 512
@@ -71,7 +75,7 @@ class RunConfig:
         return cls(**{k: v for k, v in raw.items() if k in known})
 
     def resolve_paths(self) -> tuple[Path, Path]:
-        return REPO_ROOT / self.dataset_dir, REPO_ROOT / self.classes_file
+        return REPO_ROOT / self.cropped_dir, REPO_ROOT / self.classes_file
 
 
 def set_seed(seed: int) -> None:

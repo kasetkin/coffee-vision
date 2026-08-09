@@ -2,14 +2,13 @@
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
 
-# Derived crop outputs (coffeecv/crop_tray.py) are 100% regenerable from the
-# raw photos + code, so don't version them -- only the raw captures below.
-# CAVEAT (found 2026-08-09): "regenerable" is true in principle but nothing
-# automates it -- crop_tray.py is not a dvc.yaml stage -- while training reads
-# *only* these crops. So the pipeline cannot run anywhere the crops don't
-# already sit in the working tree. See the dvc exp run finding in
-# EXPERIMENTS_LOG.md.
-**/cropped/
+# NOTE: `**/cropped/` used to be ignored here, on the reasoning that the crops
+# are regenerable from the raw photos + code. True in principle, but nothing
+# automated it -- crop_tray.py was not a pipeline stage -- while training reads
+# *only* the crops. The result was a pipeline that could not run anywhere the
+# crops did not already sit in the working tree (see Phase 9 in
+# EXPERIMENTS_LOG.md). Crops are now a `crop` stage output under data/cropped/,
+# so DVC tracks them properly and the ignore is gone.
 
 # Python bytecode. `coffeecv` is a dep of the train stage, so without this every
 # run rewrites .pyc files, changes the directory hash, and makes DVC report the

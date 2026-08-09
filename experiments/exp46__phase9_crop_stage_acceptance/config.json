@@ -1,0 +1,39 @@
+{
+  "seed": 42,
+  "cropped_dir": "data/cropped/2026-08-07__box_pictures_all_classes",
+  "classes_file": "dataset/classes.txt",
+  "patch_crop_size": 900,
+  "patch_resize": 224,
+  "safety_margin": 0.97,
+  "train_patches_per_class": 150,
+  "val_patches_per_class": 40,
+  "test_patches_per_class": 40,
+  "train_photos_per_class": 14,
+  "val_photos_per_class": 3,
+  "test_photos_per_class": 3,
+  "model_name": "resnet18",
+  "freeze_mode": "none",
+  "dropout": 0.2,
+  "label_smoothing": 0.0,
+  "color_jitter_strength": 0.2,
+  "rotation_jitter_degrees": 0.0,
+  "zoom_scale_min": 1.0,
+  "random_erasing_p": 0.5,
+  "illum_gradient_strength": 0.0,
+  "mixup_alpha": 0.0,
+  "batch_size": 32,
+  "epochs": 50,
+  "early_stop_patience": 8,
+  "optimizer": "adamw",
+  "lr": 0.001,
+  "backbone_lr": 1e-05,
+  "weight_decay": 0.0001,
+  "env": {
+    "torch_version": "2.13.0+cpu",
+    "torchvision_version": "0.28.0+cpu",
+    "git_commit": "b064068bf8673d968c2d212ad31842d988617b8b",
+    "argv": [
+      "/workspace/coffeecv/train_baseline.py"
+    ]
+  }
+}

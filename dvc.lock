@@ -5,14 +5,14 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: 874727a1c8a6f55156771377e0c05880.dir
-      size: 105598
-      nfiles: 15
-    - path: dataset/2026-08-07__box_pictures_all_classes
+      md5: e5d98e148d8a2f6ae5bbd0562a83ac0c.dir
+      size: 109959
+      nfiles: 16
+    - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: cc2f6d9fe926a012cf1330b808220889.dir
-      size: 403667130
-      nfiles: 180
+      md5: 90c46c84cc23074494876c71818a5ed0.dir
+      size: 127469973
+      nfiles: 190
     - path: dataset/classes.txt
       hash: md5
       md5: 83d6af3dde5611f406d18131552a3a57
@@ -23,7 +23,7 @@ stages:
         batch_size: 32
         classes_file: dataset/classes.txt
         color_jitter_strength: 0.2
-        dataset_dir: dataset/2026-08-07__box_pictures_all_classes
+        cropped_dir: data/cropped/2026-08-07__box_pictures_all_classes
         dropout: 0.2
         early_stop_patience: 8
         epochs: 50
@@ -63,7 +63,7 @@ stages:
       size: 7693
     - path: outputs/metrics.json
       hash: md5
-      md5: bc74ccb12f2c5ce77f0ee27d794788e1
+      md5: a7c0f398eaea2caf973f0e1b3e1102e9
       size: 8172
     - path: outputs/predictions_test.csv
       hash: md5
@@ -77,3 +77,30 @@ stages:
       hash: md5
       md5: 72b8bbadfb3027e73c01a57503d5c528
       size: 142
+  crop@2026-08-07__box_pictures_all_classes:
+    cmd: python -m coffeecv.crop_session --session 
+      2026-08-07__box_pictures_all_classes
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: e77200a2114daa790fe1fd50aee30452
+      size: 3615
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: 8bcec70b5c5f54c5ef1d895416a5bb79
+      size: 19500
+    - path: dataset/2026-08-07__box_pictures_all_classes
+      hash: md5
+      md5: cc2f6d9fe926a012cf1330b808220889.dir
+      size: 403667130
+      nfiles: 180
+    - path: dataset/2026-08-07__box_pictures_all_classes.crop.yaml
+      hash: md5
+      md5: f0fa5a34e001f2b531d5427bb965ccf6
+      size: 1461
+    outs:
+    - path: data/cropped/2026-08-07__box_pictures_all_classes
+      hash: md5
+      md5: 90c46c84cc23074494876c71818a5ed0.dir
+      size: 127469973
+      nfiles: 190

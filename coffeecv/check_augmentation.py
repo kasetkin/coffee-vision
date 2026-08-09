@@ -107,10 +107,10 @@ def check_rotation_jitter() -> None:
     # RNG stream differs by construction even though the dataset never uses it
     # at 0 degrees.)
     cfg = RunConfig.from_params_yaml()
-    dataset_dir, classes_file = cfg.resolve_paths()
+    cropped_dir, classes_file = cfg.resolve_paths()
     kwargs = dict(
-        dataset_dir=dataset_dir, classes_file=classes_file, split="train",
-        class_ids=discover_classes_multi(dataset_dir)[:1], seed=42, crop_size=CROP_SIZE,
+        cropped_dir=cropped_dir, classes_file=classes_file, split="train",
+        class_ids=discover_classes_multi(cropped_dir)[:1], seed=42, crop_size=CROP_SIZE,
         resize=224, safety_margin=cfg.safety_margin,
         patches_per_class={"train": 14, "val": 4, "test": 4},
         photos_per_split={"train": 14, "val": 3, "test": 3},
