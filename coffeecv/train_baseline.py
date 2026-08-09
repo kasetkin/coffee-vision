@@ -147,6 +147,10 @@ def main() -> None:
         patches_per_class=patches_per_class,
         photos_per_split=photos_per_split,
         patch_store_size=cfg.patch_store_size or None,
+        patch_scale_frac=(
+            (cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
+            if cfg.patch_scale_frac_max > 0 else None
+        ),
     )
     train_transform = build_train_transform(
         cfg.patch_resize,

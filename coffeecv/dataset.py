@@ -21,6 +21,7 @@ from coffeecv.geometry import (
     compute_valid_region_rect,
     sample_patch_boxes,
     sample_rotated_patch_boxes,
+    sample_scaled_patch_boxes,
     split_regions,
 )
 
@@ -194,6 +195,7 @@ class PatchMeta:
     photo_name: str
     box: Region
     angle: float
+    side: int  # patch side in *source* pixels before storage resize; varies under scale aug
 
 
 @dataclass(frozen=True)
@@ -290,6 +292,7 @@ class MultiPhotoPatchDataset(Dataset):
         transform=None,
         rotation_jitter_degrees: float = 0.0,
         patch_store_size: int | None = None,
+        patch_scale_frac: tuple[float, float] | None = None,
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
@@ -299,6 +302,18 @@ class MultiPhotoPatchDataset(Dataset):
         self.crop_size = crop_size
         self.transform = transform
         self.patch_store_size = patch_store_size
+        # Scale augmentation applies to *every* split, not just train. That is
+        # the opposite of the usual rule, and deliberate: the patch side is what
+        # decides how many beans a patch covers, so evaluating at one fixed pixel
+        # size would score each rig at a different bean coverage and make the
+        # cross-rig number a measurement of magnification rather than of the
+        # model. Eval draws are seeded, so they stay deterministic.
+        self.patch_scale_frac = patch_scale_frac
+        if patch_scale_frac is not None and patch_store_size is None:
+            # Sides then vary from ~170px to ~2275px across rigs; storing them at
+            # native size would make memory depend on the draw (a single 2275px
+            # patch is 15 MB).
+            raise ValueError("patch_scale_frac requires patch_store_size to be set")
         # Train-only, like every other augmentation: val/test stay deterministic.
         self.rotation_jitter_degrees = rotation_jitter_degrees if split == "train" else 0.0
 
@@ -344,29 +359,40 @@ class MultiPhotoPatchDataset(Dataset):
         rng = np.random.default_rng(
             [seed, rig_idx, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
         )
-        if self.rotation_jitter_degrees > 0:
-            assert_jitter_fits(region, crop_size, self.rotation_jitter_degrees)
-            boxes = sample_rotated_patch_boxes(
-                rng, region, n_patches, crop_size, self.rotation_jitter_degrees
+        if self.patch_scale_frac is not None:
+            frac_min, frac_max = self.patch_scale_frac
+            boxes = sample_scaled_patch_boxes(
+                rng, region, n_patches, frac_min, frac_max, self.rotation_jitter_degrees
             )
+        elif self.rotation_jitter_degrees > 0:
+            assert_jitter_fits(region, crop_size, self.rotation_jitter_degrees)
+            boxes = [
+                (box, angle, crop_size)
+                for box, angle in sample_rotated_patch_boxes(
+                    rng, region, n_patches, crop_size, self.rotation_jitter_degrees
+                )
+            ]
         else:
-            boxes = [(box, 0.0) for box in sample_patch_boxes(rng, region, n_patches, crop_size)]
+            boxes = [
+                (box, 0.0, crop_size)
+                for box in sample_patch_boxes(rng, region, n_patches, crop_size)
+            ]
 
-        for box, angle in boxes:
+        for box, angle, side in boxes:
             patch = Image.fromarray(rgb[box.y0:box.y1, box.x0:box.x1])
             if angle:
                 # `box` is the bounding box of the rotated crop, so rotating it
                 # and centre-cropping back lands entirely on real pixels -- no fill.
                 patch = TF.center_crop(
                     TF.rotate(patch, angle, interpolation=TF.InterpolationMode.BILINEAR),
-                    [crop_size, crop_size],
+                    [side, side],
                 )
             if self.patch_store_size is not None and patch.size[0] != self.patch_store_size:
                 patch = patch.resize(
                     (self.patch_store_size, self.patch_store_size), Image.BILINEAR
                 )
             self._patches.append(np.asarray(patch, dtype=np.uint8))
-            self._meta.append(PatchMeta(class_id, rig_name, photo_path.name, box, angle))
+            self._meta.append(PatchMeta(class_id, rig_name, photo_path.name, box, angle, side))
         del rgb
 
     def __len__(self) -> int:

@@ -73,6 +73,17 @@ class RunConfig:
 
     # Phase 8 augmentation knobs. Every default here is a no-op, so the whole
     # block off reproduces the Phase 7 pipeline exactly (see transforms.py).
+    # Scale augmentation (Phase 11). Patch side is drawn log-uniformly between
+    # these fractions of each photo's short side, instead of the fixed
+    # `patch_crop_size` in pixels. 0/0 disables it -- the no-op default, so the
+    # baseline arm and the treatment arm run identical code.
+    #
+    # Applies to eval splits too, unlike other augmentation: patch side sets how
+    # many beans a patch covers, so a fixed pixel size would score each rig at a
+    # different bean coverage. See MultiPhotoPatchDataset.
+    patch_scale_frac_min: float = 0.0
+    patch_scale_frac_max: float = 0.0
+
     rotation_jitter_degrees: float = 0.0  # +/- jitter around each right angle, applied at patch sampling
     zoom_scale_min: float = 1.0  # RandomResizedCrop min *area* fraction; 1.0 = plain resize
     random_erasing_p: float = 0.0  # probability of erasing a rectangle per patch

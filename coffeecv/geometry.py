@@ -113,6 +113,72 @@ def sample_rotated_patch_boxes(
     return boxes
 
 
+def scale_range_px(region: Region, frac_min: float, frac_max: float) -> tuple[int, int]:
+    """Patch side range in pixels, as a fraction of the region's short side.
+
+    Sizing the patch relative to the frame rather than in absolute pixels is what
+    makes one setting mean the same thing on every rig. A fixed 900px patch spans
+    ~8.8 beans on the 2026-08-07 rig but only ~2.8 on sony_cam, because the rigs
+    differ 3.2x in magnification -- so the model is shown a pile on one rig and a
+    single bean on another and asked to call them the same class. These three
+    rigs happen to frame a similar bean *count* (~215-282 per photo) despite
+    those very different pixel scales, so a fraction of the frame lands within
+    ~2-9 beans across on all three without needing any per-rig constant.
+
+    Deliberately not a per-rig calibration: the point is that the model must be
+    scale-invariant, so the range is sampled wide and identically everywhere
+    rather than normalised away per folder.
+    """
+    short_side = min(region.width, region.height)
+    lo = max(1, int(round(short_side * frac_min)))
+    hi = max(lo, int(round(short_side * frac_max)))
+    return lo, hi
+
+
+def sample_scaled_patch_boxes(
+    rng: np.random.Generator,
+    region: Region,
+    n: int,
+    frac_min: float,
+    frac_max: float,
+    max_jitter_deg: float = 0.0,
+) -> list[tuple[Region, float, int]]:
+    """Sample n (bounding_box, angle, patch_side) triples with per-patch scale.
+
+    `patch_side` is the square the caller should end up with after any rotation;
+    the returned box is what to crop (larger than patch_side when the patch is
+    rotated, so the rotation lands on real pixels -- same no-fill guarantee as
+    `sample_rotated_patch_boxes`).
+
+    Sides are drawn log-uniformly, not uniformly: scale is a ratio quantity, and
+    a uniform draw over 0.15-0.60 of the frame would spend most of its mass on
+    the coarse half of the range and undersample the close-up end, which is
+    exactly where the held-out rig sits.
+    """
+    lo, hi = scale_range_px(region, frac_min, frac_max)
+    sides = np.exp(rng.uniform(np.log(lo), np.log(hi), size=n)).astype(int)
+    angles = (
+        rng.uniform(-max_jitter_deg, max_jitter_deg, size=n)
+        if max_jitter_deg > 0 else np.zeros(n)
+    )
+    out = []
+    for side, angle in zip(sides, angles):
+        side = int(side)
+        box_side = rotated_box_side(side, angle) if angle else side
+        max_y0, max_x0 = region.y1 - box_side, region.x1 - box_side
+        if max_y0 < region.y0 or max_x0 < region.x0:
+            # Shrink to whatever does fit rather than failing: the small end of
+            # the range is always placeable, and refusing here would make the
+            # widest scale range unusable on the smallest rig.
+            box_side = min(region.width, region.height)
+            side = int(box_side / (rotated_box_side(1000, angle) / 1000)) if angle else box_side
+            max_y0, max_x0 = region.y1 - box_side, region.x1 - box_side
+        y = int(rng.integers(region.y0, max_y0 + 1))
+        x = int(rng.integers(region.x0, max_x0 + 1))
+        out.append((Region(y0=y, y1=y + box_side, x0=x, x1=x + box_side), float(angle), side))
+    return out
+
+
 def assert_jitter_fits(
     region: Region, crop_size: int, max_jitter_deg: float, min_room: int = 25
 ) -> None:

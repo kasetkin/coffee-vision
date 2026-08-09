@@ -172,12 +172,54 @@ def check_rotation_jitter() -> None:
         print(f"  +/-{jitter:>4} deg: 0 fill pixels over 40 patches, {room}px placement room left")
 
 
+def check_scale_augmentation() -> None:
+    """Scale augmentation must (a) stay off by default, (b) invent no pixels even
+    when composed with rotation, and (c) actually vary the scale."""
+    from coffeecv.geometry import sample_scaled_patch_boxes, scale_range_px
+
+    cfg = RunConfig.from_params_yaml()
+    assert not (cfg.patch_scale_frac_max > 0), (
+        "params.yaml ships with scale augmentation ON; the baseline arm needs it off by default"
+    )
+    print("\nscale augmentation: off by default in params.yaml")
+
+    # Region shapes standing in for the three rigs' valid regions, smallest first.
+    for name, (h, w) in [
+        ("old_rig", (1097, 1728)), ("pixel_cam", (2980, 3958)), ("sony_cam", (3678, 4904)),
+    ]:
+        region = Region(y0=0, y1=h, x0=0, x1=w)
+        lo, hi = scale_range_px(region, 0.15, 0.60)
+        # Composed with the largest rotation jitter in use, over an all-white
+        # source: any invented pixel shows as non-white, since rotate fills with 0.
+        boxes = sample_scaled_patch_boxes(
+            np.random.default_rng([7, 8, 9]), region, 60, 0.15, 0.60, 5.0
+        )
+        worst, sides = 0, []
+        for box, angle, side in boxes:
+            assert box.y0 >= 0 and box.y1 <= h, f"{name}: box escaped vertically"
+            assert box.x0 >= 0 and box.x1 <= w, f"{name}: box escaped horizontally"
+            source = Image.fromarray(np.full((box.height, box.width, 3), 255, np.uint8))
+            out = TF.center_crop(
+                TF.rotate(source, angle, interpolation=TF.InterpolationMode.BILINEAR),
+                [side, side],
+            )
+            arr = np.asarray(out)
+            assert arr.shape == (side, side, 3), f"{name}: wrong patch size {arr.shape}"
+            worst = max(worst, int((arr < 250).sum()))
+            sides.append(side)
+        assert worst == 0, f"{name}: scale+rotation leaked {worst} fill pixels"
+        assert min(sides) < max(sides) / 2, f"{name}: scale barely varied ({min(sides)}-{max(sides)})"
+        print(f"  {name:<10} 0 fill pixels over 60 patches, sides {min(sides)}-{max(sides)}px "
+              f"(range {lo}-{hi})")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--ref", default=PHASE7_HEAD, help="git ref holding the pre-Phase-8 transforms.py")
     args = p.parse_args()
     check_transforms(args.ref)
     check_rotation_jitter()
+    check_scale_augmentation()
     print("\nALL CHECKS PASSED")
 
 
