@@ -1546,3 +1546,42 @@ tray-rim contamination risk) and needs full-resolution visual QA plus paired mul
 drive-by run at the end of a refactor. It is the most promising open thread, since wider crops (~1089px ->
 ~1225px) would relax the photo-width ceiling that capped `patch_crop_size` at 900, limited rotation jitter
 to ~6 degrees, and blocked the preferred rotation implementation entirely.
+
+### Incident: `dvc exp run` detached HEAD and stranded five commits (2026-08-09)
+
+Found because the user noticed `data/` was neither git-tracked nor ignored. That symptom turned out to be
+the visible edge of a much larger problem.
+
+**What happened.** `dvc exp run` detaches HEAD to run an experiment. The plain (workspace-mode) run during
+the "why does `dvc exp run` fail" investigation left HEAD detached and `main` behind at
+`2ec2212`. Every commit after that - `08acfef` (the pycache/dvcignore fix) through `ab4e897` (all of Phase
+9) - was made on that detached HEAD, **five commits**, without any warning in normal `git log` output, which
+happily shows a detached history as if nothing were wrong. A later `dvc exp run --temp` then checked out
+`main` on cleanup, which reverted the working tree to `2ec2212`: `crop_session.py` gone, `dvc.yaml`'s crop
+stage gone, `dvc.lock`'s crop entry gone, `<session>.crop.yaml` gone.
+
+**Why it wasn't obvious.** `git status` reported *clean*, and `dvc status` reported *up to date* - both
+truthfully, since the working tree genuinely matched `main`. Nothing was corrupt; the work was simply on a
+branch nobody was standing on. The only visible tell was `data/cropped/` sitting there untracked and
+unignored, because the crops are untracked-by-git data and survived the checkout that removed everything
+around them.
+
+**Recovery.** `ab4e897` was still in the reflog and descends from `2ec2212`, so `git merge --ff-only
+ab4e897` restored all five commits and the working tree in one step. Verified after: git clean, `dvc status`
+up to date, `dvc.lock` carrying both stages, all 180 crops intact, `outputs/` still the adopted config.
+Nothing lost.
+
+**Lessons, in order of importance:**
+1. **`dvc exp run` can leave HEAD detached. Check `git rev-parse --abbrev-ref HEAD` after any `dvc exp`
+   command**, and before a run of commits. `git log` alone will not tell you.
+2. **`git status` clean is not evidence that your work is safe** - it only says the worktree matches HEAD,
+   and says nothing about whether HEAD is a branch anyone will find again.
+3. An interrupted `dvc exp run --temp` also deleted DVC's own `data/cropped/.gitignore`, and a blind
+   `git add -A` then committed that deletion unnoticed (`20cd1ea` added it, `ab4e897` silently removed it).
+   Read what `git add -A` is staging when DVC has been touching the tree.
+
+**Answering the original question - what should `data/` be**: `data/cropped/<session>/` is a `crop` stage
+output, so it must be **gitignored** (126MB of JPEGs belong in DVC, not git) while `data/cropped/.gitignore`
+itself is **git-tracked** - DVC writes that file so a fresh clone knows to ignore the path. That is now the
+state, and an audit confirms every DVC output is correctly handled: all cached outs gitignored,
+`outputs/metrics.json` and `outputs/summary.json` git-tracked deliberately (they are `cache: false` metrics).
