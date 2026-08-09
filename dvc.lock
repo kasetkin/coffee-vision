@@ -5,8 +5,8 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: d110fc8e367bb8ed2df45b4f9612f78a.dir
-      size: 250110
+      md5: 525ddba51bae608d96845e4a2bc17933.dir
+      size: 255690
       nfiles: 30
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5

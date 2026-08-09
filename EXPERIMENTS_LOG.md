@@ -1290,3 +1290,14 @@ best number, since exp 45 showed that number was a favourable draw.
 Phase 6-era, so two adopted-config generations behind. Kept as a record that the analysis happened, flagged
 as not comparable to current numbers. `infer.py` should write the same `env` block `train_baseline.py`
 already writes, plus the checkpoint hash, if inference is re-run.
+
+**Housekeeping note on the `dvc commit` that followed.** Editing `archive_experiment.py` changed the hash
+of the `coffeecv` directory, which `dvc.yaml` lists as a dep of the `train` stage - so DVC marked the stage
+stale and the next `dvc repro` would have retrained for an hour over a file that has nothing to do with
+training. Resolved with `dvc commit -f`, which records the existing outputs against the new code hash
+without re-running. Stating the small inaccuracy plainly rather than hiding it: those outputs were produced
+by the *previous* commit's code, and `dvc.lock` now associates them with this one. That is accurate in
+substance (the changed file is not in the training path, and `best.pt`'s md5 is unchanged) but it does mean
+`dvc.lock` records a code state that never literally produced these artifacts. The alternative - leaving the
+stage permanently stale - would have been worse, and an hour of retraining to restore literal truth is not
+a good trade.
