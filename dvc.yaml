@@ -10,12 +10,17 @@ stages:
     outs:
       - outputs/checkpoints/best.pt
       - outputs/checkpoints/last.pt
-    metrics:
-      # Flat six-number headline -- this is the one to read in
-      # `dvc metrics diff`; metrics.json flattens to 140+ columns.
-      - outputs/summary.json:
-          cache: false
+      # Full per-class detail. Deliberately an `out`, not a `metric`: DVC
+      # flattens every leaf of a metrics file into its own column, and this
+      # file's nested per-class stats expand to 140+ of them, which makes both
+      # `dvc exp show` and the VS Code Experiments table unreadable. Kept
+      # git-tracked (see .gitignore) and archived per run under experiments/.
       - outputs/metrics.json:
+          cache: false
+    metrics:
+      # The only file DVC reports as a metric: six flat numbers, so the
+      # experiments table and `dvc metrics diff` stay scannable.
+      - outputs/summary.json:
           cache: false
     plots:
       - outputs/history.json:
