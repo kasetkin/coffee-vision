@@ -1335,3 +1335,55 @@ browsing results in git (or on a forge) without running DVC at all.
 beside each (the extension's documented limit), then `DVC: Show Plots`. Rows here are git commits, not
 `dvc exp` experiments - `dvc exp run` still fails in this container, but `dvc exp show` reads git history
 fine, so the commit-per-experiment discipline this project already follows is what makes the extension work.
+
+## Why `dvc exp run` fails here - the real cause (2026-08-09), and a mistake made finding it
+
+The standing note in this project blamed the machine's no-reflink cache config. **That was a guess and it is
+wrong.** Verified by running `dvc exp run --temp -f` and reading the traceback:
+
+```
+FileNotFoundError: No cropped photos found in
+  /workspace/.dvc/tmp/exps/standalone/tmppdtg03er/dataset/.../class_001__Ethiopia_Sidamo/cropped
+```
+
+**The cause is a derived-data gap.** `.dvcignore` excludes `**/cropped/`, so DVC tracks only the 180 *raw*
+photos - confirmed against the cached `.dir` listing, where zero of the 180 tracked paths contain "cropped".
+But `MultiPhotoPatchDataset` reads *only* `class_*/cropped/*__cropped.jpg`. The crops exist in the working
+tree because `crop_tray.py` was run by hand on 2026-08-07, and `crop_tray.py` is not a `dvc.yaml` stage, so
+nothing regenerates them. An isolated workspace materialized from DVC-tracked content + git therefore has
+the raw photos and no crops.
+
+Two corrections follow, both bigger than the original note:
+
+1. **Plain `dvc exp run` works.** It executes in the real workspace, where the crops are. It ran training
+   normally until a 150s timeout killed it. Only `--temp` and `--queue` fail. The blanket claim "dvc exp run
+   fails in this container", repeated in several places including this log, was wrong.
+2. **The pipeline is not reproducible from a clean checkout.** `git clone` + `dvc pull` + `dvc repro` would
+   hit the same error: the 403MB of DVC-tracked raw photos are unusable without a crop step no stage
+   performs. The `.dvcignore` comment says the crops are "100% regenerable from the raw photos + code" -
+   true in principle, but nothing automates it, and *training reads only the crops*. **The fix is a `crop`
+   stage in `dvc.yaml` producing `**/cropped/` as an out - deliberately not done here.** The crop heuristic
+   was already broken once by real lighting drift across this capture session, so regenerating crops could
+   silently change the dataset every result in this log rests on. That needs a decision and a verification
+   pass, not a drive-by commit.
+
+Also fixed while here: `__pycache__/` added to `.dvcignore`. `coffeecv` is a dep of the train stage, so
+every run rewrote `.pyc` files, changed the directory hash, and made DVC report the stage as changed when no
+source had changed - low-grade noise that made `dvc status` untrustworthy.
+
+### Mistake: `dvc exp remove -A` wiped 24 historical experiment refs
+
+While cleaning up the failed `--temp` run I used `dvc exp remove -A`, which removes *all* experiment refs,
+not just the one I meant. It deleted 24 named refs from Phases 1-6 (`crop-700`, `resnet18-finetune-full`,
+`optimizer-sgd`, ...). The names lived only in the ref names; `.git/logs/refs/exps` is empty and the
+underlying commits carry only `dvc: commit experiment <hash>` messages, so the name->commit mapping is
+**not recoverable**.
+
+Actual impact, measured rather than assumed: **small**. The per-experiment record on `main` is untouched -
+48 experiment commits, and `dvc plots diff 3b31b65 19f5b27` still renders Phase 5 experiments fine. Those
+refs were a parallel record of runs that were also committed to `main`, which is what the extension's rows
+and every plot/metric query in this project actually read. What is lost is the ability to see those old runs
+under their human-readable names in the experiments table; they now appear as commit rows. No data, no
+metrics and no plots were lost.
+
+Worth remembering: `dvc exp remove -A` has no confirmation prompt and no undo.

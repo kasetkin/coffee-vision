@@ -4,4 +4,14 @@
 
 # Derived crop outputs (coffeecv/crop_tray.py) are 100% regenerable from the
 # raw photos + code, so don't version them -- only the raw captures below.
+# CAVEAT (found 2026-08-09): "regenerable" is true in principle but nothing
+# automates it -- crop_tray.py is not a dvc.yaml stage -- while training reads
+# *only* these crops. So the pipeline cannot run anywhere the crops don't
+# already sit in the working tree. See the dvc exp run finding in
+# EXPERIMENTS_LOG.md.
 **/cropped/
+
+# Python bytecode. `coffeecv` is a dep of the train stage, so without this every
+# run rewrites .pyc files, changes the directory hash, and makes DVC report the
+# stage as changed when no source file changed.
+__pycache__/
