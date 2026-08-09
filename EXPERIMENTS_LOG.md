@@ -1387,3 +1387,63 @@ under their human-readable names in the experiments table; they now appear as co
 metrics and no plots were lost.
 
 Worth remembering: `dvc exp remove -A` has no confirmation prompt and no undo.
+
+# Phase 9 (planned) - Make the crop step part of the pipeline
+
+Written 2026-08-09 after the `dvc exp run` investigation above found that training reads only
+`**/cropped/`, which no stage produces and DVC does not track. Answering the question directly: **yes, the
+full-image -> crop process should be in the pipeline** - and four findings established below make that both
+safe and more valuable than a pure plumbing fix.
+
+## What was verified first (so this isn't a risky rewrite)
+
+1. **The crop step is fully deterministic.** Re-ran `crop_tray.py --fixed-trim 0.1` on class_001 into a
+   scratch dir: all 20 crop boxes identical to the recorded ones, and all 20 output JPEGs **byte-identical**
+   (md5). So turning cropping into a stage regenerates exactly today's crops and cannot silently change the
+   dataset that Phases 7-8 rest on. This was the main risk and it is retired.
+2. **Provenance already exists and is untracked.** Each `cropped/crop_report.json` records, per photo, the
+   final `box`, the `rough_box`, `rough_method`, `trim_frac: 0.1`, and a `needs_review` flag - 180 entries
+   across 9 files, all currently inside the dvcignored directory. Small, valuable, and one `rm -rf` from
+   being gone.
+3. **The exact command is recoverable**: `--fixed-trim 0.1`, i.e. `crop_dataset_fixed_trim`, not the
+   adaptive path (which the docstring records as unstable under this session's lighting drift).
+4. **`trim_frac` is the lever on the project's binding constraint.** `box = (x + w*t, y + h*t, w - 2wt,
+   h - 2ht)`, so `trim_frac=0.1` discards **20% of the tray's width and height**: rough boxes ~1361px wide
+   become ~1089px crops. The Phase 8 close identified photo width as the single constraint that blocked the
+   preferred rotation implementation, capped rotation jitter at ~6 degrees, and bracketed `patch_crop_size`
+   at 900 (1000 failed for want of placement room). At `trim_frac=0.05` crops would be ~1225px wide -
+   **+12.5%** - which would relax all three at once. That makes this phase a genuine experiment, not just
+   plumbing. Trade-off to respect: less trim means more risk of including the tray rim, which is exactly
+   what the 10% trim exists to avoid, so it needs full-resolution visual QA, not a metric alone.
+
+## The structural constraint that shapes the design
+
+`dataset/2026-08-07__box_pictures_all_classes` is tracked by `dvc add` (a `.dvc` file). **DVC will not let a
+pipeline stage write outputs inside a `dvc add`-tracked directory.** So the crops cannot become a stage
+output where they currently sit. They must move to their own path, which is also the conventional split:
+raw captures tracked as data, derived crops produced by a stage.
+
+## Plan
+
+1. **Move crops out of the raw dataset dir** to `data/cropped/2026-08-07__box_pictures_all_classes/class_*/`.
+   Update `dataset.py` (`find_class_dir`/`list_cropped_photos`) and add a `cropped_dir` param to
+   `params.yaml` so the location is configuration, not a hardcoded `/ "cropped"` suffix.
+2. **Add a `crop` stage to `dvc.yaml`**, `foreach` the 9 class dirs, with `trim_frac` as a tracked param.
+   Deps: the raw dataset + `coffeecv/crop_tray.py`. Outs: the per-class cropped dir including
+   `crop_report.json`. `train` then depends on the crop stage's output, so the DAG is honest end to end.
+3. **Drop `**/cropped/` from `.dvcignore`** (keeping the `__pycache__/` entry added 2026-08-09).
+4. **Acceptance test, non-negotiable**: re-run training at seed 42 and require it to reproduce exp 39
+   exactly - val_macro_f1 0.9635, test_macro_f1 0.9554, best_epoch 29/37. Same bit-exactness discipline exp
+   37 used for the augmentation refactor. If it does not match, the restructure changed something and gets
+   reverted rather than explained away.
+5. **Then, and only then, sweep `trim_frac`** (0.10 -> 0.05, maybe 0.075) as a real experiment: wider crops,
+   more placement room, re-test `patch_crop_size` 1000 and rotation jitter above 6 degrees on top. Judge on
+   the paired multi-seed standard Phase 8 established, and QA the crops at full resolution for rim
+   contamination before trusting any metric.
+
+**Cost**: ~2-3h of code and verification, of which one ~50 min training run is the acceptance test. Cropping
+all 180 photos is a few minutes. **Risk**: low for steps 1-4 given the byte-identical reproduction; step 5
+is a real experiment with a real trade-off and should be treated as one.
+
+**Deliberately not in scope**: re-cropping with the *adaptive* path, and re-tracking the 2026-08-06 unlabeled
+session. Both are separate decisions.
