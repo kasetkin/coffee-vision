@@ -1004,3 +1004,38 @@ hypothesis was originally aimed at; it helped Kenya-AA instead, which was the ot
 identical - all four metrics mildly positive, all inside noise, ~2x compute - and when exp 30 combined it
 with the other mild-positive nudge, the combination was flat. Individually-noisy positives have already
 failed to compound once in this project. So: 3-seed check queued, and the verdict stays open until it runs.
+
+### Exp 40: illum_gradient_strength 0.0 -> 0.2
+
+Hypothesis 5, judged on the "costs nothing" bar agreed at the top of this run: a random-direction linear
+luminance ramp spanning +/-20% corner to corner. Grounded in something real from this project - directional
+lighting drift over the 2h 2026-08-07 capture session is what broke the original adaptive crop heuristic -
+rather than generic advice. Deliberately *spatial*: uniform brightness is already covered by ColorJitter,
+so a flat offset would add nothing new. Same config as exp 37 otherwise. Ran 00:13-00:55 UTC, 42 min.
+
+| # | change | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc | best_epoch | epochs run |
+|---|---|---|---|---|---|---|---|
+| 37 | baseline | 0.9579 | 0.9533 | 0.9499 | 0.9441 | 14 | 22 |
+| 40 | illum_gradient_strength=0.2 | 0.9439 | 0.9377 | 0.9468 | 0.9412 | 12 | 20 |
+
+**Does not clear the "costs nothing" bar - not adopted, but not a clear reject either.** test is genuinely
+flat (-0.0030/-0.0030, ~6% of its band, the flattest test result in Phase 8). val is not: -0.0140 sits
+exactly on its 0.0144 band edge and val_mcc -0.0157 just crosses its 0.0156 band. Under this project's
+standing decision rule - val is the primary signal, being both tighter and the checkpoint-selection metric,
+with test as directional confirmation - that reads as a small *real* cost rather than noise, which is
+precisely what the "free robustness" bar was set up to exclude. It was however the cheapest run in Phase 8
+(20 epochs vs 22 baseline), so the cost is quality, not compute.
+
+Per-class is consistent across both splits, which is why this looks real rather than like a draw: the
+damage concentrates on Brazil-MonteCristo (val -0.062, test -0.026) and Guatemala-Tata (val -0.022, test
+-0.023), while Kenya-AA, Colombia-PinkBourbon and Ethiopia-Sidamo all tick mildly *up* on both. So the
+gradient isn't uniformly harmful - it specifically costs the classes distinguished by subtler shading
+cues, which is a coherent mechanism: a synthetic luminance ramp is exactly the kind of signal that would
+wash out real shading differences between two similar brown bean piles.
+
+**What this does and does not settle.** It does not test the hypothesis's actual claim - robustness to a
+*future* session's lighting - which this dataset structurally cannot evaluate, since train/val/test are
+all the same 2h shoot. It only measures the in-distribution price, which was the point of the "costs
+nothing" bar. The price is small but probably real, and the benefit remains entirely unvalidated. Verdict:
+leave it off, and revisit only once a second capture session exists to validate against - at which point
+the right test is "does a model trained with this do better on the *new* session", not this table.
