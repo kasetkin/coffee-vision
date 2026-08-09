@@ -1065,3 +1065,59 @@ from the model" strategies.
 Consistent with the plan's own stated scepticism: blending two origins' bean piles doesn't correspond to
 anything physical, unlike occluding part of one pile (exp 39), which is just a bean the camera didn't see.
 That distinction now has a small piece of evidence behind it rather than being purely a priori.
+
+## Exp 42-43: 3-seed confirmation of random erasing - ADOPTED
+
+Exp 39's single-seed result was mildly positive on all four metrics but far inside every noise band, so the
+verdict was held open. Seeds 123 and 7 run with `random_erasing_p=0.5`, everything else at exp 37's config.
+Crucially this is a **paired** comparison: Phase 7 already measured the un-augmented baseline at these exact
+seeds (exp 34 seed 123, exp 35 seed 7, exp 20/37 seed 42), so each run is compared against its own
+same-seed baseline rather than against a wide single-run band. Ran 01:52-04:03 UTC, 54 + 77 min.
+
+| seed | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc |
+|---|---|---|---|---|
+| 42 (exp 37 -> 39) | +0.0056 | +0.0064 | +0.0055 | +0.0068 |
+| 123 (exp 34 -> 42) | +0.0313 | +0.0338 | +0.0078 | +0.0087 |
+| 7 (exp 35 -> 43) | +0.0026 | +0.0031 | +0.0370 | +0.0401 |
+
+| | val_macro_f1 | val_mcc | test_macro_f1 | test_mcc |
+|---|---|---|---|---|
+| baseline mean (exp 20/34/35) | 0.9635 | 0.9597 | 0.9234 | 0.9158 |
+| erasing mean (exp 39/42/43) | 0.9767 | 0.9741 | **0.9402** | **0.9343** |
+| delta of means | +0.0132 | +0.0144 | +0.0168 | +0.0185 |
+| erasing 3-seed spread | 0.0281 | 0.0309 | 0.0456 | 0.0491 |
+| baseline 3-seed spread | 0.0144 | 0.0156 | 0.0479 | 0.0510 |
+
+**ADOPT - the first adoption of Phase 8, and the best-evidenced adoption in this project so far.**
+
+The case does *not* rest on effect size: +0.0168 mean test macro-F1 is still only ~35% of the single-run
+noise band, and no individual run's delta would have been convincing alone. It rests on **consistency
+under pairing** - all 12 deltas across 3 seeds x 4 metrics are positive, and each seed improved against its
+own baseline rather than against a pooled average. That is a different and stronger kind of evidence than
+Phase 7's adoptions had: exp 20 (patch_crop_size=900) was adopted on a *single* seed, and exp 34/35 later
+showed its headline 0.9499 was a favourable draw from a 0.90-0.95 range. Nothing here is a favourable
+draw - the worst seed still improved.
+
+Two honest qualifications:
+- **The magnitude is small and the per-seed spread is large.** Test deltas were +0.0055, +0.0078, +0.0370:
+  consistent in sign, a 7x range in size. Expected test macro-F1 goes from ~0.9234 to ~0.9402; report the
+  *range* (~0.91-0.96), not the mean, when describing this model, same discipline as Phase 7's close.
+- **Variance is not made worse, but is not clearly improved either.** Erasing's test spread (0.0456) is
+  marginally tighter than baseline's (0.0479) - not enough to claim it stabilises anything. Its *val*
+  spread nearly doubled (0.0281 vs 0.0144), driven entirely by seed 123 (below).
+
+### Methodology finding: the val set is saturating and losing discriminative power
+
+Seed 123 with erasing hit **val_macro_f1 = 0.9917**, the highest val number anywhere in this project, while
+its test only moved +0.0078. That asymmetry is exp 22's signature (val jumps, test doesn't follow), which
+in Phase 7 meant overfitting the 3-photo/class val set. It is less alarming here because test still moved
+the right way rather than dropping - but a near-perfect val alongside a nearly-static test means the val
+set is approaching saturation and is running out of room to discriminate between configs. With 5 of 9
+classes already pinned at or near 1.000 on both splits (exp 37), this will only get worse.
+
+**Implication for future sessions, independent of erasing**: `best.pt` is selected by peak val_macro_f1, so
+a saturating val set degrades *checkpoint selection*, not just reporting. Once val macro-F1 routinely
+exceeds ~0.98, "best epoch" is being chosen among near-ties on a 360-patch/3-photo-per-class set, which is
+plausibly a real contributor to the wide test spread Phase 7 attributed to patch geometry alone. Worth
+addressing before further tuning: more val photos per class, or selecting on val loss (which keeps
+resolving after F1 saturates) rather than on macro-F1.

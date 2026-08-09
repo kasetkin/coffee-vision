@@ -5,3 +5,5 @@ exp,slug,seed,val_macro_f1,val_mcc,test_macro_f1,test_mcc,best_epoch,epochs_trai
 39,random_erasing_0.5,42,0.9635,0.9597,0.9554,0.9509,29,37,random_erasing_p=0.5,"random_erasing_p=0.5 (scale 0.02-0.15 of area, after Normalize)",2026-08-09T00:12:18.404134+00:00,6501b8daec8de8d8dd9ff9ae8a4d60779a43f73b
 40,illum_gradient_0.2,42,0.9439,0.9377,0.9468,0.9412,12,20,illum_gradient_strength=0.2,illum_gradient_strength=0.2 (+/-20% directional luminance ramp),2026-08-09T00:55:12.189490+00:00,0c040202b4a757849eefead9b609dd23075855e6
 41,mixup_alpha_0.2,42,0.9517,0.9472,0.9391,0.9320,18,26,mixup_alpha=0.2,"mixup_alpha=0.2 (Beta(0.2,0.2) batch mixing, loss-level)",2026-08-09T01:50:59.111535+00:00,6a4a6302986246a6c2f9f41e144bd5d95c03cddd
+42,random_erasing_seed123,123,0.9917,0.9907,0.9098,0.9018,18,26,random_erasing_p=0.5; seed=123,"random_erasing_p=0.5, seed=123 (multi-seed check)",2026-08-09T02:46:05.320594+00:00,5e9646a455b2ba15fac025fac57ceb1f43a2bd19
+43,random_erasing_seed7,7,0.9749,0.9720,0.9553,0.9503,30,38,random_erasing_p=0.5; seed=7,"random_erasing_p=0.5, seed=7 (multi-seed check)",2026-08-09T04:03:32.657264+00:00,5e9646a455b2ba15fac025fac57ceb1f43a2bd19

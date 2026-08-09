@@ -1,0 +1,5 @@
+{
+  "exp": "42",
+  "slug": "random_erasing_seed123",
+  "note": "random_erasing_p=0.5, seed=123 (multi-seed check)"
+}
