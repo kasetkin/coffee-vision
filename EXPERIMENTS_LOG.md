@@ -1301,3 +1301,37 @@ substance (the changed file is not in the training path, and `best.pt`'s md5 is 
 `dvc.lock` records a code state that never literally produced these artifacts. The alternative - leaving the
 stage permanently stale - would have been worse, and an hour of retraining to restore literal truth is not
 a good trade.
+
+## DVC + VS Code extension: what actually shows up (verified 2026-08-09)
+
+Checked against the DVC docs and then verified by running the commands the extension wraps, rather than
+assuming. Three findings, one of them a pleasant surprise.
+
+**1. Charts already work across every Phase 8 experiment - including the ones whose metrics were lost.**
+`dvc plots diff <commit> <commit> ...` renders all four experiment commits tested (36, 38, 39, 41) with all
+three declared sources. The confusion matrices genuinely render (vega `rect` marks, true_label/pred_label
+axes) and the curves render as `line`/`circle`/`rule`. This works because `outputs/history.json` and
+`outputs/predictions_{val,test}.csv` are **cached DVC outs** - so DVC retrieves each revision's copy from
+`.dvc/cache`. That is exactly the property `outputs/metrics.json` lacked (`cache: false` *and* gitignored,
+so tracked by neither and unrecoverable for exp 36-44). Same directory, opposite outcome, purely because of
+how each file was declared - worth remembering as the concrete cost of `cache: false` without git tracking.
+
+**2. The experiments table was unreadable, and that was fixable.** `dvc exp show` and the extension's
+Experiments table flatten every leaf of a *metrics* file into a column. `metrics.json`'s nested per-class
+stats expanded to 148 columns, which is why neither view was ever usable here. Moving `metrics.json` from
+`metrics:` to `outs:` (still `cache: false`, still git-tracked, still archived per run) and leaving
+`summary.json` as the sole declared metric cuts it to **42 columns** with the six headline numbers first,
+the rest being params. Note historical commits keep their own `dvc.yaml`, so revisions before this change
+still contribute the wide columns when shown in the same table.
+
+**3. Image plots were considered and deliberately not added.** DVC does support PNG/JPG/SVG plots, rendered
+side by side across selected experiments. But the confusion matrices and curves *already* render natively
+from the CSV/JSON, interactively and for every revision, so declaring `outputs/plots/*.png` as image plots
+would duplicate them for no gain - and would require making them cached outs, which pulls the 3.3MB
+`patch_samples.png` question back open. The archived PNGs under `experiments/` serve a different purpose:
+browsing results in git (or on a forge) without running DVC at all.
+
+**How to use it in VS Code**: open the DVC panel -> Experiments, select up to **7** rows via the circle
+beside each (the extension's documented limit), then `DVC: Show Plots`. Rows here are git commits, not
+`dvc exp` experiments - `dvc exp run` still fails in this container, but `dvc exp show` reads git history
+fine, so the commit-per-experiment discipline this project already follows is what makes the extension work.
