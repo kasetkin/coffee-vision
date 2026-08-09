@@ -1631,3 +1631,59 @@ tightest valid region ~1016 -> ~1137px, which would give `patch_crop_size=1000` 
 instead of the ~17px that made exp 32 fail. That is a real experiment, but it buys a modest gain by spending
 most of the measured safety margin, and the texture detector's own error is unquantified. Not taken
 unilaterally.
+
+## Analysis: 2026-08-09 new capture format (white cup) - 6 test photos
+
+User is considering changing the capture container from the metal-rimmed box tray to a white measuring cup,
+elevated on a jar, shot top-down. Six unlabeled test photos, same phone/sensor (3072x4080). Assessed for
+whether the pipeline can use them.
+
+### In favour
+
+- **Bean pixel scale is unchanged.** Dominant texture period (bean-to-bean spacing) 115px on the new format
+  vs 110px on the current rig. This matters more than it sounds: the model's learned texture scale would
+  transfer, `patch_crop_size` keeps its meaning, and results stay roughly comparable across the change.
+- **Focus uniformity is *better*, not worse.** Edge/centre Laplacian-variance ratio 0.62 (new) vs 0.43
+  (current tray). The concave bowl surface was the obvious worry and it is not a problem - if anything the
+  flat tray's corners were softer.
+- **No metal rim.** The entire rim-contamination problem that this session's crop work has been fighting
+  simply disappears; a white cup against a white background separates from beans far more cleanly than a
+  metal rim does.
+- **Circular bean region is already supported.** `geometry.compute_valid_region` (written for the original
+  macro-lens rig) computes the largest square inscribed in a circle. That code path exists and is tested.
+
+### Against, as currently shot
+
+- **Usable area is not better, and probably slightly worse.** Largest all-bean square measures **912-968px**
+  (conservative, hole-filled max-rectangle); taking the inscribed square of the detected bean circle instead
+  gives ~1030-1160px. Current rig after today's asymmetric trim: **1067px**. So at best a wash, at worst a
+  ~10% regression - and `patch_crop_size=900` would have only 12-68px of placement room on the conservative
+  measure, straight back into exp 32's failure zone (17px). `patch_crop_size=1000` would not fit at all.
+  **This format as shot does not relax the width ceiling, which was the reason to want a new format.**
+- **The existing crop pipeline fails on 2 of 6 photos.** Hard directional shadow creates a texture edge that
+  `locate_tray_rough` follows out into the background; the detected region became the whole frame. Verified
+  visually, not just numerically.
+- **The jar is in frame and its label is textured**, competing with the beans for texture-based detection.
+  All measurements above needed the search restricted to the top 55% of the frame to work at all.
+- **Most of the sensor is wasted.** Beans occupy roughly 15-20% of frame area; the cup's outer diameter is
+  only ~55% of frame width.
+
+### Verdict and what would make it clearly better
+
+The container is not the problem - **framing and lighting are**. Fixes, in order of value:
+
+1. **Fill the frame.** Move the camera closer (or use a wider cup) so the cup spans ~85% of frame width
+   instead of ~55%. That alone would take the usable square from ~940px to ~1500px - a ~40% *improvement*
+   over the current rig, which would finally unlock `patch_crop_size` 1200-1400 and make artifact-free
+   arbitrary rotation possible (both blocked today by the 1067px ceiling).
+2. **Diffuse the light.** The hard shadow breaks detection on a third of the test shots, and directional
+   lighting drift is what broke the original adaptive crop heuristic on the 2026-08-07 session too.
+3. **Get the jar out of frame** - plain background, cup on a flat surface.
+
+With 1-3 done, this format is strictly better than the tray: no rim, better focus uniformity, easier
+segmentation, more usable pixels. As shot today, it is a step sideways or slightly backwards.
+
+**Separately worth knowing**: even unlabeled, a second capture session with a different container and
+lighting is exactly the missing piece for Phase 8's hypotheses 4 and 5 (perspective jitter, illumination
+gradient). Both were left unvalidated because train/val/test all came from one 2h shoot, so the current test
+set structurally cannot measure robustness to a new session. These photos could measure it, once labelled.
