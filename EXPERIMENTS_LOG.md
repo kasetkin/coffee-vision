@@ -1836,3 +1836,77 @@ precision.
    some class signal, so this could cost in-distribution accuracy.
 4. **Ship the OOD guard regardless.** Refusing to predict is strictly better than a confident wrong answer,
    and the threshold is empirically supported.
+
+# Phase 10 (planned) - Refuse to predict out of distribution
+
+Cheap, no retraining, and strictly better than the current behaviour: today the model answers every photo
+with high confidence regardless of whether it has any business doing so.
+
+**Method** (validated in the 2026-08-09 cross-rig test above): take the penultimate 512-d embedding, measure
+distance to the nearest training-class centre, normalize by that class's own mean spread. Held-out training
+photos score mean 0.97 / p95 1.19 / max 1.24; the out-of-rig photo scores 1.92-1.94 across three seeds.
+
+**Steps**
+
+1. Compute per-class centroids and spreads from the training split and save them **beside the checkpoint**,
+   so the guard travels with the model (extend `models/<name>.json`, which already carries the model card).
+2. Add the guard to `infer.py`: report the distance alongside the prediction, and emit
+   `unknown / out-of-distribution` above a threshold.
+3. Calibrate the threshold at ~1.4 (above the 1.24 in-distribution max, below the 1.92 observed failure) and
+   record the basis, not just the number.
+4. **Acceptance**: must pass every held-out training photo, and must refuse the format-c photo. Report the
+   margin, since one positive example is thin evidence for a threshold.
+
+**Deliberately limited**: the guard says "do not trust this", it does not identify the class. On the format-c
+photo the embedding is roughly equidistant from all nine centres (1.91-2.86, top three within 0.08), so
+there is no usable alternative prediction hiding in it. Do not oversell it as a fallback classifier.
+
+# Phase 11 (planned) - Brightness normalization and augmentation for generalization
+
+User's direction: brightness handling belongs in the augmentation pipeline alongside rotation, mirroring and
+zoom, and generalization across rigs is a first-class goal rather than a footnote.
+
+## The prerequisite, and it is not optional
+
+**A labelled second-rig validation set.** Phase 8 tested five augmentation hypotheses and rejected four of
+them - and every one of those verdicts was measured on a test set drawn from the *same 2-hour shoot* as
+training. That metric structurally cannot see a generalization benefit. Rotation jitter "no effect", zoom
+"not adopted", illumination "fails the costs-nothing bar", perspective "deferred": all of those were judged
+on the one axis where such augmentations are *expected* to look neutral or slightly negative, while their
+actual payoff is on an axis that did not exist yet. **Phase 11 should not start until some format-b/c photos
+are labelled**, or it will repeat exactly that mistake with more compute.
+
+Suggested minimum: 3-5 photos per class on the new rig - enough for a cross-rig macro-F1 with a usable
+noise band, far short of a full training session.
+
+## Normalization and augmentation are different tools; use both
+
+- **Normalization** is deterministic preprocessing applied at train *and* inference: scale each photo so its
+  grey mean matches a fixed reference, preserving R/G/B ratios so bean colour - which is real class signal -
+  survives. This removes a *rig-level offset*. The 2026-08-09 photo sits at grey mean 126 against training's
+  86, roughly +46%, far outside anything training ever saw.
+- **Augmentation** is random variation during training, teaching invariance to *residual* variation the
+  normalizer cannot remove (per-photo drift, gradients across a single frame).
+
+They are complementary, and the honest expectation is that normalization does most of the work here.
+
+## Steps
+
+1. **Per-photo brightness normalization** in the crop or dataset stage, applied identically at inference.
+   Test in-distribution first: absolute brightness may itself carry class signal, so this could cost
+   accuracy on the current rig. That cost is acceptable if cross-rig improves, but it must be *measured*,
+   not assumed.
+2. **Widen the brightness augmentation range** well beyond `color_jitter_strength=0.2`'s 0.8-1.2 factor,
+   which is narrower than the observed rig-to-rig shift.
+3. **Re-test the Phase 8 augmentations under the new two-axis metric** - rotation jitter, zoom, illumination
+   gradient, and perspective (never implemented on real pixels). Their rejections are not wrong, but they
+   answered a different question than the one that now matters.
+
+## Decision rule for Phase 11 (this is the part that changes)
+
+Report **two** numbers per experiment: in-distribution test macro-F1 (the existing metric and noise band)
+and **cross-rig macro-F1** on the new validation set. Adopt on a cross-rig gain, provided the in-distribution
+cost stays within its noise band. This inverts Phase 8's bar, where in-distribution was primary - which was
+correct while cross-rig could not be measured, and is wrong now that it can.
+
+Keep the paired multi-seed standard from Phase 8: sign consistency across seeds, not effect size on one run.
