@@ -37,8 +37,14 @@ ARMS = {
 }
 
 
-def set_fold(heldout: str, frac_min: float, frac_max: float) -> None:
-    """Point params.yaml at one fold, preserving comments and ordering."""
+def set_fold(heldout: str, frac_min: float, frac_max: float, epochs: int | None = None) -> None:
+    """Point params.yaml at one fold, preserving comments and ordering.
+
+    `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
+    changing it changes the LR trajectory as well as how long training may run.
+    Both arms of a comparison therefore have to share it -- scale@80 vs
+    baseline@50 would confound "trained longer" with "annealed differently".
+    """
     text = PARAMS_FILE.read_text()
     train = [r for r in RIGS if r != heldout]
 
@@ -49,6 +55,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float) -> None:
                   text, count=1, flags=re.M)
     text = re.sub(r"^patch_scale_frac_max: .*$", f"patch_scale_frac_max: {frac_max}",
                   text, count=1, flags=re.M)
+    if epochs is not None:
+        text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -59,6 +67,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float) -> None:
     assert list(cfg.train_rigs) == train, f"train_rigs is {cfg.train_rigs!r}, wanted {train!r}"
     assert cfg.patch_scale_frac_min == frac_min and cfg.patch_scale_frac_max == frac_max
     assert heldout not in cfg.train_rigs, "held-out rig leaked into training"
+    if epochs is not None:
+        assert cfg.epochs == epochs, f"epochs is {cfg.epochs}, wanted {epochs}"
 
 
 def run(cmd: list[str]) -> int:
@@ -72,6 +82,9 @@ def main() -> None:
     p.add_argument("--start-exp", type=int, required=True, help="experiment number of the first fold")
     p.add_argument("--only", help="run just this held-out rig (substring match)")
     p.add_argument("--force", action="store_true", help="re-run folds that are already archived")
+    p.add_argument("--epochs", type=int, default=None,
+                   help="epoch budget AND cosine T_max; both arms of a comparison must share it")
+    p.add_argument("--tag", default="", help="slug suffix distinguishing this sweep, e.g. e80")
     args = p.parse_args()
 
     frac_min, frac_max = ARMS[args.arm]
@@ -80,7 +93,8 @@ def main() -> None:
     for i, heldout in enumerate(heldouts):
         exp_id = args.start_exp + i
         short = Path(heldout).name
-        slug = f"lorio_{args.arm}_heldout_{short.split('__')[-1]}"
+        tag = f"_{args.tag}" if args.tag else ""
+        slug = f"lorio_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
 
         # Resume: a fold that already archived a metrics.json is done. Two power
         # cuts during this sweep made restart-from-scratch the expensive default;
@@ -94,7 +108,7 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
-        set_fold(heldout, frac_min, frac_max)
+        set_fold(heldout, frac_min, frac_max, args.epochs)
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -104,7 +118,7 @@ def main() -> None:
         print(f"fold {short} finished in {mins:.0f} min", flush=True)
 
         note = (f"leave-one-rig-out, arm={args.arm}, held out {short}; "
-                f"scale_frac={frac_min}-{frac_max}")
+                f"scale_frac={frac_min}-{frac_max}, epochs={args.epochs or 'default'}")
         run(["python", "-m", "coffeecv.archive_experiment",
              "--id", str(exp_id), "--slug", slug, "--note", note])
 
