@@ -70,10 +70,9 @@ def plot_patch_samples(dataset, class_ids: list[str], class_labels: dict[str, st
     fig, axes = plt.subplots(len(class_ids), n_per_class, figsize=(n_per_class * 2.2, len(class_ids) * 2.2))
 
     by_class: dict[str, list[int]] = {cid: [] for cid in class_ids}
-    for idx, sample in enumerate(dataset._samples):
-        cid = sample[0]  # (class_id, box) or (class_id, photo_name, box) -- class_id is always first
-        if len(by_class[cid]) < n_per_class:
-            by_class[cid].append(idx)
+    for idx, meta in enumerate(dataset._meta):
+        if len(by_class[meta.class_id]) < n_per_class:
+            by_class[meta.class_id].append(idx)
 
     for row, cid in enumerate(class_ids):
         for col in range(n_per_class):
