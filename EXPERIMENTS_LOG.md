@@ -1937,3 +1937,197 @@ identical config)". That is literally true - `params.yaml` is byte-identical, be
 session in `<session>.crop.yaml` by design. Correct architecture, incomplete record: a run's `config.json`
 had no trace of the data it was trained on. `archive_experiment.py` now copies the session crop configs into
 each archived run, so the record states the data as well as the hyperparameters.
+
+---
+
+# Phase 11 (in progress) - Cross-rig generalization, measured
+
+Two new capture sessions arrived on 2026-08-09, each a complete labelled set: **pixel_cam** (Pixel 9 Pro,
+180 photos, 9 classes x 20) and **sony_cam** (Sony G8441 / Xperia XZ1, same shape). Together with the
+2026-08-07 box rig that is **three rigs**, which is the minimum needed to measure cross-camera transfer
+rather than assert it. This is the labelled second-rig data Phase 11 was blocked on, and considerably more
+than the 3-5 photos/class that had been asked for.
+
+## What the new rigs are
+
+Measured over all 360 frames, not sampled:
+
+| | old box rig | pixel_cam | sony_cam |
+|---|---|---|---|
+| camera | Pixel 9 Pro | Pixel 9 Pro (same body) | Sony G8441 |
+| frame | 3072x4080, tray in centre | 4080x3072 | 5056x3792 |
+| usable bean area | 2.0 MP (after crop) | 12.5 MP | 19.2 MP |
+| bean scale | ~102 px | ~209 px (2.0x) | ~324 px (3.2x) |
+| **distinct beans/photo** | ~215 | ~282 | ~216 |
+| grey mean | 78.7 | 116.5 (1.48x) | 125.1 (1.59x) |
+| flash | fired | off | fired |
+| crop stage needed | yes | **no** | **no** |
+
+Both new rigs are 100% bean edge to edge - no container, table or hand in any of the 360 frames - so both
+use the new `method: none` byte-copy passthrough rather than a crop. They still flow through the `crop`
+stage so the pipeline shape stays uniform.
+
+**The extra megapixels buy resolution, not more beans.** sony_cam has 9.5x the pixel area of the cropped old
+rig but shows ~216 distinct beans against ~215. Framing got tighter as the sensor got bigger. Worth knowing
+before expecting proportionally more independent patches from a higher-resolution rig.
+
+Three measurement traps caught during this analysis, all of the same family - **a heuristic tuned at one
+magnification silently inverts at another**:
+
+- A texture-based "non-bean area" check reported 11-16% of these frames as non-bean. Overlaying the mask
+  showed the flagged regions were *the smooth centres of individual beans*: at 2-3x higher magnification a
+  16px texture block fits inside one bean's face. The frames are 100% bean. This same detector had already
+  overstated usable area on capture format b. Any block-based texture measure needs its window scaled to the
+  measured bean size, or its output means nothing across rigs.
+- Laplacian sharpness ranked both new rigs far below the old one. At matched bean scale, and again at the
+  224px the model actually consumes, the new rigs carry *more* legible detail (centre crease and silverskin
+  resolved where the old rig turns them to mush). The metric was reading magnification.
+- 21 sony frames scored as "low focus". Twelve were opened at full resolution: all sharp, all extreme
+  close-ups. No frames were excluded from either rig.
+
+sony_cam's per-class brightness spread is 27.5 grey levels (old rig: 4.9), which looks like a class shortcut.
+It is not: brightness alone classifies at 14.4% against 11.1% chance, and global colour at 13.3%. It is
+shot-to-shot flash/WB noise, i.e. free illumination variance.
+
+EXIF orientation is deliberately ignored - not read, not applied. Bean texture has no canonical "up", the
+pipeline already samples right angles and mirrors, and honouring EXIF would couple training to metadata that
+need not be correct on a future rig. Frames are copied byte-for-byte.
+
+## Protocol: leave-one-rig-out, three folds
+
+`train_rigs` are split train/val/test at the photo level; `heldout_rig` contributes **every** photo as a
+`test_xrig` split and is never trained on. The in-distribution test split is kept alongside it, so a change
+that trades one for the other is visible instead of averaged away. The held-out rig is evaluated every epoch
+for the chart but **never** influences checkpoint selection or early stopping - `best_epoch` is chosen on
+`val_macro_f1` alone, or the transfer number would be meaningless.
+
+Three folds, not one, because a single held-out rig is n=1 - and the baseline arm below proves that concern
+was not theoretical.
+
+**Standing caveat on every cross-rig number here**: the same physical beans were re-poured and re-photographed
+across rigs, so bean identity is shared between training and held-out rigs. These transfer figures are
+therefore *optimistic* relative to a genuinely new bean sample.
+
+## Architecture change forced by rig size
+
+The dataset previously held every photo in RAM. At 37 MB (pixel) and 57 MB (sony) per decoded photo that
+needed ~18 GB across the four datasets, against ~11 GB free. Patches are now materialised at construction
+with one photo resident at a time; peak is **3.18 GB**. No semantics change - patch boxes were always fixed
+at construction, and only the photometric transforms vary per epoch.
+
+Consequence, stated plainly: the RNG stream gained a rig dimension, so box placement changed and runs at or
+before exp 47 are reproducible only from their own commits, not from current code. Their archived numbers
+stand; git history is what preserves them. The Phase 7 bit-exactness assertion in `check_augmentation.py` was
+retired for the same reason; the invariant it protected (jitter off must not move a box) is still asserted
+against the current stream.
+
+## Baseline arm (exp 48-50): fixed 900px patch, seed 42, commit 622f4f9
+
+The honest "what does the current model actually do across rigs" measurement.
+
+| # | held out | val | in-dist test | **cross-rig** | xrig MCC | best/run |
+|---|---|---|---|---|---|---|
+| 48 | old_box | 0.8616 | 0.8657 | **0.1734** | 0.2617 | 18/26 |
+| 49 | pixel_cam | 0.8818 | 0.8937 | **0.5579** | 0.5575 | 18/26 |
+| 50 | sony_cam | 0.9485 | 0.9238 | **0.3044** | 0.3198 | 37/45 |
+| | **mean** | | **0.8944** | **0.3452** | | |
+
+Chance is 0.111. In-distribution accuracy is a comfortable 0.89 mean; cross-rig collapses to 0.35.
+
+**The spread across folds is the result, not the mean.** 0.1734 to 0.5579 - a single fold would have
+supported either "transfer is nil" or "transfer is mediocre but real", with nothing inside that run to
+indicate which reading was the artifact. This is the concrete justification for the three-fold protocol.
+
+**Transfer tracks scale extrapolation, monotonically:**
+
+| held out | its bean scale | training rigs' scales | held-out scale is | cross-rig |
+|---|---|---|---|---|
+| pixel_cam | 209 px | 102 and 324 | **interpolated** | 0.5579 |
+| sony_cam | 324 px | 102 and 209 | extrapolated (closer) | 0.3044 |
+| old_box | 102 px | 209 and 324 | extrapolated (furthest) | 0.1734 |
+
+When the held-out rig's magnification lies *between* the two training rigs, transfer is roughly double what
+it is when the model has to extrapolate - and the worst fold is the one extrapolating furthest. Sensor,
+white balance and lighting differ across all three folds in no such orderly way (fold 49 spans two different
+camera bodies and still scores best). That points at magnification, not colour or sensor, as the dominant
+failure axis, and it is a testable prediction rather than a post-hoc story: making patch scale
+rig-independent should lift the two extrapolating folds most.
+
+Per-class cross-rig F1 on fold 50 shows the failure is not uniform - Vietnam Robusta 0.654 and Ethiopia
+Kochere 0.433 survive, while Brazil MonteCristo collapses to 0.000 and Guatemala Tata to 0.049. Classes
+distinguished by coarse colour survive a scale change; classes distinguished by fine surface texture do not.
+
+## Scale arm (exp 51-53): patch side as a fraction of frame
+
+Patch side drawn log-uniformly from 0.15-0.60 of each photo's short side, replacing the fixed 900px. Applied
+to eval splits too, unlike every other augmentation: patch side decides how many beans a patch covers, so a
+fixed pixel size at eval would score each rig at a different bean coverage and measure magnification rather
+than the model. Eval draws are seeded and deterministic. Everything else identical to the baseline arm; the
+two arms differ only by `patch_scale_frac_min/max` in params.yaml.
+
+At 0.15-0.60 the three rigs land at 1.6-6.5, 2.1-8.6 and 1.7-6.8 beans across - matched, with no per-rig
+constant anywhere. That works only because the rigs frame a similar bean *count* (~215-282/photo) despite
+2.0x and 3.2x differences in pixel scale.
+
+| # | held out | val | in-dist test | **cross-rig** | xrig MCC | best/run |
+|---|---|---|---|---|---|---|
+| 51 | old_box | 0.8392 | 0.8608 | **0.5413** | 0.5342 | 36/44 |
+| 52 | pixel_cam | 0.8445 | 0.8107 | **0.6843** | 0.6396 | 45/50 |
+| 53 | sony_cam | 0.8481 | 0.8532 | **0.4431** | 0.4367 | 46/50 |
+| | **mean** | | **0.8416** | **0.5562** | | |
+
+### Paired deltas vs the baseline arm (same folds, same seed, same commit except the knob)
+
+| fold | cross-rig | in-dist test |
+|---|---|---|
+| old_box | **+0.3679** | -0.0049 |
+| pixel_cam | **+0.1263** | -0.0830 |
+| sony_cam | **+0.1387** | -0.0706 |
+| **mean** | **+0.2110** | **-0.0528** |
+
+**All three folds improved cross-rig.** Sign consistency across folds, which is the Phase 8 standard applied
+on the axis that matters here. The mean gain is over 4x the +/-0.048 noise band. Cross-rig mean goes
+0.3452 -> 0.5562 against a chance floor of 0.111.
+
+**It is a trade, not a free win.** In-distribution test costs -0.0528 on average, marginally *outside* the
+noise band, so it is real. The Phase 11 decision rule says adopt "provided in-distribution cost stays within
+noise" - by the letter, this is just outside, and that should not be quietly rounded away.
+
+### The capped-epoch caveat, which probably flatters the baseline
+
+exp52 and exp53 hit the 50-epoch cap with best_epoch 45 and 46 - early stopping never fired, so both were
+still improving when training stopped. exp51 is the only scale fold that converged (best 36, stopped at 44),
+and it is also the fold with a negligible in-distribution cost (-0.0049) and the largest cross-rig gain
+(+0.3679).
+
+Scale augmentation makes the problem harder and convergence slower; the baseline arm converged in 26-45
+epochs, the scale arm needed 44-50+. So the two capped folds are undertrained, and the honest reading is that
+these numbers **understate the cross-rig gain and overstate the in-distribution cost**. Re-running the scale
+arm at `epochs: 80` is the obvious next step and is a prerequisite before treating the -0.0528 as the real
+price.
+
+### Evidence status - what this does and does not establish
+
+Established: making patch scale rig-independent produces a large, sign-consistent cross-rig improvement
+across all three held-out rigs, and the baseline arm's monotonic extrapolation pattern predicted which fold
+would gain most (old_box, the furthest extrapolation, gained +0.368 against +0.13 for the other two).
+
+Not established, and not to be claimed:
+- **Single seed.** The Phase 8 standard is paired *multi-seed*. This is paired multi-*fold*, which is a
+  different and arguably more relevant axis for a generalization question, but it is not a substitute. A seed
+  replication is still owed.
+- **Two folds undertrained**, as above.
+- **Shared bean identity.** The same physical beans were re-poured across rigs, so every cross-rig figure
+  here is optimistic relative to a genuinely new bean sample.
+- Nothing here says the *absolute* level (0.556) is deployable. It says the direction and the mechanism are
+  right.
+
+### Operational note: two power cuts
+
+The sweep was interrupted twice mid-arm. exp51 survived because `archive_experiment` copies a finished run
+out of `outputs/` immediately, so a completed fold is durable the moment it lands rather than waiting in a
+directory the next run overwrites. exp52 was ~3 minutes in and was lost entirely.
+
+`run_folds.py` now skips folds that already have an archived metrics.json, so a restart resumes instead of
+repeating ~90 minutes of finished work. The resumed exp52 reproduced the killed run's epoch-4 losses to four
+decimals across a machine reboot, which is a free determinism check the outage handed us.
