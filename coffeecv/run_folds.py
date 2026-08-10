@@ -71,6 +71,7 @@ def main() -> None:
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
     p.add_argument("--start-exp", type=int, required=True, help="experiment number of the first fold")
     p.add_argument("--only", help="run just this held-out rig (substring match)")
+    p.add_argument("--force", action="store_true", help="re-run folds that are already archived")
     args = p.parse_args()
 
     frac_min, frac_max = ARMS[args.arm]
@@ -80,6 +81,17 @@ def main() -> None:
         exp_id = args.start_exp + i
         short = Path(heldout).name
         slug = f"lorio_{args.arm}_heldout_{short.split('__')[-1]}"
+
+        # Resume: a fold that already archived a metrics.json is done. Two power
+        # cuts during this sweep made restart-from-scratch the expensive default;
+        # each fold is ~90 min, so re-running completed ones burns the budget the
+        # outage already dented.
+        done = REPO_ROOT / "experiments" / f"exp{exp_id}__{slug}" / "metrics.json"
+        if done.exists() and not args.force:
+            print(f"fold {i + 1}/{len(heldouts)}  exp{exp_id} ({short}) already archived, skipping",
+                  flush=True)
+            continue
+
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
         set_fold(heldout, frac_min, frac_max)
