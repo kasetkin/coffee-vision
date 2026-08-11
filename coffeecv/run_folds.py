@@ -31,13 +31,28 @@ RIGS = [
 
 # frac_min, frac_max for each arm. The baseline keeps the fixed pixel patch size
 # so its cross-rig number answers "what does the current model actually do".
+# (frac_min, frac_max, beans_min, beans_max). Only one sizing mode is active per
+# arm; bean-unit takes precedence in the dataset when its max is > 0.
 ARMS = {
-    "baseline": (0.0, 0.0),
-    "scale": (0.15, 0.60),
+    "baseline": (0.0, 0.0, 0.0, 0.0),
+    "scale": (0.15, 0.60, 0.0, 0.0),
+    # 16-49 beans per patch. 4-7 rather than the 6-9 first proposed: per-photo
+    # pitch estimation carries ~24% noise (kept deliberately, so training matches
+    # inference), and at 6-9 that noise pushes 32% of patches past the frame edge
+    # -- 52% on old_box. Clamped patches all collapse to the frame size and lose
+    # placement freedom, so the range that fits is the range that keeps the scale
+    # variety it is there to provide.
+    "beans": (0.0, 0.0, 4.0, 7.0),
+    # 36-81 beans per patch, the size originally wanted. Viable at 4% clamping
+    # once bean pitch is measured on a 0.40 analysis window rather than the whole
+    # frame; the 32% clamp rate that ruled it out earlier was an estimator bug.
+    "beans69": (0.0, 0.0, 6.0, 9.0),
 }
 
 
-def set_fold(heldout: str, frac_min: float, frac_max: float, epochs: int | None = None) -> None:
+def set_fold(heldout: str, frac_min: float, frac_max: float,
+             beans_min: float, beans_max: float, epochs: int | None = None,
+             seed: int | None = None) -> None:
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -55,8 +70,12 @@ def set_fold(heldout: str, frac_min: float, frac_max: float, epochs: int | None 
                   text, count=1, flags=re.M)
     text = re.sub(r"^patch_scale_frac_max: .*$", f"patch_scale_frac_max: {frac_max}",
                   text, count=1, flags=re.M)
+    text = re.sub(r"^patch_beans_min: .*$", f"patch_beans_min: {beans_min}", text, count=1, flags=re.M)
+    text = re.sub(r"^patch_beans_max: .*$", f"patch_beans_max: {beans_max}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
+    if seed is not None:
+        text = re.sub(r"^seed: .*$", f"seed: {seed}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -66,9 +85,12 @@ def set_fold(heldout: str, frac_min: float, frac_max: float, epochs: int | None 
     assert cfg.heldout_rig == heldout, f"heldout_rig is {cfg.heldout_rig!r}, wanted {heldout!r}"
     assert list(cfg.train_rigs) == train, f"train_rigs is {cfg.train_rigs!r}, wanted {train!r}"
     assert cfg.patch_scale_frac_min == frac_min and cfg.patch_scale_frac_max == frac_max
+    assert cfg.patch_beans_min == beans_min and cfg.patch_beans_max == beans_max
     assert heldout not in cfg.train_rigs, "held-out rig leaked into training"
     if epochs is not None:
         assert cfg.epochs == epochs, f"epochs is {cfg.epochs}, wanted {epochs}"
+    if seed is not None:
+        assert cfg.seed == seed, f"seed is {cfg.seed}, wanted {seed}"
 
 
 def run(cmd: list[str]) -> int:
@@ -85,9 +107,12 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=None,
                    help="epoch budget AND cosine T_max; both arms of a comparison must share it")
     p.add_argument("--tag", default="", help="slug suffix distinguishing this sweep, e.g. e80")
+    p.add_argument("--seed", type=int, default=None, help="training seed; the replication axis")
+    p.add_argument("--no-commit", action="store_true",
+                   help="skip the per-fold git commit (default is to commit each run)")
     args = p.parse_args()
 
-    frac_min, frac_max = ARMS[args.arm]
+    frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [r for r in RIGS if not args.only or args.only in r]
 
     for i, heldout in enumerate(heldouts):
@@ -108,7 +133,7 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
-        set_fold(heldout, frac_min, frac_max, args.epochs)
+        set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed)
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -118,9 +143,22 @@ def main() -> None:
         print(f"fold {short} finished in {mins:.0f} min", flush=True)
 
         note = (f"leave-one-rig-out, arm={args.arm}, held out {short}; "
-                f"scale_frac={frac_min}-{frac_max}, epochs={args.epochs or 'default'}")
+                f"scale_frac={frac_min}-{frac_max}, beans={beans_min}-{beans_max}, "
+                f"epochs={args.epochs or 'default'}")
         run(["python", "-m", "coffeecv.archive_experiment",
              "--id", str(exp_id), "--slug", slug, "--note", note])
+
+        if not args.no_commit:
+            # One commit per fold, so each run is its own git revision carrying its
+            # params.yaml, dvc.lock and outputs/summary.json. That is what lets the
+            # VS Code DVC extension list them as separate experiments and plot
+            # metrics across them; committing only at the end of a sweep would
+            # collapse every fold into a single revision.
+            run(["git", "add", "-A", "params.yaml", "dvc.lock", "outputs/metrics.json",
+                 "outputs/summary.json", "experiments"])
+            run(["git", "commit", "-q", "-m",
+                 f"exp{exp_id}: {slug}\n\n{note}\n\n"
+                 f"Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"])
 
 
 if __name__ == "__main__":

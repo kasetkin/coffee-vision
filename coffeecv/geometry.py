@@ -179,6 +179,55 @@ def sample_scaled_patch_boxes(
     return out
 
 
+def sample_bean_unit_patch_boxes(
+    rng: np.random.Generator,
+    region: Region,
+    n: int,
+    pitch_px: float,
+    beans_min: float,
+    beans_max: float,
+    max_jitter_deg: float = 0.0,
+) -> tuple[list[tuple[Region, float, int]], int]:
+    """Sample n patches sized in *bean units* rather than pixels or frame fractions.
+
+    A patch quoted as B beans across has side B * pitch and contains about B^2
+    beans, since B is defined as side/pitch = sqrt(count) over the square. Sizing
+    this way makes bean coverage the quantity the code controls directly, instead
+    of something that falls out of how the shot was framed -- which is what lets
+    the same setting mean the same thing on a rig the model has never seen.
+
+    B is drawn log-uniformly: scale is a ratio quantity, so a uniform draw would
+    concentrate mass at the coarse end of the range.
+
+    Returns (boxes, n_clamped). A patch is clamped when the requested bean count
+    needs more pixels than the photo has room for; the caller should watch that
+    count, because a rig that clamps often is framed too tightly for the
+    configured range and its patches will be less varied than intended.
+    """
+    room = min(region.width, region.height)
+    beans = np.exp(rng.uniform(np.log(beans_min), np.log(beans_max), size=n))
+    angles = (
+        rng.uniform(-max_jitter_deg, max_jitter_deg, size=n)
+        if max_jitter_deg > 0 else np.zeros(n)
+    )
+    out, clamped = [], 0
+    for b, angle in zip(beans, angles):
+        side = int(round(b * pitch_px))
+        box_side = rotated_box_side(side, angle) if angle else side
+        if box_side > room:
+            # Take the largest patch that fits rather than failing: the
+            # alternative is dropping the sample, which would silently bias the
+            # scale distribution toward the small end.
+            box_side = room
+            side = int(box_side / (rotated_box_side(1000, angle) / 1000)) if angle else box_side
+            clamped += 1
+        max_y0, max_x0 = region.y1 - box_side, region.x1 - box_side
+        y = int(rng.integers(region.y0, max_y0 + 1))
+        x = int(rng.integers(region.x0, max_x0 + 1))
+        out.append((Region(y0=y, y1=y + box_side, x0=x, x1=x + box_side), float(angle), side))
+    return out, clamped
+
+
 def assert_jitter_fits(
     region: Region, crop_size: int, max_jitter_deg: float, min_room: int = 25
 ) -> None:

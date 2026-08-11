@@ -13,12 +13,14 @@ from torch.utils.data import Dataset
 
 import torchvision.transforms.functional as TF
 
+from coffeecv.bean_scale import estimate_bean_pitch
 from coffeecv.geometry import (
     Region,
     assert_jitter_fits,
     assert_region_fully_opaque,
     compute_valid_region,
     compute_valid_region_rect,
+    sample_bean_unit_patch_boxes,
     sample_patch_boxes,
     sample_rotated_patch_boxes,
     sample_scaled_patch_boxes,
@@ -293,6 +295,7 @@ class MultiPhotoPatchDataset(Dataset):
         rotation_jitter_degrees: float = 0.0,
         patch_store_size: int | None = None,
         patch_scale_frac: tuple[float, float] | None = None,
+        patch_beans: tuple[float, float] | None = None,
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
@@ -308,7 +311,15 @@ class MultiPhotoPatchDataset(Dataset):
         # size would score each rig at a different bean coverage and make the
         # cross-rig number a measurement of magnification rather than of the
         # model. Eval draws are seeded, so they stay deterministic.
+        # Bean-unit sizing takes precedence: it is the only mode that is
+        # measurable at inference, since it needs no knowledge of how the rig
+        # was framed. See coffeecv/bean_scale.py.
+        self.patch_beans = patch_beans
+        self.n_clamped = 0
+        self.pitch_by_photo: dict[str, float] = {}
         self.patch_scale_frac = patch_scale_frac
+        if patch_beans is not None and patch_store_size is None:
+            raise ValueError("patch_beans requires patch_store_size to be set")
         if patch_scale_frac is not None and patch_store_size is None:
             # Sides then vary from ~170px to ~2275px across rigs; storing them at
             # native size would make memory depend on the draw (a single 2275px
@@ -359,7 +370,19 @@ class MultiPhotoPatchDataset(Dataset):
         rng = np.random.default_rng(
             [seed, rig_idx, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
         )
-        if self.patch_scale_frac is not None:
+        if self.patch_beans is not None:
+            # Estimated per photo, never per session: at inference there is only
+            # one photo, so a session-level estimate here would train the model
+            # on a precision it will not have in the field.
+            gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114)
+            pitch = estimate_bean_pitch(gray.astype(np.uint8))
+            self.pitch_by_photo[photo_path.name] = pitch
+            boxes, clamped = sample_bean_unit_patch_boxes(
+                rng, region, n_patches, pitch, self.patch_beans[0], self.patch_beans[1],
+                self.rotation_jitter_degrees,
+            )
+            self.n_clamped += clamped
+        elif self.patch_scale_frac is not None:
             frac_min, frac_max = self.patch_scale_frac
             boxes = sample_scaled_patch_boxes(
                 rng, region, n_patches, frac_min, frac_max, self.rotation_jitter_degrees

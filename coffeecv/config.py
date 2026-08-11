@@ -84,6 +84,21 @@ class RunConfig:
     patch_scale_frac_min: float = 0.0
     patch_scale_frac_max: float = 0.0
 
+    # Bean-unit patch sizing (Phase 12). Patch side = B * measured bean pitch,
+    # with B drawn log-uniformly in [min, max]. B is side/pitch = sqrt(bean count)
+    # over the square, so 6-9 across means roughly 36-81 beans per patch.
+    #
+    # This is the only sizing mode that works at inference, because it needs no
+    # knowledge of how the rig was framed -- the pitch is measured from the photo
+    # by the same estimator used in training (coffeecv/bean_scale.py). Takes
+    # precedence over patch_scale_frac. 0/0 disables it.
+    #
+    # 9 is the ceiling these rigs can deliver: they frame 10.7-12.5 beans across,
+    # and a patch must leave room to be placed. Reaching 12 would need capture
+    # about 1.3x wider.
+    patch_beans_min: float = 0.0
+    patch_beans_max: float = 0.0
+
     rotation_jitter_degrees: float = 0.0  # +/- jitter around each right angle, applied at patch sampling
     zoom_scale_min: float = 1.0  # RandomResizedCrop min *area* fraction; 1.0 = plain resize
     random_erasing_p: float = 0.0  # probability of erasing a rectangle per patch

@@ -47,6 +47,12 @@ color_jitter_strength: 0.2
 patch_scale_frac_min: 0.0
 patch_scale_frac_max: 0.0
 
+# Bean-unit patch sizing (Phase 12): side = B * measured bean pitch, B log-uniform.
+# B = sqrt(beans in the patch), so 6-9 across = ~36-81 beans per patch.
+# Measured per photo by the same estimator used at inference. 0/0 = off.
+patch_beans_min: 0.0
+patch_beans_max: 0.0
+
 rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch sampling (max ~6 here)
 zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)
 random_erasing_p: 0.5        # per-patch probability of erasing a rectangle

@@ -151,6 +151,10 @@ def main() -> None:
             (cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
             if cfg.patch_scale_frac_max > 0 else None
         ),
+        patch_beans=(
+            (cfg.patch_beans_min, cfg.patch_beans_max)
+            if cfg.patch_beans_max > 0 else None
+        ),
     )
     train_transform = build_train_transform(
         cfg.patch_resize,
@@ -189,6 +193,13 @@ def main() -> None:
     )
     print(f"patches: train={len(train_ds)} val={len(val_ds)} test={len(test_ds)}"
           + (f" xrig={len(xrig_ds)}" if xrig_ds else ""))
+    # Clamping means a requested patch did not fit its photo and was shrunk to the
+    # frame, flattening the scale distribution. Printed so a run that quietly lost
+    # its scale variety shows up in the log, not only in the result.
+    for nm, ds in [("train", train_ds), ("val", val_ds), ("test", test_ds), ("xrig", xrig_ds)]:
+        if ds is not None and getattr(ds, "n_clamped", 0):
+            print(f"  {nm}: {ds.n_clamped}/{len(ds)} patches clamped "
+                  f"({ds.n_clamped / len(ds) * 100:.0f}%)")
 
     model, head_module = build_model(
         cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout
