@@ -1,0 +1,272 @@
+[
+ {
+  "name": "old_box__00.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082520426__cropped.jpg",
+  "crop_side_px": 473,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 105.76601533574005
+ },
+ {
+  "name": "old_box__01.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080658175__cropped.jpg",
+  "crop_side_px": 460,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 108.42303978193729
+ },
+ {
+  "name": "old_box__02.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_072607816__cropped.jpg",
+  "crop_side_px": 452,
+  "view_px": 900,
+  "n_beans": 28,
+  "gt_spacing_px": 85.41997090008535
+ },
+ {
+  "name": "old_box__03.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075017433__cropped.jpg",
+  "crop_side_px": 460,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 98.07232952358079
+ },
+ {
+  "name": "old_box__04.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083339445__cropped.jpg",
+  "crop_side_px": 462,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 108.89444430272833
+ },
+ {
+  "name": "old_box__05.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074711151__cropped.jpg",
+  "crop_side_px": 442,
+  "view_px": 900,
+  "n_beans": 15,
+  "gt_spacing_px": 114.12390926824521
+ },
+ {
+  "name": "old_box__06.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074400983__cropped.jpg",
+  "crop_side_px": 440,
+  "view_px": 900,
+  "n_beans": 17,
+  "gt_spacing_px": 106.7156750159865
+ },
+ {
+  "name": "old_box__07.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083723300__cropped.jpg",
+  "crop_side_px": 440,
+  "view_px": 900,
+  "n_beans": 19,
+  "gt_spacing_px": 100.94292290304716
+ },
+ {
+  "name": "old_box__08.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080325279__cropped.jpg",
+  "crop_side_px": 458,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 102.41191336949036
+ },
+ {
+  "name": "old_box__09.png",
+  "rig": "old_box",
+  "photo": "2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071551308__cropped.jpg",
+  "crop_side_px": 442,
+  "view_px": 900,
+  "n_beans": 17,
+  "gt_spacing_px": 107.20074626605917
+ },
+ {
+  "name": "pixel_cam__00.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_005__Guatemala_Tata/PXL_20260809_134104973__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 28,
+  "gt_spacing_px": 232.0701864276655
+ },
+ {
+  "name": "pixel_cam__01.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_131813244__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 250.6644503448119
+ },
+ {
+  "name": "pixel_cam__02.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133258332__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 26,
+  "gt_spacing_px": 240.83061394969002
+ },
+ {
+  "name": "pixel_cam__03.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_005__Guatemala_Tata/PXL_20260809_133816719__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 30,
+  "gt_spacing_px": 224.201100205448
+ },
+ {
+  "name": "pixel_cam__04.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133103617__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 30,
+  "gt_spacing_px": 224.201100205448
+ },
+ {
+  "name": "pixel_cam__05.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_004__CostaRica_LaPastora/PXL_20260809_134735425__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 250.6644503448119
+ },
+ {
+  "name": "pixel_cam__06.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_131303766__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 26,
+  "gt_spacing_px": 240.83061394969002
+ },
+ {
+  "name": "pixel_cam__07.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132641461__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 250.6644503448119
+ },
+ {
+  "name": "pixel_cam__08.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_131705988__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 26,
+  "gt_spacing_px": 240.83061394969002
+ },
+ {
+  "name": "pixel_cam__09.png",
+  "rig": "pixel_cam",
+  "photo": "2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133224113__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 28,
+  "gt_spacing_px": 232.0701864276655
+ },
+ {
+  "name": "sony_cam__00.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210324__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 323.2122859951054
+ },
+ {
+  "name": "sony_cam__01.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_005__Guatemala_Tata/PIC_20260809_203856__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 26,
+  "gt_spacing_px": 297.312060869487
+ },
+ {
+  "name": "sony_cam__02.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_201835__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 338.9879053889681
+ },
+ {
+  "name": "sony_cam__03.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210320__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 357.32462675960204
+ },
+ {
+  "name": "sony_cam__04.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_008__Ethiopia_Kochere/PIC_20260809_202937__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 309.4522041716082
+ },
+ {
+  "name": "sony_cam__05.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204909__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 338.9879053889681
+ },
+ {
+  "name": "sony_cam__06.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_201037__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 323.2122859951054
+ },
+ {
+  "name": "sony_cam__07.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_201311__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 309.4522041716082
+ },
+ {
+  "name": "sony_cam__08.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210427__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 323.2122859951054
+ },
+ {
+  "name": "sony_cam__09.png",
+  "rig": "sony_cam",
+  "photo": "2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_211027__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 309.4522041716082
+ }
+]
