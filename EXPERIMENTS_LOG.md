@@ -2131,3 +2131,57 @@ directory the next run overwrites. exp52 was ~3 minutes in and was lost entirely
 `run_folds.py` now skips folds that already have an archived metrics.json, so a restart resumes instead of
 repeating ~90 minutes of finished work. The resumed exp52 reproduced the killed run's epoch-4 losses to four
 decimals across a machine reboot, which is a free determinism check the outage handed us.
+
+## Uncapped re-run (exp 54-59): the in-distribution cost is real, not undertraining
+
+exp52/53 hit the 50-epoch cap still improving, and the reading offered above was that the scale arm's
+in-distribution cost was partly undertraining. **That was wrong, and the re-run refutes it.**
+
+Both arms were re-run at `epochs: 80` rather than only the capped one, because `epochs` is also `T_max` for
+the cosine schedule: at epoch 26 the LR factor is 0.42 under T_max=50 but 0.66 under T_max=80, so scale@80
+against baseline@50 would have confounded "trained longer" with "annealed differently".
+
+| arm | cap | mean in-dist test | mean cross-rig |
+|---|---|---|---|
+| baseline | 50 | 0.8944 | 0.3452 |
+| baseline | 80 | 0.8963 | 0.3409 |
+| scale | 50 | 0.8416 | 0.5562 |
+| scale | 80 | **0.8412** | **0.5706** |
+
+Paired (scale - baseline), all three folds positive on cross-rig under both budgets:
+
+| budget | cross-rig | in-dist test |
+|---|---|---|
+| @50 | +0.2110 | -0.0528 |
+| @80 | **+0.2297** | **-0.0551** |
+
+At 80 epochs **no fold hit the cap** - every one early-stopped (scale ran 38/51/53, baseline 26/26/45). The
+folds are genuinely converged, and the in-distribution cost is -0.0551, marginally *larger* than at 50 rather
+than smaller. The cross-rig gain edged up. So the trade is structural: **scale invariance costs about 0.055
+of in-distribution macro-F1 and buys about 0.23 of cross-rig macro-F1**, a roughly 4:1 exchange in the
+direction the project actually cares about.
+
+### Two things this run settled that could not be assumed
+
+**The LR confound was real but negligible - and only measurement could show that.** The baseline folds
+early-stopped at *identical* epochs under both budgets (18/26, 18/26, 37/45), so stretching T_max moved mean
+test by 0.0019 and cross-rig by 0.0043. The @50 baseline was a fair comparator all along. Running both arms
+cost three extra folds and removed the doubt; assuming it would have been a guess that happened to be right.
+
+**The +/-0.048 noise band no longer applies here.** It was measured on a single-rig, patch-900 configuration.
+baseline@50 and baseline@80 are not independent draws (same seed, near-identical trajectory), so they give no
+fresh estimate. Describing -0.0551 as "outside the band" leans on a number inherited from a different setup.
+A band for this configuration needs seed replication, which is owed anyway.
+
+### Where this leaves the decision
+
+The Phase 11 decision rule as written - adopt on cross-rig gain "provided in-distribution cost stays within
+noise" - does not cleanly pass, and should not be quietly bent. The rule was written before cross-rig could be
+measured at all; now that it can, the question it dodges is what exchange rate is acceptable. On the evidence:
+cross-rig 0.3409 -> 0.5706 (+67% relative, against a 0.111 chance floor) for in-distribution 0.8963 -> 0.8412
+(-6% relative). For a model whose purpose is to work on photos from a camera it has not seen, that is a good
+trade, but it is a trade and the rule needs amending explicitly rather than by interpretation.
+
+Still owed before adoption: **seed replication** (42/123/7). Three folds is replication across the
+generalization axis, not across initialisation, and the project standard has twice been burned by
+single-seed results that were favourable draws.
