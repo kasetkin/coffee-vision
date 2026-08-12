@@ -37,7 +37,7 @@ stages:
         early_stop_patience: 8
         epochs: 80
         freeze_mode: none
-        heldout_rig: data/cropped/2026-08-07__box_pictures_all_classes
+        heldout_rig: data/cropped/2026-08-09__pixel_cam
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -60,7 +60,7 @@ stages:
         train_patches_per_class: 150
         train_photos_per_class: 14
         train_rigs:
-        - data/cropped/2026-08-09__pixel_cam
+        - data/cropped/2026-08-07__box_pictures_all_classes
         - data/cropped/2026-08-09__sony_cam
         val_patches_per_class: 40
         val_photos_per_class: 3
@@ -70,36 +70,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 46fd7885936fea80092fc752cb42983f
+      md5: 33c4a4d156b75ba76f09af921d760785
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: fd8364fc4c9aa94f84ced88ab6f5ef9d
+      md5: 707c2a04cf4acf5799d6791b19ec5329
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: a5d31d6f998eb8dc06b2f40a38167036
-      size: 19403
+      md5: d785fb3f60e296c4b2d8f3bdf149a63c
+      size: 14239
     - path: outputs/metrics.json
       hash: md5
-      md5: a7a7788aa86e007ba296dc4e24013bab
-      size: 12422
+      md5: f920b4c4e09da450b399a9a55d8f0f5a
+      size: 12335
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 2eb57d02f38c7b67eb3ceebb28f8800d
+      md5: a0dc36234a2258a291a4b1dc715cced1
       size: 6503
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 3072421e88ef31d87e361377c5491c38
+      md5: f24dfe833455cdcd7b801c9fc3a0bf96
       size: 6503
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: 470d0b2cef4c86af37f3818478617f10
+      md5: 0c41a51135ca85b010c11297b1b8b4a4
       size: 9743
     - path: outputs/summary.json
       hash: md5
-      md5: 53592537527add1ef582e1b4d27bd6e5
-      size: 190
+      md5: ebf98244f8edd0f4a1987d76d89aa6e1
+      size: 191
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
