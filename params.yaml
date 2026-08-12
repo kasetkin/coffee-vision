@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 123
+seed: 42
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
@@ -44,14 +44,14 @@ color_jitter_strength: 0.2
 # the Phase 7 baseline is this whole block off.
 # Scale augmentation (Phase 11): patch side as a log-uniform fraction of the
 # photo's short side, replacing the fixed patch_crop_size. 0/0 = off.
-patch_scale_frac_min: 0.15
-patch_scale_frac_max: 0.6
+patch_scale_frac_min: 0.0
+patch_scale_frac_max: 0.0
 
 # Bean-unit patch sizing (Phase 12): side = B * measured bean pitch, B log-uniform.
 # B = sqrt(beans in the patch), so 6-9 across = ~36-81 beans per patch.
 # Measured per photo by the same estimator used at inference. 0/0 = off.
-patch_beans_min: 0.0
-patch_beans_max: 0.0
+patch_beans_min: 4.0
+patch_beans_max: 7.0
 
 rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch sampling (max ~6 here)
 zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)

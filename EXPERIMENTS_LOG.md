@@ -2281,3 +2281,51 @@ scale is what an adoption decision waits on.
 
 Also unchanged from Phase 11: every cross-rig number is optimistic, because the same physical beans were
 re-poured across rigs, so bean identity is shared between training and held-out sets.
+
+## Seed replication (exp 66-71): what survives a second seed
+
+`beans 4-7` and `scale` both re-run at seed 123, all three folds, epochs 80.
+
+| arm | seed | mean cross-rig | mean in-dist |
+|---|---|---|---|
+| beans 4-7 | 42 | 0.5887 | 0.9074 |
+| beans 4-7 | 123 | 0.5803 | 0.8938 |
+| scale | 42 | 0.5706 | 0.8412 |
+| scale | 123 | 0.5562 | 0.8090 |
+
+Both arms are stable across seeds - `beans 4-7` moved 0.008 on cross-rig and 0.014 in-distribution.
+
+Paired `beans 4-7` minus `scale`, over all six fold x seed pairs:
+
+| axis | mean | sign consistency |
+|---|---|---|
+| cross-rig | +0.0211 | **4/6 - not consistent** |
+| in-distribution | **+0.0755** | **6/6 - consistent** |
+
+**Correction to the seed-42 write-up above.** That entry reported bean-unit sizing as beating frame-fraction
+sizing on cross-rig (+0.0181). The second seed does not support it: 4 of 6 pairs positive is a coin flip and
+the effect is inside seed noise. **The two sizing schemes generalize equally well.** The seed-42 cross-rig
+edge was a favourable draw - the third time in this project that a single-seed win has been one, which is
+exactly why the rule exists.
+
+What replicates is the in-distribution advantage: 6/6 pairs positive at +0.0755.
+
+## Adoption: beans 4-7
+
+Adopted, on three grounds, none of which is the cross-rig edge that failed to replicate:
+
+1. **It is the only sizing that works at inference.** Fixed-pixel and frame-fraction sizing both require
+   knowing how the rig was framed. Bean-unit sizing measures pitch from the photo with the same estimator
+   used in training, so a user pointing an unseen camera gets correctly-scaled patches. This alone decides
+   it: the alternatives are not deployable, only measurable.
+2. **Cross-rig parity with `scale`** (+0.0211, not significant) and a large, sign-consistent gain over the
+   fixed-pixel baseline (+0.2478, 3/3 folds).
+3. **In-distribution accuracy recovered**: +0.0755 over `scale` (6/6), and above the fixed-pixel baseline
+   too. The Phase 11 trade-off - +0.2297 cross-rig bought for -0.0551 in-distribution - is gone.
+
+`params.yaml` now rests at the adopted configuration: `patch_beans_min: 4.0`, `patch_beans_max: 7.0`,
+`patch_scale_frac_*: 0.0`, `epochs: 80`, `seed: 42`.
+
+Still outstanding, unchanged: every cross-rig figure is optimistic because the same physical beans were
+re-poured across rigs; and the brightness arm has never been run, though the rigs differ 1.48-1.59x in
+brightness while `color_jitter_strength: 0.2` spans only +/-20%.
