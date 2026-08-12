@@ -2185,3 +2185,99 @@ trade, but it is a trade and the rule needs amending explicitly rather than by i
 Still owed before adoption: **seed replication** (42/123/7). Three folds is replication across the
 generalization axis, not across initialisation, and the project standard has twice been burned by
 single-seed results that were favourable draws.
+
+---
+
+# Phase 12 - Patch size in bean units, measured the same way at train and inference
+
+Frame-fraction sizing (Phase 11) worked only because all three rigs happen to frame a similar bean *count*.
+Nothing measured or enforced that, and a user pointing a phone cannot be expected to satisfy it - so the
+model could not be deployed at all, only evaluated. Phase 12 measures bean pitch and sizes patches in bean
+units, making bean coverage a quantity the code controls rather than a by-product of framing.
+
+## The estimator, and why this one
+
+Five candidates were benchmarked against 30 hand-counted crops (`analysis/bean_scale/`). Ground truth is
+equivalent centre-to-centre spacing, `crop_side / sqrt(n_beans)`:
+
+| rig | GT spacing | FFT value previously on record | error |
+|---|---|---|---|
+| old_box | 103.8 px | 101.7 | -2% |
+| pixel_cam | **238.7 px** | 208.9 | **-12.5%** |
+| sony_cam | 323.1 px | 323.6 | +0.2% |
+
+That corrected a figure used throughout Phase 11: pixel_cam is 2.30x the old rig, not 2.05x.
+
+Ranked by **bias consistency across rigs**, not raw accuracy - a constant bias is absorbed by one global
+constant, a per-rig bias is not:
+
+| method | spread | ms |
+|---|---|---|
+| M4 MobileSAM | 1.02 | 97026 |
+| **M0 FFT (incumbent)** | **1.04** | **48** |
+| M3 autocorrelation | 1.22 | 54 |
+| M1 distance transform | 1.32 | 26 |
+| M2 granulometry | 1.32 | 725 |
+
+**Three of the four candidates were worse than the estimator already in use.** Only the 97-second learned
+method beat it, by 1.02 vs 1.04 - not worth 2000x the cost. Adopted M0 with k = 1.18.
+
+## Two design constraints that shaped everything
+
+**The same estimator runs at training and inference.** A better method offline plus a cheap one live would
+inflate every metric here: the model would be trained and scored on well-sized patches, then meet
+worse-sized ones in the field. Corollary: with one shared estimator, absolute bias is irrelevant - k merely
+redefines what "patch scale" means, identically on both sides - so only cross-rig consistency and per-image
+variance matter.
+
+**Pitch is estimated per photo, not per session.** A session median is ~3x more accurate (6.3% vs 19.2%
+MAPE), but at inference there is one photo; training on session medians would reintroduce exactly the
+mismatch above. The ~24% per-photo scatter is instead absorbed as scale augmentation, because it is present
+during training.
+
+## Bug caught by visual QA, before any long run
+
+`bean_scale` was calibrated on 0.40 centre crops but called on whole photos. That overestimated pitch by
+**33%** and inflated cross-rig spread from 1.04 to **1.27** - downscaling a 5056px photo into a 1024
+analysis window leaves beans ~65px across and lets vignetting dominate the low-frequency end. Every numeric
+check passed; only rendering the patches and seeing they did not contain the number of beans their labels
+claimed exposed it. The analysis window is now cropped inside the estimator.
+
+That bug was also the sole reason 6-9 beans looked infeasible: it reported 32% of patches clamped (52% on
+old_box). Corrected, 6-9 clamps 4%, and both ranges became measurable.
+
+## Results (seed 42, epochs 80, same three folds as Phase 11)
+
+| sizing | old_box | pixel_cam | sony_cam | mean cross-rig | mean in-dist |
+|---|---|---|---|---|---|
+| baseline, fixed 900px | 0.1729 | 0.5374 | 0.3124 | 0.3409 | 0.8963 |
+| scale, frame fraction | 0.5654 | 0.7065 | 0.4398 | 0.5706 | 0.8412 |
+| **beans 4-7** | **0.6090** | 0.7048 | **0.4521** | **0.5887** | 0.9074 |
+| beans 6-9 | 0.5587 | **0.7311** | 0.3408 | 0.5435 | **0.9255** |
+
+Paired against the references:
+
+| comparison | cross-rig | in-dist | all 3 folds up on cross-rig |
+|---|---|---|---|
+| beans 4-7 - baseline | **+0.2478** | +0.0111 | yes |
+| beans 4-7 - scale | +0.0181 | **+0.0661** | no (2/3) |
+| beans 6-9 - baseline | +0.2027 | +0.0292 | yes |
+| beans 6-9 - scale | -0.0270 | +0.0843 | no |
+
+**The Phase 11 trade-off disappears.** Frame-fraction sizing bought +0.2297 cross-rig for -0.0551
+in-distribution, reported as a price that had to be accepted. Bean-unit sizing at 4-7 gets the same cross-rig
+gain *and* beats the fixed-pixel baseline in-distribution. There is no longer an exchange rate to argue about.
+
+**Bigger patches are not better.** 6-9 wins in-distribution (0.9255, the best of any arm) and loses cross-rig
+(-0.0451 vs 4-7), almost all of it in the sony fold (-0.1113). At 6-9 beans a sony patch is 1944-2916px
+against a 3678px frame, so patches nearly fill it and lose placement and scale variety; clamping rises to
+9-12%. More context per patch trades directly against the diversity that makes the model rig-invariant.
+
+## Evidence status
+
+Not adopted yet. Everything above is **seed 42 only**, and the standing rule exists because single-seed wins
+in this project have twice turned out to be favourable draws. Seed replication (123, 7) on beans 4-7 versus
+scale is what an adoption decision waits on.
+
+Also unchanged from Phase 11: every cross-rig number is optimistic, because the same physical beans were
+re-poured across rigs, so bean identity is shared between training and held-out sets.
