@@ -13,9 +13,9 @@ seed: 42
 # transfer numbers -- a single held-out rig is n=1 and cannot tell a real result
 # from the luck of which rig was held out.
 train_rigs:
-  - data/cropped/2026-08-07__box_pictures_all_classes
   - data/cropped/2026-08-09__pixel_cam
-heldout_rig: data/cropped/2026-08-09__sony_cam
+  - data/cropped/2026-08-09__sony_cam
+heldout_rig: data/cropped/2026-08-07__box_pictures_all_classes
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -39,6 +39,10 @@ freeze_mode: none  # full | last_block | none
 dropout: 0.2
 label_smoothing: 0.0
 color_jitter_strength: 0.2
+# Phase 13: overrides brightness only (contrast/saturation/hue keep
+# color_jitter_strength above). 0.0 = no-op, falls back to color_jitter_strength.
+# Rigs differ 1.48-1.59x in grey mean; 0.2 (0.8-1.2x) cannot reach that.
+brightness_jitter_strength: 0.4
 
 # Augmentation (Phase 8). Every value here is a no-op at the setting shown;
 # the Phase 7 baseline is this whole block off.
