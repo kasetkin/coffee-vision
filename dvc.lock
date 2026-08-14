@@ -38,7 +38,7 @@ stages:
         early_stop_patience: 8
         epochs: 80
         freeze_mode: none
-        heldout_rig: data/cropped/2026-08-09__pixel_cam
+        heldout_rig: data/cropped/2026-08-09__sony_cam
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -62,7 +62,7 @@ stages:
         train_photos_per_class: 14
         train_rigs:
         - data/cropped/2026-08-07__box_pictures_all_classes
-        - data/cropped/2026-08-09__sony_cam
+        - data/cropped/2026-08-09__pixel_cam
         val_patches_per_class: 40
         val_photos_per_class: 3
         weight_decay: 0.0001
@@ -71,36 +71,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: ed3e0179b3dd42f7b82ad401263f9e38
+      md5: 94e63a2aee9d77e719e89ca9823dffe5
       size: 44795211
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 98c19771f4c4f315478e680b9c514bf5
+      md5: 5c1ebd718a1a7aff03cfe2a810e02f1e
       size: 44795211
     - path: outputs/history.json
       hash: md5
-      md5: 74be44e6dc805ec56a0363b0f633f351
-      size: 10236
+      md5: 9ab417b825ff6a263537d64b641ca266
+      size: 15970
     - path: outputs/metrics.json
       hash: md5
-      md5: d252f01d65dc6efcfce1b7a86a21007e
-      size: 12349
+      md5: ff3aa96987ecd5db0086e5540752a662
+      size: 12462
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 65e73c525d3fb023396e64af7c69e419
+      md5: 1c90594d9ed2f79529a7af0e83e7ca87
       size: 6503
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: a617e12617b00a767dc6130e07de107b
+      md5: fd71b5592ebbd374069b831c048b7176
       size: 6503
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: ff11d3da40139f792108aa37d2e32193
+      md5: bd02fd2444ca0ff8cf17be3c36ff5049
       size: 9743
     - path: outputs/summary.json
       hash: md5
-      md5: b736362b6ce8684954ce0fecd53ba2ac
-      size: 191
+      md5: 105dfbae0c9dace55dd4befb5f8f3817
+      size: 190
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
