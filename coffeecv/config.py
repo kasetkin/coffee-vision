@@ -128,6 +128,22 @@ class RunConfig:
         with open(path) as f:
             raw = yaml.safe_load(f) or {}
         known = {f.name for f in fields(cls)}
+        # Unknown keys are a hard error, not something to drop. Silently ignoring
+        # them is what made the Phase 13 provenance failure invisible: the commits
+        # for exp 72-95 pair a params.yaml naming `brightness_jitter_strength`
+        # with a RunConfig predating the field, so checking one out and re-running
+        # quietly trained at the default brightness and looked like it had worked.
+        # A parameter this file names but the code cannot honour means the two are
+        # out of sync, and every number produced from that pair is mislabelled --
+        # so it has to fail loudly rather than pick a value nobody asked for.
+        unknown = sorted(set(raw) - known)
+        if unknown:
+            raise ValueError(
+                f"{path} sets parameters this RunConfig does not define: {', '.join(unknown)}. "
+                "The config file and the code are out of sync -- most likely the source change "
+                "implementing them is uncommitted or was never written. Refusing to run at "
+                "defaults, which would silently produce mislabelled results."
+            )
         values = {k: v for k, v in raw.items() if k in known}
         # YAML gives a list; the field is a tuple so the config stays hashable
         # and cannot be mutated in place by a caller.

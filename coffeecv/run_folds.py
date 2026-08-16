@@ -29,7 +29,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from coffeecv.config import PARAMS_FILE, REPO_ROOT
+from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 
 RIGS = [
     "data/cropped/2026-08-07__box_pictures_all_classes",
@@ -60,7 +60,7 @@ ARMS = {
 
 def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
-             seed: int | None = None, brightness_jitter: float | None = None) -> None:
+             seed: int | None = None, brightness_jitter: float | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -91,7 +91,6 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
 
     # Read it back through the real loader: a silently-failed regex would
     # otherwise run the wrong fold and look like a result.
-    from coffeecv.config import RunConfig
     cfg = RunConfig.from_params_yaml()
     assert cfg.heldout_rig == heldout, f"heldout_rig is {cfg.heldout_rig!r}, wanted {heldout!r}"
     assert list(cfg.train_rigs) == train, f"train_rigs is {cfg.train_rigs!r}, wanted {train!r}"
@@ -105,6 +104,9 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
     if brightness_jitter is not None:
         assert cfg.brightness_jitter_strength == brightness_jitter, \
             f"brightness_jitter_strength is {cfg.brightness_jitter_strength}, wanted {brightness_jitter}"
+    # Returned so the caller records what was actually loaded rather than what was
+    # asked for -- the omitted-flag case has no value in args to report.
+    return cfg
 
 
 def run(cmd: list[str]) -> int:
@@ -215,8 +217,45 @@ def main() -> None:
             raise SystemExit(1)
         print("--allow-dirty: continuing on stale crops; recorded in each fold's note.", flush=True)
 
+    # This script commits once per fold. A detached HEAD would put all of them
+    # off-branch, which has already cost this project an entire phase of work once
+    # (recovered from the reflog only because the commits still descended from
+    # main). `git status` stays clean and reassuring the whole time, so the branch
+    # name is the only thing that tells you.
+    branch = subprocess.check_output(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT).decode().strip()
+    if branch == "HEAD" and not args.no_commit:
+        print("HEAD is detached -- every per-fold commit would land off-branch and be\n"
+              "invisible to `git log` on main. Check out a branch first, or pass\n"
+              "--no-commit to run without committing.", flush=True)
+        raise SystemExit(1)
+
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [r for r in RIGS if not args.only or args.only in r]
+
+    # Experiment numbers are assigned by hand via --start-exp, and the resume
+    # check below keys on exp id *and* slug -- so reusing an id under a different
+    # slug silently creates two exp<N>__* directories. index.csv is rebuilt from
+    # those directories, so the collision surfaces as duplicate ids in the record
+    # rather than as an error. Near-miss during Phase 13: an interrupted sweep and
+    # the sweep that replaced it both started at 75.
+    collisions = []
+    for i, heldout in enumerate(heldouts):
+        exp_id = args.start_exp + i
+        tag = f"_{args.tag}" if args.tag else ""
+        slug = f"lorio_{args.arm}{tag}_heldout_{Path(heldout).name.split('__')[-1]}"
+        for existing in (REPO_ROOT / "experiments").glob(f"exp{exp_id}__*"):
+            if existing.name != f"exp{exp_id}__{slug}":
+                collisions.append(f"exp{exp_id}: would add '{slug}' beside existing '{existing.name}'")
+    if collisions:
+        print("Experiment id collision:\n")
+        for c in collisions:
+            print(f"    {c}")
+        print("\nPick a --start-exp past the end of experiments/, or --force to re-run the\n"
+              "existing runs under their own slug.", flush=True)
+        if not args.force:
+            raise SystemExit(1)
+        print("--force given: continuing.", flush=True)
 
     for i, heldout in enumerate(heldouts):
         exp_id = args.start_exp + i
@@ -236,8 +275,8 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
-        set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
-                 args.brightness_jitter)
+        cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
+                       args.brightness_jitter)
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -246,16 +285,28 @@ def main() -> None:
         mins = (time.time() - t0) / 60
         print(f"fold {short} finished in {mins:.0f} min", flush=True)
 
+        # Built from the config that was actually loaded, not from the CLI args.
+        # `--epochs`/`--seed` mean "leave whatever params.yaml had" when omitted,
+        # so reporting the arg wrote the literal string "default" into the record
+        # -- naming a value without stating it. This is the general form of the
+        # bug that produced three mislabelled reference runs (exp 81-83).
         note = (f"leave-one-rig-out, arm={args.arm}, held out {short}; "
-                f"scale_frac={frac_min}-{frac_max}, beans={beans_min}-{beans_max}, "
-                f"epochs={args.epochs or 'default'}; "
-                f"brightness_jitter={args.brightness_jitter}")
+                f"scale_frac={cfg.patch_scale_frac_min}-{cfg.patch_scale_frac_max}, "
+                f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, "
+                f"epochs={cfg.epochs}, seed={cfg.seed}, "
+                f"brightness_jitter={cfg.brightness_jitter_strength}")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         if stale:
             note += f"; WARNING: crop stages stale at launch ({', '.join(stale)}), data may differ from references"
-        run(["python", "-m", "coffeecv.archive_experiment",
-             "--id", str(exp_id), "--slug", slug, "--note", note])
+        # Archiving is the only durable record: outputs/ is gitignored and the next
+        # fold overwrites it. If it fails, the run is already unrecoverable, so
+        # stop rather than carry on producing folds that cannot be reported.
+        if run(["python", "-m", "coffeecv.archive_experiment",
+                "--id", str(exp_id), "--slug", slug, "--note", note]) != 0:
+            print(f"archiving exp{exp_id} FAILED; stopping -- outputs/ is about to be "
+                  f"overwritten by the next fold and this run would be lost", flush=True)
+            return
 
         if not args.no_commit:
             # One commit per fold, so each run is its own git revision carrying its
@@ -265,9 +316,15 @@ def main() -> None:
             # collapse every fold into a single revision.
             run(["git", "add", "-A", "params.yaml", "dvc.lock", "outputs/metrics.json",
                  "outputs/summary.json", "experiments"])
-            run(["git", "commit", "-q", "-m",
-                 f"exp{exp_id}: {slug}\n\n{note}\n\n"
-                 f"Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"])
+            # A failed commit leaves the run archived but with no revision carrying
+            # its params/lock, which is the same provenance hole the launch gate
+            # exists to prevent -- so it stops rather than silently continuing.
+            if run(["git", "commit", "-q", "-m",
+                    f"exp{exp_id}: {slug}\n\n{note}\n\n"
+                    f"Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"]) != 0:
+                print(f"committing exp{exp_id} FAILED; stopping so later folds do not pile\n"
+                      f"uncommitted state on top of it", flush=True)
+                return
 
 
 if __name__ == "__main__":
