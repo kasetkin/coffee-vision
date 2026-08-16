@@ -111,6 +111,37 @@ def run(cmd: list[str]) -> int:
     return subprocess.run(cmd, cwd=REPO_ROOT).returncode
 
 
+# Paths this script rewrites itself, so they are expected to be dirty at launch
+# and are committed per fold. Everything else -- source, dvc.yaml, the
+# per-session crop configs -- describes what the run *is*.
+SWEEP_WRITES = ("params.yaml", "dvc.lock", "outputs/", "experiments/")
+
+
+def dirty_provenance_paths() -> list[str]:
+    """`git status --porcelain` entries that would leave this sweep unreproducible.
+
+    The per-fold commit stages only params.yaml, dvc.lock, the metrics files and
+    experiments/. Anything else edited but uncommitted therefore runs for hours
+    and lands in no commit at all.
+
+    Phase 13 lost an entire feature this way: `brightness_jitter_strength` was
+    implemented in config.py/transforms.py and never committed, so exp 72-95 each
+    recorded a git_commit whose tree has no such field in RunConfig -- and
+    `from_params_yaml` filters params.yaml to known fields *silently*, so checking
+    one out re-runs at the default brightness and looks like it worked. 18 paired
+    runs, ~30h of compute, reproducible only from the archived config.json.
+    """
+    out = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT).decode()
+    dirty = []
+    for line in out.splitlines():
+        path = line[3:].strip().strip('"')
+        if " -> " in path:  # rename: the destination is what would be running
+            path = path.split(" -> ", 1)[1]
+        if path and not path.startswith(SWEEP_WRITES):
+            dirty.append(line.rstrip())
+    return dirty
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
@@ -128,7 +159,25 @@ def main() -> None:
                         "sweep into the next 'reference' sweep once (see EXPERIMENTS_LOG.md Phase 13).")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
+    p.add_argument("--allow-dirty", action="store_true",
+                   help="start even with uncommitted source; the fact is recorded in each fold's note")
     args = p.parse_args()
+
+    # Provenance gate. Cheap here, unrecoverable later: a sweep that runs on
+    # uncommitted source produces experiment commits that cannot re-run it.
+    dirty = dirty_provenance_paths()
+    if dirty:
+        print("Uncommitted changes outside params.yaml/dvc.lock/outputs/experiments:\n")
+        for line in dirty:
+            print(f"    {line}")
+        if not args.allow_dirty:
+            print("\nCommit these before starting the sweep. The per-fold commit stages only\n"
+                  "params.yaml, dvc.lock, the metrics files and experiments/, so the changes\n"
+                  "above would run for hours and land in no commit -- see EXPERIMENTS_LOG.md\n"
+                  "Phase 13 for what that cost last time. Override with --allow-dirty.", flush=True)
+            raise SystemExit(1)
+        print("\n--allow-dirty: continuing. Each fold's note will record that the source was\n"
+              "uncommitted at launch, so the gap is visible in the archived record.", flush=True)
 
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [r for r in RIGS if not args.only or args.only in r]
@@ -164,7 +213,9 @@ def main() -> None:
         note = (f"leave-one-rig-out, arm={args.arm}, held out {short}; "
                 f"scale_frac={frac_min}-{frac_max}, beans={beans_min}-{beans_max}, "
                 f"epochs={args.epochs or 'default'}; "
-                f"brightness_jitter={args.brightness_jitter if args.brightness_jitter is not None else 'default'}")
+                f"brightness_jitter={args.brightness_jitter}")
+        if dirty:
+            note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         run(["python", "-m", "coffeecv.archive_experiment",
              "--id", str(exp_id), "--slug", slug, "--note", note])
 
