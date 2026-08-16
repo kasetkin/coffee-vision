@@ -2329,3 +2329,167 @@ Adopted, on three grounds, none of which is the cross-rig edge that failed to re
 Still outstanding, unchanged: every cross-rig figure is optimistic because the same physical beans were
 re-poured across rigs; and the brightness arm has never been run, though the rigs differ 1.48-1.59x in
 brightness while `color_jitter_strength: 0.2` spans only +/-20%.
+
+# Phase 13 (planned) - Brightness augmentation, finally run
+
+Open thread #1 since Phase 12: rigs measure 1.48x (pixel_cam) and 1.59x (sony_cam) apart in grey mean
+against the box rig (Phase 11 measurement table above), while `color_jitter_strength: 0.2` gives brightness
+a `T.ColorJitter(brightness=0.2, ...)` range of 0.8-1.2x -- it cannot reach either gap, let alone both.
+sony_cam, the more distinct rig, is also the worst-transferring fold in every arm run so far (baseline,
+scale, beans, beans69), which is at least consistent with brightness being part of what breaks transfer,
+though nothing here isolates it as *the* cause versus scale or bean-identity-sharing.
+
+**Why augmentation and not normalization.** The Phase 11 plan above proposed normalization (rescale each
+photo's grey mean to a fixed reference) and augmentation as complementary tools, expecting normalization to
+do most of the work. That was superseded 2026-08-09: the same reasoning already applied to zoom (don't
+rescale patch geometry per rig, make the model scale-invariant via augmentation instead) extends to
+exposure -- normalizing brightness per rig would move the fragility into the capture procedure (a future
+rig still has to be normalized correctly before the model sees it) rather than removing it from the model.
+Augmentation is the only path consistent with [[feedback-no-per-rig-rescaling|no-per-rig-rescaling]] and
+[[feedback-train-inference-parity|train-inference-parity]] (inference gets a single photo with nothing to
+normalize against). This also matches the user's original Phase 11 direction: brightness belongs alongside
+rotation/mirroring/zoom in the augmentation pipeline, not as preprocessing.
+
+**Design: brightness split out of `color_jitter_strength`.** Widening the shared knob to cover a 1.6x gap
+would also widen contrast/saturation/hue to +/-60%, an untested confound -- there is no rig-difference
+evidence for those channels, only for absolute brightness (Phase 9's cross-rig failure diagnosis found
+white balance, i.e. R/G/B ratio, *inside* the training spread; only absolute brightness was the outlier).
+`brightness_jitter_strength` (new `params.yaml` key, default 0.0) overrides just the brightness bound of the
+same `T.ColorJitter` call; contrast/saturation/hue keep tracking `color_jitter_strength`. At the 0.0 default
+it falls back to `color_jitter_strength`, so this is a no-op for every existing run and default-argument RNG
+draw order is unchanged (still one `ColorJitter` instantiation, same four draws in the same order -- only
+the brightness bound differs).
+
+**Sizing to run**: `brightness_jitter_strength` in {0.4, 0.6, 0.8} -> brightness factor ranges (0.6-1.4),
+(0.4-1.6), (0.2-1.8). 0.6 is the first value whose upper bound (1.6x) clears the largest measured gap
+(1.59x, sony_cam); 0.4 is included as a "partial coverage" point to see whether reaching the gap matters or
+merely helps; 0.8 tests whether more coverage keeps helping or starts hurting bean-colour signal (the
+project has one precedent for an aggressively-tuned augmentation reversing sign on a second seed --
+`random_erasing_p=0.75`, see [[feedback-experiment-evidence-standard]] -- so "stronger is better" is not
+assumed here). All three run against the **adopted** `beans 4-7` patch sizing, since that is the deployable
+config and this is testing an orthogonal knob on top of it, not re-litigating patch geometry.
+
+**Protocol, per [[feedback-experiment-evidence-standard]]**: screen all three strengths at seed 42, all three
+folds (9 runs). Whichever strength(s) show a sign-consistent cross-rig gain over the seed-42 `beans 4-7`
+reference (exp 60-62: mean cross-rig 0.5887) go on to seeds 123 and 7 paired against the matching `beans 4-7`
+reference at that seed (123: exp 66-68, mean 0.5803; 7 not yet run for `beans 4-7` -- would need a same-seed
+reference run first, same as every prior comparison in this log). Report in-distribution alongside cross-rig
+in every table: Phase 9 showed a plausible way for this to help cross-rig while a fixed in-distribution grey
+mean legitimately carries some class signal, and Phase 11's decision rule accepts a cross-rig gain provided
+the in-distribution cost stays within the noise band, not for free.
+
+**Command** (per `run_folds.py`'s new `--brightness-jitter` flag, orthogonal to `--arm`):
+
+    python -m coffeecv.run_folds --arm beans --epochs 80 --brightness-jitter 0.4 --tag bright04 --start-exp 72
+    python -m coffeecv.run_folds --arm beans --epochs 80 --brightness-jitter 0.6 --tag bright06 --start-exp 75
+    python -m coffeecv.run_folds --arm beans --epochs 80 --brightness-jitter 0.8 --tag bright08 --start-exp 78
+
+---
+
+# Phase 13 (closed) - Brightness augmentation is a null result
+
+Ran as 18 paired runs, not the 9 originally planned: both `bright04` (strength 0.4, exp 72-80) and
+`bright06` (0.6, exp 87-95) went to the full three seeds, each paired against the same-seed `beans 4-7`
+reference. `bright08` (0.8) was **not run** - see "Why the third strength was dropped" below.
+
+The seed-7 reference did not exist before this phase and had to be run (exp 84-86); seeds 42 and 123 reused
+exp 60-62 and 66-68.
+
+## Result: no effect, at either strength
+
+Paired cross-rig deltas (arm minus same-seed, same-fold `beans 4-7`):
+
+| arm | mean | sd | SE | sign consistency |
+|---|---|---|---|---|
+| bright04 (0.4) | +0.0076 | 0.0336 | 0.0112 | 6/9 |
+| bright06 (0.6) | -0.0009 | 0.0382 | 0.0127 | 4/9 |
+| pooled, 18 pairs | +0.0034 | - | 0.0083 | - |
+
+Raw 9-run means: reference 0.5854, bright04 0.5930, bright06 0.5844. In-distribution is equally flat
+(bright04 +0.0006, 5/9; bright06 -0.0042, 3/9), so this is not the cross-rig-for-in-distribution trade
+Phase 11 had to argue about - it is nothing in either direction.
+
+Both means sit inside 1 SE of zero. At SE ~0.011 this design resolves an effect of ~0.025; Phase 12's patch
+sizing moved cross-rig by +0.2478. Whatever brightness augmentation does here is at least an order of
+magnitude below the thing that actually mattered.
+
+## The per-fold cut, which is the informative one
+
+Averaging the three seeds within each held-out fold, against that fold's measured brightness gap:
+
+| held-out fold | grey-mean gap vs box rig | bright04 | bright06 | trend |
+|---|---|---|---|---|
+| box | 1.00x (reference) | +0.0139 | -0.0223 | down |
+| pixel_cam | 1.48x | -0.0057 | -0.0071 | down |
+| **sony_cam** | **1.59x** | **+0.0147** | **+0.0266** | **up** |
+
+sony_cam - the largest brightness gap and the worst-transferring fold in every arm this project has run - is
+the only fold positive under both strengths and the only one where 0.4 -> 0.6 *increases* the gain. Right
+fold, right direction, right dose-response. It is ~1.2 SE (3-seed SE ~0.022), so it is not a result; but it
+is the only structure in the data and it matches the mechanism exactly.
+
+**Best reading: brightness augmentation trades rather than helps.** It buys transfer on a rig with a real
+photometric gap and costs it on rigs without one, netting zero. That is a coherent story for why the overall
+mean is flat while one fold is consistently positive, and it is the reason a third strength was not run.
+
+## Why the third strength was dropped
+
+`bright08` was pre-registered, and dropping a pre-registered arm on interim results is normally the exact
+flexible-stopping habit [[feedback-experiment-evidence-standard]] exists to prevent. It was dropped anyway,
+on three grounds:
+
+1. **The original hypothesis is already falsified.** The premise was that `color_jitter_strength: 0.2`
+   (0.8-1.2x) structurally could not bridge a 1.48-1.59x rig gap. `bright06` spans 0.4-1.6x, covering the
+   largest measured gap outright, and produced nothing. 0.8 does not test that claim; it tests a weaker
+   different one.
+2. **0.8 (0.2-1.8x) overshoots every gap in the dataset**, augmenting into territory no real rig occupies.
+   Two precedents in this log for pushing an augmentation past its useful range and losing: `random_erasing`
+   0.75 vs 0.5, and `beans 6-9` vs 4-7.
+3. **If the trade reading is right, more strength amplifies both sides** - more sony gain, more box/pixel
+   loss, net zero again with wider variance.
+
+Note the asymmetry that makes this defensible: the evidence standard exists to stop *adoption* on a
+favourable draw. Stopping a null line early is the opposite failure mode, and costs only the (real)
+possibility that 0.8 hides a reversal.
+
+## What this closes, and what it does not
+
+Open thread #1 from Phase 12 is closed: the brightness arm has been run, and widening brightness
+augmentation is not the lever that fixes cross-rig transfer. `params.yaml` stays at
+`brightness_jitter_strength: 0.0`, i.e. brightness continues to track `color_jitter_strength: 0.2`.
+
+**This does not vindicate the Phase 9 brightness diagnosis, nor refute it.** Phase 9 diagnosed absolute
+brightness as the cross-rig failure cause on a *fixed-900px-patch* pipeline, and demonstrated it hard (a 15%
+brightness change flipped top-1 between the model's two top classes). Since then bean-unit patch sizing moved
+cross-rig 0.34 -> 0.59. The most likely explanation for both facts being true is that **the scale fix already
+absorbed what brightness was standing in for**, leaving nothing for brightness augmentation to recover. That
+is a hypothesis, untested: it predicts brightness augmentation *would* help the fixed-pixel `baseline` arm,
+which was never run and is not worth running for its own sake.
+
+The practical consequence to carry forward: on a genuinely new fourth rig, do not expect widened brightness
+augmentation to be the thing that saves transfer. The OOD guard (Phase 10, still unimplemented) remains the
+honest answer to a rig outside the training distribution.
+
+## Two process failures worth recording
+
+- **The seed-7 reference ran with the wrong config (exp 81-83, discarded).** `--brightness-jitter` was
+  written as "override only when passed", matching `--epochs`/`--seed`. So invoking `run_folds.py` *without*
+  it to get a plain reference silently inherited `brightness_jitter_strength: 0.4` left in `params.yaml` by
+  the preceding sweep - producing three runs bit-identical to exp 78-80 and labelled as their own control.
+  Caught by reading the archived `config.json`, not by the run itself. Fixed: the flag now defaults to `0.0`
+  on every invocation, so a sweep cannot inherit a stale strength. Re-run as exp 84-86. **The general rule:
+  an augmentation flag must state its value on every run, never mean "whatever was there".**
+- **A power cut killed exp75's first attempt at epoch 16/80** (~52 min lost). `run_folds.py` resumes at fold
+  granularity only - a fold that has not archived `metrics.json` restarts from scratch. Acceptable at ~90-100
+  min/fold, but it is the second outage to cost this project a partial run.
+- **exp 72-95 are not reproducible from their own commits.** `run_folds.py` stages only `params.yaml`,
+  `dvc.lock`, the metrics files and `experiments/`, so the source change implementing
+  `brightness_jitter_strength` (`config.py`, `transforms.py`, `train_baseline.py`, `run_folds.py`) sat
+  uncommitted for the whole phase and is only committed now, with these results. Checking out any of those
+  experiment commits gives a `params.yaml` containing `brightness_jitter_strength` and a `RunConfig` that has
+  never heard of it - and `from_params_yaml` **silently drops unknown keys**, so the run would quietly
+  execute at brightness 0.8-1.2x and look like it had worked. The evidence itself is intact: each archived
+  `experiments/exp*/config.json` records the strength actually used, and that is what every number above was
+  read from. But the git-checkout path is broken for this range, the same way pre-Phase-9 commits have no
+  usable `dvc.lock`. Not rewriting history to fix it. **The rule going forward: commit the source change
+  before starting a sweep that depends on it, since `run_folds.py`'s per-fold commit will not pick it up.**

@@ -12,6 +12,13 @@ round-trip would strip every comment in it.
 
     python -m coffeecv.run_folds --arm baseline --start-exp 48
     python -m coffeecv.run_folds --arm scale --start-exp 51
+    python -m coffeecv.run_folds --arm beans --epochs 80 --brightness-jitter 0.6 \
+        --tag bright06 --start-exp 72
+
+`--brightness-jitter` is independent of `--arm`: patch sizing (baseline/scale/
+beans/beans69) and brightness augmentation are orthogonal knobs, not a combined
+arm matrix, so it composes with whichever sizing arm is selected instead of
+needing its own ARMS entries.
 """
 from __future__ import annotations
 
@@ -52,7 +59,7 @@ ARMS = {
 
 def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
-             seed: int | None = None) -> None:
+             seed: int | None = None, brightness_jitter: float | None = None) -> None:
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -76,6 +83,9 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     if seed is not None:
         text = re.sub(r"^seed: .*$", f"seed: {seed}", text, count=1, flags=re.M)
+    if brightness_jitter is not None:
+        text = re.sub(r"^brightness_jitter_strength: .*$", f"brightness_jitter_strength: {brightness_jitter}",
+                      text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -91,6 +101,9 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         assert cfg.epochs == epochs, f"epochs is {cfg.epochs}, wanted {epochs}"
     if seed is not None:
         assert cfg.seed == seed, f"seed is {cfg.seed}, wanted {seed}"
+    if brightness_jitter is not None:
+        assert cfg.brightness_jitter_strength == brightness_jitter, \
+            f"brightness_jitter_strength is {cfg.brightness_jitter_strength}, wanted {brightness_jitter}"
 
 
 def run(cmd: list[str]) -> int:
@@ -108,6 +121,11 @@ def main() -> None:
                    help="epoch budget AND cosine T_max; both arms of a comparison must share it")
     p.add_argument("--tag", default="", help="slug suffix distinguishing this sweep, e.g. e80")
     p.add_argument("--seed", type=int, default=None, help="training seed; the replication axis")
+    p.add_argument("--brightness-jitter", type=float, default=0.0,
+                   help="sets brightness_jitter_strength; orthogonal to --arm, see module docstring. "
+                        "Defaults to 0.0 (off) on *every* invocation -- unlike --epochs/--seed this is not "
+                        "'leave whatever was there', because that silently carried a stale strength from one "
+                        "sweep into the next 'reference' sweep once (see EXPERIMENTS_LOG.md Phase 13).")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
     args = p.parse_args()
@@ -133,7 +151,8 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
-        set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed)
+        set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
+                 args.brightness_jitter)
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -144,7 +163,8 @@ def main() -> None:
 
         note = (f"leave-one-rig-out, arm={args.arm}, held out {short}; "
                 f"scale_frac={frac_min}-{frac_max}, beans={beans_min}-{beans_max}, "
-                f"epochs={args.epochs or 'default'}")
+                f"epochs={args.epochs or 'default'}; "
+                f"brightness_jitter={args.brightness_jitter if args.brightness_jitter is not None else 'default'}")
         run(["python", "-m", "coffeecv.archive_experiment",
              "--id", str(exp_id), "--slug", slug, "--note", note])
 

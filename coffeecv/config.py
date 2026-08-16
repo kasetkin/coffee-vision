@@ -70,6 +70,14 @@ class RunConfig:
     dropout: float = 0.2
     label_smoothing: float = 0.0
     color_jitter_strength: float = 0.2
+    # Phase 13: overrides only the brightness bound of the ColorJitter call above
+    # (contrast/saturation/hue keep color_jitter_strength). 0.0 is the no-op
+    # default -- brightness falls back to color_jitter_strength, reproducing the
+    # exact pre-Phase-13 pipeline. Rigs measure 1.48-1.59x apart in grey mean
+    # (see EXPERIMENTS_LOG.md Phase 11), which color_jitter_strength=0.2's
+    # 0.8-1.2x range cannot reach; this widens brightness alone to test whether
+    # augmentation can close that gap without perturbing the other channels.
+    brightness_jitter_strength: float = 0.0
 
     # Phase 8 augmentation knobs. Every default here is a no-op, so the whole
     # block off reproduces the Phase 7 pipeline exactly (see transforms.py).

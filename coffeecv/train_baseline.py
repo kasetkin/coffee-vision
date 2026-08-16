@@ -162,6 +162,7 @@ def main() -> None:
         zoom_scale_min=cfg.zoom_scale_min,
         random_erasing_p=cfg.random_erasing_p,
         illum_gradient_strength=cfg.illum_gradient_strength,
+        brightness_jitter_strength=cfg.brightness_jitter_strength,
     )
     train_ds = MultiPhotoPatchDataset(
         split="train", transform=train_transform,

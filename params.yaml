@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 7
+seed: 42
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
@@ -42,7 +42,7 @@ color_jitter_strength: 0.2
 # Phase 13: overrides brightness only (contrast/saturation/hue keep
 # color_jitter_strength above). 0.0 = no-op, falls back to color_jitter_strength.
 # Rigs differ 1.48-1.59x in grey mean; 0.2 (0.8-1.2x) cannot reach that.
-brightness_jitter_strength: 0.6
+brightness_jitter_strength: 0.0
 
 # Augmentation (Phase 8). Every value here is a no-op at the setting shown;
 # the Phase 7 baseline is this whole block off.

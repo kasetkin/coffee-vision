@@ -73,15 +73,24 @@ def build_train_transform(
     zoom_scale_min: float = 1.0,
     random_erasing_p: float = 0.0,
     illum_gradient_strength: float = 0.0,
+    brightness_jitter_strength: float = 0.0,
 ) -> T.Compose:
     steps = [
         RandomRightAngleRotation(),
         T.RandomHorizontalFlip(p=0.5),
         T.RandomVerticalFlip(p=0.5),
     ]
-    if jitter_strength > 0:
+    # brightness_jitter_strength overrides only the brightness bound of the same
+    # ColorJitter call, so a run that leaves it at 0.0 (the no-op default) draws
+    # from the RNG in exactly the same order/count as before this knob existed.
+    # It is separate from jitter_strength because the evidence for widening it is
+    # rig-specific (measured grey-mean ratios, see EXPERIMENTS_LOG.md Phase 11/13)
+    # while contrast/saturation/hue have no such evidence -- conflating them would
+    # untestably confound "wider brightness" with "wider everything".
+    brightness_b = brightness_jitter_strength if brightness_jitter_strength > 0 else jitter_strength
+    if jitter_strength > 0 or brightness_jitter_strength > 0:
         steps.append(T.ColorJitter(
-            brightness=jitter_strength, contrast=jitter_strength,
+            brightness=brightness_b, contrast=jitter_strength,
             saturation=jitter_strength, hue=min(jitter_strength * 0.1, 0.5),
         ))
     # `scale` is an *area* fraction: 0.7 means zooming into a ~0.84-linear
