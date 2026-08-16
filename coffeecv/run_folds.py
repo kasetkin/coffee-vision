@@ -23,6 +23,7 @@ needing its own ARMS entries.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import time
@@ -142,6 +143,30 @@ def dirty_provenance_paths() -> list[str]:
     return dirty
 
 
+def stale_crop_stages() -> list[str]:
+    """Crop stages that `dvc repro train` would regenerate before training.
+
+    Deliberately *not* a check on overall `dvc status`, which is dirty by design
+    here: set_fold() rewrites params.yaml precisely so the train stage re-runs, so
+    "train is out of date" is the required state at launch, not a fault.
+
+    The crop stages are different. If one is stale, `dvc repro train` regenerates
+    the dataset first, and every fold then trains on different pixels than the
+    reference runs it is about to be compared against -- a silent
+    comparison-invalidating event. It is also the one failure git cannot see:
+    `data/cropped/` is gitignored, so on-disk loss or corruption of the crops
+    shows up in `dvc status` and nowhere else. An interrupted `dvc repro` deletes
+    the stage's outs, which is exactly how this happens in practice.
+    """
+    stale = []
+    for rig in RIGS:
+        stage = f"crop@{Path(rig).name}"
+        out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()
+        if json.loads(out or "{}"):
+            stale.append(stage)
+    return stale
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
@@ -178,6 +203,17 @@ def main() -> None:
             raise SystemExit(1)
         print("\n--allow-dirty: continuing. Each fold's note will record that the source was\n"
               "uncommitted at launch, so the gap is visible in the archived record.", flush=True)
+
+    stale = stale_crop_stages()
+    if stale:
+        print(f"\nCrop stages out of date: {', '.join(stale)}\n")
+        if not args.allow_dirty:
+            print("`dvc repro train` would regenerate the dataset before training, so this sweep\n"
+                  "would not be comparable to the reference runs it is meant to pair against.\n"
+                  "Run `dvc repro crop` deliberately and re-baseline the references first, or\n"
+                  "override with --allow-dirty.", flush=True)
+            raise SystemExit(1)
+        print("--allow-dirty: continuing on stale crops; recorded in each fold's note.", flush=True)
 
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [r for r in RIGS if not args.only or args.only in r]
@@ -216,6 +252,8 @@ def main() -> None:
                 f"brightness_jitter={args.brightness_jitter}")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
+        if stale:
+            note += f"; WARNING: crop stages stale at launch ({', '.join(stale)}), data may differ from references"
         run(["python", "-m", "coffeecv.archive_experiment",
              "--id", str(exp_id), "--slug", slug, "--note", note])
 
