@@ -1,0 +1,5 @@
+{
+  "exp": "97",
+  "slug": "allrigs_s123",
+  "note": "ALL RIGS (no held-out rig), seed 123: reproducibility check for the shipping config. beans=4.0-7.0, epochs=80, brightness_jitter=0.0. NO cross-rig metric by construction. Training completed normally (early stop epoch 38, best epoch 30); the run then crashed in a plotting call that a bad edit had moved into the no-xrig branch, and dvc.lock was not updated. Artifacts salvaged from outputs/ and archived here; bug fixed and both code paths smoke-tested in the same commit."
+}
