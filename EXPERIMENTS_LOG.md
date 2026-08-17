@@ -2590,3 +2590,42 @@ a strictly harder split spanning all three rigs. Adding the third rig broke noth
   minute and would have caught both bugs.
 - Related: `run_folds`/`run_all_rigs` used a bare `return` on failure paths, so a dead sweep exited **0** and
   reported as success. Now `SystemExit(1)`.
+
+## Early stopping vs the cosine schedule (exp98-99): diagnosed, fixed, and it does not matter
+
+`epochs` is both the budget and the cosine `T_max`, and `early_stop_patience: 8` fires long before 80 epochs
+are up -- so every run in this project has stopped while the learning rate was still high. exp96 quit at 74%
+of its initial LR, exp61 at 78%. The model never reached the low-LR phase where models conventionally
+consolidate, and there was supporting evidence: whenever a run *did* go long its best epoch was late
+(exp66 best 60/68, exp62 51/59, exp85 45/53).
+
+Tested by lowering `T_max` to match the observed run length rather than raising patience -- same or less
+wall-clock, and the anneal actually completes. Paired design: same seeds as exp96/97, and since
+`split_photos_by_class` seeds on `[seed, rig_idx, class_idx, 9999]`, the photo split depends on seed alone,
+so these are scored on **identical test photos**.
+
+| seed | T_max | val | test | best | ran | LR at stop |
+|---|---|---|---|---|---|---|
+| 42 | 80 | 0.9307 | 0.8882 | 19 | 27 | 74% |
+| 42 | **40** | 0.9204 | 0.8891 | 19 | 27 | **24%** |
+| 123 | 80 | 0.9013 | 0.9113 | 30 | 38 | 54% |
+| 123 | **40** | 0.8876 | 0.9142 | **39** | 40 | **0%** |
+
+Paired deltas (e40 - e80): **test +0.0019 (2/2 positive), mcc +0.0020 (2/2), val -0.0120 (2/2 negative)**.
+
+**The mechanism was real; the payoff was not.** exp99 annealed to zero and kept improving to best_epoch 39 of
+40 -- exactly the predicted behaviour -- for +0.0029 test. Against TTA's +0.0235 that is nothing.
+
+**The more informative result is exp98.** Same seed as exp96, a completely different LR trajectory, and an
+*identical* stopping pattern: best epoch 19, stopped at 27. The val plateau is driven by the data and the
+seed, not by the learning rate, which undercuts the premise that early stopping was truncating a model that
+would otherwise have kept improving.
+
+Not adopted, and `epochs: 80` stays. +0.002 on two seeds is far inside this project's noise; and because
+these are all-rigs runs there is **no cross-rig evidence here at all**, so this could not support a
+configuration change even if the effect were larger -- that needs a `run_folds` sweep. The shipped model
+stays `phase14_allrigs_s42` (exp96); reshipping for +0.0009 would be false precision.
+
+Open question left behind: exp99 hit the 40-epoch cap while still improving, so a schedule that both
+completes *and* runs longer (T_max ~60) is untested. Worth a fold sweep if this axis is ever revisited, not
+another pair of all-rigs runs.
