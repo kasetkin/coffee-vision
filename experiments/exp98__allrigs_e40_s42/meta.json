@@ -1,0 +1,5 @@
+{
+  "exp": "98",
+  "slug": "allrigs_e40_s42",
+  "note": "ALL RIGS (no held-out rig): shipping candidate. beans=4.0-7.0, epochs=40, seed=42, brightness_jitter=0.0. NO cross-rig metric exists for this run by construction; in-distribution only."
+}

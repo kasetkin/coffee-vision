@@ -15,7 +15,8 @@ seed: 42
 train_rigs:
   - data/cropped/2026-08-07__box_pictures_all_classes
   - data/cropped/2026-08-09__pixel_cam
-heldout_rig: data/cropped/2026-08-09__sony_cam
+  - data/cropped/2026-08-09__sony_cam
+heldout_rig: ""
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -65,7 +66,7 @@ mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a tra
 
 # Training
 batch_size: 32
-epochs: 80
+epochs: 40
 early_stop_patience: 8  # stop if val_macro_f1 hasn't improved in this many epochs
 optimizer: adamw  # adamw | sgd
 lr: 0.001
