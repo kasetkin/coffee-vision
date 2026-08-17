@@ -1,0 +1,5 @@
+outs:
+- md5: 180f0e06b2c35eddbdb5b275c07d80e6
+  size: 44795211
+  hash: md5
+  path: phase14_allrigs_s42.pt

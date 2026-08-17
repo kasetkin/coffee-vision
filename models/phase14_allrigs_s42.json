@@ -1,0 +1,101 @@
+{
+  "name": "phase14_allrigs_s42.pt",
+  "source_experiment": "exp96__allrigs_s42",
+  "why_this_one": "The first model in this project trained on ALL THREE rigs. Every previous checkpoint is a leave-one-rig-out fold, deliberately blind to a third of the data so a cross-rig number could be measured. Folds are the right tool for choosing a configuration; the final fit should use every photo. Configuration is the adopted Phase 12 one (bean-unit patch sizing 4-7, resnet18 full fine-tune, random_erasing 0.5, epochs 80, brightness_jitter 0.0 after Phase 13 closed brightness as a null result).",
+  "inference_defaults": {
+    "tta": true,
+    "why": "Dihedral (8-view) test-time augmentation is ON by default in infer.py. Measured on this repo's own folds it is worth +0.0235 cross-rig macro-F1, positive in 8 of 9 paired fold-seed runs, for 8x inference cost and no retraining. Training augments over exactly this symmetry group, so averaging over it at inference is asking the model the same question in the orientations it was taught are equivalent."
+  },
+  "caveats": [
+    "THIS MODEL HAS NO CROSS-RIG MEASUREMENT, by construction. With all three rigs in training there is nothing left to transfer to. Every generalization figure below is ESTIMATED from the leave-one-rig-out folds of the same configuration, not measured on this checkpoint.",
+    "Those fold estimates describe a model trained on TWO rigs transferring to a third. This model saw three, so its transfer to a genuinely new fourth camera is plausibly better -- but that is an expectation, not a measurement, and it should not be quoted as one.",
+    "Cross-rig figures are optimistic regardless: the same physical beans were re-poured across rigs, so bean identity is shared between training and held-out sets. No fresh-scoop measurement exists.",
+    "Per-class transfer varies enormously -- roughly 0.98 for Vietnam Robusta (the only robusta, a different species) down to ~0.28 for Brazil MonteCristo, which is mostly confused with Brazil Cerrado. The macro-F1 hides this completely. The model separates what is physically separable (species, variety, processing) and struggles where those are shared.",
+    "Pooling patches into one answer per photo helps far less than you would expect: +0.020 mean, and NEGATIVE on one fold. Patch errors within a photo are correlated (same beans, rig, lighting), so 40 patches are not 40 independent votes and cannot rescue a systematically wrong photo.",
+    "The model is typically confident even when wrong (median top1-top2 margin ~0.57 cross-rig). Use the OOD score, not the probability, to decide whether to trust an answer."
+  ],
+  "expected_performance": {
+    "in_distribution_test_macro_f1_this_run": 0.8881556292651873,
+    "in_distribution_note": "Scored on a test split spanning all three rigs, which is harder than the folds' two-rig splits; it sits inside the folds' range 0.8854-0.9363.",
+    "cross_rig_ESTIMATED_from_folds": {
+      "patch_macro_f1_no_tta": 0.5854,
+      "patch_macro_f1_with_tta": 0.6122,
+      "photo_accuracy_with_tta": 0.617,
+      "per_fold_photo_accuracy": {
+        "box": 0.556,
+        "pixel": 0.852,
+        "sony": 0.444
+      },
+      "note": "Range across held-out rigs is 0.44-0.85. Quote the range, never the mean: which camera a user has matters more than anything else measured here."
+    }
+  },
+  "this_run": {
+    "seed": 42,
+    "trained_on": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "never_saw": "(nothing -- all rigs trained)",
+    "val_macro_f1": 0.9306505711375759,
+    "test_macro_f1": 0.8881556292651873,
+    "best_epoch": 19,
+    "epochs_trained": 27
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/phase14_allrigs_s42.pt --images-dir <dir>",
+    "ood_reference": "models/phase14_allrigs_s42.ood_reference.json",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio and no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range, warns above the training set's per-photo 95th percentile OOD distance, and refuses above 1.4."
+  },
+  "training_config": {
+    "seed": 42,
+    "train_rigs": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "heldout_rig": "",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photos_per_class": 14,
+    "val_photos_per_class": 3,
+    "test_photos_per_class": 3,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "batch_size": 32,
+    "epochs": 80,
+    "early_stop_patience": 8,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "dedc00d6c2ba33679398a60068d46809145f4cc5",
+      "argv": [
+        "/workspace/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}
