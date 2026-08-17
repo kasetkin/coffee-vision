@@ -2493,3 +2493,100 @@ honest answer to a rig outside the training distribution.
   read from. But the git-checkout path is broken for this range, the same way pre-Phase-9 commits have no
   usable `dvc.lock`. Not rewriting history to fix it. **The rule going forward: commit the source change
   before starting a sweep that depends on it, since `run_folds.py`'s per-fold commit will not pick it up.**
+
+---
+
+# Phase 14 - Shipping a model: all three rigs, TTA, and what pooling does not buy
+
+Goal: the best shippable model, not another configuration claim. Configuration stays the adopted Phase 12
+one; what changes is that the final fit uses **every rig**, and that inference gains test-time augmentation.
+
+## The measurement problem, stated up front
+
+A model trained on all three rigs **cannot be scored on cross-rig transfer** -- there is nothing left to
+transfer to. That is not a gap to apologise for, it is the standard division of labour: folds choose the
+configuration, the final fit uses all the data. The rule this phase held to is that an all-rigs run must
+never become the evidence for a configuration claim; any *change* still goes through `run_folds`, where the
+metric exists. Everything below that looks like a generalization number was measured on **fold** checkpoints.
+
+## Test-time augmentation: adopted (free)
+
+Averaging predictions over the 8 dihedral orientations. Not a generic trick: training samples exactly this
+group (`RandomRightAngleRotation` + both flips), so TTA asks the model the same question in the orientations
+it was taught are equivalent, and the averaged predictor is *exactly* invariant where the base model was only
+approximately so.
+
+Measured on the 9 archived adopted-config fold checkpoints, cross-rig macro-F1, paired per fold and seed:
+
+| fold | s42 | s123 | s7 |
+|---|---|---|---|
+| box | +0.0167 | +0.0343 | +0.0286 |
+| pixel | +0.0554 | +0.0487 | +0.0368 |
+| sony | +0.0012 | +0.0100 | -0.0203 |
+
+**+0.0235 mean, 8/9 positive** -- clears the sign-consistency bar, costs 8x inference and no retraining. On
+by default in `infer.py` (`--no-tta` to disable).
+
+Note *where* it helps: box and pixel gain, sony gains nothing. **TTA reduces variance, not bias.** On sony the
+model is systematically wrong from domain shift, and averaging 8 views of a confidently wrong answer returns
+a confidently wrong answer.
+
+## Seed ensembling: measured, declined
+
+Same measurement, ensembling the 3 seeds of each fold (all of which held out the same rig, so this is a clean
+cross-rig number):
+
+| | mean single | ensemble | TTA | ensemble+TTA |
+|---|---|---|---|---|
+| mean over folds | 0.5887 | 0.5999 | 0.6122 | 0.6221 |
+
+Ensembling alone is +0.0112; **on top of TTA it is only +0.0099, at 2/3 folds, and negative on sony.** The two
+are partly redundant -- both are variance reduction competing for the same headroom. Declined: it fails the
+sign-consistency bar, doubles the artifact and doubles inference on top of TTA's 8x, for about +0.01.
+
+## Photo-level accuracy: the number a user actually gets
+
+Every cross-rig figure in this log is computed over independent **patches**, but nobody photographs a patch --
+`infer.py` pools ~40 patches into one answer. Measured on fold checkpoints, seed 42, TTA on, scored only on
+the rig each model never saw:
+
+| held-out rig | patch acc | photo acc | gap |
+|---|---|---|---|
+| box | 0.591 | 0.556 | **-0.035** |
+| pixel | 0.773 | 0.852 | +0.079 |
+| sony | 0.429 | 0.444 | +0.015 |
+| **mean** | 0.598 | **0.617** | **+0.020** |
+
+**Pooling buys far less than intuition suggests, and one fold goes backwards.** Patch errors within a photo
+are correlated -- same beans, same rig, same lighting -- so 40 patches are not 40 independent votes and cannot
+rescue a photo the model is systematically wrong about. Median top1-top2 margin 0.55-0.60: confident even when
+wrong, consistent with Phase 9's finding that softmax confidence is useless as a reliability signal.
+n=27 photos/fold, so +/-3.7 points per photo; directional, not precise.
+
+## The runs
+
+| exp | seed | val | in-dist test | best epoch | epochs |
+|---|---|---|---|---|---|
+| 96 | 42 | 0.9307 | 0.8882 | 19 | 27 |
+| 97 | 123 | 0.9013 | 0.9113 | 30 | 38 |
+
+Both healthy; the config trains consistently on three rigs. They do **not** rank each other -- different seeds
+produce different photo splits, so those test scores are not computed on the same photos, and val and test
+disagree on the ordering anyway (the known val-saturation problem). exp96 is shipped as
+`models/phase14_allrigs_s42.pt`; exp97 is the reproducibility check.
+
+exp96's in-distribution test (0.8882) sits inside the 2-rig folds' range (0.8854-0.9363) while being scored on
+a strictly harder split spanning all three rigs. Adding the third rig broke nothing.
+
+## Two pipeline bugs, both nearly fatal to a 2.5h run
+
+- **`dvc.yaml` declares `outputs/predictions_xrig.csv` as a plot**, and DVC fails a stage when a declared
+  output is missing. An all-rigs run never writes it, so exp96 trained for 27 epochs and then had its
+  pipeline record rejected. Artifacts were salvaged from `outputs/` before the next run could overwrite them.
+  `train_baseline` now writes the file header-only when there is no cross-rig split.
+- **That fix, shipped untested, then broke exp97**: the inserted `else:` swallowed the following
+  `plot_confusion_matrix` call into the no-xrig branch, where `xrig_metrics` is `None`. 38 epochs lost to a
+  plotting call. Both paths are now smoke-tested with `epochs=1` and 2 patches/class, which takes under a
+  minute and would have caught both bugs.
+- Related: `run_folds`/`run_all_rigs` used a bare `return` on failure paths, so a dead sweep exited **0** and
+  reported as success. Now `SystemExit(1)`.
