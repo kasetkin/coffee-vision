@@ -281,7 +281,7 @@ def main() -> None:
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
             print(f"fold {short} FAILED; stopping so the failure is not buried")
-            return
+            raise SystemExit(1)
         mins = (time.time() - t0) / 60
         print(f"fold {short} finished in {mins:.0f} min", flush=True)
 
@@ -306,7 +306,7 @@ def main() -> None:
                 "--id", str(exp_id), "--slug", slug, "--note", note]) != 0:
             print(f"archiving exp{exp_id} FAILED; stopping -- outputs/ is about to be "
                   f"overwritten by the next fold and this run would be lost", flush=True)
-            return
+            raise SystemExit(1)
 
         if not args.no_commit:
             # One commit per fold, so each run is its own git revision carrying its
@@ -324,7 +324,7 @@ def main() -> None:
                     f"Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"]) != 0:
                 print(f"committing exp{exp_id} FAILED; stopping so later folds do not pile\n"
                       f"uncommitted state on top of it", flush=True)
-                return
+                raise SystemExit(1)
 
 
 if __name__ == "__main__":

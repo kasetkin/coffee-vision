@@ -329,6 +329,14 @@ def main() -> None:
     write_predictions_csv(OUTPUTS_DIR / "predictions_test.csv", test_true, test_pred, class_ids)
     if xrig_metrics is not None:
         write_predictions_csv(OUTPUTS_DIR / "predictions_xrig.csv", xrig_true, xrig_pred, class_ids)
+    else:
+        # A run with no held-out rig (heldout_rig: "") has no cross-rig split, but
+        # dvc.yaml declares this file as a plot and DVC fails the whole stage when
+        # a declared output is missing -- which is how an all-rigs run lost its
+        # pipeline record after training successfully for 27 epochs. Write the
+        # header alone: unambiguous next to a metrics.json that has no test_xrig
+        # split at all, and it cannot be mistaken for a measurement of zero.
+        write_predictions_csv(OUTPUTS_DIR / "predictions_xrig.csv", [], [], class_ids)
         plot_confusion_matrix(
             xrig_metrics["confusion_matrix"], class_ids, class_labels,
             PLOTS_DIR / "confusion_matrix_xrig.png",

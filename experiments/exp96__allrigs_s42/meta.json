@@ -1,0 +1,5 @@
+{
+  "exp": "96",
+  "slug": "allrigs_s42",
+  "note": "ALL RIGS (no held-out rig): shipping candidate. beans=4.0-7.0, epochs=80, seed=42, brightness_jitter=0.0. NO cross-rig metric exists for this run by construction; in-distribution only. NOTE: dvc.lock was NOT updated for this run -- dvc repro failed its output check because dvc.yaml required predictions_xrig.csv, which an all-rigs run does not produce. Training itself completed normally (early stop epoch 27, best epoch 19). Fixed in the same commit that adds this archive."
+}

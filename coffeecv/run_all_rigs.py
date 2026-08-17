@@ -104,7 +104,7 @@ def main() -> None:
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
             print(f"exp{exp_id} FAILED; stopping so the failure is not buried")
-            return
+            raise SystemExit(1)
         print(f"exp{exp_id} finished in {(time.time() - t0) / 60:.0f} min", flush=True)
 
         note = (f"ALL RIGS (no held-out rig): shipping candidate. "
@@ -116,7 +116,7 @@ def main() -> None:
         if run(["python", "-m", "coffeecv.archive_experiment",
                 "--id", str(exp_id), "--slug", slug, "--note", note]) != 0:
             print(f"archiving exp{exp_id} FAILED; stopping before the next run overwrites outputs/")
-            return
+            raise SystemExit(1)
 
         run(["git", "add", "-A", "params.yaml", "dvc.lock", "outputs/metrics.json",
              "outputs/summary.json", "experiments"])
@@ -124,7 +124,7 @@ def main() -> None:
                 f"exp{exp_id}: {slug}\n\n{note}\n\n"
                 f"Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"]) != 0:
             print(f"committing exp{exp_id} FAILED; stopping")
-            return
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
