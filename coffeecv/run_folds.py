@@ -60,7 +60,8 @@ ARMS = {
 
 def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
-             seed: int | None = None, brightness_jitter: float | None = None) -> "RunConfig":
+             seed: int | None = None, brightness_jitter: float | None = None,
+             freeze_mode: str | None = None, mixup_alpha: float | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -87,6 +88,12 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
     if brightness_jitter is not None:
         text = re.sub(r"^brightness_jitter_strength: .*$", f"brightness_jitter_strength: {brightness_jitter}",
                       text, count=1, flags=re.M)
+    # \S+ rather than .*$ so the explanatory trailing comments on these two lines
+    # survive the rewrite -- params.yaml is documentation as much as configuration.
+    if freeze_mode is not None:
+        text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
+    if mixup_alpha is not None:
+        text = re.sub(r"^mixup_alpha: \S+", f"mixup_alpha: {mixup_alpha}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -104,6 +111,10 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
     if brightness_jitter is not None:
         assert cfg.brightness_jitter_strength == brightness_jitter, \
             f"brightness_jitter_strength is {cfg.brightness_jitter_strength}, wanted {brightness_jitter}"
+    if freeze_mode is not None:
+        assert cfg.freeze_mode == freeze_mode, f"freeze_mode is {cfg.freeze_mode!r}, wanted {freeze_mode!r}"
+    if mixup_alpha is not None:
+        assert cfg.mixup_alpha == mixup_alpha, f"mixup_alpha is {cfg.mixup_alpha}, wanted {mixup_alpha}"
     # Returned so the caller records what was actually loaded rather than what was
     # asked for -- the omitted-flag case has no value in args to report.
     return cfg
@@ -184,6 +195,12 @@ def main() -> None:
                         "Defaults to 0.0 (off) on *every* invocation -- unlike --epochs/--seed this is not "
                         "'leave whatever was there', because that silently carried a stale strength from one "
                         "sweep into the next 'reference' sweep once (see EXPERIMENTS_LOG.md Phase 13).")
+    p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
+                   help="how much of the backbone to fine-tune. Like --brightness-jitter this states its "
+                        "value on EVERY run rather than inheriting whatever params.yaml held.")
+    p.add_argument("--mixup-alpha", type=float, default=0.0,
+                   help="Beta(a,a) batch mixing. Phase 8 rejected 0.2 on in-distribution alone; the log "
+                        "carries a standing note to re-test those augmentations against cross-rig.")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
     p.add_argument("--allow-dirty", action="store_true",
@@ -294,7 +311,8 @@ def main() -> None:
                 f"scale_frac={cfg.patch_scale_frac_min}-{cfg.patch_scale_frac_max}, "
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, "
                 f"epochs={cfg.epochs}, seed={cfg.seed}, "
-                f"brightness_jitter={cfg.brightness_jitter_strength}")
+                f"brightness_jitter={cfg.brightness_jitter_strength}, "
+                f"freeze_mode={cfg.freeze_mode}, mixup_alpha={cfg.mixup_alpha}")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         if stale:
