@@ -96,16 +96,22 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
     one thing inference must get right. Each run archives its own config.json
     beside its outputs, so prefer that when it is sitting next to the checkpoint.
     """
+    card = checkpoint.with_suffix(".json")          # shipped model: models/<name>.json
+    run_cfg = checkpoint.parent.parent / "config.json"  # live run: outputs/config.json
     if explicit:
         raw = json.load(open(explicit))
         source = explicit
+    elif card.exists():
+        # A shipped model carries its own card, and the card's training_config is
+        # the authoritative record of how it was fitted -- the model travels out of
+        # this repo, so it cannot depend on a params.yaml it will not have.
+        raw = json.load(open(card)).get("training_config", {})
+        source = f"{card} (training_config)"
+    elif run_cfg.exists():
+        raw = json.load(open(run_cfg))
+        source = str(run_cfg)
     else:
-        sibling = checkpoint.parent.parent / "config.json"
-        if sibling.exists():
-            raw = json.load(open(sibling))
-            source = str(sibling)
-        else:
-            return RunConfig.from_params_yaml(), "params.yaml (no config.json beside the checkpoint)"
+        return RunConfig.from_params_yaml(), "params.yaml (no config found beside the checkpoint)"
     known = RunConfig.__dataclass_fields__
     return RunConfig(**{k: (tuple(v) if isinstance(v, list) else v)
                         for k, v in raw.items() if k in known}), source

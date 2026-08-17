@@ -1,0 +1,89 @@
+{
+  "name": "phase12_beans47_s7.pt",
+  "source_experiment": "exp85__lorio_beans_e80_s7_fix_heldout_pixel_cam",
+  "why_this_one": "Adopted Phase 12 configuration (bean-unit patch sizing, B log-uniform in 4-7, resnet18 full fine-tune, random_erasing_p=0.5, epochs 80). Chosen from the leave-one-rig-out folds on a structural argument rather than on its score: the pixel_cam-heldout folds train on box + sony, which are the extremes of the dataset in BOTH brightness (grey mean 78.7 vs 125.1) and bean scale (pitch 103.8 vs 323.1 px), so this model saw the widest range of conditions available. Among the three seeds of that fold it is also the best on both axes -- but see the caveats: selecting the max of nine runs means this run's own numbers are optimistic.",
+  "caveats": [
+    "TRAINED ON 2 OF 3 RIGS. Every archived run is a leave-one-rig-out fold, so no model in this project has ever seen all three rigs. A model trained on all of them would very likely be better and is a ~90 minute run; this is the best EXISTING checkpoint, not the best possible one.",
+    "Its headline cross-rig number (0.7585) is on pixel_cam, which is the easiest rig to transfer to. Averaged over all three held-out rigs the same configuration scores 0.5854. For an arbitrary unseen camera, 0.59 is the honest expectation and 0.76 is not.",
+    "Cross-rig figures are optimistic regardless: the same physical beans were re-poured across rigs, so bean identity is shared between training and held-out sets. No fresh-scoop measurement exists yet.",
+    "Per-class transfer varies enormously (Vietnam Robusta ~0.98, Brazil MonteCristo ~0.28). A single macro-F1 hides this; consult the per-class table before trusting any individual prediction."
+  ],
+  "expected_performance": {
+    "cross_rig_macro_f1_all_folds_3seed_mean": 0.5854,
+    "cross_rig_macro_f1_all_folds_range": [
+      0.3889,
+      0.7585
+    ],
+    "cross_rig_macro_f1_this_fold_3seed_mean": 0.7334,
+    "in_distribution_macro_f1_3seed_mean": 0.9034,
+    "note": "Quote the all-folds range for a new camera. The seed-to-seed and fold-to-fold spread is wider than most effects this project measures, so a point estimate is misleading."
+  },
+  "this_run": {
+    "seed": 7,
+    "trained_on": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "never_saw": "data/cropped/2026-08-09__pixel_cam",
+    "val_macro_f1": 0.9025550944962204,
+    "test_macro_f1": 0.9083689013796812,
+    "test_xrig_macro_f1": 0.7585447563174968,
+    "best_epoch": 45,
+    "epochs_trained": 53
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/phase12_beans47_s7.pt --images-dir <dir>",
+    "ood_reference": "models/phase12_beans47_s7.ood_reference.json (built by coffeecv.build_ood_reference)",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio, no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range, and warns or refuses on embedding-distance OOD."
+  },
+  "training_config": {
+    "seed": 7,
+    "train_rigs": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "heldout_rig": "data/cropped/2026-08-09__pixel_cam",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photos_per_class": 14,
+    "val_photos_per_class": 3,
+    "test_photos_per_class": 3,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "batch_size": 32,
+    "epochs": 80,
+    "early_stop_patience": 8,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "8ad7d6e709aa0af4a8799db27f0bf8f4a61df423",
+      "argv": [
+        "/workspace/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}
