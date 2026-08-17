@@ -1,16 +1,38 @@
-"""Run the trained checkpoint over new, unlabeled photos.
+"""Classify new, unlabeled photos -- and refuse when the photo is outside what
+the model was trained on.
 
-Unlike PatchCoffeeDataset (which crops from the fixed circular macro-lens
-photos used for training), this script accepts arbitrary already-cropped
-RGB images -- e.g. a rectangular top-down photo of a bean tray -- and
-patch-samples them the same way (random crop_size x crop_size boxes,
-resized to patch_resize) before running them through the classifier.
+**This file must mirror how the training/eval dataset builds patches.** It is the
+inference half of the parity rule that the rest of the pipeline is built around:
+whatever measurement training depends on has to run the same way here, or every
+reported metric describes a lab that the field does not resemble. The previous
+version of this file violated that rule outright -- it sized patches from a
+`--scale-ratio` the *user* supplied, asking a person pointing a phone to know how
+much to rescale for their camera. That is the fragility bean-unit sizing exists
+to remove, and it predated the sizing change by five days without being updated.
 
-`crop_size` here is NOT necessarily the same value as training's
-patch_crop_size: if the new photos were taken at a different camera
-distance/zoom, the apparent bean size in pixels differs, and crop_size
-should be rescaled so beans appear at roughly the same size in the
-resized patch that the network was trained on. See --scale-ratio.
+So patches here are sized exactly as `MultiPhotoPatchDataset._extract_photo`
+sizes them: bean pitch measured per photo by `bean_scale.estimate_bean_pitch`,
+patch side = B * pitch with B log-uniform over the trained range, sampled inside
+`compute_valid_region_rect`, stored at `patch_store_size` and then resized to
+`patch_resize` by the eval transform. The two-step resize is deliberate -- going
+straight to 224 from full resolution is not the same interpolation the model was
+trained and scored on.
+
+Two independent refusals, because a wrong answer stated confidently is worse than
+no answer (Phase 9: on an out-of-rig photo the model gave p=0.755 to a class that
+was wrong, and flipped to a different wrong class under a 15% brightness change):
+
+1. **Scale.** If the measured pitch says the frame cannot supply patches in the
+   trained bean range, the photo is framed wrong and there is nothing to fix
+   downstream. This is the interpretable form of the guard -- "move the camera
+   back" is advice a user can act on.
+2. **Out-of-distribution.** Penultimate-embedding distance to the nearest
+   training-class centroid, normalized by that class's own spread. Phase 9
+   measured 0.97 mean / 1.24 max over held-out training photos against 1.92-1.94
+   for a photo from an unseen rig, and softmax confidence was *useless* at this
+   (0.97 on a good photo, indistinguishable from in-distribution 0.997). Needs a
+   reference file from `build_ood_reference.py`; without one this guard is
+   reported as unavailable rather than silently skipped.
 """
 from __future__ import annotations
 
@@ -18,167 +40,308 @@ import argparse
 import json
 from pathlib import Path
 
-import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import load_class_labels
-from coffeecv.geometry import Region, sample_patch_boxes
+from coffeecv.bean_scale import estimate_bean_pitch
+from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
+from coffeecv.dataset import load_class_labels, load_rgb_image
+from coffeecv.geometry import compute_valid_region_rect, sample_bean_unit_patch_boxes
 from coffeecv.model import build_model
 from coffeecv.transforms import build_eval_transform
 
 DEVICE = torch.device("cpu")
 
-
-def mask_path_for(img_path: Path) -> Path | None:
-    """Sibling `<stem>__mask.png` for a `<stem>__bbox.jpg`, if crop_tray_sam.py was
-    run with --masked. Returns None (not an error) for ordinary `__cropped.jpg`
-    crops, which are already clean on their own and have no mask to pair with."""
-    if not img_path.name.endswith("__bbox.jpg"):
-        return None
-    candidate = img_path.with_name(img_path.name.replace("__bbox.jpg", "__mask.png"))
-    return candidate if candidate.exists() else None
+# Phase 10's calibration: above the 1.24 in-distribution maximum, below the 1.92
+# observed on a genuinely out-of-rig photo. Recorded as a number with a basis
+# rather than a tuned constant -- one positive example is thin evidence, so the
+# margin is reported alongside every verdict.
+OOD_THRESHOLD = 1.4
 
 
-def valid_patch_origins(mask01: np.ndarray, crop_size: int) -> np.ndarray:
-    """1 at (y, x) iff the crop_size x crop_size box anchored there (top-left) is
-    fully inside mask01. Computed via erosion: a pixel survives erosion by a
-    crop_size x crop_size all-ones kernel only if every pixel under that kernel
-    was 1 to begin with, which is exactly the "does this patch fit" test."""
-    kernel = np.ones((crop_size, crop_size), np.uint8)
-    return cv2.erode(mask01, kernel, anchor=(0, 0), borderType=cv2.BORDER_CONSTANT, borderValue=0)
+def grayscale_like_training(rgb: np.ndarray) -> np.ndarray:
+    """The exact luminance conversion `_extract_photo` feeds to the estimator.
+
+    Spelled out rather than delegated to cv2/PIL because the pitch estimate is a
+    parity-critical quantity: a different set of luma weights would shift it, and
+    a shifted pitch silently rescales every patch relative to training.
+    """
+    gray = rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114
+    return gray.astype(np.uint8)
 
 
-def patches_for_image_masked(
-    img_path: Path, mask_path: Path, crop_size: int, n_patches: int, seed_key: list[int]
-) -> tuple[list[Image.Image], int]:
-    """Like patches_for_image, but only accepts patches fully inside the mask
-    instead of anywhere in the rectangular image. Returns (patches, n_valid_origins)
-    -- the latter is a direct measure of how much usable area this photo had,
-    comparable across photos regardless of crop shape."""
-    img = Image.open(img_path).convert("RGB")
-    mask = np.array(Image.open(mask_path).convert("L"))
-    mask01 = (mask > 127).astype(np.uint8)
-    w, h = img.size
-    if crop_size > min(w, h):
-        raise ValueError(f"crop_size={crop_size} too large for {img_path.name} ({w}x{h})")
+def reference_path_for(checkpoint: Path) -> Path:
+    """Where this checkpoint's OOD reference lives: beside it, named after it.
 
-    valid = valid_patch_origins(mask01, crop_size)
-    ys, xs = np.where(valid > 0)
-    if len(ys) == 0:
-        raise ValueError(f"No position fits crop_size={crop_size} inside the mask for {img_path.name}")
-
-    rng = np.random.default_rng(seed_key)
-    idx = rng.integers(0, len(ys), size=n_patches)
-    arr = np.array(img)
-    patches = [Image.fromarray(arr[ys[i]:ys[i] + crop_size, xs[i]:xs[i] + crop_size]) for i in idx]
-    return patches, len(ys)
+    Phase 10's requirement was that the guard travels with the model, and a fixed
+    global path cannot do that -- it would leave one file to be silently
+    overwritten by whichever checkpoint was processed last, which is how a guard
+    ends up describing weights nobody is running. Deriving the path also means a
+    reference for a transient `outputs/` checkpoint lands under the gitignored
+    outputs tree, while one built for a shipped `models/*.pt` sits next to it and
+    gets committed alongside.
+    """
+    return checkpoint.with_suffix(".ood_reference.json")
 
 
-def load_model(checkpoint_path: Path, model_name: str, num_classes: int, dropout: float = 0.2):
-    model, _ = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout)
-    state = torch.load(checkpoint_path, map_location=DEVICE)
-    model.load_state_dict(state)
-    model.to(DEVICE)
-    model.eval()
-    return model
+def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunConfig, str]:
+    """The config that *this checkpoint* was trained with, not whatever params.yaml
+    happens to say now.
+
+    params.yaml is a moving target -- it is rewritten per fold during a sweep and
+    reset to the adopted values afterwards -- so pairing it with a checkpoint from
+    some earlier run silently mismatches patch geometry, and patch geometry is the
+    one thing inference must get right. Each run archives its own config.json
+    beside its outputs, so prefer that when it is sitting next to the checkpoint.
+    """
+    if explicit:
+        raw = json.load(open(explicit))
+        source = explicit
+    else:
+        sibling = checkpoint.parent.parent / "config.json"
+        if sibling.exists():
+            raw = json.load(open(sibling))
+            source = str(sibling)
+        else:
+            return RunConfig.from_params_yaml(), "params.yaml (no config.json beside the checkpoint)"
+    known = RunConfig.__dataclass_fields__
+    return RunConfig(**{k: (tuple(v) if isinstance(v, list) else v)
+                        for k, v in raw.items() if k in known}), source
 
 
-def patches_for_image(img_path: Path, crop_size: int, n_patches: int, seed_key: list[int]) -> list[Image.Image]:
-    img = Image.open(img_path).convert("RGB")
-    w, h = img.size
-    if crop_size > min(w, h):
-        raise ValueError(f"crop_size={crop_size} too large for {img_path.name} ({w}x{h})")
-    region = Region(y0=0, y1=h, x0=0, x1=w)
-    rng = np.random.default_rng(seed_key)
-    boxes = sample_patch_boxes(rng, region, n_patches, crop_size)
-    return [img.crop((b.x0, b.y0, b.x1, b.y1)) for b in boxes]
+def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: float):
+    model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout)
+    model.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
+    model.to(DEVICE).eval()
+    return model, head
 
 
 @torch.no_grad()
-def predict_probs(model, patches: list[Image.Image], resize: int, batch_size: int = 32) -> np.ndarray:
-    transform = build_eval_transform(resize)
-    tensors = torch.stack([transform(p) for p in patches])
-    all_probs = []
-    for i in range(0, len(tensors), batch_size):
-        batch = tensors[i:i + batch_size].to(DEVICE)
-        logits = model(batch)
-        probs = F.softmax(logits, dim=1).cpu().numpy()
-        all_probs.append(probs)
-    return np.concatenate(all_probs, axis=0)
+def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int = 32):
+    """(probs, embeddings) in one pass.
+
+    The embedding is the head's *input* -- the pooled penultimate feature, 512-d
+    for resnet18 -- captured with a pre-hook rather than by rebuilding the model
+    headless, so the thing measured is exactly what this checkpoint feeds its
+    classifier and cannot drift from it.
+    """
+    captured: list[torch.Tensor] = []
+
+    def hook(_module, inputs):
+        captured.append(inputs[0].detach().cpu())
+
+    handle = head.register_forward_pre_hook(hook)
+    try:
+        probs = []
+        for i in range(0, len(tensors), batch_size):
+            logits = model(tensors[i:i + batch_size].to(DEVICE))
+            probs.append(F.softmax(logits, dim=1).cpu().numpy())
+    finally:
+        handle.remove()
+    return np.concatenate(probs, axis=0), torch.cat(captured).numpy()
+
+
+def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int]):
+    """Sample patches the way training does. Returns (patches, diagnostics)."""
+    rgb = load_rgb_image(path)
+    h, w = rgb.shape[:2]
+    region = compute_valid_region_rect(h, w, cfg.safety_margin)
+    pitch = estimate_bean_pitch(grayscale_like_training(rgb))
+
+    rng = np.random.default_rng(seed_key)
+    boxes, clamped = sample_bean_unit_patch_boxes(
+        rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max,
+        # Rotation jitter is a *training* augmentation; eval splits never get it,
+        # so neither does inference.
+        0.0,
+    )
+
+    patches = []
+    for box, angle, side in boxes:
+        patch = Image.fromarray(rgb[box.y0:box.y1, box.x0:box.x1])
+        if cfg.patch_store_size and patch.size[0] != cfg.patch_store_size:
+            patch = patch.resize((cfg.patch_store_size, cfg.patch_store_size), Image.BILINEAR)
+        patches.append(patch)
+
+    room = min(region.width, region.height)
+    return patches, {
+        "bean_pitch_px": round(pitch, 1),
+        # How many beans span the usable short side -- the quantity that decides
+        # whether the trained patch range is reachable at all in this frame.
+        "beans_across": round(room / pitch, 2),
+        "patches_clamped": clamped,
+        "clamp_rate": round(clamped / max(len(boxes), 1), 3),
+    }
+
+
+def scale_verdict(diag: dict, cfg: RunConfig) -> tuple[bool, str]:
+    """Can this frame supply patches in the range the model was trained on?"""
+    across = diag["beans_across"]
+    if across < cfg.patch_beans_min:
+        return False, (f"frame spans only {across:.1f} beans; the model was trained on patches of "
+                       f"{cfg.patch_beans_min:.0f}-{cfg.patch_beans_max:.0f} beans, so not even the "
+                       f"smallest fits. Move the camera back or zoom out.")
+    if across < cfg.patch_beans_max:
+        return True, (f"frame spans {across:.1f} beans; patches above {across:.1f} are clamped "
+                      f"({diag['clamp_rate']:.0%} of them). Usable, but framing wider would give the "
+                      f"scale variety the model expects.")
+    return True, f"frame spans {across:.1f} beans, covering the trained {cfg.patch_beans_min:.0f}-{cfg.patch_beans_max:.0f} range."
+
+
+def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]]:
+    """Per-patch distance to the nearest class centroid, in units of that class's spread."""
+    cids = sorted(ref["classes"])
+    cents = np.array([ref["classes"][c]["centroid"] for c in cids])
+    spreads = np.array([ref["classes"][c]["spread"] for c in cids])
+    d = np.linalg.norm(embeddings[:, None, :] - cents[None, :, :], axis=2) / spreads[None, :]
+    nearest = d.argmin(axis=1)
+    return d.min(axis=1), [cids[i] for i in nearest]
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Classify new (already-cropped) photos with the trained checkpoint.")
-    p.add_argument("--images-dir", required=True, help="Directory of cropped RGB images to classify.")
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--images-dir", required=True)
     p.add_argument("--checkpoint", default=str(CHECKPOINTS_DIR / "best.pt"))
-    p.add_argument("--model-name", default="resnet18")
-    p.add_argument("--classes-file", default="dataset/classes.txt")
-    p.add_argument("--crop-size", type=int, default=700, help="Patch crop size in source pixels.")
-    p.add_argument("--patch-resize", type=int, default=224)
-    p.add_argument("--n-patches", type=int, default=24, help="Patches sampled per image.")
+    p.add_argument("--config", default=None,
+                   help="a run's archived config.json; defaults to params.yaml. The checkpoint and the "
+                        "patch geometry have to come from the same run or the parity this file exists "
+                        "to preserve is broken at the first step.")
+    p.add_argument("--ood-reference", default=None,
+                   help="defaults to <checkpoint>.ood_reference.json, so the guard travels with the model")
+    p.add_argument("--n-patches", type=int, default=40)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out", default=None, help="Optional path to write JSON results.")
+    p.add_argument("--out", default=None)
     args = p.parse_args()
 
-    class_labels = load_class_labels(REPO_ROOT / args.classes_file)
-    class_ids = sorted(class_labels.keys())
+    cfg, cfg_source = config_for_checkpoint(Path(args.checkpoint), args.config)
+    print(f"config: {cfg_source}")
 
-    model = load_model(Path(args.checkpoint), args.model_name, num_classes=len(class_ids))
+    if not cfg.patch_beans_max:
+        raise SystemExit(
+            "This checkpoint's config has bean-unit patch sizing disabled (patch_beans_max=0), so there "
+            "is no way to size patches from the photo alone -- the other sizing modes need to be told how "
+            "the rig was framed. Inference is only defined for bean-unit runs."
+        )
 
-    images_dir = Path(args.images_dir)
-    excluded = {"contact_sheet.jpg"}
-    image_paths = sorted(
-        p for p in list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.jpeg")) + list(images_dir.glob("*.png"))
-        if p.name not in excluded and not p.name.endswith("__mask.png")
-    )
-    if not image_paths:
-        raise FileNotFoundError(f"No images found in {images_dir}")
+    class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
+    class_ids = sorted(class_labels)
+    model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
 
-    per_image_results = {}
-    all_probs = []
-    for idx, img_path in enumerate(image_paths):
-        mpath = mask_path_for(img_path)
-        if mpath is not None:
-            patches, n_valid_origins = patches_for_image_masked(
-                img_path, mpath, args.crop_size, args.n_patches, seed_key=[args.seed, idx]
-            )
+    ref_path = Path(args.ood_reference) if args.ood_reference else reference_path_for(Path(args.checkpoint))
+    ref = json.load(open(ref_path)) if ref_path.exists() else None
+    if ref is None:
+        print(f"OOD guard UNAVAILABLE: no reference at {ref_path}. Build one with "
+              f"`python -m coffeecv.build_ood_reference`. Predictions below are unguarded.")
+    elif ref.get("checkpoint_sha") and ref["checkpoint_sha"] != _sha(Path(args.checkpoint)):
+        raise SystemExit(
+            f"OOD reference {ref_path} was built from a different checkpoint. Centroids live in the "
+            f"embedding space of one specific set of weights and mean nothing against another -- "
+            f"rebuild it for this checkpoint."
+        )
+
+    transform = build_eval_transform(cfg.patch_resize)
+    images = sorted(q for q in Path(args.images_dir).iterdir()
+                    if q.suffix.lower() in {".jpg", ".jpeg", ".png"} and not q.name.endswith("__mask.png"))
+    if not images:
+        raise FileNotFoundError(f"No images in {args.images_dir}")
+
+    results = {}
+    for idx, path in enumerate(images):
+        # A user photo can be anything -- too small for the estimator's analysis
+        # window, unreadable, not really beans. That is a refusal for this photo,
+        # not a reason to abandon the batch, and it must not surface as a stack
+        # trace to someone holding a phone.
+        try:
+            patches, diag = patches_for_photo(path, cfg, args.n_patches, [args.seed, idx])
+        except (ValueError, OSError) as exc:
+            print(f"\n{path.name}\n  -> REFUSED: cannot measure bean scale ({exc})")
+            results[path.name] = {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
+            continue
+        ok_scale, scale_msg = scale_verdict(diag, cfg)
+
+        entry = {**diag, "scale_ok": ok_scale, "scale_note": scale_msg}
+        print(f"\n{path.name}")
+        print(f"  scale: {scale_msg}")
+
+        if not ok_scale:
+            entry["verdict"] = "REFUSED (scale)"
+            results[path.name] = entry
+            print("  -> REFUSED: photo is outside the trained patch scale, not predicting.")
+            continue
+
+        probs, embeds = forward_with_embeddings(model, head, torch.stack([transform(x) for x in patches]))
+        mean = probs.mean(axis=0)
+        ranked = sorted(zip(class_ids, mean), key=lambda t: -t[1])
+        entry["ranked"] = [(c, class_labels[c], float(v)) for c, v in ranked]
+
+        if ref is None:
+            entry["verdict"] = "UNGUARDED"
+            entry["ood"] = None
         else:
-            patches = patches_for_image(img_path, args.crop_size, args.n_patches, seed_key=[args.seed, idx])
-            n_valid_origins = None
-        probs = predict_probs(model, patches, args.patch_resize)
-        mean_probs = probs.mean(axis=0)
-        all_probs.append(probs)
-        ranked = sorted(zip(class_ids, mean_probs), key=lambda t: -t[1])
-        per_image_results[img_path.name] = {
-            "mean_probs": {cid: float(pr) for cid, pr in zip(class_ids, mean_probs)},
-            "ranked": [(cid, class_labels[cid], float(pr)) for cid, pr in ranked],
-            "n_valid_origins": n_valid_origins,
-        }
-        top_cid, top_label, top_p = per_image_results[img_path.name]["ranked"][0]
-        mode = f"masked, n_valid_origins={n_valid_origins}" if mpath is not None else "rectangle"
-        print(f"{img_path.name} [{mode}]: top1={top_cid} {top_label} p={top_p:.3f}")
+            scores, _ = ood_scores(embeds, ref)
+            median = float(np.median(scores))
+            # Two bands, and the gap between them is the honest part. REFUSE at
+            # Phase 9's 1.4, which was calibrated against a wildly different rig
+            # and only catches photos that far out. WARN above the training set's
+            # own 95th percentile, because measurement on this repo's held-out rig
+            # showed the interesting failure sits *between* the two: sony_cam
+            # photos score ~1.24 against training's ~0.99 while top-1 accuracy
+            # halves, yet only 6% cross 1.4. A score in the warn band means the
+            # model is working outside what it saw, and its answer is worth less
+            # than the probability next to it suggests.
+            warn_at = (ref.get("photo_scores") or {}).get("p95")
+            entry["ood"] = {"median": round(median, 3),
+                            "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
+                            "threshold": OOD_THRESHOLD, "warn_above": warn_at}
+            margin = median - OOD_THRESHOLD
+            print(f"  OOD: median distance {median:.2f} vs threshold {OOD_THRESHOLD} "
+                  f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
+            if warn_at and OOD_THRESHOLD >= median > warn_at:
+                entry["ood"]["warned"] = True
+                print(f"       WARNING: above the training distribution's 95th percentile ({warn_at:.2f}). "
+                      f"Not refused, but treat the answer below as unreliable --\n"
+                      f"       on this repo's held-out rig, photos in this band lost about half their "
+                      f"top-1 accuracy while staying under the refusal threshold.")
+            if median > OOD_THRESHOLD:
+                entry["verdict"] = "REFUSED (out of distribution)"
+                results[path.name] = entry
+                print("  -> REFUSED: this photo does not resemble the training distribution.")
+                print("     Not offering a best guess: on such photos the embedding sits roughly")
+                print("     equidistant from every class, so a ranked list would be false precision.")
+                continue
+            entry["verdict"] = "predicted"
 
-    pooled = np.concatenate(all_probs, axis=0).mean(axis=0)
-    ranked_overall = sorted(zip(class_ids, pooled), key=lambda t: -t[1])
-    print("\n=== Overall (pooled across all images/patches) ===")
-    for cid, pr in ranked_overall:
-        print(f"  {cid} {class_labels[cid]:25s} {pr:.4f}")
+        cid, label, pr = entry["ranked"][0]
+        print(f"  -> {cid} {label}  p={pr:.3f}" + ("" if ref else "   (unguarded)"))
+        results[path.name] = entry
+
+    n_ref = sum(1 for r in results.values() if r["verdict"].startswith("REFUSED"))
+    print(f"\n{len(results) - n_ref}/{len(results)} photos predicted, {n_ref} refused.")
 
     if args.out:
-        out_path = Path(args.out)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps({
-            "crop_size": args.crop_size,
-            "patch_resize": args.patch_resize,
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({
+            "checkpoint": str(args.checkpoint),
+            "patch_beans": [cfg.patch_beans_min, cfg.patch_beans_max],
+            "patch_store_size": cfg.patch_store_size,
+            "patch_resize": cfg.patch_resize,
             "n_patches_per_image": args.n_patches,
-            "per_image": per_image_results,
-            "overall_ranked": [(cid, class_labels[cid], float(pr)) for cid, pr in ranked_overall],
+            "ood_reference": str(ref_path) if ref else None,
+            "per_image": results,
         }, indent=2))
-        print(f"\nWrote {out_path}")
+        print(f"Wrote {out}")
+
+
+def _sha(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
 
 
 if __name__ == "__main__":
