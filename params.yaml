@@ -13,9 +13,9 @@ seed: 42
 # transfer numbers -- a single held-out rig is n=1 and cannot tell a real result
 # from the luck of which rig was held out.
 train_rigs:
-  - data/cropped/2026-08-07__box_pictures_all_classes
   - data/cropped/2026-08-09__pixel_cam
-heldout_rig: data/cropped/2026-08-09__sony_cam
+  - data/cropped/2026-08-09__sony_cam
+heldout_rig: data/cropped/2026-08-07__box_pictures_all_classes
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -35,7 +35,7 @@ test_photos_per_class: 3
 
 # Model
 model_name: resnet18
-freeze_mode: none  # full | last_block | none
+freeze_mode: full  # full | last_block | none
 dropout: 0.2
 label_smoothing: 0.0
 color_jitter_strength: 0.2
@@ -61,7 +61,7 @@ rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch samp
 zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)
 random_erasing_p: 0.5        # per-patch probability of erasing a rectangle
 illum_gradient_strength: 0.0 # +/- fraction of a corner-to-corner luminance ramp
-mixup_alpha: 0.2             # Beta(a, a) mixing strength (train loop, not a transform)
+mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a transform)
 
 # Training
 batch_size: 32
