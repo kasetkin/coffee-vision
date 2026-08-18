@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 
 import numpy as np
 import torch
@@ -38,6 +39,18 @@ from coffeecv.plotting import plot_confusion_matrix, plot_patch_samples, plot_tr
 from coffeecv.transforms import build_eval_transform, build_train_transform
 
 DEVICE = torch.device("cpu")  # this project trains on a CPU-only devcontainer
+
+# Opt-in override for torch's intraop thread pool, read once at import time (must
+# run before any torch op). Unset by default, so every existing/reference run
+# keeps torch's own default (physical-core count, not logical/SMT count) and this
+# cannot silently change a comparison's results. `"all"` means every logical CPU
+# (`os.cpu_count()`) rather than a number hardcoded for one machine, so the same
+# invocation is portable across hosts with a different core count.
+_threads_env = os.environ.get("COFFEECV_TORCH_THREADS")
+if _threads_env == "all":
+    torch.set_num_threads(os.cpu_count())
+elif _threads_env:
+    torch.set_num_threads(int(_threads_env))
 
 
 def parse_args() -> argparse.Namespace:
@@ -124,6 +137,7 @@ def main() -> None:
     class_labels = load_class_labels(classes_file)
     print(f"train rigs: {[r.name for r in train_rigs]}")
     print(f"held-out rig: {heldout_rig.name if heldout_rig else '(none)'}")
+    print(f"torch threads: {torch.get_num_threads()} (COFFEECV_TORCH_THREADS={_threads_env!r})")
     patches_per_class = {
         "train": cfg.train_patches_per_class,
         "val": cfg.val_patches_per_class,
