@@ -293,7 +293,30 @@ def main() -> None:
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
         cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
-                       args.brightness_jitter)
+                       args.brightness_jitter, args.freeze_mode, args.mixup_alpha)
+
+        # Post-condition on the CLI contract, checked HERE rather than only inside
+        # set_fold, because set_fold's own assertions are all guarded by
+        # `if arg is not None` -- so an argument the caller forgets to forward
+        # skips both the write and its check, in silence. That is exactly what
+        # happened to exp100-105: --mixup-alpha and --freeze-mode were parsed,
+        # never passed through, and six folds ran the plain adopted config for
+        # ~15h while their slugs claimed otherwise. This check cannot be skipped
+        # by a plumbing mistake, because it reads the config that was actually
+        # loaded and compares it against what was asked for.
+        for name, wanted, got in (
+            ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
+            ("mixup_alpha", args.mixup_alpha, cfg.mixup_alpha),
+            ("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),
+            *(( ("epochs", args.epochs, cfg.epochs),) if args.epochs is not None else ()),
+            *(( ("seed", args.seed, cfg.seed),) if args.seed is not None else ()),
+        ):
+            if got != wanted:
+                raise SystemExit(
+                    f"{name} is {got!r} in the config that will train, but {wanted!r} was requested. "
+                    f"Refusing to start: the run would be archived under a slug describing a "
+                    f"configuration it did not use."
+                )
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:

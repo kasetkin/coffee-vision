@@ -1,5 +1,0 @@
-{
-  "exp": "101",
-  "slug": "lorio_beans_mixup02_heldout_pixel_cam",
-  "note": "leave-one-rig-out, arm=beans, held out 2026-08-09__pixel_cam; scale_frac=0.0-0.0, beans=4.0-7.0, epochs=80, seed=42, brightness_jitter=0.0, freeze_mode=none, mixup_alpha=0.0"
-}

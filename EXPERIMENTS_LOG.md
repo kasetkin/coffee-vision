@@ -2629,3 +2629,32 @@ stays `phase14_allrigs_s42` (exp96); reshipping for +0.0009 would be false preci
 Open question left behind: exp99 hit the 40-epoch cap while still improving, so a schedule that both
 completes *and* runs longer (T_max ~60) is untested. Worth a fold sweep if this axis is ever revisited, not
 another pair of all-rigs runs.
+
+## exp100-105: VOID — a CLI flag that was parsed but never forwarded
+
+Launched as two seed-42 screens (`mixup_alpha 0.2`, `freeze_mode full`) against the exp60-62 reference.
+Both produced deltas of **exactly +0.0000 on every metric**, which is the tell: two different configurations
+cannot yield bit-identical numbers.
+
+`run_folds.main()` parsed `--mixup-alpha` and `--freeze-mode` and never passed them to `set_fold()`. A
+string-replacement patch had targeted that call site by its old text and silently failed to match. Both
+parameters defaulted to `None`, so `set_fold` skipped writing them **and** skipped its own
+`if arg is not None` assertions. Six folds, roughly 15 hours, trained the plain adopted config under slugs
+claiming otherwise.
+
+**What worked, and is worth keeping:** the archived note is built from the `RunConfig` actually loaded rather
+than from CLI args — a change made after the exp81-83 mislabelling — so every one of these runs recorded
+`freeze_mode=none, mixup_alpha=0.0`. The record never lied; it stated exactly what ran. That is what made the
+failure diagnosable in one command instead of being adopted as a real null result.
+
+**Fixes**: the call site now forwards both, and `main()` carries a post-condition that re-reads the loaded
+config and aborts if any CLI-requested value is not present in it. That check cannot be skipped by a plumbing
+mistake, because it compares what will train against what was asked for rather than trusting the plumbing.
+Verified through the **CLI entry point**, not just by calling `set_fold()` directly — testing the function
+while leaving the entry point untested is precisely what let this through.
+
+The runs are kept, renamed `expNNN__VOID_flagbug_dup_of_expNN_<fold>`, because their bit-identical agreement
+with exp60-62 is an unintentional but genuine determinism check: same seed, a different day, and a different
+source tree reproduce the same six metrics to four decimals.
+
+**Neither mixup nor the frozen linear probe has been tested against cross-rig. Both remain open.**

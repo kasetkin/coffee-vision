@@ -1,0 +1,5 @@
+{
+  "exp": "103",
+  "slug": "VOID_flagbug_dup_of_exp60_box",
+  "note": "VOID -- DO NOT USE AS EVIDENCE. This run was launched as a mixup/freeze_mode screen, but run_folds.main() never forwarded --mixup-alpha/--freeze-mode to set_fold, so params.yaml was untouched and the plain adopted config trained. Its metrics are bit-identical to its seed-42 reference (exp60/61/62). Kept only because that identity is an unintentional but real determinism check: same seed, different day, different source tree, same numbers to 4 decimals. Original (misleading) slug: lorio_beans_frozen_heldout_box_pictures_all_classes"
+}
