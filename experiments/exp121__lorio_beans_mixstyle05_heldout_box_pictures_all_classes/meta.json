@@ -1,0 +1,5 @@
+{
+  "exp": "121",
+  "slug": "lorio_beans_mixstyle05_heldout_box_pictures_all_classes",
+  "note": "leave-one-rig-out, arm=beans, held out 2026-08-07__box_pictures_all_classes; scale_frac=0.0-0.0, beans=4.0-7.0, epochs=80, seed=7, brightness_jitter=0.0, freeze_mode=none, mixup_alpha=0.0, mixstyle_p=0.5; WARNING: uncommitted source at launch, not reproducible from this commit"
+}
