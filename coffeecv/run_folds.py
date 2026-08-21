@@ -61,7 +61,8 @@ ARMS = {
 def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
              seed: int | None = None, brightness_jitter: float | None = None,
-             freeze_mode: str | None = None, mixup_alpha: float | None = None) -> "RunConfig":
+             freeze_mode: str | None = None, mixup_alpha: float | None = None,
+             mixstyle_p: float | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -94,6 +95,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
     if mixup_alpha is not None:
         text = re.sub(r"^mixup_alpha: \S+", f"mixup_alpha: {mixup_alpha}", text, count=1, flags=re.M)
+    if mixstyle_p is not None:
+        text = re.sub(r"^mixstyle_p: \S+", f"mixstyle_p: {mixstyle_p}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -115,6 +118,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         assert cfg.freeze_mode == freeze_mode, f"freeze_mode is {cfg.freeze_mode!r}, wanted {freeze_mode!r}"
     if mixup_alpha is not None:
         assert cfg.mixup_alpha == mixup_alpha, f"mixup_alpha is {cfg.mixup_alpha}, wanted {mixup_alpha}"
+    if mixstyle_p is not None:
+        assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
     # Returned so the caller records what was actually loaded rather than what was
     # asked for -- the omitted-flag case has no value in args to report.
     return cfg
@@ -201,6 +206,9 @@ def main() -> None:
     p.add_argument("--mixup-alpha", type=float, default=0.0,
                    help="Beta(a,a) batch mixing. Phase 8 rejected 0.2 on in-distribution alone; the log "
                         "carries a standing note to re-test those augmentations against cross-rig.")
+    p.add_argument("--mixstyle-p", type=float, default=0.0,
+                   help="per-batch probability of MixStyle (domain-agnostic v1, resnet18 only). Like "
+                        "--mixup-alpha, states its value on EVERY run rather than inheriting params.yaml.")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
     p.add_argument("--allow-dirty", action="store_true",
@@ -293,7 +301,7 @@ def main() -> None:
         print(f"\n{'=' * 72}\nfold {i + 1}/{len(heldouts)}  exp{exp_id}  arm={args.arm}  "
               f"held out: {short}\n{'=' * 72}", flush=True)
         cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
-                       args.brightness_jitter, args.freeze_mode, args.mixup_alpha)
+                       args.brightness_jitter, args.freeze_mode, args.mixup_alpha, args.mixstyle_p)
 
         # Post-condition on the CLI contract, checked HERE rather than only inside
         # set_fold, because set_fold's own assertions are all guarded by
@@ -307,6 +315,7 @@ def main() -> None:
         for name, wanted, got in (
             ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
             ("mixup_alpha", args.mixup_alpha, cfg.mixup_alpha),
+            ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
             ("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),
             *(( ("epochs", args.epochs, cfg.epochs),) if args.epochs is not None else ()),
             *(( ("seed", args.seed, cfg.seed),) if args.seed is not None else ()),
@@ -335,7 +344,8 @@ def main() -> None:
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, "
                 f"epochs={cfg.epochs}, seed={cfg.seed}, "
                 f"brightness_jitter={cfg.brightness_jitter_strength}, "
-                f"freeze_mode={cfg.freeze_mode}, mixup_alpha={cfg.mixup_alpha}")
+                f"freeze_mode={cfg.freeze_mode}, mixup_alpha={cfg.mixup_alpha}, "
+                f"mixstyle_p={cfg.mixstyle_p}")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         if stale:

@@ -228,6 +228,47 @@ def sample_bean_unit_patch_boxes(
     return out, clamped
 
 
+def sample_bean_unit_centers(
+    rng: np.random.Generator, region: Region, n: int, pitch_px: float, max_beans: float,
+) -> list[tuple[int, int]]:
+    """n (cy, cx) centre points such that a box up to `max_beans` beans wide,
+    centred at any of them, still fits inside `region`.
+
+    Exists so two differently-*sized* patch draws can be compared at identical
+    *positions* -- e.g. screening whether a fixed set of scales beats a
+    continuous log-uniform draw, without the comparison also being confounded by
+    which random positions each arm happened to land on (see
+    `coffeecv/xrig_eval.py`'s `run_photowise` and [[project-phase16-screens]]).
+    Sizing the placement margin to `max_beans` (not each individual draw's own
+    size) is what guarantees any smaller box centred at the same point fits too.
+    """
+    room = min(region.width, region.height)
+    max_side = min(int(round(max_beans * pitch_px)), room)
+    half = max_side // 2
+    cy_lo, cy_hi = region.y0 + half, region.y1 - half
+    cx_lo, cx_hi = region.x0 + half, region.x1 - half
+    if cy_hi < cy_lo or cx_hi < cx_lo:
+        # Region too small for the max box to be centred anywhere but the middle.
+        cy_lo = cy_hi = (region.y0 + region.y1) // 2
+        cx_lo = cx_hi = (region.x0 + region.x1) // 2
+    cys = rng.integers(cy_lo, cy_hi + 1, size=n)
+    cxs = rng.integers(cx_lo, cx_hi + 1, size=n)
+    return list(zip(cys.tolist(), cxs.tolist()))
+
+
+def bean_unit_box_at_center(center: tuple[int, int], beans: float, pitch_px: float, region: Region) -> Region:
+    """The `beans`-wide box centred as close as possible to `center`, clamped to
+    stay inside `region` (and shrunk to `room` if even that doesn't fit) --
+    the sizing half of `sample_bean_unit_centers`."""
+    cy, cx = center
+    room = min(region.width, region.height)
+    side = min(int(round(beans * pitch_px)), room)
+    half = side // 2
+    y0 = max(region.y0, min(cy - half, region.y1 - side))
+    x0 = max(region.x0, min(cx - half, region.x1 - side))
+    return Region(y0=y0, y1=y0 + side, x0=x0, x1=x0 + side)
+
+
 def assert_jitter_fits(
     region: Region, crop_size: int, max_jitter_deg: float, min_room: int = 25
 ) -> None:

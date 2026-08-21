@@ -31,7 +31,9 @@ from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 from coffeecv.run_folds import RIGS, dirty_provenance_paths, run, stale_crop_stages
 
 
-def set_all_rigs(seed: int, epochs: int | None, brightness_jitter: float) -> RunConfig:
+def set_all_rigs(
+    seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float,
+) -> RunConfig:
     """Point params.yaml at every rig with no held-out rig, preserving comments."""
     text = PARAMS_FILE.read_text()
     block = "train_rigs:\n" + "".join(f"  - {r}\n" for r in RIGS)
@@ -42,6 +44,10 @@ def set_all_rigs(seed: int, epochs: int | None, brightness_jitter: float) -> Run
     text = re.sub(r"^seed: .*$", f"seed: {seed}", text, count=1, flags=re.M)
     text = re.sub(r"^brightness_jitter_strength: .*$",
                   f"brightness_jitter_strength: {brightness_jitter}", text, count=1, flags=re.M)
+    # Stated on every invocation, like brightness_jitter above -- not "leave
+    # whatever params.yaml had". The Phase 13 provenance failure was exactly
+    # this class of bug for brightness; see feedback-experiment-provenance.
+    text = re.sub(r"^mixstyle_p: .*$", f"mixstyle_p: {mixstyle_p}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
@@ -53,6 +59,7 @@ def set_all_rigs(seed: int, epochs: int | None, brightness_jitter: float) -> Run
     assert cfg.heldout_rig == "", f"heldout_rig is {cfg.heldout_rig!r}, wanted empty"
     assert list(cfg.train_rigs) == RIGS, f"train_rigs is {cfg.train_rigs!r}"
     assert cfg.brightness_jitter_strength == brightness_jitter
+    assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
     if epochs is not None:
         assert cfg.epochs == epochs
     return cfg
@@ -65,6 +72,9 @@ def main() -> None:
     p.add_argument("--start-exp", type=int, required=True)
     p.add_argument("--epochs", type=int, default=80)
     p.add_argument("--brightness-jitter", type=float, default=0.0)
+    p.add_argument("--mixstyle-p", type=float, default=0.0,
+                   help="per-batch probability of MixStyle (resnet18 only). States its value on EVERY "
+                        "run, like --brightness-jitter, not 'leave whatever params.yaml had'.")
     p.add_argument("--tag", default="allrigs")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-dirty", action="store_true")
@@ -99,7 +109,15 @@ def main() -> None:
             continue
 
         print(f"\n{'=' * 72}\nexp{exp_id}  ALL RIGS  seed={seed}  (no held-out rig)\n{'=' * 72}", flush=True)
-        cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter)
+        cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p)
+
+        # Post-condition on the CLI contract, same rationale as run_folds.py's own
+        # check: reads what actually loaded rather than trusting the write.
+        if cfg.mixstyle_p != args.mixstyle_p:
+            raise SystemExit(
+                f"mixstyle_p is {cfg.mixstyle_p!r} in the config that will train, but "
+                f"{args.mixstyle_p!r} was requested. Refusing to start."
+            )
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -109,7 +127,8 @@ def main() -> None:
 
         note = (f"ALL RIGS (no held-out rig): shipping candidate. "
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, epochs={cfg.epochs}, "
-                f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}. "
+                f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}, "
+                f"mixstyle_p={cfg.mixstyle_p}. "
                 f"NO cross-rig metric exists for this run by construction; in-distribution only.")
         if dirty:
             note += " WARNING: uncommitted source at launch."

@@ -217,7 +217,8 @@ def main() -> None:
                   f"({ds.n_clamped / len(ds) * 100:.0f}%)")
 
     model, head_module = build_model(
-        cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout
+        cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout,
+        mixstyle_p=cfg.mixstyle_p, mixstyle_alpha=cfg.mixstyle_alpha,
     )
     model = model.to(DEVICE)
     criterion = nn.CrossEntropyLoss(reduction="none", label_smoothing=cfg.label_smoothing)

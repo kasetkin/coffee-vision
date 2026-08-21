@@ -113,6 +113,13 @@ class RunConfig:
     illum_gradient_strength: float = 0.0  # +/- fraction of a corner-to-corner luminance ramp
     mixup_alpha: float = 0.0  # Beta(a, a) mixing strength; applied in the train loop, not a transform
 
+    # MixStyle (Zhou et al., domain-agnostic v1): probability of mixing each
+    # training batch's per-sample channel statistics with a randomly permuted
+    # copy of the batch, inside the model's forward pass (see model.py). 0.0 is
+    # the no-op default, same convention as every other Phase 8+ knob here.
+    mixstyle_p: float = 0.0
+    mixstyle_alpha: float = 0.1  # Beta(a, a) shape for the mixing coefficient; the paper's default
+
     batch_size: int = 32
     epochs: int = 20
     early_stop_patience: int = 8  # stop if val_macro_f1 hasn't improved in this many epochs

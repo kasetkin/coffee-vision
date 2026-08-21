@@ -63,6 +63,15 @@ random_erasing_p: 0.5        # per-patch probability of erasing a rectangle
 illum_gradient_strength: 0.0 # +/- fraction of a corner-to-corner luminance ramp
 mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a transform)
 
+# MixStyle (domain-agnostic v1, Phase 16): mixes each training batch's per-sample
+# channel mean/std with a randomly permuted copy of the batch, inside the model's
+# forward pass. mixstyle_p is the per-batch probability; 0.0 would be the no-op.
+# ADOPTED at 0.5 (the paper's own default) -- 9/9 fold x seed pairs sign-consistent,
+# mean +0.1400 cross-rig, the cleanest and 2nd-largest confirmed lever on this
+# project after bean-unit sizing. See EXPERIMENTS_LOG.md Phase 16 / exp115-123.
+mixstyle_p: 0.5
+mixstyle_alpha: 0.1          # Beta(a, a) shape for the mixing coefficient
+
 # Training
 batch_size: 32
 epochs: 80
