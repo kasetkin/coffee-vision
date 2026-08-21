@@ -1,0 +1,53 @@
+{
+  "seed": 7,
+  "train_rigs": [
+    "data/cropped/2026-08-07__box_pictures_all_classes",
+    "data/cropped/2026-08-09__pixel_cam",
+    "data/cropped/2026-08-09__sony_cam"
+  ],
+  "heldout_rig": "",
+  "classes_file": "dataset/classes.txt",
+  "patch_crop_size": 900,
+  "patch_resize": 224,
+  "safety_margin": 0.97,
+  "patch_store_size": 448,
+  "train_patches_per_class": 150,
+  "val_patches_per_class": 40,
+  "test_patches_per_class": 40,
+  "xrig_patches_per_class": 120,
+  "train_photos_per_class": 14,
+  "val_photos_per_class": 3,
+  "test_photos_per_class": 3,
+  "model_name": "resnet18",
+  "freeze_mode": "none",
+  "dropout": 0.2,
+  "label_smoothing": 0.0,
+  "color_jitter_strength": 0.2,
+  "brightness_jitter_strength": 0.0,
+  "patch_scale_frac_min": 0.0,
+  "patch_scale_frac_max": 0.0,
+  "patch_beans_min": 4.0,
+  "patch_beans_max": 7.0,
+  "rotation_jitter_degrees": 0.0,
+  "zoom_scale_min": 1.0,
+  "random_erasing_p": 0.5,
+  "illum_gradient_strength": 0.0,
+  "mixup_alpha": 0.0,
+  "mixstyle_p": 0.5,
+  "mixstyle_alpha": 0.1,
+  "batch_size": 32,
+  "epochs": 80,
+  "early_stop_patience": 8,
+  "optimizer": "adamw",
+  "lr": 0.001,
+  "backbone_lr": 1e-05,
+  "weight_decay": 0.0001,
+  "env": {
+    "torch_version": "2.13.0+cpu",
+    "torchvision_version": "0.28.0+cpu",
+    "git_commit": "a8ac203949d574e65a5f56ec3a0c00f85289b15e",
+    "argv": [
+      "/home/alioth/coffee-vision/coffeecv/train_baseline.py"
+    ]
+  }
+}

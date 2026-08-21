@@ -1,0 +1,5 @@
+{
+  "exp": "132",
+  "slug": "allrigs_mixstyle05_s7",
+  "note": "ALL RIGS (no held-out rig): shipping candidate. beans=4.0-7.0, epochs=80, seed=7, brightness_jitter=0.0, mixstyle_p=0.5, freeze_mode=none. NO cross-rig metric exists for this run by construction; in-distribution only."
+}
