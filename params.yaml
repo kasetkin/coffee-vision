@@ -36,7 +36,7 @@ test_photos_per_class: 3
 
 # Model
 model_name: resnet18
-freeze_mode: last_block  # full | last_block | none
+freeze_mode: none  # full | last_block | none -- matches what Phase 16's MixStyle screen (exp115-123) actually validated; run_folds.py's own --freeze-mode CLI default is also "none" independent of this resting value
 dropout: 0.2
 label_smoothing: 0.0
 color_jitter_strength: 0.2

@@ -32,7 +32,7 @@ from coffeecv.run_folds import RIGS, dirty_provenance_paths, run, stale_crop_sta
 
 
 def set_all_rigs(
-    seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float,
+    seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float, freeze_mode: str,
 ) -> RunConfig:
     """Point params.yaml at every rig with no held-out rig, preserving comments."""
     text = PARAMS_FILE.read_text()
@@ -46,8 +46,12 @@ def set_all_rigs(
                   f"brightness_jitter_strength: {brightness_jitter}", text, count=1, flags=re.M)
     # Stated on every invocation, like brightness_jitter above -- not "leave
     # whatever params.yaml had". The Phase 13 provenance failure was exactly
-    # this class of bug for brightness; see feedback-experiment-provenance.
+    # this class of bug for brightness; a variant of it (relying on params.yaml's
+    # resting freeze_mode instead of stating it explicitly) is exactly what
+    # silently trained exp124-129 with the wrong freeze_mode -- see
+    # feedback-experiment-provenance and project-phase16-screens.
     text = re.sub(r"^mixstyle_p: .*$", f"mixstyle_p: {mixstyle_p}", text, count=1, flags=re.M)
+    text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
@@ -60,6 +64,7 @@ def set_all_rigs(
     assert list(cfg.train_rigs) == RIGS, f"train_rigs is {cfg.train_rigs!r}"
     assert cfg.brightness_jitter_strength == brightness_jitter
     assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
+    assert cfg.freeze_mode == freeze_mode, f"freeze_mode is {cfg.freeze_mode!r}, wanted {freeze_mode!r}"
     if epochs is not None:
         assert cfg.epochs == epochs
     return cfg
@@ -75,6 +80,11 @@ def main() -> None:
     p.add_argument("--mixstyle-p", type=float, default=0.0,
                    help="per-batch probability of MixStyle (resnet18 only). States its value on EVERY "
                         "run, like --brightness-jitter, not 'leave whatever params.yaml had'.")
+    p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
+                   help="how much of the backbone to fine-tune. Stated on EVERY run, matching "
+                        "run_folds.py's own convention -- exp124-129 silently trained with the wrong "
+                        "freeze_mode because this script used to inherit whatever params.yaml rested at "
+                        "instead of stating it. Default 'none' matches what the MixStyle screen validated.")
     p.add_argument("--tag", default="allrigs")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-dirty", action="store_true")
@@ -109,15 +119,19 @@ def main() -> None:
             continue
 
         print(f"\n{'=' * 72}\nexp{exp_id}  ALL RIGS  seed={seed}  (no held-out rig)\n{'=' * 72}", flush=True)
-        cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p)
+        cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p, args.freeze_mode)
 
         # Post-condition on the CLI contract, same rationale as run_folds.py's own
         # check: reads what actually loaded rather than trusting the write.
-        if cfg.mixstyle_p != args.mixstyle_p:
-            raise SystemExit(
-                f"mixstyle_p is {cfg.mixstyle_p!r} in the config that will train, but "
-                f"{args.mixstyle_p!r} was requested. Refusing to start."
-            )
+        for name, wanted, got in (
+            ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
+            ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
+        ):
+            if got != wanted:
+                raise SystemExit(
+                    f"{name} is {got!r} in the config that will train, but {wanted!r} was requested. "
+                    f"Refusing to start."
+                )
 
         t0 = time.time()
         if run(["dvc", "repro", "train"]) != 0:
@@ -128,7 +142,7 @@ def main() -> None:
         note = (f"ALL RIGS (no held-out rig): shipping candidate. "
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, epochs={cfg.epochs}, "
                 f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}, "
-                f"mixstyle_p={cfg.mixstyle_p}. "
+                f"mixstyle_p={cfg.mixstyle_p}, freeze_mode={cfg.freeze_mode}. "
                 f"NO cross-rig metric exists for this run by construction; in-distribution only.")
         if dirty:
             note += " WARNING: uncommitted source at launch."
