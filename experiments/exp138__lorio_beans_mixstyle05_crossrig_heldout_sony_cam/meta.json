@@ -1,0 +1,5 @@
+{
+  "exp": "138",
+  "slug": "lorio_beans_mixstyle05_crossrig_heldout_sony_cam",
+  "note": "leave-one-rig-out, arm=beans, held out 2026-08-09__sony_cam; scale_frac=0.0-0.0, beans=4.0-7.0, epochs=80, seed=42, brightness_jitter=0.0, freeze_mode=none, mixup_alpha=0.0, mixstyle_p=0.5, mixstyle_mode=cross_rig"
+}
