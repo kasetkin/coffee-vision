@@ -14,8 +14,8 @@ seed: 123
 # from the luck of which rig was held out.
 train_rigs:
   - data/cropped/2026-08-07__box_pictures_all_classes
-  - data/cropped/2026-08-09__sony_cam
-heldout_rig: data/cropped/2026-08-09__pixel_cam
+  - data/cropped/2026-08-09__pixel_cam
+heldout_rig: data/cropped/2026-08-09__sony_cam
 classes_file: dataset/classes.txt
 
 # Patch geometry
