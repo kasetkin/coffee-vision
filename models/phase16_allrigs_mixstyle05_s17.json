@@ -1,0 +1,106 @@
+{
+  "name": "phase16_allrigs_mixstyle05_s17.pt",
+  "source_experiment": "exp133__allrigs_mixstyle05_s17",
+  "why_this_one": "First shipped model trained with MixStyle (Zhou et al., domain-agnostic v1; forward-hooked after resnet18 layer1/layer2, gated by mixstyle_p=0.5), the single largest confirmed lever on this project after bean-unit sizing itself: +0.1400 mean cross-rig macro-F1, 9/9 sign-consistent across 3 seeds x 3 leave-one-rig-out folds (exp115-123). Trained on ALL THREE rigs, like every 'shipping' checkpoint in this project -- folds choose the configuration, the final fit uses every photo. Six seeds were trained with this exact configuration (exp130-135); seed 17 was picked because it had the best in-distribution val AND test macro-F1 of the six, by a clear margin, not just the best of one metric.",
+  "provenance_warning": "An earlier 6-seed batch (exp124-129) was trained by accident with freeze_mode=last_block instead of the freeze_mode=none that the MixStyle screen actually validated (a full-file params.yaml rsync during an unrelated git fix silently carried the wrong resting default onto the training machine). Those runs are kept in experiments/ as an honest record but are NOT valid shipping candidates -- exp130-135 (this model's batch) is the corrected re-run. See project_phase16_screens memory for the full incident.",
+  "inference_defaults": {
+    "tta": true,
+    "why": "Dihedral (8-view) test-time augmentation is ON by default in infer.py. Measured on this repo's folds (pre-MixStyle) it is worth +0.0235 cross-rig macro-F1, positive in 8 of 9 paired fold-seed runs, for 8x inference cost and no retraining. Training augments over exactly this symmetry group, so averaging over it at inference is asking the model the same question in the orientations it was taught are equivalent. Not re-measured in combination with MixStyle specifically, but the mechanism (dihedral invariance from training augmentation) is unrelated to MixStyle's (feature-statistics perturbation), so there is no known reason it would stop working."
+  },
+  "caveats": [
+    "THIS MODEL HAS NO CROSS-RIG MEASUREMENT, by construction. With all three rigs in training there is nothing left to transfer to. Every generalization figure below is ESTIMATED from the leave-one-rig-out MixStyle folds (exp115-123, seeds 42/123/7), not measured on this checkpoint, and this checkpoint's own seed (17) was never fold-tested.",
+    "Those fold estimates describe a model trained on TWO rigs transferring to a third. This model saw three, so its transfer to a genuinely new fourth camera is plausibly better -- but that is an expectation, not a measurement.",
+    "Cross-rig figures are optimistic regardless: the same physical beans were re-poured across rigs, so bean identity is shared between training and held-out sets. No fresh-scoop measurement exists -- this remains the project's standing top open thread.",
+    "Per-class transfer varied enormously in the pre-MixStyle model (~0.98 Vietnam Robusta down to ~0.28 Brazil MonteCristo) and this run's own in-distribution numbers show the same fault line: Brazil Cerrado (f1=0.818) and Brazil MonteCristo (f1=0.838) are confused with each other in both directions (18 of 120 each way), and Guatemala Tata (f1=0.839) loses 16/120 to Colombia PinkBourbon. The model separates what is physically separable (species, variety, processing) and struggles where those are shared.",
+    "The model is typically confident even when wrong on held-out rigs (median top1-top2 margin ~0.57 cross-rig, measured pre-MixStyle). Use the OOD score, not the probability, to decide whether to trust an answer."
+  ],
+  "expected_performance": {
+    "in_distribution_val_macro_f1_this_run": 0.9171395069474675,
+    "in_distribution_test_macro_f1_this_run": 0.9229990387884127,
+    "in_distribution_test_mcc_this_run": 0.913704716875108,
+    "in_distribution_note": "Scored on a test split spanning all three rigs, which is harder than any single fold's two-rig split. The best of six seeds trained identically (exp130-135 test macro-F1 range: 0.876-0.923).",
+    "cross_rig_ESTIMATED_from_mixstyle_folds": {
+      "patch_macro_f1_mean_no_tta": 0.7254,
+      "patch_macro_f1_by_rig_no_tta": {
+        "box": 0.7219,
+        "pixel": 0.8003,
+        "sony": 0.6539
+      },
+      "patch_macro_f1_with_tta_rough_estimate": 0.749,
+      "note": "Mean and per-rig breakdown over all 9 fold x seed pairs (exp115-123), no TTA (that is how the fold sweep itself scores). The with-TTA figure layers TTA's separately-measured +0.0235 mean effect on top as a rough estimate, not a direct measurement of TTA combined with MixStyle. Quote the per-rig range, never just the mean: which camera a user has matters more than anything else measured on this project."
+    }
+  },
+  "this_run": {
+    "seed": 17,
+    "trained_on": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "never_saw": "(nothing -- all rigs trained)",
+    "val_macro_f1": 0.9171395069474675,
+    "test_macro_f1": 0.9229990387884127,
+    "best_epoch": 40,
+    "sibling_seeds_test_macro_f1": {
+      "42": 0.8850, "123": 0.9052, "7": 0.8762, "99": 0.8831, "256": 0.8973
+    }
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/phase16_allrigs_mixstyle05_s17.pt --images-dir <dir>",
+    "ood_reference": "models/phase16_allrigs_mixstyle05_s17.ood_reference.json",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio and no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range, warns above the training set's per-photo 95th percentile OOD distance, and refuses above 1.4. OOD reference self-scores for this checkpoint: per-patch mean 1.00 / p95 1.20 / max 1.65; per-photo median 0.98 / p95 1.09 / max 1.23 (378 photos, all optimistic self-scores -- context, not calibration)."
+  },
+  "training_config": {
+    "seed": 17,
+    "train_rigs": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "heldout_rig": "",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photos_per_class": 14,
+    "val_photos_per_class": 3,
+    "test_photos_per_class": 3,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "mixstyle_p": 0.5,
+    "mixstyle_alpha": 0.1,
+    "batch_size": 32,
+    "epochs": 80,
+    "early_stop_patience": 8,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "47d21a709d0dfae533d1964e1b6ef4e18890744f",
+      "argv": [
+        "/home/alioth/coffee-vision/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}
