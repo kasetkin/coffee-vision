@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 42
+seed: 123
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
@@ -13,9 +13,9 @@ seed: 42
 # transfer numbers -- a single held-out rig is n=1 and cannot tell a real result
 # from the luck of which rig was held out.
 train_rigs:
-  - data/cropped/2026-08-07__box_pictures_all_classes
   - data/cropped/2026-08-09__pixel_cam
-heldout_rig: data/cropped/2026-08-09__sony_cam
+  - data/cropped/2026-08-09__sony_cam
+heldout_rig: data/cropped/2026-08-07__box_pictures_all_classes
 classes_file: dataset/classes.txt
 
 # Patch geometry
