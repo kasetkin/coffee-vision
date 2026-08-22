@@ -119,6 +119,10 @@ class RunConfig:
     # the no-op default, same convention as every other Phase 8+ knob here.
     mixstyle_p: float = 0.0
     mixstyle_alpha: float = 0.1  # Beta(a, a) shape for the mixing coefficient; the paper's default
+    # "agnostic" (v1, adopted): partner is any random batch sample, regardless of rig.
+    # "cross_rig" (v2, screening): partner is restricted to a different rig (model.py's
+    # _cross_domain_perm). Irrelevant when mixstyle_p == 0.0.
+    mixstyle_mode: str = "agnostic"
 
     batch_size: int = 32
     epochs: int = 20

@@ -99,14 +99,28 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module):
 
 
 def train_one_epoch(
-    model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module, mixup_alpha: float = 0.0
+    model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module, mixup_alpha: float = 0.0,
+    cross_domain_mixstyle: bool = False,
 ) -> float:
     """`mixup_alpha` > 0 enables mixup: blend each batch with a shuffled copy of
     itself and take the correspondingly weighted loss against both label sets.
-    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8."""
+    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8.
+
+    `cross_domain_mixstyle=True` means `loader` yields (x, y, domain_id) triples
+    (see `MultiPhotoPatchDataset(return_domain_id=True)`) and the model has
+    `mixstyle1`/`mixstyle2` submodules expecting `domain_ids` set on them before
+    each forward pass -- a forward hook only sees `(module, input, output)`, so
+    this is the only way to get per-sample rig identity into it."""
     model.train()
     total_loss, n = 0.0, 0
-    for x, y in tqdm(loader, desc="train", leave=False):
+    for batch in tqdm(loader, desc="train", leave=False):
+        if cross_domain_mixstyle:
+            x, y, domain_id = batch
+            domain_id = domain_id.to(DEVICE)
+            model.mixstyle1.domain_ids = domain_id
+            model.mixstyle2.domain_ids = domain_id
+        else:
+            x, y = batch
         x, y = x.to(DEVICE), y.to(DEVICE)
         optimizer.zero_grad()
         if mixup_alpha > 0:
@@ -178,9 +192,11 @@ def main() -> None:
         illum_gradient_strength=cfg.illum_gradient_strength,
         brightness_jitter_strength=cfg.brightness_jitter_strength,
     )
+    cross_domain_mixstyle = cfg.mixstyle_p > 0 and cfg.mixstyle_mode == "cross_rig"
     train_ds = MultiPhotoPatchDataset(
         split="train", transform=train_transform,
-        rotation_jitter_degrees=cfg.rotation_jitter_degrees, **common_kwargs,
+        rotation_jitter_degrees=cfg.rotation_jitter_degrees,
+        return_domain_id=cross_domain_mixstyle, **common_kwargs,
     )
     eval_transform = build_eval_transform(cfg.patch_resize)
     val_ds = MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
@@ -218,7 +234,7 @@ def main() -> None:
 
     model, head_module = build_model(
         cfg.model_name, num_classes=len(class_ids), freeze_mode=cfg.freeze_mode, dropout=cfg.dropout,
-        mixstyle_p=cfg.mixstyle_p, mixstyle_alpha=cfg.mixstyle_alpha,
+        mixstyle_p=cfg.mixstyle_p, mixstyle_alpha=cfg.mixstyle_alpha, mixstyle_mode=cfg.mixstyle_mode,
     )
     model = model.to(DEVICE)
     criterion = nn.CrossEntropyLoss(reduction="none", label_smoothing=cfg.label_smoothing)
@@ -254,7 +270,10 @@ def main() -> None:
     epochs_since_improvement = 0
 
     for epoch in range(1, cfg.epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, cfg.mixup_alpha)
+        train_loss = train_one_epoch(
+            model, train_loader, optimizer, criterion, cfg.mixup_alpha,
+            cross_domain_mixstyle=cross_domain_mixstyle,
+        )
         val_true, val_pred, val_losses = evaluate(model, val_loader, criterion)
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 

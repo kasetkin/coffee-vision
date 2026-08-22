@@ -296,10 +296,17 @@ class MultiPhotoPatchDataset(Dataset):
         patch_store_size: int | None = None,
         patch_scale_frac: tuple[float, float] | None = None,
         patch_beans: tuple[float, float] | None = None,
+        return_domain_id: bool = False,
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
         self.rigs = rigs
+        # Cross-rig MixStyle (mixstyle_mode="cross_rig") needs a per-sample rig id
+        # at train time to restrict the mixing partner to a different rig. Default
+        # False keeps __getitem__'s return arity unchanged for every other caller
+        # (val/test/xrig loaders, evaluate()) -- no regression risk there.
+        self.return_domain_id = return_domain_id
+        self._rig_name_to_domain_id = {r.name: i for i, r in enumerate(rigs)}
         self.class_ids = class_ids
         self.resize = resize
         self.crop_size = crop_size
@@ -433,4 +440,7 @@ class MultiPhotoPatchDataset(Dataset):
         else:
             pil_patch = pil_patch.resize((self.resize, self.resize), Image.BILINEAR)
             tensor = torch.from_numpy(np.array(pil_patch)).permute(2, 0, 1).float() / 255.0
+        if self.return_domain_id:
+            domain_id = self._rig_name_to_domain_id[self._meta[idx].rig_name]
+            return tensor, label, domain_id
         return tensor, label

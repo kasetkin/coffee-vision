@@ -72,6 +72,9 @@ mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a tra
 # project after bean-unit sizing. See EXPERIMENTS_LOG.md Phase 16 / exp115-123.
 mixstyle_p: 0.5
 mixstyle_alpha: 0.1          # Beta(a, a) shape for the mixing coefficient
+# v2 (screening, not yet adopted): restricts the mixing partner to a different
+# rig instead of any random batch sample. agnostic | cross_rig.
+mixstyle_mode: agnostic
 
 # Training
 batch_size: 32
