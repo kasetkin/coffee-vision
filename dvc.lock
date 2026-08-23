@@ -5,8 +5,8 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: e1d52f41d4dbc5491906c04d950541ef.dir
-      size: 247880
+      md5: 31ed479d57d7fadbf4c5b96aa379894f.dir
+      size: 249061
       nfiles: 24
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
@@ -35,15 +35,15 @@ stages:
         classes_file: dataset/classes.txt
         color_jitter_strength: 0.2
         dropout: 0.2
-        early_stop_patience: 8
-        epochs: 80
+        early_stop_patience: 20
+        epochs: 100
         freeze_mode: none
-        heldout_rig: data/cropped/2026-08-09__sony_cam
+        heldout_rig: ''
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
         mixstyle_alpha: 0.1
-        mixstyle_mode: cross_rig
+        mixstyle_mode: agnostic
         mixstyle_p: 0.5
         mixup_alpha: 0.0
         model_name: resnet18
@@ -58,7 +58,7 @@ stages:
         random_erasing_p: 0.5
         rotation_jitter_degrees: 0.0
         safety_margin: 0.97
-        seed: 7
+        seed: 42
         test_patches_per_class: 40
         test_photos_per_class: 3
         train_patches_per_class: 150
@@ -66,6 +66,7 @@ stages:
         train_rigs:
         - data/cropped/2026-08-07__box_pictures_all_classes
         - data/cropped/2026-08-09__pixel_cam
+        - data/cropped/2026-08-09__sony_cam
         val_patches_per_class: 40
         val_photos_per_class: 3
         weight_decay: 0.0001
@@ -74,36 +75,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 593202a835d375e613f6d443599f514f
+      md5: 817dcdbe5da8088330c3e754531f0d29
       size: 44795275
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 29f7a80f9d62b9d74bbaf8fe954e87c5
+      md5: 3694c62752f1ee512ae5f6fc5c952781
       size: 44795275
     - path: outputs/history.json
       hash: md5
-      md5: 42c6985375140723535adf571c6c4151
-      size: 14220
+      md5: 1f0503a6b93c692b3b82c4f6741cc97a
+      size: 14525
     - path: outputs/metrics.json
       hash: md5
-      md5: f9a1ac7c84cf9d7de69cfb4a347f34ba
-      size: 12434
+      md5: 7887cdecc45adffcba98bca73d5ae4c9
+      size: 8666
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 85e8f75000de65d2a20bf616feb36b97
-      size: 6503
+      md5: 9f9aa19669d537a81e5f9f88a01f01cc
+      size: 9743
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: e6e04c848af288daedc461c6e8be1bfb
-      size: 6503
+      md5: 6e409a86f3b61931c19a9e922423adb0
+      size: 9743
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: 4baceee5c8be3bbdea7759765c782df9
-      size: 9743
+      md5: 6638ff17b3553cdf89a14c79af947f4d
+      size: 23
     - path: outputs/summary.json
       hash: md5
-      md5: b7b174381cdbaca7477476f35deb33ce
-      size: 188
+      md5: 1fb25e7c5e638aa979ec8c415d653f30
+      size: 142
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
