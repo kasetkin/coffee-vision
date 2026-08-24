@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pillow_avif  # noqa: F401 -- import alone registers AVIF with Pillow
 import pillow_heif
+import pillow_jxl  # noqa: F401 -- import alone registers JPEG XL with Pillow
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
@@ -28,6 +30,9 @@ from coffeecv.geometry import (
 )
 
 pillow_heif.register_heif_opener()
+# AVIF and JPEG XL (pillow_avif/pillow_jxl above) need no explicit register_opener()
+# call -- each self-registers with Pillow's `Image.ID` on import, same effect as this
+# line has for HEIF, just triggered differently by each library's own __init__.
 
 CLASS_FILENAME_RE = re.compile(r"class=(\d+)\.heif$", re.IGNORECASE)
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")

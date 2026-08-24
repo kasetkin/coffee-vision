@@ -238,6 +238,101 @@ def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]
     return d.min(axis=1), [cids[i] for i in nearest]
 
 
+def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str],
+                  model, head, ref: dict | None, n_patches: int = 40,
+                  seed_key: list[int] | None = None, tta: bool = True) -> dict:
+    """Classify a single photo. One call = exactly one iteration of the CLI's batch
+    loop below, extracted so the CLI and any other caller (the web service) are
+    provably running one code path rather than two that can silently drift
+    -- the same parity concern this whole file exists for.
+
+    No printing here -- that's presentation, kept in `_print_cli_verdict` below so a
+    non-CLI caller isn't stuck with stdout lines meant for a terminal.
+    """
+    if seed_key is None:
+        seed_key = [42, 0]
+
+    try:
+        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key)
+    except (ValueError, OSError) as exc:
+        return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
+
+    ok_scale, scale_msg = scale_verdict(diag, cfg)
+    entry = {**diag, "scale_ok": ok_scale, "scale_note": scale_msg}
+    if not ok_scale:
+        entry["verdict"] = "REFUSED (scale)"
+        return entry
+
+    transform = build_eval_transform(cfg.patch_resize)
+    probs, embeds = forward_with_embeddings(
+        model, head, torch.stack([transform(x) for x in patches]), tta=tta)
+    mean = probs.mean(axis=0)
+    ranked = sorted(zip(class_ids, mean), key=lambda t: -t[1])
+    entry["ranked"] = [(c, class_labels[c], float(v)) for c, v in ranked]
+
+    if ref is None:
+        entry["verdict"] = "UNGUARDED"
+        entry["ood"] = None
+        return entry
+
+    scores, _ = ood_scores(embeds, ref)
+    median = float(np.median(scores))
+    # Two bands, and the gap between them is the honest part. REFUSE at
+    # Phase 9's 1.4, which was calibrated against a wildly different rig
+    # and only catches photos that far out. WARN above the training set's
+    # own 95th percentile, because measurement on this repo's held-out rig
+    # showed the interesting failure sits *between* the two: sony_cam
+    # photos score ~1.24 against training's ~0.99 while top-1 accuracy
+    # halves, yet only 6% cross 1.4. A score in the warn band means the
+    # model is working outside what it saw, and its answer is worth less
+    # than the probability next to it suggests.
+    warn_at = (ref.get("photo_scores") or {}).get("p95")
+    entry["ood"] = {"median": round(median, 3),
+                    "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
+                    "threshold": OOD_THRESHOLD, "warn_above": warn_at}
+    if warn_at and OOD_THRESHOLD >= median > warn_at:
+        entry["ood"]["warned"] = True
+    if median > OOD_THRESHOLD:
+        entry["verdict"] = "REFUSED (out of distribution)"
+        return entry
+    entry["verdict"] = "predicted"
+    return entry
+
+
+def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
+    """Reproduces exactly the per-photo stdout of the pre-refactor inline loop."""
+    if entry["verdict"] == "REFUSED (unmeasurable)":
+        print(f"\n{name}\n  -> REFUSED: cannot measure bean scale ({entry['error']})")
+        return
+
+    print(f"\n{name}")
+    print(f"  scale: {entry['scale_note']}")
+
+    if entry["verdict"] == "REFUSED (scale)":
+        print("  -> REFUSED: photo is outside the trained patch scale, not predicting.")
+        return
+
+    ood = entry.get("ood")
+    if ood is not None:
+        median = ood["median"]
+        margin = median - ood["threshold"]
+        print(f"  OOD: median distance {median:.2f} vs threshold {ood['threshold']} "
+              f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
+        if ood.get("warned"):
+            print(f"       WARNING: above the training distribution's 95th percentile ({ood['warn_above']:.2f}). "
+                  f"Not refused, but treat the answer below as unreliable --\n"
+                  f"       on this repo's held-out rig, photos in this band lost about half their "
+                  f"top-1 accuracy while staying under the refusal threshold.")
+        if entry["verdict"] == "REFUSED (out of distribution)":
+            print("  -> REFUSED: this photo does not resemble the training distribution.")
+            print("     Not offering a best guess: on such photos the embedding sits roughly")
+            print("     equidistant from every class, so a ranked list would be false precision.")
+            return
+
+    cid, label, pr = entry["ranked"][0]
+    print(f"  -> {cid} {label}  p={pr:.3f}" + ("" if ref else "   (unguarded)"))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--images-dir", required=True)
@@ -283,7 +378,6 @@ def main() -> None:
             f"rebuild it for this checkpoint."
         )
 
-    transform = build_eval_transform(cfg.patch_resize)
     images = sorted(q for q in Path(args.images_dir).iterdir()
                     if q.suffix.lower() in {".jpg", ".jpeg", ".png"} and not q.name.endswith("__mask.png"))
     if not images:
@@ -295,70 +389,10 @@ def main() -> None:
         # window, unreadable, not really beans. That is a refusal for this photo,
         # not a reason to abandon the batch, and it must not surface as a stack
         # trace to someone holding a phone.
-        try:
-            patches, diag = patches_for_photo(path, cfg, args.n_patches, [args.seed, idx])
-        except (ValueError, OSError) as exc:
-            print(f"\n{path.name}\n  -> REFUSED: cannot measure bean scale ({exc})")
-            results[path.name] = {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
-            continue
-        ok_scale, scale_msg = scale_verdict(diag, cfg)
-
-        entry = {**diag, "scale_ok": ok_scale, "scale_note": scale_msg}
-        print(f"\n{path.name}")
-        print(f"  scale: {scale_msg}")
-
-        if not ok_scale:
-            entry["verdict"] = "REFUSED (scale)"
-            results[path.name] = entry
-            print("  -> REFUSED: photo is outside the trained patch scale, not predicting.")
-            continue
-
-        probs, embeds = forward_with_embeddings(
-            model, head, torch.stack([transform(x) for x in patches]), tta=not args.no_tta)
-        mean = probs.mean(axis=0)
-        ranked = sorted(zip(class_ids, mean), key=lambda t: -t[1])
-        entry["ranked"] = [(c, class_labels[c], float(v)) for c, v in ranked]
-
-        if ref is None:
-            entry["verdict"] = "UNGUARDED"
-            entry["ood"] = None
-        else:
-            scores, _ = ood_scores(embeds, ref)
-            median = float(np.median(scores))
-            # Two bands, and the gap between them is the honest part. REFUSE at
-            # Phase 9's 1.4, which was calibrated against a wildly different rig
-            # and only catches photos that far out. WARN above the training set's
-            # own 95th percentile, because measurement on this repo's held-out rig
-            # showed the interesting failure sits *between* the two: sony_cam
-            # photos score ~1.24 against training's ~0.99 while top-1 accuracy
-            # halves, yet only 6% cross 1.4. A score in the warn band means the
-            # model is working outside what it saw, and its answer is worth less
-            # than the probability next to it suggests.
-            warn_at = (ref.get("photo_scores") or {}).get("p95")
-            entry["ood"] = {"median": round(median, 3),
-                            "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
-                            "threshold": OOD_THRESHOLD, "warn_above": warn_at}
-            margin = median - OOD_THRESHOLD
-            print(f"  OOD: median distance {median:.2f} vs threshold {OOD_THRESHOLD} "
-                  f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
-            if warn_at and OOD_THRESHOLD >= median > warn_at:
-                entry["ood"]["warned"] = True
-                print(f"       WARNING: above the training distribution's 95th percentile ({warn_at:.2f}). "
-                      f"Not refused, but treat the answer below as unreliable --\n"
-                      f"       on this repo's held-out rig, photos in this band lost about half their "
-                      f"top-1 accuracy while staying under the refusal threshold.")
-            if median > OOD_THRESHOLD:
-                entry["verdict"] = "REFUSED (out of distribution)"
-                results[path.name] = entry
-                print("  -> REFUSED: this photo does not resemble the training distribution.")
-                print("     Not offering a best guess: on such photos the embedding sits roughly")
-                print("     equidistant from every class, so a ranked list would be false precision.")
-                continue
-            entry["verdict"] = "predicted"
-
-        cid, label, pr = entry["ranked"][0]
-        print(f"  -> {cid} {label}  p={pr:.3f}" + ("" if ref else "   (unguarded)"))
+        entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
+                              n_patches=args.n_patches, seed_key=[args.seed, idx], tta=not args.no_tta)
         results[path.name] = entry
+        _print_cli_verdict(path.name, entry, ref)
 
     n_ref = sum(1 for r in results.values() if r["verdict"].startswith("REFUSED"))
     print(f"\n{len(results) - n_ref}/{len(results)} photos predicted, {n_ref} refused.")
