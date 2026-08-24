@@ -106,13 +106,22 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template` and
 - **The DNS record.** Point your domain's A record at the VM's public IP
   yourself -- not something a script here can do for you.
 - **The TLS cert/key.** `setup_server.sh` creates `/etc/nginx/ssl/coffee-cv/`
-  (root-owned, `700`) for you to place your Porkbun files into:
-  `ssl_certificate` needs the cert plus any CA/intermediate bundle Porkbun
-  provides, concatenated, saved as `fullchain.pem`; `ssl_certificate_key`
-  needs the private key, saved as `private.key.pem` with `600` permissions,
-  root-owned -- `setup_server.sh` can create the directory but can't set
-  correct permissions on a file it doesn't create, so this is a manual step.
-  `public.key.pem` (if Porkbun's bundle includes it) isn't used by nginx.
+  (root-owned, `700`) for you to place your Porkbun files into, using
+  Porkbun's own filenames directly -- `ssl_certificate` points at
+  `domain.cert.pem` (Porkbun's bundle already concatenates the leaf +
+  intermediate chain into this one file, confirmed by counting `BEGIN
+  CERTIFICATE` blocks -- no separate fullchain build step needed) and
+  `ssl_certificate_key` at `private.key.pem`. `setup_server.sh` can create the
+  directory but can't set permissions on files it doesn't create, so this is a
+  manual step: `private.key.pem` needs `600` (owner read/write only --
+  Porkbun's default download permissions are world-writable `666`, which is
+  fine only as long as the containing directory stays `700` root-owned, but
+  fix it anyway as defense in depth); `domain.cert.pem` and `public.key.pem`
+  (not used by nginx) are fine at `644`. Also worth a one-time check with
+  `openssl x509 -noout -text -in domain.cert.pem | grep -A1 'Subject
+  Alternative Name'` that the cert's SAN list actually covers whatever
+  subdomain you're deploying to (a wildcard `*.yourdomain` or the exact
+  hostname) -- Porkbun issues per-domain, not automatically per-subdomain.
 
   `nginx.service` runs `nginx -t` on start, and a missing cert fails that
   check for the whole config -- so if the VM reboots before the cert files

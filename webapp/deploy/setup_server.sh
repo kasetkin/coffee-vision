@@ -74,7 +74,8 @@ coffee-cv-web is running on 127.0.0.1:8000 (check: systemctl status coffee-cv-we
 
 nginx was deliberately NOT reloaded: /etc/nginx/conf.d/coffee-cv.conf references
 cert files that don't exist yet at /etc/nginx/ssl/coffee-cv/. Once your
-fullchain.pem and private.key.pem are in place there:
+domain.cert.pem and private.key.pem are in place there (private.key.pem at
+600 permissions):
 
     nginx -t && systemctl reload nginx
 

@@ -22,7 +22,9 @@ server {
     listen [::]:443 ssl;
     server_name $DOMAIN;
 
-    ssl_certificate     /etc/nginx/ssl/coffee-cv/fullchain.pem;
+    # domain.cert.pem is Porkbun's naming and already contains the full chain
+    # (leaf + intermediates concatenated) -- no separate fullchain build step.
+    ssl_certificate     /etc/nginx/ssl/coffee-cv/domain.cert.pem;
     ssl_certificate_key /etc/nginx/ssl/coffee-cv/private.key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
