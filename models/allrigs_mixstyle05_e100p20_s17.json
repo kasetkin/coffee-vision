@@ -1,0 +1,108 @@
+{
+  "name": "allrigs_mixstyle05_e100p20_s17.pt",
+  "source_experiment": "exp148__allrigs_mixstyle05_e100p20_s17",
+  "why_this_one": "Second all-rigs MixStyle shipping batch, trained with a longer budget than exp130-135 (epochs 80->100, early_stop_patience 8->20) after exp147 (seed 7) hit the 100-epoch cap with best_epoch=99, prompting the question of whether 80/8 was cutting training short. Six seeds trained identically (exp145-150); seed 17 (this run) had the best test macro-F1 (0.9195) and test MCC (0.9107) of the six, essentially tied with seed 99 (0.9194/0.9097) and clearly ahead of the rest. Paired against exp130-135 seed-for-seed, the longer budget improved 6/6 seeds on val macro-F1 and 5/6 on test macro-F1 (only seed 17 itself was marginally negative on test, -0.0035, against its own exp130-135 counterpart -- noise-sized) -- a broad, consistent gain, not a lucky single seed.",
+  "provenance_note": "Two things worth recording about this batch's launch. (1) Caught and fixed before launching: run_all_rigs.py had no --mixstyle-mode flag, so it would have silently inherited params.yaml's resting mixstyle_mode (left at cross_rig by the immediately-preceding MixStyle-v2 screen) instead of the adopted agnostic -- same failure class as the exp124-129 freeze_mode incident, fixed the same way (CLI flag + post-condition check). This run correctly used mixstyle_mode=agnostic. (2) The domain-aware MixStyle v2 variant itself (screened exp136-144, immediately before this batch) was CONFIRMED CLOSED as a null result (5/9 fold x seed pairs positive vs v1-agnostic, mean -0.0028) -- this ship uses the same domain-agnostic v1 MixStyle as phase16_allrigs_mixstyle05_s17.pt, not the v2 variant. See project_crossrig_mixstyle_screen memory.",
+  "inference_defaults": {
+    "tta": true,
+    "why": "Dihedral (8-view) test-time augmentation is ON by default in infer.py. Measured on this repo's folds (pre-MixStyle) it is worth +0.0235 cross-rig macro-F1, positive in 8 of 9 paired fold-seed runs, for 8x inference cost and no retraining. Training augments over exactly this symmetry group, so averaging over it at inference is asking the model the same question in the orientations it was taught are equivalent. Not re-measured in combination with MixStyle or the longer training budget specifically, but the mechanism is unrelated to either, so there is no known reason it would stop working."
+  },
+  "caveats": [
+    "THIS MODEL HAS NO CROSS-RIG MEASUREMENT, by construction. With all three rigs in training there is nothing left to transfer to. Every generalization figure below is ESTIMATED from the leave-one-rig-out MixStyle folds (exp115-123, seeds 42/123/7), not measured on this checkpoint.",
+    "NEW mismatch versus the previous shipped model: those folds were trained at epochs=80/early_stop_patience=8, but THIS checkpoint was trained at epochs=100/early_stop_patience=20. The cross-rig estimate below is now extrapolated across two gaps, not one -- the folds saw two rigs where this model saw three (as before), AND the folds used a shorter training budget than this checkpoint actually used. Treat the cross-rig figure as directional context, more so than for the previous ship.",
+    "Cross-rig figures are optimistic regardless: the same physical beans were re-poured across rigs, so bean identity is shared between training and held-out sets. No fresh-scoop measurement exists -- this remains the project's standing top open thread.",
+    "This run's own in-distribution confusions echo the pre-MixStyle fault line: Brazil Cerrado (f1=0.836) and Brazil MonteCristo (f1=0.858) are confused in both directions on the test split (22 Cerrado->MonteCristo, 10 MonteCristo->Cerrado, of 120 each), and Guatemala Tata (f1=0.846) loses 12/120 to Kenya AA and 9/120 to Colombia PinkBourbon. The model separates what is physically separable (species, variety, processing) and struggles where those are shared.",
+    "The model is typically confident even when wrong on held-out rigs (median top1-top2 margin ~0.57 cross-rig, measured pre-MixStyle, not re-measured for this checkpoint). Use the OOD score, not the probability, to decide whether to trust an answer."
+  ],
+  "expected_performance": {
+    "in_distribution_val_macro_f1_this_run": 0.9217628140002092,
+    "in_distribution_test_macro_f1_this_run": 0.9195323504128682,
+    "in_distribution_test_mcc_this_run": 0.9107180053664921,
+    "in_distribution_note": "Scored on a test split spanning all three rigs. Best of six seeds trained identically at epochs=100/early_stop_patience=20 (exp145-150 test macro-F1 range: 0.8915-0.9195).",
+    "cross_rig_ESTIMATED_from_mixstyle_folds": {
+      "patch_macro_f1_mean_no_tta": 0.7254,
+      "patch_macro_f1_by_rig_no_tta": {
+        "box": 0.7219,
+        "pixel": 0.8003,
+        "sony": 0.6539
+      },
+      "patch_macro_f1_with_tta_rough_estimate": 0.749,
+      "note": "Mean and per-rig breakdown over all 9 fold x seed pairs (exp115-123), no TTA. Unchanged from the previous ship's card -- this is still the only fold evidence in the project and it predates both the domain-aware MixStyle v2 screen and this run's own epochs=100/patience=20 recipe. Quote the per-rig range, never just the mean."
+    }
+  },
+  "this_run": {
+    "seed": 17,
+    "trained_on": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "never_saw": "(nothing -- all rigs trained)",
+    "val_macro_f1": 0.9217628140002092,
+    "test_macro_f1": 0.9195323504128682,
+    "best_epoch": 55,
+    "epochs_trained": 75,
+    "sibling_seeds_test_macro_f1": {
+      "42": 0.9067, "123": 0.9127, "7": 0.8915, "99": 0.9194, "256": 0.9023
+    }
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/allrigs_mixstyle05_e100p20_s17.pt --images-dir <dir>",
+    "ood_reference": "models/allrigs_mixstyle05_e100p20_s17.ood_reference.json",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio and no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range, warns above the training set's per-photo 95th percentile OOD distance, and refuses above 1.4. OOD reference self-scores for this checkpoint: per-patch mean 1.00 / p95 1.20 / max 1.53; per-photo median 0.99 / p95 1.10 / max 1.19 (378 photos, all optimistic self-scores -- context, not calibration)."
+  },
+  "training_config": {
+    "seed": 17,
+    "train_rigs": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam"
+    ],
+    "heldout_rig": "",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photos_per_class": 14,
+    "val_photos_per_class": 3,
+    "test_photos_per_class": 3,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "mixstyle_p": 0.5,
+    "mixstyle_alpha": 0.1,
+    "mixstyle_mode": "agnostic",
+    "batch_size": 32,
+    "epochs": 100,
+    "early_stop_patience": 20,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "3cc7e04aa2e88621c8ae3e0ae13ef17a4084f4b0",
+      "argv": [
+        "/home/alioth/coffee-vision/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}
