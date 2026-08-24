@@ -59,6 +59,13 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
     "Unmeasurable" is different: that's not a photo the pipeline could even read,
     which is a bad request, not a legitimate refusal -- 400, same as the "no file
     uploaded" case above it.
+
+    The OOD guard's `entry["ood"]["note"]` is deliberately NOT reused verbatim
+    here, unlike everywhere else this file borrows CLI-shaped text. That note is
+    written for the CLI's audience -- someone debugging thresholds, who wants the
+    percentile and the reasoning. A phone user just needs the decision, not the
+    diagnostic; "warned"/"refused_ood" below carry that decision, and one or two
+    words is enough to say it.
     """
     verdict = entry["verdict"]
     if verdict == "REFUSED (unmeasurable)":
@@ -67,7 +74,7 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
     if verdict == "REFUSED (scale)":
         return {"verdict": "refused_scale", "message": entry["scale_note"]}, 200
     if verdict == "REFUSED (out of distribution)":
-        return {"verdict": "refused_ood", "message": entry["ood"]["note"]}, 200
+        return {"verdict": "refused_ood", "message": "Unrecognized"}, 200
 
     response = {
         "verdict": "predicted",
@@ -77,7 +84,7 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
     ood = entry.get("ood")
     if ood and ood.get("warned"):
         response["verdict"] = "warned"
-        response["warning"] = ood["note"]
+        response["warning"] = "Uncertain"
     return response, 200
 
 
