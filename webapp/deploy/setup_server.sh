@@ -38,6 +38,21 @@ apt-get install -y nginx
 echo "== 2. cert directory (place your Porkbun files here -- see webapp/README.md) =="
 mkdir -p /etc/nginx/ssl/coffee-cv
 chmod 700 /etc/nginx/ssl/coffee-cv
+# Porkbun's own download bundle uses domain.cert.pem/private.key.pem/
+# public.key.pem, world-writable (666) by default -- the nginx config
+# (coffee-cv.nginx.conf.template) points directly at those filenames, no
+# fullchain.pem build step needed since domain.cert.pem already has the full
+# chain concatenated. Fix permissions here too, idempotently, so this doesn't
+# have to be redone by hand on every cert renewal -- only touches files that
+# are actually present, so it's a no-op before the first cert drop.
+if [[ -f /etc/nginx/ssl/coffee-cv/private.key.pem ]]; then
+  chmod 600 /etc/nginx/ssl/coffee-cv/private.key.pem
+fi
+for f in domain.cert.pem public.key.pem; do
+  if [[ -f "/etc/nginx/ssl/coffee-cv/${f}" ]]; then
+    chmod 644 "/etc/nginx/ssl/coffee-cv/${f}"
+  fi
+done
 
 echo "== 3. python deps, installed as ${APP_USER} (not root -- the venv is theirs) =="
 sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes -r "${REPO_ROOT}/webapp/requirements.txt"
