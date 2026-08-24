@@ -78,6 +78,17 @@
     border-radius: 0.5rem;
     margin-top: 1rem;
   }
+  #preview-fallback {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
   #status { margin-top: 0.75rem; color: var(--muted); font-size: 0.95rem; text-align: center; }
   .result-box {
     padding: 0.9rem 1rem;
@@ -107,6 +118,7 @@
     </div>
     <input id="photo-input" type="file" accept="image/*" capture="environment">
     <img id="preview" alt="Selected photo preview">
+    <div id="preview-fallback"></div>
     <div id="status"></div>
   </div>
 
@@ -116,22 +128,48 @@
 <script>
 const fileInput = document.getElementById('photo-input');
 const preview = document.getElementById('preview');
+const previewFallback = document.getElementById('preview-fallback');
 const classifyBtn = document.getElementById('classify-btn');
 const statusEl = document.getElementById('status');
 const resultEl = document.getElementById('result');
+
+let previewUrl = null;
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
   resultEl.innerHTML = '';
   statusEl.textContent = '';
+  preview.style.display = 'none';
+  previewFallback.style.display = 'none';
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
   if (!file) {
-    preview.style.display = 'none';
     classifyBtn.disabled = true;
     return;
   }
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = 'block';
+  previewUrl = URL.createObjectURL(file);
+  preview.src = previewUrl;
   classifyBtn.disabled = false;
+});
+
+preview.addEventListener('load', () => {
+  preview.style.display = 'block';
+  previewFallback.style.display = 'none';
+});
+
+// Some formats this app accepts (HEIC/HEIF especially) aren't natively
+// decodable by most browsers' <img> -- only Safari can preview them. The
+// upload and classification work regardless; only the preview needs a
+// fallback here.
+preview.addEventListener('error', () => {
+  preview.style.display = 'none';
+  const file = fileInput.files[0];
+  previewFallback.textContent = file
+    ? `${file.name} selected -- this browser can't preview this format, but classifying it will still work.`
+    : '';
+  previewFallback.style.display = 'block';
 });
 
 classifyBtn.addEventListener('click', async () => {
