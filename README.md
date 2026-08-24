@@ -9,6 +9,7 @@ Sample train patches, one row per class, cropped from the current dataset (`data
 ## Repo layout
 
 - `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` maps class id → origin/grade/region and is a plain git-tracked text file.
+- `webapp/` — the public web service serving the shipped classifier (see [Web service](#web-service) below).
 - `hardware/` — sensor datasheets (NIR: AS7263/AS7265x/AS7343, gas: BME688, LEDs) and a design-research writeup (`Computer vision models for coffee bean origin classification - Claude.pdf`) on which physical/chemical signals actually carry origin information. Reference material for the fallback hardware path — nothing here is built or wired up yet.
 - `.devcontainer/` — the dev environment (below).
 - `.vscode/c_cpp_properties.json` — C/C++ IntelliSense config anticipating firmware work; unused while CV-only is the active path.
@@ -31,6 +32,17 @@ git add dataset/<session-name>.dvc dataset/.gitignore
 This keeps the actual images out of git (only a small `.dvc` pointer + hash gets committed) while still versioning them alongside code.
 
 **No DVC remote is configured yet** — tracked data only lives in the local `.dvc/cache`, so none of it is backed up anywhere yet. Run `dvc remote add -d <name> <url>` (S3/GCS/local NAS/etc.) and `dvc push` before relying on this for anything you can't afford to lose.
+
+## Web service
+
+`webapp/` serves the currently-shipped checkpoint (`allrigs_mixstyle05_e100p20_s17.pt`) behind a
+single `POST /classify` endpoint plus a one-page frontend: upload a photo, get either a
+classification with scores for all 9 classes or an actionable refusal ("move the camera back",
+"this doesn't look like the training data"). It wraps `coffeecv.infer` rather than reimplementing
+any of its scale/OOD logic, so the CLI and the web service can never silently disagree. Deployment
+(nginx + gunicorn on a dedicated VM) is fully scripted and git-tracked — see `webapp/README.md` for
+architecture, redeploy procedure, and the couple of things (domain, TLS cert) that live outside git
+by design.
 
 ## Status
 
