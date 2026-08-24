@@ -127,6 +127,10 @@ class RunConfig:
     batch_size: int = 32
     epochs: int = 20
     early_stop_patience: int = 8  # stop if val_macro_f1 hasn't improved in this many epochs
+    # Floor for CosineAnnealingLR's decay (PyTorch default 0.0: LR decays to exactly
+    # zero, so the last ~15-20 epochs of a long run train at a negligible LR -- pure
+    # eval noise rather than real learning signal). See project-lr-scheduler-hypotheses.
+    eta_min: float = 0.0
     optimizer: str = "adamw"  # adamw | sgd
     lr: float = 1e-3
     backbone_lr: float = 1e-5  # used only when freeze_mode != "full"

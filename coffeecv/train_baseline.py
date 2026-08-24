@@ -252,7 +252,7 @@ def main() -> None:
         optimizer = torch.optim.SGD(param_groups, weight_decay=cfg.weight_decay, momentum=0.9)
     else:
         raise ValueError(f"Unknown optimizer: {cfg.optimizer!r}")
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs, eta_min=cfg.eta_min)
 
     OUTPUTS_DIR.mkdir(exist_ok=True)
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)

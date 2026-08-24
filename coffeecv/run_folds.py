@@ -62,7 +62,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
              seed: int | None = None, brightness_jitter: float | None = None,
              freeze_mode: str | None = None, mixup_alpha: float | None = None,
-             mixstyle_p: float | None = None, mixstyle_mode: str | None = None) -> "RunConfig":
+             mixstyle_p: float | None = None, mixstyle_mode: str | None = None,
+             eta_min: float | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -99,6 +100,19 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         text = re.sub(r"^mixstyle_p: \S+", f"mixstyle_p: {mixstyle_p}", text, count=1, flags=re.M)
     if mixstyle_mode is not None:
         text = re.sub(r"^mixstyle_mode: \S+", f"mixstyle_mode: {mixstyle_mode}", text, count=1, flags=re.M)
+    if eta_min is not None:
+        # PyYAML's SafeLoader float regex requires a literal decimal point --
+        # "1e-05" round-trips as the *string* "1e-05", not the float, and
+        # RunConfig.from_params_yaml would then silently pass a str into
+        # CosineAnnealingLR. str(1e-05) omits the dot, so it must be inserted here.
+        eta_min_str = f"{eta_min:.10g}"
+        if "e" in eta_min_str:
+            mantissa, exp = eta_min_str.split("e")
+            if "." not in mantissa:
+                eta_min_str = f"{mantissa}.0e{exp}"
+        elif "." not in eta_min_str:
+            eta_min_str += ".0"
+        text = re.sub(r"^eta_min: .*$", f"eta_min: {eta_min_str}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -124,6 +138,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
     if mixstyle_mode is not None:
         assert cfg.mixstyle_mode == mixstyle_mode, f"mixstyle_mode is {cfg.mixstyle_mode!r}, wanted {mixstyle_mode!r}"
+    if eta_min is not None:
+        assert cfg.eta_min == eta_min, f"eta_min is {cfg.eta_min}, wanted {eta_min}"
     # Returned so the caller records what was actually loaded rather than what was
     # asked for -- the omitted-flag case has no value in args to report.
     return cfg
@@ -218,6 +234,10 @@ def main() -> None:
                         "batch sample; 'cross_rig' (v2, screening) restricts the partner to a different "
                         "rig. Irrelevant when --mixstyle-p is 0. States its value on EVERY run like "
                         "--mixstyle-p rather than inheriting params.yaml.")
+    p.add_argument("--eta-min", type=float, default=0.0,
+                   help="floor for CosineAnnealingLR's decay (PyTorch default 0.0: LR reaches exactly "
+                        "zero by T_max). Like --mixstyle-p, states its value on EVERY run rather than "
+                        "inheriting params.yaml. See project-lr-scheduler-hypotheses.")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
     p.add_argument("--allow-dirty", action="store_true",
@@ -311,7 +331,7 @@ def main() -> None:
               f"held out: {short}\n{'=' * 72}", flush=True)
         cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
                        args.brightness_jitter, args.freeze_mode, args.mixup_alpha, args.mixstyle_p,
-                       args.mixstyle_mode)
+                       args.mixstyle_mode, args.eta_min)
 
         # Post-condition on the CLI contract, checked HERE rather than only inside
         # set_fold, because set_fold's own assertions are all guarded by
@@ -327,6 +347,7 @@ def main() -> None:
             ("mixup_alpha", args.mixup_alpha, cfg.mixup_alpha),
             ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
             ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
+            ("eta_min", args.eta_min, cfg.eta_min),
             ("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),
             *(( ("epochs", args.epochs, cfg.epochs),) if args.epochs is not None else ()),
             *(( ("seed", args.seed, cfg.seed),) if args.seed is not None else ()),
@@ -356,7 +377,7 @@ def main() -> None:
                 f"epochs={cfg.epochs}, seed={cfg.seed}, "
                 f"brightness_jitter={cfg.brightness_jitter_strength}, "
                 f"freeze_mode={cfg.freeze_mode}, mixup_alpha={cfg.mixup_alpha}, "
-                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}")
+                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, eta_min={cfg.eta_min}")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         if stale:

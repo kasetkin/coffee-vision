@@ -80,6 +80,7 @@ mixstyle_mode: agnostic
 batch_size: 32
 epochs: 100
 early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epochs
+eta_min: 0.0  # CosineAnnealingLR floor; 0.0 = PyTorch default (decays to exactly zero)
 optimizer: adamw  # adamw | sgd
 lr: 0.001
 backbone_lr: 0.00001  # used only when freeze_mode != full
