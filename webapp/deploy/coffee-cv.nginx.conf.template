@@ -2,12 +2,14 @@
 # /etc/nginx/conf.d/coffee-cv.conf on the VM -- this template stays domain-generic
 # so the real domain never enters git (see webapp/README.md).
 
-# One shared, server-wide cap on concurrent /classify requests -- keyed on a fixed
-# value, not per-IP or per-connection, deliberately: NAT means many real users can
-# share one IP, and the goal here is protecting the single gunicorn worker's
-# capacity, not identifying any one client. Set to 1 to match that single worker
-# one-for-one: a second request while one is in flight gets an immediate 503
-# instead of queueing toward gunicorn's 30s timeout.
+# One shared, server-wide cap on concurrent requests to the Python backend --
+# keyed on a fixed value, not per-IP or per-connection, deliberately: NAT means
+# many real users can share one IP, and the goal here is protecting the single
+# gunicorn worker's capacity, not identifying any one client. Set to 1 to match
+# that single worker one-for-one: a second request while one is in flight gets
+# an immediate 503 instead of queueing toward gunicorn's 30s timeout. Shared
+# across both /classify and /preview below -- they hit the same one worker, so
+# the cap has to be combined, not per-route, to mean what it says.
 limit_conn_zone $server_name zone=coffee_cv_inflight:1m;
 
 server {
@@ -38,6 +40,15 @@ server {
     }
 
     location /classify {
+        limit_conn coffee_cv_inflight 1;
+        client_max_body_size 20m;
+        proxy_read_timeout 30s;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /preview {
         limit_conn coffee_cv_inflight 1;
         client_max_body_size 20m;
         proxy_read_timeout 30s;

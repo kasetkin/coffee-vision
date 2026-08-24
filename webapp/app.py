@@ -10,16 +10,19 @@ life of the process, not once per request.
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
+from PIL import Image
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import load_class_labels
+from coffeecv.dataset import load_class_labels, load_rgb_image
 from coffeecv.infer import classify_one, config_for_checkpoint, load_model, reference_path_for
 
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +31,7 @@ logger = logging.getLogger(__name__)
 CHECKPOINT = REPO_ROOT / "models" / "allrigs_mixstyle05_e100p20_s17.pt"
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
+PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
 
 # static_folder=None: this app serves exactly one route. nginx serves the static
 # page and only proxies /classify here -- disabling Flask's own default
@@ -77,26 +81,62 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
     return response, 200
 
 
+@contextmanager
+def _saved_upload(upload):
+    """Write an upload to a tempfile and clean it up unconditionally afterward.
+
+    Fixed generic suffix, never derived from the client-supplied filename --
+    Pillow sniffs the format from file content, it doesn't need the extension,
+    so there's no reason to trust (or even look at) what the client called it.
+    """
+    fd, tmp_path = tempfile.mkstemp(suffix=".upload")
+    os.close(fd)
+    try:
+        upload.save(tmp_path)
+        yield Path(tmp_path)
+    finally:
+        os.unlink(tmp_path)
+
+
 @app.post("/classify")
 def classify():
     upload = request.files.get("photo")
     if upload is None or upload.filename == "":
         return jsonify(error="no photo uploaded"), 400
 
-    # Fixed generic suffix, never derived from the client-supplied filename --
-    # Pillow sniffs the format from file content, it doesn't need the extension,
-    # so there's no reason to trust (or even look at) what the client called it.
-    fd, tmp_path = tempfile.mkstemp(suffix=".upload")
-    os.close(fd)
-    try:
-        upload.save(tmp_path)
-        entry = classify_one(Path(tmp_path), cfg, class_ids, class_labels, model, head, ref,
+    with _saved_upload(upload) as path:
+        entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
                               n_patches=N_PATCHES)
-    finally:
-        os.unlink(tmp_path)
 
     body, status = _entry_to_response(entry)
     return jsonify(body), status
+
+
+@app.post("/preview")
+def preview():
+    """Decode any format this app accepts and re-encode as a JPEG thumbnail.
+
+    Exists so the browser never needs native decode support for HEIC/AVIF/JXL
+    to show a preview -- Pillow already has to decode these to classify them
+    (`load_rgb_image` is the same function `classify_one` uses under the hood),
+    so reusing that here for a universally-displayable preview is free, and
+    guaranteed to agree with what the model actually sees.
+    """
+    upload = request.files.get("photo")
+    if upload is None or upload.filename == "":
+        return jsonify(error="no photo uploaded"), 400
+
+    with _saved_upload(upload) as path:
+        try:
+            rgb = load_rgb_image(path)
+        except (ValueError, OSError) as exc:
+            return jsonify(error=f"could not read this as an image: {exc}"), 400
+
+    thumb = Image.fromarray(rgb)
+    thumb.thumbnail((PREVIEW_MAX_DIM, PREVIEW_MAX_DIM))
+    buf = io.BytesIO()
+    thumb.save(buf, format="JPEG", quality=85)
+    return Response(buf.getvalue(), mimetype="image/jpeg")
 
 
 if __name__ == "__main__":

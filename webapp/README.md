@@ -11,13 +11,19 @@ running the thing that serves it.
 ```
 Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
                       |-- GET /            -> static index.html
+                      |-- POST /preview    -> proxy_pass -> gunicorn (127.0.0.1:8000)
+                      |                                     -> Flask app -> coffeecv.dataset.load_rgb_image
                       \-- POST /classify   -> proxy_pass -> gunicorn (127.0.0.1:8000)
                                                               -> Flask app -> coffeecv.infer
 ```
 
 - `app.py` -- the Flask app. Loads the model once at import time; `classify_one`
   from `coffeecv/infer.py` does the actual work, so this service and the CLI
-  can never silently disagree about what counts as a refusal.
+  can never silently disagree about what counts as a refusal. `/preview`
+  decodes whatever format was uploaded and re-encodes it as a JPEG thumbnail --
+  it exists so the browser never needs native decode support for HEIC/AVIF/JXL
+  to show a picture; the frontend calls it on every file selection, before
+  `/classify` is ever hit.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
 - `deploy/` -- everything needed to stand the server up, committed so the
