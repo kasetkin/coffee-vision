@@ -290,10 +290,21 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     entry["ood"] = {"median": round(median, 3),
                     "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
                     "threshold": OOD_THRESHOLD, "warn_above": warn_at}
+    # Message text lives here, once, rather than in the CLI printer or the web
+    # response separately -- both callers show the exact same words for the exact
+    # same verdict.
     if warn_at and OOD_THRESHOLD >= median > warn_at:
         entry["ood"]["warned"] = True
+        entry["ood"]["note"] = (
+            f"Above the training distribution's 95th percentile ({warn_at:.2f}). Not refused, but "
+            f"treat the answer below as unreliable -- on this repo's held-out rig, photos in this "
+            f"band lost about half their top-1 accuracy while staying under the refusal threshold.")
     if median > OOD_THRESHOLD:
         entry["verdict"] = "REFUSED (out of distribution)"
+        entry["ood"]["note"] = (
+            "This photo does not resemble the training distribution. Not offering a best guess: on "
+            "such photos the embedding sits roughly equidistant from every class, so a ranked list "
+            "would be false precision.")
         return entry
     entry["verdict"] = "predicted"
     return entry
@@ -318,15 +329,12 @@ def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
         margin = median - ood["threshold"]
         print(f"  OOD: median distance {median:.2f} vs threshold {ood['threshold']} "
               f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
+        # `note` is set by classify_one() -- same string the web response uses, so
+        # the two callers can't drift on what this actually says.
         if ood.get("warned"):
-            print(f"       WARNING: above the training distribution's 95th percentile ({ood['warn_above']:.2f}). "
-                  f"Not refused, but treat the answer below as unreliable --\n"
-                  f"       on this repo's held-out rig, photos in this band lost about half their "
-                  f"top-1 accuracy while staying under the refusal threshold.")
+            print(f"       WARNING: {ood['note']}")
         if entry["verdict"] == "REFUSED (out of distribution)":
-            print("  -> REFUSED: this photo does not resemble the training distribution.")
-            print("     Not offering a best guess: on such photos the embedding sits roughly")
-            print("     equidistant from every class, so a ranked list would be false precision.")
+            print(f"  -> REFUSED: {ood['note']}")
             return
 
     cid, label, pr = entry["ranked"][0]

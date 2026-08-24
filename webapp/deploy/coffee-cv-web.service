@@ -1,0 +1,31 @@
+[Unit]
+Description=Coffee CV classifier web service (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=alioth
+Group=alioth
+WorkingDirectory=/home/alioth/coffee-vision
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/alioth/coffee-vision-venv/bin/gunicorn -w 1 --worker-class sync -b 127.0.0.1:8000 --timeout 30 webapp.app:app
+Restart=on-failure
+RestartSec=2
+
+# Sandboxing -- this process parses attacker-supplied image data over a public
+# endpoint, so it gets real containment rather than default systemd trust.
+# None of this changes application behavior; it only shrinks what a compromised
+# process could do. See webapp/README.md for the full reasoning.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target
