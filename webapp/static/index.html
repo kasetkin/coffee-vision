@@ -70,6 +70,12 @@
   }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   input[type=file] { display: none; }
+  .formats-hint {
+    margin-top: 0.6rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+  }
   #preview {
     display: none;
     width: 100%;
@@ -105,7 +111,10 @@
       <label class="file-btn" for="photo-input">Choose Photo</label>
       <button id="classify-btn" disabled>Classify</button>
     </div>
-    <input id="photo-input" type="file" accept="image/*" capture="environment">
+    <div class="formats-hint">JPG &middot; PNG &middot; WEBP &middot; HEIC/HEIF &middot; AVIF &middot; JPEG XL</div>
+    <input id="photo-input" type="file"
+           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl"
+           capture="environment">
     <img id="preview" alt="Selected photo preview">
     <div id="status"></div>
   </div>
