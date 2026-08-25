@@ -79,8 +79,13 @@
     color: var(--muted);
     font-size: 0.8rem;
   }
-  .formats-hint span { white-space: nowrap; }
-  .formats-hint span:not(:first-child)::before { content: "\00b7 "; }
+  .formats-hint span {
+    white-space: nowrap;
+    padding: 0.1rem 0.5rem;
+    border-radius: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
   #preview {
     display: none;
     width: 100%;
