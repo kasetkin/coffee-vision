@@ -79,6 +79,14 @@ mixstyle_mode: agnostic
 batch_size: 32
 epochs: 100
 early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epochs
+# CosineAnnealingLR floor (0.0 = PyTorch default, decays to exactly zero). Set to
+# 1e-5 so the LR trickles rather than flatlining in a long run's last ~15-20
+# epochs. ADOPTED on a 1-seed x 3-fold screen (seed 42): 3/3 positive cross-rig
+# macro-F1, but only box/pixel showed a real gain (+0.0264/+0.0234); sony was
+# flat (+0.0027) -- promising, not the full 3-seed confirmation this project
+# usually requires (see feedback-experiment-evidence-standard), adopted anyway
+# on a cost/benefit call (full confirmation estimated ~50h more compute).
+# exp151-156; see project-eta-min-screen memory for the full writeup.
 eta_min: 1.0e-05
 optimizer: adamw  # adamw | sgd
 lr: 0.001
