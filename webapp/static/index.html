@@ -71,11 +71,16 @@
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   input[type=file] { display: none; }
   .formats-hint {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 0.6rem;
     margin-top: 0.6rem;
     color: var(--muted);
     font-size: 0.8rem;
-    text-align: center;
   }
+  .formats-hint span { white-space: nowrap; }
+  .formats-hint span:not(:first-child)::before { content: "\00b7 "; }
   #preview {
     display: none;
     width: 100%;
@@ -111,7 +116,10 @@
       <label class="file-btn" for="photo-input">Choose Photo</label>
       <button id="classify-btn" disabled>Classify</button>
     </div>
-    <div class="formats-hint">JPG &middot; PNG &middot; WEBP &middot; HEIC/HEIF &middot; AVIF &middot; JPEG XL/JXL &middot; RAW (DNG, CR2, NEF, ARW, &hellip;)</div>
+    <div class="formats-hint">
+      <span>JPG</span><span>PNG</span><span>WEBP</span><span>HEIC/HEIF</span>
+      <span>AVIF</span><span>JPEG XL/JXL</span><span>RAW (DNG, CR2, NEF, ARW, &hellip;)</span>
+    </div>
     <input id="photo-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
            capture="environment">
