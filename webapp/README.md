@@ -166,6 +166,11 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template` and
   runtime) -- try it there; add it if torch's CPU inference path still works,
   drop the idea if it doesn't.
 - **Format support is pinned in `coffeecv/dataset.py`, not here.** JPG/PNG/
-  WEBP need no plugin; HEIF/HEIC and now AVIF/JPEG XL are registered with
+  WEBP need no plugin; HEIF/HEIC, AVIF, and JPEG XL are registered with
   Pillow right next to each other in `load_rgb_image`'s home module, so the
   CLI and this web service can never disagree on what formats they accept.
+  Camera RAW (DNG/CR2/CR3/NEF/ARW/RAF/ORF/RW2/PEF/SRW) is different --
+  Pillow can't open these at all, so `load_rgb_image` branches explicitly
+  and routes them through `rawpy` (LibRaw) instead, normalizing rawpy's own
+  exception type to `OSError` so it joins the same "can't read this photo"
+  handling every other format's decode failure already gets.

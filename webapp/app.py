@@ -22,7 +22,7 @@ from flask import Flask, Response, jsonify, request
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import load_class_labels, load_rgb_image
+from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
 from coffeecv.infer import classify_one, config_for_checkpoint, load_model, reference_path_for
 
 logging.basicConfig(level=logging.INFO)
@@ -92,11 +92,26 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
 def _saved_upload(upload):
     """Write an upload to a tempfile and clean it up unconditionally afterward.
 
-    Fixed generic suffix, never derived from the client-supplied filename --
-    Pillow sniffs the format from file content, it doesn't need the extension,
-    so there's no reason to trust (or even look at) what the client called it.
+    Suffix is normally a fixed generic one, since Pillow sniffs format from
+    content and doesn't need it. RAW is the one exception, and matters for
+    correctness, not just convenience: DNG and friends are valid TIFF
+    containers that embed a small compatibility preview for programs that
+    don't understand RAW, so Pillow's TIFF plugin will happily "succeed" at
+    opening one and silently return that degraded embedded preview instead of
+    failing -- there's no way to detect "this needs rawpy instead" from
+    content alone (confirmed: the same DNG opens as 1536x2040 via rawpy's real
+    decode vs 1280x964 via Pillow's embedded-preview fallback). The extension
+    is the only signal `load_rgb_image`'s RAW branch can dispatch on, so
+    unlike every other format here, it's used -- but only ever checked
+    against `RAW_EXTENSIONS`, coffeecv.dataset's own fixed allowlist, never
+    trusted as an arbitrary string: `Path(...).suffix` only ever looks at the
+    last path segment regardless of what a crafted filename contains before
+    it, and the result must exactly match one of those literal entries or it
+    falls back to the generic suffix same as before.
     """
-    fd, tmp_path = tempfile.mkstemp(suffix=".upload")
+    orig_suffix = Path(upload.filename or "").suffix.lower()
+    suffix = orig_suffix if orig_suffix in RAW_EXTENSIONS else ".upload"
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     try:
         upload.save(tmp_path)
