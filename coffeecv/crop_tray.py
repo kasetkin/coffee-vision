@@ -36,6 +36,32 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pillow_heif
+
+# Registers ".heic"/".heif" with PIL.Image.open, used by _imread_bgr below.
+# Needed because cv2.imread cannot decode HEIC -- iPhone's default capture
+# format (see 2026-08-25__iphone.crop.yaml) -- at all.
+pillow_heif.register_heif_opener()
+
+_HEIF_SUFFIXES = (".heic", ".heif")
+IMAGE_SUFFIXES = (".jpg", ".jpeg", *_HEIF_SUFFIXES)
+
+
+def _imread_bgr(path: Path) -> np.ndarray:
+    """Like cv2.imread, but also decodes HEIC/HEIF via PIL+pillow_heif.
+
+    Returns BGR (matching cv2.imread) so callers need no branch on source
+    format -- the rest of this module works in BGR throughout.
+    """
+    if path.suffix.lower() in _HEIF_SUFFIXES:
+        from PIL import Image
+        rgb = np.array(Image.open(path).convert("RGB"))
+        return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    return cv2.imread(str(path))
+
+
+def _find_images(images_dir: Path) -> list[Path]:
+    return sorted(p for p in images_dir.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES)
 
 # ---- Stage 1: rough tray localization -------------------------------------
 
@@ -271,13 +297,13 @@ def crop_dataset(
     border_max_contamination: float = 0.22,
 ) -> list[dict]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    image_paths = sorted(images_dir.glob("*.jpg")) + sorted(images_dir.glob("*.jpeg"))
+    image_paths = _find_images(images_dir)
     if not image_paths:
-        raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
+        raise FileNotFoundError(f"No {'/'.join(s.lstrip('.') for s in IMAGE_SUFFIXES)} images found in {images_dir}")
 
     reports = []
     for p in image_paths:
-        img = cv2.imread(str(p))
+        img = _imread_bgr(p)
         entry = {"file": p.name}
         try:
             rough_box, method = locate_tray_rough(img, aspect_range, area_frac_range, center_frac)
@@ -288,7 +314,7 @@ def crop_dataset(
 
             x, y, w, h = result.box
             crop = img[y:y + h, x:x + w]
-            out_path = out_dir / p.name.replace(".jpg", "__cropped.jpg").replace(".jpeg", "__cropped.jpg")
+            out_path = out_dir / (p.stem + "__cropped.jpg")
             cv2.imwrite(str(out_path), crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
             entry.update(asdict(result))
@@ -314,31 +340,36 @@ def crop_dataset_passthrough(images_dir: Path, out_dir: Path) -> list[dict]:
     all 360 frames were verified to contain no container, table or hand -- so
     there is no tray to find and any trim would only discard good data.
 
-    A byte-exact file copy: the pixels are already what training should see, so
-    re-encoding would only cost a JPEG generation.
+    A byte-exact file copy for JPEG sources: the pixels are already what training
+    should see, so re-encoding would only cost a JPEG generation. HEIC sources
+    (see IMAGE_SUFFIXES) are decoded and re-encoded to JPEG instead, since the
+    `*__cropped.jpg` naming convention downstream (list_cropped_photos) is fixed
+    -- this is the one unavoidable re-encode, done once here rather than at
+    every training epoch.
 
     EXIF orientation is deliberately *not* applied. Bean texture has no canonical
     "up" -- the training pipeline already samples right-angle rotations and
     mirrors -- so normalising orientation would buy nothing and would couple the
-    pipeline to metadata being present and correct on every future rig. The
-    loader reads pixels without consulting EXIF, and that is the intended
-    behaviour, not an oversight to patch here.
+    pipeline to metadata being present and correct on every future rig. Both the
+    byte-copy and the HEIC decode path read pixels without consulting EXIF, and
+    that is the intended behaviour, not an oversight to patch here.
     """
     from PIL import Image
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    image_paths = sorted(
-        p for p in images_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg")
-    )
+    image_paths = _find_images(images_dir)
     if not image_paths:
-        raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
+        raise FileNotFoundError(f"No {'/'.join(s.lstrip('.') for s in IMAGE_SUFFIXES)} images found in {images_dir}")
 
     reports = []
     for p in image_paths:
         entry = {"file": p.name}
         try:
             out_path = out_dir / (p.stem + "__cropped.jpg")
-            shutil.copy2(p, out_path)
+            if p.suffix.lower() in _HEIF_SUFFIXES:
+                Image.open(p).convert("RGB").save(out_path, quality=95)
+            else:
+                shutil.copy2(p, out_path)
             with Image.open(out_path) as im:
                 entry["size"] = list(im.size)
             entry.update({"out_path": str(out_path), "needs_review": False, "error": None})
@@ -397,14 +428,14 @@ def crop_dataset_fixed_trim(
     re-tuning if the rig's physical rim width changes.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    image_paths = sorted(images_dir.glob("*.jpg")) + sorted(images_dir.glob("*.jpeg"))
+    image_paths = _find_images(images_dir)
     if not image_paths:
-        raise FileNotFoundError(f"No jpg/jpeg images found in {images_dir}")
+        raise FileNotFoundError(f"No {'/'.join(s.lstrip('.') for s in IMAGE_SUFFIXES)} images found in {images_dir}")
 
     t = resolve_trim(trim)
     reports = []
     for p in image_paths:
-        img = cv2.imread(str(p))
+        img = _imread_bgr(p)
         entry = {"file": p.name}
         try:
             (x, y, w, h), method = locate_tray_rough(img, aspect_range, area_frac_range, center_frac)
@@ -415,7 +446,7 @@ def crop_dataset_fixed_trim(
 
             bx, by, bw, bh = box
             crop = img[by:by + bh, bx:bx + bw]
-            out_path = out_dir / p.name.replace(".jpg", "__cropped.jpg").replace(".jpeg", "__cropped.jpg")
+            out_path = out_dir / (p.stem + "__cropped.jpg")
             cv2.imwrite(str(out_path), crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
             entry.update({

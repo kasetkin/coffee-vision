@@ -10,6 +10,8 @@ stages:
       - 2026-08-07__box_pictures_all_classes
       - 2026-08-09__pixel_cam
       - 2026-08-09__sony_cam
+      - 2026-08-25__iphone
+      - 2026-08-25__oneplus
     do:
       cmd: python -m coffeecv.crop_session --session ${item}
       deps:
@@ -36,6 +38,14 @@ stages:
       - data/cropped/2026-08-07__box_pictures_all_classes
       - data/cropped/2026-08-09__pixel_cam
       - data/cropped/2026-08-09__sony_cam
+      # Not in train_rigs for any fold today -- only ever used via
+      # run_folds.py --extra-heldout as an out-of-family cross-rig check (see
+      # coffeecv/run_folds.py). Listed here for the same reason the three
+      # above are listed regardless of the current fold: any heldout_rig this
+      # stage might point at has to be a tracked dep, or a fold that switches
+      # to it reuses a stale run (see the comment on the block above).
+      - data/cropped/2026-08-25__iphone
+      - data/cropped/2026-08-25__oneplus
       - dataset/classes.txt
     params:
       - params.yaml:

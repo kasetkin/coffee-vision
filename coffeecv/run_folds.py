@@ -181,7 +181,7 @@ def dirty_provenance_paths() -> list[str]:
     return dirty
 
 
-def stale_crop_stages() -> list[str]:
+def stale_crop_stages(extra: str | None = None) -> list[str]:
     """Crop stages that `dvc repro train` would regenerate before training.
 
     Deliberately *not* a check on overall `dvc status`, which is dirty by design
@@ -197,7 +197,7 @@ def stale_crop_stages() -> list[str]:
     the stage's outs, which is exactly how this happens in practice.
     """
     stale = []
-    for rig in RIGS:
+    for rig in RIGS + ([extra] if extra else []):
         stage = f"crop@{Path(rig).name}"
         out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()
         if json.loads(out or "{}"):
@@ -210,6 +210,12 @@ def main() -> None:
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
     p.add_argument("--start-exp", type=int, required=True, help="experiment number of the first fold")
     p.add_argument("--only", help="run just this held-out rig (substring match)")
+    p.add_argument("--extra-heldout", default=None,
+                   help="Evaluate against this rig instead of sweeping RIGS. Train set is always "
+                        "all of RIGS unchanged (this rig is never a RIGS member, so set_fold's own "
+                        "'train = [r for r in RIGS if r != heldout]' already resolves correctly with "
+                        "no further change) -- so this is a single out-of-family cross-rig check, "
+                        "not a rotating leave-one-rig-out fold. Mutually exclusive with --only.")
     p.add_argument("--force", action="store_true", help="re-run folds that are already archived")
     p.add_argument("--epochs", type=int, default=None,
                    help="epoch budget AND cosine T_max; both arms of a comparison must share it")
@@ -260,7 +266,7 @@ def main() -> None:
         print("\n--allow-dirty: continuing. Each fold's note will record that the source was\n"
               "uncommitted at launch, so the gap is visible in the archived record.", flush=True)
 
-    stale = stale_crop_stages()
+    stale = stale_crop_stages(args.extra_heldout)
     if stale:
         print(f"\nCrop stages out of date: {', '.join(stale)}\n")
         if not args.allow_dirty:
@@ -284,8 +290,12 @@ def main() -> None:
               "--no-commit to run without committing.", flush=True)
         raise SystemExit(1)
 
+    if args.extra_heldout and args.only:
+        raise SystemExit("--extra-heldout and --only are mutually exclusive")
+
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
-    heldouts = [r for r in RIGS if not args.only or args.only in r]
+    heldouts = [args.extra_heldout] if args.extra_heldout else \
+        [r for r in RIGS if not args.only or args.only in r]
 
     # Experiment numbers are assigned by hand via --start-exp, and the resume
     # check below keys on exp id *and* slug -- so reusing an id under a different
@@ -293,11 +303,12 @@ def main() -> None:
     # those directories, so the collision surfaces as duplicate ids in the record
     # rather than as an error. Near-miss during Phase 13: an interrupted sweep and
     # the sweep that replaced it both started at 75.
+    family = "extraheld" if args.extra_heldout else "lorio"
     collisions = []
     for i, heldout in enumerate(heldouts):
         exp_id = args.start_exp + i
         tag = f"_{args.tag}" if args.tag else ""
-        slug = f"lorio_{args.arm}{tag}_heldout_{Path(heldout).name.split('__')[-1]}"
+        slug = f"{family}_{args.arm}{tag}_heldout_{Path(heldout).name.split('__')[-1]}"
         for existing in (REPO_ROOT / "experiments").glob(f"exp{exp_id}__*"):
             if existing.name != f"exp{exp_id}__{slug}":
                 collisions.append(f"exp{exp_id}: would add '{slug}' beside existing '{existing.name}'")
@@ -315,7 +326,7 @@ def main() -> None:
         exp_id = args.start_exp + i
         short = Path(heldout).name
         tag = f"_{args.tag}" if args.tag else ""
-        slug = f"lorio_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
+        slug = f"{family}_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
 
         # Resume: a fold that already archived a metrics.json is done. Two power
         # cuts during this sweep made restart-from-scratch the expensive default;

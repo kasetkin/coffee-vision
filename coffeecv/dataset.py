@@ -374,10 +374,26 @@ class MultiPhotoPatchDataset(Dataset):
         # this is the only remaining record of where a patch came from -- needed
         # by check_augmentation.py and worth having when a patch looks wrong.
         self._meta: list[PatchMeta] = []
+        # Classes this dataset ended up with zero patches for -- only possible on
+        # split=="all" (a held-out-only rig), where a rig that hasn't shot every
+        # class yet (e.g. iPhone missing class_008 as of 2026-08-25) can still be
+        # used for the classes it does have. train/val/test stay strict below: a
+        # *training* rig missing a class is a real configuration error, not a
+        # partial-coverage rig to tolerate silently.
+        self.missing_classes: list[str] = []
 
         for rig_idx, rig in enumerate(rigs):
             for class_idx, class_id in enumerate(class_ids):
-                class_dir = find_class_dir(rig.cropped_dir, class_id)
+                try:
+                    class_dir = find_class_dir(rig.cropped_dir, class_id)
+                except FileNotFoundError:
+                    if split != "all":
+                        raise
+                    if class_id not in self.missing_classes:
+                        self.missing_classes.append(class_id)
+                        print(f"  WARNING: {rig.name} has no class_{class_id} -- "
+                              f"skipping it for this held-out-rig split")
+                    continue
                 photos = list_cropped_photos(class_dir)
                 if split == "all":
                     # Held-out rig: every photo is test data, nothing is withheld.
@@ -394,6 +410,15 @@ class MultiPhotoPatchDataset(Dataset):
                         photo_path, n_patches, seed, rig_idx, class_idx, photo_idx,
                         class_id, rig.name, crop_size, safety_margin,
                     )
+
+        # Indices into class_ids that this dataset actually has data for -- lets
+        # the metrics layer exclude a never-present class from a macro average
+        # instead of scoring it as a phantom F1=0 (see compute_split_metrics's
+        # macro_labels). Equal to every index when nothing was skipped, i.e. the
+        # normal case for every existing rig.
+        self.present_class_idxs = [
+            i for i, c in enumerate(class_ids) if c not in self.missing_classes
+        ]
 
     def _extract_photo(
         self, photo_path: Path, n_patches: int, seed: int, rig_idx: int, class_idx: int,

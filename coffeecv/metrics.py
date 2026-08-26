@@ -20,15 +20,26 @@ def compute_split_metrics(
     losses: np.ndarray,
     class_ids: list[str],
     class_labels: dict[str, str],
+    macro_labels: list[int] | None = None,
 ) -> dict:
+    """`macro_labels` restricts the macro precision/recall/F1 average to a subset
+    of class indices, for a held-out rig that is missing a class entirely (see
+    MultiPhotoPatchDataset.present_class_idxs). Without this, sklearn scores the
+    never-present class as F1=0 (undefined recall, zero_division=0) and that
+    phantom zero drags down the macro average for a class that was never
+    actually evaluated. Per-class stats and the confusion matrix below stay
+    full-size regardless -- this only narrows the macro average. Defaults to
+    every class, unchanged from every existing call site (val/test/normal xrig)."""
     n_classes = len(class_ids)
     labels_idx = list(range(n_classes))
+    if macro_labels is None:
+        macro_labels = labels_idx
 
     precision, recall, f1, support = precision_recall_fscore_support(
         y_true, y_pred, labels=labels_idx, average=None, zero_division=0
     )
     macro_precision, macro_recall, macro_f1, _ = precision_recall_fscore_support(
-        y_true, y_pred, labels=labels_idx, average="macro", zero_division=0
+        y_true, y_pred, labels=macro_labels, average="macro", zero_division=0
     )
     mcc = matthews_corrcoef(y_true, y_pred)
     accuracy = float(np.mean(y_true == y_pred))

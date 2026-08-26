@@ -115,8 +115,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: b6dd5fdbe13a1a640e1565ec20ab3537
-      size: 22587
+      md5: f47ec0d6318f8e222df2184e1f8e1202
+      size: 23890
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: cc2f6d9fe926a012cf1330b808220889.dir
@@ -141,8 +141,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: b6dd5fdbe13a1a640e1565ec20ab3537
-      size: 22587
+      md5: f47ec0d6318f8e222df2184e1f8e1202
+      size: 23890
     - path: dataset/2026-08-09__pixel_cam
       hash: md5
       md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
@@ -167,8 +167,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: b6dd5fdbe13a1a640e1565ec20ab3537
-      size: 22587
+      md5: f47ec0d6318f8e222df2184e1f8e1202
+      size: 23890
     - path: dataset/2026-08-09__sony_cam
       hash: md5
       md5: d9e73dda514dadd8597a74650fd93434.dir
@@ -184,3 +184,55 @@ stages:
       md5: a066ff29bcda32aca6fc800242418f63.dir
       size: 970258699
       nfiles: 190
+  crop@2026-08-25__iphone:
+    cmd: python -m coffeecv.crop_session --session 2026-08-25__iphone
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: f47ec0d6318f8e222df2184e1f8e1202
+      size: 23890
+    - path: dataset/2026-08-25__iphone
+      hash: md5
+      md5: 2868cad8b178baf567318c461ca54228.dir
+      size: 215516421
+      nfiles: 92
+    - path: dataset/2026-08-25__iphone.crop.yaml
+      hash: md5
+      md5: 6cacb4e23b3908db359bedfdc2b16cdd
+      size: 1221
+    outs:
+    - path: data/cropped/2026-08-25__iphone
+      hash: md5
+      md5: 1792b5ceb755b9804cdb2bd77630fcce.dir
+      size: 119323036
+      nfiles: 101
+  crop@2026-08-25__oneplus:
+    cmd: python -m coffeecv.crop_session --session 2026-08-25__oneplus
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: f47ec0d6318f8e222df2184e1f8e1202
+      size: 23890
+    - path: dataset/2026-08-25__oneplus
+      hash: md5
+      md5: 44438c897ca8cf2369d7986728d4f9aa.dir
+      size: 164240910
+      nfiles: 90
+    - path: dataset/2026-08-25__oneplus.crop.yaml
+      hash: md5
+      md5: c6a43ad6e2b716d36b4c2d3f38ed7499
+      size: 737
+    outs:
+    - path: data/cropped/2026-08-25__oneplus
+      hash: md5
+      md5: 0e8ee6a0ce5e5a320ab7592cd50cef71.dir
+      size: 63505716
+      nfiles: 100
