@@ -28,10 +28,13 @@ val_patches_per_class: 40
 test_patches_per_class: 40
 xrig_patches_per_class: 120    # held-out rig: bigger budget, it is the headline metric
 
-# Photo-level split sizes (multi-photo box-rig dataset; must sum to 20 photos/class)
-train_photos_per_class: 14
-val_photos_per_class: 3
-test_photos_per_class: 3
+# Photo-level split, as fractions of however many photos a rig+class actually
+# has (not a fixed count -- box/pixel/sony have 20/class, oneplus has 10/class,
+# iPhone varies 10-20 *per class*). 0.70/0.15/0.15 reproduces the original
+# fixed 14/3/3 split exactly for any 20-photo class. See split_photos_by_class.
+train_photo_frac: 0.70
+val_photo_frac: 0.15
+test_photo_frac: 0.15
 
 # Model
 model_name: resnet18

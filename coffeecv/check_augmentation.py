@@ -121,7 +121,7 @@ def check_rotation_jitter() -> None:
         class_ids=discover_classes_multi(rigs[0].cropped_dir)[:1], seed=42, crop_size=CROP_SIZE,
         resize=224, safety_margin=cfg.safety_margin,
         patches_per_class={"train": 14, "val": 4, "test": 4},
-        photos_per_split={"train": 14, "val": 3, "test": 3},
+        photo_frac={"train": 0.70, "val": 0.15, "test": 0.15},  # -> 14/3/3 for a 20-photo class
         patch_store_size=None,  # full-size patches, so box geometry is checkable
     )
     ds_off = MultiPhotoPatchDataset(rotation_jitter_degrees=0.0, **kwargs)

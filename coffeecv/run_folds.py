@@ -31,10 +31,19 @@ from pathlib import Path
 
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 
+# 2026-08-26: expanded from the original 3 to all 5 rigs for a true 5-way
+# leave-one-rig-out sweep (train on whichever 4 aren't held out) -- this list
+# is what --extra-heldout was built to bypass, so a plain (no --extra-heldout)
+# invocation now sweeps all 5 as heldout targets automatically, no new CLI
+# needed. LOCAL ONLY: the remote checkout that ran exp151-162 keeps its own
+# separate copy of this file with the original 3-rig RIGS, untouched by this
+# change -- this local run does not touch or interrupt that sweep.
 RIGS = [
     "data/cropped/2026-08-07__box_pictures_all_classes",
     "data/cropped/2026-08-09__pixel_cam",
     "data/cropped/2026-08-09__sony_cam",
+    "data/cropped/2026-08-25__oneplus",
+    "data/cropped/2026-08-25__iphone",
 ]
 
 # frac_min, frac_max for each arm. The baseline keeps the fixed pixel patch size

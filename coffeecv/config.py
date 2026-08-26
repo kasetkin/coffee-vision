@@ -59,11 +59,15 @@ class RunConfig:
     # resampling the same few.
     xrig_patches_per_class: int = 120
 
-    # Photo-level split sizes for the multi-photo box-rig dataset (must sum to
-    # the number of cropped photos per class -- 20 for 2026-08-07).
-    train_photos_per_class: int = 14
-    val_photos_per_class: int = 3
-    test_photos_per_class: int = 3
+    # Photo-level split, as fractions of however many cropped photos a given
+    # rig+class actually has (not a fixed count -- rigs differ: box/pixel/sony
+    # have 20/class, oneplus has 10/class, iPhone varies 10-20 *per class*).
+    # val/test each floor at 1 photo; train gets the remainder. See
+    # split_photos_by_class in dataset.py. 0.70/0.15/0.15 reproduces the
+    # original fixed 14/3/3 split exactly for any 20-photo class.
+    train_photo_frac: float = 0.70
+    val_photo_frac: float = 0.15
+    test_photo_frac: float = 0.15
 
     model_name: str = "mobilenet_v3_small"
     freeze_mode: str = "full"  # full | last_block | none

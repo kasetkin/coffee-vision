@@ -76,9 +76,9 @@ def main() -> None:
                            "val": cfg.val_patches_per_class,
                            "test": cfg.test_patches_per_class,
                            "all": cfg.xrig_patches_per_class},
-        photos_per_split={"train": cfg.train_photos_per_class,
-                          "val": cfg.val_photos_per_class,
-                          "test": cfg.test_photos_per_class},
+        photo_frac={"train": cfg.train_photo_frac,
+                   "val": cfg.val_photo_frac,
+                   "test": cfg.test_photo_frac},
         patch_store_size=cfg.patch_store_size or None,
         patch_scale_frac=((cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
                           if cfg.patch_scale_frac_max > 0 else None),

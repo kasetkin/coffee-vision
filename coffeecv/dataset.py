@@ -257,7 +257,7 @@ def resolve_rigs(cropped_dirs: list[Path]) -> list[Rig]:
 
 
 def split_photos_by_class(
-    photos: list[Path], seed: int, class_idx: int, photos_per_split: dict[str, int],
+    photos: list[Path], seed: int, class_idx: int, photo_frac: dict[str, float],
     rig_idx: int = 0,
 ) -> dict[str, list[Path]]:
     """Shuffles (not just slices in filename order) before splitting, since
@@ -265,11 +265,26 @@ def split_photos_by_class(
     could still carry a time-correlated drift -- see the lighting-drift
     finding that broke the original per-image crop heuristic across this
     same session. Shuffling avoids reintroducing a train/val/test split that
-    quietly correlates with capture order."""
-    n_train, n_val, n_test = photos_per_split["train"], photos_per_split["val"], photos_per_split["test"]
-    if n_train + n_val + n_test != len(photos):
+    quietly correlates with capture order.
+
+    Fractional, not a fixed count: a fixed absolute split (the pre-2026-08-26
+    design) required every rig to carry exactly the same photo count per
+    class -- true for box/pixel/sony (20/class) but not for oneplus
+    (10/class uniformly) or iPhone (10-20/class, and *not even uniform across
+    its own classes*). Computing val/test as a fraction of whatever count this
+    particular rig+class actually has, floored at 1 each so a small rig still
+    gets real val/test coverage, generalizes to all of that -- and reproduces
+    the old fixed 14/3/3 split exactly for any 20-photo class, since
+    round(0.15*20)==3 both ways.
+    """
+    n = len(photos)
+    n_val = max(1, round(photo_frac["val"] * n))
+    n_test = max(1, round(photo_frac["test"] * n))
+    n_train = n - n_val - n_test
+    if n_train < 1:
         raise ValueError(
-            f"photos_per_split sums to {n_train + n_val + n_test} but found {len(photos)} photos"
+            f"{n} photos is too few to split at fractions {photo_frac} "
+            f"(train would be {n_train}); need at least 3 photos of a class in this rig"
         )
     # rig_idx keeps each rig's photo shuffle independent; 9999 keeps this stream
     # distinct from patch-box sampling below.
@@ -319,7 +334,7 @@ class MultiPhotoPatchDataset(Dataset):
         resize: int,
         safety_margin: float,
         patches_per_class: dict[str, int],
-        photos_per_split: dict[str, int],
+        photo_frac: dict[str, float],
         transform=None,
         rotation_jitter_degrees: float = 0.0,
         patch_store_size: int | None = None,
@@ -374,33 +389,34 @@ class MultiPhotoPatchDataset(Dataset):
         # this is the only remaining record of where a patch came from -- needed
         # by check_augmentation.py and worth having when a patch looks wrong.
         self._meta: list[PatchMeta] = []
-        # Classes this dataset ended up with zero patches for -- only possible on
-        # split=="all" (a held-out-only rig), where a rig that hasn't shot every
-        # class yet (e.g. iPhone missing class_008 as of 2026-08-25) can still be
-        # used for the classes it does have. train/val/test stay strict below: a
-        # *training* rig missing a class is a real configuration error, not a
-        # partial-coverage rig to tolerate silently.
+        # Classes some rig in `rigs` doesn't have (e.g. iPhone missing class_008
+        # as of 2026-08-25). Tolerated on ANY split, not just split=="all": with
+        # multiple training rigs, one of them lacking a class is no longer a
+        # total loss -- the other training rigs still supply it, this rig just
+        # contributes nothing for that one class. What's NOT tolerated is a class
+        # missing from *every* rig passed in -- checked after the loop below,
+        # since that really would mean the model never sees it at all.
         self.missing_classes: list[str] = []
+        class_found_in_any_rig: set[str] = set()
 
         for rig_idx, rig in enumerate(rigs):
             for class_idx, class_id in enumerate(class_ids):
                 try:
                     class_dir = find_class_dir(rig.cropped_dir, class_id)
                 except FileNotFoundError:
-                    if split != "all":
-                        raise
                     if class_id not in self.missing_classes:
                         self.missing_classes.append(class_id)
                         print(f"  WARNING: {rig.name} has no class_{class_id} -- "
-                              f"skipping it for this held-out-rig split")
+                              f"skipping it for this rig ({split} split)")
                     continue
+                class_found_in_any_rig.add(class_id)
                 photos = list_cropped_photos(class_dir)
                 if split == "all":
                     # Held-out rig: every photo is test data, nothing is withheld.
                     selected = photos
                 else:
                     selected = split_photos_by_class(
-                        photos, seed, class_idx, photos_per_split, rig_idx
+                        photos, seed, class_idx, photo_frac, rig_idx
                     )[split]
 
                 base, extra = divmod(n_patches_total, len(selected))
@@ -410,6 +426,24 @@ class MultiPhotoPatchDataset(Dataset):
                         photo_path, n_patches, seed, rig_idx, class_idx, photo_idx,
                         class_id, rig.name, crop_size, safety_margin,
                     )
+
+        # split=="all" is a held-out-only evaluation, typically over a single
+        # rig -- that rig lacking a class entirely is expected (iPhone missing
+        # class_008) and already handled above via missing_classes /
+        # present_class_idxs, which excludes it from the macro average. This
+        # check is specifically for train/val/test: there, a class absent from
+        # EVERY training rig really is a total loss (the model would never see
+        # it), which is different from "absent from some of several rigs".
+        if split != "all":
+            totally_missing = set(class_ids) - class_found_in_any_rig
+            if totally_missing:
+                raise ValueError(
+                    f"class(es) {sorted(totally_missing)} not found in ANY of the rigs passed to "
+                    f"this dataset ({[r.name for r in rigs]}) -- every class must exist in at "
+                    f"least one rig here, or the model can never see it at all. A class missing "
+                    f"from SOME but not all rigs is fine (see missing_classes above); this is a "
+                    f"total loss."
+                )
 
         # Indices into class_ids that this dataset actually has data for -- lets
         # the metrics layer exclude a never-present class from a macro average
