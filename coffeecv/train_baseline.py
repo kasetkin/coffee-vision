@@ -344,8 +344,15 @@ def main() -> None:
     if xrig_loader is not None:
         xrig_true, xrig_pred, xrig_losses = evaluate(model, xrig_loader, criterion)
         xrig_metrics = compute_split_metrics(
-            xrig_true, xrig_pred, xrig_losses, class_ids, class_labels
+            xrig_true, xrig_pred, xrig_losses, class_ids, class_labels,
+            macro_labels=xrig_ds.present_class_idxs,
         )
+        # Self-documenting in the archived record: a held-out rig missing a
+        # class (e.g. iPhone lacking class_008 as of 2026-08-25) states so in
+        # its own metrics.json rather than needing a hardcoded rig-name check
+        # elsewhere. macro_f1 above is already scoped to exclude it.
+        if xrig_ds.missing_classes:
+            xrig_metrics["missing_classes"] = xrig_ds.missing_classes
 
     metrics_json = build_metrics_json(
         class_ids, class_labels, epochs_trained=epoch, best_epoch=best_epoch,
