@@ -49,7 +49,7 @@ stages:
         epochs: 100
         eta_min: 1e-05
         freeze_mode: none
-        heldout_rig: data/cropped/2026-08-25__oneplus
+        heldout_rig: data/cropped/2026-08-25__iphone
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -69,7 +69,7 @@ stages:
         random_erasing_p: 0.5
         rotation_jitter_degrees: 0.0
         safety_margin: 0.97
-        seed: 7
+        seed: 42
         test_patches_per_class: 40
         test_photos_per_class: 3
         train_patches_per_class: 150
@@ -86,36 +86,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 4c82e11f24cdbbbfa27ae2641d4e8f57
+      md5: 18fd1cddc9ef521b7c088f54a5d0738c
       size: 44795275
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: d9ea4bc4fde42b58a44d4f7997947361
+      md5: cf2255375b364d5968687397e6fffc8f
       size: 44795275
     - path: outputs/history.json
       hash: md5
-      md5: cf4ab37406c41b8fd089ff63b9a0e04a
-      size: 22233
+      md5: d75c2367ef4cb689116147626cb88d69
+      size: 28538
     - path: outputs/metrics.json
       hash: md5
-      md5: 3af791376d166cbcfbff77be5ce0cf77
-      size: 12689
+      md5: a889477de8401908d2f2695c5f3e721c
+      size: 12671
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 39492508d299bdb4fd3b02e8e2d2d421
+      md5: 4c93d57374df2de80c4251dbf78b8629
       size: 9743
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: a0f25dbaec39c4de2b3b2d13c8947d27
+      md5: b5371c0478bc6eb1cadeec52b5924674
       size: 9743
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: be9a86db8ed9c631bbb405b707f3d3a5
-      size: 9743
+      md5: 30b5f22e019c08a58b7f6904e3e58ddf
+      size: 8663
     - path: outputs/summary.json
       hash: md5
-      md5: 2b111347ac6245ebc2c353ba1648c670
-      size: 190
+      md5: 2b4819fa7a1c7d079618c3c97fb86062
+      size: 191
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
