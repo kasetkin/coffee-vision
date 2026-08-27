@@ -1,10 +1,10 @@
 {
-  "val_macro_f1": 0.948,
-  "val_mcc": 0.9417,
-  "test_macro_f1": 0.9189,
-  "test_mcc": 0.9087,
-  "best_epoch": 97,
-  "epochs_trained": 100,
-  "xrig_macro_f1": 0.7282,
-  "xrig_mcc": 0.6903
+  "val_macro_f1": 0.9159,
+  "val_mcc": 0.9053,
+  "test_macro_f1": 0.8911,
+  "test_mcc": 0.8783,
+  "best_epoch": 37,
+  "epochs_trained": 57,
+  "xrig_macro_f1": 0.7245,
+  "xrig_mcc": 0.6915
 }
