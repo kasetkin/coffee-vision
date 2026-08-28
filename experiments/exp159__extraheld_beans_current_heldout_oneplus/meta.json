@@ -1,0 +1,5 @@
+{
+  "exp": "159",
+  "slug": "extraheld_beans_current_heldout_oneplus",
+  "note": "leave-one-rig-out, arm=beans, held out 2026-08-25__oneplus; scale_frac=0.0-0.0, beans=4.0-7.0, epochs=100, seed=7, brightness_jitter=0.0, freeze_mode=none, mixup_alpha=0.0, mixstyle_p=0.5, mixstyle_mode=agnostic, eta_min=1e-05"
+}
