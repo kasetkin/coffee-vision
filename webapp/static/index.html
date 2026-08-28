@@ -103,11 +103,13 @@
     position: absolute;
     display: none;
     pointer-events: none;
-    /* Spotlight effect: a huge shadow spread dims everything outside this
-       box's own bounds, so no canvas or second image is needed to mask the
-       cropped-out region -- overflow:hidden on the wrapper clips it. */
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
-    outline: 2px solid rgba(255, 255, 255, 0.85);
+    /* Just an outline around the detected region -- no dimming of the rest
+       of the photo. A full-frame darken (box-shadow spread) was tried first
+       and read as a flat gray box over warm/light backgrounds rather than a
+       dimmed photo, which looked like a layout bug more than a crop preview. */
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
+    border-radius: 2px;
   }
   #crop-note {
     display: none;
