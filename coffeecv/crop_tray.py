@@ -333,6 +333,7 @@ def locate_bean_crop(
     margin_frac: float = 0.03,
     min_tray_area_frac: float = 0.18,
     min_saturation_gap: float = 5.0,
+    high_confidence_saturation_gap: float = 30.0,
 ) -> LiveCropResult | None:
     """Live-inference crop: locate_tray_rough's stage-1 rough box, shrunk by a
     small generic margin -- deliberately NOT locate_bean_region's adaptive
@@ -383,21 +384,40 @@ def locate_bean_crop(
     photo is still 100% beans, just a smaller, off-center, non-catastrophic
     slice of the same content -- never background contamination.
 
+    high_confidence_saturation_gap is a second, size-independent path to
+    "trust this": the area-fraction floor above was calibrated against the
+    one framing distance box_pictures/iphone/oneplus happened to share, not
+    against every distance a real tray could legitimately be shot from.
+    Caught live on dataset/2026-08-06__box_pictures (an earlier, untrained-on
+    session, never in dvc.yaml's crop foreach) -- a real, correctly-localized
+    tray shot from further back, area_frac~=0.12 across all 10 photos, just
+    under the 0.18 floor, so every one was wrongly passed through uncropped.
+    Its saturation gap was 54.7-60.0, though -- stronger than box_pictures'
+    own 42-46 range, and far past the highest false positive ever measured
+    on pixel_cam/sony_cam's full 352-photo set (24.4, one sony_cam frame).
+    30.0 sits with margin above that ceiling: a gap this strong is taken as
+    sufficient evidence on its own, regardless of how much of the frame the
+    tray occupies, without reopening the false-positive rate the area floor
+    exists to control for weaker, more ambiguous gaps.
+
     Returns None when no tray-like region is found, or the found region
-    doesn't clear both thresholds -- i.e. this photo is frame-filling, like
-    pixel_cam/sony_cam's raw captures (method: none in their crop.yaml), and
-    the caller should use the image unmodified. Also the outcome for anything
-    else that goes wrong: this runs on arbitrary, uncurated live photos
-    rather than a reviewed capture session, so any internal failure degrades
-    to "don't crop" rather than propagating -- a crop detector must never be
-    able to take live inference down.
+    clears neither the area+gap combination nor the high-confidence gap
+    override -- i.e. this photo is frame-filling, like pixel_cam/sony_cam's
+    raw captures (method: none in their crop.yaml), and the caller should use
+    the image unmodified. Also the outcome for anything else that goes
+    wrong: this runs on arbitrary, uncurated live photos rather than a
+    reviewed capture session, so any internal failure degrades to "don't
+    crop" rather than propagating -- a crop detector must never be able to
+    take live inference down.
     """
     try:
         (x, y, w, h), method = locate_tray_rough(img_bgr, aspect_range, area_frac_range, center_frac)
         img_h, img_w = img_bgr.shape[:2]
-        if (w * h) / (img_h * img_w) < min_tray_area_frac:
-            return None
-        if _saturation_gap(img_bgr, (x, y, w, h)) < min_saturation_gap:
+        area_frac = (w * h) / (img_h * img_w)
+        gap = _saturation_gap(img_bgr, (x, y, w, h))
+        plausible_size_and_gap = area_frac >= min_tray_area_frac and gap >= min_saturation_gap
+        overwhelming_gap = gap >= high_confidence_saturation_gap
+        if not (plausible_size_and_gap or overwhelming_gap):
             return None
         mx, my = int(w * margin_frac), int(h * margin_frac)
         box = (x + mx, y + my, max(1, w - 2 * mx), max(1, h - 2 * my))
