@@ -40,6 +40,7 @@ import argparse
 import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -47,6 +48,7 @@ from PIL import Image
 
 from coffeecv.bean_scale import estimate_bean_pitch
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
+from coffeecv.crop_tray import locate_bean_crop
 from coffeecv.dataset import load_class_labels, load_rgb_image
 from coffeecv.geometry import compute_valid_region_rect, sample_bean_unit_patch_boxes
 from coffeecv.model import build_model
@@ -181,9 +183,39 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
     return probs, embeds
 
 
+def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
+    """Crop `rgb` to the detected bean-filled region -- the live-inference
+    mirror of the offline crop stage (coffeecv.crop_session, driven by
+    coffeecv.crop_tray) that box_pictures/iphone/oneplus's training data
+    already went through before training ever saw it. Returns (possibly
+    cropped rgb, crop_info): crop_info is None for passthrough (no tray
+    found -- the common, correct outcome for a frame-filling photo, same as
+    pixel_cam/sony_cam's raw captures), or a dict describing the crop.
+
+    BGR conversion happens here, once: locate_tray_rough's texture stage
+    reads the wrong luma weights if fed RGB unconverted (verified: mean abs
+    diff 15.9/255 on a real photo), so this must run before locate_bean_crop,
+    not be left to it.
+    """
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    result = locate_bean_crop(bgr)
+    if result is None:
+        return rgb, None
+    x, y, w, h = result.box
+    info = {"box": [x, y, w, h], "needs_review": result.needs_review, "note": None}
+    if result.needs_review:
+        info["note"] = (
+            "A tray/background region was found and cropped out, but the framing was "
+            "unusual enough that the crop's confidence is lower than normal. Not "
+            "refused -- the sampled patches may include a thin sliver of background "
+            "or miss a few edge beans.")
+    return rgb[y:y + h, x:x + w], info
+
+
 def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int]):
     """Sample patches the way training does. Returns (patches, diagnostics)."""
     rgb = load_rgb_image(path)
+    rgb, crop_info = crop_to_bean_region(rgb)
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, cfg.safety_margin)
     pitch = estimate_bean_pitch(grayscale_like_training(rgb))
@@ -205,6 +237,7 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
 
     room = min(region.width, region.height)
     return patches, {
+        "crop": crop_info,
         "bean_pitch_px": round(pitch, 1),
         # How many beans span the usable short side -- the quantity that decides
         # whether the trained patch range is reachable at all in this frame.
@@ -317,6 +350,9 @@ def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
         return
 
     print(f"\n{name}")
+    crop = entry.get("crop")
+    if crop and crop.get("needs_review"):
+        print(f"  crop: WARNING: {crop['note']}")
     print(f"  scale: {entry['scale_note']}")
 
     if entry["verdict"] == "REFUSED (scale)":

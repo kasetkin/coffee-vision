@@ -23,7 +23,7 @@ from PIL import Image
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
-from coffeecv.infer import classify_one, config_for_checkpoint, load_model, reference_path_for
+from coffeecv.infer import classify_one, config_for_checkpoint, crop_to_bean_region, load_model, reference_path_for
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -81,10 +81,16 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
         "ranked": [{"id": cid, "label": label, "score": score}
                    for cid, label, score in entry["ranked"]],
     }
+    warnings = []
     ood = entry.get("ood")
     if ood and ood.get("warned"):
+        warnings.append("Uncertain")
+    crop = entry.get("crop")
+    if crop and crop.get("needs_review"):
+        warnings.append("Uncertain framing")
+    if warnings:
         response["verdict"] = "warned"
-        response["warning"] = "Uncertain"
+        response["warning"] = " / ".join(warnings)
     return response, 200
 
 
@@ -132,6 +138,40 @@ def classify():
 
     body, status = _entry_to_response(entry)
     return jsonify(body), status
+
+
+@app.post("/crop")
+def crop():
+    """Detect (not apply) the live-inference crop, so the frontend can preview
+    it before /classify. Advisory only: classify_one() always recomputes its
+    own crop server-side from the uploaded bytes via patches_for_photo, so
+    nothing returned here is ever trusted back -- a client could send any box
+    it wants and it would change nothing about what actually gets classified.
+    """
+    upload = request.files.get("photo")
+    if upload is None or upload.filename == "":
+        return jsonify(error="no photo uploaded"), 400
+
+    with _saved_upload(upload) as path:
+        try:
+            rgb = load_rgb_image(path)
+        except (ValueError, OSError) as exc:
+            return jsonify(error=f"could not read this as an image: {exc}"), 400
+
+    h, w = rgb.shape[:2]
+    _, crop_info = crop_to_bean_region(rgb)
+    if crop_info is None:
+        return jsonify(cropped=False, box=None, needs_review=False)
+
+    x, y, bw, bh = crop_info["box"]
+    return jsonify(
+        cropped=True,
+        # Fractions of the full decoded image (x0, y0, x1, y1), not thumbnail
+        # pixels -- keeps this independent of /preview's PREVIEW_MAX_DIM, so
+        # the frontend can scale it against whatever it's actually displaying.
+        box=[x / w, y / h, (x + bw) / w, (y + bh) / h],
+        needs_review=crop_info["needs_review"],
+    )
 
 
 @app.post("/preview")

@@ -86,13 +86,35 @@
     background: var(--bg);
     border: 1px solid var(--border);
   }
-  #preview {
+  #preview-wrap {
     display: none;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+  }
+  #preview {
+    display: block;
     width: 100%;
     max-height: 20rem;
     object-fit: contain;
-    border-radius: 0.5rem;
-    margin-top: 1rem;
+  }
+  #crop-overlay {
+    position: absolute;
+    display: none;
+    pointer-events: none;
+    /* Spotlight effect: a huge shadow spread dims everything outside this
+       box's own bounds, so no canvas or second image is needed to mask the
+       cropped-out region -- overflow:hidden on the wrapper clips it. */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    outline: 2px solid rgba(255, 255, 255, 0.85);
+  }
+  #crop-note {
+    display: none;
+    margin-top: 0.4rem;
+    color: var(--warn-fg);
+    font-size: 0.85rem;
+    text-align: center;
   }
   #status { margin-top: 0.75rem; color: var(--muted); font-size: 0.95rem; text-align: center; }
   .result-box {
@@ -128,7 +150,11 @@
     <input id="photo-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
            capture="environment">
-    <img id="preview" alt="Selected photo preview">
+    <div id="preview-wrap">
+      <img id="preview" alt="Selected photo preview">
+      <div id="crop-overlay"></div>
+    </div>
+    <div id="crop-note"></div>
     <div id="status"></div>
   </div>
 
@@ -138,17 +164,48 @@
 <script>
 const fileInput = document.getElementById('photo-input');
 const preview = document.getElementById('preview');
+const previewWrap = document.getElementById('preview-wrap');
+const cropOverlay = document.getElementById('crop-overlay');
+const cropNote = document.getElementById('crop-note');
 const classifyBtn = document.getElementById('classify-btn');
 const statusEl = document.getElementById('status');
 const resultEl = document.getElementById('result');
 
 let previewUrl = null;
+let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
+
+// The overlay is positioned in *displayed* pixels, but #preview uses
+// object-fit: contain -- the image is letterboxed inside its own box
+// whenever the container's aspect ratio doesn't match the photo's. A plain
+// CSS-percentage overlay would misalign in that case, so this maps fractional
+// crop coordinates through the same contain-fit math the browser uses.
+function positionCropOverlay() {
+  if (!lastCropBox || !preview.naturalWidth) {
+    cropOverlay.style.display = 'none';
+    return;
+  }
+  const cw = previewWrap.clientWidth, ch = previewWrap.clientHeight;
+  const iw = preview.naturalWidth, ih = preview.naturalHeight;
+  const scale = Math.min(cw / iw, ch / ih);
+  const dispW = iw * scale, dispH = ih * scale;
+  const offX = (cw - dispW) / 2, offY = (ch - dispH) / 2;
+  const [x0, y0, x1, y1] = lastCropBox;
+  cropOverlay.style.left = `${offX + x0 * dispW}px`;
+  cropOverlay.style.top = `${offY + y0 * dispH}px`;
+  cropOverlay.style.width = `${(x1 - x0) * dispW}px`;
+  cropOverlay.style.height = `${(y1 - y0) * dispH}px`;
+  cropOverlay.style.display = 'block';
+}
+window.addEventListener('resize', positionCropOverlay);
 
 fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   resultEl.innerHTML = '';
-  preview.style.display = 'none';
+  previewWrap.style.display = 'none';
+  cropOverlay.style.display = 'none';
+  cropNote.style.display = 'none';
   classifyBtn.disabled = true;
+  lastCropBox = null;
   if (previewUrl) {
     URL.revokeObjectURL(previewUrl);
     previewUrl = null;
@@ -166,9 +223,9 @@ fileInput.addEventListener('change', async () => {
   // always renders, in any browser, and shows exactly what the model sees.
   statusEl.textContent = 'Loading preview...';
   try {
-    const formData = new FormData();
-    formData.append('photo', file);
-    const res = await fetch('/preview', { method: 'POST', body: formData });
+    const previewData = new FormData();
+    previewData.append('photo', file);
+    const res = await fetch('/preview', { method: 'POST', body: previewData });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       statusEl.textContent = '';
@@ -177,10 +234,38 @@ fileInput.addEventListener('change', async () => {
     }
     const blob = await res.blob();
     previewUrl = URL.createObjectURL(blob);
+    preview.onload = positionCropOverlay;
     preview.src = previewUrl;
-    preview.style.display = 'block';
-    statusEl.textContent = '';
+    previewWrap.style.display = 'block';
     classifyBtn.disabled = false;
+
+    // /crop runs after /preview, not alongside it: the backend is a single
+    // gunicorn worker with a server-wide cap of one in-flight request (see
+    // webapp/deploy/coffee-cv.nginx.conf.template), so firing both at once
+    // would just queue or 503 the second one. Sequential also reads better --
+    // the photo appears immediately, the framing outline fades in a moment
+    // after. A /crop failure degrades silently to "no overlay" rather than
+    // blocking Classify -- /preview already succeeding means the photo itself
+    // is readable, and classify_one() recomputes its own crop regardless of
+    // whatever this call returns.
+    statusEl.textContent = 'Checking framing...';
+    try {
+      const cropData = new FormData();
+      cropData.append('photo', file);
+      const cropRes = await fetch('/crop', { method: 'POST', body: cropData });
+      if (cropRes.ok) {
+        const data = await cropRes.json();
+        lastCropBox = data.cropped ? data.box : null;
+        positionCropOverlay();
+        if (data.needs_review) {
+          cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
+          cropNote.style.display = 'block';
+        }
+      }
+    } catch (err) {
+      // no overlay, no warning -- Classify is unaffected either way
+    }
+    statusEl.textContent = '';
   } catch (err) {
     statusEl.textContent = '';
     renderRefused('Could not reach the server -- check your connection and try again.');
