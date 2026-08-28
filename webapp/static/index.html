@@ -237,16 +237,19 @@ fileInput.addEventListener('change', async () => {
     preview.onload = positionCropOverlay;
     preview.src = previewUrl;
     previewWrap.style.display = 'block';
-    classifyBtn.disabled = false;
 
     // /crop runs after /preview, not alongside it: the backend is a single
     // gunicorn worker with a server-wide cap of one in-flight request (see
     // webapp/deploy/coffee-cv.nginx.conf.template), so firing both at once
     // would just queue or 503 the second one. Sequential also reads better --
     // the photo appears immediately, the framing outline fades in a moment
-    // after. A /crop failure degrades silently to "no overlay" rather than
-    // blocking Classify -- /preview already succeeding means the photo itself
-    // is readable, and classify_one() recomputes its own crop regardless of
+    // after. Classify stays disabled until this settles, for the same
+    // concurrency-cap reason: clicking it while /crop is still in flight
+    // would race it for that single slot and get an HTML 503 error page back
+    // instead of JSON, which then fails to parse client-side. A /crop
+    // failure still degrades to "no overlay" rather than blocking Classify
+    // forever -- /preview already succeeding means the photo itself is
+    // readable, and classify_one() recomputes its own crop regardless of
     // whatever this call returns.
     statusEl.textContent = 'Checking framing...';
     try {
@@ -265,6 +268,7 @@ fileInput.addEventListener('change', async () => {
     } catch (err) {
       // no overlay, no warning -- Classify is unaffected either way
     }
+    classifyBtn.disabled = false;
     statusEl.textContent = '';
   } catch (err) {
     statusEl.textContent = '';
