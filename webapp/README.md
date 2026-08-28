@@ -43,7 +43,22 @@ below), redeploy (see "Code/model change" below).
 **Code or model change (the common case):** `rsync` the updated files to the
 VM, then:
 - Python/model changes: `systemctl restart coffee-cv-web`
-- Static file or nginx-config changes: `nginx -t && systemctl reload nginx`
+- `index.html` changes: `setup_server.sh` only ever `cp`'d it to
+  `/var/www/coffee-cv/index.html` once, at bootstrap (root-owned, `644`) --
+  nginx serves *that* file, not the repo checkout, and reloading nginx does
+  not re-copy it. Re-copy it yourself first (`sudo cp
+  ~/coffee-vision/webapp/static/index.html /var/www/coffee-cv/index.html &&
+  sudo chmod 644 /var/www/coffee-cv/index.html`), *then* `nginx -t &&
+  systemctl reload nginx` (the reload only matters if `coffee-cv.nginx.conf.template`
+  itself changed too -- see below). Skipping the copy silently serves the old
+  page with no error anywhere.
+- nginx-config changes: the *rendered* file the VM actually reads is
+  `/etc/nginx/conf.d/coffee-cv.conf`, produced once by substituting `$DOMAIN`
+  into `coffee-cv.nginx.conf.template` at bootstrap -- syncing the template
+  to the repo checkout doesn't touch that rendered file either. Re-render it
+  (`sed 's/\$DOMAIN/yourdomain.example/g' webapp/deploy/coffee-cv.nginx.conf.template`)
+  and place the result at that path yourself, then `nginx -t && systemctl
+  reload nginx`.
 
 This is *not* a re-run of `setup_server.sh`. `systemctl enable --now` is a
 no-op on a unit that's already running, and gunicorn's sync worker doesn't
