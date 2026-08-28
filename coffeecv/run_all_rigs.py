@@ -95,7 +95,12 @@ def main() -> None:
     p.add_argument("--seeds", type=int, nargs="+", required=True,
                    help="one run per seed; several make an ensemble, if the ensemble study says that helps")
     p.add_argument("--start-exp", type=int, required=True)
-    p.add_argument("--epochs", type=int, default=80)
+    p.add_argument("--epochs", type=int, default=None,
+                   help="epoch budget / cosine T_max. Default None leaves params.yaml's resting value "
+                        "untouched, matching run_folds.py's own --epochs -- this script used to default "
+                        "to a hardcoded 80, which silently overrode the adopted epochs=100 (see "
+                        "project-epochs100-patience20-relaunch) on any invocation that didn't pass "
+                        "--epochs explicitly.")
     p.add_argument("--brightness-jitter", type=float, default=0.0)
     p.add_argument("--mixstyle-p", type=float, default=0.0,
                    help="per-batch probability of MixStyle (resnet18 only). States its value on EVERY "
