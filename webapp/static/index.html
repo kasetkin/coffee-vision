@@ -99,17 +99,25 @@
     max-height: 20rem;
     object-fit: contain;
   }
+  /* object-fit: contain can letterbox #preview inside #preview-wrap (when
+     the photo's aspect ratio doesn't match the wrapper's) -- #image-mask is
+     sized in JS to exactly the rendered photo's own rect, not the wrapper's,
+     so the dim below only ever covers actual photo pixels, never empty
+     letterbox space. */
+  #image-mask {
+    position: absolute;
+    display: none;
+    overflow: hidden;
+    pointer-events: none;
+  }
   #crop-overlay {
     position: absolute;
     display: none;
-    pointer-events: none;
-    /* Just an outline around the detected region -- no dimming of the rest
-       of the photo. A full-frame darken (box-shadow spread) was tried first
-       and read as a flat gray box over warm/light backgrounds rather than a
-       dimmed photo, which looked like a layout bug more than a crop preview. */
+    /* Spotlight: a huge shadow spread dims everything in #image-mask outside
+       this box -- clipped to the mask (the photo's own bounds), not the
+       wrapper, so it never bleeds into the letterbox margin around it. */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
     outline: 2px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
-    border-radius: 2px;
   }
   #crop-note {
     display: none;
@@ -154,7 +162,9 @@
            capture="environment">
     <div id="preview-wrap">
       <img id="preview" alt="Selected photo preview">
-      <div id="crop-overlay"></div>
+      <div id="image-mask">
+        <div id="crop-overlay"></div>
+      </div>
     </div>
     <div id="crop-note"></div>
     <div id="status"></div>
@@ -167,6 +177,7 @@
 const fileInput = document.getElementById('photo-input');
 const preview = document.getElementById('preview');
 const previewWrap = document.getElementById('preview-wrap');
+const imageMask = document.getElementById('image-mask');
 const cropOverlay = document.getElementById('crop-overlay');
 const cropNote = document.getElementById('crop-note');
 const classifyBtn = document.getElementById('classify-btn');
@@ -181,9 +192,12 @@ let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or n
 // whenever the container's aspect ratio doesn't match the photo's. A plain
 // CSS-percentage overlay would misalign in that case, so this maps fractional
 // crop coordinates through the same contain-fit math the browser uses.
+// #image-mask is sized to exactly the rendered photo's own rect (not the
+// wrapper's) so the dim inside #crop-overlay's box-shadow only ever covers
+// actual photo pixels, never the letterbox margin around it.
 function positionCropOverlay() {
   if (!lastCropBox || !preview.naturalWidth) {
-    cropOverlay.style.display = 'none';
+    imageMask.style.display = 'none';
     return;
   }
   const cw = previewWrap.clientWidth, ch = previewWrap.clientHeight;
@@ -191,9 +205,15 @@ function positionCropOverlay() {
   const scale = Math.min(cw / iw, ch / ih);
   const dispW = iw * scale, dispH = ih * scale;
   const offX = (cw - dispW) / 2, offY = (ch - dispH) / 2;
+  imageMask.style.left = `${offX}px`;
+  imageMask.style.top = `${offY}px`;
+  imageMask.style.width = `${dispW}px`;
+  imageMask.style.height = `${dispH}px`;
+  imageMask.style.display = 'block';
+
   const [x0, y0, x1, y1] = lastCropBox;
-  cropOverlay.style.left = `${offX + x0 * dispW}px`;
-  cropOverlay.style.top = `${offY + y0 * dispH}px`;
+  cropOverlay.style.left = `${x0 * dispW}px`;
+  cropOverlay.style.top = `${y0 * dispH}px`;
   cropOverlay.style.width = `${(x1 - x0) * dispW}px`;
   cropOverlay.style.height = `${(y1 - y0) * dispH}px`;
   cropOverlay.style.display = 'block';
@@ -204,6 +224,7 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   resultEl.innerHTML = '';
   previewWrap.style.display = 'none';
+  imageMask.style.display = 'none';
   cropOverlay.style.display = 'none';
   cropNote.style.display = 'none';
   classifyBtn.disabled = true;
