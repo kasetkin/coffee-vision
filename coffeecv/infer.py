@@ -212,10 +212,21 @@ def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
     return rgb[y:y + h, x:x + w], info
 
 
-def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int]):
-    """Sample patches the way training does. Returns (patches, diagnostics)."""
+def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],
+                       skip_crop: bool = False):
+    """Sample patches the way training does. Returns (patches, diagnostics).
+
+    skip_crop is a user override, not an automatic decision: the live crop
+    detector is a heuristic (coffeecv.crop_tray.locate_bean_crop), and a
+    person looking at the framing preview may see a box they don't trust --
+    this lets them fall back to the pre-crop-fix behavior (whole frame, same
+    as an undetected passthrough) for that one photo, deliberately, rather
+    than silently living with a bad detection.
+    """
     rgb = load_rgb_image(path)
-    rgb, crop_info = crop_to_bean_region(rgb)
+    crop_info = None
+    if not skip_crop:
+        rgb, crop_info = crop_to_bean_region(rgb)
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, cfg.safety_margin)
     pitch = estimate_bean_pitch(grayscale_like_training(rgb))
@@ -273,7 +284,8 @@ def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]
 
 def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str],
                   model, head, ref: dict | None, n_patches: int = 40,
-                  seed_key: list[int] | None = None, tta: bool = True) -> dict:
+                  seed_key: list[int] | None = None, tta: bool = True,
+                  skip_crop: bool = False) -> dict:
     """Classify a single photo. One call = exactly one iteration of the CLI's batch
     loop below, extracted so the CLI and any other caller (the web service) are
     provably running one code path rather than two that can silently drift
@@ -286,7 +298,7 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
         seed_key = [42, 0]
 
     try:
-        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key)
+        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key, skip_crop=skip_crop)
     except (ValueError, OSError) as exc:
         return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
 

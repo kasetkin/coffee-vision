@@ -132,9 +132,14 @@ def classify():
     if upload is None or upload.filename == "":
         return jsonify(error="no photo uploaded"), 400
 
+    # User override for a live crop they don't trust (see /crop) -- the
+    # server never takes the *box* from the client, only this one bit, and
+    # classify_one() still does its own detection unless told to skip it.
+    skip_crop = request.form.get("skip_crop") == "1"
+
     with _saved_upload(upload) as path:
         entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=N_PATCHES)
+                              n_patches=N_PATCHES, skip_crop=skip_crop)
 
     body, status = _entry_to_response(entry)
     return jsonify(body), status

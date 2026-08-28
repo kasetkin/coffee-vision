@@ -126,6 +126,20 @@
     font-size: 0.85rem;
     text-align: center;
   }
+  #crop-toggle-btn {
+    display: none;
+    width: fit-content;
+    margin: 0.5rem auto 0;
+    padding: 0.3rem 0.8rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+    flex: none;
+    min-width: 0;
+  }
   #status { margin-top: 0.75rem; color: var(--muted); font-size: 0.95rem; text-align: center; }
   .result-box {
     padding: 0.9rem 1rem;
@@ -166,6 +180,7 @@
         <div id="crop-overlay"></div>
       </div>
     </div>
+    <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
     <div id="status"></div>
   </div>
@@ -180,12 +195,26 @@ const previewWrap = document.getElementById('preview-wrap');
 const imageMask = document.getElementById('image-mask');
 const cropOverlay = document.getElementById('crop-overlay');
 const cropNote = document.getElementById('crop-note');
+const cropToggleBtn = document.getElementById('crop-toggle-btn');
 const classifyBtn = document.getElementById('classify-btn');
 const statusEl = document.getElementById('status');
 const resultEl = document.getElementById('result');
 
 let previewUrl = null;
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
+// User override: the detector found a box, but they don't trust it. Only
+// meaningful when lastCropBox is set -- there's nothing to override on a
+// photo the detector left untouched.
+let useFullPhoto = false;
+
+function updateCropToggleBtn() {
+  cropToggleBtn.textContent = useFullPhoto ? 'Use detected crop' : 'Use full photo instead';
+}
+cropToggleBtn.addEventListener('click', () => {
+  useFullPhoto = !useFullPhoto;
+  updateCropToggleBtn();
+  positionCropOverlay();
+});
 
 // The overlay is positioned in *displayed* pixels, but #preview uses
 // object-fit: contain -- the image is letterboxed inside its own box
@@ -196,7 +225,7 @@ let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or n
 // wrapper's) so the dim inside #crop-overlay's box-shadow only ever covers
 // actual photo pixels, never the letterbox margin around it.
 function positionCropOverlay() {
-  if (!lastCropBox || !preview.naturalWidth) {
+  if (!lastCropBox || !preview.naturalWidth || useFullPhoto) {
     imageMask.style.display = 'none';
     return;
   }
@@ -227,8 +256,10 @@ fileInput.addEventListener('change', async () => {
   imageMask.style.display = 'none';
   cropOverlay.style.display = 'none';
   cropNote.style.display = 'none';
+  cropToggleBtn.style.display = 'none';
   classifyBtn.disabled = true;
   lastCropBox = null;
+  useFullPhoto = false;
   if (previewUrl) {
     URL.revokeObjectURL(previewUrl);
     previewUrl = null;
@@ -282,6 +313,10 @@ fileInput.addEventListener('change', async () => {
       if (cropRes.ok) {
         const data = await cropRes.json();
         lastCropBox = data.cropped ? data.box : null;
+        if (lastCropBox) {
+          updateCropToggleBtn();
+          cropToggleBtn.style.display = 'block';
+        }
         positionCropOverlay();
         if (data.needs_review) {
           cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
@@ -310,6 +345,9 @@ classifyBtn.addEventListener('click', async () => {
 
   const formData = new FormData();
   formData.append('photo', file);
+  if (useFullPhoto) {
+    formData.append('skip_crop', '1');
+  }
 
   try {
     const res = await fetch('/classify', { method: 'POST', body: formData });
