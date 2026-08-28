@@ -286,6 +286,127 @@ def locate_bean_region(
     )
 
 
+@dataclass
+class LiveCropResult:
+    box: tuple[int, int, int, int]  # x, y, w, h in original-image coordinates
+    rough_method: str
+    needs_review: bool
+
+
+def _saturation_gap(img_bgr: np.ndarray, box: tuple[int, int, int, int]) -> float:
+    """abs(mean HSV saturation inside `box` - mean HSV saturation outside it).
+
+    locate_tray_rough's texture-based candidate search finds *some* connected
+    component even on a photo with no real tray boundary: a uniformly
+    bean-filled frame (pixel_cam/sony_cam-style) still has local texture noise
+    an Otsu split can carve into a plausible-looking, aspect/area/center-valid
+    rectangle. Measured directly: on such false positives, mean saturation
+    inside and outside the candidate box are nearly identical (both are
+    beans, gap ~1-3) -- whereas a real tray/background split shows a large
+    gap (~15-46 across box_pictures/iphone/oneplus samples), because the
+    background (desk, tin rim, table) is genuinely different material from
+    the beans. Coarse and global on purpose: locate_bean_region tried a
+    fine-grained, per-edge version of this same saturation cue and it proved
+    unstable (see locate_bean_crop's docstring); this only asks a much
+    cruder, much more robust question -- "is there a real content boundary
+    here at all" -- not where exactly it falls.
+    """
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    s = hsv[:, :, 1]
+    h, w = s.shape
+    x, y, bw, bh = box
+    mask = np.zeros((h, w), dtype=bool)
+    mask[y:y + bh, x:x + bw] = True
+    if not mask.any() or mask.all():
+        # No outside region left to compare against (candidate box is empty or
+        # covers the whole frame) -- there's no boundary claim left to test,
+        # so report "no gap" rather than dividing by an empty slice.
+        return 0.0
+    return abs(float(s[mask].mean()) - float(s[~mask].mean()))
+
+
+def locate_bean_crop(
+    img_bgr: np.ndarray,
+    aspect_range: tuple[float, float] = (0.5, 1.3),
+    area_frac_range: tuple[float, float] = (0.01, 0.6),
+    center_frac: tuple[float, float] = (0.15, 0.85),
+    margin_frac: float = 0.03,
+    min_tray_area_frac: float = 0.18,
+    min_saturation_gap: float = 5.0,
+) -> LiveCropResult | None:
+    """Live-inference crop: locate_tray_rough's stage-1 rough box, shrunk by a
+    small generic margin -- deliberately NOT locate_bean_region's adaptive
+    saturation trim (stage 2), unlike crop_dataset's offline "adaptive" method.
+
+    Measured directly (see coffeecv.qa_live_crop) against the
+    box_pictures/iphone/oneplus rigs' own hand-calibrated fixed_trim crops --
+    the ground truth those rigs actually trained on: stage 1 alone tracks that
+    ground truth closely (mean IoU 0.64-0.79 across the 3 rigs, 9-photo
+    sample). Adding locate_bean_region's stage 2 on top made it dramatically
+    worse (IoU 0.00-0.39), reliably collapsing a clean, correctly-bounded box
+    down to a sliver of itself -- the exact failure mode
+    box_pictures.crop.yaml already documented once ("collapsing a valid box to
+    178x1065 despite zero rim contamination"), just far more common live than
+    "once". Offline, a human reviews crop_report.json and can discard a bad
+    crop_dataset() output; live, nobody is watching, so this only uses the
+    half of the pipeline that held up under measurement.
+
+    margin_frac plays the same role safety_margin does elsewhere in this
+    codebase: pull a little inside the detected boundary rather than sample
+    right up against it. It is a fixed, generic cushion, not a per-rig
+    calibrated rim width -- nothing live can be calibrated per-rig.
+
+    min_tray_area_frac and min_saturation_gap both exist because
+    locate_tray_rough alone is not sufficient: run against pixel_cam/
+    sony_cam's frame-filling photos (which have no real tray to find), it
+    still returns a plausible-looking box on nearly every test photo -- pure
+    noise from a uniformly-textured scene, not a real boundary (verified by
+    opening several: 100% beans, just an arbitrary slice of the frame).
+    Neither signal alone cleanly separates real detections from this noise
+    (full-dataset check, coffeecv.qa_live_crop): saturation gap alone left
+    oneplus's real p10 (4.2) sitting inside sony_cam's false-positive
+    interquartile range (2.5-11.0); rough-box area fraction alone left
+    pixel_cam's false-positive median (0.317) overlapping oneplus/iphone's
+    true range (~0.30-0.45) even though box_pictures/iphone/oneplus's true
+    area fractions are otherwise a tight, reliable band (min observed 0.197).
+    Requiring *both* -- real trays are consistently large in frame AND show a
+    genuine material-saturation contrast against their background, whereas a
+    noise-driven candidate on a uniform bean pile rarely clears both at once
+    -- measured across the full box_pictures(180)/iphone(92)/oneplus(90)/
+    pixel_cam(178)/sony_cam(174) sets at min_tray_area_frac=0.18,
+    min_saturation_gap=5.0: box_pictures 100%, iphone 97%, oneplus 84% real
+    detections kept, versus pixel_cam 10%, sony_cam 12% false-positive rate
+    remaining. Not perfect -- residual error in both directions is real and
+    coffeecv.qa_live_crop measures it -- but each direction is low-cost, not
+    dangerous: a missed real tray just reproduces today's already-shipped
+    whole-frame behavior; a false-positive crop on an already frame-filling
+    photo is still 100% beans, just a smaller, off-center, non-catastrophic
+    slice of the same content -- never background contamination.
+
+    Returns None when no tray-like region is found, or the found region
+    doesn't clear both thresholds -- i.e. this photo is frame-filling, like
+    pixel_cam/sony_cam's raw captures (method: none in their crop.yaml), and
+    the caller should use the image unmodified. Also the outcome for anything
+    else that goes wrong: this runs on arbitrary, uncurated live photos
+    rather than a reviewed capture session, so any internal failure degrades
+    to "don't crop" rather than propagating -- a crop detector must never be
+    able to take live inference down.
+    """
+    try:
+        (x, y, w, h), method = locate_tray_rough(img_bgr, aspect_range, area_frac_range, center_frac)
+        img_h, img_w = img_bgr.shape[:2]
+        if (w * h) / (img_h * img_w) < min_tray_area_frac:
+            return None
+        if _saturation_gap(img_bgr, (x, y, w, h)) < min_saturation_gap:
+            return None
+        mx, my = int(w * margin_frac), int(h * margin_frac)
+        box = (x + mx, y + my, max(1, w - 2 * mx), max(1, h - 2 * my))
+        needs_review = method != "otsu"  # ladder fallback = unusual lighting, same rule crop_dataset uses
+        return LiveCropResult(box=box, rough_method=method, needs_review=needs_review)
+    except Exception:
+        return None
+
+
 # ---- Batch driver + QA tooling ---------------------------------------------
 
 def crop_dataset(
