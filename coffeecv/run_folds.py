@@ -38,11 +38,14 @@ from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 # needed. LOCAL ONLY: the remote checkout that ran exp151-162 keeps its own
 # separate copy of this file with the original 3-rig RIGS, untouched by this
 # change -- this local run does not touch or interrupt that sweep.
+# 2026-08-28: oneplus points at the merged rig (data/cropped/oneplus_combined --
+# see the merge_oneplus stage in dvc.yaml), not the single 2026-08-25__oneplus
+# session -- that session alone is now just one of two contributors to it.
 RIGS = [
     "data/cropped/2026-08-07__box_pictures_all_classes",
     "data/cropped/2026-08-09__pixel_cam",
     "data/cropped/2026-08-09__sony_cam",
-    "data/cropped/2026-08-25__oneplus",
+    "data/cropped/oneplus_combined",
     "data/cropped/2026-08-25__iphone",
 ]
 
@@ -190,16 +193,28 @@ def dirty_provenance_paths() -> list[str]:
     return dirty
 
 
+# Most rigs' upstream stage is `crop@<name>`, derived straight from the rig's own
+# directory name. A merged rig (see merge_rig.py) is the exception: its data comes
+# from its own differently-named stage instead of a 1:1 crop. Explicit, not
+# pattern-matched, because it's one rig today and guessing a naming convention for
+# a case that doesn't exist yet would be speculative.
+RIG_STAGE_OVERRIDES = {
+    "oneplus_combined": "merge_oneplus",
+}
+
+
 def stale_crop_stages(extra: str | None = None) -> list[str]:
-    """Crop stages that `dvc repro train` would regenerate before training.
+    """Upstream-of-train stages that `dvc repro train` would regenerate before
+    training (crop stages for most rigs, merge stages for a merged one -- see
+    RIG_STAGE_OVERRIDES).
 
     Deliberately *not* a check on overall `dvc status`, which is dirty by design
     here: set_fold() rewrites params.yaml precisely so the train stage re-runs, so
     "train is out of date" is the required state at launch, not a fault.
 
-    The crop stages are different. If one is stale, `dvc repro train` regenerates
-    the dataset first, and every fold then trains on different pixels than the
-    reference runs it is about to be compared against -- a silent
+    These upstream stages are different. If one is stale, `dvc repro train`
+    regenerates the dataset first, and every fold then trains on different pixels
+    than the reference runs it is about to be compared against -- a silent
     comparison-invalidating event. It is also the one failure git cannot see:
     `data/cropped/` is gitignored, so on-disk loss or corruption of the crops
     shows up in `dvc status` and nowhere else. An interrupted `dvc repro` deletes
@@ -207,7 +222,8 @@ def stale_crop_stages(extra: str | None = None) -> list[str]:
     """
     stale = []
     for rig in RIGS + ([extra] if extra else []):
-        stage = f"crop@{Path(rig).name}"
+        name = Path(rig).name
+        stage = RIG_STAGE_OVERRIDES.get(name, f"crop@{name}")
         out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()
         if json.loads(out or "{}"):
             stale.append(stage)

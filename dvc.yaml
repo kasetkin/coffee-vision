@@ -12,6 +12,7 @@ stages:
       - 2026-08-09__sony_cam
       - 2026-08-25__iphone
       - 2026-08-25__oneplus
+      - 2026-08-27__oneplus_flash
     do:
       cmd: python -m coffeecv.crop_session --session ${item}
       deps:
@@ -21,6 +22,21 @@ stages:
         - coffeecv/crop_session.py
       outs:
         - data/cropped/${item}
+
+  # 2026-08-25__oneplus and 2026-08-27__oneplus_flash are two sessions of the same
+  # physical rig (same phone, different day/framing/lighting -- see that session's
+  # crop.yaml) that are meant to be trained on as ONE logical "oneplus" rig, not
+  # two. Not part of the `crop` foreach above: that's a 1:1 session->output shape,
+  # this is many:1. Kept as its own real, tracked stage rather than a manual copy
+  # for the same reason `crop` itself became a stage (see that block's comment).
+  merge_oneplus:
+    cmd: python -m coffeecv.merge_rig --name oneplus_combined --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash
+    deps:
+      - data/cropped/2026-08-25__oneplus
+      - data/cropped/2026-08-27__oneplus_flash
+      - coffeecv/merge_rig.py
+    outs:
+      - data/cropped/oneplus_combined
 
   train:
     cmd: python -m coffeecv.train_baseline
@@ -38,14 +54,14 @@ stages:
       - data/cropped/2026-08-07__box_pictures_all_classes
       - data/cropped/2026-08-09__pixel_cam
       - data/cropped/2026-08-09__sony_cam
-      # Not in train_rigs for any fold today -- only ever used via
-      # run_folds.py --extra-heldout as an out-of-family cross-rig check (see
-      # coffeecv/run_folds.py). Listed here for the same reason the three
-      # above are listed regardless of the current fold: any heldout_rig this
-      # stage might point at has to be a tracked dep, or a fold that switches
-      # to it reuses a stale run (see the comment on the block above).
+      # iPhone and oneplus_combined: used as train_rigs by run_folds.py's local
+      # 5-way sweep (RIGS now lists 5 rigs, not 3 -- see that file) and as
+      # --extra-heldout targets. Listed here for the same reason the three
+      # above are listed regardless of the current fold: any heldout_rig or
+      # train_rigs entry this stage might point at has to be a tracked dep, or
+      # a fold that switches to it reuses a stale run (see the comment above).
       - data/cropped/2026-08-25__iphone
-      - data/cropped/2026-08-25__oneplus
+      - data/cropped/oneplus_combined
       - dataset/classes.txt
     params:
       - params.yaml:
