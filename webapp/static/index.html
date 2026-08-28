@@ -118,6 +118,17 @@
        wrapper, so it never bleeds into the letterbox margin around it. */
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
     outline: 2px solid rgba(255, 255, 255, 0.9);
+    /* TODO(crop editing): planned feature -- let the user drag/resize this
+       box after the detector shows it, instead of only the binary
+       use-detected-crop/use-full-photo toggle below. Needs: pointer-events
+       auto + resize handles here (currently `none`, deliberately, since the
+       box is display-only today); converting the user's edited on-screen
+       rect back to fractional image coordinates (invert positionCropOverlay's
+       contain-fit math); and a new field alongside the existing `skip_crop`
+       form field on POST /classify (e.g. `crop_box`) for classify_one() to
+       apply -- same trust boundary as today: the server decides what "apply
+       this box" means, the client only ever supplies numbers, same as
+       skip_crop is one bit today, not a box. */
   }
   #crop-note {
     display: none;
