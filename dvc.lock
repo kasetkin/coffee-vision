@@ -49,7 +49,7 @@ stages:
         epochs: 100
         eta_min: 1e-05
         freeze_mode: none
-        heldout_rig: data/cropped/2026-08-25__oneplus
+        heldout_rig: data/cropped/2026-08-25__iphone
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -78,7 +78,7 @@ stages:
         - data/cropped/2026-08-07__box_pictures_all_classes
         - data/cropped/2026-08-09__pixel_cam
         - data/cropped/2026-08-09__sony_cam
-        - data/cropped/2026-08-25__iphone
+        - data/cropped/2026-08-25__oneplus
         val_patches_per_class: 40
         val_photo_frac: 0.15
         weight_decay: 0.0001
@@ -87,35 +87,35 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: b302f7ba3b5d1237af88cbfbcd880d1f
+      md5: 9143b094453f418c024c12c7121e98ec
       size: 44795275
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 2fe6f10a3c7fad92885dd15de480c7b1
+      md5: b1999c09e44752157ef2d3b8e3bd84bb
       size: 44795275
     - path: outputs/history.json
       hash: md5
-      md5: 1d44ab4c06ea8e3770ce6d4524139d31
-      size: 28561
+      md5: cedb091f776f986099d5c413ddc01bba
+      size: 28560
     - path: outputs/metrics.json
       hash: md5
-      md5: 12eac4792e528e67b8bca4098934ac57
-      size: 12634
+      md5: 2cb0b51d0316aa9533c52b09eed852cd
+      size: 12621
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 4dcaa9ef2374a9ec16651346fef1e01b
-      size: 12623
+      md5: dfa20fa5287ced1eb5e3255f672f2db0
+      size: 12983
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: c705ecfbfd3d7780f9bc24ffe08369e1
-      size: 12623
+      md5: b9e390e3950516e2e39e83270ad10d8c
+      size: 12983
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: ba1acfd9dc8d2479c1d2c8d5b9a29df5
-      size: 9743
+      md5: 2da32737df559eead6c5eaa2882db2d1
+      size: 8663
     - path: outputs/summary.json
       hash: md5
-      md5: 4e8742b14bca971925efa29cf8855c88
+      md5: fbcca687d0ac397506aadfe313ff0982
       size: 191
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
