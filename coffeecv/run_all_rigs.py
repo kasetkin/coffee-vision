@@ -33,7 +33,7 @@ from coffeecv.run_folds import RIGS, dirty_provenance_paths, run, stale_crop_sta
 
 def set_all_rigs(
     seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float, freeze_mode: str,
-    mixstyle_mode: str,
+    mixstyle_mode: str, eta_min: float,
 ) -> RunConfig:
     """Point params.yaml at every rig with no held-out rig, preserving comments."""
     text = PARAMS_FILE.read_text()
@@ -59,6 +59,17 @@ def set_all_rigs(
     # confirmed-null v2 variant instead of the adopted agnostic one.
     text = re.sub(r"^mixstyle_mode: \S+", f"mixstyle_mode: {mixstyle_mode}", text, count=1, flags=re.M)
     text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
+    # PyYAML's SafeLoader float regex requires a literal decimal point -- "1e-05"
+    # round-trips as the *string* "1e-05", not the float. str(1e-05) omits the
+    # dot, so it must be inserted here. Mirrors run_folds.py's set_fold().
+    eta_min_str = f"{eta_min:.10g}"
+    if "e" in eta_min_str:
+        mantissa, exp = eta_min_str.split("e")
+        if "." not in mantissa:
+            eta_min_str = f"{mantissa}.0e{exp}"
+    elif "." not in eta_min_str:
+        eta_min_str += ".0"
+    text = re.sub(r"^eta_min: .*$", f"eta_min: {eta_min_str}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
@@ -73,6 +84,7 @@ def set_all_rigs(
     assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
     assert cfg.mixstyle_mode == mixstyle_mode, f"mixstyle_mode is {cfg.mixstyle_mode!r}, wanted {mixstyle_mode!r}"
     assert cfg.freeze_mode == freeze_mode, f"freeze_mode is {cfg.freeze_mode!r}, wanted {freeze_mode!r}"
+    assert cfg.eta_min == eta_min, f"eta_min is {cfg.eta_min}, wanted {eta_min}"
     if epochs is not None:
         assert cfg.epochs == epochs
     return cfg
@@ -97,6 +109,9 @@ def main() -> None:
                         "run_folds.py's own convention -- exp124-129 silently trained with the wrong "
                         "freeze_mode because this script used to inherit whatever params.yaml rested at "
                         "instead of stating it. Default 'none' matches what the MixStyle screen validated.")
+    p.add_argument("--eta-min", type=float, default=0.0,
+                   help="CosineAnnealingLR floor. States its value on EVERY run, like --mixstyle-p, not "
+                        "'leave whatever params.yaml had' -- see run_folds.py's own --eta-min for why.")
     p.add_argument("--tag", default="allrigs")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-dirty", action="store_true")
@@ -132,7 +147,7 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nexp{exp_id}  ALL RIGS  seed={seed}  (no held-out rig)\n{'=' * 72}", flush=True)
         cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p, args.freeze_mode,
-                            args.mixstyle_mode)
+                            args.mixstyle_mode, args.eta_min)
 
         # Post-condition on the CLI contract, same rationale as run_folds.py's own
         # check: reads what actually loaded rather than trusting the write.
@@ -140,6 +155,7 @@ def main() -> None:
             ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
             ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
             ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
+            ("eta_min", args.eta_min, cfg.eta_min),
         ):
             if got != wanted:
                 raise SystemExit(
@@ -156,7 +172,8 @@ def main() -> None:
         note = (f"ALL RIGS (no held-out rig): shipping candidate. "
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, epochs={cfg.epochs}, "
                 f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}, "
-                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, freeze_mode={cfg.freeze_mode}. "
+                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, freeze_mode={cfg.freeze_mode}, "
+                f"eta_min={cfg.eta_min}. "
                 f"NO cross-rig metric exists for this run by construction; in-distribution only.")
         if dirty:
             note += " WARNING: uncommitted source at launch."
