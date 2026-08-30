@@ -1,0 +1,119 @@
+{
+  "name": "allrigs_oneplusmerged_s17.pt",
+  "source_experiment": "exp171__allrigs_oneplusmerged_s17",
+  "why_this_one": "First all-rigs ship to actually include iPhone and OnePlus data at all -- the previous ship (allrigs_mixstyle05_e100p20_s17.pt, exp148) trained on only box/pixel/sony, predating both the 2026-08-25 iPhone/OnePlus session additions and the 2026-08-28 oneplus_combined merge (a second OnePlus capture session -- flash-fired, tighter framing -- merged into one 180-photo/class logical rig). This ship is exp171 of a six-seed batch (exp168-173) trained identically on all five rigs. PROVISIONAL PICK: shipped after only 4 of the 6 seeds had finished (168, 169, 170, 171), on explicit instruction to ship the best-so-far and re-ship later if seed 99 (exp172) or seed 256 (exp173) beats it once they land. Of the four available, seed 17 (this run) had the best test macro-F1 (0.9332) and test MCC (0.9249), and is also the one seed-paired directly against the previous ship (same seed number, 17) -- it beats that pairing outright on every in-distribution metric (val macro-F1 +0.0145, val MCC +0.0148, test macro-F1 +0.0137, test MCC +0.0142), not just within the previous ship's own noise band.",
+  "provenance_note": "Two bugs were caught and fixed immediately before/during this batch's launch, same failure class as the exp124-129 freeze_mode and exp145-150 mixstyle_mode incidents (a shipping script silently inheriting or defaulting to the wrong value instead of the adopted one). (1) run_all_rigs.py had no --eta-min flag at all -- added, mirroring the existing --mixstyle-p pattern (CLI flag, params.yaml rewrite, post-condition assert, archived-note field), verified via a throwaway smoke test before the real launch. (2) run_all_rigs.py's --epochs CLI default was hardcoded to 80 (the pre-exp145-150 value) rather than None (inherit params.yaml's adopted 100, matching run_folds.py's own convention) -- this actually mistrained the first launch attempt of exp168 at epochs=80 before any epoch completed; caught from the live log, the run was killed and relaunched correctly, and the default itself was then fixed so it cannot recur. Both fixes are committed on the exact commits this run trained from. This run correctly used epochs=100, early_stop_patience=20, mixstyle_p=0.5, mixstyle_mode=agnostic, eta_min=1e-05 -- all stated explicitly on the launch command, not inherited.",
+  "inference_defaults": {
+    "tta": true,
+    "why": "Dihedral (8-view) test-time augmentation is ON by default in infer.py. Measured on this repo's folds (pre-MixStyle) it is worth +0.0235 cross-rig macro-F1, positive in 8 of 9 paired fold-seed runs, for 8x inference cost and no retraining. Not re-measured against this checkpoint's specific recipe, but the mechanism (averaging over the symmetry group training augments over) is unrelated to MixStyle, the training budget, or the rig composition, so there is no known reason it would stop working."
+  },
+  "caveats": [
+    "PROVISIONAL: shipped before the full six-seed batch finished (seeds 99 and 256 were still training at ship time). Explicit standing instruction to re-ship if either beats this run's test macro-F1/MCC once they land -- treat this card as due for a follow-up revision, not a final answer.",
+    "Cross-rig estimate below is now doubly extrapolated: from a single-seed (42, not this run's 17) fold sweep (exp163-167, 2026-08-27/28) that used the OLD single-session OnePlus rig, not oneplus_combined -- the merge landed in dvc.yaml/run_folds.py the same day those folds finished, one commit later. No fold evidence exists yet for oneplus_combined specifically, nor for the 5-way RIGS at more than one seed. Quote the per-rig range, never just the mean, and treat this as directional context rather than a measurement of this checkpoint.",
+    "Cross-rig figures (whenever measured) are optimistic regardless: the same physical purchased bags of green beans have been used across every rig and session in this project, including oneplus_flash, so bean identity is shared between training and any held-out set. No fresh-scoop measurement exists -- this remains the project's standing top open thread.",
+    "The iPhone rig (2026-08-25__iphone) has no class_008 (Ethiopia,Kochere) photos at all -- a known, pre-existing data gap (+88 photos needed for parity, tracked separately), not something this run introduced. This is the first ship where that gap is actually live in the training mix rather than sitting entirely outside it.",
+    "This run's in-distribution confusions echo every previous ship's fault line: Brazil Cerrado (test f1=0.868) and Brazil MonteCristo (test f1=0.860) are still confused with each other, though both improved noticeably over the previous ship's 0.836/0.858. Guatemala Tata improved more sharply (0.846 -> 0.902).",
+    "The model is typically confident even when wrong on held-out rigs (median top1-top2 margin ~0.57 cross-rig, measured pre-MixStyle on an earlier checkpoint, not re-measured for this one). Use the OOD score, not the raw probability, to decide whether to trust an answer."
+  ],
+  "expected_performance": {
+    "in_distribution_val_macro_f1_this_run": 0.936327409418619,
+    "in_distribution_test_macro_f1_this_run": 0.9332278208388612,
+    "in_distribution_test_mcc_this_run": 0.9249269574661699,
+    "in_distribution_note": "Scored on a test split spanning all five rigs (previous ship's card scored on three). Best of four seeds available at ship time, trained identically at epochs=100/early_stop_patience=20 on all five rigs (exp168-171 test macro-F1 range so far: 0.9111-0.9332); seeds 99/256 (exp172-173) still pending.",
+    "cross_rig_ESTIMATED_from_local5way_folds": {
+      "patch_macro_f1_mean_no_tta": 0.7857,
+      "patch_macro_f1_by_rig_no_tta": {
+        "box": 0.7913,
+        "pixel": 0.7632,
+        "sony": 0.7037,
+        "oneplus_SINGLE_SESSION_not_combined": 0.8508,
+        "iphone": 0.8193
+      },
+      "note": "exp163-167, single seed (42, not this checkpoint's 17), same recipe (mixstyle_p=0.5, eta_min=1e-05, epochs=100/patience=20) but the OLD single-session OnePlus rig, not oneplus_combined -- see the caveat above. Single-seed, not this project's usual 3-seed confirmation bar."
+    }
+  },
+  "this_run": {
+    "seed": 17,
+    "trained_on": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam",
+      "data/cropped/oneplus_combined",
+      "data/cropped/2026-08-25__iphone"
+    ],
+    "never_saw": "(nothing -- all five rigs trained)",
+    "val_macro_f1": 0.936327409418619,
+    "test_macro_f1": 0.9332278208388612,
+    "best_epoch": 97,
+    "epochs_trained": 100,
+    "sibling_seeds_test_macro_f1": {
+      "42": 0.9111,
+      "123": 0.9152,
+      "7": 0.9165,
+      "99": "pending (exp172)",
+      "256": "pending (exp173)"
+    }
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/allrigs_oneplusmerged_s17.pt --images-dir <dir>",
+    "ood_reference": "models/allrigs_oneplusmerged_s17.ood_reference.json",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio and no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range, warns above the training set's per-photo 95th percentile OOD distance, and refuses above 1.4. OOD reference self-scores for this checkpoint: per-patch mean 1.00 / p95 1.25 / max 1.83; per-photo median 0.98 / p95 1.11 / max 1.48 (562 photos, up from the previous ship's 378 since two more rigs now contribute -- all optimistic self-scores, context not calibration)."
+  },
+  "training_config": {
+    "seed": 17,
+    "train_rigs": [
+      "data/cropped/2026-08-07__box_pictures_all_classes",
+      "data/cropped/2026-08-09__pixel_cam",
+      "data/cropped/2026-08-09__sony_cam",
+      "data/cropped/oneplus_combined",
+      "data/cropped/2026-08-25__iphone"
+    ],
+    "heldout_rig": "",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photo_frac": 0.7,
+    "val_photo_frac": 0.15,
+    "test_photo_frac": 0.15,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "mixstyle_p": 0.5,
+    "mixstyle_alpha": 0.1,
+    "mixstyle_mode": "agnostic",
+    "batch_size": 32,
+    "epochs": 100,
+    "early_stop_patience": 20,
+    "eta_min": 1e-05,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "4bdf0d33436d949537da5b51fdd3014d3c988f0b",
+      "argv": [
+        "/home/alioth/coffee-vision/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}
