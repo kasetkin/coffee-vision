@@ -2,6 +2,15 @@
 # /etc/nginx/conf.d/coffee-cv.conf on the VM -- this template stays domain-generic
 # so the real domain never enters git (see webapp/README.md).
 
+# Deliberately no $remote_addr (or any other client-IP variable) in this
+# format -- see docs/logging_plan.html section 03-C for why. $request_id is
+# nginx's own per-connection id and is NOT what joins a line here to the
+# app's own log: webapp/app.py generates its own id and returns it as an
+# X-Request-Id response header, captured below via $upstream_http_x_request_id,
+# so the app stays the one source of truth for the id and nginx never needs
+# to originate or track one of its own.
+log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status "$request" ${request_time}s';
+
 # One shared, server-wide cap on concurrent requests to the Python backend --
 # keyed on a fixed value, not per-IP or per-connection, deliberately: NAT means
 # many real users can share one IP, and the goal here is protecting the single
@@ -31,6 +40,13 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
     ssl_prefer_server_ciphers off;
+
+    # A dedicated file, not the distro's default /var/log/nginx/access.log --
+    # deliberately named without a .log suffix so Ubuntu's stock
+    # /etc/logrotate.d/nginx (which globs /var/log/nginx/*.log) never touches
+    # it; webapp/deploy/coffee-cv.logrotate is the only thing that rotates
+    # this one, at the retention docs/logging_plan.html section 06 sets.
+    access_log /var/log/nginx/coffee-cv.access coffee_cv_minimal;
 
     root /var/www/coffee-cv;
 

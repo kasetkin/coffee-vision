@@ -113,6 +113,9 @@ journalctl -u coffee-cv-web -f         # startup only: checkpoint/OOD-reference 
 tail -f /var/log/coffee-cv/app.jsonl   # per-request logs: verdicts, timing, errors
                                         # (never image bytes or filenames --
                                         # see docs/logging_plan.html)
+tail -f /var/log/nginx/coffee-cv.access  # nginx side of the same requests --
+                                        # no client IP, joined to the line
+                                        # above by request id
 nginx -t && systemctl reload nginx     # after a static/nginx-config change
 ```
 
