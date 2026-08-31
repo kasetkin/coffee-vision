@@ -1,0 +1,17 @@
+# Rig: Sony G8441 (Xperia XZ1), same frame-filling style and resolution
+# (5056x3792) as 2026-08-09__sony_cam. New class only (class_010, Indonesia
+# Java); kept as a separate rig entry rather than merged into
+# 2026-08-09__sony_cam via merge_rig.py -- that machinery is for a session
+# re-shot with overlapping class coverage, and this session has none to
+# reconcile. MultiPhotoPatchDataset already tolerates a rig supplying only
+# some classes (see its missing_classes handling), so a merge buys nothing
+# here.
+#
+# method: none -- this session needs no crop, matching 2026-08-09__sony_cam.
+#
+# Evidence (2026-08-31, all 40 frames measured via locate_bean_crop, the live
+# inference-time tray detector): 39/40 (98%) passthrough; the remaining 1 is
+# the same texture-artifact false positive documented in
+# 2026-08-09__sony_cam.crop.yaml, not a real tray detection. Visual spot-check
+# (first photo) confirms frame-filling beans, no container/table/background.
+method: none
