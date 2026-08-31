@@ -298,3 +298,81 @@ stages:
       md5: 5fc79926fba3d22ab62f8562fedfa311.dir
       size: 308501197
       nfiles: 181
+  crop@2026-08-30__oneplus:
+    cmd: python -m coffeecv.crop_session --session 2026-08-30__oneplus
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
+    - path: dataset/2026-08-30__oneplus
+      hash: md5
+      md5: c864952c104fba3e60680de04ccbc9b4.dir
+      size: 87508122
+      nfiles: 40
+    - path: dataset/2026-08-30__oneplus.crop.yaml
+      hash: md5
+      md5: cd03fc8af8aabafe635eddaf64e4d678
+      size: 1676
+    outs:
+    - path: data/cropped/2026-08-30__oneplus
+      hash: md5
+      md5: 48f6d54de7a842b5a5f66a5d5354ac8c.dir
+      size: 87518851
+      nfiles: 42
+  crop@2026-08-30__pixel:
+    cmd: python -m coffeecv.crop_session --session 2026-08-30__pixel
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
+    - path: dataset/2026-08-30__pixel
+      hash: md5
+      md5: 1d72335009072d9549688ec028452355.dir
+      size: 119677934
+      nfiles: 46
+    - path: dataset/2026-08-30__pixel.crop.yaml
+      hash: md5
+      md5: e406715e2ab2c696fadde176665e7f4a
+      size: 966
+    outs:
+    - path: data/cropped/2026-08-30__pixel
+      hash: md5
+      md5: 8efb15e46118691aa75673128ebe6ab6.dir
+      size: 119690159
+      nfiles: 48
+  crop@2026-08-30__sony:
+    cmd: python -m coffeecv.crop_session --session 2026-08-30__sony
+    deps:
+    - path: coffeecv/crop_session.py
+      hash: md5
+      md5: 8e4097d77663c989b06cd91327fb32a2
+      size: 3858
+    - path: coffeecv/crop_tray.py
+      hash: md5
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
+    - path: dataset/2026-08-30__sony
+      hash: md5
+      md5: 7f51b7c493faedf12e4faf58b29a67d0.dir
+      size: 145649324
+      nfiles: 40
+    - path: dataset/2026-08-30__sony.crop.yaml
+      hash: md5
+      md5: ffcc739ff609c26f7df3f97235a24987
+      size: 977
+    outs:
+    - path: data/cropped/2026-08-30__sony
+      hash: md5
+      md5: 6a0bb40ac85acf1f5b5be0661dccc822.dir
+      size: 145659690
+      nfiles: 42

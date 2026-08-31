@@ -47,6 +47,17 @@ RIGS = [
     "data/cropped/2026-08-09__sony_cam",
     "data/cropped/oneplus_combined",
     "data/cropped/2026-08-25__iphone",
+    # 2026-08-30: three new sessions, one per rig, all class_010 (Indonesia,
+    # Java) only -- the first class added since project init. Kept as their
+    # own entries rather than merged into an existing sibling rig: unlike the
+    # oneplus_flash merge, these carry no overlapping class coverage to
+    # reconcile, and MultiPhotoPatchDataset already tolerates a rig supplying
+    # only some classes. Note this also puts them into run_folds.py's
+    # leave-one-rig-out rotation, not just run_all_rigs.py's all-rigs set --
+    # RIGS is the one shared list both scripts read.
+    "data/cropped/2026-08-30__oneplus",
+    "data/cropped/2026-08-30__pixel",
+    "data/cropped/2026-08-30__sony",
 ]
 
 # frac_min, frac_max for each arm. The baseline keeps the fixed pixel patch size
