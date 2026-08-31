@@ -19,6 +19,10 @@ RestartSec=2
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
+# The one carve-out ProtectSystem=strict needs: webapp/app.py's structured
+# request log (docs/logging_plan.html) writes here. Everything else the
+# process touches is read-only, same as before.
+ReadWritePaths=/var/log/coffee-cv
 ProtectHome=read-only
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
