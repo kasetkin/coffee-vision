@@ -1,0 +1,36 @@
+# Installed to /etc/logrotate.d/coffee-cv by setup_server.sh. Retention is a
+# full year for both files -- see docs/logging_plan.html section 06 for why
+# (and for the disk-space math that says this comfortably fits).
+#
+# The two logs are handled differently on rotation because they're written by
+# different things:
+#
+# - app.jsonl (webapp/app.py) uses a WatchedFileHandler, which notices the
+#   rename (inode change) and reopens the new file on its own next write. No
+#   postrotate action needed or wanted here -- there's no process to signal.
+#
+# - coffee-cv.access (nginx) is held open by the nginx worker for as long as
+#   it runs, so it needs the standard nginx reload-on-rotate: USR1 tells the
+#   master process to reopen its log files without dropping connections.
+
+/var/log/coffee-cv/app.jsonl {
+    daily
+    rotate 365
+    compress
+    delaycompress
+    missingok
+    notifempty
+    su alioth alioth
+}
+
+/var/log/nginx/coffee-cv.access {
+    daily
+    rotate 365
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        [ -f /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}

@@ -57,7 +57,12 @@ done
 echo "== 3. python deps, installed as ${APP_USER} (not root -- the venv is theirs) =="
 sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes -r "${REPO_ROOT}/webapp/requirements.txt"
 
-echo "== 4. nginx site + systemd unit =="
+echo "== 4. log directory + rotation (docs/logging_plan.html) =="
+mkdir -p /var/log/coffee-cv
+chown "${APP_USER}:${APP_USER}" /var/log/coffee-cv
+cp "${REPO_ROOT}/webapp/deploy/coffee-cv.logrotate" /etc/logrotate.d/coffee-cv
+
+echo "== 5. nginx site + systemd unit =="
 DOMAIN="${DOMAIN}" envsubst '$DOMAIN' \
   < "${REPO_ROOT}/webapp/deploy/coffee-cv.nginx.conf.template" \
   > /etc/nginx/conf.d/coffee-cv.conf
@@ -65,18 +70,18 @@ cp "${REPO_ROOT}/webapp/deploy/coffee-cv-web.service" /etc/systemd/system/coffee
 # Ubuntu's default site (sites-enabled/default) is left alone -- harmless, and
 # touching it is one more thing that can go wrong for no benefit.
 
-echo "== 5. static frontend =="
+echo "== 6. static frontend =="
 mkdir -p /var/www/coffee-cv
 cp "${REPO_ROOT}/webapp/static/index.html" /var/www/coffee-cv/index.html
 chmod 644 /var/www/coffee-cv/index.html
 
-echo "== 6. firewall (SSH allowed before enabling, so this can't lock you out) =="
+echo "== 7. firewall (SSH allowed before enabling, so this can't lock you out) =="
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-echo "== 7. services =="
+echo "== 8. services =="
 systemctl daemon-reload
 systemctl enable --now coffee-cv-web
 systemctl enable nginx
