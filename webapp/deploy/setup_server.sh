@@ -11,7 +11,7 @@
 # `systemctl enable --now` is a no-op on an already-running unit, so re-running
 # this script will not pick up new application code on its own.
 #
-# Usage: DOMAIN=yourdomain.example sudo -E ./webapp/deploy/setup_server.sh
+# Usage: DOMAIN=yourdomain.example [APP_USER=someuser] sudo -E ./webapp/deploy/setup_server.sh
 set -euo pipefail
 
 if [[ -z "${DOMAIN:-}" ]]; then
@@ -29,7 +29,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-APP_USER=alioth
+APP_USER="${APP_USER:-alioth}"
 VENV="/home/${APP_USER}/coffee-vision-venv"
 
 echo "== 1. nginx =="
@@ -60,13 +60,17 @@ sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes -r "${REPO_ROOT
 echo "== 4. log directory + rotation (docs/logging_plan.html) =="
 mkdir -p /var/log/coffee-cv
 chown "${APP_USER}:${APP_USER}" /var/log/coffee-cv
-cp "${REPO_ROOT}/webapp/deploy/coffee-cv.logrotate" /etc/logrotate.d/coffee-cv
+APP_USER="${APP_USER}" envsubst '$APP_USER' \
+  < "${REPO_ROOT}/webapp/deploy/coffee-cv.logrotate.template" \
+  > /etc/logrotate.d/coffee-cv
 
 echo "== 5. nginx site + systemd unit =="
 DOMAIN="${DOMAIN}" envsubst '$DOMAIN' \
   < "${REPO_ROOT}/webapp/deploy/coffee-cv.nginx.conf.template" \
   > /etc/nginx/conf.d/coffee-cv.conf
-cp "${REPO_ROOT}/webapp/deploy/coffee-cv-web.service" /etc/systemd/system/coffee-cv-web.service
+APP_USER="${APP_USER}" envsubst '$APP_USER' \
+  < "${REPO_ROOT}/webapp/deploy/coffee-cv-web.service.template" \
+  > /etc/systemd/system/coffee-cv-web.service
 # Ubuntu's default site (sites-enabled/default) is left alone -- harmless, and
 # touching it is one more thing that can go wrong for no benefit.
 

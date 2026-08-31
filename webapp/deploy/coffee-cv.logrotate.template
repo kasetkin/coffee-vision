@@ -20,7 +20,7 @@
     delaycompress
     missingok
     notifempty
-    su alioth alioth
+    su $APP_USER $APP_USER
 }
 
 /var/log/nginx/coffee-cv.access {

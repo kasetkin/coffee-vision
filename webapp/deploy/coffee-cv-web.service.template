@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=alioth
-Group=alioth
-WorkingDirectory=/home/alioth/coffee-vision
+User=$APP_USER
+Group=$APP_USER
+WorkingDirectory=/home/$APP_USER/coffee-vision
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/home/alioth/coffee-vision-venv/bin/gunicorn -w 1 --worker-class sync -b 127.0.0.1:8000 --timeout 30 --no-control-socket webapp.app:app
+ExecStart=/home/$APP_USER/coffee-vision-venv/bin/gunicorn -w 1 --worker-class sync -b 127.0.0.1:8000 --timeout 30 --no-control-socket webapp.app:app
 Restart=on-failure
 RestartSec=2
 
