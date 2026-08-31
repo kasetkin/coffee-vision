@@ -24,7 +24,6 @@ from coffeecv.config import (
 )
 from coffeecv.dataset import (
     MultiPhotoPatchDataset,
-    discover_classes_multi,
     load_class_labels,
     resolve_rigs,
 )
@@ -147,8 +146,8 @@ def main() -> None:
     train_rig_dirs, heldout_rig_dir, classes_file = cfg.resolve_paths()
     train_rigs = resolve_rigs(train_rig_dirs)
     heldout_rig = resolve_rigs([heldout_rig_dir])[0] if heldout_rig_dir else None
-    class_ids = discover_classes_multi(train_rigs[0].cropped_dir)
     class_labels = load_class_labels(classes_file)
+    class_ids = sorted(class_labels)
     print(f"train rigs: {[r.name for r in train_rigs]}")
     print(f"held-out rig: {heldout_rig.name if heldout_rig else '(none)'}")
     print(f"torch threads: {torch.get_num_threads()} (COFFEECV_TORCH_THREADS={_threads_env!r})")

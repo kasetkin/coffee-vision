@@ -39,7 +39,6 @@ from coffeecv.bean_scale import estimate_bean_pitch
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import (
     MultiPhotoPatchDataset,
-    discover_classes_multi,
     find_class_dir,
     list_cropped_photos,
     load_class_labels,
@@ -344,11 +343,11 @@ def main() -> None:
     if rig_dir is None:
         raise SystemExit("this checkpoint's config has no heldout_rig and no --rig-dir was given")
     rig = resolve_rigs([rig_dir])[0]
-    # Class-id ordering must come from the *training* rigs, matching how the
+    # Class-id ordering must come from classes_file, matching how the
     # checkpoint's final layer was fitted -- not from rig_dir, which may be a
     # target the model never trained on (that's the whole point of this script).
-    class_ids = discover_classes_multi(resolve_rigs(train_rig_dirs)[0].cropped_dir)
     class_labels = load_class_labels(classes_file)
+    class_ids = sorted(class_labels)
     print(f"target rig: {rig.name}  ({len(class_ids)} classes)")
 
     model, head = load_model(ckpt, cfg.model_name, len(class_ids), cfg.dropout)

@@ -31,7 +31,7 @@ import numpy as np
 import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
-from coffeecv.dataset import MultiPhotoPatchDataset, discover_classes_multi, load_class_labels, resolve_rigs
+from coffeecv.dataset import MultiPhotoPatchDataset, load_class_labels, resolve_rigs
 from coffeecv.infer import (_sha, config_for_checkpoint, forward_with_embeddings, load_model,
                             reference_path_for)
 from coffeecv.transforms import build_eval_transform
@@ -53,9 +53,9 @@ def main() -> None:
     train_rig_dirs, _, classes_file = cfg.resolve_paths()
     train_rigs = resolve_rigs(train_rig_dirs)
     class_labels = load_class_labels(classes_file)
-    # Discovered from the rig, exactly as train_baseline does, so the label->index
+    # From classes_file, exactly as train_baseline does, so the label->index
     # mapping the centroids are keyed by is the one the checkpoint was fitted with.
-    class_ids = discover_classes_multi(train_rigs[0].cropped_dir)
+    class_ids = sorted(class_labels)
     print(f"train rigs: {[r.name for r in train_rigs]}")
 
     # The *train* split specifically: the reference describes what the model was
