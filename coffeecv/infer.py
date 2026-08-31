@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -255,10 +256,14 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     as an undetected passthrough) for that one photo, deliberately, rather
     than silently living with a bad detection.
     """
+    t0 = time.monotonic()
     rgb = load_rgb_image(path)
+    t1 = time.monotonic()
+    decoded_h, decoded_w = rgb.shape[:2]
     crop_info = None
     if not skip_crop:
         rgb, crop_info = crop_to_bean_region(rgb)
+    t2 = time.monotonic()
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, cfg.safety_margin)
     pitch = estimate_bean_pitch(grayscale_like_training(rgb))
@@ -287,6 +292,10 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
         "beans_across": round(room / pitch, 2),
         "patches_clamped": clamped,
         "clamp_rate": round(clamped / max(len(boxes), 1), 3),
+        "decoded_wh": [decoded_w, decoded_h],
+        # Diagnostic only, for the web service's request logging -- never used
+        # for any pass/fail decision, so it can't become a parity concern.
+        "timing_ms": {"decode": round((t1 - t0) * 1000), "crop_detect": round((t2 - t1) * 1000)},
     }
 
 
@@ -341,8 +350,10 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
         return entry
 
     transform = build_eval_transform(cfg.patch_resize)
+    t_infer0 = time.monotonic()
     probs, embeds = forward_with_embeddings(
         model, head, torch.stack([transform(x) for x in patches]), tta=tta)
+    entry["timing_ms"]["inference"] = round((time.monotonic() - t_infer0) * 1000)
     mean = probs.mean(axis=0)
     ranked = sorted(zip(class_ids, mean), key=lambda t: -t[1])
     entry["ranked"] = [(c, class_labels[c], float(v)) for c, v in ranked]

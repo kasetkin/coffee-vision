@@ -109,8 +109,10 @@ hang/fail to start without internet access.
 ```
 systemctl status coffee-cv-web nginx
 systemctl restart coffee-cv-web        # after a code/model change
-journalctl -u coffee-cv-web -f         # tail logs (verdicts + exceptions;
-                                        # never image bytes or filenames)
+journalctl -u coffee-cv-web -f         # startup only: checkpoint/OOD-reference lines
+tail -f /var/log/coffee-cv/app.jsonl   # per-request logs: verdicts, timing, errors
+                                        # (never image bytes or filenames --
+                                        # see docs/logging_plan.html)
 nginx -t && systemctl reload nginx     # after a static/nginx-config change
 ```
 
