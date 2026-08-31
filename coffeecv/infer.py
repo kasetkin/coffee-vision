@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import cv2
@@ -88,6 +89,24 @@ def reference_path_for(checkpoint: Path) -> Path:
     return checkpoint.with_suffix(".ood_reference.json")
 
 
+def classes_path_for(checkpoint: Path) -> Path:
+    """Where this checkpoint's frozen class list lives: beside it, named after it.
+
+    dataset/classes.txt is expected to grow over time as new bean types are
+    added ahead of the next training run, but a shipped checkpoint's classifier
+    head is a fixed size -- it must keep reading the class list it was trained
+    against, not whatever classes.txt says today (that would size the head
+    wrong and crash `load_state_dict`, or worse, silently misalign class ids).
+    Same reasoning as `reference_path_for`: the artifact that defines a
+    checkpoint's output space has to travel with the checkpoint, not live at
+    one global path every checkpoint shares. Falls back to
+    `cfg.classes_file` (the live file) in `config_for_checkpoint` below when no
+    snapshot exists beside a checkpoint -- true for every checkpoint shipped
+    before this snapshot convention existed.
+    """
+    return checkpoint.with_suffix(".classes.txt")
+
+
 def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunConfig, str]:
     """The config that *this checkpoint* was trained with, not whatever params.yaml
     happens to say now.
@@ -97,26 +116,39 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
     some earlier run silently mismatches patch geometry, and patch geometry is the
     one thing inference must get right. Each run archives its own config.json
     beside its outputs, so prefer that when it is sitting next to the checkpoint.
+
+    `classes_file` is overridden separately, below, to a frozen snapshot beside
+    the checkpoint when one exists -- see `classes_path_for`.
     """
     card = checkpoint.with_suffix(".json")          # shipped model: models/<name>.json
     run_cfg = checkpoint.parent.parent / "config.json"  # live run: outputs/config.json
     if explicit:
-        raw = json.load(open(explicit))
-        source = explicit
+        raw, source = json.load(open(explicit)), explicit
     elif card.exists():
         # A shipped model carries its own card, and the card's training_config is
         # the authoritative record of how it was fitted -- the model travels out of
         # this repo, so it cannot depend on a params.yaml it will not have.
-        raw = json.load(open(card)).get("training_config", {})
-        source = f"{card} (training_config)"
+        raw, source = json.load(open(card)).get("training_config", {}), f"{card} (training_config)"
     elif run_cfg.exists():
-        raw = json.load(open(run_cfg))
-        source = str(run_cfg)
+        raw, source = json.load(open(run_cfg)), str(run_cfg)
     else:
-        return RunConfig.from_params_yaml(), "params.yaml (no config found beside the checkpoint)"
-    known = RunConfig.__dataclass_fields__
-    return RunConfig(**{k: (tuple(v) if isinstance(v, list) else v)
-                        for k, v in raw.items() if k in known}), source
+        raw, source = None, "params.yaml (no config found beside the checkpoint)"
+
+    if raw is None:
+        cfg = RunConfig.from_params_yaml()
+    else:
+        known = RunConfig.__dataclass_fields__
+        cfg = RunConfig(**{k: (tuple(v) if isinstance(v, list) else v)
+                           for k, v in raw.items() if k in known})
+
+    frozen_classes = classes_path_for(checkpoint)
+    if frozen_classes.exists():
+        # Absolute rather than relative-to-REPO_ROOT: `checkpoint` itself may be
+        # relative (e.g. the CLI's default) or absolute, and every consumer joins
+        # this back onto REPO_ROOT, which pathlib resolves to the right-hand side
+        # unchanged when it's already absolute -- so resolving here is safe either way.
+        cfg = replace(cfg, classes_file=str(frozen_classes.resolve()))
+    return cfg, source
 
 
 def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: float):
