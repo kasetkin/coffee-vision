@@ -298,26 +298,26 @@ def main() -> None:
                    help="epoch budget AND cosine T_max; both arms of a comparison must share it")
     p.add_argument("--tag", default="", help="slug suffix distinguishing this sweep, e.g. e80")
     p.add_argument("--seed", type=int, default=None, help="training seed; the replication axis")
-    p.add_argument("--brightness-jitter", type=float, default=0.0,
+    p.add_argument("--brightness-jitter", type=float, default=None,
                    help="sets brightness_jitter_strength; orthogonal to --arm, see module docstring. "
                         "Defaults to 0.0 (off) on *every* invocation -- unlike --epochs/--seed this is not "
                         "'leave whatever was there', because that silently carried a stale strength from one "
                         "sweep into the next 'reference' sweep once (see EXPERIMENTS_LOG.md Phase 13).")
-    p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
+    p.add_argument("--freeze-mode", default=None, choices=["none", "last_block", "full"],
                    help="how much of the backbone to fine-tune. Like --brightness-jitter this states its "
                         "value on EVERY run rather than inheriting whatever params.yaml held.")
-    p.add_argument("--mixup-alpha", type=float, default=0.0,
+    p.add_argument("--mixup-alpha", type=float, default=None,
                    help="Beta(a,a) batch mixing. Phase 8 rejected 0.2 on in-distribution alone; the log "
                         "carries a standing note to re-test those augmentations against cross-rig.")
-    p.add_argument("--mixstyle-p", type=float, default=0.0,
+    p.add_argument("--mixstyle-p", type=float, default=None,
                    help="per-batch probability of MixStyle (domain-agnostic v1, resnet18 only). Like "
                         "--mixup-alpha, states its value on EVERY run rather than inheriting params.yaml.")
-    p.add_argument("--mixstyle-mode", default="agnostic", choices=["agnostic", "cross_rig"],
+    p.add_argument("--mixstyle-mode", default=None, choices=["agnostic", "cross_rig"],
                    help="MixStyle partner selection: 'agnostic' (v1, adopted) mixes with any random "
                         "batch sample; 'cross_rig' (v2, screening) restricts the partner to a different "
                         "rig. Irrelevant when --mixstyle-p is 0. States its value on EVERY run like "
                         "--mixstyle-p rather than inheriting params.yaml.")
-    p.add_argument("--eta-min", type=float, default=0.0,
+    p.add_argument("--eta-min", type=float, default=None,
                    help="floor for CosineAnnealingLR's decay (PyTorch default 0.0: LR reaches exactly "
                         "zero by T_max). Like --mixstyle-p, states its value on EVERY run rather than "
                         "inheriting params.yaml. See project-lr-scheduler-hypotheses.")
@@ -474,15 +474,16 @@ def main() -> None:
         # by a plumbing mistake, because it reads the config that was actually
         # loaded and compares it against what was asked for.
         for name, wanted, got in (
-            ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
-            ("mixup_alpha", args.mixup_alpha, cfg.mixup_alpha),
-            ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
-            ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
-            ("eta_min", args.eta_min, cfg.eta_min),
+            *((("freeze_mode", args.freeze_mode, cfg.freeze_mode),) if args.freeze_mode is not None else ()),
+            *((("mixup_alpha", args.mixup_alpha, cfg.mixup_alpha),) if args.mixup_alpha is not None else ()),
+            *((("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),) if args.mixstyle_p is not None else ()),
+            *((("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),) if args.mixstyle_mode is not None else ()),
+            *((("eta_min", args.eta_min, cfg.eta_min),) if args.eta_min is not None else ()),
             *(( ("bean_k_lo", args.bean_k_lo, cfg.bean_k_lo),
                 ("bean_calibration_k", args.bean_calibration_k, cfg.bean_calibration_k))
               if args.bean_k_lo is not None else ()),
-            ("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),
+            *((("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),)
+              if args.brightness_jitter is not None else ()),
             *(( ("epochs", args.epochs, cfg.epochs),) if args.epochs is not None else ()),
             *(( ("seed", args.seed, cfg.seed),) if args.seed is not None else ()),
         ):
