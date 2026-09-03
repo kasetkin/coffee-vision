@@ -1,0 +1,5 @@
+{
+  "exp": "174",
+  "slug": "VOID_9class_dup_of_exp175",
+  "note": "VOID -- DO NOT USE AS EVIDENCE. Launched as a class_010 smoke test, but it trained a 9-way head with class_010 absent entirely: before commit 96d6a9a, class_ids came from discover_classes_multi(train_rigs[0]) -- box, which has no class_010 -- so the new class was silently dropped with no crash and no warning. Its config.json is byte-identical to exp175's apart from git_commit, which is exactly why this was not obvious; the difference shows only in metrics.json (9 class_ids here, 10 in exp175). class_010 has therefore been trained ONCE, not twice -- exp175 is the only real class_010 run, and anything citing 'exp174/175' as a pair is wrong. Kept rather than deleted so the 9-vs-10 discrepancy stays inspectable. Original (misleading) slug: allrigs_class010_smoketest_s42"
+}

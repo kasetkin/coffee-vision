@@ -259,7 +259,14 @@ def main() -> None:
     TENSORBOARD_DIR.mkdir(exist_ok=True)
 
     # Written at run start so even a crashed run leaves a record.
-    config_record = {**config_to_dict(cfg), "env": build_env_block()}
+    #
+    # class_ids is recorded here, not just in metrics.json, because two runs can
+    # otherwise have byte-identical configs and different output spaces -- which
+    # is exactly what happened with exp174 (9 classes, class_010 silently
+    # dropped) against exp175 (10), archived as an apparent pair. A config that
+    # does not state its own label set cannot be compared against another one.
+    config_record = {**config_to_dict(cfg), "class_ids": class_ids,
+                     "env": build_env_block()}
     (OUTPUTS_DIR / "config.json").write_text(json.dumps(config_record, indent=2))
 
     writer = SummaryWriter(log_dir=str(TENSORBOARD_DIR))
