@@ -32,11 +32,16 @@ class RunConfig:
     # level; `heldout_rig` contributes every one of its photos as a second,
     # cross-rig test set and is never seen in training. Setting `heldout_rig` to
     # "" disables the cross-rig split and reproduces a plain single-rig run.
+    # Overridden by params.yaml on every real run, so these are a sane resting
+    # shape rather than a live configuration. Kept current anyway: a default
+    # naming rigs that no longer exist is the kind of drift that makes a reader
+    # trust the wrong thing.
     train_rigs: tuple[str, ...] = (
-        "data/cropped/2026-08-07__box_pictures_all_classes",
-        "data/cropped/2026-08-09__pixel_cam",
+        "data/cropped/cam_pixel",
+        "data/cropped/cam_sony",
+        "data/cropped/cam_oneplus",
     )
-    heldout_rig: str = "data/cropped/2026-08-09__sony_cam"
+    heldout_rig: str = "data/cropped/cam_iphone"
     classes_file: str = "dataset/classes.txt"
 
     patch_crop_size: int = 512

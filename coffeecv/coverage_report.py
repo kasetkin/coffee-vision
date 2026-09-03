@@ -168,6 +168,35 @@ def main() -> int:
     for cid in sorted(set(labels) - set(counts)):
         errors.append(f"class_{cid} ({labels[cid]}) is declared in classes.txt but has no photos")
 
+    # 4a. rig-level coverage. Sessions are the capture unit, but RIGS is what
+    # folds hold out, and since 2026-09-03 a rig is a camera model built by
+    # merging sessions -- so a class can look uncovered per-session while being
+    # perfectly covered per-rig. Reporting only the session view said "class_010
+    # has no broad-session coverage, so every fold scores it on nothing", which
+    # is now simply false: three of the four cameras carry it.
+    merges = {}
+    for stage, body in yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"].items():
+        if stage.startswith("merge_") and isinstance(body.get("cmd"), str):
+            parts = body["cmd"].split()
+            if "--name" in parts and "--sessions" in parts:
+                merges[parts[parts.index("--name") + 1]] = parts[parts.index("--sessions") + 1:]
+    try:
+        from coffeecv.run_folds import RIGS
+        rig_names = [Path(r).name for r in RIGS]
+    except Exception:
+        rig_names = []
+    if rig_names:
+        print("\nrig-level coverage (what leave-one-rig-out actually holds out):")
+        for rn in rig_names:
+            srcs = merges.get(rn, [rn])
+            ids = {c for c in counts if any(s in counts[c] for s in srcs)}
+            miss = sorted(set(labels) - ids)
+            print(f"  {rn:<14} {len(ids):>2}/{len(labels)} classes"
+                  + (f"   missing {', '.join('class_' + m for m in miss)}" if miss else "   complete"))
+            for m in miss:
+                warnings.append(f"rig {rn} has no class_{m}: its held-out fold scores "
+                                f"{len(ids)} classes, not {len(labels)}")
+
     # 4. imbalance (informational)
     per_class_totals = {c: sum(v.values()) for c, v in counts.items()}
     if per_class_totals:
@@ -190,8 +219,9 @@ def main() -> int:
         have = cover[cid]
         if not have:
             warnings.append(f"class_{cid} appears only on single-class sessions "
-                            f"({', '.join(sorted(counts[cid]))}) -- no broad-session coverage, so "
-                            f"every leave-one-rig-out fold over a broad rig scores it on nothing")
+                            f"({', '.join(sorted(counts[cid]))}) -- fine if those sessions merge "
+                            f"into a camera rig that also carries the other classes, which is what "
+                            f"the rig-level section above checks; a problem only if one does not")
         elif len(have) < full:
             absent = [s for s in broad if s not in have]
             warnings.append(f"class_{cid} is on {len(have)} of {full} broad sessions; absent from "
