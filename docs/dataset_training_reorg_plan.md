@@ -622,15 +622,32 @@ that `dvc.yaml` plots is therefore not the metric that gets reported. One-line f
 0.9917. Since `best.pt` is selected on peak val macro-F1, this degrades *which checkpoint ships*, not
 just reporting.
 
-### 3h. Photo-level pooling — real, but the box regression is within its own error bar
+### 3h. Photo-level pooling — **resolved 2026-09-03: the box regression was noise**
 
-Verified from Phase 14: box −0.035, pixel +0.079, sony +0.015, mean +0.020. **What the first draft
-omitted is the log's own next sentence**: "n=27 photos/fold, so ±3.7 points per photo; directional,
-not precise." The box fold's −0.035 is *one photo*. Building a confidence-weighted or outlier-rejecting
-aggregator to chase it would be tuning against noise.
+Verified from Phase 14: box −0.035, pixel +0.079, sony +0.015, mean +0.020, with the log's own next
+sentence being "n=27 photos/fold, so ±3.7 points per photo; directional, not precise." The box fold's
+−0.035 is *one photo*, so chasing it with a confidence-weighted or outlier-rejecting aggregator would
+have been tuning against noise. The prerequisite was a bigger photo-level eval set, not a cleverer
+aggregator — which is what B3′ did.
 
-The prerequisite is a bigger photo-level eval set, not a cleverer aggregator. That reframes B3
-entirely (see below).
+**Done.** `coffeecv/photo_pooling_eval.py` scored every photo of each held-out rig using that fold's
+own archived checkpoint, 40 patches per photo to match Phase 14:
+
+| fold | n | patch | photo | delta | Phase 14 (n=27) |
+|---|---|---|---|---|---|
+| box | 180 | 0.782 | 0.894 | **+0.113** | −0.035 |
+| pixel_cam | 180 | 0.776 | 0.883 | **+0.107** | +0.079 |
+| sony_cam | 180 | 0.729 | 0.806 | **+0.077** | +0.015 |
+| oneplus | 90 | 0.855 | 0.922 | **+0.067** | — |
+| iphone | 92 | 0.784 | 0.880 | **+0.097** | — |
+| **mean** | **722** | | | **+0.092** | +0.020 |
+
+**5/5 positive; the box fold's −0.035 became +0.113 — the largest gain in the set — with nothing
+changed but the sample size.** Plain mean pooling is worth ~9 points, about 4.5× what Phase 14 could
+resolve, uniformly across all five rigs including the two phone rigs it never covered. Phase 14's
+mechanism argument still caps the ceiling (within-photo patch errors are correlated, so 40 patches are
+not 40 independent votes), but the "one fold goes backwards" finding does not survive a real sample.
+Full write-up: `analysis/photo_pooling_README.md`.
 
 ### 3i. No DVC remote (unchanged, verified — and now confirmed on both machines)
 
@@ -701,7 +718,7 @@ provenance items and one measurement item now outrank the capture work.
 | # | Action | Why | Cost |
 |---|---|---|---|
 | **A3** | **Fresh-scoop session** from newly-purchased bags of an existing origin, held out from all training | §2e: the one generalization axis never measured, and the closest thing to real deployment | 1 session + bean purchase |
-| **B3′** | **Enlarge the photo-level eval set first**, then reconsider pooling | §3h: the box fold's −0.035 is one photo out of 27. Get n up before engineering an aggregator against it. Revised from the first draft, which treated the regression as established | Cheap (scoring, no retraining) |
+| ~~**B3′**~~ **DONE 2026-09-03** | Scored every photo of all five held-out rigs (722 photos vs Phase 14's 81) with each fold's archived checkpoint. **Pooling is worth +0.092, 5/5 folds positive** — and the box fold's −0.035 became **+0.113** on sample size alone | §3h: answers itself. Do not build a confidence-weighted or outlier-rejecting aggregator — there is no regression to chase, and plain mean pooling already buys ~4.5× what Phase 14 could measure | done (~40 min scoring) |
 | **B4** | **Target the confusion cluster, not the two pairs the old §2d named.** 006/007 is confirmed rank 1 (21.9%) and worth a direct screen; 001/008 is refuted (rank 15, 3.6%, and 008 is the 2nd-cleanest class) and should be dropped from the target list. The bigger prize may be 002 Kenya AA, which the plan never mentioned and which sits in ranks 2-4 | §2d, recomputed from 44 cross-rig confusion matrices. Per-class rates say the problem is a 002/005/006/007 cluster, not isolated pairs — a coarse/hierarchical auxiliary signal is a better fit for that shape than a pairwise fix | One fold-sweep-scale screen, paired multi-seed |
 | **B1** | Address val saturation — grow the val split, or change checkpoint selection | §3g: affects which checkpoint ships | Design + a fold-scale screen |
 | **D1** | Reconcile `EXPERIMENTS_LOG.md` with `index.csv`/`params.yaml`; fix `webapp/README.md:35`; refresh `params.yaml`'s stale resting state and comments | §3j: the doc `README.md` calls authoritative is ~70 runs behind, including both largest adopted levers | Half a day |
