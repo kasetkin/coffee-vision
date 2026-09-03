@@ -127,8 +127,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: cc2f6d9fe926a012cf1330b808220889.dir
@@ -153,8 +153,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-09__pixel_cam
       hash: md5
       md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
@@ -179,8 +179,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-09__sony_cam
       hash: md5
       md5: d9e73dda514dadd8597a74650fd93434.dir
@@ -205,8 +205,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-25__oneplus
       hash: md5
       md5: 44438c897ca8cf2369d7986728d4f9aa.dir
@@ -231,8 +231,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-25__iphone
       hash: md5
       md5: 2868cad8b178baf567318c461ca54228.dir
@@ -257,8 +257,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: f47ec0d6318f8e222df2184e1f8e1202
-      size: 23890
+      md5: 86a054b2aacd1178a2ef9b357b720fe6
+      size: 32088
     - path: dataset/2026-08-27__oneplus_flash
       hash: md5
       md5: ae2c8306a90f711b30a3314fbd35819c.dir
