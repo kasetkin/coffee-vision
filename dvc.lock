@@ -376,3 +376,105 @@ stages:
       md5: 6a0bb40ac85acf1f5b5be0661dccc822.dir
       size: 145659690
       nfiles: 42
+  merge_cam_pixel:
+    cmd: python -m coffeecv.merge_rig --name cam_pixel --sessions 
+      2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
+      2026-08-30__pixel
+    deps:
+    - path: coffeecv/merge_rig.py
+      hash: md5
+      md5: 23ba64ca48ada645201f698f55db133d
+      size: 5064
+    - path: data/cropped/2026-08-07__box_pictures_all_classes
+      hash: md5
+      md5: ccb155e898a08749c2bf55c3c93f5073.dir
+      size: 151680104
+      nfiles: 190
+    - path: data/cropped/2026-08-09__pixel_cam
+      hash: md5
+      md5: df4345ee13d4fcf357e567fea1120093.dir
+      size: 434744091
+      nfiles: 190
+    - path: data/cropped/2026-08-30__pixel
+      hash: md5
+      md5: 8efb15e46118691aa75673128ebe6ab6.dir
+      size: 119690159
+      nfiles: 48
+    outs:
+    - path: data/cropped/cam_pixel
+      hash: md5
+      md5: b81973c3061afcbd66b2282ef7c25f3c.dir
+      size: 705962207
+      nfiles: 407
+  merge_cam_sony:
+    cmd: python -m coffeecv.merge_rig --name cam_sony --sessions 
+      2026-08-09__sony_cam 2026-08-30__sony
+    deps:
+    - path: coffeecv/merge_rig.py
+      hash: md5
+      md5: 23ba64ca48ada645201f698f55db133d
+      size: 5064
+    - path: data/cropped/2026-08-09__sony_cam
+      hash: md5
+      md5: a066ff29bcda32aca6fc800242418f63.dir
+      size: 970258699
+      nfiles: 190
+    - path: data/cropped/2026-08-30__sony
+      hash: md5
+      md5: 6a0bb40ac85acf1f5b5be0661dccc822.dir
+      size: 145659690
+      nfiles: 42
+    outs:
+    - path: data/cropped/cam_sony
+      hash: md5
+      md5: be6adf11e6c485c3a614627972ceda9a.dir
+      size: 1115861501
+      nfiles: 221
+  merge_cam_oneplus:
+    cmd: python -m coffeecv.merge_rig --name cam_oneplus --sessions 
+      2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus
+    deps:
+    - path: coffeecv/merge_rig.py
+      hash: md5
+      md5: 23ba64ca48ada645201f698f55db133d
+      size: 5064
+    - path: data/cropped/2026-08-25__oneplus
+      hash: md5
+      md5: 0e8ee6a0ce5e5a320ab7592cd50cef71.dir
+      size: 63505716
+      nfiles: 100
+    - path: data/cropped/2026-08-27__oneplus_flash
+      hash: md5
+      md5: 1995cb4ae730889008e58eb419d9fb4f.dir
+      size: 245082821
+      nfiles: 100
+    - path: data/cropped/2026-08-30__oneplus
+      hash: md5
+      md5: 48f6d54de7a842b5a5f66a5d5354ac8c.dir
+      size: 87518851
+      nfiles: 42
+    outs:
+    - path: data/cropped/cam_oneplus
+      hash: md5
+      md5: 5e2b3d93485b5e47425a6ff1a7151b50.dir
+      size: 396009394
+      nfiles: 221
+  merge_cam_iphone:
+    cmd: python -m coffeecv.merge_rig --name cam_iphone --sessions 
+      2026-08-25__iphone
+    deps:
+    - path: coffeecv/merge_rig.py
+      hash: md5
+      md5: 23ba64ca48ada645201f698f55db133d
+      size: 5064
+    - path: data/cropped/2026-08-25__iphone
+      hash: md5
+      md5: 1792b5ceb755b9804cdb2bd77630fcce.dir
+      size: 119323036
+      nfiles: 101
+    outs:
+    - path: data/cropped/cam_iphone
+      hash: md5
+      md5: b9d48cbb60f86a9536e1f372cc7b8e47.dir
+      size: 119281284
+      nfiles: 93

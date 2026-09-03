@@ -41,44 +41,38 @@ from coffeecv.config import OUTPUTS_DIR, PARAMS_FILE, REPO_ROOT, RunConfig
 # 2026-08-28: oneplus points at the merged rig (data/cropped/oneplus_combined --
 # see the merge_oneplus stage in dvc.yaml), not the single 2026-08-25__oneplus
 # session -- that session alone is now just one of two contributors to it.
+# A rig is a CAMERA MODEL, not a capture session (changed 2026-09-03).
+#
+# The previous definition keyed on the capture session, which bundled camera,
+# framing distance, lighting and date behind one label -- so no transfer failure
+# could be attributed to a cause, and it miscounted diversity: 2026-08-07__box
+# and 2026-08-09__pixel_cam are the same Pixel 9 Pro at two framing distances,
+# counted as two independent rigs.
+#
+# Each entry is built by its own merge_cam_* stage in dvc.yaml. Three of the four
+# carry all ten classes, because each camera's 08-30 class_010 session folds into
+# its own pool; cam_iphone has eight (no class_008, no class_010).
+#
+# The cost, stated plainly: this pools framing distance. cam_pixel spans 87-362 px
+# of bean pitch, roughly a 2.4x magnification range inside one rig, and framing --
+# not camera -- is what explains most of that variance (54% against 29%, measured
+# over 126 photos). A held-out camera therefore still varies two things at once;
+# it just varies them under an honest label. Separating them needs the crossed
+# camera x framing design, which is two capture sessions away from possible.
 RIGS = [
-    "data/cropped/2026-08-07__box_pictures_all_classes",
-    "data/cropped/2026-08-09__pixel_cam",
-    "data/cropped/2026-08-09__sony_cam",
-    "data/cropped/oneplus_combined",
-    "data/cropped/2026-08-25__iphone",
-    # 2026-08-30: three new sessions, one per rig, all class_010 (Indonesia,
-    # Java) only -- the first class added since project init. Kept as their
-    # own entries rather than merged into an existing sibling rig: unlike the
-    # oneplus_flash merge, these carry no overlapping class coverage to
-    # reconcile, and MultiPhotoPatchDataset already tolerates a rig supplying
-    # only some classes. Note this also puts them into run_folds.py's
-    # leave-one-rig-out rotation, not just run_all_rigs.py's all-rigs set --
-    # RIGS is the one shared list both scripts read.
-    "data/cropped/2026-08-30__oneplus",
-    "data/cropped/2026-08-30__pixel",
-    "data/cropped/2026-08-30__sony",
+    "data/cropped/cam_pixel",
+    "data/cropped/cam_sony",
+    "data/cropped/cam_oneplus",
+    "data/cropped/cam_iphone",
 ]
 
-# The 08-30 sessions carry class_010 and nothing else. That makes them fine as
-# *training* members of RIGS -- they are the only class_010 data there is -- but
-# degenerate as leave-one-rig-out targets: train_baseline scores the final
-# cross-rig metric with macro_labels=present_class_idxs, so holding one out
-# yields a macro average over the single class present. A "0.83 xrig_macro_f1"
-# from such a fold is one class's F1 against a 10-way head, and it lands in the
-# same index.csv column as a 9-class average from a box hold-out.
-#
-# They are also not free: ~90 min each, three of them, on every default sweep.
-#
-# So the rotation is RIGS minus these. They remain reachable deliberately, via
-# --include-class-transfer, because "how well does a rig transfer to an unseen
-# *class*" is a real question -- just a different one from rig transfer, and not
-# one to answer by accident.
-CLASS_TRANSFER_RIGS = [
-    "data/cropped/2026-08-30__oneplus",
-    "data/cropped/2026-08-30__pixel",
-    "data/cropped/2026-08-30__sony",
-]
+# Empty under camera rigs, and kept rather than deleted because the hazard it
+# guards against is a property of the data, not of this list: a rig whose
+# held-out split contains a single class yields a one-class macro average that
+# is not comparable to the others. Under session rigs the three 08-30 captures
+# were exactly that. Folding each into its camera dissolved the problem -- every
+# rig now spans at least eight classes -- so nothing needs excluding today.
+CLASS_TRANSFER_RIGS: list[str] = []
 LORIO_RIGS = [r for r in RIGS if r not in CLASS_TRANSFER_RIGS]
 
 # frac_min, frac_max for each arm. The baseline keeps the fixed pixel patch size
@@ -235,8 +229,24 @@ def dirty_provenance_paths() -> list[str]:
 # from its own differently-named stage instead of a 1:1 crop. Explicit, not
 # pattern-matched, because it's one rig today and guessing a naming convention for
 # a case that doesn't exist yet would be speculative.
+# A rig that is built by merging maps to its merge stage *and* to the crop stages
+# feeding it. Both matter, and the merge stage alone is not enough: if
+# crop_tray.py changes, crop@<session> goes stale while the merge's dependency
+# (the crop output directory, not yet regenerated) still looks clean -- so a
+# `dvc repro train` would re-crop and then re-merge, changing the pixels under a
+# sweep that had been told everything was up to date.
 RIG_STAGE_OVERRIDES = {
-    "oneplus_combined": "merge_oneplus",
+    "oneplus_combined": ["merge_oneplus",
+                         "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash"],
+    "cam_pixel":   ["merge_cam_pixel",
+                    "crop@2026-08-07__box_pictures_all_classes",
+                    "crop@2026-08-09__pixel_cam", "crop@2026-08-30__pixel"],
+    "cam_sony":    ["merge_cam_sony",
+                    "crop@2026-08-09__sony_cam", "crop@2026-08-30__sony"],
+    "cam_oneplus": ["merge_cam_oneplus",
+                    "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash",
+                    "crop@2026-08-30__oneplus"],
+    "cam_iphone":  ["merge_cam_iphone", "crop@2026-08-25__iphone"],
 }
 
 
@@ -260,10 +270,12 @@ def stale_crop_stages(extra: str | None = None) -> list[str]:
     stale = []
     for rig in RIGS + ([extra] if extra else []):
         name = Path(rig).name
-        stage = RIG_STAGE_OVERRIDES.get(name, f"crop@{name}")
-        out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()
-        if json.loads(out or "{}"):
-            stale.append(stage)
+        for stage in RIG_STAGE_OVERRIDES.get(name, [f"crop@{name}"]):
+            if stage in stale:
+                continue  # sessions feed more than one rig; report each stage once
+            out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()
+            if json.loads(out or "{}"):
+                stale.append(stage)
     return stale
 
 

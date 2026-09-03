@@ -22,16 +22,15 @@ seed: 42
 # rotation and now distinguishes rig-transfer folds from class-transfer ones:
 # holding out an 08-30 session yields a ONE-CLASS macro average, so those three
 # are excluded from the default sweep and need --include-class-transfer. See
-# run_folds.py's RIGS / LORIO_RIGS / CLASS_TRANSFER_RIGS.
+# run_folds.py's RIGS. As of 2026-09-03 a rig is a CAMERA MODEL, not a capture
+# session -- four rigs (Pixel, Sony, OnePlus, iPhone) built by the merge_cam_*
+# stages, rather than nine sessions. See run_folds.RIGS for why, and for the
+# cost: this pools framing distance inside each camera.
 train_rigs:
-  - data/cropped/2026-08-07__box_pictures_all_classes
-  - data/cropped/2026-08-09__pixel_cam
-  - data/cropped/2026-08-09__sony_cam
-  - data/cropped/oneplus_combined
-  - data/cropped/2026-08-25__iphone
-  - data/cropped/2026-08-30__oneplus
-  - data/cropped/2026-08-30__pixel
-  - data/cropped/2026-08-30__sony
+  - data/cropped/cam_pixel
+  - data/cropped/cam_sony
+  - data/cropped/cam_oneplus
+  - data/cropped/cam_iphone
 heldout_rig: ""
 classes_file: dataset/classes.txt
 

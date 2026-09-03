@@ -41,6 +41,57 @@ stages:
     outs:
       - data/cropped/oneplus_combined
 
+  # Camera-model rigs. A "rig" is the camera body and its processing pipeline,
+  # not the capture session: box_0807 and pixel_cam_0809 are the same Pixel 9 Pro
+  # shot at two framing distances, and counting them as independent rigs
+  # overstated how many cameras this dataset actually covers.
+  #
+  # Three of the four now carry all ten classes, because each camera's 08-30
+  # class_010 session folds into its own pool. That structurally removes the
+  # one-class folds that run_folds had to exclude by hand -- there is no longer
+  # any rig whose held-out split contains a single class.
+  #
+  # What this deliberately pools is framing distance: cam_pixel spans 87-362 px
+  # bean pitch. That is the cost of the definition, and it is the axis the
+  # camera-vs-framing decomposition says camera does NOT explain (29% of pitch
+  # variance, against framing's 54%).
+  merge_cam_pixel:
+    cmd: python -m coffeecv.merge_rig --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel
+    deps:
+      - data/cropped/2026-08-07__box_pictures_all_classes
+      - data/cropped/2026-08-09__pixel_cam
+      - data/cropped/2026-08-30__pixel
+      - coffeecv/merge_rig.py
+    outs:
+      - data/cropped/cam_pixel
+
+  merge_cam_sony:
+    cmd: python -m coffeecv.merge_rig --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony
+    deps:
+      - data/cropped/2026-08-09__sony_cam
+      - data/cropped/2026-08-30__sony
+      - coffeecv/merge_rig.py
+    outs:
+      - data/cropped/cam_sony
+
+  merge_cam_oneplus:
+    cmd: python -m coffeecv.merge_rig --name cam_oneplus --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus
+    deps:
+      - data/cropped/2026-08-25__oneplus
+      - data/cropped/2026-08-27__oneplus_flash
+      - data/cropped/2026-08-30__oneplus
+      - coffeecv/merge_rig.py
+    outs:
+      - data/cropped/cam_oneplus
+
+  merge_cam_iphone:
+    cmd: python -m coffeecv.merge_rig --name cam_iphone --sessions 2026-08-25__iphone
+    deps:
+      - data/cropped/2026-08-25__iphone
+      - coffeecv/merge_rig.py
+    outs:
+      - data/cropped/cam_iphone
+
   train:
     cmd: python -m coffeecv.train_baseline
     deps:

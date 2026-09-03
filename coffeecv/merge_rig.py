@@ -94,9 +94,15 @@ def main() -> None:
     p.add_argument("--name", required=True, help="name of the merged rig, under data/cropped/<name>")
     p.add_argument("--sessions", required=True, nargs="+", help="cropped session names to merge (>= 2)")
     args = p.parse_args()
-    if len(args.sessions) < 2:
-        raise SystemExit("--sessions needs at least 2 sessions to merge -- for a single session, "
-                          "just use its own data/cropped/<session> directly, no merge needed.")
+    if not args.sessions:
+        raise SystemExit("--sessions needs at least one session")
+    # A one-session "merge" is a copy, and was previously refused on exactly that
+    # ground. It is allowed now because rigs are keyed on camera model, so the rig
+    # name has to be stable even when a camera has been shot only once: cam_iphone
+    # is one session today and two the moment an iPhone frame-filling session
+    # lands, and that must not require editing RIGS, params.yaml and every
+    # downstream reference. Paying one directory copy to keep the identifier
+    # stable is the cheaper side of that trade.
     merge_rig(args.name, args.sessions)
 
 
