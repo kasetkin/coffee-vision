@@ -305,7 +305,7 @@ the OOD guard plus the tray-crop detector are partial backstops. But it is "no w
 "handled."
 
 
-### 3b. NEW — the bean-pitch estimator is pinned at its band floor on 39% of photos
+### 3b. The bean-pitch estimator is pinned at its band floor on 39% of photos — **interpretation REFUTED 2026-09-03, see the result at the end**
 
 This is the finding that most changes the plan's premise, and it is one measurement away from being
 actionable.
@@ -327,9 +327,10 @@ rigs (192 total):
 | **overall** | | **39% of 192** |
 
 Inspecting the weighted band profile on pinned photos shows it **decreasing monotonically from the
-first bin** — the true dominant period lies past the band's low-frequency edge and is clipped to
-k=4. Clipping k upward means pitch is *under*-estimated, so patch side `B · pitch` comes out smaller
-than the nominal 4–7 bean range asks for.
+first bin**. The draft read that as: the true dominant period lies past the band's low-frequency edge
+and is being clipped to k=4, so pitch is under-estimated. **That reading was tested on 2026-09-03 and
+is wrong** — see the result at the end of this section. The measurement (39%, rig-dependent) stands;
+the causal story does not.
 
 Why this matters more than it looks:
 
@@ -342,34 +343,49 @@ Why this matters more than it looks:
 3. **It explains the "~24% pitch noise" already noted in `run_folds.py`'s `ARMS` comment.** At k≈4
    the integer quantization step is 1/4 = 25% of pitch. That comment treats the noise as inherent and
    deliberately kept; it is substantially an artifact of operating at the band edge.
-4. **It set §3a's dead floor**: `beans_across = 2.055 · k`, so the floor was `2.055 × _K_LO = 8.22`.
+4. ~~**It set §3a's dead floor**~~ (§3a's guard is now deleted; retained for the record): `beans_across = 2.055 · k`, so the floor was `2.055 × _K_LO = 8.22`.
    With the guard now deleted (§3a) this is no longer a reason to fix the band — but it does mean any
    future guard's reachable range is defined by whatever C1c settles on, which is why
    `docs/scale_guard_plan.md` takes C1c as an entry criterion rather than a nice-to-have.
 
-Test path — **corrected 2026-09-03; the first draft's "cheapest possible test" does not work as
-written.** The intent was: lower `_K_LO` (or raise `ANALYSIS_FRAC`), re-run the 30-crop ground-truth
-benchmark in `analysis/bean_scale/`, and check whether per-image MAPE improves and the pinned
-fraction drops. Two things break that:
+**RESULT, 2026-09-03 — executed, and it inverts the hypothesis above.**
 
-1. **The benchmark does not call the production estimator.** `analysis/bean_scale/estimators.py`
-   contains no reference to `coffeecv` at all — its `m0_fft_radial` is an independent
-   reimplementation that hardcodes `lo, hi = 4, min(80, ...)`, never applies `ANALYSIS_FRAC`, and
-   omits `CALIBRATION_K` (`return float(n / k * scale)` against production's
-   `return float(n / k * scale * CALIBRATION_K)`). Editing `coffeecv/bean_scale.py` and re-running
-   `benchmark.py` therefore produces **byte-identical output** — a false null on the highest-value
-   non-capture item in this plan. It is also the same class of defect as
-   `feedback-train-inference-parity`: the offline measurement and the shipped estimator are not the
-   same code, and the missing 0.40 window is precisely the whole-frame/centre-window mismatch this
-   project already documented as a 33% pitch error.
-2. **Neither acceptance metric exists in committed code.** `benchmark.py` only dumps raw estimator
-   values into `benchmark.json`; the per-image/session MAPE table at
-   `analysis/bean_scale/README.md:60` was produced by something not in the repo, and nothing
-   computes a pinned fraction at all.
+Getting here needed two things first. `analysis/bean_scale/estimators.py` never imports `coffeecv`:
+its `m0_fft_radial` is a private copy hardcoding `lo, hi = 4, 80`, so editing
+`coffeecv/bean_scale.py` and re-running `benchmark.py` returns byte-identical output — a sweep driven
+through it would have reported a confident null whatever the band did. And neither MAPE nor a pinned
+fraction was computed by any committed code. So `bean_scale.py` gained `estimate_bean_pitch_k`
+(returns `(pitch, k)`, accepts `k_lo`/`k_hi`/`analysis_frac` overrides; the plain
+`estimate_bean_pitch` forwards to it and is bit-identical for every production caller, verified on
+real photos), and `analysis/bean_scale/band_sweep.py` scores the sweep.
 
-The measurement is still worth doing and the ground truth (30 hand-counted crops with real
-`gt_spacing_px`) is still valid and reusable — but it needs a harness first. See the revised C1 in
-§4, which is now three steps, not one command.
+*One correction to an earlier draft of this section*: the benchmark does **not** have an
+`ANALYSIS_FRAC` parity defect. `make_crops.py` cuts its crops at `FRAC = 0.40`, exactly what
+`ANALYSIS_FRAC` does internally, so passing a pre-cut crop is correct by construction — confirmed
+empirically, production/benchmark = 1.180 on every crop, precisely `CALIBRATION_K`. The hardcoded
+band was the real blocker, and the only one.
+
+| `_K_LO` | MAPE (refit K) | refit K | pinned | rig-bias spread | corr(pred, GT) |
+|---|---|---|---|---|---|
+| 2 | 29.6% | 1.131 | 0% | 0.195 | 0.699 |
+| **4 (shipped)** | **20.0%** | **1.242** | **23%** | **0.041** | **0.838** |
+| 6 | **9.7%** | 1.449 | 50% | **0.029** | **0.929** |
+
+**Lowering `_K_LO` makes everything worse; raising it makes everything better**, monotonically and on
+every rig individually. The low-frequency floor is *suppressing 1/f spectral drag*, not clipping bean
+signal — at low `k` the `k^1.5` weighting still loses to the spectrum's own falloff and the argmax
+runs to spurious long periods. "Pinned at the floor" is the guard working. Checked the obvious
+failure mode too: a floor high enough to make `k` nearly constant would degenerate into
+frame-fraction sizing and score well here only because these rigs frame similar bean counts. It is
+not degenerating — correlation *rises* and the rigs stay separated (86/202/263 px against GT
+104/239/323 at `_K_LO=6`).
+
+**Deliberately not adopted.** Ground truth is 3 rigs from 2026-08-11, predating iPhone/oneplus/08-30
+entirely — and rig-dependence was the whole reason this mattered. The gain also needs `CALIBRATION_K`
+refit from 1.18 to ~1.45, so two shipped constants move together, and ~5% is the benchmark's own
+noise floor. Next step is hand-counted ground truth on the newer rigs, then validation through
+`run_folds.py`'s cross-rig metric — never on an offline benchmark alone. Full detail:
+`analysis/bean_scale/README.md`.
 
 ### 3c. NEW — `experiments/index.csv` has duplicate rows
 
@@ -599,19 +615,20 @@ provenance items and one measurement item now outrank the capture work.
 |---|---|---|---|
 | **P1** | **Tag and push, don't merge**: `git tag -a archive/powervpsssh-2026-09-02 powervpsssh/main` (done locally 2026-09-03), then `git push origin` that tag plus local `main` from wherever GitHub push access exists (not available in this environment) | §3d: confirmed by full-tree diff — nothing on remote is genuinely at risk or unmerged; the only real gap is exp168-175's atomic commits, which a tag preserves without the conflict risk of cherry-picking. Blocked only on push access, not analysis | ~5 min once you have push access |
 | **A4** | **Add a DVC remote and push** | §3i: confirmed on both machines now — local's `.dvc/cache` is the *sole surviving copy* of 4 artifacts (3 old checkpoints + the 2026-07-24 session) that remote's cache never had, plus 4.7 GB of checkpoints here one `dvc gc` from deletion. Also a soft dependency of any work reusing archived fold checkpoints | ~30 min |
-| **P2** | `rebuild_index()`; rename exp174 to `exp174__VOID_9class_dup_of_exp175`; add `class_ids` to the archived config | §3c + §3e: the record the whole plan reads from is wrong in two places, both one command or one field away from fixed | ~30 min |
-| **C2** | Fix the epoch-vs-final macro denominator (§3f) and record the denominator in `summary.json`/`index.csv` | One-line correctness fix, plus it is a precondition for §2b being interpretable | ~1 hour |
-| **S1** | **Delete the dead scale guard**: remove `scale_verdict` (`infer.py:302`) and the `REFUSED (scale)` branch in `classify_one`; drop `webapp/app.py:214-215`'s now-unreachable `refused_scale` mapping (it reads `entry["scale_note"]`, which would no longer exist — a latent `KeyError`); rewrite `infer.py`'s module docstring, which leads with "Two independent refusals". Keep `beans_across` in the diag — only the verdict goes. The frontend's `refused_scale` string (`index.html:386`) can stay; it is an OR-chain still serving `refused_ood`/`refused_unreadable` | §3a: it cannot fire and never has, so deletion changes zero behavior — but the docstring is where someone checks whether framing is handled. Same record-cleaning category as P2 | ~30 min |
-| **S2** | **Log `beans_across` per request** — add it to `webapp/app.py`'s structured log fields. It is already computed at `infer.py:292` and thrown away | The one item in this cluster with real time-value: production framing data cannot be recovered retroactively, so every day unshipped is a day lost. It is also the entry criterion for `docs/scale_guard_plan.md`. *Scope note*: this plan excludes webapp work, but this is one field added to a log that already ships, not a feature | one line |
+| ~~**P2**~~ **DONE 2026-09-03** | `rebuild_index()`; rename exp174 to `exp174__VOID_9class_dup_of_exp175`; add `class_ids` to the archived config | §3c + §3e: the record the whole plan reads from is wrong in two places, both one command or one field away from fixed | ~30 min |
+| ~~**C2**~~ **DONE 2026-09-03** | Fix the epoch-vs-final macro denominator (§3f) and record the denominator in `summary.json`/`index.csv` | One-line correctness fix, plus it is a precondition for §2b being interpretable | ~1 hour |
+| ~~**S1**~~ **DONE 2026-09-03** | **Delete the dead scale guard**: remove `scale_verdict` (`infer.py:302`) and the `REFUSED (scale)` branch in `classify_one`; drop `webapp/app.py:214-215`'s now-unreachable `refused_scale` mapping (it reads `entry["scale_note"]`, which would no longer exist — a latent `KeyError`); rewrite `infer.py`'s module docstring, which leads with "Two independent refusals". Keep `beans_across` in the diag — only the verdict goes. The frontend's `refused_scale` string (`index.html:386`) can stay; it is an OR-chain still serving `refused_ood`/`refused_unreadable` | §3a: it cannot fire and never has, so deletion changes zero behavior — but the docstring is where someone checks whether framing is handled. Same record-cleaning category as P2 | ~30 min |
+| ~~**S2**~~ **DONE 2026-09-03 (not yet deployed)** | **Log `beans_across` per request** — add it to `webapp/app.py`'s structured log fields. It is already computed at `infer.py:292` and thrown away | The one item in this cluster with real time-value: production framing data cannot be recovered retroactively, so every day unshipped is a day lost. It is also the entry criterion for `docs/scale_guard_plan.md`. *Scope note*: this plan excludes webapp work, but this is one field added to a log that already ships, not a feature | one line |
 
 ### Tier 1 — cheap, high-information, no new data
 
 | # | Action | Why | Cost |
 |---|---|---|---|
-| **C1** | **Build the harness, then sweep the band** — three steps, not one command. **(C1a)** Point `analysis/bean_scale/estimators.py` at the real `coffeecv.bean_scale.estimate_bean_pitch` instead of its private copy, parameterized over `_K_LO`/`ANALYSIS_FRAC`; re-scoring the incumbent against its old numbers is itself informative, since it reveals how far the benchmark has been from production all along. **(C1b)** Add the two scores the decision actually needs: per-image MAPE against `ground_truth.json`'s `gt_spacing_px`, and the pinned-at-`_K_LO` fraction. **(C1c)** Then sweep the band and report. Also drop `benchmark.py`'s hardcoded `SRC = Path("/workspace/data/cropped")` so it can run on the remote box | §3b: 39% of photos clipped at the band edge, rig-dependently, in the one measurement meant to make patches rig-invariant. Still the highest-information item needing no new photos — but "just re-run the benchmark" is a false null, so building the measurement *is* the task. With B2 moved out, this now stands on a single clean purpose: **is the ruler straight?** Every cross-rig number in the log is computed through this estimator, and A1/A2's capture work is justified through those numbers | **~1 day** (previous 2-3 hour estimate assumed a working harness that does not exist) |
+| ~~**C1**~~ **DONE 2026-09-03** | Built the harness (`estimate_bean_pitch_k` with band overrides; `analysis/bean_scale/band_sweep.py` for MAPE + pinned fraction) and swept. **Result inverts the hypothesis**: raising `_K_LO` improves MAPE (20.0% -> 9.7%), rig-bias spread (0.041 -> 0.029) and GT correlation (0.838 -> 0.929); lowering it degrades all three. The floor suppresses 1/f drag rather than clipping signal | Answered "is the ruler straight?" -- the ruler is not obviously bent in the direction assumed, and the cross-rig numbers are not distorted the way §3b feared | done (~4h, not the ~1 day estimated) |
+| **C1-next** | **Extend hand-counted ground truth to the 5 newer rigs** (iPhone, oneplus, the three 08-30 sessions), then re-sweep and, only if it holds, validate `_K_LO`+`CALIBRATION_K` through a `run_folds` cross-rig sweep | The 2026-08-11 ground truth covers 3 rigs and predates every rig added since -- and rig-dependence is the entire reason the band mattered. Adopting on 3 rigs would repeat exactly the mistake the scale-guard thresholds made | Counting session + a fold sweep |
 | ~~**B2**~~ | **Moved out of this plan → `docs/scale_guard_plan.md`.** Re-introducing a framing guard is a design problem (refuse vs warn; what a too-far bound is even based on; whether scale and OOD are actually independent; whether the tray-crop detector makes it partly moot; pre- vs post-capture advice), blocked on two inputs that do not exist yet: C1c's corrected estimator, and enough logged `beans_across` (S2) to see the real distribution | Setting thresholds today would repeat the original mistake — deriving them from theory rather than measurement. S1 deletes the broken one so the scale plan starts from no guard rather than a lying one | — (tracked in the scale plan) |
-| **A5** | **Coverage-check script**: print the §2 table, assert class-dir naming consistency, carry an explicit exclusion list for the three non-pipeline sessions, warn on rig×class imbalance | §2 took manual cross-referencing of eight directories to produce, and will need it again on every new session. Also catches the `class_009__Vietnam` drift | 1-2 hours |
-| **B-fix** | **Make fold semantics explicit**: label the 08-30 entries as class-transfer folds distinct from rig-transfer folds, exclude them from the default `run_folds` rotation, and surface the macro denominator per fold | §2b: three of eight default folds are degenerate one-class evaluations at ~90 min each, sitting in the same column as 9-class rows | Half a day (naming + a `RIGS` split, no DVC stage needed) |
+| ~~**A5**~~ **DONE 2026-09-03** | **Coverage-check script** (`coffeecv/coverage_report.py`): print the §2 table, assert class-dir naming consistency, carry an explicit exclusion list for the three non-pipeline sessions, warn on rig×class imbalance | §2 took manual cross-referencing of eight directories to produce, and will need it again on every new session. Also catches the `class_009__Vietnam` drift | 1-2 hours |
+| ~~**B-fix**~~ **DONE 2026-09-03** | **Make fold semantics explicit**: label the 08-30 entries as class-transfer folds distinct from rig-transfer folds, exclude them from the default `run_folds` rotation, and surface the macro denominator per fold | §2b: three of eight default folds are degenerate one-class evaluations at ~90 min each, sitting in the same column as 9-class rows | Half a day (naming + a `RIGS` split, no DVC stage needed) |
 
 ### Tier 2 — capture work
 
@@ -646,9 +663,8 @@ A5 (coverage script)       ──┘                             │
 S1 (delete dead scale guard) ── independent, ~30 min
 S2 (log beans_across)        ── independent, one line; starts the scale plan's clock
                                                            │
-C1a (wire benchmark to the production estimator)           │
-  └─> C1b (MAPE + pinned-fraction scoring)                 │
-        └─> C1c (sweep the band)                           │
+C1a/b/c  DONE 2026-09-03 -- harness built, band swept, hypothesis refuted
+  └─> C1-next (ground truth on the 5 newer rigs, then a fold sweep)  ── not started
                                                            │
 A1 (iPhone +88 across 8 classes) ──┐                       │
 A2 (class_010 on box + iPhone)  ───┴───────────────────────┴──> B5 (10-class fold sweep + ship)
@@ -695,12 +711,13 @@ existing outputs are still valid, or accept and budget the re-crop. Do not disco
    epoch/final denominator. Under two hours total, and it stops the experiment log from lying about
    two things it currently lies about. These touch no DVC stage, so the crop-staleness prerequisite
    in §5 does not apply — this is the cleanest place to start.
-5. **C1 — build the pitch-estimator harness, then sweep.** Still the highest-information item that
-   needs no new photos: 39% of photos are clipped at a band edge, rig-dependently, inside the
-   mechanism that is supposed to make patches rig-invariant. If it moves, it moves the cross-rig gap
-   this entire plan is organized around. But the existing benchmark measures a private copy of the
-   estimator, not the shipped one (§3b), so **step one is making the measurement real, not running
-   it** — budget ~1 day, and treat C1a's re-scored incumbent as a result in its own right.
+5. **C1 — DONE 2026-09-03, and it came back the other way round.** Built the missing harness
+   (the benchmark measured a private copy of the estimator, so a band sweep through it was a
+   guaranteed null) and swept. Raising `_K_LO` improves accuracy, rig-bias spread and correlation
+   against ground truth; lowering it — the thing §3b proposed — makes all three worse. The band floor
+   is suppressing 1/f spectral drag, not clipping bean signal. **Not adopted**: the ground truth is 3
+   rigs and predates the 5 newer ones, and the gain needs `CALIBRATION_K` refit alongside. Follow-up
+   is C1-next, not a config change.
 6. **A5 + B-fix — make coverage and fold semantics legible**, so the next class or rig added doesn't
    require re-deriving §2 by hand and doesn't silently add degenerate folds to the default sweep.
 
