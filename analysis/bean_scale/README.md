@@ -150,3 +150,42 @@ with `_K_LO` and the rigs stay separated (means 86/202/263 px against GT 104/239
 Next step is extending hand-counted ground truth to the newer rigs, then validating
 through `run_folds.py`'s cross-rig metric — per this project's rule that a config change
 is validated on folds, never on an offline benchmark alone.
+
+## Can a VLM replace hand-counting? Validated 2026-09-03 — yes, for the paired question
+
+Counted 29 of these 30 crops with a VLM (Claude), blind to the human counts, and compared.
+
+**Aggregate accuracy is human-comparable.** Mean spacing error 3.1% (whole-image protocol, n=12)
+and 4.7% (grid-assisted, n=17), against the human's own stated ~5%. The `spacing = side/sqrt(N)`
+definition damps counting error usefully: a ±2-bean miscount on ~20 is only ~4% on spacing.
+
+**But absolute per-rig bias is NOT usable, and no protocol fixed it.** Per-rig bias spread was 0.056
+(whole-image) and 0.050 (grid-assisted) — ~4x the 0.012 difference the band sweep above needs to
+resolve. Worse, the bias *moved between rigs* when the protocol changed (worst on pixel_cam under one,
+sony_cam under the other), so it is not a stable offset that could be calibrated away.
+
+**The decisive point: that limit is not about VLMs.** Per-crop bias sd is 0.055, so a per-rig bias
+estimate has SE 0.0175 at n=10 crops/rig — above the effect. The human's own within-rig GT spread is
+4.3-7.6% CV, giving SE ~0.016 at n=10. **Neither counter can resolve 0.012 at this sample size**;
+~190 crops/rig would be needed. The README above already hinted at this ("within-rig correlations are
+noise against noise"). Rig-bias spread should not be used as a decision metric at these n.
+
+**What does work is the paired comparison**, which is what the band sweep actually is: the same crops
+scored under two band settings, so per-crop ground-truth error is common to both arms and cancels.
+Re-running the sweep scored against VLM counts instead of human counts, on the same 17 crops:
+
+| `_K_LO` | MAPE (human GT) | MAPE (VLM GT) | corr (human) | corr (VLM) |
+|---|---|---|---|---|
+| 2 | 28.7% | 29.7% | 0.742 | 0.739 |
+| 4 | 21.0% | 21.1% | 0.859 | 0.862 |
+| 5 | 15.3% | 14.9% | 0.863 | 0.862 |
+| **6** | **9.3%** | **10.1%** | **0.922** | **0.909** |
+
+Same winner, same monotone ordering, every MAPE within 1 percentage point and every correlation
+within 0.013.
+
+**So C1-next does not need a hand-counting session.** Its question — does the band finding replicate
+on the five rigs added since 2026-08-11 — is a paired MAPE/correlation comparison, and VLM counts
+answer it as well as human counts do. Caveat worth keeping: this validation is on the three *old*
+rigs; VLM bias on iPhone/oneplus/08-30 is unmeasured, which matters little for the paired metric but
+would matter if anyone tried to read absolute pitch off it.
