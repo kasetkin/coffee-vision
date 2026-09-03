@@ -1,0 +1,272 @@
+[
+ {
+  "name": "iphone__00.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6253__cropped.jpg",
+  "crop_side_px": 698,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 148.8141000162161
+ },
+ {
+  "name": "iphone__01.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6272__cropped.jpg",
+  "crop_side_px": 698,
+  "view_px": 900,
+  "n_beans": 26,
+  "gt_spacing_px": 136.88906232645246
+ },
+ {
+  "name": "iphone__02.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_002__Kenya_AA/IMG_6288__cropped.jpg",
+  "crop_side_px": 697,
+  "view_px": 900,
+  "n_beans": 23,
+  "gt_spacing_px": 145.33454659778113
+ },
+ {
+  "name": "iphone__03.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6312D__cropped.jpg",
+  "crop_side_px": 583,
+  "view_px": 900,
+  "n_beans": 27,
+  "gt_spacing_px": 112.19840231251727
+ },
+ {
+  "name": "iphone__04.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6266__cropped.jpg",
+  "crop_side_px": 701,
+  "view_px": 900,
+  "n_beans": 23,
+  "gt_spacing_px": 146.1686042540094
+ },
+ {
+  "name": "iphone__05.png",
+  "rig": "iphone",
+  "photo": "2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6255__cropped.jpg",
+  "crop_side_px": 702,
+  "view_px": 900,
+  "n_beans": 23,
+  "gt_spacing_px": 146.3771186680665
+ },
+ {
+  "name": "oneplus__00.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_005__Guatemala_Tata/PXL_20260825_194217289__cropped.jpg",
+  "crop_side_px": 691,
+  "view_px": 900,
+  "n_beans": 27,
+  "gt_spacing_px": 132.9830120033438
+ },
+ {
+  "name": "oneplus__01.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_004__CostaRica_LaPastora/PXL_20260825_195621315__cropped.jpg",
+  "crop_side_px": 649,
+  "view_px": 900,
+  "n_beans": 25,
+  "gt_spacing_px": 129.8
+ },
+ {
+  "name": "oneplus__02.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_006__Brazil_Cerrado/PXL_20260827_184223106__cropped.jpg",
+  "crop_side_px": 1115,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 227.59842193360365
+ },
+ {
+  "name": "oneplus__03.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_005__Guatemala_Tata/PXL_20260825_194139695__cropped.jpg",
+  "crop_side_px": 689,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 140.64153606480082
+ },
+ {
+  "name": "oneplus__04.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_002__Kenya_AA/PXL_20260827_185316654__cropped.jpg",
+  "crop_side_px": 1128,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 230.25203582161876
+ },
+ {
+  "name": "oneplus__05.png",
+  "rig": "oneplus",
+  "photo": "oneplus_combined/class_007__Brazil_MonteCristo/PXL_20260825_195153964__cropped.jpg",
+  "crop_side_px": 687,
+  "view_px": 900,
+  "n_beans": 22,
+  "gt_spacing_px": 146.46889213630436
+ },
+ {
+  "name": "d0830_pixel__00.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124333854__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 11,
+  "gt_spacing_px": 370.25593114149376
+ },
+ {
+  "name": "d0830_pixel__01.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124448165__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 289.4423757656935
+ },
+ {
+  "name": "d0830_pixel__02.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124904200__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 24,
+  "gt_spacing_px": 250.6644503448119
+ },
+ {
+  "name": "d0830_pixel__03.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124028306__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 274.5891476369742
+ },
+ {
+  "name": "d0830_pixel__04.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124053418__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 274.5891476369742
+ },
+ {
+  "name": "d0830_pixel__05.png",
+  "rig": "d0830_pixel",
+  "photo": "2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124324645__cropped.jpg",
+  "crop_side_px": 1228,
+  "view_px": 900,
+  "n_beans": 9,
+  "gt_spacing_px": 409.3333333333333
+ },
+ {
+  "name": "d0830_sony__00.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200328__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 14,
+  "gt_spacing_px": 405.1680427392354
+ },
+ {
+  "name": "d0830_sony__01.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200454__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 357.32462675960204
+ },
+ {
+  "name": "d0830_sony__02.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200703__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 16,
+  "gt_spacing_px": 379.0
+ },
+ {
+  "name": "d0830_sony__03.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200308__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 17,
+  "gt_spacing_px": 367.68400755508077
+ },
+ {
+  "name": "d0830_sony__04.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200810__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 19,
+  "gt_spacing_px": 347.7942525477716
+ },
+ {
+  "name": "d0830_sony__05.png",
+  "rig": "d0830_sony",
+  "photo": "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200147__cropped.jpg",
+  "crop_side_px": 1516,
+  "view_px": 900,
+  "n_beans": 17,
+  "gt_spacing_px": 367.68400755508077
+ },
+ {
+  "name": "d0830_oneplus__00.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175742675__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 282.842712474619
+ },
+ {
+  "name": "d0830_oneplus__01.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175342884__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 18,
+  "gt_spacing_px": 282.842712474619
+ },
+ {
+  "name": "d0830_oneplus__02.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175450394__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 20,
+  "gt_spacing_px": 268.32815729997475
+ },
+ {
+  "name": "d0830_oneplus__03.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175459536__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 19,
+  "gt_spacing_px": 275.2988806446741
+ },
+ {
+  "name": "d0830_oneplus__04.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175659210__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 19,
+  "gt_spacing_px": 275.2988806446741
+ },
+ {
+  "name": "d0830_oneplus__05.png",
+  "rig": "d0830_oneplus",
+  "photo": "2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175126927__cropped.jpg",
+  "crop_side_px": 1200,
+  "view_px": 900,
+  "n_beans": 19,
+  "gt_spacing_px": 275.2988806446741
+ }
+]

@@ -189,3 +189,42 @@ on the five rigs added since 2026-08-11 — is a paired MAPE/correlation compari
 answer it as well as human counts do. Caveat worth keeping: this validation is on the three *old*
 rigs; VLM bias on iPhone/oneplus/08-30 is unmeasured, which matters little for the paired metric but
 would matter if anyone tried to read absolute pitch off it.
+
+## C1-next executed 2026-09-03 — the band finding replicates on the 5 newer rigs
+
+30 fresh crops (6 each from iPhone, oneplus_combined, and the three 08-30 sessions), generated with
+the same geometry as `make_crops.py` and counted by VLM per the validation above. Ground truth in
+`ground_truth_newrigs_vlm.json`.
+
+| `_K_LO` | MAPE old (human, 3 rigs) | MAPE new (VLM, 5 rigs) | corr old | corr new |
+|---|---|---|---|---|
+| 2 | 29.6% | 31.0% | 0.699 | 0.759 |
+| **4 (shipped)** | **20.0%** | **20.1%** | 0.838 | 0.825 |
+| 5 | 15.3% | **13.7%** | 0.877 | **0.918** |
+| 6 | **9.7%** | 13.7% | **0.929** | 0.854 |
+| 7 | 10.3% | 13.0% | 0.946 | 0.904 |
+
+**What replicates:** the direction, unambiguously. `_K_LO=2` is bad on both (29.6/31.0%); the shipped
+`_K_LO=4` lands at essentially the same place on both (20.0/20.1%); raising the floor improves both.
+Across 8 rigs now, lowering the band is worse and raising it is better — the low-frequency floor
+suppresses 1/f drag rather than clipping bean signal.
+
+**What does not replicate: the optimum.** On the old rigs the minimum is sharp at `_K_LO=6` (9.7%,
+corr rising monotonically to 0.946 at 7). On the newer rigs the curve is flat from 5 to 7
+(13.7/13.7/13.0%) and correlation is **non-monotone** — it peaks at `_K_LO=5` (0.918) and drops at 6
+(0.854). The gain is also smaller: 20.1% -> 13.0% here against 20.0% -> 9.7% there.
+
+Also worth noting: the refitted calibration at the shipped band is **1.180 on the newer rigs**, versus
+1.242 on the old ones. The shipped `CALIBRATION_K = 1.18` therefore already fits the newer rigs
+almost exactly, and it is the *old* three that are slightly under-calibrated.
+
+**Reading this:** `_K_LO=5` is the defensible move if one is made — 15.3%/13.7% and correlation
+0.877/0.918, good on both sets — whereas 6 is excellent on the old rigs (9.7%) but no better than 5 on
+the new ones and costs correlation there. Anything past 5 is not supported by both rig sets.
+
+**Still not a config change.** This is offline reconstruction accuracy, not classification accuracy.
+Per this project's rule that config changes are validated on folds, `_K_LO` (and the `CALIBRATION_K`
+that must move with it) needs a `run_folds.py` cross-rig sweep before shipping. Caveats on this
+result: n=6/rig; VLM counts validated for paired comparison but not for absolute per-rig bias; and the
+08-30 pixel session genuinely spans 9-24 beans per crop, so its framing distance varies far more than
+any other rig's, which widens the spread here.
