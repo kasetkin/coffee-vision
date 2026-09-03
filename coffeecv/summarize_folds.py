@@ -32,6 +32,9 @@ def load(exp_dir: Path) -> dict | None:
         "val": metrics["splits"]["val"]["macro_f1"],
         "test": metrics["splits"]["test"]["macro_f1"],
         "xrig": metrics["splits"]["test_xrig"]["macro_f1"],
+        # None for folds archived before macro_n existed (2026-09-03).
+        "xrig_n": metrics["splits"]["test_xrig"].get("macro_n"),
+        "n_classes": len(metrics.get("class_ids", [])),
         "xrig_mcc": metrics["splits"]["test_xrig"]["mcc"],
         "scale": (cfg.get("patch_scale_frac_min", 0), cfg.get("patch_scale_frac_max", 0)),
         "best_epoch": metrics.get("best_epoch"),
@@ -55,12 +58,18 @@ def main() -> None:
         arm = "scale" if r["scale"][1] > 0 else "baseline"
         arms.setdefault(arm, []).append(r)
 
-    print(f"{'arm':<9} {'held-out rig':<12} {'val':>7} {'test':>7} {'XRIG':>7} {'xrig_mcc':>9} {'ep':>4}")
+    print(f"{'arm':<9} {'held-out rig':<12} {'val':>7} {'test':>7} {'XRIG':>7} {'n/N':>6} "
+          f"{'xrig_mcc':>9} {'ep':>4}")
     print("-" * 60)
     for arm in sorted(arms):
         for r in sorted(arms[arm], key=lambda r: r["heldout"]):
             print(f"{arm:<9} {short(r['heldout']):<12} {r['val']:7.4f} {r['test']:7.4f} "
-                  f"{r['xrig']:7.4f} {r['xrig_mcc']:9.4f} {r['best_epoch']:4}")
+                  f"{r['xrig']:7.4f} "
+                  # How many classes that XRIG average covers, out of the head's
+                  # width. A bare 0.83 means something different at 1/10 than at
+                  # 9/9; "?" is a fold predating macro_n.
+                  f"{(str(r['xrig_n']) if r['xrig_n'] is not None else '?') + '/' + str(r['n_classes']):>6} "
+                  f"{r['xrig_mcc']:9.4f} {r['best_epoch']:4}")
         xs = [r["xrig"] for r in arms[arm]]
         ts = [r["test"] for r in arms[arm]]
         print(f"{'':<9} {'MEAN':<12} {sum(ts)/len(ts):15.4f} {sum(xs)/len(xs):7.4f}   "

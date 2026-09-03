@@ -29,7 +29,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
+from coffeecv.config import OUTPUTS_DIR, PARAMS_FILE, REPO_ROOT, RunConfig
 
 # 2026-08-26: expanded from the original 3 to all 5 rigs for a true 5-way
 # leave-one-rig-out sweep (train on whichever 4 aren't held out) -- this list
@@ -59,6 +59,27 @@ RIGS = [
     "data/cropped/2026-08-30__pixel",
     "data/cropped/2026-08-30__sony",
 ]
+
+# The 08-30 sessions carry class_010 and nothing else. That makes them fine as
+# *training* members of RIGS -- they are the only class_010 data there is -- but
+# degenerate as leave-one-rig-out targets: train_baseline scores the final
+# cross-rig metric with macro_labels=present_class_idxs, so holding one out
+# yields a macro average over the single class present. A "0.83 xrig_macro_f1"
+# from such a fold is one class's F1 against a 10-way head, and it lands in the
+# same index.csv column as a 9-class average from a box hold-out.
+#
+# They are also not free: ~90 min each, three of them, on every default sweep.
+#
+# So the rotation is RIGS minus these. They remain reachable deliberately, via
+# --include-class-transfer, because "how well does a rig transfer to an unseen
+# *class*" is a real question -- just a different one from rig transfer, and not
+# one to answer by accident.
+CLASS_TRANSFER_RIGS = [
+    "data/cropped/2026-08-30__oneplus",
+    "data/cropped/2026-08-30__pixel",
+    "data/cropped/2026-08-30__sony",
+]
+LORIO_RIGS = [r for r in RIGS if r not in CLASS_TRANSFER_RIGS]
 
 # frac_min, frac_max for each arm. The baseline keeps the fixed pixel patch size
 # so its cross-rig number answers "what does the current model actually do".
@@ -246,6 +267,15 @@ def main() -> None:
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
     p.add_argument("--start-exp", type=int, required=True, help="experiment number of the first fold")
     p.add_argument("--only", help="run just this held-out rig (substring match)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Print the folds that would run, with each one's slug and class coverage, "
+                        "then exit before touching params.yaml. Checking the plan otherwise means "
+                        "starting a real fold, which rewrites params.yaml and clears outputs/.")
+    p.add_argument("--include-class-transfer", action="store_true",
+                   help="Also sweep the class-transfer rigs (the 08-30 class_010-only sessions). "
+                        "Off by default: holding one out produces a ONE-CLASS macro average, not "
+                        "comparable to the 8-9 class averages the other folds report, and costs "
+                        "~90 min each. See CLASS_TRANSFER_RIGS.")
     p.add_argument("--extra-heldout", default=None,
                    help="Evaluate against this rig instead of sweeping RIGS. Train set is always "
                         "all of RIGS unchanged (this rig is never a RIGS member, so set_fold's own "
@@ -331,7 +361,17 @@ def main() -> None:
 
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [args.extra_heldout] if args.extra_heldout else \
-        [r for r in RIGS if not args.only or args.only in r]
+        [r for r in (RIGS if args.include_class_transfer else LORIO_RIGS)
+         if not args.only or args.only in r]
+    if not heldouts:
+        # Most likely --only naming a class-transfer rig without opting in, which
+        # would otherwise sweep nothing at all and look like a no-op success.
+        hit = [r for r in CLASS_TRANSFER_RIGS if args.only and args.only in r]
+        raise SystemExit(
+            f"--only {args.only!r} matched no rig in the rotation."
+            + (f" It matches {hit[0]}, which is a class-transfer rig and excluded by default; "
+               f"pass --include-class-transfer if a one-class fold is genuinely what you want."
+               if hit else f" Rotation is: {', '.join(LORIO_RIGS)}"))
 
     # Experiment numbers are assigned by hand via --start-exp, and the resume
     # check below keys on exp id *and* slug -- so reusing an id under a different
@@ -339,12 +379,20 @@ def main() -> None:
     # those directories, so the collision surfaces as duplicate ids in the record
     # rather than as an error. Near-miss during Phase 13: an interrupted sweep and
     # the sweep that replaced it both started at 75.
-    family = "extraheld" if args.extra_heldout else "lorio"
+    # Per-fold, not global: a class-transfer fold must not land in the archive
+    # under a slug that reads like a rig-transfer one. Without this the 08-30
+    # sessions produce "lorio_beans_heldout_pixel" beside the real
+    # "lorio_beans_heldout_pixel_cam" -- two different measurements, near-identical
+    # names, and only a one-class macro average to tell them apart after the fact.
+    def family_for(heldout: str) -> str:
+        if args.extra_heldout:
+            return "extraheld"
+        return "classxfer" if heldout in CLASS_TRANSFER_RIGS else "lorio"
     collisions = []
     for i, heldout in enumerate(heldouts):
         exp_id = args.start_exp + i
         tag = f"_{args.tag}" if args.tag else ""
-        slug = f"{family}_{args.arm}{tag}_heldout_{Path(heldout).name.split('__')[-1]}"
+        slug = f"{family_for(heldout)}_{args.arm}{tag}_heldout_{Path(heldout).name.split('__')[-1]}"
         for existing in (REPO_ROOT / "experiments").glob(f"exp{exp_id}__*"):
             if existing.name != f"exp{exp_id}__{slug}":
                 collisions.append(f"exp{exp_id}: would add '{slug}' beside existing '{existing.name}'")
@@ -358,11 +406,29 @@ def main() -> None:
             raise SystemExit(1)
         print("--force given: continuing.", flush=True)
 
+    if args.dry_run:
+        print(f"\n{len(heldouts)} fold(s) would run "
+              f"({'RIGS + class-transfer' if args.include_class_transfer else 'rig-transfer rotation'}):\n")
+        for i, heldout in enumerate(heldouts):
+            short = Path(heldout).name
+            tag = f"_{args.tag}" if args.tag else ""
+            slug = f"{family_for(heldout)}_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
+            n_classes = len([d for d in (REPO_ROOT / heldout).iterdir() if d.is_dir()]) \
+                if (REPO_ROOT / heldout).exists() else 0
+            flag = "  <-- ONE-CLASS fold" if n_classes == 1 else ""
+            print(f"  exp{args.start_exp + i}  {short:<38} {n_classes} class(es)  {slug}{flag}")
+        excluded = [r for r in CLASS_TRANSFER_RIGS if r not in heldouts]
+        if excluded:
+            print(f"\nexcluded from the rotation (pass --include-class-transfer to sweep them): "
+                  + ", ".join(Path(r).name for r in excluded))
+        print("\n--dry-run: params.yaml untouched, nothing trained.")
+        return
+
     for i, heldout in enumerate(heldouts):
         exp_id = args.start_exp + i
         short = Path(heldout).name
         tag = f"_{args.tag}" if args.tag else ""
-        slug = f"{family}_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
+        slug = f"{family_for(heldout)}_{args.arm}{tag}_heldout_{short.split('__')[-1]}"
 
         # Resume: a fold that already archived a metrics.json is done. Two power
         # cuts during this sweep made restart-from-scratch the expensive default;
@@ -412,6 +478,25 @@ def main() -> None:
             raise SystemExit(1)
         mins = (time.time() - t0) / 60
         print(f"fold {short} finished in {mins:.0f} min", flush=True)
+
+        # State the denominator out loud, next to the number it belongs to.
+        # xrig_macro_f1 is an average over however many classes the held-out rig
+        # actually contains -- 9 for box/pixel/sony/oneplus, 8 for iPhone (no
+        # class_008), 1 for a class-transfer rig -- and until now nothing said
+        # which, so four different measurements shared one column. Printing it
+        # here means the operator sees it while the sweep runs, not months later
+        # while trying to reconcile index.csv.
+        try:
+            mj = json.loads((OUTPUTS_DIR / "metrics.json").read_text())
+            xr, total = mj["splits"].get("test_xrig"), len(mj["class_ids"])
+        except (OSError, ValueError, KeyError):
+            xr, total = None, 0
+        if xr:
+            n = xr.get("macro_n")
+            print(f"  xrig_macro_f1={xr['macro_f1']:.4f} over {n if n is not None else '?'}"
+                  f"/{total} classes"
+                  + ("   <-- ONE-CLASS fold, not comparable to the others" if n == 1 else ""),
+                  flush=True)
 
         # Built from the config that was actually loaded, not from the CLI args.
         # `--epochs`/`--seed` mean "leave whatever params.yaml had" when omitted,
