@@ -107,7 +107,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
              seed: int | None = None, brightness_jitter: float | None = None,
              freeze_mode: str | None = None, mixup_alpha: float | None = None,
              mixstyle_p: float | None = None, mixstyle_mode: str | None = None,
-             eta_min: float | None = None) -> "RunConfig":
+             eta_min: float | None = None, bean_k_lo: int | None = None,
+             bean_calibration_k: float | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
     `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
@@ -157,6 +158,10 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         elif "." not in eta_min_str:
             eta_min_str += ".0"
         text = re.sub(r"^eta_min: .*$", f"eta_min: {eta_min_str}", text, count=1, flags=re.M)
+    if bean_k_lo is not None:
+        text = re.sub(r"^bean_k_lo: .*$", f"bean_k_lo: {bean_k_lo}", text, count=1, flags=re.M)
+        text = re.sub(r"^bean_calibration_k: .*$", f"bean_calibration_k: {bean_calibration_k}",
+                      text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -267,6 +272,12 @@ def main() -> None:
     p.add_argument("--arm", choices=sorted(ARMS), required=True)
     p.add_argument("--start-exp", type=int, required=True, help="experiment number of the first fold")
     p.add_argument("--only", help="run just this held-out rig (substring match)")
+    p.add_argument("--bean-k-lo", type=int, default=None,
+                   help="FFT search-band low edge for the pitch estimator (resting value 4). Must be "
+                        "given with --bean-calibration-k; see analysis/bean_scale/README.md.")
+    p.add_argument("--bean-calibration-k", type=float, default=None,
+                   help="pitch calibration constant, refitted for the chosen --bean-k-lo "
+                        "(k_lo=5 refits to 1.334 over all 8 rigs' ground truth)")
     p.add_argument("--dry-run", action="store_true",
                    help="Print the folds that would run, with each one's slug and class coverage, "
                         "then exit before touching params.yaml. Checking the plan otherwise means "
@@ -358,6 +369,13 @@ def main() -> None:
 
     if args.extra_heldout and args.only:
         raise SystemExit("--extra-heldout and --only are mutually exclusive")
+    # Band and calibration move together or not at all: bean_calibration_k is
+    # fitted against a specific bean_k_lo, so sweeping the band while leaving the
+    # constant behind measures miscalibration rather than the band. Checked here
+    # rather than in set_fold so --dry-run catches a bad invocation too.
+    if (args.bean_k_lo is None) != (args.bean_calibration_k is None):
+        raise SystemExit("--bean-k-lo and --bean-calibration-k must be given together: the "
+                         "calibration constant is fitted to the band (analysis/bean_scale/README.md)")
 
     frac_min, frac_max, beans_min, beans_max = ARMS[args.arm]
     heldouts = [args.extra_heldout] if args.extra_heldout else \
@@ -444,7 +462,7 @@ def main() -> None:
               f"held out: {short}\n{'=' * 72}", flush=True)
         cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
                        args.brightness_jitter, args.freeze_mode, args.mixup_alpha, args.mixstyle_p,
-                       args.mixstyle_mode, args.eta_min)
+                       args.mixstyle_mode, args.eta_min, args.bean_k_lo, args.bean_calibration_k)
 
         # Post-condition on the CLI contract, checked HERE rather than only inside
         # set_fold, because set_fold's own assertions are all guarded by
@@ -461,6 +479,9 @@ def main() -> None:
             ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
             ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
             ("eta_min", args.eta_min, cfg.eta_min),
+            *(( ("bean_k_lo", args.bean_k_lo, cfg.bean_k_lo),
+                ("bean_calibration_k", args.bean_calibration_k, cfg.bean_calibration_k))
+              if args.bean_k_lo is not None else ()),
             ("brightness_jitter_strength", args.brightness_jitter, cfg.brightness_jitter_strength),
             *(( ("epochs", args.epochs, cfg.epochs),) if args.epochs is not None else ()),
             *(( ("seed", args.seed, cfg.seed),) if args.seed is not None else ()),
