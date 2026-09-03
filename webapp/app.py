@@ -75,6 +75,7 @@ class _JsonFormatter(logging.Formatter):
         "top1_class", "top1_score", "ood_median", "ood_warned",
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
         "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
+        "beans_across", "bean_pitch_px",
         "ua_category", "exc_type",
     )
 
@@ -169,7 +170,8 @@ def _log_request(response):
     }
     for field in ("verdict", "top1_class", "top1_score", "ood_median", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
-                  "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms"):
+                  "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
+                  "beans_across", "bean_pitch_px"):
         value = getattr(g, field, None)
         if value is not None:
             extra[field] = value
@@ -256,6 +258,18 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
         g.top1_score = round(ranked[0][2], 4)
     if "decoded_wh" in entry:
         g.decoded_w, g.decoded_h = entry["decoded_wh"]
+    # Framing geometry. Nothing gates on these -- the scale guard that used to
+    # was deleted because it could not fire (see coffeecv/infer.py's docstring).
+    # They are logged because any future guard has to get its thresholds from
+    # the real distribution of what people photograph, and the original's
+    # thresholds were unreachable precisely because they came from theory
+    # instead. bean_pitch_px is included alongside because it is what reveals
+    # the estimator's band-floor pinning on real traffic rather than on the
+    # 192-photo sample it was found in. See docs/scale_guard_plan.md.
+    if "beans_across" in entry:
+        g.beans_across = entry["beans_across"]
+    if "bean_pitch_px" in entry:
+        g.bean_pitch_px = entry["bean_pitch_px"]
     timing = entry.get("timing_ms")
     if timing:
         g.decode_ms = timing.get("decode")
