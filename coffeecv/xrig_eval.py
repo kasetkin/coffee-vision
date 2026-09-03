@@ -152,6 +152,34 @@ def restore_bn_stats(model: nn.Module, snapshot: dict) -> None:
             m.num_batches_tracked.copy_(nb)
 
 
+def resolve_class_ids(classes_file, archive_config_path=None):
+    """(class_ids, class_labels) for the label set a checkpoint's head was fitted to.
+
+    Not simply `sorted(load_class_labels(classes_file))`. That stopped being safe
+    on 2026-08-30, when class_010 made dataset/classes.txt 10 rows: every
+    checkpoint archived before then has a 9-way head, so sizing a model from the
+    current file raises a size-mismatch RuntimeError on load and no historical
+    fold can be evaluated at all. The run's own archived metrics.json records the
+    class_ids it actually trained, which is authoritative for its head -- the same
+    reasoning behind the frozen .classes.txt sidecar that config_for_checkpoint
+    uses for shipped models.
+    """
+    class_labels = load_class_labels(classes_file)
+    class_ids = sorted(class_labels)
+    if archive_config_path is None:
+        return class_ids, class_labels
+    metrics_file = Path(archive_config_path).parent / "metrics.json"
+    if not metrics_file.exists():
+        return class_ids, class_labels
+    archived = json.loads(metrics_file.read_text()).get("class_ids")
+    if archived and list(archived) != class_ids:
+        print(f"note: {Path(classes_file).name} lists {len(class_ids)} classes, but this run "
+              f"archived {len(archived)} -- using the run's own list, which its head was fitted to")
+        class_ids = list(archived)
+        class_labels = {c: class_labels.get(c, c) for c in class_ids}
+    return class_ids, class_labels
+
+
 def build_xrig_dataset(cfg, rig, class_ids, classes_file, n_patches: int):
     """Same construction as `train_baseline.py`'s `xrig_ds` / `build_ood_reference.py`'s
     `ds` -- split="all", eval transform, this fold's own patch geometry."""
@@ -343,11 +371,19 @@ def main() -> None:
     if rig_dir is None:
         raise SystemExit("this checkpoint's config has no heldout_rig and no --rig-dir was given")
     rig = resolve_rigs([rig_dir])[0]
-    # Class-id ordering must come from classes_file, matching how the
-    # checkpoint's final layer was fitted -- not from rig_dir, which may be a
-    # target the model never trained on (that's the whole point of this script).
-    class_labels = load_class_labels(classes_file)
-    class_ids = sorted(class_labels)
+    # Class-id ordering must come from the label set the checkpoint's final layer
+    # was actually fitted to -- not from rig_dir, which may be a target the model
+    # never trained on (that's the whole point of this script), and not from
+    # whatever dataset/classes.txt says today.
+    #
+    # That last distinction stopped being academic on 2026-08-30, when class_010
+    # made classes.txt 10 rows. Every checkpoint archived before then has a 9-way
+    # head, so sizing the model from the current file raises a size-mismatch
+    # RuntimeError on load and this script could not evaluate a single historical
+    # fold. The run's own archived metrics.json records the class_ids it actually
+    # trained, so prefer that; it is the same reasoning behind the frozen
+    # .classes.txt sidecar config_for_checkpoint uses for shipped models.
+    class_ids, class_labels = resolve_class_ids(classes_file, config_path if args.exp_id is not None else None)
     print(f"target rig: {rig.name}  ({len(class_ids)} classes)")
 
     model, head = load_model(ckpt, cfg.model_name, len(class_ids), cfg.dropout)
