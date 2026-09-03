@@ -61,18 +61,44 @@ def _radial_mean(power: np.ndarray) -> np.ndarray:
 ANALYSIS_FRAC = 0.40
 
 
-def estimate_bean_pitch(img: np.ndarray, max_side: int = 1024) -> float:
+def estimate_bean_pitch(img: np.ndarray, max_side: int = 1024, **band) -> float:
     """Centre-to-centre bean spacing in pixels of `img`.
 
     `img` is BGR or grayscale, full resolution. Runs in ~150ms, which is what
     makes it affordable at inference as well as on every photo of every epoch's
     dataset build.
+
+    `**band` forwards k_lo/k_hi/analysis_frac to estimate_bean_pitch_k for
+    offline calibration sweeps; every production caller omits it and gets the
+    module constants, so training and inference stay bit-identical to before.
     """
+    return estimate_bean_pitch_k(img, max_side, **band)[0]
+
+
+def estimate_bean_pitch_k(img: np.ndarray, max_side: int = 1024,
+                          k_lo: int | None = None, k_hi: int | None = None,
+                          analysis_frac: float | None = None) -> tuple[float, int]:
+    """(pitch_px, k) -- the same estimate, plus which band bin won.
+
+    `k` is what the caller needs to see whether the argmax landed on the band's
+    low edge rather than on a genuine peak: at k == k_lo the true period lies
+    past the edge and is being clipped, which under-estimates pitch. It is
+    reported rather than inferred because `pitch = n / k * scale * K` is not
+    invertible without also knowing n and scale.
+
+    The three overrides exist so `analysis/bean_scale/` can sweep the band
+    against hand-counted ground truth without editing module constants (and
+    without a private reimplementation drifting out of sync, which is what the
+    benchmark's own m0_fft_radial had done).
+    """
+    k_lo = _K_LO if k_lo is None else k_lo
+    k_hi = _K_HI if k_hi is None else k_hi
+    analysis_frac = ANALYSIS_FRAC if analysis_frac is None else analysis_frac
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img
-    side = int(min(gray.shape[:2]) * ANALYSIS_FRAC)
+    side = int(min(gray.shape[:2]) * analysis_frac)
     cy, cx = gray.shape[0] // 2, gray.shape[1] // 2
     gray = gray[cy - side // 2:cy + side // 2, cx - side // 2:cx + side // 2]
     h, w = gray.shape
@@ -93,13 +119,13 @@ def estimate_bean_pitch(img: np.ndarray, max_side: int = 1024) -> float:
 
     power = np.abs(np.fft.fftshift(np.fft.fft2(g))) ** 2
     prof = _radial_mean(power)
-    hi = min(_K_HI, len(prof) - 1)
+    hi = min(k_hi, len(prof) - 1)
     # Natural image spectra fall off roughly as 1/f, which would put the argmax
     # at the lowest frequency in the band regardless of content; the k^1.5 term
     # flattens that so the bean period itself is what stands out.
-    band = prof[_K_LO:hi] * np.arange(_K_LO, hi) ** 1.5
-    k = _K_LO + int(np.argmax(band))
-    return float(n / k * scale * CALIBRATION_K)
+    weighted = prof[k_lo:hi] * np.arange(k_lo, hi) ** 1.5
+    k = k_lo + int(np.argmax(weighted))
+    return float(n / k * scale * CALIBRATION_K), k
 
 
 def beans_across(img: np.ndarray, side_px: float | None = None) -> float:

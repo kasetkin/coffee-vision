@@ -101,3 +101,52 @@ then M3, M1, M2. M4's 97 s/image is the open problem; see whether reducing
 
 `ground_truth.json` holds the manual counts and is the reusable artifact — the
 counting does not need repeating unless the rigs change.
+
+---
+
+## Band sweep, 2026-09-03 — the pinning hypothesis is refuted
+
+`band_sweep.py` sweeps `_K_LO` against these same 30 crops through the **production**
+`estimate_bean_pitch_k`, not through `estimators.py::m0_fft_radial` (which is a frozen
+private copy hardcoding `lo, hi = 4, 80`, so a sweep driven through it reports a null
+no matter what the band does — that is why this is a separate script).
+
+The hypothesis under test was: the argmax is pinned at the band's low edge on a large
+fraction of photos, so the true period lies *past* that edge and is being clipped;
+**lowering** `_K_LO` should therefore reduce pinning and improve accuracy.
+
+It does the opposite.
+
+| `_K_LO` | MAPE | MAPE (refit K) | refit K | pinned | rig-bias spread | corr(pred, GT) |
+|---|---|---|---|---|---|---|
+| 2 | 30.9% | 29.6% | 1.131 | 0% | 0.195 | 0.699 |
+| **4 (shipped)** | **19.2%** | **20.0%** | **1.242** | **23%** | **0.041** | **0.838** |
+| 5 | 14.7% | 15.3% | 1.348 | 33% | 0.041 | 0.877 |
+| 6 | 17.1% | **9.7%** | 1.449 | 50% | **0.029** | **0.929** |
+
+Every rig improves monotonically as the floor *rises* (old_box 23.5→7.4%, pixel_cam
+42.4→9.0%, sony_cam 23.0→12.8% at refitted calibration), rig-bias spread narrows, and
+correlation against ground truth improves. So the low-frequency floor is **suppressing
+1/f spectral drag, not clipping bean signal** — at low `k` the `k^1.5` weighting still
+loses to the spectrum's own falloff and the argmax runs to spurious long periods.
+"Pinned at the floor" is the guard working, not a defect.
+
+Checked for the obvious failure mode: a floor high enough to make `k` nearly constant
+would degenerate into frame-fraction sizing, scoring well here only because these three
+rigs happen to frame similar bean counts. It is not degenerating — correlation *rises*
+with `_K_LO` and the rigs stay separated (means 86/202/263 px against GT 104/239/323 at
+`_K_LO=6`), which is the opposite of what a collapse to a constant would show.
+
+**Not adopted, and not a config change yet.** Three reasons:
+
+1. Ground truth here is **3 rigs** (old_box, pixel_cam, sony_cam, 2026-08-11). It predates
+   iPhone, oneplus and the 08-30 sessions entirely, so it cannot speak to the five newer
+   rigs — and the rig-dependence of pinning is the whole reason this mattered.
+2. The gain needs `CALIBRATION_K` refitted from 1.18 to ~1.45. That is two shipped
+   constants changing together, and calibration and band are not separable.
+3. Counting error is ~5% on spacing, so ~5% MAPE is this benchmark's floor; 9.7% is
+   meaningfully above it but the margin should not be oversold.
+
+Next step is extending hand-counted ground truth to the newer rigs, then validating
+through `run_folds.py`'s cross-rig metric — per this project's rule that a config change
+is validated on folds, never on an offline benchmark alone.
