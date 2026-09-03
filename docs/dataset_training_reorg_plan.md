@@ -416,6 +416,34 @@ noise floor. Next step is hand-counted ground truth on the newer rigs, then vali
 `run_folds.py`'s cross-rig metric — never on an offline benchmark alone. Full detail:
 `analysis/bean_scale/README.md`.
 
+### 3k. NEW (2026-09-03) — the pitch estimator's geometry was not part of any run config — FIXED
+
+Found while preparing C1-ship, which needs a paired `_K_LO=4` vs `_K_LO=5` fold comparison.
+
+`_K_LO`, `_K_HI`, `ANALYSIS_FRAC` and `CALIBRATION_K` lived as **module constants** in
+`coffeecv/bean_scale.py`. Nothing recorded them: they are absent from `params.yaml`, from `RunConfig`,
+and therefore from every archived `config.json`. Three consequences, in rising order of seriousness:
+
+1. No run can be reproduced at its own estimator geometry, because no run states what geometry it used.
+2. `config_for_checkpoint` — whose entire purpose is that "patch geometry is the one thing inference
+   must get right" — **cannot restore them**, so it silently does not.
+3. Changing one is a globally-breaking edit: every checkpoint ever trained, the deployed model
+   included, would be sized by the new constant at inference while having been trained under the old
+   one. A train/inference parity break with no error, no warning, and no record anywhere.
+
+That last point also blocked C1-ship outright — a per-arm band comparison is impossible when the value
+is not per-run, and adopting a new band would retroactively re-size every archived checkpoint rather
+than applying only to runs that opted in.
+
+**Fixed**: promoted to `RunConfig` as `bean_k_lo` / `bean_k_hi` / `bean_analysis_frac` /
+`bean_calibration_k`, defaulting to exactly the old constants so an unset config reproduces every
+existing run. `bean_scale.pitch_kwargs(cfg)` is the single mapping, threaded through the dataset,
+`infer.py`, `xrig_eval`, `build_ood_reference` and `eval_legacy_lens_photos`. Parity verified rather
+than assumed: bit-identical pitch on 8 real photos, and the full `infer.py` CLI returns identical
+verdicts, top-1 classes, probabilities and `bean_pitch_px` over the same 6 photos before and after.
+`run_folds` gained `--bean-k-lo`/`--bean-calibration-k`, forwarded and covered by the post-condition
+assertion, and refuses one without the other since the calibration is fitted to the band.
+
 ### 3c. NEW — `experiments/index.csv` has duplicate rows
 
 142 data rows, **140 unique experiment ids**; exp169 and exp170 each appear twice, byte-identical.
