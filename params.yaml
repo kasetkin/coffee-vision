@@ -9,15 +9,30 @@ seed: 42
 #
 # Leave-one-rig-out (Phase 11). train_rigs are split train/val/test at the photo
 # level; heldout_rig contributes every photo as a cross-rig test set and is never
-# trained on. Rotate heldout_rig across the three rigs to get three independent
-# transfer numbers -- a single held-out rig is n=1 and cannot tell a real result
-# from the luck of which rig was held out.
+# trained on, so a fold measures transfer to a camera it has never seen.
+#
+# BOTH sweep drivers rewrite this block before every run -- run_folds.py sets one
+# fold at a time, run_all_rigs.py sets the whole list with heldout_rig empty --
+# so what is written here is only what a bare `dvc repro train` reproduces, never
+# what a sweep uses. It rests at the all-rigs shipping config (the shape exp171,
+# the currently deployed model, was trained in), because that is the one a plain
+# repro should reproduce.
+#
+# Do not hand-edit this to run a fold. `python -m coffeecv.run_folds` owns the
+# rotation and now distinguishes rig-transfer folds from class-transfer ones:
+# holding out an 08-30 session yields a ONE-CLASS macro average, so those three
+# are excluded from the default sweep and need --include-class-transfer. See
+# run_folds.py's RIGS / LORIO_RIGS / CLASS_TRANSFER_RIGS.
 train_rigs:
   - data/cropped/2026-08-07__box_pictures_all_classes
   - data/cropped/2026-08-09__pixel_cam
   - data/cropped/2026-08-09__sony_cam
-  - data/cropped/2026-08-25__oneplus
-heldout_rig: data/cropped/2026-08-25__iphone
+  - data/cropped/oneplus_combined
+  - data/cropped/2026-08-25__iphone
+  - data/cropped/2026-08-30__oneplus
+  - data/cropped/2026-08-30__pixel
+  - data/cropped/2026-08-30__sony
+heldout_rig: ""
 classes_file: dataset/classes.txt
 
 # Patch geometry

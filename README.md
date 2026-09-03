@@ -46,8 +46,12 @@ by design.
 
 ## Status
 
-Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current best config (resnet18, full fine-tune, 900px patches, random erasing p=0.5, trained on the 180-photo multi-photo dataset above): **test macro-F1 ~0.91-0.96**, mean 0.9402 across a 3-seed check. Quote the range, not a single run — seed-to-seed spread is wider than most of the effects being measured, which is why adoptions since Phase 8 require a *paired* multi-seed check rather than a single seed.
+Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current adopted config (resnet18, full fine-tune, **bean-unit patch sizing** at 4-7 beans, MixStyle p=0.5 agnostic, random erasing p=0.5, epochs=100/patience=20, eta_min=1e-5, TTA at inference), over the 20 runs at that config: **in-distribution test macro-F1 0.884-0.933**, and **cross-rig (leave-one-rig-out) macro-F1 0.674-0.851** over 14 folds. Quote the range, not a single run — seed-to-seed spread is wider than most of the effects being measured, which is why adoptions since Phase 8 require a *paired* multi-seed check rather than a single seed.
 
-Full experiment history and reasoning is in `EXPERIMENTS_LOG.md` (prose, authoritative). Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary.
+The ~20-point gap between those two ranges is the project's central open problem: the model is much worse on a camera it has not seen than on one it has. Do not quote the in-distribution figure on its own.
+
+Full experiment history is in `EXPERIMENTS_LOG.md`. Phases 1-14 (through exp105) were written contemporaneously and are authoritative prose. Phases 15-17 (exp106-175) were **reconstructed on 2026-09-03** from `index.csv` and the archived configs — the numbers are recomputed and exact, but the reasoning-as-it-happened is genuinely lost for those runs, and the section says so. Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary and is regenerated from the archive directories by `archive_experiment.rebuild_index()`, never hand-edited.
+
+Current state, open problems and the ranked plan live in `docs/dataset_training_reorg_plan.md`; that document supersedes this section wherever they disagree.
 
 Known limitation worth reading before further tuning: the validation set is saturating (5 of 9 classes sit at or near f1=1.000, and one run hit val macro-F1 0.9917). Since `best.pt` is selected on peak val macro-F1, this degrades *checkpoint selection*, not just reporting — see the Phase 8 summary.

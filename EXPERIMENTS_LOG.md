@@ -2658,3 +2658,104 @@ with exp60-62 is an unintentional but genuine determinism check: same seed, a di
 source tree reproduce the same six metrics to four decimals.
 
 **Neither mixup nor the frozen linear probe has been tested against cross-rig. Both remain open.**
+
+---
+
+# Phases 15-17: exp106-175 — reconstructed 2026-09-03
+
+**Read this header before the sections below.** Everything above this line was written
+contemporaneously, as each phase ran. This section was not: it was reconstructed on 2026-09-03 from
+`experiments/index.csv`, `params.yaml`'s own comments, and the archived per-run configs, because the
+log had stopped at Phase 14 while `README.md` still called it authoritative — leaving ~70 runs,
+including both of the largest adopted levers, recorded nowhere in prose.
+
+Every number below was recomputed from `index.csv` rather than copied from a summary. What is
+missing compared to the phases above is the *reasoning as it happened* — the false starts, the
+"why we tried this next". Those are genuinely lost for these runs; treat the sections below as an
+index with evidence, not as the same kind of record.
+
+## exp106-114: mixup, frozen, last_block — all CLOSED, none adopted
+
+The re-run of the screens that exp100-105 failed to actually test (see the VOID section above).
+
+| arm | exps | outcome |
+|---|---|---|
+| `mixup_alpha=0.2` | 106-108 | not adopted |
+| `freeze_mode=full` | 109-111 | not adopted, clearly worse (-0.097 mean) |
+| `freeze_mode=last_block` | 112-114 | not adopted, neutral (-0.011) |
+
+The freeze arms produced a clean monotone gradient — full freeze is badly worse, `last_block`
+roughly neutral, `none` best — which is itself informative: the backbone genuinely needs to adapt to
+this domain, so there is no cheap-fine-tune shortcut here. `params.yaml` rests at
+`mixup_alpha: 0.0`, `freeze_mode: none`.
+
+## exp115-123: MixStyle p=0.5 — ADOPTED, the second-largest lever on the project
+
+Nine paired fold×seed comparisons against the plain `beans_e80` arm (exp60-62, 66-68, 84-86),
+matched by held-out rig:
+
+    mean cross-rig macro-F1 delta  +0.1400     9/9 positive
+
+Sign-consistent across every fold and every seed, and large enough to clear this project's evidence
+bar comfortably — the cleanest result in the log after bean-unit sizing itself. Adopted as
+`mixstyle_p: 0.5`, `mixstyle_mode: agnostic`.
+
+## exp124-135, exp145-150: all-rigs shipping candidates
+
+No cross-rig metric exists for these by construction (nothing is held out). exp124-135 are the
+MixStyle shipping batch; exp145-150 re-ran the same recipe at `epochs=100` /
+`early_stop_patience=20` against the previous 80/8, and broadly beat it (6/6 on val, 5/6 on test).
+exp148 shipped as `allrigs_mixstyle05_e100p20_s17.pt`.
+
+## exp136-144: MixStyle cross_rig v2 — CLOSED, clean null
+
+`mixstyle_mode: cross_rig` restricts the mixing partner to a different rig instead of any random
+batch sample — plausible, since rig transfer is the whole problem. Full 3-seed × 3-fold against v1
+agnostic:
+
+    mean delta  -0.0028     5/9 positive
+
+A textbook null: centred on zero, sign split near even. `mixstyle_mode` stays `agnostic`. Worth
+recording precisely because the hypothesis was attractive — restricting the mixing partner to
+another rig *sounds* like it should target the failure mode directly, and it simply does not.
+
+## exp151-156: eta_min — ADOPTED on weaker evidence than usual, deliberately
+
+`CosineAnnealingLR`'s floor, 0 (PyTorch default) vs 1e-5, one seed × three folds:
+
+| held-out rig | delta |
+|---|---|
+| box | +0.0264 |
+| pixel_cam | +0.0234 |
+| sony_cam | +0.0027 |
+
+3/3 positive, but only two folds show a real gain and sony is flat. This is **short of the paired
+multi-seed bar** the project normally requires, and was adopted anyway on a cost/benefit call — full
+confirmation was estimated at ~50h more compute for a lever this small. `params.yaml` flags it as
+such at the `eta_min` key. If a later result depends on eta_min being real, re-confirm it first.
+
+## exp157-167: cross-rig structure — the H1 "framing family" observation
+
+exp157-162 (`extraheld`) and exp163-167 (`lorio_..._local5way`) extended the fold protocol to the
+iPhone and OnePlus rigs. The observation that came out of it: holding out oneplus scores 0.8508 when
+iPhone is in training versus a 0.7809 three-seed mean when it is not (+0.0699), and symmetrically
+for iPhone (+0.0986) — suggesting phone rigs reinforce each other because they share a framing
+style.
+
+**Do not cite this as confirmed.** It is a 1-seed treatment arm against a 3-seed control mean,
+confounded with training-set size (4 rigs vs 3), and the matched control (exp163-165, box/pixel/sony
+going 2→4 rigs) reads null at +0.029 / −0.075 / +0.030. Suggestive, unconfirmed. See
+`docs/dataset_training_reorg_plan.md` §2a.
+
+## exp168-175: oneplus_combined shipping batch, and class_010's arrival
+
+exp168-173 are the six-seed all-rigs batch after `2026-08-25__oneplus` and `2026-08-27__oneplus_flash`
+were merged into one logical `oneplus_combined` rig. exp171 (seed 17) shipped as
+`allrigs_oneplusmerged_s17.pt` and is the model deployed at coffee.kasetkin.com.
+
+exp174 is **VOID** — see its renamed directory. It looks like a class_010 smoke test and is not one:
+it trained a 9-way head with class_010 silently absent, because `class_ids` came from
+`discover_classes_multi(train_rigs[0])` = box, which has no class_010. Fixed in `96d6a9a`; the
+archived config now records `class_ids` so this cannot recur invisibly. **exp175 is the only run
+that has ever trained class_010**, for 5 epochs, as a pipeline smoke test. Nothing at 10 classes has
+cleared this project's evidence bar.

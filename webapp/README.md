@@ -32,11 +32,19 @@ Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
 
 ## Which checkpoint is deployed
 
-`app.py` hardcodes `CHECKPOINT = REPO_ROOT / "models" / "allrigs_mixstyle05_e100p20_s17.pt"`
-near the top of the file. To ship a different model: change that one line,
-make sure the checkpoint's `.json` card and `.ood_reference.json` are present
-beside it (both locally and on the VM -- see "Getting code onto the VM"
-below), redeploy (see "Code/model change" below).
+`app.py` hardcodes `CHECKPOINT` near the top of the file; as of 2026-09-03 that
+is `models/allrigs_oneplusmerged_s17.pt` (exp171). To ship a different model:
+change that one line, make sure the checkpoint's `.json` card and
+`.ood_reference.json` are present beside it (both locally and on the VM -- see
+"Getting code onto the VM" below), redeploy (see "Code/model change" below).
+
+A shipped checkpoint also carries a frozen `.classes.txt` sidecar, and
+`config_for_checkpoint` redirects `classes_file` to it rather than reading
+`dataset/classes.txt`. That is deliberate: `dataset/classes.txt` grows when a
+new bean is added (it is 10 rows since class_010 arrived on 2026-08-30) while
+this 9-class checkpoint's head is fixed at 9. Without the sidecar the head and
+the label list would silently desync. Do not "fix" a shipped model's class list
+by pointing it back at `dataset/classes.txt`.
 
 ## Two separate procedures -- don't conflate them
 
