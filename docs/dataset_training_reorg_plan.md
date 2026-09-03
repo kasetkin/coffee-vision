@@ -3,7 +3,9 @@
 Status: REVISED twice on 2026-09-02 — an adversarial re-verification pass (second review), then a
 third pass that actually reached the `powervpsssh` remote box over SSH (its git log, DVC status, and
 plain files) instead of inferring remote state from local evidence alone. The third pass changed §3d's
-cost estimate materially; see the note at its end.
+cost estimate materially; see the note at its end. A fourth pass on 2026-09-03 audited the plan for
+implementation-readiness, rewrote C1 after finding its "cheap test" does not work, and **removed the
+scale guard from this plan entirely** — see §3a and §0.
 Scope: `dataset/`, `data/cropped/`, `coffeecv/` training + inference pipeline. Excludes
 `webapp/` deploy/logging (handled in other recent work) — the remote-state check for this pass did
 look at that excluded area (the box is shared), found nothing alarming, and the one real gap it did
@@ -61,6 +63,21 @@ This pass SSH'd into `powervpsssh` directly and changed one conclusion materiall
 - Checked, out of scope, and turned out fine: the remote box's dirty webapp files were first read as a
   risk (uncommitted logging code live in production). A byte-for-byte diff against local's committed
   files disproved that — see the correction at the end of §3d.
+
+**Fourth pass (2026-09-03) — readiness audit, and the scale guard leaves this plan**
+
+- **C1's "cheap test" did not work.** `analysis/bean_scale/estimators.py` never imports `coffeecv`, so
+  editing the estimator and re-running the benchmark returns byte-identical output. C1 is now three
+  steps (C1a/C1b/C1c) at ~1 day, not one command at 2-3 hours. (§3b, §4)
+- **The scale guard is being deleted, not repaired.** It cannot fire and never has, so removing it
+  changes zero behavior — but the docstring advertising it is exactly where someone would check
+  whether framing is handled. Removal is S1 (Tier 0). What replaces it is *measurement*: S2 logs
+  `beans_across` per request, which is the only item in this cluster with real time-value. (§3a)
+- **B2 moves out of this plan** into `docs/scale_guard_plan.md`. Re-introducing a guard is a design
+  problem blocked on two inputs that do not exist yet (C1c, plus logged framing data). Keeping it here
+  as a half-day table row misrepresented it.
+- Four smaller corrections: P2's `rebuild_index()` invocation (§3c), §5's stale P1 line, the DVC
+  crop-stage staleness prerequisite (§5), and the plan doc itself now tracked in git.
 
 ---
 
@@ -233,7 +250,7 @@ largest unmeasured axis.
 
 ## 3. Pipeline defects (no new data required)
 
-### 3a. The scale guard is a complete no-op, in both directions
+### 3a. The scale guard was a complete no-op, in both directions — REMOVED 2026-09-03
 
 The first draft said the too-close refusal was unreachable and too-far had no check. Half right; the
 reality is worse. `scale_verdict` (`coffeecv/infer.py:302`) *is* wired in at line 346, and has three
@@ -263,8 +280,30 @@ minimum **exactly** 8.22, and `scale_verdict` returned `(True, "…covering the 
 for every one. The guard the module docstring advertises as one of "two independent refusals" has
 never refused anything and cannot.
 
-Two things must both happen: pick thresholds inside the estimator's reachable range (or fix the
-estimator per §3b, which moves the floor), and add the missing too-far bound.
+**Resolution 2026-09-03: deleted, not repaired.** The earlier draft said "two things must both happen:
+pick thresholds inside the reachable range, and add the missing too-far bound." Both are still true of
+any *future* guard, but neither is worth doing now, for three reasons:
+
+1. **Removing it changes nothing observable.** The guard always returns the third branch. Deleting it
+   is removing dead code, not removing a safety feature.
+2. **Leaving it is a lie with a compounding cost.** `infer.py`'s module docstring leads with *"Two
+   independent refusals, because a wrong answer stated confidently is worse than no answer"* and lists
+   Scale as #1, complete with the "move the camera back" rationale. That is precisely where a reader
+   checks whether framing is handled. One refusal exists.
+3. **Repairing it now would repeat the original mistake.** The thresholds are unreachable *because*
+   they were picked from theory (mirror the trained 4.0-7.0 range) rather than from any measurement of
+   what real frames produce. Setting new ones before C1c fixes the estimator and before any production
+   framing data exists would be theory twice.
+
+So: **S1** deletes it (Tier 0). **S2** starts logging `beans_across`, which is already computed at
+`infer.py:292` and discarded, so the replacement is built on measurement instead. Designing an actual
+guard is out of scope here and lives in `docs/scale_guard_plan.md`.
+
+**What this leaves unprotected, stated plainly:** a genuinely too-far photo now gets a confident answer
+with no framing warning. That is already true today — the guard never fires — so nothing regresses, and
+the OOD guard plus the tray-crop detector are partial backstops. But it is "no worse than today," not
+"handled."
+
 
 ### 3b. NEW — the bean-pitch estimator is pinned at its band floor on 39% of photos
 
@@ -303,8 +342,10 @@ Why this matters more than it looks:
 3. **It explains the "~24% pitch noise" already noted in `run_folds.py`'s `ARMS` comment.** At k≈4
    the integer quantization step is 1/4 = 25% of pitch. That comment treats the noise as inherent and
    deliberately kept; it is substantially an artifact of operating at the band edge.
-4. **It interacts with §3a**: the guard's dead floor of 8.22 is `2.055 × _K_LO`. Widening the band
-   lowers the floor and could make the refusal reachable without changing the thresholds.
+4. **It set §3a's dead floor**: `beans_across = 2.055 · k`, so the floor was `2.055 × _K_LO = 8.22`.
+   With the guard now deleted (§3a) this is no longer a reason to fix the band — but it does mean any
+   future guard's reachable range is defined by whatever C1c settles on, which is why
+   `docs/scale_guard_plan.md` takes C1c as an entry criterion rather than a nice-to-have.
 
 Test path — **corrected 2026-09-03; the first draft's "cheapest possible test" does not work as
 written.** The intent was: lower `_K_LO` (or raise `ANALYSIS_FRAC`), re-run the 30-crop ground-truth
@@ -552,7 +593,7 @@ and total loss today.
 Ranked by (evidence strength) × (cost). The ordering changed materially from the first draft: two
 provenance items and one measurement item now outrank the capture work.
 
-### Tier 0 — do this week; two are time-sensitive and one is nearly free
+### Tier 0 — do this week; two are time-sensitive, two are nearly free
 
 | # | Action | Why | Cost |
 |---|---|---|---|
@@ -560,13 +601,15 @@ provenance items and one measurement item now outrank the capture work.
 | **A4** | **Add a DVC remote and push** | §3i: confirmed on both machines now — local's `.dvc/cache` is the *sole surviving copy* of 4 artifacts (3 old checkpoints + the 2026-07-24 session) that remote's cache never had, plus 4.7 GB of checkpoints here one `dvc gc` from deletion. Also a soft dependency of any work reusing archived fold checkpoints | ~30 min |
 | **P2** | `rebuild_index()`; rename exp174 to `exp174__VOID_9class_dup_of_exp175`; add `class_ids` to the archived config | §3c + §3e: the record the whole plan reads from is wrong in two places, both one command or one field away from fixed | ~30 min |
 | **C2** | Fix the epoch-vs-final macro denominator (§3f) and record the denominator in `summary.json`/`index.csv` | One-line correctness fix, plus it is a precondition for §2b being interpretable | ~1 hour |
+| **S1** | **Delete the dead scale guard**: remove `scale_verdict` (`infer.py:302`) and the `REFUSED (scale)` branch in `classify_one`; drop `webapp/app.py:214-215`'s now-unreachable `refused_scale` mapping (it reads `entry["scale_note"]`, which would no longer exist — a latent `KeyError`); rewrite `infer.py`'s module docstring, which leads with "Two independent refusals". Keep `beans_across` in the diag — only the verdict goes. The frontend's `refused_scale` string (`index.html:386`) can stay; it is an OR-chain still serving `refused_ood`/`refused_unreadable` | §3a: it cannot fire and never has, so deletion changes zero behavior — but the docstring is where someone checks whether framing is handled. Same record-cleaning category as P2 | ~30 min |
+| **S2** | **Log `beans_across` per request** — add it to `webapp/app.py`'s structured log fields. It is already computed at `infer.py:292` and thrown away | The one item in this cluster with real time-value: production framing data cannot be recovered retroactively, so every day unshipped is a day lost. It is also the entry criterion for `docs/scale_guard_plan.md`. *Scope note*: this plan excludes webapp work, but this is one field added to a log that already ships, not a feature | one line |
 
 ### Tier 1 — cheap, high-information, no new data
 
 | # | Action | Why | Cost |
 |---|---|---|---|
-| **C1** | **Build the harness, then sweep the band** — three steps, not one command. **(C1a)** Point `analysis/bean_scale/estimators.py` at the real `coffeecv.bean_scale.estimate_bean_pitch` instead of its private copy, parameterized over `_K_LO`/`ANALYSIS_FRAC`; re-scoring the incumbent against its old numbers is itself informative, since it reveals how far the benchmark has been from production all along. **(C1b)** Add the two scores the decision actually needs: per-image MAPE against `ground_truth.json`'s `gt_spacing_px`, and the pinned-at-`_K_LO` fraction. **(C1c)** Then sweep the band and report. Also drop `benchmark.py`'s hardcoded `SRC = Path("/workspace/data/cropped")` so it can run on the remote box | §3b: 39% of photos clipped at the band edge, rig-dependently, in the one measurement meant to make patches rig-invariant. Still the highest-information item needing no new photos — but "just re-run the benchmark" is a false null, so building the measurement *is* the task | **~1 day** (previous 2-3 hour estimate assumed a working harness that does not exist) |
-| **B2** | **Fix the scale guard**: thresholds inside the reachable range (after C1 settles the floor), plus the missing too-far bound | §3a: currently a total no-op advertised in the docstring as a refusal. It is the webapp's actionable-advice path. Inherits C1's blocker — thresholds cannot be picked until C1c reports a real floor | Half a day, gated on C1c |
+| **C1** | **Build the harness, then sweep the band** — three steps, not one command. **(C1a)** Point `analysis/bean_scale/estimators.py` at the real `coffeecv.bean_scale.estimate_bean_pitch` instead of its private copy, parameterized over `_K_LO`/`ANALYSIS_FRAC`; re-scoring the incumbent against its old numbers is itself informative, since it reveals how far the benchmark has been from production all along. **(C1b)** Add the two scores the decision actually needs: per-image MAPE against `ground_truth.json`'s `gt_spacing_px`, and the pinned-at-`_K_LO` fraction. **(C1c)** Then sweep the band and report. Also drop `benchmark.py`'s hardcoded `SRC = Path("/workspace/data/cropped")` so it can run on the remote box | §3b: 39% of photos clipped at the band edge, rig-dependently, in the one measurement meant to make patches rig-invariant. Still the highest-information item needing no new photos — but "just re-run the benchmark" is a false null, so building the measurement *is* the task. With B2 moved out, this now stands on a single clean purpose: **is the ruler straight?** Every cross-rig number in the log is computed through this estimator, and A1/A2's capture work is justified through those numbers | **~1 day** (previous 2-3 hour estimate assumed a working harness that does not exist) |
+| ~~**B2**~~ | **Moved out of this plan → `docs/scale_guard_plan.md`.** Re-introducing a framing guard is a design problem (refuse vs warn; what a too-far bound is even based on; whether scale and OOD are actually independent; whether the tray-crop detector makes it partly moot; pre- vs post-capture advice), blocked on two inputs that do not exist yet: C1c's corrected estimator, and enough logged `beans_across` (S2) to see the real distribution | Setting thresholds today would repeat the original mistake — deriving them from theory rather than measurement. S1 deletes the broken one so the scale plan starts from no guard rather than a lying one | — (tracked in the scale plan) |
 | **A5** | **Coverage-check script**: print the §2 table, assert class-dir naming consistency, carry an explicit exclusion list for the three non-pipeline sessions, warn on rig×class imbalance | §2 took manual cross-referencing of eight directories to produce, and will need it again on every new session. Also catches the `class_009__Vietnam` drift | 1-2 hours |
 | **B-fix** | **Make fold semantics explicit**: label the 08-30 entries as class-transfer folds distinct from rig-transfer folds, exclude them from the default `run_folds` rotation, and surface the macro denominator per fold | §2b: three of eight default folds are degenerate one-class evaluations at ~90 min each, sitting in the same column as 9-class rows | Half a day (naming + a `RIGS` split, no DVC stage needed) |
 
@@ -600,9 +643,12 @@ C2 (macro denominator)     ──┐
                              ├──> B-fix (fold semantics) ──┐
 A5 (coverage script)       ──┘                             │
                                                            │
+S1 (delete dead scale guard) ── independent, ~30 min
+S2 (log beans_across)        ── independent, one line; starts the scale plan's clock
+                                                           │
 C1a (wire benchmark to the production estimator)           │
   └─> C1b (MAPE + pinned-fraction scoring)                 │
-        └─> C1c (sweep the band) ──> B2 (scale guard)      │
+        └─> C1c (sweep the band)                           │
                                                            │
 A1 (iPhone +88 across 8 classes) ──┐                       │
 A2 (class_010 on box + iPhone)  ───┴───────────────────────┴──> B5 (10-class fold sweep + ship)
@@ -611,9 +657,10 @@ A3 (fresh-scoop)   ── independent, parallel with everything
 B3′ (grow photo eval set), B4 (confusable pairs), B1 (val saturation), D1 (docs) ── whenever free
 ```
 
-Note the one hard edge: **C1c before B2.** Widening the estimator band moves `beans_across`'s floor,
-so picking guard thresholds first would mean picking them twice. C1 is now internally ordered too —
-C1a/C1b build the measurement, and only C1c produces a number anyone can act on.
+C1 is internally ordered — C1a/C1b build the measurement, and only C1c produces a number anyone can act
+on. The old "C1c before B2" edge has left this plan with B2: it is now an *entry criterion* of
+`docs/scale_guard_plan.md`, along with S2's accumulated logging, rather than a dependency inside this
+one. Nothing in this plan is downstream of C1c any more.
 
 **Prerequisite before touching the pipeline at all** (P2, C2 and the doc items are exempt; anything
 that runs `dvc repro` is not): all six `crop` stages currently report `changed deps: modified
@@ -638,18 +685,23 @@ existing outputs are still valid, or accept and budget the re-crop. Do not disco
    deploy.)
 2. **A4 — DVC remote.** Zero risk, ~30 minutes, and it protects both the raw captures and the 4.7 GB
    of archived checkpoints that a stray `dvc gc` would take.
-3. **P2 + C2 — clean the record.** Rebuild the index (call `rebuild_index()` directly, **not** via
+3. **S1 + S2 — delete the dead guard, start measuring instead.** ~30 minutes and one line. S1 removes
+   a refusal the docstring promises and the code cannot deliver (§3a); S2 begins logging `beans_across`
+   on every request. S2 is the only thing in this cluster that gets worse by waiting — framing data
+   from production cannot be backfilled, and it is what lets a future guard be set from the real
+   distribution instead of from theory, which is what made the original unreachable.
+4. **P2 + C2 — clean the record.** Rebuild the index (call `rebuild_index()` directly, **not** via
    `--replot-all` — see §3c), mark exp174 VOID, add `class_ids` to the archived config, fix the
    epoch/final denominator. Under two hours total, and it stops the experiment log from lying about
    two things it currently lies about. These touch no DVC stage, so the crop-staleness prerequisite
    in §5 does not apply — this is the cleanest place to start.
-4. **C1 — build the pitch-estimator harness, then sweep.** Still the highest-information item that
+5. **C1 — build the pitch-estimator harness, then sweep.** Still the highest-information item that
    needs no new photos: 39% of photos are clipped at a band edge, rig-dependently, inside the
    mechanism that is supposed to make patches rig-invariant. If it moves, it moves the cross-rig gap
    this entire plan is organized around. But the existing benchmark measures a private copy of the
    estimator, not the shipped one (§3b), so **step one is making the measurement real, not running
    it** — budget ~1 day, and treat C1a's re-scored incumbent as a result in its own right.
-5. **A5 + B-fix — make coverage and fold semantics legible**, so the next class or rig added doesn't
+6. **A5 + B-fix — make coverage and fold semantics legible**, so the next class or rig added doesn't
    require re-deriving §2 by hand and doesn't silently add degenerate folds to the default sweep.
 
 Capture work (A1, A2) stays high-value but drops below these: it is a day of physical work whose
@@ -722,3 +774,23 @@ spot-check notes, not recomputed from confusion matrices) and the capture-cost e
   checks; all 8 commits (and their full surrounding history back to the shared base) now resolve with
   `git cat-file -e` in this local repo. They are fetched, not yet reconciled onto local `main` — see
   the reconciliation approach above.
+
+**Fourth pass (2026-09-03, implementation-readiness audit)**
+
+- **All 11 file:line citations re-checked** by `sed -n` on each — `infer.py:302`/`346`,
+  `train_baseline.py:296`/`347`, `dataset.py:473`, `infer.py:269`, `webapp/app.py:36`,
+  `webapp/README.md:35`, `README.md:51`/`53`, `experiments/README.md:24`. All resolve to the claimed
+  content; no bit-rot across four revisions.
+- **C1's blocker** — `grep` for `coffeecv` across `analysis/bean_scale/*.py` returns nothing, and
+  `m0_fft_radial` returns `float(n / k * scale)` against production's `float(n / k * scale * CALIBRATION_K)`.
+  Confirmed the benchmark cannot observe changes to `coffeecv/bean_scale.py`.
+- **C2 confirmed genuinely one line** — `train_baseline.py:296` calls `compute_split_metrics(...)`
+  without the `macro_labels=` kwarg that line 347 passes.
+- **P2's invocation trap** — read `archive_experiment.main()`: `rebuild_index()` is reachable only via
+  `--replot-all`, which regenerates charts for all 140 archives first.
+- **S1's blast radius** — `grep` for `scale_verdict`/`beans_across`/`scale_ok`/`scale_note` across the
+  repo: consumed only by `infer.py` itself, `webapp/app.py:214-215`, and the frontend's OR-chain at
+  `index.html:386`. `eval_legacy_lens_photos.py` computes its own `beans_across` independently and is
+  unaffected.
+- **Crop staleness** — `dvc status`: all six `crop` stages report `changed deps: modified
+  coffeecv/crop_tray.py`.
