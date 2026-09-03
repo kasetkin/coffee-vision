@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import (
     CHECKPOINTS_DIR,
     OUTPUTS_DIR,
@@ -182,6 +183,7 @@ def main() -> None:
             (cfg.patch_beans_min, cfg.patch_beans_max)
             if cfg.patch_beans_max > 0 else None
         ),
+        pitch_geometry=pitch_kwargs(cfg),
     )
     train_transform = build_train_transform(
         cfg.patch_resize,

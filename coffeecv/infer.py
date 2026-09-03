@@ -61,7 +61,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from coffeecv.bean_scale import estimate_bean_pitch
+from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.crop_tray import locate_bean_crop
 from coffeecv.dataset import load_class_labels, load_rgb_image
@@ -279,7 +279,7 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     t2 = time.monotonic()
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, cfg.safety_margin)
-    pitch = estimate_bean_pitch(grayscale_like_training(rgb))
+    pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
 
     rng = np.random.default_rng(seed_key)
     boxes, clamped = sample_bean_unit_patch_boxes(

@@ -31,6 +31,7 @@ import numpy as np
 import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
+from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.dataset import MultiPhotoPatchDataset, load_class_labels, resolve_rigs
 from coffeecv.infer import (_sha, config_for_checkpoint, forward_with_embeddings, load_model,
                             reference_path_for)
@@ -84,6 +85,7 @@ def main() -> None:
                           if cfg.patch_scale_frac_max > 0 else None),
         patch_beans=((cfg.patch_beans_min, cfg.patch_beans_max)
                      if cfg.patch_beans_max > 0 else None),
+        pitch_geometry=pitch_kwargs(cfg),
     )
     print(f"train patches: {len(ds)}")
 

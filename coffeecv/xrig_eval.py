@@ -35,7 +35,7 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
-from coffeecv.bean_scale import estimate_bean_pitch
+from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import (
     MultiPhotoPatchDataset,
@@ -206,6 +206,7 @@ def build_xrig_dataset(cfg, rig, class_ids, classes_file, n_patches: int):
                           if cfg.patch_scale_frac_max > 0 else None),
         patch_beans=((cfg.patch_beans_min, cfg.patch_beans_max)
                     if cfg.patch_beans_max > 0 else None),
+        pitch_geometry=pitch_kwargs(cfg),
     )
 
 
@@ -249,7 +250,7 @@ def run_photowise(model, head, cfg, rig, class_ids, n_patches_per_photo, seed, d
         h, w = rgb.shape[:2]
         region = compute_valid_region_rect(h, w, cfg.safety_margin)
         gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114).astype("uint8")
-        pitch = estimate_bean_pitch(gray)
+        pitch = estimate_bean_pitch(gray, **pitch_kwargs(cfg))
 
         centers_rng = np.random.default_rng([*seed_key, 100])
         centers = sample_bean_unit_centers(
@@ -307,7 +308,7 @@ def run_single_photo_adabn(model, head, cfg, rig, class_ids, n_patches, seed, di
         h, w = rgb.shape[:2]
         region = compute_valid_region_rect(h, w, cfg.safety_margin)
         gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114).astype("uint8")
-        pitch = estimate_bean_pitch(gray)
+        pitch = estimate_bean_pitch(gray, **pitch_kwargs(cfg))
         rng = np.random.default_rng([seed, class_idx, photo_idx])
         boxes, _clamped = sample_bean_unit_patch_boxes(
             rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max, 0.0,

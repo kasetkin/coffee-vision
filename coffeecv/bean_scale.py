@@ -75,9 +75,21 @@ def estimate_bean_pitch(img: np.ndarray, max_side: int = 1024, **band) -> float:
     return estimate_bean_pitch_k(img, max_side, **band)[0]
 
 
+def pitch_kwargs(cfg) -> dict:
+    """The estimator geometry a RunConfig asks for, as kwargs.
+
+    One place that knows the mapping, so a caller with a cfg cannot accidentally
+    estimate pitch under different geometry than the run was configured with --
+    which is the train/inference parity failure these fields exist to prevent.
+    """
+    return {"k_lo": cfg.bean_k_lo, "k_hi": cfg.bean_k_hi,
+            "analysis_frac": cfg.bean_analysis_frac, "calibration_k": cfg.bean_calibration_k}
+
+
 def estimate_bean_pitch_k(img: np.ndarray, max_side: int = 1024,
                           k_lo: int | None = None, k_hi: int | None = None,
-                          analysis_frac: float | None = None) -> tuple[float, int]:
+                          analysis_frac: float | None = None,
+                          calibration_k: float | None = None) -> tuple[float, int]:
     """(pitch_px, k) -- the same estimate, plus which band bin won.
 
     `k` is what the caller needs to see whether the argmax landed on the band's
@@ -94,6 +106,7 @@ def estimate_bean_pitch_k(img: np.ndarray, max_side: int = 1024,
     k_lo = _K_LO if k_lo is None else k_lo
     k_hi = _K_HI if k_hi is None else k_hi
     analysis_frac = ANALYSIS_FRAC if analysis_frac is None else analysis_frac
+    calibration_k = CALIBRATION_K if calibration_k is None else calibration_k
     if img.ndim == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
@@ -125,7 +138,7 @@ def estimate_bean_pitch_k(img: np.ndarray, max_side: int = 1024,
     # flattens that so the bean period itself is what stands out.
     weighted = prof[k_lo:hi] * np.arange(k_lo, hi) ** 1.5
     k = k_lo + int(np.argmax(weighted))
-    return float(n / k * scale * CALIBRATION_K), k
+    return float(n / k * scale * calibration_k), k
 
 
 def beans_across(img: np.ndarray, side_px: float | None = None) -> float:

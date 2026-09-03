@@ -48,7 +48,7 @@ import pillow_heif
 import torch
 from PIL import Image
 
-from coffeecv.bean_scale import estimate_bean_pitch
+from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import load_class_labels
 from coffeecv.geometry import compute_valid_region, compute_valid_region_rect, sample_bean_unit_patch_boxes
@@ -84,7 +84,7 @@ def patches_for_legacy_photo(rgb: np.ndarray, cfg, n_patches: int, seed_key: lis
     further shrink; that job is already done)."""
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, 1.0)
-    pitch = estimate_bean_pitch(grayscale_like_training(rgb))
+    pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
 
     rng = np.random.default_rng(seed_key)
     boxes, clamped = sample_bean_unit_patch_boxes(

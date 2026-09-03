@@ -111,6 +111,23 @@ class RunConfig:
     patch_beans_min: float = 0.0
     patch_beans_max: float = 0.0
 
+    # Bean-pitch estimator geometry (coffeecv/bean_scale.py). These were module
+    # constants until 2026-09-03, which made them impossible to vary per run and
+    # impossible to restore per checkpoint: changing one silently re-sized patches
+    # for every model ever trained, including the deployed one, with no record in
+    # any config.json that anything had moved. Since the whole point of
+    # config_for_checkpoint is that patch geometry is the one thing inference must
+    # get right, geometry that inference depends on belongs here.
+    #
+    # Defaults are exactly the shipped module constants, so an unset config
+    # reproduces every existing run bit-for-bit. Sweeping bean_k_lo needs
+    # bean_calibration_k refitted alongside -- they are not separable; see
+    # analysis/bean_scale/README.md.
+    bean_k_lo: int = 4
+    bean_k_hi: int = 80
+    bean_analysis_frac: float = 0.40
+    bean_calibration_k: float = 1.18
+
     rotation_jitter_degrees: float = 0.0  # +/- jitter around each right angle, applied at patch sampling
     zoom_scale_min: float = 1.0  # RandomResizedCrop min *area* fraction; 1.0 = plain resize
     random_erasing_p: float = 0.0  # probability of erasing a rectangle per patch

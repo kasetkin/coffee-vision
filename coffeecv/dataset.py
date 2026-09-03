@@ -341,6 +341,7 @@ class MultiPhotoPatchDataset(Dataset):
         patch_scale_frac: tuple[float, float] | None = None,
         patch_beans: tuple[float, float] | None = None,
         return_domain_id: bool = False,
+        pitch_geometry: dict | None = None,
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
@@ -356,6 +357,9 @@ class MultiPhotoPatchDataset(Dataset):
         self.crop_size = crop_size
         self.transform = transform
         self.patch_store_size = patch_store_size
+        # Bean-pitch estimator geometry, from RunConfig via bean_scale.pitch_kwargs.
+        # Empty dict = the module defaults, i.e. every run before 2026-09-03.
+        self.pitch_geometry = pitch_geometry or {}
         # Scale augmentation applies to *every* split, not just train. That is
         # the opposite of the usual rule, and deliberate: the patch side is what
         # decides how many beans a patch covers, so evaluating at one fixed pixel
@@ -470,7 +474,7 @@ class MultiPhotoPatchDataset(Dataset):
             # one photo, so a session-level estimate here would train the model
             # on a precision it will not have in the field.
             gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114)
-            pitch = estimate_bean_pitch(gray.astype(np.uint8))
+            pitch = estimate_bean_pitch(gray.astype(np.uint8), **self.pitch_geometry)
             self.pitch_by_photo[photo_path.name] = pitch
             boxes, clamped = sample_bean_unit_patch_boxes(
                 rng, region, n_patches, pitch, self.patch_beans[0], self.patch_beans[1],

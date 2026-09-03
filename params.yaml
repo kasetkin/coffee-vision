@@ -77,6 +77,25 @@ patch_scale_frac_max: 0.0
 patch_beans_min: 4.0
 patch_beans_max: 7.0
 
+# Bean-pitch estimator geometry (coffeecv/bean_scale.py). Promoted from module
+# constants to config on 2026-09-03: they were previously unrecorded in any run,
+# so config_for_checkpoint could not restore them and changing one silently
+# re-sized patches for every checkpoint ever trained, the deployed one included.
+# The values below are exactly the old constants, so this changed no behaviour.
+#
+# bean_k_lo is the FFT search band's low edge. Contrary to the hypothesis that
+# the argmax was being clipped there, raising it *improves* reconstruction
+# accuracy on all 8 rigs (MAPE 20.2% -> 14.4%, corr 0.835 -> 0.899 over 60
+# hand/VLM-counted crops) -- the floor suppresses 1/f spectral drag rather than
+# clipping bean signal. bean_calibration_k is fitted to the band and must move
+# with it: k_lo=5 refits to 1.334. NOT adopted -- offline reconstruction
+# accuracy is not classification accuracy, so this needs a run_folds cross-rig
+# sweep first ("C1-ship"). See analysis/bean_scale/README.md.
+bean_k_lo: 4
+bean_k_hi: 80
+bean_analysis_frac: 0.40
+bean_calibration_k: 1.18
+
 rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch sampling (max ~6 here)
 zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)
 random_erasing_p: 0.5        # per-patch probability of erasing a rectangle
