@@ -293,7 +293,16 @@ def main() -> None:
             # influences training. Treating it as a selection signal would make
             # the reported transfer number meaningless.
             xr_true, xr_pred, xr_losses = evaluate(model, xrig_loader, criterion)
-            xr = compute_split_metrics(xr_true, xr_pred, xr_losses, class_ids, class_labels)
+            # macro_labels must match the final metric's (line ~347) or the
+            # plotted curve and the reported number are different measurements:
+            # absent classes score F1=0 and drag the curve while being excluded
+            # from the headline. For an iPhone hold-out that is /9-with-a-
+            # phantom-zero against /8; for a class_010-only 08-30 hold-out it
+            # would be /10 with nine phantom zeros against /1.
+            xr = compute_split_metrics(
+                xr_true, xr_pred, xr_losses, class_ids, class_labels,
+                macro_labels=xrig_ds.present_class_idxs,
+            )
             epoch_row["xrig_macro_f1"] = xr["macro_f1"]
             epoch_row["xrig_loss"] = xr["loss_mean"]
         history.append(epoch_row)

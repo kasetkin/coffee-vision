@@ -65,6 +65,13 @@ def compute_split_metrics(
         "macro_precision": float(macro_precision),
         "macro_recall": float(macro_recall),
         "macro_f1": float(macro_f1),
+        # How many classes the macro average above actually covers. Without this
+        # a held-out rig missing classes reports a macro_f1 that silently means
+        # something different from another rig's -- iPhone hold-outs average over
+        # 8 classes, box/pixel/sony over 9, an 08-30 session over 1 -- and
+        # nothing in the archived record said so. Equal to len(class_ids)
+        # whenever macro_labels was not narrowed, i.e. for val/test always.
+        "macro_n": len(macro_labels),
         "mcc": float(mcc),
         "per_class": per_class,
         "confusion_matrix": cm.tolist(),
@@ -129,6 +136,10 @@ def build_summary_json(metrics_json: dict) -> dict:
         xrig = splits["test_xrig"]
         out["xrig_macro_f1"] = round(xrig["macro_f1"], 4)
         out["xrig_mcc"] = round(xrig["mcc"], 4)
+        # Scanning xrig_macro_f1 across runs is misleading without knowing how
+        # many classes each one averaged over; see compute_split_metrics.
+        if "macro_n" in xrig:
+            out["xrig_macro_n"] = xrig["macro_n"]
     return out
 
 

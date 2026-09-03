@@ -56,7 +56,9 @@ INDEX_COLUMNS = [
     "exp", "slug", "seed", "val_macro_f1", "val_mcc", "test_macro_f1", "test_mcc",
     # Cross-rig columns are blank for pre-Phase-11 runs, which had no held-out
     # rig. Blank means "not measured", never "scored zero".
-    "xrig_macro_f1", "xrig_mcc", "heldout_rig",
+    # xrig_macro_n: how many classes that fold's macro average covered (added
+    # 2026-09-03). Blank for every run predating it -- "unknown", not "all".
+    "xrig_macro_f1", "xrig_macro_n", "xrig_mcc", "heldout_rig",
     "best_epoch", "epochs_trained", "changed_vs_baseline", "note", "created_at", "git_commit",
 ]
 
@@ -92,6 +94,11 @@ def _row_for(exp_dir: Path) -> dict | None:
         "test_macro_f1": f"{test['macro_f1']:.4f}",
         "test_mcc": f"{test['mcc']:.4f}",
         "xrig_macro_f1": f"{xrig['macro_f1']:.4f}" if xrig else "",
+        # Blank for the 140 archives predating macro_n (2026-09-03). A blank
+        # here means "unknown", not "all classes" -- those runs' denominators
+        # have to be inferred from their heldout_rig, which is exactly the
+        # ambiguity macro_n exists to end going forward.
+        "xrig_macro_n": (xrig.get("macro_n", "") if xrig else ""),
         "xrig_mcc": f"{xrig['mcc']:.4f}" if xrig else "",
         "heldout_rig": (metrics.get("rigs") or {}).get("heldout") or "",
         "best_epoch": metrics.get("best_epoch"),
