@@ -18,21 +18,34 @@ patch side = B * pitch with B log-uniform over the trained range, sampled inside
 straight to 224 from full resolution is not the same interpolation the model was
 trained and scored on.
 
-Two independent refusals, because a wrong answer stated confidently is worse than
-no answer (Phase 9: on an out-of-rig photo the model gave p=0.755 to a class that
-was wrong, and flipped to a different wrong class under a 15% brightness change):
+One refusal, because a wrong answer stated confidently is worse than no answer
+(Phase 9: on an out-of-rig photo the model gave p=0.755 to a class that was
+wrong, and flipped to a different wrong class under a 15% brightness change):
 
-1. **Scale.** If the measured pitch says the frame cannot supply patches in the
-   trained bean range, the photo is framed wrong and there is nothing to fix
-   downstream. This is the interpretable form of the guard -- "move the camera
-   back" is advice a user can act on.
-2. **Out-of-distribution.** Penultimate-embedding distance to the nearest
+**Out-of-distribution.** Penultimate-embedding distance to the nearest
    training-class centroid, normalized by that class's own spread. Phase 9
    measured 0.97 mean / 1.24 max over held-out training photos against 1.92-1.94
    for a photo from an unseen rig, and softmax confidence was *useless* at this
    (0.97 on a good photo, indistinguishable from in-distribution 0.997). Needs a
-   reference file from `build_ood_reference.py`; without one this guard is
-   reported as unavailable rather than silently skipped.
+reference file from `build_ood_reference.py`; without one this guard is
+reported as unavailable rather than silently skipped.
+
+There was a second refusal here until 2026-09-03 -- a framing/scale guard that
+refused when the frame could not supply patches in the trained bean range. It
+was removed because it could not fire: `beans_across` has a hard floor of
+`2.055 * _K_LO` = 8.22 while its thresholds sat at 4.0 and 7.0, so every branch
+below OK was unreachable, and there was no too-far bound at all. Measured over
+15 photos on 5 rigs it returned OK every time. Deleting it changed no behaviour;
+keeping it meant this docstring advertised a refusal that had never once
+happened. `beans_across` is still measured per photo and carried in the diag
+dict (and logged per request by the web service) so a future guard can be built
+from the real distribution rather than from theory, which is what made the
+original unreachable. Design work: docs/scale_guard_plan.md.
+
+**A too-far photo therefore gets a confident answer with no framing warning.**
+That was already true while the dead guard was in place; the OOD check and the
+tray-crop detector are partial backstops, but this is "no worse than before",
+not "handled".
 """
 from __future__ import annotations
 
@@ -299,20 +312,6 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     }
 
 
-def scale_verdict(diag: dict, cfg: RunConfig) -> tuple[bool, str]:
-    """Can this frame supply patches in the range the model was trained on?"""
-    across = diag["beans_across"]
-    if across < cfg.patch_beans_min:
-        return False, (f"frame spans only {across:.1f} beans; the model was trained on patches of "
-                       f"{cfg.patch_beans_min:.0f}-{cfg.patch_beans_max:.0f} beans, so not even the "
-                       f"smallest fits. Move the camera back or zoom out.")
-    if across < cfg.patch_beans_max:
-        return True, (f"frame spans {across:.1f} beans; patches above {across:.1f} are clamped "
-                      f"({diag['clamp_rate']:.0%} of them). Usable, but framing wider would give the "
-                      f"scale variety the model expects.")
-    return True, f"frame spans {across:.1f} beans, covering the trained {cfg.patch_beans_min:.0f}-{cfg.patch_beans_max:.0f} range."
-
-
 def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]]:
     """Per-patch distance to the nearest class centroid, in units of that class's spread."""
     cids = sorted(ref["classes"])
@@ -343,11 +342,9 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     except (ValueError, OSError) as exc:
         return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
 
-    ok_scale, scale_msg = scale_verdict(diag, cfg)
-    entry = {**diag, "scale_ok": ok_scale, "scale_note": scale_msg}
-    if not ok_scale:
-        entry["verdict"] = "REFUSED (scale)"
-        return entry
+    # beans_across stays in the diag (and is logged per request by the web
+    # service) even though nothing gates on it -- see the module docstring.
+    entry = {**diag}
 
     transform = build_eval_transform(cfg.patch_resize)
     t_infer0 = time.monotonic()
@@ -408,7 +405,7 @@ def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
     crop = entry.get("crop")
     if crop and crop.get("needs_review"):
         print(f"  crop: WARNING: {crop['note']}")
-    print(f"  scale: {entry['scale_note']}")
+    print(f"  scale: frame spans {entry['beans_across']:.1f} beans (measured, not enforced)")
 
     if entry["verdict"] == "REFUSED (scale)":
         print("  -> REFUSED: photo is outside the trained patch scale, not predicting.")

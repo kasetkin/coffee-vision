@@ -211,8 +211,6 @@ def _entry_to_response(entry: dict) -> tuple[dict, int]:
     if verdict == "REFUSED (unmeasurable)":
         return {"verdict": "refused_unreadable",
                 "message": "Couldn't read this as a photo of coffee beans."}, 400
-    if verdict == "REFUSED (scale)":
-        return {"verdict": "refused_scale", "message": entry["scale_note"]}, 200
     if verdict == "REFUSED (out of distribution)":
         return {"verdict": "refused_ood", "message": "Unrecognized"}, 200
 
