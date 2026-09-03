@@ -230,12 +230,41 @@ class_008 is the only class that is *absent* rather than merely thin, and it is 
 every iPhone-heldout cross-rig number in the log an 8-class average silently reported next to 9-class
 ones. If only part of this gets shot, shoot class_008 first.
 
-### 2d. Two confusable class pairs, never directly addressed
+### 2d. Confusable classes — **recomputed 2026-09-03; one of the two claimed pairs is wrong**
 
-006 Brazil Cerrado / 007 Brazil MonteCristo, and 001 Ethiopia Sidamo / 008 Ethiopia Kochere, recur
-across the experiment log and the iPhone/OnePlus spot-checks on three rigs. No experiment has targeted
-them directly. Unchanged from the first draft, and still a plausible source of headroom orthogonal to
-the rig-transfer axis.
+This was the one claim the previous pass's verification record admitted it had *not* checked against
+confusion matrices, carrying it forward from the experiment log and spot-check notes instead. Now
+computed (`coffeecv/confusion_report.py`), aggregating the **44 cross-rig confusion matrices** from
+exp106-167 — cross-rig deliberately, since an in-distribution matrix is near-diagonal and says little
+about class similarity. Rates are symmetrised over the pair's combined support.
+
+| rank | pair | rate | per-direction |
+|---|---|---|---|
+| **1** | **006 Cerrado ↔ 007 MonteCristo** | **21.9%** | 006→007 836, 007→006 1476 |
+| 2 | **002 Kenya AA ↔ 005 Guatemala Tata** | 10.2% | 579 / 501 |
+| 3 | 002 Kenya AA ↔ 006 Cerrado | 7.1% | 530 / 218 |
+| 4 | 002 Kenya AA ↔ 003 Colombia PinkBourbon | 6.9% | 426 / 304 |
+| … | | | |
+| 15 | ~~001 Sidamo ↔ 008 Kochere~~ | **3.6%** | 288 / 70 |
+
+**006/007 is confirmed, emphatically** — rank 1 of 36 pairs at more than double the runner-up, and
+both are Brazils, so the physical story is plausible. The direction is lopsided: 007 is misread as 006
+almost twice as often as the reverse.
+
+**001/008 is refuted.** It ranks 15th of 36 at 3.6%, below average, and per-class **008 Kochere is the
+second-*cleanest* class in the set** (7.2% total off-diagonal, behind only 009 Robusta at 4.4%). It
+should not have been named alongside 006/007, and B4 should not spend a screen on it.
+
+**What the previous drafts missed entirely: 002 Kenya AA.** It appears in ranks 2, 3 and 4 — confused
+with Guatemala Tata, Cerrado *and* PinkBourbon. Per-class off-diagonal rates make the real shape clear:
+
+    007 MonteCristo 52.5%   002 Kenya AA 43.1%   005 Guatemala Tata 41.7%   006 Cerrado 35.8%
+    003 PinkBourbon 27.5%   001 Sidamo   23.4%   004 LaPastora     22.4%
+    008 Kochere      7.2%   009 Robusta   4.4%
+
+So this is not "two confusable pairs" but **one dominant pair (006/007) plus a diffusely confusable
+cluster (002/005/006/007)**, against two classes that are nearly free. That is a different problem
+shape than a pairwise fix addresses, and it reframes B4.
 
 ### 2e. "Fresh-scoop" validation has never happened
 
@@ -645,7 +674,7 @@ provenance items and one measurement item now outrank the capture work.
 |---|---|---|---|
 | **A3** | **Fresh-scoop session** from newly-purchased bags of an existing origin, held out from all training | §2e: the one generalization axis never measured, and the closest thing to real deployment | 1 session + bean purchase |
 | **B3′** | **Enlarge the photo-level eval set first**, then reconsider pooling | §3h: the box fold's −0.035 is one photo out of 27. Get n up before engineering an aggregator against it. Revised from the first draft, which treated the regression as established | Cheap (scoring, no retraining) |
-| **B4** | Screen a coarse/hierarchical auxiliary signal against the 006/007 and 001/008 confusion rates specifically | §2d: unexplored axis, orthogonal to rig transfer | One fold-sweep-scale screen, paired multi-seed |
+| **B4** | **Target the confusion cluster, not the two pairs the old §2d named.** 006/007 is confirmed rank 1 (21.9%) and worth a direct screen; 001/008 is refuted (rank 15, 3.6%, and 008 is the 2nd-cleanest class) and should be dropped from the target list. The bigger prize may be 002 Kenya AA, which the plan never mentioned and which sits in ranks 2-4 | §2d, recomputed from 44 cross-rig confusion matrices. Per-class rates say the problem is a 002/005/006/007 cluster, not isolated pairs — a coarse/hierarchical auxiliary signal is a better fit for that shape than a pairwise fix | One fold-sweep-scale screen, paired multi-seed |
 | **B1** | Address val saturation — grow the val split, or change checkpoint selection | §3g: affects which checkpoint ships | Design + a fold-scale screen |
 | **D1** | Reconcile `EXPERIMENTS_LOG.md` with `index.csv`/`params.yaml`; fix `webapp/README.md:35`; refresh `params.yaml`'s stale resting state and comments | §3j: the doc `README.md` calls authoritative is ~70 runs behind, including both largest adopted levers | Half a day |
 
