@@ -215,10 +215,31 @@ def _iter_photos_with_progress(rig, class_ids, label: str):
     progress line per photo. Both photo-by-photo loops below run for minutes with
     no output otherwise -- redirected to a file (background runs, `tee`), that
     looks indistinguishable from a hang until the whole thing finishes."""
-    per_class = [(cid, list_cropped_photos(find_class_dir(rig.cropped_dir, cid))) for cid in class_ids]
-    total = sum(len(photos) for _, photos in per_class)
+    # A held-out rig need not contain every class the model was trained on -- the
+    # iPhone rig has no class_008 at all -- and find_class_dir raises rather than
+    # returning empty. Training already handles this (present_class_idxs narrows
+    # the macro average); this loop did not, so any photowise evaluation against
+    # the iPhone rig died with "Expected exactly one directory for class=008".
+    # Absent classes are skipped and named, since a silently smaller denominator
+    # is exactly the ambiguity macro_n was added to remove.
+    #
+    # class_idx MUST stay the index into `class_ids` -- the model's own output
+    # space -- not into the filtered list. Enumerating the filtered list instead
+    # would shift every class after a gap down by one (with 008 absent, 009 would
+    # be labelled 7 where the head emits 8), silently scoring correct predictions
+    # as wrong. That is a far worse failure than the crash this replaces.
+    per_class, absent = [], []
+    for class_idx, cid in enumerate(class_ids):
+        try:
+            per_class.append((class_idx, cid, list_cropped_photos(find_class_dir(rig.cropped_dir, cid))))
+        except FileNotFoundError:
+            absent.append(cid)
+    if absent:
+        print(f"  note: {rig.name} has no photos for {', '.join('class_' + c for c in absent)} "
+              f"-- scoring the {len(per_class)} classes it does have", flush=True)
+    total = sum(len(photos) for _, _, photos in per_class)
     done = 0
-    for class_idx, (class_id, photos) in enumerate(per_class):
+    for class_idx, class_id, photos in per_class:
         for photo_idx, photo_path in enumerate(photos):
             done += 1
             print(f"  [{label}] {done}/{total}  class {class_id}  {photo_path.name}", flush=True)
