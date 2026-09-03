@@ -1,0 +1,588 @@
+<title>Bean Classifier Inference Path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE;
+    --surface:#FBF9F3;
+    --surface-2:#F3EFE4;
+    --ink:#211C15;
+    --muted:#6C6252;
+    --border:rgba(33,28,21,0.14);
+    --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E;
+    --accent-ink:#5C3E17;
+    --guard:#3D6B5C;
+    --guard-ink:#1F3A31;
+    --refuse:#9B3E36;
+    --refuse-ink:#5C231E;
+    --good-bg:#F4EDD9;
+    --line: var(--muted);
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161310;
+      --surface:#1F1B15;
+      --surface-2:#25201A;
+      --ink:#EEE7D8;
+      --muted:#A79A85;
+      --border:rgba(238,231,216,0.14);
+      --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A;
+      --accent-ink:#F1C68B;
+      --guard:#7FB09E;
+      --guard-ink:#A9D2C2;
+      --refuse:#D98A80;
+      --refuse-ink:#EBB2AA;
+      --good-bg:#2A2416;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161310;
+    --surface:#1F1B15;
+    --surface-2:#25201A;
+    --ink:#EEE7D8;
+    --muted:#A79A85;
+    --border:rgba(238,231,216,0.14);
+    --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A;
+    --accent-ink:#F1C68B;
+    --guard:#7FB09E;
+    --guard-ink:#A9D2C2;
+    --refuse:#D98A80;
+    --refuse-ink:#EBB2AA;
+    --good-bg:#2A2416;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  main{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 24px 80px;
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--guard-ink);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:8px;height:8px;
+    background:var(--guard);
+    display:inline-block;
+    border-radius:1px;
+  }
+  h1{
+    font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight:700;
+    font-size:clamp(32px,5vw,46px);
+    line-height:1.06;
+    letter-spacing:-0.01em;
+    text-wrap:balance;
+    margin:0 0 18px;
+  }
+  .lede{
+    font-size:17px;
+    line-height:1.6;
+    color:var(--muted);
+    max-width:64ch;
+    margin:0 0 10px;
+  }
+  .lede code, p code, li code{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:0.88em;
+    background:var(--code-bg);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:0.05em 0.35em;
+    color:var(--ink);
+  }
+  .scope{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 10px;
+    margin:22px 0 8px;
+  }
+  .scope span{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:4px 11px;
+    background:var(--surface);
+  }
+
+  .callout{
+    margin:34px 0 8px;
+    padding:18px 20px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    border-radius:6px;
+    font-size:14.5px;
+    line-height:1.6;
+    color:var(--ink);
+  }
+  .callout b{color:var(--accent-ink);}
+
+  figure{margin:44px 0 8px;}
+  .diagram-frame{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 14px 8px;
+    overflow-x:auto;
+  }
+  svg{display:block; width:100%; height:auto; max-width:1000px; margin:0 auto;}
+  figcaption{
+    margin-top:12px;
+    font-size:13px;
+    color:var(--muted);
+    line-height:1.55;
+    max-width:70ch;
+  }
+
+  .facts{
+    margin:52px 0 8px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .fact{
+    background:var(--surface);
+    padding:14px 16px;
+  }
+  .fact .k{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .fact .v{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:15px;
+    font-weight:500;
+    color:var(--ink);
+    word-break:break-word;
+  }
+
+  h2{
+    font-family:"IBM Plex Sans Condensed", sans-serif;
+    font-weight:700;
+    font-size:23px;
+    margin:56px 0 4px;
+    letter-spacing:-0.005em;
+  }
+  .section-note{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 20px;
+    max-width:66ch;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:20px 22px 22px;
+    margin-bottom:16px;
+  }
+  .card-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .card-num{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    color:var(--surface);
+    background:var(--accent-ink);
+    border-radius:4px;
+    padding:2px 7px;
+    font-weight:600;
+  }
+  .card.guard .card-num{background:var(--guard-ink); color:var(--surface);}
+  .card h3{
+    font-size:16.5px;
+    font-weight:600;
+    margin:0;
+  }
+  .card .file{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-left:auto;
+  }
+  .card p{
+    font-size:14px;
+    line-height:1.6;
+    color:var(--ink);
+    margin:0 0 12px;
+  }
+  pre{
+    margin:0;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:14px 16px;
+    overflow-x:auto;
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12.5px;
+    line-height:1.55;
+  }
+  pre .c{color:var(--muted);}
+  pre .k{color:var(--guard-ink);}
+  pre .s{color:var(--accent-ink);}
+  pre .r{color:var(--refuse-ink);}
+
+  footer{
+    margin-top:56px;
+    padding-top:18px;
+    border-top:1px solid var(--border);
+    font-size:12.5px;
+    color:var(--muted);
+    font-family:"IBM Plex Mono", monospace;
+  }
+
+  @media (max-width:600px){
+    main{padding:36px 16px 60px;}
+  }
+</style>
+
+<main>
+  <p class="eyebrow">coffeecv &middot; server-side path</p>
+  <h1>What happens between a decoded photo and a returned verdict</h1>
+  <p class="lede">
+    Traced from <code>coffeecv/infer.py:classify_one</code>, the function both the CLI and
+    <code>webapp/app.py</code>'s <code>POST /classify</code> call — same code path, so nothing shown
+    here differs between the two. Upload handling, tempfile plumbing, and JSON shaping are left out;
+    everything from the decoded RGB array to the ranked class list is included.
+  </p>
+  <div class="scope">
+    <span>checkpoint: allrigs_mixstyle05_e100p20_s17.pt</span>
+    <span>backbone: resnet18</span>
+    <span>40 patches &times; 8 TTA views = 320 forward passes</span>
+  </div>
+
+  <div class="callout">
+    <b>On "votes":</b> there is no ensemble of separate models or rigs in the shipped path — one
+    ResNet18, one checkpoint. What plays the role of voting is <b>averaging</b>: 40 patches cut from
+    the photo, each scored under 8 dihedral views (rotations &times; flips), softmax-averaged per
+    patch and then mean-averaged across patches into a single probability vector. The final class is
+    just the argmax of that average — the "election" is 320 probability estimates converging on one
+    mean, not distinct voters being tallied.
+  </div>
+
+  <figure>
+    <div class="diagram-frame">
+<svg viewBox="0 0 1000 1635" role="img" aria-label="Flowchart of the inference pipeline: load image, estimate bean pitch, apply the scale guard, sample 40 patches, transform and run each through ResNet18 with 8-view test-time augmentation, average probabilities across patches, apply the out-of-distribution guard, and return a verdict. Three refusal branches exit to the right at the unmeasurable-photo, scale, and out-of-distribution checks.">
+  <defs>
+    <marker id="aLine" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 Z" style="fill:var(--muted)"/>
+    </marker>
+    <marker id="aRefuse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 Z" style="fill:var(--refuse)"/>
+    </marker>
+    <marker id="aGuard" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 Z" style="fill:var(--guard)"/>
+    </marker>
+  </defs>
+
+  <!-- legend -->
+  <g style="font-family:'IBM Plex Mono',monospace; font-size:11px;" fill="var(--muted)">
+    <rect x="140" y="10" width="14" height="14" rx="3" style="fill:var(--surface-2); stroke:var(--accent); stroke-width:1.5"/>
+    <text x="160" y="21">pipeline step</text>
+    <rect x="300" y="10" width="14" height="14" rx="3" style="fill:var(--surface-2); stroke:var(--guard); stroke-width:1.5"/>
+    <text x="320" y="21">guard computation</text>
+    <rect x="480" y="10" width="14" height="14" rx="3" style="fill:var(--surface-2); stroke:var(--refuse); stroke-width:1.5"/>
+    <text x="500" y="21">refusal (terminal)</text>
+    <rect x="650" y="10" width="14" height="14" rx="3" style="fill:var(--good-bg); stroke:var(--accent); stroke-width:1.5"/>
+    <text x="670" y="21">prediction (terminal)</text>
+  </g>
+
+  <!-- N1 entry -->
+  <g>
+    <rect x="140" y="84" width="320" height="46" rx="8" style="fill:none; stroke:var(--border-strong); stroke-dasharray:4 3" stroke-width="1.5"/>
+    <text x="300" y="103" text-anchor="middle" style="font-size:12px; fill:var(--muted)">decoded photo on disk</text>
+    <text x="300" y="119" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">(web upload / tempfile — not detailed)</text>
+  </g>
+  <line x1="300" y1="130" x2="300" y2="160" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N2 load_rgb_image -->
+  <g>
+    <rect x="140" y="160" width="320" height="92" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="182" text-anchor="middle" style="font-size:14px; font-weight:600">load_rgb_image()</text>
+    <text x="300" y="198" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">dataset.py</text>
+    <text x="300" y="217" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">.dng/.cr2/… &#8594; rawpy.postprocess(camera_wb)</text>
+    <text x="300" y="233" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">else &#8594; PIL.Image.open().convert('RGB')</text>
+  </g>
+  <line x1="300" y1="252" x2="300" y2="282" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N3 estimate_bean_pitch -->
+  <g>
+    <rect x="140" y="282" width="320" height="100" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="304" text-anchor="middle" style="font-size:14px; font-weight:600">estimate_bean_pitch()</text>
+    <text x="300" y="320" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">bean_scale.py, via grayscale_like_training()</text>
+    <text x="300" y="339" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">center 40% window &#8594; Hann window &#8594; 2D FFT</text>
+    <text x="300" y="355" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">radial peak in k&#8712;[4,80], weight k&#185;&#8901;&#8309;, &#215; calib. 1.18</text>
+    <text x="300" y="371" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">luma = 0.299R + 0.587G + 0.114B (fixed, matches training)</text>
+  </g>
+  <line x1="460" y1="332" x2="686" y2="332" stroke="var(--refuse)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#aRefuse)"/>
+  <text x="573" y="325" text-anchor="middle" style="font-size:10.5px; fill:var(--refuse-ink)">analysis window &lt;64px</text>
+  <g>
+    <rect x="690" y="302" width="220" height="60" rx="8" style="fill:var(--surface-2); stroke:var(--refuse)" stroke-width="1.5"/>
+    <text x="800" y="324" text-anchor="middle" style="font-size:13px; font-weight:600; fill:var(--refuse-ink)">REFUSED &middot; unmeasurable</text>
+    <text x="800" y="340" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">HTTP 400 &middot; can't read as beans</text>
+    <text x="800" y="354" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">ValueError from estimate_bean_pitch</text>
+  </g>
+
+  <line x1="300" y1="382" x2="300" y2="392" stroke="var(--muted)" stroke-width="1.5"/>
+
+  <!-- N4 diamond: scale guard -->
+  <polygon points="300,392 470,462 300,532 130,462" style="fill:var(--surface); stroke:var(--guard)" stroke-width="1.5"/>
+  <text x="300" y="450" text-anchor="middle" style="font-size:12.5px; font-weight:600; fill:var(--guard-ink)">beans_across &lt;</text>
+  <text x="300" y="465" text-anchor="middle" style="font-size:12.5px; font-weight:600; fill:var(--guard-ink)">patch_beans_min (4.0)?</text>
+  <text x="300" y="481" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">scale_verdict() — infer.py</text>
+
+  <line x1="470" y1="462" x2="686" y2="462" stroke="var(--refuse)" stroke-width="1.5" marker-end="url(#aRefuse)"/>
+  <text x="578" y="455" text-anchor="middle" style="font-size:11px; fill:var(--refuse-ink)">yes</text>
+  <g>
+    <rect x="690" y="432" width="220" height="60" rx="8" style="fill:var(--surface-2); stroke:var(--refuse)" stroke-width="1.5"/>
+    <text x="800" y="454" text-anchor="middle" style="font-size:13px; font-weight:600; fill:var(--refuse-ink)">REFUSED &middot; scale</text>
+    <text x="800" y="470" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">HTTP 200 &middot; "move camera back"</text>
+    <text x="800" y="484" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">frame too tight for trained patch range</text>
+  </g>
+
+  <line x1="300" y1="532" x2="300" y2="552" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+  <text x="316" y="547" style="font-size:10px; fill:var(--muted)">no — usable (patches above max clamped, rate logged)</text>
+
+  <!-- loop bracket ×40 -->
+  <path d="M112,560 h-8 v458 h8" style="fill:none; stroke:var(--border-strong)" stroke-width="1.5"/>
+  <text x="82" y="789" text-anchor="middle" transform="rotate(-90 82 789)" style="font-family:'IBM Plex Mono',monospace; font-size:11px; fill:var(--muted)">&times; 40 patches / photo</text>
+
+  <!-- N5 sample patches -->
+  <g>
+    <rect x="140" y="560" width="320" height="104" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="582" text-anchor="middle" style="font-size:14px; font-weight:600">sample_bean_unit_patch_boxes()</text>
+    <text x="300" y="598" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">geometry.py</text>
+    <text x="300" y="617" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">side = B &middot; pitch, B log-uniform over 4&#8211;7 beans</text>
+    <text x="300" y="633" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">positioned inside valid region (0.97 margin), no rotation jitter</text>
+    <text x="300" y="649" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">crop full-res &#8594; resize 448&#215;448 bilinear</text>
+  </g>
+  <line x1="300" y1="664" x2="300" y2="684" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N6 eval transform -->
+  <g>
+    <rect x="140" y="684" width="320" height="88" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="706" text-anchor="middle" style="font-size:14px; font-weight:600">build_eval_transform()</text>
+    <text x="300" y="722" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">transforms.py</text>
+    <text x="300" y="741" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">Resize 224&#215;224 (bilinear) &#8594; ToTensor()</text>
+    <text x="300" y="757" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">&#8594; Normalize(ImageNet mean/std) &middot; no jitter at eval</text>
+  </g>
+  <line x1="300" y1="772" x2="300" y2="792" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N7 resnet forward -->
+  <g>
+    <rect x="140" y="792" width="320" height="88" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="814" text-anchor="middle" style="font-size:14px; font-weight:600">ResNet18 forward()</text>
+    <text x="300" y="830" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">model.py &middot; build_model("resnet18")</text>
+    <text x="300" y="849" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">fc &#8594; Dropout(0.2) &#8594; Linear(512, n_classes)</text>
+    <text x="300" y="865" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">MixStyle hooks installed but no-op: model.eval()</text>
+  </g>
+  <line x1="300" y1="880" x2="300" y2="900" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- 4 rotation glyphs -->
+  <g transform="translate(300,888)">
+    <g transform="translate(-135,0)"><rect x="-7" y="-7" width="14" height="14" rx="2" style="fill:none;stroke:var(--accent)" stroke-width="1.3"/><text y="-12" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;fill:var(--muted)">0&#176;</text></g>
+    <g transform="translate(-45,0) rotate(90)"><rect x="-7" y="-7" width="14" height="14" rx="2" style="fill:none;stroke:var(--accent)" stroke-width="1.3"/></g>
+    <text x="-45" y="-12" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;fill:var(--muted)">90&#176;</text>
+    <g transform="translate(45,0) rotate(180)"><rect x="-7" y="-7" width="14" height="14" rx="2" style="fill:none;stroke:var(--accent)" stroke-width="1.3"/></g>
+    <text x="45" y="-12" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;fill:var(--muted)">180&#176;</text>
+    <g transform="translate(135,0) rotate(270)"><rect x="-7" y="-7" width="14" height="14" rx="2" style="fill:none;stroke:var(--accent)" stroke-width="1.3"/></g>
+    <text x="135" y="-12" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;fill:var(--muted)">270&#176;</text>
+    <text x="0" y="18" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;fill:var(--muted)">each &times; horizontal flip &#8594; 8 views</text>
+  </g>
+
+  <!-- N8 TTA -->
+  <g>
+    <rect x="140" y="900" width="320" height="118" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="922" text-anchor="middle" style="font-size:14px; font-weight:600">TTA: average over 8 views</text>
+    <text x="300" y="938" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">forward_with_embeddings() &middot; infer.py</text>
+    <text x="300" y="957" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">rot90(k) &#215; flip, k&#8712;{0,1,2,3}, softmax each view</text>
+    <text x="300" y="973" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">probs = &#931;views softmax / 8  (+0.0235 macro-F1)</text>
+    <text x="300" y="1000" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">penultimate embedding captured only from the untransformed</text>
+    <text x="300" y="1013" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">(k=0, no-flip) pass — kept in the OOD reference's own space</text>
+  </g>
+  <line x1="300" y1="1018" x2="300" y2="1038" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N9 mean over patches (the "vote") -->
+  <g>
+    <rect x="140" y="1038" width="320" height="70" rx="8" style="fill:var(--good-bg); stroke:var(--accent)" stroke-width="2"/>
+    <text x="300" y="1062" text-anchor="middle" style="font-size:14px; font-weight:700; fill:var(--accent-ink)">mean = probs.mean(axis=0)</text>
+    <text x="300" y="1080" text-anchor="middle" style="font-size:11px; fill:var(--ink)">the 40 view-averaged patch vectors, averaged again</text>
+    <text x="300" y="1096" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">classify_one() — this is the "vote"</text>
+  </g>
+  <line x1="300" y1="1108" x2="300" y2="1128" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+
+  <!-- N10 rank -->
+  <g>
+    <rect x="140" y="1128" width="320" height="58" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="1152" text-anchor="middle" style="font-size:13.5px; font-weight:600">rank classes by mean probability</text>
+    <text x="300" y="1170" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">sorted(zip(class_ids, mean), key=-score)</text>
+  </g>
+  <line x1="300" y1="1186" x2="300" y2="1206" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+  <text x="470" y="1200" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">no .ood_reference.json &#8594; verdict="UNGUARDED", skip to result &#8594;</text>
+
+  <!-- N11 ood_scores -->
+  <g>
+    <rect x="140" y="1206" width="320" height="104" rx="8" style="fill:var(--surface); stroke:var(--guard)" stroke-width="1.5"/>
+    <text x="300" y="1228" text-anchor="middle" style="font-size:14px; font-weight:600; fill:var(--guard-ink)">ood_scores()</text>
+    <text x="300" y="1244" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">infer.py &middot; needs &lt;checkpoint&gt;.ood_reference.json</text>
+    <text x="300" y="1263" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">per patch: &#8214;embed &#8722; nearest class centroid&#8214; / class spread</text>
+    <text x="300" y="1279" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">take the median distance over all 40 patches</text>
+    <text x="300" y="1297" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">embeddings from the untransformed pass captured at N8</text>
+  </g>
+  <line x1="300" y1="1310" x2="300" y2="1320" stroke="var(--muted)" stroke-width="1.5"/>
+
+  <!-- N12 diamond OOD threshold -->
+  <polygon points="300,1320 480,1390 300,1460 120,1390" style="fill:var(--surface); stroke:var(--guard)" stroke-width="1.5"/>
+  <text x="300" y="1378" text-anchor="middle" style="font-size:12.5px; font-weight:600; fill:var(--guard-ink)">median &gt;</text>
+  <text x="300" y="1393" text-anchor="middle" style="font-size:12.5px; font-weight:600; fill:var(--guard-ink)">OOD_THRESHOLD (1.4)?</text>
+  <text x="300" y="1409" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">classify_one() — infer.py</text>
+
+  <line x1="480" y1="1390" x2="686" y2="1390" stroke="var(--refuse)" stroke-width="1.5" marker-end="url(#aRefuse)"/>
+  <text x="583" y="1383" text-anchor="middle" style="font-size:11px; fill:var(--refuse-ink)">yes</text>
+  <g>
+    <rect x="690" y="1360" width="220" height="70" rx="8" style="fill:var(--surface-2); stroke:var(--refuse)" stroke-width="1.5"/>
+    <text x="800" y="1382" text-anchor="middle" style="font-size:13px; font-weight:600; fill:var(--refuse-ink)">REFUSED &middot; out of distribution</text>
+    <text x="800" y="1398" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">HTTP 200 &middot; "Unrecognized"</text>
+    <text x="800" y="1412" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">no ranked list returned</text>
+  </g>
+
+  <line x1="300" y1="1460" x2="300" y2="1495" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
+  <text x="316" y="1480" style="font-size:10px; fill:var(--muted)">no — p95 &lt; median &#8804; 1.4: verdict="warned", still predicts</text>
+
+  <!-- N final -->
+  <g>
+    <rect x="140" y="1495" width="320" height="100" rx="8" style="fill:var(--good-bg); stroke:var(--accent)" stroke-width="2"/>
+    <text x="300" y="1520" text-anchor="middle" style="font-size:14.5px; font-weight:700; fill:var(--accent-ink)">verdict: predicted (or warned)</text>
+    <text x="300" y="1540" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">returns ranked [(class_id, label, score), …]</text>
+    <text x="300" y="1557" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">for every class, sorted highest first</text>
+    <text x="300" y="1576" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">webapp/app.py maps this to the JSON the page renders</text>
+  </g>
+</svg>
+    </div>
+    <figcaption>
+      Full server-side path for one uploaded photo. Amber boxes are the main pipeline; teal boxes are
+      the out-of-distribution guard's own computation; red boxes are the three ways a photo can be
+      refused instead of classified. The bracket on the left marks the block that runs once per patch,
+      40 times per photo.
+    </figcaption>
+  </figure>
+
+  <div class="facts">
+    <div class="fact"><div class="k">Backbone</div><div class="v">ResNet18</div></div>
+    <div class="fact"><div class="k">Patches / photo</div><div class="v">40</div></div>
+    <div class="fact"><div class="k">TTA views</div><div class="v">8</div></div>
+    <div class="fact"><div class="k">Forward passes</div><div class="v">320</div></div>
+    <div class="fact"><div class="k">Patch store size</div><div class="v">448px</div></div>
+    <div class="fact"><div class="k">Model input size</div><div class="v">224px</div></div>
+    <div class="fact"><div class="k">Scale guard min</div><div class="v">4.0 beans</div></div>
+    <div class="fact"><div class="k">OOD threshold</div><div class="v">1.4</div></div>
+  </div>
+
+  <h2>Three mechanisms worth reading in full</h2>
+  <p class="section-note">The rest of the pipeline is fairly linear; these three points are where a decision actually gets made.</p>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-num">1</span>
+      <h3>Scale guard — can this frame even supply valid patches?</h3>
+      <span class="file">coffeecv/infer.py:217</span>
+    </div>
+    <p>Bean pitch is measured per photo by FFT, not assumed from a fixed zoom level — a user pointing a
+      phone can't be expected to frame consistently. If the frame is too tight to fit even the smallest
+      trained patch size (4 beans across), there's nothing downstream can fix, so it refuses before
+      touching the model.</p>
+    <pre><span class="c">def</span> scale_verdict(diag, cfg):
+    across = diag["beans_across"]
+    <span class="k">if</span> across &lt; cfg.patch_beans_min:
+        <span class="k">return</span> <span class="s">False</span>, <span class="r">"frame spans only {across:.1f} beans … move the camera back"</span>
+    <span class="k">if</span> across &lt; cfg.patch_beans_max:
+        <span class="k">return</span> <span class="s">True</span>, <span class="c">f"usable, but {clamp_rate:.0%} of patches clamped"</span>
+    <span class="k">return</span> <span class="s">True</span>, <span class="c">"covers the trained range"</span></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <span class="card-num">2</span>
+      <h3>The "vote" — 320 probability estimates averaged into one</h3>
+      <span class="file">coffeecv/infer.py:127, 269</span>
+    </div>
+    <p>Each of the 40 patches gets 8 dihedral views (the rotations/flips training itself augments with),
+      softmax-averaged per patch. Those 40 patch-level averages are then mean-averaged once more into a
+      single vector — every patch and every orientation contributes equally, and the final label is
+      just its argmax.</p>
+    <pre><span class="c"># inside forward_with_embeddings(), tta=True</span>
+acc = probs.copy(); n = 1
+<span class="k">for</span> k <span class="k">in</span> range(4):
+    <span class="k">for</span> flip <span class="k">in</span> (<span class="s">False</span>, <span class="s">True</span>):
+        <span class="k">if</span> k == 0 <span class="k">and not</span> flip: <span class="k">continue</span>
+        view = rot90(patches, k); view = flip(view) <span class="k">if</span> flip <span class="k">else</span> view
+        acc += softmax(model(view)); n += 1
+probs = acc / n                    <span class="c"># n = 8</span>
+
+<span class="c"># back in classify_one(), across all 40 patches</span>
+mean = probs.mean(axis=0)          <span class="c"># the final "vote"</span>
+ranked = sorted(zip(class_ids, mean), key=<span class="k">lambda</span> t: -t[1])</pre>
+  </div>
+
+  <div class="card guard">
+    <div class="card-head">
+      <span class="card-num">3</span>
+      <h3>Out-of-distribution guard — the second, independent refusal</h3>
+      <span class="file">coffeecv/infer.py:231, 296</span>
+    </div>
+    <p>Softmax confidence alone was found to be useless here (0.97 on a genuinely out-of-rig photo,
+      indistinguishable from 0.997 on an in-distribution one) so the guard instead measures how far the
+      photo's embedding sits from every trained class's centroid, in units of that class's own spread.
+      Two bands: warn above the training set's 95th percentile, refuse above the fixed 1.4 threshold.</p>
+    <pre><span class="c">def</span> ood_scores(embeddings, ref):
+    d = norm(embeddings[:, None] - centroids[None]) / spreads
+    <span class="k">return</span> d.min(axis=1), nearest_class_ids   <span class="c"># per patch</span>
+
+<span class="c"># classify_one(): median taken over the 40 patches</span>
+<span class="k">if</span> warn_at &lt; median &lt;= OOD_THRESHOLD:      <span class="c"># 1.4</span>
+    verdict = <span class="s">"warned"</span>                     <span class="c"># still predicts</span>
+<span class="k">if</span> median &gt; OOD_THRESHOLD:
+    verdict = <span class="r">"REFUSED (out of distribution)"</span>  <span class="c"># no ranked list</span></pre>
+  </div>
+
+  <footer>
+    coffeecv/infer.py &middot; coffeecv/bean_scale.py &middot; coffeecv/geometry.py &middot; coffeecv/transforms.py &middot; coffeecv/model.py &middot; webapp/app.py
+  </footer>
+</main>

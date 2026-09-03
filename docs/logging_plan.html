@@ -1,0 +1,404 @@
+<title>Bean Classifier Logging Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE;
+    --surface:#FBF9F3;
+    --surface-2:#F3EFE4;
+    --ink:#211C15;
+    --muted:#6C6252;
+    --border:rgba(33,28,21,0.14);
+    --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E;
+    --accent-ink:#5C3E17;
+    --guard:#3D6B5C;
+    --guard-ink:#1F3A31;
+    --refuse:#9B3E36;
+    --refuse-ink:#5C231E;
+    --code-bg:#20241f0d;
+    --collect-bg:#E4EEE9;
+    --minimize-bg:#F3E7D2;
+    --exclude-bg:#F6E1DE;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161310;
+      --surface:#1F1B15;
+      --surface-2:#25201A;
+      --ink:#EEE7D8;
+      --muted:#A79A85;
+      --border:rgba(238,231,216,0.14);
+      --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A;
+      --accent-ink:#F1C68B;
+      --guard:#7FB09E;
+      --guard-ink:#A9D2C2;
+      --refuse:#D98A80;
+      --refuse-ink:#EBB2AA;
+      --code-bg:#00000030;
+      --collect-bg:rgba(127,176,158,0.14);
+      --minimize-bg:rgba(221,162,90,0.14);
+      --exclude-bg:rgba(217,138,128,0.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161310;
+    --surface:#1F1B15;
+    --surface-2:#25201A;
+    --ink:#EEE7D8;
+    --muted:#A79A85;
+    --border:rgba(238,231,216,0.14);
+    --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A;
+    --accent-ink:#F1C68B;
+    --guard:#7FB09E;
+    --guard-ink:#A9D2C2;
+    --refuse:#D98A80;
+    --refuse-ink:#EBB2AA;
+    --code-bg:#00000030;
+    --collect-bg:rgba(127,176,158,0.14);
+    --minimize-bg:rgba(221,162,90,0.14);
+    --exclude-bg:rgba(217,138,128,0.14);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  main{max-width:920px; margin:0 auto; padding:56px 24px 90px;}
+
+  .eyebrow{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:12px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--guard-ink);
+    display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  }
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--guard); display:inline-block; border-radius:1px;}
+  h1{
+    font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;
+    font-weight:700; font-size:clamp(30px,4.6vw,44px); line-height:1.08;
+    letter-spacing:-0.01em; text-wrap:balance; margin:0 0 18px;
+  }
+  .lede{font-size:17px; line-height:1.6; color:var(--muted); max-width:66ch; margin:0 0 10px;}
+  .lede code, p code, li code, td code{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;
+    background:var(--code-bg); border:1px solid var(--border); border-radius:4px;
+    padding:0.05em 0.35em; color:var(--ink); white-space:nowrap;
+  }
+  .scope{display:flex; flex-wrap:wrap; gap:8px 10px; margin:22px 0 8px;}
+  .scope span{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px; color:var(--muted);
+    border:1px solid var(--border); border-radius:20px; padding:4px 11px; background:var(--surface);
+  }
+
+  h2{
+    font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:700; font-size:23px;
+    margin:58px 0 4px; letter-spacing:-0.005em;
+  }
+  h2 .n{color:var(--muted); font-weight:600; margin-right:10px;}
+  .section-note{color:var(--muted); font-size:14px; margin:0 0 22px; max-width:70ch; line-height:1.6;}
+
+  .facts{
+    margin:28px 0 8px; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px; background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+  }
+  .fact{background:var(--surface); padding:14px 16px;}
+  .fact .k{font-family:"IBM Plex Mono",monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:6px;}
+  .fact .v{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:14px; font-weight:500; color:var(--ink); line-height:1.4; word-break:break-word;}
+
+  .callout{
+    margin:22px 0 8px; padding:18px 20px; background:var(--surface-2); border:1px solid var(--border);
+    border-left:3px solid var(--accent); border-radius:6px; font-size:14.5px; line-height:1.6; color:var(--ink);
+  }
+  .callout.refuse{border-left-color:var(--refuse);}
+  .callout b{color:var(--accent-ink);}
+  .callout.refuse b{color:var(--refuse-ink);}
+
+  ol.rules{margin:20px 0 8px; padding:0; list-style:none; counter-reset:rule;}
+  ol.rules li{
+    counter-increment:rule; position:relative; padding:14px 16px 14px 52px; margin-bottom:8px;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px; font-size:14.5px; line-height:1.55;
+  }
+  ol.rules li::before{
+    content:counter(rule); position:absolute; left:14px; top:14px;
+    font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--surface);
+    background:var(--guard-ink); border-radius:4px; width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+  }
+  ol.rules li b{color:var(--ink);}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:8px; margin:18px 0 8px;}
+  table{border-collapse:collapse; width:100%; min-width:640px; font-size:13.5px;}
+  thead th{
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--muted); text-align:left; background:var(--surface-2); padding:10px 14px; border-bottom:1px solid var(--border-strong); white-space:nowrap;
+  }
+  tbody td{padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:top; background:var(--surface); line-height:1.5;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody td:first-child{font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink); white-space:nowrap;}
+  tbody td.why{color:var(--muted); max-width:34ch;}
+
+  .pill{
+    display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600;
+    letter-spacing:0.03em; text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap;
+  }
+  .pill.collect{background:var(--collect-bg); color:var(--guard-ink); border:1px solid var(--guard);}
+  .pill.minimize{background:var(--minimize-bg); color:var(--accent-ink); border:1px solid var(--accent);}
+  .pill.exclude{background:var(--exclude-bg); color:var(--refuse-ink); border:1px solid var(--refuse);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin:20px 0 8px;}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px 22px 22px;}
+  .card-head{display:flex; align-items:baseline; gap:12px; margin-bottom:10px; flex-wrap:wrap;}
+  .card-num{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--surface); background:var(--accent-ink); border-radius:4px; padding:2px 7px; font-weight:600;}
+  .card h3{font-size:16px; font-weight:600; margin:0;}
+  .card .file{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); margin-left:auto;}
+  .card p{font-size:14px; line-height:1.6; color:var(--ink); margin:0 0 12px;}
+  .card ul{margin:0 0 12px; padding-left:18px; font-size:13.5px; line-height:1.6; color:var(--ink);}
+  .card ul li{margin-bottom:4px;}
+
+  pre{
+    margin:0 0 8px; background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
+    padding:14px 16px; overflow-x:auto; font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; line-height:1.55;
+  }
+  pre .c{color:var(--muted);}
+  pre .k{color:var(--guard-ink);}
+  pre .s{color:var(--accent-ink);}
+  pre .r{color:var(--refuse-ink);}
+
+  .open-list{margin:18px 0 8px; padding:0; list-style:none;}
+  .open-list li{
+    padding:13px 16px; margin-bottom:8px; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; font-size:14px; line-height:1.55;
+  }
+  .open-list .default{color:var(--muted); font-size:12.5px; margin-top:4px;}
+  .open-list .default b{color:var(--guard-ink); font-weight:600;}
+
+  footer{margin-top:60px; padding-top:18px; border-top:1px solid var(--border); font-size:12.5px; color:var(--muted); font-family:"IBM Plex Mono",monospace; line-height:1.7;}
+
+  @media (max-width:600px){ main{padding:36px 16px 60px;} }
+</style>
+
+<main>
+  <p class="eyebrow">webapp/app.py &middot; nginx &middot; gunicorn</p>
+  <h1>Logging the classifier service without collecting on people</h1>
+  <p class="lede">
+    A plan for adding real operational visibility &mdash; maintenance, incident response, bottleneck
+    analysis &mdash; to the deployed <code>/classify</code> service, while keeping the posture the
+    service already has: no accounts, no image storage, no persistent identifiers. Every field below
+    is judged against one question: does this answer something you'll actually need to ask, or is it
+    just data because it was easy to capture?
+  </p>
+  <div class="scope">
+    <span>1 gunicorn worker, sync</span>
+    <span>stateless &mdash; no accounts, no cookies</span>
+    <span>current sink: journald</span>
+    <span>coffee-cv-web.service</span>
+  </div>
+
+  <h2><span class="n">01</span>Where this starts</h2>
+  <p class="section-note">What's actually true today, read from <code>webapp/app.py</code>, the systemd unit, and the nginx template &mdash; not assumed.</p>
+  <div class="facts">
+    <div class="fact"><div class="k">App logging</div><div class="v">logging.basicConfig(INFO) &rarr; stderr &rarr; journald</div></div>
+    <div class="fact"><div class="k">Per-request logs</div><div class="v">none &mdash; gunicorn runs with no --access-logfile</div></div>
+    <div class="fact"><div class="k">What's logged today</div><div class="v">2 startup lines: checkpoint source, OOD reference presence</div></div>
+    <div class="fact"><div class="k">nginx access log</div><div class="v">not yet a deliberate decision</div></div>
+    <div class="fact"><div class="k">Image bytes / filenames</div><div class="v">never logged &mdash; already an invariant</div></div>
+  </div>
+  <div class="callout">
+    <b>Existing invariant, kept as-is:</b> <code>webapp/README.md</code> already documents the rule for
+    this service &mdash; "verdicts + exceptions; never image bytes or filenames." This plan is an
+    extension of that rule, not a replacement for it. The upload is written to a fixed-suffix tempfile,
+    decoded, and deleted in a <code>finally</code>; nothing here proposes changing that.
+  </div>
+  <div class="callout">
+    <b>The gap that actually motivates this:</b> right now, if <code>/classify</code> gets slow, or the
+    OOD guard starts refusing everything, or one browser's uploads keep failing to decode, there's no
+    log line that would tell you. The two startup messages are everything the service currently emits.
+  </div>
+
+  <h2><span class="n">02</span>Ground rules</h2>
+  <p class="section-note">What every field hypothesis below is checked against.</p>
+  <ol class="rules">
+    <li><b>Name the question before the field.</b> A field earns a place in the schema by answering a maintenance, incident, or bottleneck question you can state in one sentence. "Might be useful someday" doesn't qualify.</li>
+    <li><b>No persistent identifiers.</b> No cookies, no fingerprinting, no per-visitor ID that outlives one request.</li>
+    <li><b>A request ID stitches log lines, not visitors.</b> It ties nginx's line and the app's line about the <i>same</i> HTTP call together. It is never reused across two different calls, so it can't become a tracking ID by accident.</li>
+    <li><b>Everything stays on the one VM.</b> No third-party log shipping or SaaS sink &mdash; that would turn a config decision into a data-processor relationship with its own paperwork.</li>
+    <li><b>Retention is enforced by config, not memory.</b> Every log tier gets an explicit auto-expiry, set in <code>journald</code>/<code>logrotate</code>, not "someone remembers to clean it up."</li>
+    <li><b>IP addresses are personal data.</b> Treated that way by default: for now, that means not logged at all, in any form &mdash; see &sect;03-C.</li>
+  </ol>
+
+  <h2><span class="n">03</span>What to log &mdash; by category</h2>
+  <p class="section-note">
+    Six hypotheses, each scored <span class="pill collect">collect</span> (no meaningful GDPR exposure &mdash;
+    it describes the request or the model, not the person), <span class="pill minimize">minimize</span>
+    (useful, but log a reduced form instead of the raw value), or <span class="pill exclude">exclude</span>
+    (not worth the exposure for what it'd answer).
+  </p>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">A &middot; Request outcome</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>endpoint, http_status</td><td class="why">basic request accounting per route</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>verdict</td><td class="why">predicted / warned / refused_scale / refused_ood / refused_unreadable / error &mdash; the refusal-rate trend is the OOD guard's health signal</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>top-1 class id + score</td><td class="why">only when verdict=predicted; catches a class silently dominating or vanishing</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>ood.warned, ood percentile</td><td class="why">is the guard triggering more than expected this week</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>crop.needs_review, skip_crop</td><td class="why">how often users override a crop they don't trust</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>decoded format, upload size, decoded W&times;H</td><td class="why">which formats/sizes actually arrive in production</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>crop box coordinates</td><td class="why">not needed after the fact &mdash; needs_review already carries the operational signal</td><td><span class="pill exclude">exclude</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">B &middot; Timing (this is the bottleneck-analysis category)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>total latency (ms)</td><td class="why">the number a user-facing slowness report maps to</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>decode / crop-detect / inference split (ms)</td><td class="why">which stage of the 40-patch &times; 8-TTA pipeline actually dominates a slow request</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>queue wait behind the single worker</td><td class="why">tells you if the real fix is more workers, not faster inference</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>request_id</td><td class="why">joins this row to the same request's nginx line and any error line</td><td><span class="pill collect">collect</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">C &middot; Client / network signals &mdash; where the actual GDPR tension lives</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>client IP, raw or masked</td><td class="why">would help block a specific abusive source mid-incident &mdash; not worth collecting anything until that's a real problem, not a hypothetical one</td><td><span class="pill exclude">exclude, for now</span></td></tr>
+      <tr><td>raw User-Agent string</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
+      <tr><td>coarse UA category (OS + browser family)</td><td class="why">HEIC/AVIF decode failures cluster by browser family &mdash; this is the actual useful signal</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>Referer header</td><td class="why">single-page app, one entry point &mdash; adds nothing</td><td><span class="pill exclude">exclude</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="section-note" style="margin-top:10px;">
+    Neither the Flask app's logger nor nginx's access log captures the client's IP address, in any form,
+    for now &mdash; not even masked. Nothing in &sect;03's other categories needs it, and the service is
+    already capped at one concurrent request by <code>limit_conn</code>, which bounds what an
+    unidentified abusive source can do regardless. Worth revisiting if a real incident ever needs to
+    block one specific source rather than wait it out.
+  </p>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">D &middot; Errors and exceptions</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>exception class, message, traceback</td><td class="why">this is incident resolution &mdash; without it you're debugging blind</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>decode-failure reason</td><td class="why">format/exception type only &mdash; never the client's filename, which the app already avoids using</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>request_id, endpoint</td><td class="why">locates the failure without needing anything about who sent it</td><td><span class="pill collect">collect</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">E &middot; System / process health</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>process RSS memory, CPU%</td><td class="why">torch's per-request CPU spike is the whole capacity story on this box</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>model load time at boot</td><td class="why">catches a slow restart before it looks like an outage</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>gunicorn worker restarts (Restart=on-failure firing)</td><td class="why">a silent crash loop is exactly what this would catch</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>nginx limit_conn 503 rejections</td><td class="why">the single-worker cap doing its job vs. genuine overload</td><td><span class="pill collect">collect</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">F &middot; Aggregated / derived (rolled up from A+B, not new raw collection)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>hourly counts by verdict</td><td class="why">a refusal-rate spike is visible before anyone complains</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>daily latency p50/p95/p99</td><td class="why">the actual "is it getting slower" answer, not a single anecdote</td><td><span class="pill collect">collect</span></td></tr>
+      <tr><td>7-day rolling OOD-trigger rate</td><td class="why">a slow drift here is an early drift-detection signal, cheaply</td><td><span class="pill collect">collect</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2><span class="n">04</span>Never logged, full stop</h2>
+  <div class="callout refuse">
+    <b>Hard excludes, regardless of how useful they'd seem:</b>
+    <ul style="margin:10px 0 0; padding-left:20px; line-height:1.7;">
+      <li>Image bytes, thumbnails, or anything derived from pixel content</li>
+      <li>The client's original filename, in any form (already true &mdash; the tempfile suffix is fixed/generic, never derived from <code>upload.filename</code>)</li>
+      <li>EXIF metadata, including GPS tags &mdash; moot today since nothing reads EXIF, stated here so it stays true if that ever changes</li>
+      <li>Full raw User-Agent string beyond the short-lived window needed to derive the coarse category</li>
+      <li>Any cookie, session token, or device fingerprint &mdash; none exist today; logging is not a reason to add one</li>
+      <li>Client IP address, in any form, at any layer (for now &mdash; see &sect;03-C)</li>
+    </ul>
+  </div>
+
+  <h2><span class="n">05</span>Tying one request together, without tying two together</h2>
+  <p class="section-note">
+    A <code>request_id</code> (8 hex chars, generated per request) gets attached to the nginx line and
+    every app-side log line for that one HTTP call &mdash; the join key that makes an incident traceable
+    end to end. It is discarded the moment the request finishes serving its purpose as a join key: it is
+    never written anywhere alongside a second request's ID, so it cannot be used to reconstruct "this
+    visitor made these three requests." Only ever surfaced back to the client on error responses
+    ("quote this code if you report a bug") &mdash; genuinely useful for support, and not personal data
+    since it identifies a request, not a person.
+  </p>
+
+  <h2><span class="n">06</span>Retention <span class="pill collect">shipped &middot; 7c73fab</span></h2>
+  <p class="section-note">
+    App and nginx logs now run a full year instead of weeks &mdash; long enough to compare this
+    month's refusal rate or latency against the same month last year, not just recent incident
+    response. Aggregated rollups (F) were already indefinite; nothing about them changes.
+  </p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tier</th><th>Contents</th><th>Retention</th><th>Enforced by</th></tr></thead>
+    <tbody>
+      <tr><td>App structured log</td><td class="why">categories A, B, D, E as one JSON line per request</td><td class="why">365 days</td><td class="why">dedicated file + logrotate, daily, compressed &mdash; not <code>journald</code> at this duration: a year of this would compete with the system journal's own retention budget for everything else on the box</td></tr>
+      <tr><td>nginx access log</td><td class="why">UA category, status, path, request_id &mdash; no client IP (see &sect;03-C)</td><td class="why">365 days</td><td class="why">logrotate, rotate daily, compress, keep 365</td></tr>
+      <tr><td>Aggregated daily/hourly rollups (F)</td><td class="why">counts and percentiles only &mdash; no per-request rows</td><td class="why">indefinite</td><td class="why">not personal data once aggregated &mdash; no individual request is recoverable from it</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <b>Checked against the real VM, not assumed:</b> 60GB free on <code>/</code> (37GB of 97GB used
+    &mdash; <code>df -h</code> on the box this already runs training on). Worst case for a full year:
+    the service is capped at 1 concurrent request by nginx's <code>limit_conn</code>, and inference
+    takes 6&ndash;8s, so even saturated non-stop for 365 days straight that's roughly 4.5M requests
+    &mdash; about 1.8GB of app log plus 450MB of nginx log, uncompressed, before logrotate's own
+    compression shrinks it further. Under 5% of free space, at a load real traffic won't come close
+    to. Disk was never actually the constraint here.
+  </div>
+
+  <h2><span class="n">07</span>Rollout, in three phases</h2>
+  <p class="section-note">Phases 1 and 2 are shipped and deployed to production. Retention (&sect;06) shipped alongside them, in its own commit.</p>
+  <div class="callout">
+    <b>Deploy incident, caught and fixed live, 2026-08-31:</b> the first production deploy
+    crash-looped <code>coffee-cv-web.service</code> immediately &mdash; its
+    <code>ProtectSystem=strict</code> sandboxing makes the whole filesystem read-only except an
+    explicit allowlist, and <code>/var/log/coffee-cv</code> was never added to it, so every
+    worker died at import time (<code>OSError: Read-only file system</code>). No local smoke
+    test could have caught this; the dev server doesn't run under systemd at all. Fixed with
+    <code>ReadWritePaths=/var/log/coffee-cv</code> in <span class="file">webapp/deploy/coffee-cv-web.service</span>
+    (commit <code>2b5e718</code>), verified via a real request through the live HTTPS endpoint
+    afterward &mdash; both logs written, correct <code>request_id</code> join, zero restarts since.
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-head"><span class="card-num">phase 1</span><h3>Structured request logs</h3><span class="pill collect" style="margin-left:auto;">shipped &middot; 3f08b4b</span></div>
+      <p><span class="file">webapp/app.py</span> &middot; <span class="file">coffeecv/infer.py</span> &mdash; one JSON line per request to <code>/var/log/coffee-cv/app.jsonl</code> via a <code>WatchedFileHandler</code> (so external logrotate can rotate it with no signal/restart), plus a separate line for decode failures and unhandled exceptions, joined by <code>request_id</code>. <code>coffeecv/infer.py</code> gained the decode/crop-detect/inference timing split and decoded dimensions as new, purely-additive keys on the diagnostic dict <code>classify_one</code> already returned &mdash; no change to any measurement its parity guarantee depends on. Smoke-tested against the real model and a real photo, including a simulated logrotate rename to confirm the handler reopens on its own.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-num">phase 2</span><h3>nginx: dedicated log, shared request_id</h3><span class="pill collect" style="margin-left:auto;">shipped &middot; 1e6f42e</span></div>
+      <p><span class="file">webapp/deploy/coffee-cv.nginx.conf.template</span> &mdash; landed at <code>/var/log/nginx/coffee-cv.access</code>, not the <code>coffee-cv.log</code> this section originally sketched: Ubuntu's stock <code>/etc/logrotate.d/nginx</code> globs <code>/var/log/nginx/*.log</code>, which would have silently double-rotated a same-named file at the distro's own 14-day default, fighting &sect;06's 365. Dropping the <code>.log</code> suffix keeps it out of that glob entirely. <code>$request_id</code> in the original sketch was also wrong in a subtler way &mdash; that's nginx's own per-connection id, not the one <code>webapp/app.py</code> generates; the shipped format captures <code>$upstream_http_x_request_id</code> instead, reading the id back off the app's <code>X-Request-Id</code> response header.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-num">phase 3</span><h3>Daily rollups <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0; font-family:inherit;">(optional, not shipped)</span></h3><span class="file">scripts/</span></div>
+      <p>A small cron job reading <code>journalctl -o json --since yesterday</code> to compute category-F counts/percentiles into a rotated summary file. Deliberately <em>not</em> a public <code>/metrics</code> endpoint &mdash; that's a new dependency and a new surface for a service this size. Worth doing once there's enough traffic that eyeballing phase 1's log lines stops being practical; skip it until then.</p>
+    </div>
+  </div>
+
+  <h2><span class="n">08</span>Open calls</h2>
+  <p class="section-note">Judgment calls, not technical questions &mdash; each has a default stated above, adjustable if the trade-off reads differently to you.</p>
+  <ul class="open-list">
+    <li>
+      Phase 3's rollup script: build it now alongside phases 1&ndash;2, or defer until traffic volume actually makes reading raw log lines impractical.
+      <div class="default">Default: <b>defer</b> &mdash; revisit once phase 1 has real data to look at.</div>
+    </li>
+  </ul>
+
+  <footer>
+    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-web.service &middot; webapp/README.md
+  </footer>
+</main>
