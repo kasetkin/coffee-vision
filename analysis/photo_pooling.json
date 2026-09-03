@@ -1,0 +1,67 @@
+[
+ {
+  "exp": 163,
+  "rig": "2026-08-07__box_pictures_all_classes",
+  "n_photos": 180,
+  "n_patches_per_photo": 40,
+  "patch_acc": 0.782,
+  "photo_acc": 0.894,
+  "delta": 0.113,
+  "photo_acc_ci95": [
+   0.841,
+   0.931
+  ]
+ },
+ {
+  "exp": 164,
+  "rig": "2026-08-09__pixel_cam",
+  "n_photos": 180,
+  "n_patches_per_photo": 40,
+  "patch_acc": 0.776,
+  "photo_acc": 0.883,
+  "delta": 0.107,
+  "photo_acc_ci95": [
+   0.828,
+   0.922
+  ]
+ },
+ {
+  "exp": 165,
+  "rig": "2026-08-09__sony_cam",
+  "n_photos": 180,
+  "n_patches_per_photo": 40,
+  "patch_acc": 0.729,
+  "photo_acc": 0.806,
+  "delta": 0.077,
+  "photo_acc_ci95": [
+   0.742,
+   0.857
+  ]
+ },
+ {
+  "exp": 166,
+  "rig": "2026-08-25__oneplus",
+  "n_photos": 90,
+  "n_patches_per_photo": 40,
+  "patch_acc": 0.855,
+  "photo_acc": 0.922,
+  "delta": 0.067,
+  "photo_acc_ci95": [
+   0.848,
+   0.962
+  ]
+ },
+ {
+  "exp": 167,
+  "rig": "2026-08-25__iphone",
+  "n_photos": 92,
+  "n_patches_per_photo": 40,
+  "patch_acc": 0.784,
+  "photo_acc": 0.88,
+  "delta": 0.097,
+  "photo_acc_ci95": [
+   0.798,
+   0.932
+  ]
+ }
+]
