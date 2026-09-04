@@ -1,0 +1,4 @@
+[core]
+    remote = remoteconfig
+['remote "remoteconfig"']
+    url = ssh://coffdvc@dvcremote:49081/mnt/toshaPool/homedirs/coffdvc/
