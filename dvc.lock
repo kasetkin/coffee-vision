@@ -68,7 +68,7 @@ stages:
         epochs: 100
         eta_min: 1e-05
         freeze_mode: none
-        heldout_rig: data/cropped/cam_pixel
+        heldout_rig: data/cropped/cam_sony
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -94,7 +94,7 @@ stages:
         train_patches_per_class: 150
         train_photo_frac: 0.7
         train_rigs:
-        - data/cropped/cam_sony
+        - data/cropped/cam_pixel
         - data/cropped/cam_oneplus
         - data/cropped/cam_iphone
         val_patches_per_class: 40
@@ -105,36 +105,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 3af31616cea688b3b11b03fd562c2d66
+      md5: 09e52fd236ec6eb064afe98783b7cb83
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: d27ccd5e76cb3a8fb16600c945ae808d
+      md5: 732ef1814134e56cc146c372246b1641
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: 2cbdebba96ca06b024c769a393596160
-      size: 28539
+      md5: f3a829760c1c4c354295cda3a2fbb7a7
+      size: 24542
     - path: outputs/metrics.json
       hash: md5
-      md5: f272dc6910b1bceccf0353caf10a0303
-      size: 14278
+      md5: 2329e2cf07fdfd820ae2054ae8f71cb2
+      size: 14319
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 0c2f705869f92b6cd1add19a6e509785
+      md5: 6e6cdd5bb7a746e14ae0ad294cd3c928
       size: 10103
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 226a166096de8d99bc3ea1051de2af29
+      md5: 2996f9322d00f706b596540589a0aba9
       size: 10103
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: d0aae700ebf5c6ce7c61df3eca79584b
+      md5: 58b33d47d8968e97fd1306f5a3fa89a0
       size: 10823
     - path: outputs/summary.json
       hash: md5
-      md5: 7fed20806284c3204f455c78873d1d93
-      size: 213
+      md5: 7c5e854752e6c39f4a9bf1a6dd75b789
+      size: 212
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
