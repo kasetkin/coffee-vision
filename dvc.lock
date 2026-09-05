@@ -68,7 +68,7 @@ stages:
         epochs: 100
         eta_min: 1e-05
         freeze_mode: none
-        heldout_rig: data/cropped/cam_sony
+        heldout_rig: data/cropped/cam_oneplus
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -95,7 +95,7 @@ stages:
         train_photo_frac: 0.7
         train_rigs:
         - data/cropped/cam_pixel
-        - data/cropped/cam_oneplus
+        - data/cropped/cam_sony
         - data/cropped/cam_iphone
         val_patches_per_class: 40
         val_photo_frac: 0.15
@@ -105,36 +105,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 09e52fd236ec6eb064afe98783b7cb83
+      md5: 04e1a634b5b9e54fa94b8072e1f70962
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 732ef1814134e56cc146c372246b1641
+      md5: 8dee4d8ae2db2841c476420c0dc66237
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: f3a829760c1c4c354295cda3a2fbb7a7
-      size: 24542
+      md5: 4f2bfeb27c1fb669d0b272ef11de787a
+      size: 28559
     - path: outputs/metrics.json
       hash: md5
-      md5: 2329e2cf07fdfd820ae2054ae8f71cb2
-      size: 14319
+      md5: f06957faaf442e498b4999b4f309e3c1
+      size: 14219
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 6e6cdd5bb7a746e14ae0ad294cd3c928
+      md5: 6db04566f52fe74dc87a4aec0765fedc
       size: 10103
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 2996f9322d00f706b596540589a0aba9
+      md5: 78701b1248a7169eb9cf04c7a83b464b
       size: 10103
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: 58b33d47d8968e97fd1306f5a3fa89a0
+      md5: 5d9ba5fd10e2a8d767224eebe02d919b
       size: 10823
     - path: outputs/summary.json
       hash: md5
-      md5: 7c5e854752e6c39f4a9bf1a6dd75b789
-      size: 212
+      md5: 25425eb4858b5c0618ba72a25626d933
+      size: 214
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
