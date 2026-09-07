@@ -40,6 +40,7 @@ from coffeecv.crop_tray import (
     build_contact_sheet,
     locate_bean_crop,
     locate_tray_rough,
+    repo_relative,
     resolve_trim,
 )
 
@@ -132,7 +133,7 @@ def qa_session(session: str, out_root: Path = QA_ROOT) -> dict:
 
             out_path = out_dir / (photo_path.stem + "__cropped.jpg")
             cv2.imwrite(str(out_path), out_img, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            entry["out_path"] = str(out_path)
+            entry["out_path"] = repo_relative(out_path)
             reports.append(entry)
 
         (out_dir / "crop_report.json").write_text(json.dumps(reports, indent=2))

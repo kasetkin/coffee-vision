@@ -38,6 +38,35 @@ import cv2
 import numpy as np
 import pillow_heif
 
+
+# Repo root derived here rather than imported from coffeecv.config: this module is
+# deliberately dependency-light (config pulls in yaml and the whole RunConfig
+# surface, and nothing here needs it).
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def repo_relative(path: Path) -> str:
+    """A path as a repo-relative POSIX string, for anything written into a tracked out.
+
+    crop_report.json is part of the `crop` stage's DVC output, so an absolute path
+    inside it makes the stage's *content* machine-dependent: the same photos cropped
+    on two machines produce byte-identical JPEGs but reports differing only in a
+    `/workspace/...` vs `/home/<user>/...` prefix. The enclosing `.dir` hash then
+    differs, DVC records a spurious "changed out", and the next cross-machine sync has
+    to be diagnosed by hand before anyone can trust that the data did not drift --
+    which is exactly what the exp200-203 sweep cost on 2026-09-07.
+
+    A path outside the repo (an --out-dir pointed somewhere else) has no relative
+    form, so it falls back to the absolute string rather than raising: this is a
+    record of what happened, and losing a whole crop run over an unrepresentable path
+    would be the worse failure.
+    """
+    p = Path(path).resolve()
+    try:
+        return p.relative_to(_REPO_ROOT).as_posix()
+    except ValueError:
+        return str(p)
+
 # Registers ".heic"/".heif" with PIL.Image.open, used by _imread_bgr below.
 # Needed because cv2.imread cannot decode HEIC -- iPhone's default capture
 # format (see 2026-08-25__iphone.crop.yaml) -- at all.
@@ -460,7 +489,7 @@ def crop_dataset(
 
             entry.update(asdict(result))
             entry["rough_box"] = list(rough_box)
-            entry["out_path"] = str(out_path)
+            entry["out_path"] = repo_relative(out_path)
             entry["error"] = None
         except Exception as e:
             entry["error"] = str(e)
@@ -513,7 +542,7 @@ def crop_dataset_passthrough(images_dir: Path, out_dir: Path) -> list[dict]:
                 shutil.copy2(p, out_path)
             with Image.open(out_path) as im:
                 entry["size"] = list(im.size)
-            entry.update({"out_path": str(out_path), "needs_review": False, "error": None})
+            entry.update({"out_path": repo_relative(out_path), "needs_review": False, "error": None})
         except Exception as e:
             entry["error"] = str(e)
             entry["needs_review"] = True
@@ -594,7 +623,7 @@ def crop_dataset_fixed_trim(
                 "box": list(box), "rough_method": method, "trim": t, "needs_review": needs_review,
             })
             entry["rough_box"] = [x, y, w, h]
-            entry["out_path"] = str(out_path)
+            entry["out_path"] = repo_relative(out_path)
             entry["error"] = None
         except Exception as e:
             entry["error"] = str(e)

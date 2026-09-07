@@ -145,8 +145,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: cc2f6d9fe926a012cf1330b808220889.dir
@@ -159,8 +159,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: ccb155e898a08749c2bf55c3c93f5073.dir
-      size: 151680104
+      md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
+      size: 151678124
       nfiles: 190
   crop@2026-08-09__pixel_cam:
     cmd: python -m coffeecv.crop_session --session 2026-08-09__pixel_cam
@@ -171,8 +171,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-09__pixel_cam
       hash: md5
       md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
@@ -185,8 +185,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-09__pixel_cam
       hash: md5
-      md5: df4345ee13d4fcf357e567fea1120093.dir
-      size: 434744091
+      md5: 8d4c7f0adc67051268a4ac6515e2aaef.dir
+      size: 434742111
       nfiles: 190
   crop@2026-08-09__sony_cam:
     cmd: python -m coffeecv.crop_session --session 2026-08-09__sony_cam
@@ -197,8 +197,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-09__sony_cam
       hash: md5
       md5: d9e73dda514dadd8597a74650fd93434.dir
@@ -211,8 +211,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-09__sony_cam
       hash: md5
-      md5: a066ff29bcda32aca6fc800242418f63.dir
-      size: 970258699
+      md5: 18718ef8147421421220e191553974fc.dir
+      size: 970256719
       nfiles: 190
   crop@2026-08-25__oneplus:
     cmd: python -m coffeecv.crop_session --session 2026-08-25__oneplus
@@ -223,8 +223,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-25__oneplus
       hash: md5
       md5: 44438c897ca8cf2369d7986728d4f9aa.dir
@@ -237,8 +237,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-25__oneplus
       hash: md5
-      md5: 0e8ee6a0ce5e5a320ab7592cd50cef71.dir
-      size: 63505716
+      md5: de32ec658380e3c24a31885537fdb1ab.dir
+      size: 63504726
       nfiles: 100
   crop@2026-08-25__iphone:
     cmd: python -m coffeecv.crop_session --session 2026-08-25__iphone
@@ -249,8 +249,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-25__iphone
       hash: md5
       md5: 2868cad8b178baf567318c461ca54228.dir
@@ -263,8 +263,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-25__iphone
       hash: md5
-      md5: 1792b5ceb755b9804cdb2bd77630fcce.dir
-      size: 119323036
+      md5: 9d894bee5feb74d330f98f503ab2ab74.dir
+      size: 119322024
       nfiles: 101
   crop@2026-08-27__oneplus_flash:
     cmd: python -m coffeecv.crop_session --session 2026-08-27__oneplus_flash
@@ -275,8 +275,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-27__oneplus_flash
       hash: md5
       md5: ae2c8306a90f711b30a3314fbd35819c.dir
@@ -289,8 +289,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-27__oneplus_flash
       hash: md5
-      md5: 1995cb4ae730889008e58eb419d9fb4f.dir
-      size: 245082821
+      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
+      size: 245081831
       nfiles: 100
   merge_oneplus:
     cmd: python -m coffeecv.merge_rig --name oneplus_combined --sessions 
@@ -325,8 +325,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-30__oneplus
       hash: md5
       md5: c864952c104fba3e60680de04ccbc9b4.dir
@@ -339,8 +339,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-30__oneplus
       hash: md5
-      md5: 4fdf67cd5094956b93fea85626571cef.dir
-      size: 87519491
+      md5: 26acca3695978f0c1bd5296a584fd478.dir
+      size: 87518411
       nfiles: 42
   crop@2026-08-30__pixel:
     cmd: python -m coffeecv.crop_session --session 2026-08-30__pixel
@@ -351,8 +351,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-30__pixel
       hash: md5
       md5: 1d72335009072d9549688ec028452355.dir
@@ -365,8 +365,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-30__pixel
       hash: md5
-      md5: 58c957d764afc596615f137607e9446b.dir
-      size: 119690895
+      md5: 7a147f28d18fe25af41cc230f49ac65d.dir
+      size: 119689653
       nfiles: 48
   crop@2026-08-30__sony:
     cmd: python -m coffeecv.crop_session --session 2026-08-30__sony
@@ -377,8 +377,8 @@ stages:
       size: 3858
     - path: coffeecv/crop_tray.py
       hash: md5
-      md5: 86a054b2aacd1178a2ef9b357b720fe6
-      size: 32088
+      md5: 93abe5c0ee0ec89683c9f7a890c551f2
+      size: 33494
     - path: dataset/2026-08-30__sony
       hash: md5
       md5: 7f51b7c493faedf12e4faf58b29a67d0.dir
@@ -391,8 +391,8 @@ stages:
     outs:
     - path: data/cropped/2026-08-30__sony
       hash: md5
-      md5: f7d585e23650db21e08f3dfda2d19662.dir
-      size: 145660330
+      md5: 619696d7cc8b5c3190ccb1cef56871d7.dir
+      size: 145659250
       nfiles: 42
   merge_cam_pixel:
     cmd: python -m coffeecv.merge_rig --name cam_pixel --sessions 

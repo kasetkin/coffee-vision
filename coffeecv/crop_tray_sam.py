@@ -32,7 +32,7 @@ import cv2
 import numpy as np
 from ultralytics import SAM
 
-from coffeecv.crop_tray import _max_rectangle, locate_tray_rough
+from coffeecv.crop_tray import _max_rectangle, locate_tray_rough, repo_relative
 
 
 @dataclass
@@ -199,8 +199,8 @@ def crop_dataset_sam_masked(
 
             entry.update(asdict(result))
             entry["rough_box"] = list(rough_box)
-            entry["out_path"] = str(crop_path)
-            entry["mask_path"] = str(mask_path)
+            entry["out_path"] = repo_relative(crop_path)
+            entry["mask_path"] = repo_relative(mask_path)
             entry["error"] = None
         except Exception as e:
             entry["error"] = str(e)
@@ -242,7 +242,7 @@ def crop_dataset_sam(
 
             entry.update(asdict(result))
             entry["rough_box"] = list(rough_box)
-            entry["out_path"] = str(out_path)
+            entry["out_path"] = repo_relative(out_path)
             entry["error"] = None
         except Exception as e:
             entry["error"] = str(e)
