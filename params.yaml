@@ -30,7 +30,8 @@ train_rigs:
   - data/cropped/cam_pixel
   - data/cropped/cam_sony
   - data/cropped/cam_oneplus
-heldout_rig: data/cropped/cam_iphone
+  - data/cropped/cam_iphone
+heldout_rig: ""
 classes_file: dataset/classes.txt
 
 # Patch geometry

@@ -5,43 +5,43 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: e4d2baa38e257a7cd7d993f4aad972ef.dir
-      size: 328772
+      md5: 9c78b831a9577fa685401ca7f12eb47b.dir
+      size: 330252
       nfiles: 29
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: ccb155e898a08749c2bf55c3c93f5073.dir
-      size: 151680104
+      md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
+      size: 151678124
       nfiles: 190
     - path: data/cropped/2026-08-09__pixel_cam
       hash: md5
-      md5: df4345ee13d4fcf357e567fea1120093.dir
-      size: 434744091
+      md5: 8d4c7f0adc67051268a4ac6515e2aaef.dir
+      size: 434742111
       nfiles: 190
     - path: data/cropped/2026-08-09__sony_cam
       hash: md5
-      md5: a066ff29bcda32aca6fc800242418f63.dir
-      size: 970258699
+      md5: 18718ef8147421421220e191553974fc.dir
+      size: 970256719
       nfiles: 190
     - path: data/cropped/2026-08-25__iphone
       hash: md5
-      md5: 1792b5ceb755b9804cdb2bd77630fcce.dir
-      size: 119323036
+      md5: 9d894bee5feb74d330f98f503ab2ab74.dir
+      size: 119322024
       nfiles: 101
     - path: data/cropped/2026-08-30__oneplus
       hash: md5
-      md5: 4fdf67cd5094956b93fea85626571cef.dir
-      size: 87519491
+      md5: 26acca3695978f0c1bd5296a584fd478.dir
+      size: 87518411
       nfiles: 42
     - path: data/cropped/2026-08-30__pixel
       hash: md5
-      md5: 58c957d764afc596615f137607e9446b.dir
-      size: 119690895
+      md5: 7a147f28d18fe25af41cc230f49ac65d.dir
+      size: 119689653
       nfiles: 48
     - path: data/cropped/2026-08-30__sony
       hash: md5
-      md5: f7d585e23650db21e08f3dfda2d19662.dir
-      size: 145660330
+      md5: 619696d7cc8b5c3190ccb1cef56871d7.dir
+      size: 145659250
       nfiles: 42
     - path: data/cropped/oneplus_combined
       hash: md5
@@ -68,7 +68,7 @@ stages:
         epochs: 100
         eta_min: 1e-05
         freeze_mode: none
-        heldout_rig: data/cropped/cam_iphone
+        heldout_rig: ''
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -97,6 +97,7 @@ stages:
         - data/cropped/cam_pixel
         - data/cropped/cam_sony
         - data/cropped/cam_oneplus
+        - data/cropped/cam_iphone
         val_patches_per_class: 40
         val_photo_frac: 0.15
         weight_decay: 0.0001
@@ -105,36 +106,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: bf53971f6becccdf1a4ccb761db61a16
+      md5: e88da9fec5ee601c2e8fad4ec7158b11
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 7314d823c3067057b0a66d34ba63525b
+      md5: 61c3d667195026cfb71b859bd9ef2464
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: 3c299d660211dd1d340c6f1e0b839152
-      size: 23126
+      md5: 7d6db7033e7d63d7c6b89076215b9eb7
+      size: 20770
     - path: outputs/metrics.json
       hash: md5
-      md5: 23aeeda400b07a8968131567f6b70646
-      size: 14063
+      md5: 534ce726c1bb36a29ac585d523da230a
+      size: 9676
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 8a405536ce37dcac24e4418024a994d7
-      size: 10823
+      md5: 360600369cd9ddabf5cf1fe873dab6b1
+      size: 13703
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: db9d860566ab102076e57ea06a7477d7
-      size: 10823
+      md5: c17210b46face9c25c89b78502357b6a
+      size: 13703
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: ba782c9cca850cfe8b29a3d53f9b71d8
-      size: 8663
+      md5: 6638ff17b3553cdf89a14c79af947f4d
+      size: 23
     - path: outputs/summary.json
       hash: md5
-      md5: 61b593467fe9da2e5fe57c940474c5f9
-      size: 211
+      md5: 9336ba94b1481662f8278ff3717fb737
+      size: 142
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
@@ -302,13 +303,13 @@ stages:
       size: 5064
     - path: data/cropped/2026-08-25__oneplus
       hash: md5
-      md5: 0e8ee6a0ce5e5a320ab7592cd50cef71.dir
-      size: 63505716
+      md5: de32ec658380e3c24a31885537fdb1ab.dir
+      size: 63504726
       nfiles: 100
     - path: data/cropped/2026-08-27__oneplus_flash
       hash: md5
-      md5: 1995cb4ae730889008e58eb419d9fb4f.dir
-      size: 245082821
+      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
+      size: 245081831
       nfiles: 100
     outs:
     - path: data/cropped/oneplus_combined
@@ -405,18 +406,18 @@ stages:
       size: 5064
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: ccb155e898a08749c2bf55c3c93f5073.dir
-      size: 151680104
+      md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
+      size: 151678124
       nfiles: 190
     - path: data/cropped/2026-08-09__pixel_cam
       hash: md5
-      md5: df4345ee13d4fcf357e567fea1120093.dir
-      size: 434744091
+      md5: 8d4c7f0adc67051268a4ac6515e2aaef.dir
+      size: 434742111
       nfiles: 190
     - path: data/cropped/2026-08-30__pixel
       hash: md5
-      md5: 58c957d764afc596615f137607e9446b.dir
-      size: 119690895
+      md5: 7a147f28d18fe25af41cc230f49ac65d.dir
+      size: 119689653
       nfiles: 48
     outs:
     - path: data/cropped/cam_pixel
@@ -434,13 +435,13 @@ stages:
       size: 5064
     - path: data/cropped/2026-08-09__sony_cam
       hash: md5
-      md5: a066ff29bcda32aca6fc800242418f63.dir
-      size: 970258699
+      md5: 18718ef8147421421220e191553974fc.dir
+      size: 970256719
       nfiles: 190
     - path: data/cropped/2026-08-30__sony
       hash: md5
-      md5: f7d585e23650db21e08f3dfda2d19662.dir
-      size: 145660330
+      md5: 619696d7cc8b5c3190ccb1cef56871d7.dir
+      size: 145659250
       nfiles: 42
     outs:
     - path: data/cropped/cam_sony
@@ -458,18 +459,18 @@ stages:
       size: 5064
     - path: data/cropped/2026-08-25__oneplus
       hash: md5
-      md5: 0e8ee6a0ce5e5a320ab7592cd50cef71.dir
-      size: 63505716
+      md5: de32ec658380e3c24a31885537fdb1ab.dir
+      size: 63504726
       nfiles: 100
     - path: data/cropped/2026-08-27__oneplus_flash
       hash: md5
-      md5: 1995cb4ae730889008e58eb419d9fb4f.dir
-      size: 245082821
+      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
+      size: 245081831
       nfiles: 100
     - path: data/cropped/2026-08-30__oneplus
       hash: md5
-      md5: 4fdf67cd5094956b93fea85626571cef.dir
-      size: 87519491
+      md5: 26acca3695978f0c1bd5296a584fd478.dir
+      size: 87518411
       nfiles: 42
     outs:
     - path: data/cropped/cam_oneplus
@@ -487,8 +488,8 @@ stages:
       size: 5064
     - path: data/cropped/2026-08-25__iphone
       hash: md5
-      md5: 1792b5ceb755b9804cdb2bd77630fcce.dir
-      size: 119323036
+      md5: 9d894bee5feb74d330f98f503ab2ab74.dir
+      size: 119322024
       nfiles: 101
     outs:
     - path: data/cropped/cam_iphone
