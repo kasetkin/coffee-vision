@@ -1,0 +1,23 @@
+# Rig: OnePlus, second capture session -- same phone as 2026-08-25__oneplus, but a
+# noticeably different setup: flash-fired (grey mean ~155 vs ~108 for the original
+# oneplus session, ~1.4x brighter), landscape 4000x3000 vs the original's portrait
+# 3000x4000, and framed much tighter -- most photos show only a thin sliver of tray
+# rim on one edge, vs the original's full-tray-with-wood-border framing.
+#
+# method: fixed_trim, trim 3% all sides -- NOT the same as 2026-08-25__oneplus's 10%.
+# Adaptive was tried first and fails the same way it does on every tray-style rig in
+# this project (20/20 flagged on a 20-photo test, same known failure mode: stage 2's
+# saturation-based trim collapses the box to a sliver). Fixed trim on the same
+# rough-box detection was tested at 3/5/8/10%; 3% gave 0 flagged AND was visually
+# spot-checked clean (no rim visible) across all 20 test photos, 2 classes -- this
+# rig's tighter framing needs much less trim than the original oneplus session did.
+#
+# This session is intended to be MERGED with 2026-08-25__oneplus into one logical
+# "oneplus" rig (data/cropped/oneplus_combined, via coffeecv/merge_rig.py) rather than
+# treated as a separate 6th rig -- see the merge_oneplus stage in dvc.yaml. The
+# brightness/flash difference between the two sessions is deliberately NOT corrected
+# for; per this project's standing rule (never normalize zoom/orientation/exposure per
+# folder), the two are merged as-is and the model learns the invariance, same as how
+# sony's flash-vs-no-flash quirk was already handled without normalization.
+method: fixed_trim
+trim: 0.03
