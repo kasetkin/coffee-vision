@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 7
+seed: 17
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
