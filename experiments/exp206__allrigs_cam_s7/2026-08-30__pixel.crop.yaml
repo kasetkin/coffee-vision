@@ -1,0 +1,16 @@
+# Rig: Pixel 9 Pro, same frame-filling style and resolution (4080x3072) as
+# 2026-08-09__pixel_cam. New class only (class_010, Indonesia Java); kept as
+# a separate rig entry rather than merged into 2026-08-09__pixel_cam via
+# merge_rig.py -- that machinery is for a session re-shot with overlapping
+# class coverage, and this session has none to reconcile. MultiPhotoPatch-
+# Dataset already tolerates a rig supplying only some classes (see its
+# missing_classes handling), so a merge buys nothing here.
+#
+# method: none -- this session needs no crop, matching 2026-08-09__pixel_cam.
+#
+# Evidence (2026-08-31, all 46 frames measured via locate_bean_crop, the live
+# inference-time tray detector): 41/46 (89%) passthrough; the other 5 are the
+# same texture-artifact false positives documented in
+# 2026-08-09__pixel_cam.crop.yaml, not real tray detections. Visual spot-check
+# (first photo) confirms frame-filling beans, no container/table/background.
+method: none

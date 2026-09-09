@@ -88,7 +88,7 @@ stages:
         random_erasing_p: 0.5
         rotation_jitter_degrees: 0.0
         safety_margin: 0.97
-        seed: 123
+        seed: 7
         test_patches_per_class: 40
         test_photo_frac: 0.15
         train_patches_per_class: 150
@@ -106,27 +106,27 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: c24f1ca3bc982f334bfd7bf03efcadcd
+      md5: e48f5b5fd52c252b6c3d9aa754f37381
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: e0040c28728c9294246aabcfe19df96d
+      md5: 8a84f55b99d521028cf952a35db25fbd
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: e29c55e51d22d2c75a1df6ef54b70b34
-      size: 20778
+      md5: ebf516dcf3c8a52a758eeace09bbca6c
+      size: 13876
     - path: outputs/metrics.json
       hash: md5
-      md5: 248f360f6873256bc8ab9bf163d4d9e7
-      size: 9676
+      md5: d77141565b5c27c25f9cf75455687f4e
+      size: 9665
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: ba71d443b3eb3613f4027276bfb38808
+      md5: d0b6b18804fe9cea9df1550549f96388
       size: 13703
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 75f901e7b9e8656e55b558b7847c9916
+      md5: dc8e9ad97455f1cb0e5776197f53f87f
       size: 13703
     - path: outputs/predictions_xrig.csv
       hash: md5
@@ -134,8 +134,8 @@ stages:
       size: 23
     - path: outputs/summary.json
       hash: md5
-      md5: fa06a6a2897e92b7053c540367993bab
-      size: 143
+      md5: 88b71da49785af909e72773e4ff4dfae
+      size: 142
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
