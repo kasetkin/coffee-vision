@@ -1,0 +1,120 @@
+{
+  "name": "allrigs_cam_s123.pt",
+  "source_experiment": "exp205__allrigs_cam_s123",
+  "why_this_one": "First all-rigs ship under the camera-rig redefinition (2026-09-03: a rig is a camera model -- cam_pixel/cam_sony/cam_oneplus/cam_iphone -- not a capture session) and the first ship to include class_010 (Indonesia, Java, added 2026-08-30) as a full 10-class head. Deployed while a six-seed batch (exp204-209, tag allrigs_cam) was still running: this is seed 123 of 6, deployed after 3 had finished (204/205/206), on explicit instruction to ship the best-so-far and re-ship if a later seed beats it -- same standing policy exp171's card used. Of the three available at deploy time, seed 123 (this run) led clearly, not within noise: test macro-F1 0.9363 vs exp204's 0.9109 (seed 42) and exp206's 0.9107 (seed 7), a ~2.5-point gap.",
+  "provenance_note": "This checkpoint's weights were recovered after the fact, not promoted immediately when the run finished, and that recovery is worth recording plainly. outputs/checkpoints/best.pt and last.pt are shared scratch paths that every fold's `dvc repro train` overwrites -- by the time the decision to ship exp205 was made, two more folds (exp206 seed=7, exp207 seed=17) had already trained and overwritten them, and archive_experiment.py's ARCHIVED_FILES list never included the checkpoint itself (matching the project's own prior finding that exp168-170/172-174's individual weights were never separately preserved). Recovery: outputs/checkpoints/{best,last}.pt are plain (cache: true) DVC stage outputs, so every `dvc repro train` call still content-addresses and caches them locally even though dvc.lock itself is never committed per fold. Searched the training host's `.dvc/cache` for 44,797,323-byte blobs with mtimes matching exp205's own archived-file timestamp (2026-09-08T22:13, exactly) and found exactly two -- the best.pt/last.pt pair from that run. Took the one dvc.yaml lists first (best.pt) by convention; for this run specifically the distinction is moot, since best_epoch (100) equals epochs_trained (100) -- val_macro_f1 was still improving on the final epoch, so best.pt and last.pt are the identical final-epoch weights regardless of which cache blob was picked. Verified, not just inferred: state dict loads with a [10, 512] classifier head (correct for 10 classes), and the real infer.py path scores 9/9 on the legacy-lens spot-check below, matching exp171's own verification precedent.",
+  "inference_defaults": {
+    "tta": true,
+    "why": "Dihedral (8-view) test-time augmentation is ON by default in infer.py. Measured pre-MixStyle at +0.0235 cross-rig macro-F1 (8/9 paired fold-seed runs positive), 8x inference cost, no retraining. Not re-measured against this checkpoint's specific recipe or the camera-rig definition; the averaging mechanism is unrelated to either, so there's no known reason it would stop helping."
+  },
+  "caveats": [
+    "PROVISIONAL: deployed after 3 of the planned 6 seeds (exp204-209) had finished. Standing instruction to re-ship if seed 99 (exp208) or seed 256 (exp209) beats this run's test macro-F1/MCC once they land -- treat this card as due for a follow-up revision.",
+    "No cross-rig (leave-one-rig-out) score exists for this specific checkpoint by construction -- it trained on all four camera rigs, nothing held out. The best available cross-rig estimate under this exact rig/class definition is the single-seed camera-rig LORO baseline (exp200-203, 2026-09-05): mean 0.8025 over the three 10-class-denominator folds (cam_pixel 0.8184, cam_sony 0.7587, cam_oneplus 0.8304); cam_iphone's 0.8537 is an 8-class number, not comparable to the other three. Two of those four folds (cam_pixel, cam_oneplus) hit the 100-epoch cap without early-stopping, so 0.8025 is probably an underestimate, not a precise figure -- quote it as directional context for this checkpoint, not a measurement of it.",
+    "cam_iphone still has zero class_008 (Ethiopia, Kochere) and class_010 (Indonesia, Java) training photos -- this checkpoint has no iPhone-framing signal at all for two of its ten classes, represented only through the other three cameras. Needs a capture session (A1: +88 iPhone photos across 8 classes; A2: class_010 on box+iPhone) to close, not a training change.",
+    "Fresh-scoop caveat carries forward unchanged from every previous ship: all rigs and sessions in this project photograph the same purchased bags of green beans. No independently-purchased-lot validation exists yet.",
+    "This checkpoint's weights were recovered from the training host's local DVC cache after being overwritten by two subsequent folds, rather than promoted immediately after training finished -- see provenance_note for exactly how and how it was verified."
+  ],
+  "expected_performance": {
+    "in_distribution_val_macro_f1_this_run": 0.942774738229053,
+    "in_distribution_test_macro_f1_this_run": 0.9363387729688176,
+    "in_distribution_test_mcc_this_run": 0.9269590698157208,
+    "in_distribution_note": "Scored on a test split spanning all four camera rigs, 10 classes. Best of 3 seeds available at ship time, trained identically at epochs=100/early_stop_patience=20 on all four cam_* rigs (exp204/205/206 test macro-F1: 0.9109/0.9363/0.9107); seed 17 (exp207) was mid-run at deploy time, seeds 99/256 (exp208/209) not yet started."
+  },
+  "cross_rig_ESTIMATED_from_camera_rig_LORO_baseline": {
+    "xrig_macro_f1_mean_3_ten_class_folds": 0.8025,
+    "xrig_macro_f1_by_rig": {
+      "cam_pixel": 0.8184,
+      "cam_sony": 0.7587,
+      "cam_oneplus": 0.8304,
+      "cam_iphone_EIGHT_CLASS_not_comparable": 0.8537
+    },
+    "note": "exp200-203, single seed (42, not this checkpoint's 123), same recipe (mixstyle_p=0.5, eta_min=1e-05, bean_k_lo=4, epochs=100/patience=20) but a different run entirely -- these are leave-one-rig-out folds, this checkpoint trained on all four rigs. cam_pixel and cam_oneplus never early-stopped inside the 100-epoch budget (best epoch 87/100 and 99/100), so treat 0.8025 as a probable underestimate. Single-seed, not this project's usual 3-seed confirmation bar. See project docs/release_model_plan.md."
+  },
+  "this_run": {
+    "seed": 123,
+    "trained_on": [
+      "data/cropped/cam_pixel",
+      "data/cropped/cam_sony",
+      "data/cropped/cam_oneplus",
+      "data/cropped/cam_iphone"
+    ],
+    "never_saw": "(nothing withheld -- all four camera rigs trained; cam_iphone itself only carries 8 of 10 classes, see caveats)",
+    "val_macro_f1": 0.942774738229053,
+    "test_macro_f1": 0.9363387729688176,
+    "best_epoch": 100,
+    "epochs_trained": 100,
+    "sibling_seeds_test_macro_f1": {
+      "42": 0.9109,
+      "7": 0.9107,
+      "17": "in progress (exp207) at deploy time",
+      "99": "pending (exp208)",
+      "256": "pending (exp209)"
+    }
+  },
+  "inference": {
+    "entry_point": "python -m coffeecv.infer --checkpoint models/allrigs_cam_s123.pt --images-dir <dir>",
+    "ood_reference": "models/allrigs_cam_s123.ood_reference.json",
+    "note": "Patch sizing is measured from the photo by coffeecv/bean_scale.py -- no --scale-ratio and no knowledge of framing required. infer.py refuses photos whose measured bean scale falls outside the trained 4-7 range (the separate 'too far/too close' scale_verdict guard was removed 2026-09-03 -- it was mathematically unreachable, see docs/dataset_training_reorg_plan.md SS3a), warns above the training set's per-photo 95th percentile OOD distance, and refuses above 1.4. OOD reference self-scores for this checkpoint: per-patch mean 1.00 / p95 1.24 / max 1.67; per-photo median 0.99 / p95 1.13 / max 1.28 (650 photos across all four camera rigs, up from the previous ship's 562 across five session rigs -- optimistic self-scores, context not calibration). Verified end-to-end through the real infer.py path: 9/9 on the fixed legacy-lens out-of-sample set (dataset/2026-07-24__first_pictures)."
+  },
+  "training_config": {
+    "seed": 123,
+    "train_rigs": [
+      "data/cropped/cam_pixel",
+      "data/cropped/cam_sony",
+      "data/cropped/cam_oneplus",
+      "data/cropped/cam_iphone"
+    ],
+    "heldout_rig": "",
+    "classes_file": "dataset/classes.txt",
+    "patch_crop_size": 900,
+    "patch_resize": 224,
+    "safety_margin": 0.97,
+    "patch_store_size": 448,
+    "train_patches_per_class": 150,
+    "val_patches_per_class": 40,
+    "test_patches_per_class": 40,
+    "xrig_patches_per_class": 120,
+    "train_photo_frac": 0.7,
+    "val_photo_frac": 0.15,
+    "test_photo_frac": 0.15,
+    "model_name": "resnet18",
+    "freeze_mode": "none",
+    "dropout": 0.2,
+    "label_smoothing": 0.0,
+    "color_jitter_strength": 0.2,
+    "brightness_jitter_strength": 0.0,
+    "patch_scale_frac_min": 0.0,
+    "patch_scale_frac_max": 0.0,
+    "patch_beans_min": 4.0,
+    "patch_beans_max": 7.0,
+    "bean_k_lo": 4,
+    "bean_k_hi": 80,
+    "bean_analysis_frac": 0.4,
+    "bean_calibration_k": 1.18,
+    "rotation_jitter_degrees": 0.0,
+    "zoom_scale_min": 1.0,
+    "random_erasing_p": 0.5,
+    "illum_gradient_strength": 0.0,
+    "mixup_alpha": 0.0,
+    "mixstyle_p": 0.5,
+    "mixstyle_alpha": 0.1,
+    "mixstyle_mode": "agnostic",
+    "batch_size": 32,
+    "epochs": 100,
+    "early_stop_patience": 20,
+    "eta_min": 1e-05,
+    "optimizer": "adamw",
+    "lr": 0.001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "class_ids": ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010"],
+    "env": {
+      "torch_version": "2.13.0+cpu",
+      "torchvision_version": "0.28.0+cpu",
+      "git_commit": "ff97765d0c5fa78b21b146b4402bbd4fac1b647a",
+      "argv": [
+        "/home/alioth/coffee-vision/coffeecv/train_baseline.py"
+      ]
+    }
+  }
+}

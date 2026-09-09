@@ -1,0 +1,5 @@
+outs:
+- md5: c24f1ca3bc982f334bfd7bf03efcadcd
+  size: 44797323
+  hash: md5
+  path: allrigs_cam_s123.pt

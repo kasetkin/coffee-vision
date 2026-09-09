@@ -33,7 +33,7 @@ from coffeecv.infer import classify_one, config_for_checkpoint, crop_to_bean_reg
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CHECKPOINT = REPO_ROOT / "models" / "allrigs_oneplusmerged_s17.pt"
+CHECKPOINT = REPO_ROOT / "models" / "allrigs_cam_s123.pt"
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
