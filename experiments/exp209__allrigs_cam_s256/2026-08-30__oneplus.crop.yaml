@@ -1,0 +1,28 @@
+# Rig: OnePlus, third capture session -- but shot with a NEW, frame-filling
+# technique unlike either previous OnePlus session (2026-08-25__oneplus and
+# 2026-08-27__oneplus_flash both used the black-tray-on-wood-table framing).
+# Visual inspection of a spot sample (first/middle/last photo in the session)
+# shows beans edge-to-edge with no tray, table or background in any frame --
+# same style as the 2026-08-09 pixel/sony rigs, not the earlier OnePlus
+# sessions. Portrait 3000x4000 (matches 2026-08-25__oneplus's resolution, but
+# framing style, not sensor resolution, is what decides crop method here).
+#
+# method: none -- this session needs no crop.
+#
+# Evidence (2026-08-31, all 40 frames measured via locate_bean_crop, the live
+# inference-time tray detector):
+#   - 30/40 (75%) return no tray box at all (pure passthrough)
+#   - the other 10/40 are false positives on bean texture, not real tray
+#     detections: 9 of 10 are flagged needs_review, the same known failure
+#     mode documented in 2026-08-09__pixel_cam.crop.yaml ("a texture-based
+#     non-bean area check ... is an artifact ... at this magnification a
+#     16px texture block fits inside one bean's smooth face and reads as
+#     untextured")
+#
+# Not merged into oneplus_combined via merge_rig.py: that merge is for
+# sessions sharing the SAME framing style re-shot on a different day, and
+# this session's framing matches neither component of that rig. Kept as its
+# own separate rig entry instead -- MultiPhotoPatchDataset already tolerates
+# a rig supplying only some classes (see its missing_classes handling), so no
+# merge is needed just because this session only has class_010.
+method: none
