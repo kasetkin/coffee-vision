@@ -174,7 +174,7 @@ def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: flo
 
 @torch.no_grad()
 def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int = 32,
-                            tta: bool = False):
+                            tta: bool = False, return_logits: bool = False):
     """(probs, embeddings) in one pass.
 
     The embedding is the head's *input* -- the pooled penultimate feature, 512-d
@@ -202,12 +202,18 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
 
     handle = head.register_forward_pre_hook(hook)
     try:
-        probs = []
+        probs, logits = [], []
         for i in range(0, len(tensors), batch_size):
-            probs.append(F.softmax(model(tensors[i:i + batch_size].to(DEVICE)), dim=1).cpu().numpy())
+            out = model(tensors[i:i + batch_size].to(DEVICE))
+            logits.append(out.cpu().numpy())
+            probs.append(F.softmax(out, dim=1).cpu().numpy())
     finally:
         handle.remove()
     probs = np.concatenate(probs, axis=0)
+    # From the untransformed pass, for the same reason the embeddings are: softmax
+    # is shift-invariant, so the magnitude an energy score reads is destroyed by
+    # `probs` and cannot be recovered from it afterwards.
+    raw_logits = np.concatenate(logits, axis=0)
     embeds = torch.cat(captured).numpy()
 
     if tta:
@@ -226,6 +232,8 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
                 acc += np.concatenate(out, axis=0)
                 n += 1
         probs = acc / n
+    if return_logits:
+        return probs, embeds, raw_logits
     return probs, embeds
 
 
@@ -310,6 +318,67 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
         # for any pass/fail decision, so it can't become a parity concern.
         "timing_ms": {"decode": round((t1 - t0) * 1000), "crop_detect": round((t2 - t1) * 1000)},
     }
+
+
+def energy_score(logits: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    """Per-patch free energy, `-T * logsumexp(logits / T)`.
+
+    Sign convention matches `ood_scores` below -- larger means more
+    out-of-distribution -- because the OOD literature is split on which way round
+    to report this and a mixed convention inside one codebase is a bug waiting to
+    happen. Unlike softmax confidence, this keeps the overall logit magnitude that
+    the softmax normalises away, which is the part that carries "the model finds
+    nothing here it recognises".
+    """
+    z = logits / temperature
+    m = z.max(axis=1, keepdims=True)
+    return -temperature * (m[:, 0] + np.log(np.exp(z - m).sum(axis=1)))
+
+
+def knn_score(embeddings: np.ndarray, ref_embeddings: np.ndarray, k: int = 5) -> np.ndarray:
+    """Per-patch distance to its k-th nearest training patch.
+
+    Non-parametric, so unlike a centroid it makes no assumption that a class is a
+    single blob -- a class shot on four different cameras is not one blob, which
+    is exactly the shape this dataset has. Brute force: at a few thousand stored
+    embeddings the pairwise matrix is small and an index would be a dependency
+    with nothing to buy it.
+    """
+    d = np.linalg.norm(embeddings[:, None, :] - ref_embeddings[None, :, :], axis=2)
+    k = min(k, d.shape[1])
+    return np.partition(d, k - 1, axis=1)[:, k - 1]
+
+
+def mahalanobis_scores(embeddings: np.ndarray, ref: dict, precision: np.ndarray) -> np.ndarray:
+    """Per-patch Mahalanobis distance to the nearest class centroid.
+
+    Shared (tied) covariance across classes, per Lee et al. 2018, not one
+    covariance per class: a 512-d covariance needs far more independent samples
+    per class than ~200 photos give, and patches from one photo are not
+    independent of each other. Pooling the classes is what makes the estimate
+    stand up at this sample size.
+    """
+    cids = sorted(ref["classes"])
+    cents = np.array([ref["classes"][c]["centroid"] for c in cids])
+    diff = embeddings[:, None, :] - cents[None, :, :]
+    d2 = np.einsum("ncd,de,nce->nc", diff, precision, diff)
+    return np.sqrt(np.maximum(d2.min(axis=1), 0.0))
+
+
+def shared_precision(train_embeddings: np.ndarray, labels: np.ndarray,
+                      shrinkage: float = 0.1) -> np.ndarray:
+    """Inverse of the within-class covariance, pooled over classes.
+
+    Shrunk toward a scaled identity before inversion because even the pooled
+    estimate is only borderline well-conditioned at 512 dimensions, and an
+    unshrunk inverse would amplify whichever directions happen to be thinnest in
+    this particular sample.
+    """
+    centred = np.concatenate([train_embeddings[labels == c] - train_embeddings[labels == c].mean(axis=0)
+                              for c in np.unique(labels)])
+    cov = np.cov(centred, rowvar=False)
+    cov = (1 - shrinkage) * cov + shrinkage * np.eye(cov.shape[0]) * np.trace(cov) / cov.shape[0]
+    return np.linalg.pinv(cov)
 
 
 def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]]:

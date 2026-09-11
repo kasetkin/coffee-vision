@@ -13,3 +13,6 @@ __pycache__/
 /dvc_plots/
 *.pt
 *.kate-swp
+/.ood_eval_cache/
+# heavy OOD sidecars belong in DVC alongside the .pt, not in git history
+*.ood_embeddings.npz

@@ -45,6 +45,13 @@ def main() -> None:
                    help="defaults to the config.json archived beside the checkpoint; see infer.py")
     p.add_argument("--out", default=None,
                    help="defaults to <checkpoint>.ood_reference.json, beside the weights it describes")
+    p.add_argument("--store-knn-embeddings", action="store_true",
+                   help="also write <checkpoint>.ood_embeddings.npz with the raw training-patch "
+                        "embeddings, which distance metrics richer than centroid+spread need. Off "
+                        "by default so an existing invocation keeps producing byte-identical output.")
+    p.add_argument("--knn-max-per-class", type=int, default=1000,
+                   help="cap on stored embeddings per class, so the sidecar cannot grow without "
+                        "bound as rigs accumulate")
     args = p.parse_args()
 
     # Same rule as infer.py: the geometry must come from the run that produced
@@ -90,9 +97,20 @@ def main() -> None:
     print(f"train patches: {len(ds)}")
 
     model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
-    tensors = torch.stack([ds[i][0] for i in range(len(ds))])
-    _, embeds = forward_with_embeddings(model, head, tensors)
-    labels = np.array([ds[i][1] for i in range(len(ds))])
+    # Chunked rather than one `torch.stack` over the whole split: at 224x224x3
+    # float32 the full set is gigabytes (5700 patches is ~3.4GB) and the stack is
+    # what runs the machine out of memory, not the forward pass -- which already
+    # batches internally. Extracting patches once per index also matters, since
+    # each `ds[i]` re-decodes and re-crops its photo.
+    embed_chunks, label_chunks = [], []
+    for start in range(0, len(ds), 256):
+        items = [ds[i] for i in range(start, min(start + 256, len(ds)))]
+        _, e = forward_with_embeddings(model, head, torch.stack([t for t, _ in items]))
+        embed_chunks.append(e)
+        label_chunks.extend(lbl for _, lbl in items)
+        print(f"  embedded {min(start + 256, len(ds))}/{len(ds)}")
+    embeds = np.concatenate(embed_chunks, axis=0)
+    labels = np.array(label_chunks)
 
     classes = {}
     for i, cid in enumerate(class_ids):
@@ -126,7 +144,30 @@ def main() -> None:
 
     out = Path(args.out) if args.out else reference_path_for(Path(args.checkpoint))
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    # The sidecar is a separate .npz rather than more keys in the JSON: at 512-d
+    # per patch these are megabytes of floats, and this JSON is committed to git
+    # (unlike the .pt weights, which DVC carries), so inlining them would grow the
+    # repo permanently every time a model ships.
+    knn_key = {}
+    if args.store_knn_embeddings:
+        keep_idx = []
+        rng = np.random.default_rng(cfg.seed)
+        for i, _ in enumerate(class_ids):
+            idx = np.flatnonzero(labels == i)
+            if len(idx) > args.knn_max_per_class:
+                idx = rng.choice(idx, args.knn_max_per_class, replace=False)
+            keep_idx.append(idx)
+        keep = np.sort(np.concatenate(keep_idx))
+        side = Path(str(out).replace(".ood_reference.json", ".ood_embeddings.npz"))
+        np.savez_compressed(side, embeddings=embeds[keep].astype(np.float32),
+                            labels=labels[keep].astype(np.int16),
+                            class_ids=np.array(class_ids))
+        knn_key = {"knn_embeddings_path": side.name, "knn_embeddings_n": int(len(keep))}
+        print(f"Wrote {side}  ({len(keep)} embeddings, {side.stat().st_size/1e6:.1f} MB)")
+
     out.write_text(json.dumps({
+        **knn_key,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "checkpoint": str(args.checkpoint),
         "checkpoint_sha": _sha(Path(args.checkpoint)),

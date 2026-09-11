@@ -1,0 +1,6 @@
+outs:
+- md5: 5609c2cac2ddfb920f8b00249040ed70.dir
+  size: 4783992
+  nfiles: 12
+  hash: md5
+  path: ood_positives_internet
