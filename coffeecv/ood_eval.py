@@ -67,7 +67,7 @@ POSTHOC_METHODS = ("linear_probe", "ensemble")
 # invalidate every number in docs/ood_guard_eval.md.
 CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grain",
                                   "other_nuts_seeds", "non_food_objects",
-                                  "real_world_negatives"})
+                                  "real_world_negatives", "green_legume"})
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:

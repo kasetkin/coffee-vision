@@ -220,6 +220,64 @@ re-fitting against these would have invalidated that verification. They are reco
 observation. They are, however, the obvious calibration set for the *next* deployment — 60
 independent-day photos would move the certificate from α ≤ 20% to roughly α ≤ 1.6%.
 
+## The same-rig batch (2026-09-11) — and what it exposed
+
+Everything above was measured against negatives that were ~92% internet-sourced. On the
+afternoon of 2026-09-11 the user shot **41 negatives and 30 positives on the three real rigs**:
+buckwheat, mung beans, split peas, lentils and chickpeas, on the same trays, backgrounds and
+cameras as the bean photos, so the *only* thing varying between a positive and a negative is
+what is in the bowl. This is the confound-free test the internet batch could never be.
+
+**The deployed v1 probe scored worse than its holdout promised, and the gap is the confound:**
+
+```
+                     v1 probe    centroid
+positives refused      2/30         6/30
+negatives missed      11/41        23/41
+AUROC                 0.849        0.712     (v1 holdout AUROC had been 0.970)
+```
+
+Still a large improvement over centroid on both axes — the deploy was right — but 0.849 is the
+honest number. Part of that 0.970 was the probe detecting *internet photo*, not *not-coffee*.
+
+### The failure mode was exactly one thing
+
+All **11 missed negatives were mung beans**, and the set of green-hued photos and the set of
+missed photos were *identical* — no exceptions in either direction. The cause is structural:
+**green unroasted coffee is a legitimate training positive**, so the probe had learned
+green + matte + bean-shaped ⇒ coffee and had never seen a green legume that was not coffee.
+
+The centroid metric catches all 11 (1.71–1.99). The two metrics fail on disjoint sets, which is
+tempting — but refusing when *either* fires reaches 41/41 negatives at the cost of 6/30 false
+refusals, worse than v1 on the axis that matters most. Rejected.
+
+### v2: refitted with the same-rig negatives
+
+`green_legume` was added as its own tag (in `CLEAN_NEGATIVE_TAGS`, so every patch is a usable
+negative label) rather than folded into `confusable_grain`, specifically so a later run can
+report whether *this* hole stayed closed. Fitted on dev only; scored once on the fresh holdout,
+which is in neither probe's fit set:
+
+| on the 2026-09-11 holdout (12 positives, 16 negatives) | false refusals | negatives caught | green legume | AUROC |
+|---|---|---|---|---|
+| **v2 refitted** | **0/12** | **16/16** | **4/4** | **1.000** |
+| v1 deployed | 1/12 | 12/16 | 0/4 | 0.875 |
+| centroid | 2/12 | 8/16 | 4/4 | 0.755 |
+
+v2 is better on every axis, and the certificate improves from α ≤ 20% to **α ≤ 4.3%** because
+independent-day calibration photos went from 4 to 22. **Deployed 2026-09-11.**
+
+Two things to keep in view rather than forget:
+
+- **Teaching it green legumes made genuine beans harder.** Calibration positives' median rose
+  0.135 → 0.334. The boundary moved toward the positives; that is the price of the fix.
+- **The threshold is pinned by one photo** (`PIC_20260911_131316.JPG`, 0.9681, a 0.277 gap to
+  the next positive) — a perfectly ordinary dense tray of roasted beans on white, 90% of whose
+  patches the probe calls not-beans. Framing does **not** explain it: across the 30 new
+  positives `corr(beans_across, score)` is only +0.195. It is simply the hardest positive, and
+  a distribution-free threshold is the right tool for exactly that. The cost is a thin margin —
+  0.9681 against a lowest holdout negative of 0.9817.
+
 ### Why the threshold is calibrated on four photos
 
 Conformal validity needs the calibration photos to be exchangeable with what the service
