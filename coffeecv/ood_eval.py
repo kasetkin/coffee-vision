@@ -58,6 +58,17 @@ METHODS = ("centroid", "knn", "mahalanobis_shared", "energy", "coverage",
 # the other methods' outputs, so it is scored last.
 POSTHOC_METHODS = ("linear_probe", "ensemble")
 
+# Tags whose every patch is unambiguously not-beans, so a patch-level probe can
+# be trained from the photo-level tag. An empty tray has no bean patches; a
+# sparse scattering of beans does, so those tags are deliberately absent.
+# Module-level because `fit_ood_probe` fits the shipped probe from exactly this
+# set -- duplicating the literal there would let the evaluated probe and the
+# deployed probe drift apart silently, which is the one difference that would
+# invalidate every number in docs/ood_guard_eval.md.
+CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grain",
+                                  "other_nuts_seeds", "non_food_objects",
+                                  "real_world_negatives"})
+
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """Wilson score interval -- correct near 0 and 1, where normal-approx isn't.
@@ -534,12 +545,6 @@ def main() -> None:
     total = sum(len(v) for v in conditions.values())
     print(f"scoring {total} photos ({len(negatives)} negatives) "
           f"with {'TTA' if tta else 'no TTA'}, {args.n_patches} patches\n")
-
-    # Tags whose every patch is unambiguously not-beans, so a patch-level probe can
-    # be trained from the photo-level tag. An empty tray has no bean patches; a
-    # sparse scattering of beans does, so those tags are deliberately absent.
-    CLEAN_NEGATIVE_TAGS = {"empty_tray", "ground_coffee", "confusable_grain",
-                            "other_nuts_seeds", "non_food_objects", "real_world_negatives"}
 
     per_photo: list[dict] = []
     patch_store: dict[str, np.ndarray] = {}

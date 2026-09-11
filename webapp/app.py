@@ -28,7 +28,8 @@ from werkzeug.exceptions import HTTPException
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
-from coffeecv.infer import classify_one, config_for_checkpoint, crop_to_bean_region, load_model, reference_path_for
+from coffeecv.infer import (classify_one, config_for_checkpoint, crop_to_bean_region,
+                            load_model, load_ood_probe, reference_path_for)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,6 +57,18 @@ ref = json.loads(ref_path.read_text()) if ref_path.exists() else None
 if ref is None:
     logger.warning("OOD guard unavailable: no reference at %s -- predictions below will be unguarded", ref_path)
 
+# The probe is optional and its presence *is* the deployment decision, the same
+# way the reference's presence decides whether the guard runs at all. Deploying
+# it means copying one file next to the weights; rolling back means removing it,
+# with no code change and no restart-time flag to get wrong. A mismatched probe
+# raises here, at import, rather than serving confident nonsense per request.
+probe = load_ood_probe(CHECKPOINT)
+if probe is None:
+    logger.info("OOD guard: centroid metric (no probe beside %s)", CHECKPOINT.name)
+else:
+    logger.info("OOD guard: linear_probe from %s, threshold %.4f, certified alpha %.1f%%",
+                probe["_path"], probe["threshold"], 100 * probe["alpha"])
+
 # --- structured request logging -- see docs/logging_plan.html for the field
 # list, the GDPR reasoning, and what's deliberately excluded (client IP,
 # filenames, image bytes, anything beyond a coarse User-Agent category). ---
@@ -72,7 +85,7 @@ class _JsonFormatter(logging.Formatter):
 
     _FIELDS = (
         "request_id", "endpoint", "status", "latency_ms", "verdict",
-        "top1_class", "top1_score", "ood_median", "ood_warned",
+        "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
         "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
         "beans_across", "bean_pitch_px",
@@ -168,7 +181,8 @@ def _log_request(response):
         "status": response.status_code,
         "latency_ms": round((time.monotonic() - g.t0) * 1000),
     }
-    for field in ("verdict", "top1_class", "top1_score", "ood_median", "ood_warned",
+    for field in ("verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
+                  "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
                   "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
                   "beans_across", "bean_pitch_px"):
@@ -251,6 +265,11 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
     ood = entry.get("ood")
     if ood:
         g.ood_median = ood.get("median")
+        # Both scores on every line, not just the deciding one: the centroid
+        # median keeps the log series continuous across the metric switch, and
+        # the probe score is what the next recalibration will be fitted against.
+        g.ood_probe = ood.get("probe")
+        g.ood_method = ood.get("method")
         g.ood_warned = bool(ood.get("warned"))
     ranked = entry.get("ranked")
     if ranked:
@@ -325,7 +344,7 @@ def classify():
 
     with _saved_upload(upload) as path:
         entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=N_PATCHES, skip_crop=skip_crop)
+                              n_patches=N_PATCHES, skip_crop=skip_crop, probe=probe)
 
     body, status = _entry_to_response(entry)
     _log_classify_fields(entry, body)

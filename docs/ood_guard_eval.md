@@ -1,10 +1,13 @@
 # OOD guard: what it actually does, measured
 
-**Status: findings, not a decision.** Nothing here has been shipped. `OOD_THRESHOLD` is
-untouched, `classify_one`'s default metric is untouched, and the holdout split has not been
-spent. This document records what the guard was measured to do once it was put in front of
-data it had never been tested against, because the answer changed twice under measurement and
-the reasoning is worth keeping.
+**Status: `linear_probe` confirmed on the holdout and prepared for deployment (2026-09-11).**
+The holdout split has now been spent, once, against a probe frozen beforehand -- see
+"Holdout confirmation" below. `OOD_THRESHOLD` and `ood_scores` are still untouched: the
+centroid metric remains exactly what runs when no probe file sits beside a checkpoint.
+
+This document records what the guard was measured to do once it was put in front of data it
+had never been tested against, because the answer changed twice under measurement and the
+reasoning is worth keeping.
 
 Harness: `coffeecv/ood_eval.py`. Data: `dataset/ood_negatives/`, `dataset/ood_positives/`,
 `dataset/ood_positives_internet/` — photo directories are DVC-tracked, while each one's
@@ -168,14 +171,97 @@ At a certified ≤10% false-refusal rate, `linear_probe` catches **44/59** negat
 This is also a concrete collection target: **19 unseen genuine photos to certify 5%, 99 to
 certify 1%.** More positives are worth more here than more negatives.
 
-## If a change is ever made
+## Holdout confirmation (2026-09-11) — spent once
 
-Not now — the holdout split is deliberately unspent, and that is the instrument for confirming
-whichever metric is chosen. Shipping `linear_probe` would additionally need the fitted
-coefficients stored beside the checkpoint (as the reference and embeddings sidecars already
-are), and `classify_one` given a non-default `ood_method`. Shipping `mahalanobis_shared`
-instead would need none of that — it is a drop-in on the same embeddings with no negatives
-required at fit time, which is why it is worth keeping in view despite being 0.07 AUROC behind.
+The comparison above is cross-validated within dev, which is how to *choose* a method and not
+how to *ship* one: it yields five probes and no coefficients. `coffeecv/fit_ood_probe.py` fits
+one probe on dev alone, calibrates a threshold on dev positives, writes
+`<checkpoint>.ood_probe.json`, and only then scores the holdout — frozen first, measured
+second, never adjusted after.
+
+| group | n | probe refuses | centroid refuses |
+|---|---|---|---|
+| **user positives** (the deployment distribution) | 5 | **0/5** | 0/5 |
+| internet positives | 5 | 2/5 | 2/5 |
+| **user real-world negatives** | 3 | **3/3** | 2/3 |
+| internet negatives | 37 | **37/37** | 24/37 |
+
+```
+AUROC on holdout: probe 0.9700   centroid 0.8375
+user holdout positives, probe: 0.020 0.032 0.040 0.046 0.078  (threshold 0.4952)
+lowest holdout negative:       0.5051
+```
+
+The probe is **better or equal on every group**: it refuses no genuine photo the centroid
+metric accepted, and it catches 40/40 negatives against 26/40. That is the whole case for
+deploying it, and it is the only holdout reading this data can support — re-running `--verify`
+and then changing anything would turn the holdout into a second dev set.
+
+### An unplanned independent check: 60 photos of a bean type the model has never seen
+
+On the same day the probe was frozen, 60 photos of a new class (`011 Peru,Minka`, three rigs)
+were added to the dataset for a future training run. The deployed 10-class checkpoint has never
+seen this origin, and these photos existed in neither dev nor holdout, so scoring them against
+the already-frozen threshold is free evidence on exactly the population that matters — the
+user's own rigs, an unfamiliar day, real bean trays.
+
+```
+probe    refuses 0/60   median 0.0110   p95 0.0759   max 0.1649   (threshold 0.4952)
+centroid refuses 1/60   median 1.1981   p95 1.3216   max 1.4051   (threshold 1.4)
+```
+
+Zero false refusals across all three rigs, with the worst photo at a third of the threshold.
+The centroid metric refuses one of them — a genuine tray of beans, at 1.4051 against its 1.4
+threshold — which is the live false-refusal behaviour of Finding 2 reproducing itself on new
+data, unprompted.
+
+This was **not** used to recalibrate: the shipped threshold is the one the holdout verified, and
+re-fitting against these would have invalidated that verification. They are recorded as
+observation. They are, however, the obvious calibration set for the *next* deployment — 60
+independent-day photos would move the certificate from α ≤ 20% to roughly α ≤ 1.6%.
+
+### Why the threshold is calibrated on four photos
+
+Conformal validity needs the calibration photos to be exchangeable with what the service
+actually meets, and that ruled out the larger, more tempting calibration sets:
+
+| calibrate on | n | threshold | certificate |
+|---|---|---|---|
+| all dev positives | 16 | 0.9916 | α ≤ 5.9% |
+| user photos | 9 | 0.4952 | α ≤ 10% |
+| **user, independent-day only** | **4** | **0.4952** | **α ≤ 20%** |
+
+All 16 positives put the threshold at 0.9916 — set entirely by internet photos, against
+negatives whose median is 0.9995. That is a certificate over a population the service will
+never see, with almost no margin left. The user's same-day photos are easier than
+independent-day ones (0.001–0.144 against 0.072–0.495), so including them flatters the
+certificate the same way Finding 1's held-out split did.
+
+The narrowest set gives the **same threshold** with an honest certificate, so the only thing
+given up is the size of the promise, not the behaviour. And 20% is a *bound limited by n=4*,
+not an estimate: the observed false-refusal rate on the user's photos is **0/9** across dev and
+holdout combined.
+
+**This is the collection target, and it is sharper than "more positives":** the binding
+resource is *independent-day* photos of the user's own trays. 19 of them would certify 5%; 99
+would certify 1%. Same-day photos and internet photos do not move this number.
+
+### What was deployed
+
+- `<checkpoint>.ood_probe.json` (~41 KB) beside the weights. **Its presence is the deployment
+  switch** — `load_ood_probe` picks it up, and deleting it reverts to the centroid metric on
+  the next restart, with no code change. It carries the checkpoint SHA and is refused against
+  other weights, exactly as the reference is.
+- No embeddings sidecar is needed: the probe is a dot product over patch embeddings the
+  forward pass already computes. `models/*.ood_embeddings.npz` is required only by `knn` and
+  `mahalanobis_shared`, neither of which ships.
+- `classify_one` records **both** scores on every photo and logs both (`ood_probe`,
+  `ood_median`, `ood_method`), so the production series stays continuous across the switch and
+  the next recalibration has traffic to work from.
+- `--ood-method centroid` reproduces any pre-probe verdict.
+
+`mahalanobis_shared` remains the fallback if the probe ever needs to be withdrawn: a drop-in on
+the same embeddings needing no negatives at fit time, 0.064 AUROC behind on dev.
 
 ## Things worth not forgetting
 

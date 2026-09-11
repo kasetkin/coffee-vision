@@ -103,6 +103,54 @@ def reference_path_for(checkpoint: Path) -> Path:
     return checkpoint.with_suffix(".ood_reference.json")
 
 
+def probe_path_for(checkpoint: Path) -> Path:
+    """Where this checkpoint's OOD probe lives: beside it, named after it.
+
+    Same rule as `reference_path_for`, for the same reason -- a probe is a single
+    direction in one specific embedding space, so against different weights its
+    output is not wrong so much as meaningless. Unlike the reference, this file
+    is optional: absent it, the guard falls back to the centroid metric that
+    shipped in Phase 10, so an older checkpoint keeps behaving exactly as it did.
+    """
+    return checkpoint.with_suffix(".ood_probe.json")
+
+
+def load_ood_probe(checkpoint: Path, explicit: Path | None = None) -> dict | None:
+    """Load and sha-check the probe beside a checkpoint, or None if there is none.
+
+    Refuses a mismatched pairing rather than falling back quietly: a probe from
+    other weights produces confident, plausible, meaningless numbers, and
+    silently degrading to the centroid metric would hide that the operator
+    thinks they deployed something they did not.
+    """
+    path = explicit or probe_path_for(checkpoint)
+    if not path.exists():
+        return None
+    probe = json.loads(path.read_text())
+    if probe.get("checkpoint_sha") and probe["checkpoint_sha"] != _sha(checkpoint):
+        raise SystemExit(
+            f"OOD probe {path} was fitted on a different checkpoint "
+            f"({probe['checkpoint_sha']} vs {_sha(checkpoint)}); refit it with "
+            f"`python -m coffeecv.fit_ood_probe --checkpoint {checkpoint}`.")
+    probe["_path"] = str(path)
+    return probe
+
+
+def probe_score(embeddings: np.ndarray, probe: dict) -> float:
+    """P(not beans) for one photo: per-patch logistic, then mean over patches.
+
+    Deliberately the whole scoring path, so `fit_ood_probe` can import *this*
+    function to calibrate against rather than reimplementing the arithmetic --
+    a threshold calibrated against slightly different pooling than production
+    applies is a threshold for a statistic nobody computes.
+    """
+    mu = np.asarray(probe["mu"], dtype=np.float64)
+    sd = np.asarray(probe["sd"], dtype=np.float64)
+    w = np.asarray(probe["w"], dtype=np.float64)
+    z = ((embeddings - mu) / sd) @ w[:-1] + w[-1]
+    return float(np.mean(1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))))
+
+
 def classes_path_for(checkpoint: Path) -> Path:
     """Where this checkpoint's frozen class list lives: beside it, named after it.
 
@@ -394,7 +442,8 @@ def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]
 def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str],
                   model, head, ref: dict | None, n_patches: int = 40,
                   seed_key: list[int] | None = None, tta: bool = True,
-                  skip_crop: bool = False) -> dict:
+                  skip_crop: bool = False, probe: dict | None = None,
+                  ood_method: str = "auto") -> dict:
     """Classify a single photo. One call = exactly one iteration of the CLI's batch
     loop below, extracted so the CLI and any other caller (the web service) are
     provably running one code path rather than two that can silently drift
@@ -444,21 +493,62 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     entry["ood"] = {"median": round(median, 3),
                     "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
                     "threshold": OOD_THRESHOLD, "warn_above": warn_at}
-    # Message text lives here, once, rather than in the CLI printer or the web
-    # response separately -- both callers show the exact same words for the exact
-    # same verdict.
-    if warn_at and OOD_THRESHOLD >= median > warn_at:
-        entry["ood"]["warned"] = True
-        entry["ood"]["note"] = (
+
+    # Both metrics are recorded on every photo, whichever one decides. The probe
+    # costs one dot product over embeddings that already exist, and keeping the
+    # centroid median in the entry means the production log stays comparable
+    # across the metric change -- otherwise the switch-over date becomes a
+    # discontinuity in the only long-run record of what real photos score, and
+    # the next calibration loses its own history.
+    if ood_method not in ("auto", "centroid", "linear_probe"):
+        raise ValueError(f"unknown ood_method {ood_method!r}")
+    if ood_method == "linear_probe" and probe is None:
+        raise ValueError("ood_method='linear_probe' but no probe is loaded for this checkpoint")
+    if probe is not None:
+        entry["ood"]["probe"] = round(probe_score(embeds, probe), 4)
+
+    if probe is not None and ood_method in ("auto", "linear_probe"):
+        method, score = "linear_probe", entry["ood"]["probe"]
+        threshold = float(probe["threshold"])
+        # Warn band = the threshold a 20% false-refusal rate would have used.
+        # Between the two, a photo is one the probe finds unusual but not
+        # unusual enough to refuse at the rate this deployment promised.
+        w20 = (probe.get("thresholds_by_alpha") or {}).get("0.20")
+        warn_at = float(w20) if w20 is not None and float(w20) < threshold else None
+        warn_note = (
+            f"This photo is less bean-like than most genuine photos (probe {score:.3f}, refusing "
+            f"above {threshold:.3f}). Not refused, but treat the answer below as less reliable.")
+        refuse_note = (
+            "This does not look like a photo of coffee beans. Not offering a best guess: a ranked "
+            "list over bean origins would be false precision for a photo that may contain no beans.")
+    else:
+        method, score, threshold = "centroid", round(median, 3), OOD_THRESHOLD
+        warn_note = (
             f"Above the training distribution's 95th percentile ({warn_at:.2f}). Not refused, but "
             f"treat the answer below as unreliable -- on this repo's held-out rig, photos in this "
-            f"band lost about half their top-1 accuracy while staying under the refusal threshold.")
-    if median > OOD_THRESHOLD:
-        entry["verdict"] = "REFUSED (out of distribution)"
-        entry["ood"]["note"] = (
+            f"band lost about half their top-1 accuracy while staying under the refusal threshold."
+        ) if warn_at else ""
+        refuse_note = (
             "This photo does not resemble the training distribution. Not offering a best guess: on "
             "such photos the embedding sits roughly equidistant from every class, so a ranked list "
             "would be false precision.")
+    entry["ood"].update({"method": method, "score": score, "threshold": threshold,
+                         "warn_above": warn_at})
+    if method == "linear_probe":
+        # Only when the probe decides: alpha describes *this* threshold's
+        # certificate, and stamping it on a centroid verdict would attach a
+        # guarantee to a number it was never computed for.
+        entry["ood"]["alpha"] = probe.get("alpha")
+
+    # Message text lives here, once, rather than in the CLI printer or the web
+    # response separately -- both callers show the exact same words for the exact
+    # same verdict.
+    if warn_at and threshold >= score > warn_at:
+        entry["ood"]["warned"] = True
+        entry["ood"]["note"] = warn_note
+    if score > threshold:
+        entry["verdict"] = "REFUSED (out of distribution)"
+        entry["ood"]["note"] = refuse_note
         return entry
     entry["verdict"] = "predicted"
     return entry
@@ -482,10 +572,18 @@ def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
 
     ood = entry.get("ood")
     if ood is not None:
-        median = ood["median"]
-        margin = median - ood["threshold"]
-        print(f"  OOD: median distance {median:.2f} vs threshold {ood['threshold']} "
-              f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
+        # Print whichever metric actually decided, never a score from one paired
+        # with a threshold from the other -- they live on different scales, and
+        # the resulting "over by" would be arithmetic between unrelated numbers.
+        score, thr = ood.get("score", ood["median"]), ood["threshold"]
+        margin = score - thr
+        if ood.get("method") == "linear_probe":
+            print(f"  OOD: probe {score:.3f} vs threshold {thr:.3f} "
+                  f"({'over' if margin > 0 else 'under'} by {abs(margin):.3f})"
+                  f"   [centroid median {ood['median']:.2f}, not deciding]")
+        else:
+            print(f"  OOD: median distance {score:.2f} vs threshold {thr} "
+                  f"({'over' if margin > 0 else 'under'} by {abs(margin):.2f})")
         # `note` is set by classify_one() -- same string the web response uses, so
         # the two callers can't drift on what this actually says.
         if ood.get("warned"):
@@ -508,6 +606,13 @@ def main() -> None:
                         "to preserve is broken at the first step.")
     p.add_argument("--ood-reference", default=None,
                    help="defaults to <checkpoint>.ood_reference.json, so the guard travels with the model")
+    p.add_argument("--ood-probe", default=None,
+                   help="defaults to <checkpoint>.ood_probe.json when it exists; fit one with "
+                        "`python -m coffeecv.fit_ood_probe`")
+    p.add_argument("--ood-method", default="auto", choices=("auto", "centroid", "linear_probe"),
+                   help="'auto' uses the probe when one sits beside the checkpoint and the Phase 10 "
+                        "centroid metric otherwise. 'centroid' forces the pre-probe behaviour even "
+                        "where a probe exists, which is how to reproduce an older verdict.")
     p.add_argument("--n-patches", type=int, default=40)
     p.add_argument("--no-tta", action="store_true",
                    help="disable dihedral test-time augmentation. TTA is ON by default: it is worth "
@@ -543,6 +648,16 @@ def main() -> None:
             f"rebuild it for this checkpoint."
         )
 
+    probe = None
+    if args.ood_method != "centroid":
+        probe = load_ood_probe(Path(args.checkpoint),
+                               Path(args.ood_probe) if args.ood_probe else None)
+    if probe is not None:
+        print(f"OOD guard: linear_probe from {probe['_path']} "
+              f"(threshold {probe['threshold']:.4f}, certified alpha {probe['alpha']:.1%})")
+    elif ref is not None:
+        print(f"OOD guard: centroid, threshold {OOD_THRESHOLD}")
+
     images = sorted(q for q in Path(args.images_dir).iterdir()
                     if q.suffix.lower() in {".jpg", ".jpeg", ".png"} and not q.name.endswith("__mask.png"))
     if not images:
@@ -555,7 +670,8 @@ def main() -> None:
         # not a reason to abandon the batch, and it must not surface as a stack
         # trace to someone holding a phone.
         entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=args.n_patches, seed_key=[args.seed, idx], tta=not args.no_tta)
+                              n_patches=args.n_patches, seed_key=[args.seed, idx], tta=not args.no_tta,
+                              probe=probe, ood_method=args.ood_method)
         results[path.name] = entry
         _print_cli_verdict(path.name, entry, ref)
 

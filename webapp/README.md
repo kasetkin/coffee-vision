@@ -32,11 +32,26 @@ Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
 
 ## Which checkpoint is deployed
 
-`app.py` hardcodes `CHECKPOINT` near the top of the file; as of 2026-09-03 that
-is `models/allrigs_oneplusmerged_s17.pt` (exp171). To ship a different model:
+`app.py` hardcodes `CHECKPOINT` near the top of the file; as of 2026-09-09 that
+is `models/allrigs_cam_s123.pt` (exp206). To ship a different model:
 change that one line, make sure the checkpoint's `.json` card and
 `.ood_reference.json` are present beside it (both locally and on the VM -- see
 "Getting code onto the VM" below), redeploy (see "Code/model change" below).
+
+### The OOD probe sidecar
+
+A checkpoint may also carry `<name>.ood_probe.json` (~41 KB). **Its presence is
+the switch**: with it, the guard refuses on a fitted linear probe over patch
+embeddings; without it, on the Phase 10 centroid distance. There is no flag and
+no config key -- deploying is copying the file, rolling back is deleting it and
+restarting. `load_ood_probe` refuses a probe whose `checkpoint_sha` does not
+match the weights, so a stale one fails loudly at startup instead of scoring in
+the wrong embedding space.
+
+Rebuild it with `python -m coffeecv.fit_ood_probe` (see
+`docs/ood_guard_eval.md` for what it is calibrated against and why). It is
+small, deterministic, and git-tracked beside the reference -- unlike the
+`.ood_embeddings.npz` sidecar, which this service does not need at all.
 
 A shipped checkpoint also carries a frozen `.classes.txt` sidecar, and
 `config_for_checkpoint` redirects `classes_file` to it rather than reading
