@@ -261,8 +261,9 @@ machine halves wall-clock, not compute.
   `run_folds.dirty_provenance_paths()` (`:202`) refuses any dirty file outside `params.yaml`, `dvc.lock`,
   `outputs/`, `experiments/`. **Done 2026-09-20:** `/dataset_new_ignored/` is in `.git/info/exclude` (local,
   not committed) and `git status` no longer lists it. **Still to do:** `--exclude /dataset_new_ignored/` on
-  the deploy rsync (236 MB the VM never reads), and the other untracked entries (this doc,
-  `analysis/lr_scheduler/`, `docs/release_model_plan.md`) still trip the gate until committed or excluded.
+  the deploy rsync (236 MB the VM never reads). The other untracked entries (this doc,
+  `analysis/lr_scheduler/`, `docs/release_model_plan.md`) were committed the same day, so the local tree is
+  clean and the gate passes here.
   `classes.txt` and the cropped data must agree: exp174 once silently trained 9 of its 10 classes. On
   `class-011-peru-minka` the `.dvc` pointers now name folders that no longer exist; `dvc checkout` there
   restores them from the local DVC cache. The branch is not pushed and the photos are not `dvc push`ed.
