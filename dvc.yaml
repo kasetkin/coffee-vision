@@ -153,6 +153,16 @@ stages:
       - outputs/history.json:
           x: epoch
           y: xrig_macro_f1
+      # LR per param group (training_curves.png draws the same two on a log scale). `lr` is the head
+      # group and exists in every history; lr_backbone only in runs made since 2026-09-20, so DVC
+      # warns about that one field until history.json is next overwritten -- the same kind of
+      # warning all-rigs runs already give for xrig_macro_f1.
+      - outputs/history.json:
+          x: epoch
+          y: lr
+      - outputs/history.json:
+          x: epoch
+          y: lr_backbone
       - outputs/predictions_val.csv:
           template: confusion
           x: true_label

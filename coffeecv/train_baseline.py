@@ -28,6 +28,7 @@ from coffeecv.dataset import (
     load_class_labels,
     resolve_rigs,
 )
+from coffeecv.lr_schedules import build_scheduler
 from coffeecv.metrics import (
     build_metrics_json,
     build_summary_json,
@@ -253,7 +254,10 @@ def main() -> None:
         optimizer = torch.optim.SGD(param_groups, weight_decay=cfg.weight_decay, momentum=0.9)
     else:
         raise ValueError(f"Unknown optimizer: {cfg.optimizer!r}")
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs, eta_min=cfg.eta_min)
+    sched = build_scheduler(cfg, optimizer)
+    # Stated at the start of every run: a `plateau` left behind in params.yaml by a sweep would
+    # otherwise train a shipping run under the wrong scheduler with nothing in the log saying so.
+    print(f"scheduler: {sched.describe()}; epoch cap {cfg.epochs}")
 
     OUTPUTS_DIR.mkdir(exist_ok=True)
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -285,7 +289,11 @@ def main() -> None:
         val_true, val_pred, val_losses = evaluate(model, val_loader, criterion)
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 
-        current_lr = optimizer.param_groups[0]["lr"]
+        # LR *used during* this epoch, one entry per param group, head first. `lr` is the head group
+        # and stays as the legacy key. The backbone was never recorded before, which is how
+        # eta_min == backbone_lr pinning it flat went unseen (docs/lr_scheduler_plan.md, F7).
+        group_lrs = sched.lrs()
+        current_lr = group_lrs[0]
         epoch_row = {
             "epoch": epoch,
             "train_loss": train_loss,
@@ -293,7 +301,10 @@ def main() -> None:
             "val_macro_f1": val_metrics["macro_f1"],
             "val_mcc": val_metrics["mcc"],
             "lr": current_lr,
+            "lr_head": current_lr,
         }
+        if len(group_lrs) > 1:
+            epoch_row["lr_backbone"] = group_lrs[1]
         if xrig_loader is not None:
             # Recorded per epoch purely so the val/cross-rig gap is visible as a
             # curve -- it is the whole subject of Phase 11. It is NOT used for
@@ -326,6 +337,9 @@ def main() -> None:
         writer.add_scalar("val/macro_f1", val_metrics["macro_f1"], epoch)
         writer.add_scalar("val/mcc", val_metrics["mcc"], epoch)
         writer.add_scalar("lr", current_lr, epoch)
+        writer.add_scalar("lr/head", current_lr, epoch)
+        if len(group_lrs) > 1:
+            writer.add_scalar("lr/backbone", group_lrs[1], epoch)
         for cid, pc in val_metrics["per_class"].items():
             if pc["loss_mean"] is not None:
                 writer.add_scalar(f"val_loss_per_class/{cid}", pc["loss_mean"], epoch)
@@ -340,9 +354,24 @@ def main() -> None:
         else:
             epochs_since_improvement += 1
 
-        scheduler.step()
+        lr_event = sched.step(epoch, val_metrics["macro_f1"])
+        # Written onto the row already appended to `history`. An event describes the LR change that
+        # takes effect from the NEXT epoch, so on a chart the drop shows up on epoch + 1.
+        if sched.smoothed is not None:
+            epoch_row["val_f1_smooth"] = sched.smoothed
+        if lr_event:
+            epoch_row["lr_event"] = lr_event
+            print(f"  LR {lr_event} after epoch {epoch}: next epoch runs at "
+                  f"{[f'{x:.2e}' for x in sched.lrs()]}")
 
-        if epochs_since_improvement >= cfg.early_stop_patience:
+        if sched.owns_stopping:
+            # plateau: a fixed budget once the LR floor is reached; the raw-F1 patience rule is off.
+            if sched.should_stop():
+                print(f"Stopping at epoch {epoch}: LR floor reached at epoch {sched.floor_epoch}, "
+                      f"{cfg.floor_epochs} epochs trained at the floor "
+                      f"(best={best_val_macro_f1:.4f} at epoch {best_epoch})")
+                break
+        elif epochs_since_improvement >= cfg.early_stop_patience:
             print(f"Early stopping at epoch {epoch}: no val_macro_f1 improvement in "
                   f"{cfg.early_stop_patience} epochs (best={best_val_macro_f1:.4f} at epoch {best_epoch})")
             break

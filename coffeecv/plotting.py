@@ -49,7 +49,17 @@ def plot_training_curves(history: list[dict], out_path: Path) -> None:
     val_loss = [h["val_loss"] for h in history]
     val_macro_f1 = [h["val_macro_f1"] for h in history]
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 8), sharex=True)
+    # LR *used during* each epoch, per param group. Histories written before 2026-09-20 carry only
+    # `lr` (the head group), so the backbone line is drawn only when it was actually recorded --
+    # never reconstructed. This function also regenerates every archived experiment's chart
+    # (archive_experiment.regenerate_plots), so it has to cope with those old histories.
+    head_lr = [(e, h.get("lr_head", h.get("lr"))) for e, h in zip(epochs, history)]
+    head_lr = [(e, v) for e, v in head_lr if v is not None]
+    backbone_lr = [(e, h["lr_backbone"]) for e, h in zip(epochs, history) if h.get("lr_backbone") is not None]
+
+    n_panels = 3 if head_lr else 2
+    fig, axes = plt.subplots(n_panels, 1, figsize=(8, 10.5 if head_lr else 8), sharex=True)
+    ax1, ax2 = axes[0], axes[1]
 
     ax1.plot(epochs, train_loss, color=TRAIN_COLOR, label="train loss")
     ax1.plot(epochs, val_loss, color=VAL_COLOR, label="val loss")
@@ -59,7 +69,18 @@ def plot_training_curves(history: list[dict], out_path: Path) -> None:
 
     ax2.plot(epochs, val_macro_f1, color=TRAIN_COLOR)
     ax2.set_ylabel("Val macro-F1")
-    ax2.set_xlabel("Epoch")
+
+    if head_lr:
+        ax3 = axes[2]
+        ax3.plot(*zip(*head_lr), color=TRAIN_COLOR, label="head LR")
+        if backbone_lr:
+            ax3.plot(*zip(*backbone_lr), color=VAL_COLOR, label="backbone LR")
+        ax3.set_yscale("log")
+        ax3.set_ylabel("Learning rate")
+        ax3.legend()
+        ax3.set_xlabel("Epoch")
+    else:
+        ax2.set_xlabel("Epoch")
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)

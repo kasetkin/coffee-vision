@@ -28,12 +28,13 @@ import time
 from pathlib import Path
 
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
+from coffeecv.lr_schedules import SCHEDULERS
 from coffeecv.run_folds import RIGS, dirty_provenance_paths, run, stale_crop_stages
 
 
 def set_all_rigs(
     seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float, freeze_mode: str,
-    mixstyle_mode: str, eta_min: float,
+    mixstyle_mode: str, eta_min: float, scheduler: str,
 ) -> RunConfig:
     """Point params.yaml at every rig with no held-out rig, preserving comments."""
     text = PARAMS_FILE.read_text()
@@ -70,6 +71,10 @@ def set_all_rigs(
     elif "." not in eta_min_str:
         eta_min_str += ".0"
     text = re.sub(r"^eta_min: .*$", f"eta_min: {eta_min_str}", text, count=1, flags=re.M)
+    # Stated on every invocation, for the same reason as mixstyle_mode above: a plateau sweep
+    # (run_folds --scheduler plateau) leaves params.yaml resting at `plateau`, and inheriting it
+    # here would train a shipping model under a scheduler that has not been adopted.
+    text = re.sub(r"^scheduler: \S+", f"scheduler: {scheduler}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
@@ -85,6 +90,7 @@ def set_all_rigs(
     assert cfg.mixstyle_mode == mixstyle_mode, f"mixstyle_mode is {cfg.mixstyle_mode!r}, wanted {mixstyle_mode!r}"
     assert cfg.freeze_mode == freeze_mode, f"freeze_mode is {cfg.freeze_mode!r}, wanted {freeze_mode!r}"
     assert cfg.eta_min == eta_min, f"eta_min is {cfg.eta_min}, wanted {eta_min}"
+    assert cfg.scheduler == scheduler, f"scheduler is {cfg.scheduler!r}, wanted {scheduler!r}"
     if epochs is not None:
         assert cfg.epochs == epochs
     return cfg
@@ -96,7 +102,8 @@ def main() -> None:
                    help="one run per seed; several make an ensemble, if the ensemble study says that helps")
     p.add_argument("--start-exp", type=int, required=True)
     p.add_argument("--epochs", type=int, default=None,
-                   help="epoch budget / cosine T_max. Default None leaves params.yaml's resting value "
+                   help="epoch budget; also the cosine T_max, but only a cap under --scheduler plateau. "
+                        "Default None leaves params.yaml's resting value "
                         "untouched, matching run_folds.py's own --epochs -- this script used to default "
                         "to a hardcoded 80, which silently overrode the adopted epochs=100 (see "
                         "project-epochs100-patience20-relaunch) on any invocation that didn't pass "
@@ -117,6 +124,10 @@ def main() -> None:
     p.add_argument("--eta-min", type=float, default=0.0,
                    help="CosineAnnealingLR floor. States its value on EVERY run, like --mixstyle-p, not "
                         "'leave whatever params.yaml had' -- see run_folds.py's own --eta-min for why.")
+    p.add_argument("--scheduler", default="cosine", choices=list(SCHEDULERS),
+                   help="LR schedule. Stated on EVERY run (default: the adopted 'cosine'), never inherited "
+                        "from params.yaml -- see set_all_rigs. 'plateau' is a screening arm "
+                        "(docs/lr_scheduler_plan.md) and is not adopted.")
     p.add_argument("--tag", default="allrigs")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-dirty", action="store_true")
@@ -152,7 +163,7 @@ def main() -> None:
 
         print(f"\n{'=' * 72}\nexp{exp_id}  ALL RIGS  seed={seed}  (no held-out rig)\n{'=' * 72}", flush=True)
         cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p, args.freeze_mode,
-                            args.mixstyle_mode, args.eta_min)
+                            args.mixstyle_mode, args.eta_min, args.scheduler)
 
         # Post-condition on the CLI contract, same rationale as run_folds.py's own
         # check: reads what actually loaded rather than trusting the write.
@@ -161,6 +172,7 @@ def main() -> None:
             ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
             ("freeze_mode", args.freeze_mode, cfg.freeze_mode),
             ("eta_min", args.eta_min, cfg.eta_min),
+            ("scheduler", args.scheduler, cfg.scheduler),
         ):
             if got != wanted:
                 raise SystemExit(
@@ -178,7 +190,7 @@ def main() -> None:
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, epochs={cfg.epochs}, "
                 f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}, "
                 f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, freeze_mode={cfg.freeze_mode}, "
-                f"eta_min={cfg.eta_min}. "
+                f"eta_min={cfg.eta_min}, scheduler={cfg.scheduler}. "
                 f"NO cross-rig metric exists for this run by construction; in-distribution only.")
         if dirty:
             note += " WARNING: uncommitted source at launch."

@@ -157,6 +157,19 @@ class RunConfig:
     # zero, so the last ~15-20 epochs of a long run train at a negligible LR -- pure
     # eval noise rather than real learning signal). See project-lr-scheduler-hypotheses.
     eta_min: float = 0.0
+    # LR schedule (see coffeecv/lr_schedules.py and docs/lr_scheduler_plan.md). "cosine" is the
+    # original CosineAnnealingLR(T_max=epochs, eta_min) with the raw-F1 patience stop above.
+    # "plateau" is ReduceLROnPlateau on a trailing mean of val macro-F1 that owns stopping; there
+    # `epochs` is only a cap (no longer T_max) and eta_min is the LR floor. The plateau_* knobs and
+    # floor_epochs are inert under "cosine", and they are fixed for the first screen -- they were
+    # chosen from the noise level, not tuned, and must not be retuned on cross-rig results.
+    scheduler: str = "cosine"
+    plateau_smooth: int = 5  # epochs in the trailing mean fed to the scheduler
+    plateau_threshold: float = 0.003  # absolute gain in the smoothed F1 that counts as improvement
+    plateau_patience: int = 6  # non-improving epochs tolerated before a drop
+    plateau_cooldown: int = 3  # epochs after a drop before the counter runs again
+    plateau_factor: float = 0.3  # LR multiplier per drop
+    floor_epochs: int = 15  # stop this many epochs after every group reaches its floor
     optimizer: str = "adamw"  # adamw | sgd
     lr: float = 1e-3
     backbone_lr: float = 1e-5  # used only when freeze_mode != "full"

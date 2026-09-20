@@ -126,6 +126,19 @@ early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epo
 # on a cost/benefit call (full confirmation estimated ~50h more compute).
 # exp151-156; see project-eta-min-screen memory for the full writeup.
 eta_min: 1.0e-05
+# LR schedule: cosine (the adopted recipe above) | plateau (screen arm A3, docs/lr_scheduler_plan.md).
+# Under plateau, `epochs` is only a cap, eta_min is the LR floor for every group, and the
+# raw-F1 patience stop is off -- the scheduler stops training floor_epochs after the floor.
+# The plateau_* values and floor_epochs are inert under cosine, and are fixed for the first
+# screen (chosen from the noise level, not tuned). Rests at cosine: run_folds.py rewrites
+# `scheduler` for a plateau sweep, so restore it afterwards or the next shipping run inherits it.
+scheduler: cosine
+plateau_smooth: 5
+plateau_threshold: 0.003
+plateau_patience: 6
+plateau_cooldown: 3
+plateau_factor: 0.3
+floor_epochs: 15
 optimizer: adamw  # adamw | sgd
 lr: 0.001
 backbone_lr: 0.00001  # used only when freeze_mode != full

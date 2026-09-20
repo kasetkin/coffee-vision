@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 
 from coffeecv.config import OUTPUTS_DIR, PARAMS_FILE, REPO_ROOT, RunConfig
+from coffeecv.lr_schedules import SCHEDULERS
 
 # 2026-08-26: expanded from the original 3 to all 5 rigs for a true 5-way
 # leave-one-rig-out sweep (train on whichever 4 aren't held out) -- this list
@@ -102,13 +103,16 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
              freeze_mode: str | None = None, mixup_alpha: float | None = None,
              mixstyle_p: float | None = None, mixstyle_mode: str | None = None,
              eta_min: float | None = None, bean_k_lo: int | None = None,
-             bean_calibration_k: float | None = None) -> "RunConfig":
+             bean_calibration_k: float | None = None, scheduler: str | None = None) -> "RunConfig":
     """Point params.yaml at one fold, preserving comments and ordering.
 
-    `epochs` is not just a cap: it is also `T_max` for the cosine LR schedule, so
+    Under the cosine schedule `epochs` is not just a cap: it is also `T_max`, so
     changing it changes the LR trajectory as well as how long training may run.
     Both arms of a comparison therefore have to share it -- scale@80 vs
     baseline@50 would confound "trained longer" with "annealed differently".
+    Under `scheduler=plateau` it IS only a cap (the schedule is data-driven and the
+    scheduler owns stopping), so a plateau arm and a cosine arm legitimately differ
+    in `epochs`; compare them on outcome plus epochs actually used.
     """
     text = PARAMS_FILE.read_text()
     train = [r for r in RIGS if r != heldout]
@@ -156,6 +160,9 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         text = re.sub(r"^bean_k_lo: .*$", f"bean_k_lo: {bean_k_lo}", text, count=1, flags=re.M)
         text = re.sub(r"^bean_calibration_k: .*$", f"bean_calibration_k: {bean_calibration_k}",
                       text, count=1, flags=re.M)
+    if scheduler is not None:
+        # A plain string, so no float-formatting trap; \S+ keeps any trailing comment.
+        text = re.sub(r"^scheduler: \S+", f"scheduler: {scheduler}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
     # Read it back through the real loader: a silently-failed regex would
@@ -183,6 +190,8 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
         assert cfg.mixstyle_mode == mixstyle_mode, f"mixstyle_mode is {cfg.mixstyle_mode!r}, wanted {mixstyle_mode!r}"
     if eta_min is not None:
         assert cfg.eta_min == eta_min, f"eta_min is {cfg.eta_min}, wanted {eta_min}"
+    if scheduler is not None:
+        assert cfg.scheduler == scheduler, f"scheduler is {cfg.scheduler!r}, wanted {scheduler!r}"
     # Returned so the caller records what was actually loaded rather than what was
     # asked for -- the omitted-flag case has no value in args to report.
     return cfg
@@ -307,7 +316,8 @@ def main() -> None:
                         "not a rotating leave-one-rig-out fold. Mutually exclusive with --only.")
     p.add_argument("--force", action="store_true", help="re-run folds that are already archived")
     p.add_argument("--epochs", type=int, default=None,
-                   help="epoch budget AND cosine T_max; both arms of a comparison must share it")
+                   help="epoch budget. Under the cosine schedule also its T_max, so both arms of a "
+                        "cosine comparison must share it; under --scheduler plateau it is only a cap")
     p.add_argument("--tag", default="", help="slug suffix distinguishing this sweep, e.g. e80")
     p.add_argument("--seed", type=int, default=None, help="training seed; the replication axis")
     p.add_argument("--brightness-jitter", type=float, default=None,
@@ -332,7 +342,14 @@ def main() -> None:
     p.add_argument("--eta-min", type=float, default=None,
                    help="floor for CosineAnnealingLR's decay (PyTorch default 0.0: LR reaches exactly "
                         "zero by T_max). Like --mixstyle-p, states its value on EVERY run rather than "
-                        "inheriting params.yaml. See project-lr-scheduler-hypotheses.")
+                        "inheriting params.yaml. See project-lr-scheduler-hypotheses. Under "
+                        "--scheduler plateau it is the LR floor for every param group.")
+    p.add_argument("--scheduler", default=None, choices=list(SCHEDULERS),
+                   help="LR schedule: 'cosine' (the adopted recipe) or 'plateau' (ReduceLROnPlateau on "
+                        "smoothed val macro-F1, arm A3 in docs/lr_scheduler_plan.md; the scheduler owns "
+                        "stopping and --epochs is only a cap). Omitted = inherit params.yaml, so a sweep "
+                        "that leaves 'plateau' behind leaks it into the next run: state it on EVERY "
+                        "invocation, and restore params.yaml to 'cosine' afterwards.")
     p.add_argument("--no-commit", action="store_true",
                    help="skip the per-fold git commit (default is to commit each run)")
     p.add_argument("--allow-dirty", action="store_true",
@@ -474,7 +491,8 @@ def main() -> None:
               f"held out: {short}\n{'=' * 72}", flush=True)
         cfg = set_fold(heldout, frac_min, frac_max, beans_min, beans_max, args.epochs, args.seed,
                        args.brightness_jitter, args.freeze_mode, args.mixup_alpha, args.mixstyle_p,
-                       args.mixstyle_mode, args.eta_min, args.bean_k_lo, args.bean_calibration_k)
+                       args.mixstyle_mode, args.eta_min, args.bean_k_lo, args.bean_calibration_k,
+                       args.scheduler)
 
         # Post-condition on the CLI contract, checked HERE rather than only inside
         # set_fold, because set_fold's own assertions are all guarded by
@@ -491,6 +509,7 @@ def main() -> None:
             *((("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),) if args.mixstyle_p is not None else ()),
             *((("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),) if args.mixstyle_mode is not None else ()),
             *((("eta_min", args.eta_min, cfg.eta_min),) if args.eta_min is not None else ()),
+            *((("scheduler", args.scheduler, cfg.scheduler),) if args.scheduler is not None else ()),
             *(( ("bean_k_lo", args.bean_k_lo, cfg.bean_k_lo),
                 ("bean_calibration_k", args.bean_calibration_k, cfg.bean_calibration_k))
               if args.bean_k_lo is not None else ()),
@@ -543,7 +562,13 @@ def main() -> None:
                 f"epochs={cfg.epochs}, seed={cfg.seed}, "
                 f"brightness_jitter={cfg.brightness_jitter_strength}, "
                 f"freeze_mode={cfg.freeze_mode}, mixup_alpha={cfg.mixup_alpha}, "
-                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, eta_min={cfg.eta_min}")
+                f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, eta_min={cfg.eta_min}, "
+                f"scheduler={cfg.scheduler}")
+        if cfg.scheduler != "cosine":
+            note += (f" (smooth={cfg.plateau_smooth}, threshold={cfg.plateau_threshold}, "
+                     f"patience={cfg.plateau_patience}, cooldown={cfg.plateau_cooldown}, "
+                     f"factor={cfg.plateau_factor}, floor_epochs={cfg.floor_epochs}; "
+                     f"epochs is a cap, not T_max)")
         if dirty:
             note += "; WARNING: uncommitted source at launch, not reproducible from this commit"
         if stale:
