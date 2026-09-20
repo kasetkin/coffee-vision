@@ -267,17 +267,19 @@ machine halves wall-clock, not compute.
   `classes.txt` and the cropped data must agree: exp174 once silently trained 9 of its 10 classes. On
   `class-011-peru-minka` the `.dvc` pointers now name folders that no longer exist; `dvc checkout` there
   restores them from the local DVC cache. The branch is not pushed and the photos are not `dvc push`ed.
-- **The VM's git state must be reconciled before Stage 1 (provenance).** `powervpsssh:~/coffee-vision` sits at
+- **The VM's git state was reconciled on 2026-09-20 (provenance).** `powervpsssh:~/coffee-vision` had been at
   `26f1497` with seven uncommitted files (`coffeecv/infer.py`, `webapp/app.py`, `webapp/README.md`, two
-  `models/allrigs_cam_s123.ood_*.json`, untracked `coffeecv/{fit_ood_probe,ood_eval}.py`). Checked
-  2026-09-20: all seven are **byte-for-byte local HEAD's content** — the OOD-guard commits (`3cbc790`,
-  `82d9264`, `78083c7`) were rsync-deployed, never committed there. Consequences if left as is: `run_folds`
-  needs `--allow-dirty`, every fold's archive note carries "uncommitted source at launch", and each
-  `config.json` records `26f1497`, a commit that contains neither the OOD guard nor the scheduler code
-  (`feedback-experiment-provenance`). Safe fix: fetch local main into the VM and fast-forward it. The dirt is
-  identical to the target, so discarding it loses nothing, but the three untracked files must be removed
-  first (git refuses to overwrite them) and production imports those files, so do it while the site is
-  stopped (authorized during experiments). Not done yet: it is Stage 1 preparation, after the Stage 0 commit.
+  `models/allrigs_cam_s123.ood_*.json`, untracked `coffeecv/{fit_ood_probe,ood_eval}.py`): the OOD-guard
+  commits (`3cbc790`, `82d9264`, `78083c7`) had been rsync-deployed and never committed there. Left as it
+  was, `run_folds` would have needed `--allow-dirty`, every fold's note would say "uncommitted source at
+  launch", and each `config.json` would record a commit with neither the OOD guard nor the scheduler code
+  (`feedback-experiment-provenance`). Done without a window in which production lacked a file: checked
+  blob-by-blob that all seven were identical to local HEAD (7/7), pushed the commits to a temporary branch,
+  ran `git reset --mixed` (moves `main` and the index, never the working tree), confirmed git then reported
+  exactly the 33 files the new commits change and nothing else, and ran `git checkout -- .`. The seven
+  production files were never rewritten. The VM is now at local main, clean, no stash, and the site stayed
+  up. Keep it that way: sync with `git push powervpsssh HEAD:main` (`receive.denyCurrentBranch=updateInstead`
+  updates its working tree when the tree is clean) instead of rsyncing tracked files onto a dirty tree.
 - **The backbone-flat question stays open.** A3 keeps A0's backbone behaviour on purpose (2.1), so this
   screen says nothing about whether annealing the backbone would help. If A3 is ambiguous or wins, A1
   (`cosine_pg`, backbone → 1e-7) is what tells you whether the deployed recipe's real lever is the head
