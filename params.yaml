@@ -28,9 +28,9 @@ seed: 42
 # cost: this pools framing distance inside each camera.
 train_rigs:
   - data/cropped/cam_pixel
-  - data/cropped/cam_oneplus
+  - data/cropped/cam_sony
   - data/cropped/cam_iphone
-heldout_rig: data/cropped/cam_sony
+heldout_rig: data/cropped/cam_oneplus
 classes_file: dataset/classes.txt
 
 # Patch geometry
