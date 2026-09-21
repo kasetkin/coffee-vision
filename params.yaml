@@ -1,7 +1,7 @@
 # Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
 # by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
 
-seed: 256
+seed: 42
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
@@ -27,11 +27,10 @@ seed: 256
 # stages, rather than nine sessions. See run_folds.RIGS for why, and for the
 # cost: this pools framing distance inside each camera.
 train_rigs:
-  - data/cropped/cam_pixel
   - data/cropped/cam_sony
   - data/cropped/cam_oneplus
   - data/cropped/cam_iphone
-heldout_rig: ""
+heldout_rig: data/cropped/cam_pixel
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -115,7 +114,7 @@ mixstyle_mode: agnostic
 
 # Training
 batch_size: 32
-epochs: 100
+epochs: 150
 early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epochs
 # CosineAnnealingLR floor (0.0 = PyTorch default, decays to exactly zero). Set to
 # 1e-5 so the LR trickles rather than flatlining in a long run's last ~15-20
@@ -132,7 +131,7 @@ eta_min: 1.0e-05
 # The plateau_* values and floor_epochs are inert under cosine, and are fixed for the first
 # screen (chosen from the noise level, not tuned). Rests at cosine: run_folds.py rewrites
 # `scheduler` for a plateau sweep, so restore it afterwards or the next shipping run inherits it.
-scheduler: cosine
+scheduler: plateau
 plateau_smooth: 5
 plateau_threshold: 0.003
 plateau_patience: 6
