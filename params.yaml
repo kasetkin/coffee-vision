@@ -27,10 +27,10 @@ seed: 42
 # stages, rather than nine sessions. See run_folds.RIGS for why, and for the
 # cost: this pools framing distance inside each camera.
 train_rigs:
-  - data/cropped/cam_sony
+  - data/cropped/cam_pixel
   - data/cropped/cam_oneplus
   - data/cropped/cam_iphone
-heldout_rig: data/cropped/cam_pixel
+heldout_rig: data/cropped/cam_sony
 classes_file: dataset/classes.txt
 
 # Patch geometry

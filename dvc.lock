@@ -69,7 +69,7 @@ stages:
         eta_min: 1e-05
         floor_epochs: 15
         freeze_mode: none
-        heldout_rig: data/cropped/cam_pixel
+        heldout_rig: data/cropped/cam_sony
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -101,7 +101,7 @@ stages:
         train_patches_per_class: 150
         train_photo_frac: 0.7
         train_rigs:
-        - data/cropped/cam_sony
+        - data/cropped/cam_pixel
         - data/cropped/cam_oneplus
         - data/cropped/cam_iphone
         val_patches_per_class: 40
@@ -112,36 +112,36 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 6c9b8218c56ab69a9c5382db6dd104bb
+      md5: df6069fcb96a7ff19966f42418db773c
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 73a21878cc413e0a1d427dbfbeb3a129
+      md5: 4a2d78b537c4d256979bea0a954f39f7
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: a5728e808a6fea41404caffd97f1fdf5
-      size: 38062
+      md5: e40ba98caf6c79d0362709c70b68e022
+      size: 34091
     - path: outputs/metrics.json
       hash: md5
-      md5: e77ba43d468f362a825fa3f61a5df47a
-      size: 14318
+      md5: 5c2ea0f9196d3eada68389698fe3b2ca
+      size: 14266
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 82c7bba1ff96edc7319931ef7d0edc9c
+      md5: 5399f1e9f55a9dc4712ab0ad04c73c09
       size: 10103
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 7cb4237fc0c4bcd8098d17843f571e10
+      md5: b474dec36934436dea6d00fa4dab7eef
       size: 10103
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: d628f0ed62bf9c0695081105ef7e8391
+      md5: aca59cf1e7410f93e63108bef670505d
       size: 10823
     - path: outputs/summary.json
       hash: md5
-      md5: 1f8f9ee640daff2a583d20ed6d3f55ae
-      size: 214
+      md5: 1662e5912f18232023e5d86c0471bffe
+      size: 210
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
       2026-08-07__box_pictures_all_classes
