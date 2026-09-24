@@ -20,7 +20,8 @@ avoiding it.
 Stage 1 ran (exp210–213, finished 2026-09-21). A3 passed every pre-declared mechanism check and did not
 change the model: the two arms move in lockstep because only the head's LR differs (§6). The user ended the
 scheduler task on 2026-09-24: Stage 2 and the A1/A2/A4 follow-ups are **not run**, and the project moves on
-to `docs/dinov2_integration_plan.md`. `params.yaml` is back at `scheduler: cosine`, `epochs: 100`. The
+to `docs/dinov3_integration_plan.md` (renamed from `dinov2_integration_plan.md` on 2026-09-24, when
+DINOv3 became the first arm). `params.yaml` is back at `scheduler: cosine`, `epochs: 100`. The
 sections below are the plan as it stood before the result, updated only in §5.
 
 ## Decisions (2026-09-20)

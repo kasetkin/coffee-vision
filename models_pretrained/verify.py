@@ -1,7 +1,7 @@
 """Verify the pretrained backbones in this directory against manifest.json.
 
 Run after obtaining the weights on a fresh clone (see README.md, and
-docs/dinov2_integration_plan.md §1-A.1c for where to get them):
+docs/dinov3_integration_plan.md §2.5 for where to get them):
 
     python models_pretrained/verify.py
 
@@ -62,7 +62,7 @@ def main() -> int:
             failures.append(
                 f"{label}: SHA256 {digest[:16]}... != expected {e['sha256'][:16]}...\n"
                 f"    Most likely the Hugging Face safetensors were downloaded instead of the\n"
-                f"    Meta .pth -- they are different files. See plan §1-A.1c.")
+                f"    Meta .pth -- they are different files. See plan §2.5.")
             continue
         stem_hash = path.stem.rsplit("-", 1)[-1]
         self_ok = (len(stem_hash) == 8 and all(c in "0123456789abcdef" for c in stem_hash)

@@ -1,7 +1,7 @@
 # Vendored pretrained backbones
 
 Upstream pretrained weights, kept in the repo tree rather than resolved from the network at run
-time. Rationale in `docs/dinov2_integration_plan.md` §1-A.1: a sweep that downloads its backbone
+time. Rationale in `docs/dinov3_integration_plan.md` §2.5: a sweep that downloads its backbone
 mid-run is not reproducible and fails on a box without egress.
 
 The weight binaries are gitignored; **this README, `manifest.json` and `verify.py` are tracked
@@ -17,11 +17,14 @@ python models_pretrained/verify.py     # what you have, and what is missing or w
 
 - **You, on another machine:** `dvc pull` once the weights are DVC-tracked. They live in the
   private DVC remote, so this needs nothing from Meta a second time.
+  Until then, rsync this folder from a machine that has it and run `verify.py` on the receiving
+  side -- done for `powervpsssh:~/coffee-vision/models_pretrained/` on 2026-09-24 (all 5 files
+  sha256 OK there).
 - **Anyone else:** DINOv3 cannot be redistributed from a public repo (licence §1b-i), so a copy
   has to be requested from Meta directly. Full procedure, including the two-incompatible-formats
-  trap, is `docs/dinov2_integration_plan.md` **§1-A.1c**. Short version: take the **Meta-direct
+  trap, is `docs/dinov3_integration_plan.md` **§2.5**. Short version: take the **Meta-direct
   `.pth`** files, not the Hugging Face `safetensors` — they are different files, the hashes here
-  match only the former, and only the former loads with `dinov3.hub.backbones`.
+  match only the former, and only the former is what the loader (timm, plan §2.2) is verified against.
 
 DINOv2 and ResNet18 need no gate: they re-download automatically from `torch.hub` /
 `torchvision` if absent, which is exactly the run-time network dependency this folder exists to
@@ -84,15 +87,19 @@ The same applies to `dinov2_vits14_pretrain.pth`.
 Weights alone are not enough — the *architecture definition* has to be pinned too:
 
 - **DINOv2** currently builds from the `torch.hub` checkout cached at
-  `~/.cache/torch/hub/facebookresearch_dinov2_main/`, fetched from a floating `main`. Pin it to a
-  recorded commit or vendor the ViT source.
-- **DINOv3** has no loading code in this repo yet. `facebookresearch/dinov3` is sufficient and
-  was verified against these exact files on 2026-09-21 — but note `hubconf.py` fails on a missing
-  `torchmetrics` (it pulls in the eval/segmentation stack), so import `dinov3.hub.backbones`
-  directly. Only 4 subpackages / 26 files / ~400 KB are needed, with no third-party dependency
-  beyond torch. Build with `pretrained=False` and `load_state_dict(..., strict=True)`; passing
-  `weights=<path>` copies the file into the torch hub cache. Full write-up and the
-  vendor-vs-pin licensing decision: `docs/dinov2_integration_plan.md` §1-A.1b.
+  `~/.cache/torch/hub/facebookresearch_dinov2_main/`, fetched from a floating `main`. Since
+  2026-09-24 it is only a reference arm in Experiment 1 (plan §5.2), loaded exactly as the
+  2026-09-21 screen loaded it; pin it only if it ever becomes a candidate again.
+- **DINOv3** loads through **timm** (pin `timm==1.0.29`; Apache-2.0 code), not through Meta's
+  repository: `timm.create_model("vit_small_patch16_dinov3", pretrained=False, num_classes=0,
+  global_pool="token")`, timm's `checkpoint_filter_fn`, a strict load of the `.pth` above, then
+  copy the checkpoint's `rope_embed.periods` into `model.rope.periods`. The checkpoint stores those
+  periods in bfloat16 and timm otherwise recomputes them in fp32 (a ~1e-3 difference on the CLS
+  token); with the copy, timm is **bit-identical** to `facebookresearch/dinov3` at `6876159` at
+  224 and 256 px (verified 2026-09-24). Never use `pretrained=True` -- it downloads a different
+  file from the Hugging Face hub. Full write-up: `docs/dinov3_integration_plan.md` §2; the
+  superseded Meta-repo loading notes (the `hubconf.py`/torchmetrics trap, `weights=<path>`
+  copying into the torch hub cache) are its Appendix B.
 
 ## Next steps
 
@@ -102,7 +109,7 @@ Weights alone are not enough — the *architecture definition* has to be pinned 
    expanding `dvc.lock`'s `.dir` trees, not by trusting `dvc status --cloud`.
 1b. Done 2026-09-24, ahead of step 1: `README.md`, `manifest.json` and `verify.py` were committed on
    their own so the tree is clean for the DINO work; the `.dvc` pointers follow with step 1.
-2. Add `models_pretrained/` entries as deps of the `train` stage in `dvc.yaml` (§1-B.5).
+2. Add `models_pretrained/` entries as deps of the `train` stage in `dvc.yaml` (plan §8.5).
 3. Record the chosen file's sha256 in `RunConfig` so it lands in every archived `config.json`.
 
 ## Licence
@@ -112,4 +119,4 @@ The DINOv3 weights are under the DINOv3 License, a copy of which is pinned at
 `docs/reference_dinov3_LICENSE.md`. In brief: commercial use is permitted, you own your
 derivatives, and serving predictions through an API does not require attaching the licence —
 but redistributing the weights *or a derivative checkpoint* does. See
-`docs/dinov2_integration_plan.md` §0b for the full reading and the relicensing outlook.
+`docs/dinov3_integration_plan.md` Appendix A (full text at commit `1caf2f1`, §0b) for the full reading and the relicensing outlook.
