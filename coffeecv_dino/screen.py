@@ -413,7 +413,8 @@ def summarize(results: dict) -> dict:
                     "readout_switch_to_cls": switch_readout, "n_pairs": len(d_r18)}
     lines.append("")
     lines.append(f"GATES ({'complete' if full else 'PARTIAL -- not all 12 fold x seed pairs are in yet'}):")
-    lines.append(f"  G1 V3 cls_mean > frozen R18 on every pair: {'PASS' if g1 else 'FAIL'} ({len(d_r18)} pairs)")
+    lines.append(f"  G1 V3 cls_mean > frozen R18 on every pair: "
+                 f"{('PASS' if g1 else 'FAIL') if d_r18 else 'no pairs yet'} ({len(d_r18)} pairs)")
     lines.append(f"  G2 V3 cls_mean 3-fold mean >= 0.75: {'PASS' if g2 else 'FAIL'} "
                  f"({m3:.4f})" if m3 is not None else "  G2: not enough folds yet")
     lines.append(f"  G3 DINOv2 beats DINOv3 (cls_mean) on every pair -> stop and ask: {'YES -- STOP' if g3_stop else 'no'}")

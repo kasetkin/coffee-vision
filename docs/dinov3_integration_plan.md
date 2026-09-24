@@ -413,6 +413,12 @@ Three small pure refactors, each its own commit:
    (model, head, cfg → pooled metrics). Then both arms are pooled by one implementation, with the
    same inference-time seed keys.
 
+**As built (2026-09-24, commits `ca3c6b0` and `279cd15`).** Item 3 turned out smaller than
+planned: the scorer already existed as `xrig_eval.run_photowise(model, head, cfg, rig, ...)`.
+Only the pooling rule was extracted, as `photo_pooling_eval.pool_photos()`, and checked against
+the inline code it replaced. `archive_experiment.archive()` also gained `src_dir` (default
+`outputs/`), so screen runs archive from their own directories.
+
 These touch `coffeecv/`, which `dvc.yaml`'s train stage depends on, so each must be proven
 behaviour-neutral:
 
@@ -454,8 +460,15 @@ coffeecv_dino/
   head.py       # §5.3: L2 logistic regression, C chosen on val, exported to nn.Linear
   model.py      # DinoClassifier(backbone, readout, head); the head is a real, called submodule
   screen.py     # Experiment 1 driver: per (seed, fold), build the datasets once and run every arm
-  config.py     # DinoConfig, holding a coffeecv RunConfig
+  reference.py  # a fixed set of real cam_iphone patches for the fixture and the tests
 ```
+
+As built there is no `config.py`. Each run's `config.json` is `RunConfig` (via `replace`, with
+the fields that describe a frozen backbone and a convex head set to what actually ran) plus a
+`dino` block: weights sha256, timm version, readout, chosen C, host, CPU. The screen is
+resumable (`outputs/dino_screen/results.json`), and it imports its provenance and stale-data
+preflight from `run_folds`. `--summary` prints the tables and gates, including for a partial
+run, and `--archive` files the primary cell as exp220–231.
 
 Compared with the previous version, the embedding cache, the SGD fit loop, and a second
 `run_folds` are gone. At depth 0 the head is a convex fit, and one dataset construction per
