@@ -15,6 +15,14 @@ Supersedes the "ReduceLROnPlateau deferred until the dataset is bigger" note fro
 deferred because it breaks the `epochs`-is-`T_max` coupling. Section 4 handles that coupling instead of
 avoiding it.
 
+## Status: CLOSED 2026-09-24
+
+Stage 1 ran (exp210–213, finished 2026-09-21). A3 passed every pre-declared mechanism check and did not
+change the model: the two arms move in lockstep because only the head's LR differs (§6). The user ended the
+scheduler task on 2026-09-24: Stage 2 and the A1/A2/A4 follow-ups are **not run**, and the project moves on
+to `docs/dinov2_integration_plan.md`. `params.yaml` is back at `scheduler: cosine`, `epochs: 100`. The
+sections below are the plan as it stood before the result, updated only in §5.
+
 ## Decisions (2026-09-20)
 
 - **Data frozen at the 10-class commit.** Baselines exp200–203 stay as the paired A0; class_011 is
@@ -260,8 +268,9 @@ machine halves wall-clock, not compute.
   referenced by no code). Git did not ignore that folder, and
   `run_folds.dirty_provenance_paths()` (`:202`) refuses any dirty file outside `params.yaml`, `dvc.lock`,
   `outputs/`, `experiments/`. **Done 2026-09-20:** `/dataset_new_ignored/` is in `.git/info/exclude` (local,
-  not committed) and `git status` no longer lists it. **Still to do:** `--exclude /dataset_new_ignored/` on
-  the deploy rsync (236 MB the VM never reads). The other untracked entries (this doc,
+  not committed) and `git status` no longer lists it. The deploy-rsync exclude once listed here as still to
+  do is moot: the VM now syncs by `git push` (next item), which never carries untracked files. The other
+  untracked entries (this doc,
   `analysis/lr_scheduler/`, `docs/release_model_plan.md`) were committed the same day, so the local tree is
   clean and the gate passes here.
   `classes.txt` and the cropped data must agree: exp174 once silently trained 9 of its 10 classes. On
@@ -289,7 +298,51 @@ machine halves wall-clock, not compute.
 - **`epochs` no longer means the same thing across arms.** Compare on outcome plus epochs used.
 - **Plateau knobs are extra degrees of freedom on a σ≈0.005 metric.** Fixed before launch and untuned (2.1).
 - **`params.yaml` rests at `scheduler: cosine`.** `run_folds --scheduler plateau` rewrites it, so restore it in
-  its own commit after the sweep; `run_all_rigs` re-states `cosine` on every run as a second guard.
+  its own commit after the sweep; `run_all_rigs` re-states `cosine` on every run as a second guard. Done
+  2026-09-24, together with `epochs: 100`: both CLIs inherit `--epochs` when it is omitted, so the sweep's
+  150 would otherwise have reached a shipping run too.
+
+## 6. Stage 1 result (exp210–213, seed 42, finished 2026-09-21)
+
+Reproduced by `analysis/lr_scheduler/stage1.py`, which also draws `stage1_a3_vs_a0.png`; the log entry is in
+`EXPERIMENTS_LOG.md`. Cross-rig macro-F1, paired against A0 = exp200–203:
+
+| held-out rig | A0 | A3 | Δ val-peak pick | Δ last-10 mean | Δ last epoch | epochs A0 → A3 | A3 first drop / floor |
+|---|---|---|---|---|---|---|---|
+| cam_pixel | 0.8184 | 0.8156 | −0.0028 | +0.0011 | −0.0066 | 100 → 104 | 52 / 89 |
+| cam_sony | 0.7587 | 0.7297 | −0.0290 | +0.0017 | −0.0078 | 86 → 93 | 48 / 78 |
+| cam_oneplus | 0.8304 | 0.8373 | +0.0069 | +0.0040 | +0.0034 | 100 → 84 | 35 / 69 |
+| cam_iphone (8 classes) | 0.8537 | 0.8681 | +0.0145 | +0.0058 | +0.0111 | 81 → 100 | 44 / 85 |
+| mean (SE) | 0.8153 | 0.8127 | −0.0026 (0.0095) | +0.0032 (0.0011) | +0.0000 (0.0045) | 367 → 381 | |
+
+**Acceptance checks (§4): all four pass.** First drop at epochs 35–52 (the replay predicted a median of 45);
+head on its floor before the cap in 4/4 folds; 84–104 epochs used; no fold near the −0.06 tripwire.
+
+**The arms move in lockstep, and that is the result.** Same seed means same initial weights, batch order and
+augmentation draws: epoch 1 is bit-identical in all four pairs. A3 changes only the LR of the head, a single
+`Linear(512→10)` holding 5,130 of 11.18M parameters (0.046%); the backbone runs at 1e-5 throughout in both
+arms (F7). Per-epoch cross-rig moves correlate r = 0.88–0.94 across the arms although A3's head LR ranged
+from 0.04× to 2.0× A0's, and the mean per-epoch gap (0.003–0.005) is under half of one run's own
+epoch-to-epoch jitter (0.009–0.016). So:
+
+- The per-fold val-peak deltas come from where each arm's rules picked or stopped, not from different
+  models: on sony A3's rule picked epoch 59 (0.7297) and A0's epoch 66 (0.7587) on near-identical curves; on
+  iphone A0's patience stop ended the run at epoch 81 and A3 ran on to 100.
+- The last-10 gain (+0.0032, 4/4) is consistent but under the +0.005 bar proposed in §4. Its likeliest source
+  is the stop rule, not the plateau logic: A0's patience-20 stop ended sony and iphone at head LR 6.4e-5 and
+  1.05e-4, before the anneal finished (the A2 question; untested).
+- **Head-only LR schedules are a dead lever for resnet18 as configured.** Whatever LR effect exists is in the
+  backbone group, the open question in §5 that A1 was designed to answer; not run.
+- Warm restart (2.3) stays rejected on its own trigger: no run ended more than 0.007 below its own smoothed
+  val-F1 peak at the floor (the trigger was ≥ 0.01 in a real share of runs).
+- F5 is reinforced: A3's val-peak pick on sony sat 0.044 below its own last-10 mean. When comparing backbones,
+  report a smoothed end-state number beside the val-peak pick (A0 on the three 10-class folds: last-10 mean
+  0.8092, val-peak 0.8025).
+
+**Checkpoints.** The fold checkpoints of exp201–203 and exp210–213 (`best.pt` + `last.pt`, 43 MB each) are
+only in `powervpsssh`'s DVC cache: the VM cannot reach the DVC remote, and the remote is in maintenance as of
+2026-09-24. exp200's are gone from both machines. `predictions_xrig.csv` stores labels only, so re-scoring
+these runs under another protocol (photo pooling, for instance) needs those checkpoints.
 
 ## Sources
 

@@ -2759,3 +2759,42 @@ it trained a 9-way head with class_010 silently absent, because `class_ids` came
 archived config now records `class_ids` so this cannot recur invisibly. **exp175 is the only run
 that has ever trained class_010**, for 5 epochs, as a pipeline smoke test. Nothing at 10 classes has
 cleared this project's evidence bar.
+
+# LR scheduler screen (exp210-213) — plateau is a null, task closed 2026-09-24
+
+Written contemporaneously, unlike the reconstructed section above. The log skips exp200-209: the
+camera-rig fold baselines (exp200-203, the A0 arm below) are summarised in `docs/release_model_plan.md`,
+the release-model batch (exp204-209) was run from that plan, and `experiments/index.csv` has both. Plan,
+curve analysis and the pre-declared checks: `docs/lr_scheduler_plan.md` (this is its Stage 1; full result
+in its §6).
+
+## exp210-213: ReduceLROnPlateau (arm A3) vs cosine (A0) — CLOSED, null
+
+A3 = `ReduceLROnPlateau` on a 5-epoch trailing mean of val macro-F1 (abs threshold 0.003, patience 6,
+cooldown 3, factor 0.3), per-group floor `min(eta_min, base_lr)`, stop 15 epochs after the head reaches its
+floor, `epochs=150` as a cap only. One seed (42) × the four camera folds, paired with exp200-203 at the same
+seed, folds and data commit. Cross-rig macro-F1:
+
+| held-out rig | A0 cosine | A3 plateau | Δ val-peak pick | Δ last-10 mean | epochs A0 → A3 |
+|---|---|---|---|---|---|
+| cam_pixel | 0.8184 | 0.8156 | −0.0028 | +0.0011 | 100 → 104 |
+| cam_sony | 0.7587 | 0.7297 | −0.0290 | +0.0017 | 86 → 93 |
+| cam_oneplus | 0.8304 | 0.8373 | +0.0069 | +0.0040 | 100 → 84 |
+| cam_iphone (8 classes) | 0.8537 | 0.8681 | +0.0145 | +0.0058 | 81 → 100 |
+| mean (SE) | 0.8153 | 0.8127 | −0.0026 (0.0095) | +0.0032 (0.0011) | 367 → 381 |
+
+The scheduler did exactly what it was built to do (all four pre-declared mechanism checks pass) and the
+model did not change. The two arms move in **lockstep**: same seed means same initial weights, batches and
+augmentation (epoch 1 is bit-identical in every pair), and the only difference is the LR of the head, a
+single `Linear(512→10)` = 0.046% of the parameters, while the backbone runs at 1e-5 throughout in both arms
+(`eta_min` equals `backbone_lr`). Per-epoch cross-rig moves correlate r = 0.88-0.94 across arms although
+A3's head LR ranged from 0.04× to 2.0× A0's. The per-fold val-peak deltas are therefore where each arm's
+rules picked or stopped (sony: epoch 59 vs 66 on near-identical curves), not different models, and any
+head-only LR schedule is a dead lever for resnet18 as configured. `analysis/lr_scheduler/stage1.py`
+reproduces every number here and draws `stage1_a3_vs_a0.png`.
+
+**Closed by the user's decision**: Stage 2 and the A1/A2/A4 follow-ups are not run; the project moves to
+the DINO integration. `params.yaml` is restored to `scheduler: cosine`, `epochs: 100`. exp200-203 stay the
+resnet18 fold baseline. For backbone comparisons, report the last-10 mean beside the val-peak pick (A0,
+three 10-class folds: 0.8092 vs 0.8025): two near-identical trajectories differ by up to 0.03 per fold at
+the val-peak pick. The fold checkpoints exist only in `powervpsssh`'s DVC cache (see the plan's §6).
