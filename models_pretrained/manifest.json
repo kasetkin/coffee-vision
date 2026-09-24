@@ -1,0 +1,42 @@
+[
+  {
+    "path": "dinov2/dinov2_vits14_pretrain.pth",
+    "sha256": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+    "bytes": 88283115,
+    "params_m": 22.06,
+    "embed_dim": 384,
+    "filename_hash_verified": null
+  },
+  {
+    "path": "dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
+    "sha256": "73cec8be7427c8655ceced13ce62f6e20a1fa90d1b4d4a550df17a1144081a7c",
+    "bytes": 342860279,
+    "params_m": 85.7,
+    "embed_dim": 768,
+    "filename_hash_verified": true
+  },
+  {
+    "path": "dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
+    "sha256": "08c60483bc63c04f533611e34bf70b120eedb7240f469bc16e9e20bf344b941d",
+    "bytes": 86531063,
+    "params_m": 21.61,
+    "embed_dim": 384,
+    "filename_hash_verified": true
+  },
+  {
+    "path": "dinov3/dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth",
+    "sha256": "4057cbaaad8c16657adb09d6815f28d4164eeba30532fde23f0d17313124caea",
+    "bytes": 114924783,
+    "params_m": 28.71,
+    "embed_dim": 384,
+    "filename_hash_verified": true
+  },
+  {
+    "path": "resnet18/resnet18-f37072fd.pth",
+    "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec",
+    "bytes": 46830571,
+    "params_m": 11.7,
+    "embed_dim": null,
+    "filename_hash_verified": true
+  }
+]

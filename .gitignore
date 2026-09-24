@@ -16,3 +16,11 @@ __pycache__/
 /.ood_eval_cache/
 # heavy OOD sidecars belong in DVC alongside the .pt, not in git history
 *.ood_embeddings.npz
+# Pretrained upstream backbones: the weights are large and, for DINOv3, not ours to
+# redistribute -- but models_pretrained/README.md and manifest.json MUST stay tracked.
+# They are the acquisition instructions and the checksums, i.e. the only way a fresh
+# clone can obtain and verify the right files. Ignoring the whole directory (as this
+# line did until 2026-09-21) hid exactly the two files that make it reproducible.
+/models_pretrained/**/*.pth
+/models_pretrained/**/*.pt
+/models_pretrained/**/*.safetensors
