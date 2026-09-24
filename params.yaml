@@ -114,7 +114,7 @@ mixstyle_mode: agnostic
 
 # Training
 batch_size: 32
-epochs: 150
+epochs: 100
 early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epochs
 # CosineAnnealingLR floor (0.0 = PyTorch default, decays to exactly zero). Set to
 # 1e-5 so the LR trickles rather than flatlining in a long run's last ~15-20
@@ -131,7 +131,7 @@ eta_min: 1.0e-05
 # The plateau_* values and floor_epochs are inert under cosine, and are fixed for the first
 # screen (chosen from the noise level, not tuned). Rests at cosine: run_folds.py rewrites
 # `scheduler` for a plateau sweep, so restore it afterwards or the next shipping run inherits it.
-scheduler: plateau
+scheduler: cosine
 plateau_smooth: 5
 plateau_threshold: 0.003
 plateau_patience: 6
