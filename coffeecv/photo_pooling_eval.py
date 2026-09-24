@@ -47,6 +47,17 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (max(0.0, c - h), min(1.0, c + h))
 
 
+def pool_photos(probs: np.ndarray, labels: np.ndarray, n_patches: int):
+    """`run_photowise` output -> (per-patch probs [photo, patch, class], pooled probs [photo, class],
+    photo labels). Pooling is the mean of a photo's per-patch probability vectors -- the rule
+    infer.py applies at inference -- so this is the one definition every photo-level number uses.
+    """
+    n_photos = len(probs) // n_patches
+    per_patch = probs[: n_photos * n_patches].reshape(n_photos, n_patches, -1)
+    photo_labels = labels[: n_photos * n_patches].reshape(n_photos, n_patches)[:, 0]
+    return per_patch, per_patch.mean(axis=1), photo_labels
+
+
 def evaluate(exp_id: int, n_patches: int, seed: int, dihedral: bool, scratch: Path) -> dict:
     config_path, sha = resolve_exp(exp_id)
     ckpt = fetch_fold_checkpoint(sha, exp_id, scratch)
@@ -59,13 +70,12 @@ def evaluate(exp_id: int, n_patches: int, seed: int, dihedral: bool, scratch: Pa
     model, head = load_model(ckpt, cfg.model_name, len(class_ids), cfg.dropout)
 
     probs, labels = run_photowise(model, head, cfg, rig, class_ids, n_patches, seed, dihedral)
-    n_photos = len(probs) // n_patches
-    probs = probs[: n_photos * n_patches].reshape(n_photos, n_patches, -1)
-    photo_labels = labels[: n_photos * n_patches].reshape(n_photos, n_patches)[:, 0]
+    probs, photo_probs, photo_labels = pool_photos(probs, labels, n_patches)
+    n_photos = len(photo_labels)
 
     patch_correct = int((probs.argmax(axis=2) == photo_labels[:, None]).sum())
     patch_total = n_photos * n_patches
-    photo_correct = int((probs.mean(axis=1).argmax(axis=1) == photo_labels).sum())
+    photo_correct = int((photo_probs.argmax(axis=1) == photo_labels).sum())
 
     patch_acc = patch_correct / patch_total
     photo_acc = photo_correct / n_photos

@@ -97,6 +97,17 @@ ARMS = {
 }
 
 
+def train_rigs_for(heldout: str) -> list[str]:
+    """The training rigs of the fold that holds `heldout` out, in RIGS order.
+
+    The order is load-bearing, not cosmetic: a rig's position in this list is its `rig_idx`, which
+    seeds its photo split and every patch box it contributes (see coffeecv/fold_data.py). Anything
+    that wants to reproduce a fold's patches -- coffeecv_dino's frozen-backbone screen does --
+    must take the list from here rather than rebuild it.
+    """
+    return [r for r in RIGS if r != heldout]
+
+
 def set_fold(heldout: str, frac_min: float, frac_max: float,
              beans_min: float, beans_max: float, epochs: int | None = None,
              seed: int | None = None, brightness_jitter: float | None = None,
@@ -115,7 +126,7 @@ def set_fold(heldout: str, frac_min: float, frac_max: float,
     in `epochs`; compare them on outcome plus epochs actually used.
     """
     text = PARAMS_FILE.read_text()
-    train = [r for r in RIGS if r != heldout]
+    train = train_rigs_for(heldout)
 
     block = "train_rigs:\n" + "".join(f"  - {r}\n" for r in train)
     text = re.sub(r"train_rigs:\n(?:  - .*\n)+", block, text, count=1)

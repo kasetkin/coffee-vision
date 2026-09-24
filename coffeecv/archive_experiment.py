@@ -163,12 +163,17 @@ def rebuild_index() -> int:
     return len(rows)
 
 
-def archive(exp_id: str, slug: str, note: str) -> Path:
-    metrics_file = OUTPUTS_DIR / "metrics.json"
+def archive(exp_id: str, slug: str, note: str, src_dir: Path = OUTPUTS_DIR) -> Path:
+    """Copy one run's artifacts from `src_dir` into experiments/ and rebuild the index.
+
+    `src_dir` defaults to outputs/, where train_baseline writes. coffeecv_dino's screen keeps each
+    run in its own directory instead -- it produces many runs per invocation -- and passes that.
+    """
+    metrics_file = src_dir / "metrics.json"
     if not metrics_file.exists():
         raise FileNotFoundError(f"{metrics_file} missing — has the run finished?")
 
-    config = json.loads((OUTPUTS_DIR / "config.json").read_text())
+    config = json.loads((src_dir / "config.json").read_text())
     head = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True
     ).stdout.strip()
@@ -181,7 +186,7 @@ def archive(exp_id: str, slug: str, note: str) -> Path:
     exp_dir = EXPERIMENTS_DIR / f"exp{exp_id}__{slug}"
     exp_dir.mkdir(parents=True, exist_ok=True)
     for name in ARCHIVED_FILES:
-        src = OUTPUTS_DIR / name
+        src = src_dir / name
         if src.exists():
             shutil.copy2(src, exp_dir / name)
         else:

@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import (
     CHECKPOINTS_DIR,
     OUTPUTS_DIR,
@@ -24,10 +23,10 @@ from coffeecv.config import (
     set_seed,
 )
 from coffeecv.dataset import (
-    MultiPhotoPatchDataset,
     load_class_labels,
     resolve_rigs,
 )
+from coffeecv.fold_data import build_fold_datasets
 from coffeecv.lr_schedules import build_scheduler
 from coffeecv.metrics import (
     build_metrics_json,
@@ -153,39 +152,6 @@ def main() -> None:
     print(f"train rigs: {[r.name for r in train_rigs]}")
     print(f"held-out rig: {heldout_rig.name if heldout_rig else '(none)'}")
     print(f"torch threads: {torch.get_num_threads()} (COFFEECV_TORCH_THREADS={_threads_env!r})")
-    patches_per_class = {
-        "train": cfg.train_patches_per_class,
-        "val": cfg.val_patches_per_class,
-        "test": cfg.test_patches_per_class,
-        "all": cfg.xrig_patches_per_class,
-    }
-    photo_frac = {
-        "train": cfg.train_photo_frac,
-        "val": cfg.val_photo_frac,
-        "test": cfg.test_photo_frac,
-    }
-
-    common_kwargs = dict(
-        rigs=train_rigs,
-        classes_file=classes_file,
-        class_ids=class_ids,
-        seed=cfg.seed,
-        crop_size=cfg.patch_crop_size,
-        resize=cfg.patch_resize,
-        safety_margin=cfg.safety_margin,
-        patches_per_class=patches_per_class,
-        photo_frac=photo_frac,
-        patch_store_size=cfg.patch_store_size or None,
-        patch_scale_frac=(
-            (cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
-            if cfg.patch_scale_frac_max > 0 else None
-        ),
-        patch_beans=(
-            (cfg.patch_beans_min, cfg.patch_beans_max)
-            if cfg.patch_beans_max > 0 else None
-        ),
-        pitch_geometry=pitch_kwargs(cfg),
-    )
     train_transform = build_train_transform(
         cfg.patch_resize,
         cfg.color_jitter_strength,
@@ -195,26 +161,12 @@ def main() -> None:
         brightness_jitter_strength=cfg.brightness_jitter_strength,
     )
     cross_domain_mixstyle = cfg.mixstyle_p > 0 and cfg.mixstyle_mode == "cross_rig"
-    train_ds = MultiPhotoPatchDataset(
-        split="train", transform=train_transform,
-        rotation_jitter_degrees=cfg.rotation_jitter_degrees,
-        return_domain_id=cross_domain_mixstyle, **common_kwargs,
-    )
     eval_transform = build_eval_transform(cfg.patch_resize)
-    val_ds = MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
-    test_ds = MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
-
-    # The cross-rig test set: every photo of a rig the model never trained on.
-    # This is the headline generalization number; `test_ds` above stays as the
-    # in-distribution control, so a change that trades one for the other is
-    # visible rather than hidden behind a single metric.
-    xrig_ds = (
-        MultiPhotoPatchDataset(
-            **{**common_kwargs, "rigs": [heldout_rig]},
-            split="all", transform=eval_transform,
-        )
-        if heldout_rig else None
-    )
+    # One construction for every consumer of a fold (see coffeecv/fold_data.py for why it must not
+    # be re-typed): the frozen-backbone screen calls the same function and gets the same patches.
+    fold = build_fold_datasets(cfg, train_transform, eval_transform,
+                               return_domain_id=cross_domain_mixstyle)
+    train_ds, val_ds, test_ds, xrig_ds = fold.train, fold.val, fold.test, fold.xrig
 
     gen = torch.Generator().manual_seed(cfg.seed)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, generator=gen)
