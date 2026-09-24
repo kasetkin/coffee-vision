@@ -1,0 +1,110 @@
+{
+  "patches_per_class": 120,
+  "seed": 42,
+  "results": {
+    "resnet18_in1k (current family)": {
+      "dim": 512,
+      "folds": {
+        "cam_pixel": {
+          "xrig_macro_f1": 0.5781,
+          "xrig_mcc": 0.5389,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_sony": {
+          "xrig_macro_f1": 0.4528,
+          "xrig_mcc": 0.4392,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_oneplus": {
+          "xrig_macro_f1": 0.4505,
+          "xrig_mcc": 0.4075,
+          "train_fit_macro_f1": 0.9997
+        },
+        "cam_iphone": {
+          "xrig_macro_f1": 0.3767,
+          "xrig_mcc": 0.3757,
+          "train_fit_macro_f1": 0.9994
+        }
+      },
+      "xrig_mean": 0.4645
+    },
+    "resnet50_in1k": {
+      "dim": 2048,
+      "folds": {
+        "cam_pixel": {
+          "xrig_macro_f1": 0.6057,
+          "xrig_mcc": 0.5704,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_sony": {
+          "xrig_macro_f1": 0.4834,
+          "xrig_mcc": 0.467,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_oneplus": {
+          "xrig_macro_f1": 0.5874,
+          "xrig_mcc": 0.5523,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_iphone": {
+          "xrig_macro_f1": 0.4027,
+          "xrig_mcc": 0.4267,
+          "train_fit_macro_f1": 1.0
+        }
+      },
+      "xrig_mean": 0.5198
+    },
+    "convnext_tiny_in1k": {
+      "dim": 768,
+      "folds": {
+        "cam_pixel": {
+          "xrig_macro_f1": 0.7386,
+          "xrig_mcc": 0.7228,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_sony": {
+          "xrig_macro_f1": 0.6284,
+          "xrig_mcc": 0.6187,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_oneplus": {
+          "xrig_macro_f1": 0.737,
+          "xrig_mcc": 0.712,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_iphone": {
+          "xrig_macro_f1": 0.5723,
+          "xrig_mcc": 0.6876,
+          "train_fit_macro_f1": 1.0
+        }
+      },
+      "xrig_mean": 0.6691
+    },
+    "dinov2_vits14 (frozen SSL)": {
+      "dim": 384,
+      "folds": {
+        "cam_pixel": {
+          "xrig_macro_f1": 0.8881,
+          "xrig_mcc": 0.8759,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_sony": {
+          "xrig_macro_f1": 0.8226,
+          "xrig_mcc": 0.8159,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_oneplus": {
+          "xrig_macro_f1": 0.8426,
+          "xrig_mcc": 0.8361,
+          "train_fit_macro_f1": 1.0
+        },
+        "cam_iphone": {
+          "xrig_macro_f1": 0.7761,
+          "xrig_mcc": 0.8386,
+          "train_fit_macro_f1": 1.0
+        }
+      },
+      "xrig_mean": 0.8324
+    }
+  }
+}
