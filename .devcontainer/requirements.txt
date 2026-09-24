@@ -13,3 +13,7 @@ albumentations
 tensorboard
 tqdm
 dvc
+
+# DINOv3 is built through timm (docs/dinov3_integration_plan.md §2). Pinned exactly: a timm
+# upgrade is an architecture change and must re-pass tests/test_dino_backbone.py.
+timm==1.0.29
