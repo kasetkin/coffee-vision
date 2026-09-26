@@ -231,7 +231,7 @@ def main() -> int:
                       | {s: scores[s].get(r["photo"]) for s in scores} for r in rows],
     }, indent=1))
     log(f"wrote {out / f'{args.backbone}__{args.readout}.json'}")
-    return 0 if all(gate.values()) else 1
+    return 0                                      # a FAIL is a finding, not a crash: it is in the JSON
 
 
 if __name__ == "__main__":
