@@ -1,0 +1,5 @@
+{
+  "exp": "245",
+  "slug": "dino3b16_frozen_clsmean_s123_heldout_cam_sony",
+  "note": "Experiment 1 (docs/dinov3_integration_plan.md \u00a75): frozen dinov3_vitb16, the owner's selected backbone (2026-09-26), readout cls_mean, L2 logistic-regression head (C on val), no MixStyle, no TTA"
+}

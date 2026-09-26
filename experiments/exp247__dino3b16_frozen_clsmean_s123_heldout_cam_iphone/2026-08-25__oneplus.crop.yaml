@@ -1,0 +1,15 @@
+# Rig: OnePlus, handheld, same black-tray-on-wood-table framing as
+# 2026-08-07__box_pictures_all_classes and 2026-08-25__iphone (tray is an
+# island in frame, not frame-filling like the 2026-08-09 pixel/sony rigs).
+#
+# method: fixed_trim, trim 10% all sides -- same rationale as
+# 2026-08-25__iphone.crop.yaml: adaptive collapsed to slivers/tiny boxes on a
+# 10-photo test batch (needs_review on 8/10), fixed trim on the same rough-box
+# detection gave 0/10 flagged, full-bean crops on inspection.
+#
+# 10% symmetric is a starting value, not rim-measured per side -- revisit if a
+# full contact-sheet review after `dvc repro crop` shows a consistent leak.
+#
+# Source files are plain JPG, no format blocker.
+method: fixed_trim
+trim: 0.10
