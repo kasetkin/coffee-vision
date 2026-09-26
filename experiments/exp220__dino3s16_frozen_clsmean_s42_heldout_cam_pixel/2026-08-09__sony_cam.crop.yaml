@@ -1,0 +1,27 @@
+# Rig: Sony G8441 (Xperia XZ1), handheld, frame-filling bean field.
+# The only session shot on a different camera body -- which is the point: it is
+# the held-out rig that makes cross-camera generalization measurable at all.
+#
+# method: none -- this rig needs no crop at all.
+#
+# Evidence (2026-08-09, all 180 frames measured):
+#   - no container, table, hand or background in any frame
+#   - usable bean area 19.2 MP/photo, ~216 distinct beans at ~324 px/bean
+#     (3.2x the old rig's magnification; the extra pixels buy per-bean detail,
+#     not more beans)
+#   - flash fired; grey mean 125.1 vs 78.7 on the old rig (1.59x brighter)
+#   - notably variable working distance: some frames are extreme close-ups.
+#     Useful scale variance, not a defect -- 12 of the lowest-scoring frames on
+#     a Laplacian sharpness metric were inspected at full resolution and are
+#     sharp (silverskin fibres resolved); the metric was reading magnification,
+#     not blur. No frames excluded.
+#   - per-class brightness spread is 27.5 grey levels (old rig 4.9), which looks
+#     like a class shortcut but is not: brightness alone classifies at 14.4%
+#     against 11.1% chance, global colour at 13.3%. It is shot-to-shot flash/WB
+#     noise, i.e. free illumination variance.
+#
+# All 180 frames are stored at EXIF orientation 3. That is deliberately ignored:
+# bean texture has no canonical "up", the pipeline already samples right-angle
+# rotations and mirrors, and depending on EXIF would couple training to metadata
+# that need not be correct on a future rig. Frames are copied byte-for-byte.
+method: none

@@ -1,0 +1,23 @@
+# Rig: Pixel 9 Pro, handheld, frame-filling bean field (no container in shot).
+# Same camera body as 2026-08-07__box_pictures_all_classes, but a completely
+# different capture format: there the tray was a small island in the frame and
+# the metal rim had to be trimmed off; here the beans fill the sensor edge to
+# edge.
+#
+# method: none -- this rig needs no crop at all.
+#
+# Evidence (2026-08-09, all 180 frames measured):
+#   - no container, table, hand or background in any frame
+#   - usable bean area 12.5 MP/photo vs 2.0 MP after cropping the old rig
+#   - ~282 distinct beans per photo (old rig ~215) at ~209 px/bean (old ~102)
+#   - flash OFF; grey mean 116.5 vs 78.7 on the old rig (1.48x brighter)
+#
+# EXIF orientation is ignored (see the sony_cam config); frames are copied
+# byte-for-byte.
+#
+# A texture-based "non-bean area" check reports ~11% for this rig; that number
+# is an artifact and must not be used to justify a trim. At this magnification a
+# 16 px texture block fits *inside* one bean's smooth face and reads as
+# untextured. Overlaying the mask on the frame shows the flagged regions are
+# bean centres, not container. See crop_dataset_passthrough's docstring.
+method: none
