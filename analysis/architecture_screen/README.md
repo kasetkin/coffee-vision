@@ -70,3 +70,69 @@ self-supervised objective and LVD-142M's scale.
 
 Both probes are deterministic — patch boxes come from the seeded RNG and every model is frozen —
 so a re-run reproduces these tables exactly. Neither touches the VM or the DVC cache.
+
+## Experiment 1 — frozen DINOv3 under the real fold protocol (2026-09-24 → 26)
+
+The follow-up that makes the screen above admissible: `docs/dinov3_integration_plan.md` §5, driver
+`coffeecv_dino/screen.py`, raw store `outputs/dino_screen/results.json` (VM-produced, fetched). Every
+deviation listed at the top of this file is removed: each (seed, held-out camera) fold is built by
+`coffeecv.fold_data.build_fold_datasets`, the call `train_baseline` makes, so at seed 42 the patches
+are exactly the ones exp200–203 trained and were scored on; the 70/15/15 photo split applies;
+cam_iphone is scored as its honest 8-class macro; and the selected cells are also scored photo by
+photo (40 patches, no TTA — the `/classify` path). Head: L2 logistic regression on standardised
+features, C from an 11-point grid chosen on **val** macro-F1, exported as an `nn.Linear`. 3 seeds
+(42, 123, 7) × 4 folds, all on `powervpsssh` (EPYC Genoa, 8 threads), timm 1.0.29.
+
+Cross-rig macro-F1, mean of the three ten-class folds (patch level; seed sd over the 3 per-seed means):
+
+| backbone | readout | dim | 3-fold mean | seed sd | photo-pooled 3-fold | archived |
+|---|---|---|---|---|---|---|
+| resnet18 tv-V1, frozen (control) | avgpool | 512 | 0.5225 | 0.005 | | |
+| dinov2_vits14 (reference) | cls | 384 | 0.8563 | 0.010 | | |
+| dinov2_vits14 (reference) | cls_mean | 768 | 0.8522 | 0.009 | | |
+| dinov3_vits16 | cls | 384 | 0.8596 | 0.005 | | |
+| **dinov3_vits16 (pre-registered primary)** | **cls_mean** | 768 | **0.8487** | 0.003 | 0.9136 | exp220–231 |
+| dinov3_vits16plus | cls_mean | 768 | 0.8512 | 0.009 | | |
+| dinov3_vitb16 | cls | 768 | 0.8921 | 0.019 | | |
+| **dinov3_vitb16 (selected 2026-09-26)** | **cls_mean** | 1536 | **0.8873** | 0.023 | **0.9489** | exp240–251 |
+| fine-tuned resnet18 + MixStyle, seed 42 only (exp200–202) | | 512 | 0.8025 (last-10 0.8092) | | | exp200–203 |
+
+In-distribution control (test macro-F1, 3 ten-class folds × 3 seeds): S/16 0.939, B/16 0.955 against
+the fine-tuned ResNet18's 0.900–0.916 — neither DINO arm is buying cross-rig accuracy with an
+in-distribution loss.
+
+Paired (fold × seed) deltas, cross-rig macro-F1, 12 pairs each:
+
+| comparison | positive | mean | min |
+|---|---|---|---|
+| S/16 cls_mean − frozen R18 (G1) | 12/12 | +0.352 | +0.283 |
+| S/16 cls_mean − V2 cls_mean (G3) | 4/12 | −0.008 | −0.048 |
+| S/16 cls − S/16 cls_mean (readout lever) | 9/12 | +0.008 | −0.006 |
+| **B/16 cls_mean − S/16 cls_mean** | **11/12** | **+0.035** | −0.002 |
+| B/16 cls_mean − S/16 cls_mean, photo-pooled | 11/12 | +0.034 | −0.008 |
+| B/16 cls − B/16 cls_mean (readout lever) | 9/12 | +0.005 | −0.004 |
+| S+/16 cls_mean − S/16 cls_mean | 5/12 | −0.000 | |
+
+**Conclusions.** The screen's finding survives the real protocol (G1 12/12; G2 0.849 ≥ 0.75), and
+frozen DINOv3 beats the fine-tuned production recipe on the only seed that recipe has (S/16 at seed
+42: 0.846, B/16 0.896, vs 0.8025 val-peak / 0.8092 last-10). DINOv2 vs DINOv3 at ViT-S is a tie (G3 not
+triggered), CLS vs CLS ⊕ patch-mean is a tie at both sizes (the pre-registered cls_mean stays), and
+S+/16 is a null. **Size is the one lever that moved:** ViT-B/16 wins 11/12 at patch and photo level.
+The owner selected it (plan §0.4), accepting ~3.2× S/16's inference cost (145 vs 45 ms/img at the
+VM's production 4 threads, `coffeecv_dino/bench.py`) and a wider seed spread.
+
+**Follow-up kill-switches for the selected B/16 (plan §6), both passed 2026-09-26:** the deployed OOD
+probe method separates dev-split negatives at least as well in the B/16 space as in the deployed
+ResNet18 space (same-rig and green-legume AUROC 1.000 in both; internet-matched 0.936 → 1.000,
+`coffeecv_dino/ood_feasibility.py`), and B/16 without TTA costs ≈ 5.8 s of model time per photo at 4
+threads vs 5.0 s for today's ResNet18 with TTA: parity, not the saving S/16 would have been.
+
+Reproducing (on the VM; each seed ≈ 1.5 h for the core arms, B/16 ≈ 40 min per fold with photo pooling):
+
+    COFFEECV_TORCH_THREADS=all python -m coffeecv_dino.screen --seeds 42 123 7 \
+        --backbones resnet18 dinov2_vits14 dinov3_vits16 dinov3_vits16plus dinov3_vitb16 \
+        --photo-pool dinov3_vits16:cls_mean dinov3_vitb16:cls_mean
+    python -m coffeecv_dino.screen --summary
+
+Resumable, and deterministic at a fixed thread count: the seed-42 B/16 fold re-run of 2026-09-26
+reproduced its patch-level scores bit for bit.

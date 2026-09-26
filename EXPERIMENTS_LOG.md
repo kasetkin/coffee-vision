@@ -2798,3 +2798,41 @@ the DINO integration. `params.yaml` is restored to `scheduler: cosine`, `epochs:
 resnet18 fold baseline. For backbone comparisons, report the last-10 mean beside the val-peak pick (A0,
 three 10-class folds: 0.8092 vs 0.8025): two near-identical trajectories differ by up to 0.03 per fold at
 the val-peak pick. The fold checkpoints exist only in `powervpsssh`'s DVC cache (see the plan's §6).
+
+# DINOv3 Experiment 1 (exp220-231, exp240-251) — frozen DINOv3 beats the fine-tuned ResNet18; ViT-B/16 selected
+
+Written contemporaneously. Plan `docs/dinov3_integration_plan.md` (§5 protocol, §0.4 result and
+decision, §6 kill-switches); full tables in `analysis/architecture_screen/README.md` ("Experiment 1").
+
+## exp220-231 / exp240-251: frozen backbone + L2 logistic-regression head, real fold protocol
+
+Frozen backbones embed each (seed, held-out camera) fold built by `coffeecv.fold_data.build_fold_datasets`
+(at seed 42, exactly exp200-203's patches); an L2 logistic regression with C chosen on val is the head; no
+MixStyle, no TTA. 3 seeds × 4 camera folds, VM, 2026-09-24 → 26. Cross-rig macro-F1, three ten-class folds:
+
+| arm | patch-level mean (seed sd) | photo-pooled | archived |
+|---|---|---|---|
+| resnet18 frozen (control) | 0.5225 (0.005) | | |
+| dinov2_vits14 cls_mean (reference) | 0.8522 (0.009) | | |
+| dinov3_vits16 cls_mean (pre-registered primary) | 0.8487 (0.003) | 0.9136 | exp220-231 |
+| **dinov3_vitb16 cls_mean (selected)** | **0.8873 (0.023)** | **0.9489** | exp240-251 |
+| fine-tuned resnet18 + MixStyle, seed 42 only | 0.8025 (last-10 0.8092) | | exp200-202 |
+
+Gates: G1 PASS (S/16 over frozen R18 12/12, +0.352), G2 PASS (0.8487 ≥ 0.75), G3 not triggered (DINOv2 vs
+DINOv3 is a tie, 4/12), readout switch not triggered (CLS-only 9/12 at S/16 and at B/16). ViT-B/16 over
+S/16: 11/12, +0.035 patch level; 11/12, +0.034 photo-pooled. S+/16: null (5/12). In-distribution test
+macro-F1 rises too (S/16 0.939, B/16 0.955 vs the fine-tuned 0.900-0.916), so this is not a trade.
+
+**Decision (owner, 2026-09-26): DINOv3 ViT-B/16, readout cls_mean.** The price, measured the same day on
+the VM at production's 4 threads: 145 ms/img, ≈ 5.8 s of model time per photo without TTA, against 5.0 s
+for today's ResNet18 with TTA. Latency parity, not a saving, and B/16 can never take TTA.
+
+**Kill-switches for B/16 (plan §6), both passed 2026-09-26:** the deployed OOD probe method, refitted in the
+B/16 space on the dev split, matches the deployed space on same-rig negatives and green legumes (AUROC
+1.000 in both, saturated) and improves internet-matched separation 0.936 → 1.000. The holdout is untouched;
+it is spent once at ship time.
+
+**Not yet an adoption.** Only seed 42 of the fine-tuned baseline exists. ResNet18 seeds 123 and 7
+(exp232-239, ~60 h) were launched on the VM on 2026-09-26 15:50 UTC; the adoption bar is 12 sign-consistent
+paired deltas against exp240-251 (plan §7.2). This is a comparison of two designs (fine-tuned ResNet18 +
+MixStyle + TTA at deploy vs frozen DINOv3 + convex head), not an architecture ablation.

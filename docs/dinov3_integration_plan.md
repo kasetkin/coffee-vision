@@ -1,10 +1,12 @@
 # DINOv3 in `coffeecv`: implementation, first experiment, and integration plan
 
-Status: PLAN, rewritten 2026-09-24. Nothing here is implemented. This file replaces
-`docs/dinov2_integration_plan.md` (written 2026-09-21; its last version is at commit `1caf2f1`).
-On 2026-09-24 the owner decided that **DINOv3 ViT-S/16 is the arm this project builds first**,
-and that the first experiment is implementing it and testing it. DINOv2 stays in that experiment
-only as a reference measurement. §0.2 lists what changed and why.
+Status: Step 0 and Experiment 1 DONE (2026-09-25); **the owner selected DINOv3 ViT-B/16 on
+2026-09-26** (§0.4), so every step from 1b on is run with `dinov3_vitb16 × cls_mean`. This file
+replaces `docs/dinov2_integration_plan.md` (written 2026-09-21; its last version is at commit
+`1caf2f1`). On 2026-09-24 the owner decided that **DINOv3 is the family this project builds first**,
+and that the first experiment is implementing it and testing it, with ViT-S/16 as the pre-registered
+primary cell. DINOv2 stays in that experiment only as a reference measurement. §0.2 lists what changed
+and why.
 
 This is still the follow-up to `docs/architecture_screen_plan.md` §8 R1 and the frozen-feature
 screen in `analysis/architecture_screen/`. Everything up to and including Experiment 1b runs on
@@ -82,6 +84,49 @@ Experiment 1 (§5) removes all four.
 - **The DINOv3 licence is not a blocker** (Appendix A).
 - **DINOv3 runs at 224 px only.** 256, its native size, was considered and dropped by the owner
   on 2026-09-24. §1.5 shows why 224 is sound.
+- **The backbone is DINOv3 ViT-B/16, readout cls_mean** (owner, 2026-09-26; §0.4).
+
+### 0.4 Experiment 1's result, and the owner's choice of ViT-B/16 (2026-09-26)
+
+Experiment 1 ran on the VM (2026-09-24 17:00 to 2026-09-25 23:28 UTC, commit `8460a40`); the owner
+extended the optional arms to all three seeds and added photo-level scoring for them. Cross-rig
+macro-F1, mean of the three ten-class folds, 3 seeds, patch level, no TTA:
+
+| backbone | readout | 3-fold mean | seed sd | photo-pooled |
+|---|---|---|---|---|
+| resnet18, frozen (control) | avgpool | 0.5225 | 0.005 | |
+| dinov2_vits14 | cls / cls_mean | 0.8563 / 0.8522 | | |
+| dinov3_vits16 (**primary cell**, exp220–231) | cls_mean | **0.8487** | 0.003 | 0.9136 |
+| dinov3_vits16 | cls | 0.8596 | 0.005 | |
+| dinov3_vits16plus | cls_mean | 0.8512 | | |
+| **dinov3_vitb16 (selected, exp240–251)** | **cls_mean** | **0.8873** | 0.023 | see §5.8 |
+| dinov3_vitb16 | cls | 0.8921 | 0.019 | |
+| fine-tuned resnet18 + MixStyle (exp200–202, seed 42 only) | | 0.8025 (last-10 0.8092) | | |
+
+Gates (§5.6), on the primary cell: **G1 PASS** (12/12 over frozen R18, +0.352), **G2 PASS** (0.8487),
+**G3 not triggered** (V2 wins 8/12, mean +0.008: a tie), readout switch not triggered (CLS-only 9/12).
+
+**Why B/16:** it is the only arm that moved. Paired against the primary cell it wins **11/12**
+(+0.0354 mean), and photo-pooled 7/8 (+0.037); S+/16 is a null (5/12, −0.0003). The owner chose it
+over S/16 knowing the price: ~3× S/16's per-image cost and a wider seed spread (0.023 vs 0.003).
+**The readout stays cls_mean** by the same pre-registered rule applied to the primary cell: CLS-only
+beats it on 9/12 B/16 pairs (+0.005), not 12/12.
+
+What this changes downstream, and nothing else:
+
+- **Every later step uses `dinov3_vitb16 × cls_mean`**: the OOD feasibility check (§6.1), the latency
+  gate (§6.2, re-measured), the adoption comparison (§7.2, against exp240–251), Screen D (§7.3),
+  integration (§8) and shipping (§9).
+- **Widths:** the B/16 embedding is 768-d; cls_mean is **1536-d**, so the head is `Linear(1536, 10)`
+  and the OOD probe reads 1536-d patch embeddings.
+- **The weight file is 343 MB** (`dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth`, 85.7 M params), not
+  86 MB. It is already on the VM and verified. The unfreeze bound 0..6 still means half the blocks:
+  ViT-B/16 has 12, like S/16.
+- **Experiment ids:** exp232–239 stay the ResNet18 seed 123/7 folds (§7.1); the selected cell's 12
+  runs are archived as **exp240–251** (seed 42 → 240–243, 123 → 244–247, 7 → 248–251) by
+  `python -m coffeecv_dino.screen --archive selected`.
+- ViT-S/16 stays in the record as the pre-registered primary cell and as the cheaper fallback if B/16's
+  latency or OOD space fails a gate.
 
 ---
 
@@ -352,8 +397,8 @@ Each step gates the next unless it is marked parallel.
 | # | step | where | cost | gate / output |
 |---|---|---|---|---|
 | 0 | **Prerequisites:** pin timm; `coffeecv_dino/backbone.py` and its tests; extract `build_fold_datasets` and the photo-pooling core (§4) | workstation | ½ day | equivalence test passes; refactor proven behaviour-neutral (history diff empty) |
-| 1 | **Experiment 1: frozen DINOv3 under the real fold protocol** (§5) | workstation and VM, split by seed (§5.5) | ~4 h on one machine, ~2.5 h on both | gates G1–G3; primary cell archived as exp220–231 |
-| 1b | **Kill-switch:** OOD feasibility in the frozen space, dev split only (§6.1). VM latency is already measured and passes (§6.2) | workstation | ~1–2 h | OOD no worse than today's guard on dev |
+| 1 | **DONE 2026-09-25 — Experiment 1: frozen DINOv3 under the real fold protocol** (§5, result §0.4) | workstation and VM, split by seed (§5.5) | ~4 h on one machine, ~2.5 h on both | gates G1–G3; primary cell archived as exp220–231 |
+| 1b | **DONE 2026-09-26, both pass for B/16 (§6.1, §6.2)** — **Kill-switch:** OOD feasibility in the frozen space, dev split only (§6.1). VM latency is already measured and passes (§6.2) | workstation | ~1–2 h | OOD no worse than today's guard on dev |
 | 2 | **ResNet18 camera-rig folds at seeds 123 and 7** (§7.1) | VM | ~60 h | the multi-seed baseline any adoption needs |
 | 2′ | parallel: Screen D (TTA and dihedral-augmented head); 6-seed extension if a lever is borderline; housekeeping H1–H3 | workstation | hours | |
 | 3 | **Adoption decision** (§7.2) | — | — | 12 paired (fold, seed) deltas |
@@ -622,6 +667,29 @@ Rules for the split:
 
 ### 6.1 OOD feasibility in the frozen DINOv3 space (dev split only)
 
+**RESULT 2026-09-26: PASS, in the selected ViT-B/16 × cls_mean space** (`python -m
+coffeecv_dino.ood_feasibility`, VM, commit `7cd4c7e`; JSON in `outputs/dino_ood_feasibility/`). The
+deployed method (`linear_probe`, photo-level 5-fold CV from `ood_eval`, imported) in both spaces,
+same day, same 264 dev photos, same 40 patches per photo. AUROC (negatives caught at a 5%
+false-refusal threshold):
+
+| population | pos / neg | R18 (deployed space, 512-d) | B/16 cls_mean (1536-d) |
+|---|---|---|---|
+| **same rig** (2026-09-11 positives vs same-rig negatives) | 18 / 25 | 1.000 (1.00) | **1.000 (1.00)** |
+| **same rig, green legumes only** | 18 / 7 | 1.000 (1.00) | **1.000 (1.00)** |
+| user positives vs user negatives | 27 / 30 | 1.000 (1.00) | 1.000 (1.00) |
+| internet vs internet | 7 / 56 | 0.936 (0.81) | 1.000 (1.00) |
+| all unseen positives vs all negatives | 34 / 86 | 0.983 (0.95) | 1.000 (1.00) |
+
+Read it with two cautions. **The gate is saturated:** both spaces sit at 1.000 on the same-rig rows
+that decide it, so "no worse" is all it can say. And **the B/16 margins are extreme** (median
+P(not-beans) 0.000 on genuine photos vs R18's 0.334, 1.000 on negatives), in a 1536-d space fitted
+from ~230 photos. Photo-level CV guards against memorising a photo, not against a space where a
+few hundred examples are trivially separable. The one-shot holdout verification at ship time
+(§9.3), which includes 4 green legumes and 12 independent-day positives, stays the blocking test.
+2 internet photos were unmeasurable in both spaces (the pitch estimate declines them before any
+guard runs).
+
 **Why now:** with a frozen backbone, the embedding space the OOD guard lives in is fixed before
 any head exists. The guard blocks shipping, because a classifier win paired with an OOD
 regression is not a win. So check it now, cheaply, rather than after days of VM time.
@@ -643,7 +711,24 @@ and specifically on the green legumes, is no worse than the deployed ResNet18 sp
 identical protocol, re-run the same day. **On a fail:** the classifier screens continue, but
 shipping (§9) is blocked until the OOD guard has had its own work.
 
-### 6.2 Latency on the VM (measured 2026-09-24, passes)
+### 6.2 Latency on the VM (S/16 measured 2026-09-24, passes; B/16 re-measured 2026-09-26, parity)
+
+**The selected ViT-B/16, measured 2026-09-26** (`python -m coffeecv_dino.bench`, real weights, 32
+real cam_iphone patches, batch 32 at 224 px, VM idle):
+
+| ms/img | ResNet18 | DINOv3-S/16 | **DINOv3-B/16** |
+|---|---|---|---|
+| 4 threads (production default) | 15.7 | 45.0 | **145.1** |
+| 8 threads | 14.2 | 33.0 | 108.0 |
+
+Model time per photo at 4 threads: today's ResNet18 with 8-view TTA ≈ **5.0 s**; frozen B/16 without
+TTA ≈ **5.8 s** (40 × 145 ms), about 16% *slower*, not the 2.8× saving S/16 offered (1.8 s). At 8
+threads B/16 is 4.3 s. So B/16 is roughly latency parity with production, not a saving: it passes
+only as "no worse than a few seconds per photo", and **B/16 can never take TTA** (46 s/photo at 4
+threads), whatever Screen D finds. That was the known price of the owner's choice (§0.4). The
+end-to-end timed photo at deploy (§9.5) still decides it.
+
+The S/16 measurement of 2026-09-24, kept for reference:
 
 Measured with the real weights (§5.5 table). The webapp sets no thread count, so torch uses its
 default of 4 on the VM:
@@ -674,6 +759,13 @@ Two facts about the VM that matter later:
 ## 7. Experiment 2: the baseline that doesn't exist yet, and seed replication
 
 ### 7.1 Launch ResNet18 camera-rig folds at seeds 123 and 7 once G1–G3 pass
+
+**LAUNCHED 2026-09-26 15:50 UTC on the VM** from commit `7cd4c7e` (clean tree; the recipe check
+below passed: exp200–203's archived configs differ from `params.yaml` only in the fold fields and in
+scheduler fields that postdate them and sit at their cosine defaults). Chained after the §6.1 run:
+`run_folds --arm beans --start-exp 232 --seed 123 --tag s123`, then `--start-exp 236 --seed 7
+--tag s7`; torch's default thread count, as exp200–203 used. Log `~/exp2_r18.log`, status
+`~/exp2_r18_status.log`.
 
 The camera-rig era has exactly four fine-tuned fold runs, exp200–203, all at seed 42. An
 adoption needs a multi-seed baseline, and it is the slowest item in this plan: about 7.5 h per
@@ -743,7 +835,7 @@ use either one. Live references are `config.py:77`, `model.py:136/151` and
 The edits:
 
 - `model.py`: delete both branches. Make the `else` actionable: "Supported: 'resnet18',
-  'dinov3_vits16'. mobilenet_v3_small and efficientnet_b0 were removed on <date> (EXPERIMENTS_LOG
+  'dinov3_vitb16'. mobilenet_v3_small and efficientnet_b0 were removed on <date> (EXPERIMENTS_LOG
   exp3/exp29/exp31); to re-run an old experiment, check out its own git_commit."
   `config_for_checkpoint` restores `model_name` faithfully, so an old card must fail loudly, never
   fall back to something else.
@@ -796,7 +888,7 @@ class Arm(Protocol):
   keeps only its screen driver. That also avoids a package-dependency cycle (`coffeecv` →
   `coffeecv_dino` → `coffeecv`).
 - **`DinoClassifier` = backbone → readout → head.** The head is an `nn.Linear` whose width
-  follows the readout (384 or 768), and it is a real, called submodule, so the pre-hook contract
+  follows the readout (768 or 1536 for the selected ViT-B/16), and it is a real, called submodule, so the pre-hook contract
   holds. Never return a slice or an inner layer of it as `head_module`.
 - **`validate_config`** raises on:
   - any `freeze_mode` but `full`;
@@ -809,13 +901,13 @@ class Arm(Protocol):
     depth ≥ 1.
 - **A checkpoint is the head plus the backbone's sha256.** The frozen backbone never changes at
   depth 0. It is loaded from `models_pretrained/` and verified at load time, never written into
-  each checkpoint: 86 MB saved per run, and no derivative-checkpoint copies scattered through
+  each checkpoint: 343 MB saved per run, and no derivative-checkpoint copies scattered through
   `experiments/`. At depth ≥ 1, the unfrozen blocks are part of the checkpoint.
 
 ### 8.3 Config fields
 
 `dino_weights` (path), `dino_weights_sha256`, `dino_readout: cls | cls_mean`, and
-`dino_unfreeze_blocks: int = 0`, bounded to 0..6 (ViT-S/16 has 12 blocks; allowing 12 would bring
+`dino_unfreeze_blocks: int = 0`, bounded to 0..6 (ViT-B/16, like S/16, has 12 blocks; allowing 12 would bring
 back the excluded full fine-tune). `timm_version` is recorded automatically; it is not a knob.
 `from_params_yaml` raises on unknown keys, so `params.yaml` and `RunConfig` change in the same
 commit.
@@ -855,7 +947,7 @@ Three places load the OOD reference. `coffeecv/infer.py` main and `ood_eval.py` 
 `checkpoint_sha`. **`webapp/app.py:56` does not**:
 `ref = json.loads(ref_path.read_text()) if ref_path.exists() else None`. Today that gives
 wrong-but-plausible refusals if a stale reference is ever deployed. After a swap to DINOv3, it
-becomes a 512-vs-384/768 shape error raised on every request. Land the fix as its own commit,
+becomes a 512-vs-1536 shape error raised on every request. Land the fix as its own commit,
 mirroring `load_ood_probe`:
 
 ```python
