@@ -45,7 +45,7 @@ from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import (find_class_dir, list_cropped_photos, load_class_labels,
                               resolve_rigs, split_photos_by_class)
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
-                            forward_with_embeddings, knn_score, load_model, mahalanobis_scores,
+                            forward_with_embeddings, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
 from coffeecv.transforms import build_eval_transform
 
@@ -503,22 +503,15 @@ def main() -> None:
     _, _, classes_file = cfg.resolve_paths()
     class_ids = sorted(load_class_labels(classes_file))
 
-    ref_path = reference_path_for(checkpoint)
-    if not ref_path.exists():
-        sys.exit(f"No OOD reference at {ref_path}; build one with coffeecv.build_ood_reference")
-    ref = json.loads(ref_path.read_text())
-    ckpt_sha = _sha(checkpoint)
-    if ref.get("checkpoint_sha") and ref["checkpoint_sha"] != ckpt_sha:
-        # Same refusal infer.py makes, for the same reason: centroids only mean
-        # something in the embedding space of the weights they were built from.
-        # Worth repeating here rather than trusting the caller -- an eval that
-        # silently measures distances in the wrong space produces numbers that
-        # look entirely reasonable and are entirely meaningless.
-        sys.exit(f"OOD reference {ref_path} was built from a different checkpoint "
-                 f"({ref['checkpoint_sha']} vs {ckpt_sha}); rebuild it with "
-                 f"coffeecv.build_ood_reference --checkpoint {checkpoint}")
-
     model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    ref_path = reference_path_for(checkpoint)
+    # The same checked loader infer.py and the webapp use: centroids only mean something in the
+    # embedding space of the weights they were built from, and an eval that silently measures
+    # distances in the wrong space produces numbers that look reasonable and mean nothing.
+    ref = load_ood_reference(checkpoint, head)
+    if ref is None:
+        sys.exit(f"No OOD reference at {ref_path}; build one with coffeecv.build_ood_reference")
+    ckpt_sha = _sha(checkpoint)
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
     tta = not args.no_tta
     scorer = Scorer(ref, ref_path, methods, args.knn_k)

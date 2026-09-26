@@ -29,7 +29,7 @@ from werkzeug.exceptions import HTTPException
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
 from coffeecv.infer import (classify_one, config_for_checkpoint, crop_to_bean_region,
-                            load_model, load_ood_probe, reference_path_for)
+                            load_model, load_ood_probe, load_ood_reference, reference_path_for)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class_ids = sorted(class_labels)
 model, head = load_model(CHECKPOINT, cfg.model_name, len(class_ids), cfg.dropout)
 
 ref_path = reference_path_for(CHECKPOINT)
-ref = json.loads(ref_path.read_text()) if ref_path.exists() else None
+ref = load_ood_reference(CHECKPOINT, head)
 if ref is None:
     logger.warning("OOD guard unavailable: no reference at %s -- predictions below will be unguarded", ref_path)
 
@@ -62,7 +62,7 @@ if ref is None:
 # it means copying one file next to the weights; rolling back means removing it,
 # with no code change and no restart-time flag to get wrong. A mismatched probe
 # raises here, at import, rather than serving confident nonsense per request.
-probe = load_ood_probe(CHECKPOINT)
+probe = load_ood_probe(CHECKPOINT, head=head)
 if probe is None:
     logger.info("OOD guard: centroid metric (no probe beside %s)", CHECKPOINT.name)
 else:

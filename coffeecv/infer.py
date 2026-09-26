@@ -103,6 +103,44 @@ def reference_path_for(checkpoint: Path) -> Path:
     return checkpoint.with_suffix(".ood_reference.json")
 
 
+def embedding_dim_of(head: torch.nn.Module) -> int:
+    """Width of the vector this model feeds its classifier: the final Linear's in_features. That vector
+    is the embedding every OOD artifact (reference, probe) lives in."""
+    *_, last = (m for m in head.modules() if isinstance(m, torch.nn.Linear))
+    return last.in_features
+
+
+def _check_embedding_dim(kind: str, path: Path, artifact: dict, head: torch.nn.Module | None) -> None:
+    dim = artifact.get("embedding_dim")
+    if head is not None and dim is not None and dim != embedding_dim_of(head):
+        raise SystemExit(
+            f"OOD {kind} {path} is {dim}-d but this model emits {embedding_dim_of(head)}-d embeddings; "
+            f"rebuild it for these weights.")
+
+
+def load_ood_reference(checkpoint: Path, head: torch.nn.Module | None = None,
+                       explicit: Path | None = None) -> dict | None:
+    """Load and check the centroid reference beside a checkpoint, or None if there is none.
+
+    The one loader for every caller (webapp, infer main, ood_eval): a reference built from other
+    weights gives wrong-but-plausible refusals, and one of another width a shape error on every
+    request. Both are refused here, at load -- in the webapp that is import time, so a bad deploy
+    fails to boot instead of answering 500s.
+    """
+    path = explicit or reference_path_for(checkpoint)
+    if not path.exists():
+        return None
+    ref = json.loads(path.read_text())
+    if ref.get("checkpoint_sha") and ref["checkpoint_sha"] != _sha(checkpoint):
+        raise SystemExit(
+            f"OOD reference {path} was built from a different checkpoint "
+            f"({ref['checkpoint_sha']} vs {_sha(checkpoint)}). Centroids live in the embedding space of "
+            f"one specific set of weights and mean nothing against another -- rebuild it with "
+            f"`python -m coffeecv.build_ood_reference --checkpoint {checkpoint}`.")
+    _check_embedding_dim("reference", path, ref, head)
+    return ref
+
+
 def probe_path_for(checkpoint: Path) -> Path:
     """Where this checkpoint's OOD probe lives: beside it, named after it.
 
@@ -115,7 +153,8 @@ def probe_path_for(checkpoint: Path) -> Path:
     return checkpoint.with_suffix(".ood_probe.json")
 
 
-def load_ood_probe(checkpoint: Path, explicit: Path | None = None) -> dict | None:
+def load_ood_probe(checkpoint: Path, explicit: Path | None = None,
+                   head: torch.nn.Module | None = None) -> dict | None:
     """Load and sha-check the probe beside a checkpoint, or None if there is none.
 
     Refuses a mismatched pairing rather than falling back quietly: a probe from
@@ -132,6 +171,7 @@ def load_ood_probe(checkpoint: Path, explicit: Path | None = None) -> dict | Non
             f"OOD probe {path} was fitted on a different checkpoint "
             f"({probe['checkpoint_sha']} vs {_sha(checkpoint)}); refit it with "
             f"`python -m coffeecv.fit_ood_probe --checkpoint {checkpoint}`.")
+    _check_embedding_dim("probe", path, probe, head)
     probe["_path"] = str(path)
     return probe
 
@@ -637,21 +677,15 @@ def main() -> None:
     model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
 
     ref_path = Path(args.ood_reference) if args.ood_reference else reference_path_for(Path(args.checkpoint))
-    ref = json.load(open(ref_path)) if ref_path.exists() else None
+    ref = load_ood_reference(Path(args.checkpoint), head, ref_path)
     if ref is None:
         print(f"OOD guard UNAVAILABLE: no reference at {ref_path}. Build one with "
               f"`python -m coffeecv.build_ood_reference`. Predictions below are unguarded.")
-    elif ref.get("checkpoint_sha") and ref["checkpoint_sha"] != _sha(Path(args.checkpoint)):
-        raise SystemExit(
-            f"OOD reference {ref_path} was built from a different checkpoint. Centroids live in the "
-            f"embedding space of one specific set of weights and mean nothing against another -- "
-            f"rebuild it for this checkpoint."
-        )
 
     probe = None
     if args.ood_method != "centroid":
         probe = load_ood_probe(Path(args.checkpoint),
-                               Path(args.ood_probe) if args.ood_probe else None)
+                               Path(args.ood_probe) if args.ood_probe else None, head)
     if probe is not None:
         print(f"OOD guard: linear_probe from {probe['_path']} "
               f"(threshold {probe['threshold']:.4f}, certified alpha {probe['alpha']:.1%})")
