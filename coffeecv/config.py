@@ -74,7 +74,7 @@ class RunConfig:
     val_photo_frac: float = 0.15
     test_photo_frac: float = 0.15
 
-    model_name: str = "mobilenet_v3_small"
+    model_name: str = "resnet18"
     freeze_mode: str = "full"  # full | last_block | none
     dropout: float = 0.2
     label_smoothing: float = 0.0

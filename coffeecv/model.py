@@ -112,6 +112,9 @@ def _apply_freeze_mode(model: nn.Module, freeze_mode: str, last_block: nn.Module
         raise ValueError(f"Unknown freeze_mode: {freeze_mode!r}")
 
 
+SUPPORTED_MODELS = ("resnet18",)
+
+
 def build_model(
     name: str, num_classes: int, freeze_mode: str, dropout: float = 0.2,
     mixstyle_p: float = 0.0, mixstyle_alpha: float = 0.1, mixstyle_mode: str = "agnostic",
@@ -133,14 +136,7 @@ def build_model(
             f"not {name!r}. Set mixstyle_p=0.0 or switch model_name to resnet18."
         )
 
-    if name == "mobilenet_v3_small":
-        model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
-        _apply_freeze_mode(model, freeze_mode, last_block=model.features[-1])
-        in_features = model.classifier[3].in_features
-        model.classifier[2] = nn.Dropout(p=dropout, inplace=True)
-        model.classifier[3] = nn.Linear(in_features, num_classes)
-        head_module = model.classifier[2:4]
-    elif name == "resnet18":
+    if name == "resnet18":
         model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         _apply_freeze_mode(model, freeze_mode, last_block=model.layer4)
         in_features = model.fc.in_features
@@ -148,14 +144,13 @@ def build_model(
         head_module = model.fc
         if mixstyle_p > 0:
             _install_mixstyle(model, mixstyle_p, mixstyle_alpha, cross_domain=(mixstyle_mode == "cross_rig"))
-    elif name == "efficientnet_b0":
-        model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
-        _apply_freeze_mode(model, freeze_mode, last_block=model.features[-1])
-        in_features = model.classifier[1].in_features
-        model.classifier[0] = nn.Dropout(p=dropout, inplace=True)
-        model.classifier[1] = nn.Linear(in_features, num_classes)
-        head_module = model.classifier
     else:
-        raise ValueError(f"Unknown model_name: {name!r}")
+        # An old checkpoint card restores its model_name faithfully (config_for_checkpoint), so a pruned
+        # architecture must fail here, never fall back to a substitute.
+        raise ValueError(
+            f"Unknown model_name: {name!r}. Supported: {SUPPORTED_MODELS}. mobilenet_v3_small and "
+            f"efficientnet_b0 were removed on 2026-09-26 (EXPERIMENTS_LOG exp3/exp29/exp31: rejected "
+            f"three times, used by none of the 166 archived experiments); to re-run an old experiment, check "
+            f"out its own git_commit.")
 
     return model, head_module

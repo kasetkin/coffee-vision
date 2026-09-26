@@ -34,7 +34,7 @@ from coffeecv.metrics import (
     compute_split_metrics,
     write_predictions_csv,
 )
-from coffeecv.model import build_model
+from coffeecv.model import SUPPORTED_MODELS, build_model
 from coffeecv.plotting import plot_confusion_matrix, plot_patch_samples, plot_training_curves
 from coffeecv.transforms import build_eval_transform, build_train_transform
 
@@ -55,7 +55,7 @@ elif _threads_env:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train the baseline coffee-bean-origin classifier.")
-    p.add_argument("--model-name", choices=["mobilenet_v3_small", "resnet18", "efficientnet_b0"], default=None)
+    p.add_argument("--model-name", choices=list(SUPPORTED_MODELS), default=None)
     p.add_argument("--freeze-mode", choices=["full", "last_block", "none"], default=None)
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--early-stop-patience", type=int, default=None)
