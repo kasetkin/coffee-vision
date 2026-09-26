@@ -92,7 +92,8 @@ class TestNoPrivateCopies(unittest.TestCase):
     BANNED = ("load_rgb_image", "estimate_bean_pitch", "sample_bean_unit_patch_boxes",
               "sample_bean_unit_centers", "build_eval_transform", "build_train_transform",
               "compute_split_metrics", "build_fold_datasets", "split_photos_by_class", "run_photowise",
-              "pool_photos", "archive")
+              "pool_photos", "archive", "patches_for_photo", "forward_with_embeddings", "id_photos",
+              "negatives_from", "linear_probe_scores", "_fit_logistic", "auroc", "detection_at_fpr")
 
     def test_package_defines_none_of_them(self):
         for f in (REPO / "coffeecv_dino").rglob("*.py"):

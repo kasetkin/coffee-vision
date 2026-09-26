@@ -12,12 +12,14 @@ val / test / cross-rig with `coffeecv.metrics.compute_split_metrics`, the iPhone
 Resumable: results accumulate in <out>/results.json, keyed by (seed, held-out rig, backbone), and a
 restart skips whatever is already there. Nothing here writes params.yaml, dvc.lock, coffeecv/ or
 experiments/. The primary cell's runs go into the experiment record afterwards with --archive
-(plan §5.7), as exp220-231.
+(plan §5.7), as exp220-231; the selected cell's (the owner's pick of ViT-B/16 after Experiment 1) with
+--archive selected, as exp240-251.
 
     COFFEECV_TORCH_THREADS=all python -m coffeecv_dino.screen --seeds 42 123 7 \\
         --backbones resnet18 dinov2_vits14 dinov3_vits16 --photo-pool dinov3_vits16:cls_mean
     python -m coffeecv_dino.screen --summary            # print the tables and gates from results.json
     python -m coffeecv_dino.screen --archive            # primary cell -> experiments/exp220-231
+    python -m coffeecv_dino.screen --archive selected   # selected cell -> experiments/exp240-251
 """
 from __future__ import annotations
 
@@ -62,6 +64,11 @@ from coffeecv_dino.model import DinoClassifier  # noqa: E402
 
 DEFAULT_OUT = OUTPUTS_DIR / "dino_screen"
 PRIMARY = ("dinov3_vits16", "cls_mean")          # pre-registered, plan §5.2 -- not chosen after the fact
+# The owner's choice on 2026-09-26, made on Experiment 1's evidence (ViT-B/16 beat the primary cell on
+# 11/12 pairs). The readout stays cls_mean by the pre-registered rule: CLS-only won 9/12, not 12/12.
+SELECTED = ("dinov3_vitb16", "cls_mean")
+# cell -> (first exp id, slug stem). Pre-assigned; exp232-239 are the ResNet18 seed 123/7 folds (plan §7.1).
+ARCHIVE_SETS = {"primary": (PRIMARY, 220, "dino3s16"), "selected": (SELECTED, 240, "dino3b16")}
 SEEDS = (42, 123, 7)
 TEN_CLASS_FOLDS = ("cam_pixel", "cam_sony", "cam_oneplus")   # cam_iphone has 8 classes; never mixed in
 PHOTO_PATCHES = 40                               # what /classify samples per photo
@@ -82,9 +89,9 @@ SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_pat
 SMOKE_PHOTO_PATCHES = 4
 
 
-def exp_id_for(seed: int, heldout: str) -> int:
+def exp_id_for(seed: int, heldout: str, first: int = 220) -> int:
     """Pre-assigned per seed so two machines could never write the same expNNN (plan §5.5)."""
-    return 220 + 4 * SEEDS.index(seed) + RIGS.index(heldout)
+    return first + 4 * SEEDS.index(seed) + RIGS.index(heldout)
 
 
 def rig_name(rig: str) -> str:
@@ -370,7 +377,10 @@ def summarize(results: dict) -> dict:
     d_readout = paired(("dinov3_vits16", "cls"), prim)
     for name, d in (("V3 cls_mean - R18 frozen", d_r18), ("V3 cls_mean - V2 cls_mean", d_v2),
                     ("V3 cls_mean - V2 cls (the screen's readout)", d_v2cls),
-                    ("V3 cls - V3 cls_mean (readout lever)", d_readout)):
+                    ("V3 cls - V3 cls_mean (readout lever)", d_readout),
+                    ("V3-B cls_mean (selected) - V3 cls_mean", paired(SELECTED, prim)),
+                    ("V3-B cls_mean (selected) - R18 frozen", paired(SELECTED, ("resnet18", "avgpool"))),
+                    ("V3-B cls - V3-B cls_mean (readout lever, selected)", paired(("dinov3_vitb16", "cls"), SELECTED))):
         lines.append("  " + describe(name, d))
 
     # Against the fine-tuned ResNet18 + MixStyle baseline: seed 42 only, the only seed that exists.
@@ -393,13 +403,23 @@ def summarize(results: dict) -> dict:
             lines.append(f"    3 ten-class folds at seed 42: V3 {m_prim:.4f} vs fine-tuned val-peak "
                          f"{np.mean([base[f][0] for f, _, _ in ten]):.4f} / last-10 {np.mean([base[f][1] for f, _, _ in ten]):.4f}")
 
-    photo = [(c["seed"], c["heldout"], c["photo"]["macro_f1"], c["xrig_macro_f1"]) for c in cells.values()
-             if (c["backbone"], c["readout"]) == PRIMARY and "photo" in c]
-    if photo:
+    for label, which in (("primary", PRIMARY), ("selected", SELECTED)):
+        photo = [(c["seed"], c["heldout"], c["photo"]["macro_f1"], c["xrig_macro_f1"]) for c in cells.values()
+                 if (c["backbone"], c["readout"]) == which and "photo" in c]
+        if not photo:
+            continue
         lines.append("")
-        lines.append("primary cell, photo-pooled cross-rig macro-F1 (40 patches/photo, no TTA) vs patch level:")
+        lines.append(f"{label} cell {which[0]} {which[1]}, photo-pooled cross-rig macro-F1 "
+                     "(40 patches/photo, no TTA) vs patch level:")
         for seed, fold, pm, xm in sorted(photo, key=lambda t: (SEEDS.index(t[0]) if t[0] in SEEDS else 99, folds.index(t[1]))):
             lines.append(f"  s{seed:<4d}{fold:13s} photo {pm:.4f}  patch {xm:.4f}  delta {pm - xm:+.4f}")
+        per_seed = {}
+        for seed, fold, pm, _ in photo:
+            if fold in TEN_CLASS_FOLDS:
+                per_seed.setdefault(seed, []).append(pm)
+        full_seeds = [float(np.mean(v)) for v in per_seed.values() if len(v) == 3]
+        if full_seeds:
+            lines.append(f"  3-fold photo-pooled mean {np.mean(full_seeds):.4f} over {len(full_seeds)} seed(s)")
 
     # Gates, plan §5.6. Each states whether it has its full evidence yet.
     full = len(seeds) >= 3 and all(xrig(s, f, *prim) is not None for s in SEEDS for f in folds)
@@ -425,23 +445,32 @@ def summarize(results: dict) -> dict:
 
 # ---------------------------------------------------------------------------------------- archive
 
-def archive_primary(out: Path) -> None:
-    """Primary cell -> experiments/exp220-231 through coffeecv's archive contract (plan §5.7)."""
+def archive_cell(out: Path, which: str) -> None:
+    """One cell's 12 runs -> experiments/ through coffeecv's archive contract (plan §5.7): the primary
+    cell as exp220-231, the selected one as exp240-251. photo_metrics.json, which the archive contract
+    does not know about, is copied in beside the rest; the photo-level score is the /classify number."""
+    (backbone, readout), first, stem = ARCHIVE_SETS[which]
     results = load_results(out)
     todo = []
     for seed in SEEDS:
         for heldout in RIGS:
-            cell = results["cells"].get(cell_key(seed, heldout, *PRIMARY))
+            cell = results["cells"].get(cell_key(seed, heldout, backbone, readout))
             if cell is None:
-                raise SystemExit(f"missing s{seed}/{rig_name(heldout)} for the primary cell -- archive all 12 or none")
+                raise SystemExit(f"missing s{seed}/{rig_name(heldout)} for the {which} cell -- archive all 12 or none")
+            if "photo" not in cell:
+                raise SystemExit(f"s{seed}/{rig_name(heldout)} of the {which} cell has no photo-level score; "
+                                 f"run it with --photo-pool {backbone}:{readout} first")
             todo.append((seed, heldout, out / cell["run_dir"]))
     for seed, heldout, run_dir in todo:
-        exp = exp_id_for(seed, heldout)
-        slug = f"dino3s16_frozen_clsmean_s{seed}_heldout_{rig_name(heldout)}"
+        exp = exp_id_for(seed, heldout, first)
+        slug = f"{stem}_frozen_{readout.replace('_', '')}_s{seed}_heldout_{rig_name(heldout)}"
         pair = f"; paired with exp{BASELINE_EXPS[rig_name(heldout)]}" if seed == 42 else ""
-        note = ("Experiment 1 (docs/dinov3_integration_plan.md §5): frozen dinov3_vits16, readout cls_mean, "
+        chosen = "" if which == "primary" else ", the owner's selected backbone (2026-09-26)"
+        note = (f"Experiment 1 (docs/dinov3_integration_plan.md §5): frozen {backbone}{chosen}, readout {readout}, "
                 f"L2 logistic-regression head (C on val), no MixStyle, no TTA{pair}")
         archive(str(exp), slug, note, src_dir=run_dir)
+        exp_dir = next((REPO_ROOT / "experiments").glob(f"exp{exp}__*"))
+        (exp_dir / "photo_metrics.json").write_bytes((run_dir / "photo_metrics.json").read_bytes())
 
 
 # ---------------------------------------------------------------------------------------- main
@@ -458,7 +487,8 @@ def main() -> int:
     p.add_argument("--smoke", action="store_true", help="tiny patch budgets, for testing the pipeline")
     p.add_argument("--allow-dirty", action="store_true", help="skip the provenance checks (smoke only)")
     p.add_argument("--summary", action="store_true", help="print tables and gates from results.json and exit")
-    p.add_argument("--archive", action="store_true", help="archive the primary cell as exp220-231 and exit")
+    p.add_argument("--archive", nargs="?", const="primary", choices=sorted(ARCHIVE_SETS),
+                   help="archive a cell's 12 runs and exit: primary -> exp220-231, selected -> exp240-251")
     args = p.parse_args()
     out = Path(args.out)
 
@@ -466,7 +496,7 @@ def main() -> int:
         print(summarize(load_results(out))["text"])
         return 0
     if args.archive:
-        archive_primary(out)
+        archive_cell(out, args.archive)
         return 0
 
     if not args.allow_dirty:
