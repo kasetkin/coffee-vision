@@ -930,6 +930,44 @@ assertion catches a regex that silently fails to match.
 After `dvc add`, make the DINOv3 weight file a dependency of the train stage. A weight swap must
 not reuse a stale run.
 
+### 8.6 What was built on 2026-09-27 (depth 0), and what was deliberately not
+
+Built on branch `dino-integration` (commit `6bdfdb1`, on top of H1/H2), ahead of the adoption
+decision at the owner's request, so a deploy-ready B/16 model exists when the 12 pairs land:
+
+- **The move (§8.2), with flatter names:** `coffeecv_dino/{backbone,head,model}.py` became
+  `coffeecv/backbones.py`, `coffeecv/linear_head.py` and `coffeecv/dino_classifier.py`, in the commit
+  that deleted the originals. The banned-definitions test now also bans `build_backbone`,
+  `verify_weights`, `fit_head`, `fit_head_at`, `export_linear`, `DinoClassifier` and
+  `FrozenBackbone` inside `coffeecv_dino`.
+- **The checkpoint (§8.2):** `{format: coffeecv.frozen_head/1, backbone, weights, weights_sha256,
+  timm_version, readout, class_ids, C, head}`, about 60 KB. `load_frozen_checkpoint` refuses a
+  wrong `model_name`, class count, backbone digest, timm version or format.
+- **One loader:** `infer.load_model` dispatches on `model_name`. That means the webapp, the infer
+  CLI, `build_ood_reference`, `fit_ood_probe` and `ood_eval` load a frozen model with no change of
+  their own. `build_model` refuses frozen names: depth 0 is the convex fit, never SGD.
+- **TTA is the model's property:** `infer.inference_tta_for` reads the card's
+  `inference_defaults.tta`. With no card, TTA is on for a fine-tuned net and off for a frozen one.
+  All four inference callers use it, so B/16 is never served with 8 views by accident.
+- **Webapp:** `COFFEE_CV_CHECKPOINT` overrides the checkpoint path, for a sandbox smoke test
+  before repointing. The default is unchanged.
+- **`fold_data.build_fold_datasets(only=...)`** builds a subset of splits. The result is
+  byte-identical to building them all (tested), and it bounds the memory the shipping fit needs.
+- **`coffeecv.fit_frozen_head`** is the §9.1 fit, and `--ship` copies a run to `models/`.
+- **Dependencies (§9.4):** `timm==1.0.29` is in `webapp/requirements-nodeps.txt`, installed with
+  `--no-deps` by `setup_server.sh`. `pyyaml==6.0.3` is in `webapp/requirements.txt`. All hashes
+  were checked against real downloads.
+  - `huggingface_hub` and `safetensors` are left out on purpose. timm imports them only to
+    download weights, and the production venv has run timm without them since 2026-09-24.
+
+**Not built, because depth 0 does not need it.** Each of these belongs to Screen C (§10), if it
+ever runs:
+
+- **The `Arm` refactor (§8.1).** A frozen head never enters `train_baseline`.
+- **The `dino_*` config fields (§8.3).** The checkpoint and the run's `config.json` `dino` block
+  carry the backbone's identity; `params.yaml` is untouched.
+- **`run_folds --model-name` (§8.4) and the `dvc.yaml` dependency (§8.5).**
+
 ---
 
 ## 9. Shipping a frozen DINOv3 model

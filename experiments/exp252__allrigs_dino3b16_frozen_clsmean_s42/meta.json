@@ -1,0 +1,5 @@
+{
+  "exp": "252",
+  "slug": "allrigs_dino3b16_frozen_clsmean_s42",
+  "note": "plan \u00a79.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at the selection folds' median C=0.1, no TTA; in-distribution metrics only"
+}

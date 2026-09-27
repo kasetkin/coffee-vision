@@ -1,0 +1,17 @@
+# Installed with --no-deps, after requirements.txt:
+#   pip install --require-hashes --no-deps -r webapp/requirements-nodeps.txt
+#
+# timm builds the frozen DINOv3 backbone (docs/dinov3_integration_plan.md §2, §9.4). It is pinned
+# exactly: a timm upgrade is an architecture change and must re-pass tests/test_dino_backbone.py, and
+# coffeecv.dino_classifier refuses a checkpoint fitted under another timm version.
+#
+# Why --no-deps, deliberately (plan §9.4): timm declares torch, torchvision, pyyaml, huggingface_hub and
+# safetensors. torch/torchvision come from the CPU wheel index like the rest of the venv, pyyaml is
+# pinned in requirements.txt, and huggingface_hub/safetensors are only imported to DOWNLOAD pretrained
+# weights -- this project builds with pretrained=False and loads its own sha256-checked file from
+# models_pretrained/, so the service never needs them (and never reaches the network). The production
+# venv has run timm this way since 2026-09-24.
+timm==1.0.29 \
+    --hash=sha256:1af8d12bb7e15c5f96e98d60b7b8319cd7f31730778bf1af58e912a7ce171576 \
+    --hash=sha256:4266486e355c9beb9432e689de580d09e2efe7fa92a9a79e76c03e7763eac724
+    # via coffeecv.backbones

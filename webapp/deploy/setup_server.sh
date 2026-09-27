@@ -56,6 +56,8 @@ done
 
 echo "== 3. python deps, installed as ${APP_USER} (not root -- the venv is theirs) =="
 sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes -r "${REPO_ROOT}/webapp/requirements.txt"
+# timm without its download-only dependencies -- see the header of requirements-nodeps.txt.
+sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes --no-deps -r "${REPO_ROOT}/webapp/requirements-nodeps.txt"
 
 echo "== 4. log directory + rotation (docs/logging_plan.html) =="
 mkdir -p /var/log/coffee-cv
