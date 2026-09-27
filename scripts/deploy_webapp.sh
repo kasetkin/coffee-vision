@@ -172,10 +172,15 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
     || die "$SHA is not on origin/main -- deploy only commits on origin/main (push main first)"
   MANIFEST=$("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --model "$model") \
     || die "no release manifest for $model at $SHA"
-  ID="$(date -u +%Y%m%dT%H%MZ)-${SHA:0:7}-$model"
+  # A complete release of this commit and model is reused, not rebuilt: the full deploy then flips the
+  # very release that --stage-only smoked and --compare checked.
+  REUSE=$(vm 'shopt -s nullglob
+    for d in "$APP_ROOT"/releases/*-"$SUFFIX"; do [[ -f "$d/.complete" ]] && basename "$d"; done | tail -1' \
+    SUFFIX="${SHA:0:7}-$model")
+  ID=${REUSE:-"$(date -u +%Y%m%dT%H%MZ)-${SHA:0:7}-$model"}
   STAGE="$SCRATCH/$ID"
   rm -rf "$STAGE"; mkdir -p "$STAGE"
-  note "release $ID"
+  note "release $ID${REUSE:+ (already staged on the VM: reused)}"
 
   # shellcheck disable=SC2046
   git -C "$REPO" archive "$SHA" -- $(jq -r '.git[]' <<<"$MANIFEST") | tar -x -C "$STAGE"
@@ -235,19 +240,28 @@ send_fixtures() {
 # --------------------------------------------------------------------------------------------- stage
 stage() {
   say "Stage $ID on $HOST"
-  local cur
-  cur=$(vm '[[ -e "$APP_ROOT/releases/$ID" ]] && { echo "EXISTS"; exit 0; }; readlink -f "$APP_ROOT/current" 2>/dev/null || true' ID="$ID")
-  [[ "$cur" != EXISTS ]] || die "$APP_ROOT/releases/$ID already exists"
+  local cur expect
+  expect=$(jq -r '(.dvc + .pretrained) | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
   send_fixtures
   to_vm -a --chmod=F644 "$SCRATCH/$ID.expected.json" "$FIX/expected/$ID.json"
+  if [[ -n "$REUSE" ]]; then
+    vm 'R="$APP_ROOT/releases/$ID"
+      while read -r path digest; do
+        if (( ${#digest} == 32 )); then got=$(md5sum < "$R/$path" | cut -c1-32); else got=$(sha256sum < "$R/$path" | cut -c1-64); fi
+        [[ "$got" == "$digest" ]] || { echo "$path changed since it was staged"; exit 1; }
+      done <<<"$EXPECT"' ID="$ID" EXPECT="$expect" || die "the staged release $ID no longer matches its hashes"
+    check_staged_listing
+    note "reused: hashes and contents re-checked"
+    return
+  fi
+  cur=$(vm '[[ -e "$APP_ROOT/releases/$ID" ]] && { echo "EXISTS"; exit 0; }; readlink -f "$APP_ROOT/current" 2>/dev/null || true' ID="$ID")
+  [[ "$cur" != EXISTS ]] || die "$APP_ROOT/releases/$ID already exists (incomplete: it is pruned by the next full deploy)"
   local t0=$SECONDS
   # --copy-dest: files unchanged since the current release are copied on the VM, not sent again
   # (a full copy, never a hard link -- each release stays independent).
   to_vm -a --chmod=D755,F644 ${cur:+--copy-dest="$cur/"} "$STAGE/" "$APP_ROOT/releases/$ID/"
   note "rsync $((SECONDS - t0)) s"
 
-  local expect
-  expect=$(jq -r '(.dvc + .pretrained) | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
   t0=$SECONDS
   vm '
     R="$APP_ROOT/releases/$ID"
@@ -264,12 +278,16 @@ stage() {
   ' ID="$ID" EXPECT="$expect" || die "building the venv failed"
   note "venv $((SECONDS - t0)) s"
 
+  check_staged_listing
+  vm 'date -u +%FT%TZ > "$APP_ROOT/releases/$ID/.complete"' ID="$ID"
+  note "complete: $APP_ROOT/releases/$ID"
+}
+
+check_staged_listing() {   # the release on the VM holds exactly the manifest (+ .venv, .complete, bytecode)
   local listing
   listing=$(vm 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
   "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --model "$MODEL" --check-staged - <<<"$listing" \
-    || die "the release on the VM holds files outside the manifest"
-  vm 'date -u +%FT%TZ > "$APP_ROOT/releases/$ID/.complete"' ID="$ID"
-  note "complete: $APP_ROOT/releases/$ID"
+    || die "the release on the VM does not match the manifest"
 }
 
 # --------------------------------------------------------------------------------------------- smoke
