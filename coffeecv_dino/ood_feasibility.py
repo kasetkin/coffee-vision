@@ -57,7 +57,7 @@ from coffeecv.infer import _sha, config_for_checkpoint, forward_with_embeddings,
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, auroc, detection_at_fpr, id_photos,  # noqa: E402
                                linear_probe_scores, negatives_from)
 from coffeecv.transforms import build_eval_transform  # noqa: E402
-from coffeecv_dino.backbone import SPECS, assert_input_size, build_backbone  # noqa: E402
+from coffeecv.backbones import SPECS, assert_input_size, build_backbone  # noqa: E402
 
 DEPLOYED = REPO_ROOT / "models" / "allrigs_cam_s123.pt"
 SPLIT = "dev"

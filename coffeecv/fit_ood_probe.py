@@ -38,8 +38,8 @@ import numpy as np
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import load_class_labels
-from coffeecv.infer import (_sha, config_for_checkpoint, load_model, probe_path_for,
-                            probe_score, reference_path_for)
+from coffeecv.infer import (_sha, config_for_checkpoint, inference_tta_for, load_model, load_ood_reference,
+                            probe_path_for, probe_score, reference_path_for)
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, auroc,
                                embed_photo, id_photos, negatives_from)
 
@@ -128,16 +128,13 @@ def main() -> None:
     ckpt_sha = _sha(checkpoint)
 
     ref_path = reference_path_for(checkpoint)
-    if not ref_path.exists():
-        sys.exit(f"No OOD reference at {ref_path}; build one with coffeecv.build_ood_reference")
-    ref = json.loads(ref_path.read_text())
-    if ref.get("checkpoint_sha") and ref["checkpoint_sha"] != ckpt_sha:
-        sys.exit(f"OOD reference {ref_path} was built from a different checkpoint "
-                 f"({ref['checkpoint_sha']} vs {ckpt_sha})")
-
     model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    # The one checked loader (sha and embedding width), like every other caller (plan §9.2).
+    ref = load_ood_reference(checkpoint, head)
+    if ref is None:
+        sys.exit(f"No OOD reference at {ref_path}; build one with coffeecv.build_ood_reference")
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
-    tta = not args.no_tta
+    tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
     neg_dirs = [Path(d) for d in args.negatives]
     pos_dirs = [Path(d) for d in args.positives]
 

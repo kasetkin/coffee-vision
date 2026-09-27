@@ -4,7 +4,7 @@ leave-one-camera-out fold protocol.
 For every (seed, held-out rig) this builds the fold with `coffeecv.fold_data.build_fold_datasets` --
 the call train_baseline makes -- so at seed 42 the patches are the ones exp200-203 trained on and were
 scored on. It embeds every split once per backbone (all readouts from one forward pass), fits an L2
-logistic-regression head per (backbone, readout) with C chosen on val (coffeecv_dino.head), and scores
+logistic-regression head per (backbone, readout) with C chosen on val (coffeecv.linear_head), and scores
 val / test / cross-rig with `coffeecv.metrics.compute_split_metrics`, the iPhone fold as its honest
 8-class macro. The pre-registered primary cell is also scored photo by photo through
 `coffeecv.xrig_eval.run_photowise` -- the /classify path, 40 patches per photo, no TTA.
@@ -58,9 +58,9 @@ from coffeecv.photo_pooling_eval import pool_photos  # noqa: E402
 from coffeecv.run_folds import RIGS, dirty_provenance_paths, stale_crop_stages, train_rigs_for  # noqa: E402
 from coffeecv.transforms import build_eval_transform  # noqa: E402
 from coffeecv.xrig_eval import run_photowise  # noqa: E402
-from coffeecv_dino.backbone import READOUTS, SPECS, FrozenBackbone, assert_input_size, build_backbone  # noqa: E402
-from coffeecv_dino.head import C_GRID, cross_entropy, fit_head, predict  # noqa: E402
-from coffeecv_dino.model import DinoClassifier  # noqa: E402
+from coffeecv.backbones import READOUTS, SPECS, FrozenBackbone, assert_input_size, build_backbone  # noqa: E402
+from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, predict  # noqa: E402
+from coffeecv.dino_classifier import DinoClassifier  # noqa: E402
 
 DEFAULT_OUT = OUTPUTS_DIR / "dino_screen"
 PRIMARY = ("dinov3_vits16", "cls_mean")          # pre-registered, plan §5.2 -- not chosen after the fact

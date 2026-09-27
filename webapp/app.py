@@ -28,13 +28,15 @@ from werkzeug.exceptions import HTTPException
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
-from coffeecv.infer import (classify_one, config_for_checkpoint, crop_to_bean_region,
+from coffeecv.infer import (classify_one, config_for_checkpoint, crop_to_bean_region, inference_tta_for,
                             load_model, load_ood_probe, load_ood_reference, reference_path_for)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CHECKPOINT = REPO_ROOT / "models" / "allrigs_cam_s123.pt"
+# The shipped model. COFFEE_CV_CHECKPOINT (a path relative to the repo) overrides it without a code
+# edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
+CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_cam_s123.pt")
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
@@ -51,6 +53,11 @@ logger.info("loaded checkpoint config from %s", cfg_source)
 class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
 class_ids = sorted(class_labels)
 model, head = load_model(CHECKPOINT, cfg.model_name, len(class_ids), cfg.dropout)
+# Dihedral TTA is a property of the model, read from its card (on for ResNet18; off for a frozen ViT,
+# where 8 views would cost ~46 s per photo -- docs/dinov3_integration_plan.md §6.2).
+TTA = inference_tta_for(CHECKPOINT, cfg.model_name)
+logger.info("model %s (%s), %d classes, TTA %s", CHECKPOINT.name, cfg.model_name, len(class_ids),
+            "on" if TTA else "off")
 
 ref_path = reference_path_for(CHECKPOINT)
 ref = load_ood_reference(CHECKPOINT, head)
@@ -344,7 +351,7 @@ def classify():
 
     with _saved_upload(upload) as path:
         entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=N_PATCHES, skip_crop=skip_crop, probe=probe)
+                              n_patches=N_PATCHES, tta=TTA, skip_crop=skip_crop, probe=probe)
 
     body, status = _entry_to_response(entry)
     _log_classify_fields(entry, body)

@@ -113,6 +113,9 @@ def _apply_freeze_mode(model: nn.Module, freeze_mode: str, last_block: nn.Module
 
 
 SUPPORTED_MODELS = ("resnet18",)
+# Frozen backbone + convex head (plan §8.2). Fitted by coffeecv.fit_frozen_head and loaded by
+# coffeecv.infer.load_model -- never built or trained by train_baseline's SGD loop.
+FROZEN_MODELS = ("dinov3_vitb16",)
 
 
 def build_model(
@@ -136,6 +139,13 @@ def build_model(
             f"not {name!r}. Set mixstyle_p=0.0 or switch model_name to resnet18."
         )
 
+    if name in FROZEN_MODELS:
+        # Depth 0 is a convex fit (plan §8.2): two ways of producing the same head is how arms stop being
+        # comparable, so the SGD loop refuses it instead of quietly training a frozen network by SGD.
+        raise ValueError(
+            f"model_name={name!r} is a frozen backbone with a fitted linear head: fit it with "
+            f"`python -m coffeecv.fit_frozen_head`, load it with coffeecv.infer.load_model. train_baseline "
+            f"does not train it.")
     if name == "resnet18":
         model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         _apply_freeze_mode(model, freeze_mode, last_block=model.layer4)
@@ -148,7 +158,7 @@ def build_model(
         # An old checkpoint card restores its model_name faithfully (config_for_checkpoint), so a pruned
         # architecture must fail here, never fall back to a substitute.
         raise ValueError(
-            f"Unknown model_name: {name!r}. Supported: {SUPPORTED_MODELS}. mobilenet_v3_small and "
+            f"Unknown model_name: {name!r}. Supported: {SUPPORTED_MODELS + FROZEN_MODELS}. mobilenet_v3_small and "
             f"efficientnet_b0 were removed on 2026-09-26 (EXPERIMENTS_LOG exp3/exp29/exp31: rejected "
             f"three times, used by none of the 166 archived experiments); to re-run an old experiment, check "
             f"out its own git_commit.")

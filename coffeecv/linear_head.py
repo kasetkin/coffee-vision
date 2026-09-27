@@ -83,6 +83,21 @@ def fit_head(X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val:
                    time.perf_counter() - t0)
 
 
+def fit_head_at(X_train: np.ndarray, y_train: np.ndarray, C: float, n_classes: int) -> tuple[nn.Linear, bool]:
+    """One fit at a fixed C -- the shipping fit (plan §9.1), where C comes from the folds rather than
+    from this run's own val split. Returns (head, converged). Same solver, scaler and export as
+    `fit_head`, so a shipped head is the thing the folds measured."""
+    scaler = StandardScaler().fit(X_train)
+    clf = LogisticRegression(C=C, max_iter=MAX_ITER)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ConvergenceWarning)
+        clf.fit(scaler.transform(X_train), y_train)
+    if list(clf.classes_) != list(range(n_classes)):
+        raise ValueError(f"head saw classes {list(clf.classes_)}, expected 0..{n_classes - 1}")
+    converged = not any(issubclass(w.category, ConvergenceWarning) for w in caught)
+    return export_linear(clf, scaler), converged
+
+
 @torch.no_grad()
 def predict(linear: nn.Linear, X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(predicted class, probabilities, logits) for features X."""

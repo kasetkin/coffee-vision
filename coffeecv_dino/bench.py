@@ -16,7 +16,7 @@ import time
 
 import torch
 
-from coffeecv_dino.backbone import SPECS, build_backbone
+from coffeecv.backbones import SPECS, build_backbone
 from coffeecv_dino.reference import reference_patches
 
 

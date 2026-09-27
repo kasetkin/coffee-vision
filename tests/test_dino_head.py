@@ -1,4 +1,4 @@
-"""Tests for coffeecv_dino.head, the depth-0 logistic-regression head. Plain unittest.
+"""Tests for coffeecv.linear_head, the depth-0 logistic-regression head. Plain unittest.
 
 Run from the repo root:  python -m unittest discover -s tests -p "test_dino*" -v
 
@@ -13,8 +13,8 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from coffeecv_dino.backbone import MODELS_PRETRAINED, SPECS, build_backbone
-from coffeecv_dino.head import export_linear, fit_head, predict
+from coffeecv.backbones import MODELS_PRETRAINED, SPECS, build_backbone
+from coffeecv.linear_head import export_linear, fit_head, predict
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
 HAVE = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_reference_data()

@@ -21,10 +21,10 @@ from coffeecv.dataset import MultiPhotoPatchDataset, Rig, load_class_labels, res
 
 @dataclass
 class FoldDatasets:
-    train: MultiPhotoPatchDataset
-    val: MultiPhotoPatchDataset
-    test: MultiPhotoPatchDataset
-    xrig: MultiPhotoPatchDataset | None  # None for an all-rigs run (empty heldout_rig)
+    train: MultiPhotoPatchDataset | None  # None only when the caller asked for other splits (`only`)
+    val: MultiPhotoPatchDataset | None
+    test: MultiPhotoPatchDataset | None
+    xrig: MultiPhotoPatchDataset | None  # None for an all-rigs run (empty heldout_rig), or not asked for
     train_rigs: list[Rig]
     heldout_rig: Rig | None
     class_ids: list[str]
@@ -32,14 +32,21 @@ class FoldDatasets:
 
 
 def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
-                        return_domain_id: bool = False) -> FoldDatasets:
+                        return_domain_id: bool = False,
+                        only: tuple[str, ...] | None = None) -> FoldDatasets:
     """Build train/val/test from `cfg.train_rigs` (in that order) and the cross-rig set from
     `cfg.heldout_rig`, exactly as `train_baseline` trains on them.
 
     `train_transform` is applied to the train split only. A frozen-feature caller passes the eval
     transform for both, which changes what `__getitem__` returns but not which boxes are drawn:
     boxes are sampled once, at construction, from seeded generators that never see the transform.
+
+    `only` builds just the named splits ("train", "val", "test", "xrig") and leaves the rest None. Each
+    split draws from generators keyed on (seed, rig_idx, class, photo, split), never from a shared
+    stream, so a split built alone is byte-identical to the same split built with the others -- and a
+    caller that needs one split at a time holds one split's decoded patches in memory, not four.
     """
+    want = set(only) if only is not None else {"train", "val", "test", "xrig"}
     train_rig_dirs, heldout_rig_dir, classes_file = cfg.resolve_paths()
     train_rigs = resolve_rigs(train_rig_dirs)
     heldout_rig = resolve_rigs([heldout_rig_dir])[0] if heldout_rig_dir else None
@@ -82,9 +89,11 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
         split="train", transform=train_transform,
         rotation_jitter_degrees=cfg.rotation_jitter_degrees,
         return_domain_id=return_domain_id, **common_kwargs,
-    )
-    val_ds = MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
-    test_ds = MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
+    ) if "train" in want else None
+    val_ds = (MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
+              if "val" in want else None)
+    test_ds = (MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
+               if "test" in want else None)
 
     # The cross-rig test set: every photo of a rig the model never trained on.
     # This is the headline generalization number; `test_ds` above stays as the
@@ -95,7 +104,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
             **{**common_kwargs, "rigs": [heldout_rig]},
             split="all", transform=eval_transform,
         )
-        if heldout_rig else None
+        if heldout_rig and "xrig" in want else None
     )
     return FoldDatasets(train_ds, val_ds, test_ds, xrig_ds, train_rigs, heldout_rig,
                         class_ids, class_labels)

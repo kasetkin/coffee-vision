@@ -45,7 +45,7 @@ from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import (find_class_dir, list_cropped_photos, load_class_labels,
                               resolve_rigs, split_photos_by_class)
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
-                            forward_with_embeddings, knn_score, load_model, load_ood_reference, mahalanobis_scores,
+                            forward_with_embeddings, inference_tta_for, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
 from coffeecv.transforms import build_eval_transform
 
@@ -513,7 +513,7 @@ def main() -> None:
         sys.exit(f"No OOD reference at {ref_path}; build one with coffeecv.build_ood_reference")
     ckpt_sha = _sha(checkpoint)
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
-    tta = not args.no_tta
+    tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
     scorer = Scorer(ref, ref_path, methods, args.knn_k)
 
     train_ids, heldout_ids = id_photos(cfg, class_ids, args.id_split)

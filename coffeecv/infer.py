@@ -66,6 +66,7 @@ from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.crop_tray import locate_bean_crop
 from coffeecv.dataset import load_class_labels, load_rgb_image
 from coffeecv.geometry import compute_valid_region_rect, sample_bean_unit_patch_boxes
+from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
 from coffeecv.model import build_model
 from coffeecv.transforms import build_eval_transform
 
@@ -254,10 +255,32 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
 
 
 def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: float):
+    """(model, head_module) for any checkpoint this project ships. A frozen DINO checkpoint is a head
+    plus the identity of the backbone it was fitted on (coffeecv.dino_classifier); its head is the
+    Linear the model calls, so forward_with_embeddings' pre-hook captures the readout vector."""
+    if is_frozen_model(model_name):
+        model = load_frozen_checkpoint(checkpoint, model_name, num_classes).to(DEVICE).eval()
+        return model, model.head
     model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout)
     model.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
     model.to(DEVICE).eval()
     return model, head
+
+
+def inference_tta_for(checkpoint: Path, model_name: str) -> bool:
+    """Whether this checkpoint is served with dihedral TTA: its card's `inference_defaults.tta`.
+
+    A per-model property, not a global switch. The ResNet18 cards say yes (+0.0235, 8x cost). A frozen
+    ViT-B/16 must say no: 8 views x 40 patches is ~46 s per photo on the production VM (plan §6.2), and
+    TTA for the frozen head is unmeasured (Screen D). No card -- a transient outputs/ checkpoint -- falls
+    back by model type: on for a fine-tuned network (the old default), off for a frozen one.
+    """
+    card = checkpoint.with_suffix(".json")
+    if card.exists():
+        tta = (json.loads(card.read_text()).get("inference_defaults") or {}).get("tta")
+        if tta is not None:
+            return bool(tta)
+    return not is_frozen_model(model_name)
 
 
 @torch.no_grad()
@@ -655,9 +678,9 @@ def main() -> None:
                         "where a probe exists, which is how to reproduce an older verdict.")
     p.add_argument("--n-patches", type=int, default=40)
     p.add_argument("--no-tta", action="store_true",
-                   help="disable dihedral test-time augmentation. TTA is ON by default: it is worth "
-                        "+0.0235 cross-rig macro-F1 on this repo's folds, costs only inference time, "
-                        "and averages over the same symmetry group training augments with.")
+                   help="disable dihedral test-time augmentation. The default is the checkpoint card's "
+                        "inference_defaults.tta (on for the ResNet18 cards: +0.0235 cross-rig macro-F1; off "
+                        "for a frozen ViT, where it costs 8x and is unmeasured).")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--out", default=None)
     args = p.parse_args()
@@ -675,6 +698,7 @@ def main() -> None:
     class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
     class_ids = sorted(class_labels)
     model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
+    tta = False if args.no_tta else inference_tta_for(Path(args.checkpoint), cfg.model_name)
 
     ref_path = Path(args.ood_reference) if args.ood_reference else reference_path_for(Path(args.checkpoint))
     ref = load_ood_reference(Path(args.checkpoint), head, ref_path)
@@ -704,7 +728,7 @@ def main() -> None:
         # not a reason to abandon the batch, and it must not surface as a stack
         # trace to someone holding a phone.
         entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=args.n_patches, seed_key=[args.seed, idx], tta=not args.no_tta,
+                              n_patches=args.n_patches, seed_key=[args.seed, idx], tta=tta,
                               probe=probe, ood_method=args.ood_method)
         results[path.name] = entry
         _print_cli_verdict(path.name, entry, ref)
@@ -721,7 +745,7 @@ def main() -> None:
             "patch_store_size": cfg.patch_store_size,
             "patch_resize": cfg.patch_resize,
             "n_patches_per_image": args.n_patches,
-            "tta": not args.no_tta,
+            "tta": tta,
             "ood_reference": str(ref_path) if ref else None,
             "per_image": results,
         }, indent=2))
