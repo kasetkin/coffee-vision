@@ -431,6 +431,14 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     }
 
 
+def sig12(x: float) -> float:
+    """x kept to 12 significant digits. OOD scores are reported and logged at this precision rather than
+    rounded to a few decimals: in a frozen ViT's space most genuine photos score below 1e-4 on the probe,
+    and a fixed 4-decimal rounding logged them all as 0.0 -- and fed the rounded value to the threshold
+    comparison. 12 significant digits keeps the whole float32-derived value and nothing spurious."""
+    return float(f"{float(x):.12g}")
+
+
 def energy_score(logits: np.ndarray, temperature: float = 1.0) -> np.ndarray:
     """Per-patch free energy, `-T * logsumexp(logits / T)`.
 
@@ -553,7 +561,7 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     # model is working outside what it saw, and its answer is worth less
     # than the probability next to it suggests.
     warn_at = (ref.get("photo_scores") or {}).get("p95")
-    entry["ood"] = {"median": round(median, 3),
+    entry["ood"] = {"median": sig12(median),
                     "frac_patches_over_threshold": round(float((scores > OOD_THRESHOLD).mean()), 3),
                     "threshold": OOD_THRESHOLD, "warn_above": warn_at}
 
@@ -568,7 +576,7 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     if ood_method == "linear_probe" and probe is None:
         raise ValueError("ood_method='linear_probe' but no probe is loaded for this checkpoint")
     if probe is not None:
-        entry["ood"]["probe"] = round(probe_score(embeds, probe), 4)
+        entry["ood"]["probe"] = sig12(probe_score(embeds, probe))
 
     if probe is not None and ood_method in ("auto", "linear_probe"):
         method, score = "linear_probe", entry["ood"]["probe"]
@@ -585,7 +593,7 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
             "This does not look like a photo of coffee beans. Not offering a best guess: a ranked "
             "list over bean origins would be false precision for a photo that may contain no beans.")
     else:
-        method, score, threshold = "centroid", round(median, 3), OOD_THRESHOLD
+        method, score, threshold = "centroid", sig12(median), OOD_THRESHOLD
         warn_note = (
             f"Above the training distribution's 95th percentile ({warn_at:.2f}). Not refused, but "
             f"treat the answer below as unreliable -- on this repo's held-out rig, photos in this "

@@ -14,6 +14,7 @@ import io
 import json
 import logging
 import os
+import subprocess
 import tempfile
 import time
 import uuid
@@ -28,8 +29,9 @@ from werkzeug.exceptions import HTTPException
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
-from coffeecv.infer import (classify_one, config_for_checkpoint, crop_to_bean_region, inference_tta_for,
-                            load_model, load_ood_probe, load_ood_reference, reference_path_for)
+from coffeecv.infer import (_sha, classify_one, config_for_checkpoint, crop_to_bean_region,
+                            inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
+                            reference_path_for, sig12)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,6 +78,57 @@ else:
     logger.info("OOD guard: linear_probe from %s, threshold %.4f, certified alpha %.1f%%",
                 probe["_path"], probe["threshold"], 100 * probe["alpha"])
 
+
+def _file_sha(path: Path) -> str | None:
+    return _sha(path) if path.exists() else None
+
+
+def _dvc_md5(path: Path) -> str | None:
+    """The md5 DVC recorded for a tracked file (`<file>.dvc`), i.e. which DVC object is deployed."""
+    dvc_file = Path(f"{path}.dvc")
+    if not dvc_file.exists():
+        return None
+    for line in dvc_file.read_text().splitlines():
+        if line.strip().startswith("- md5:") or line.strip().startswith("md5:"):
+            return line.split("md5:", 1)[1].strip()
+    return None
+
+
+def _code_identity() -> dict:
+    """Which code is serving. A deploy stamp from write_build_info.py is authoritative; without one, fall
+    back to git HEAD at import and say so -- under an rsync deploy HEAD can describe other code."""
+    stamp = REPO_ROOT / "webapp" / "BUILD_INFO.json"
+    if stamp.exists():
+        info = json.loads(stamp.read_text())
+        return {"commit": info.get("commit"), "dirty": info.get("dirty"), "source": "BUILD_INFO.json"}
+    def run(*args: str) -> str:
+        return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True,
+                              timeout=5).stdout.strip()
+
+    try:
+        return {"commit": run("rev-parse", "HEAD") or None,
+                "dirty": bool(run("status", "--porcelain", "--untracked-files=no")),
+                "source": "git HEAD at import (no BUILD_INFO.json; may not match rsynced code)"}
+    except (OSError, subprocess.SubprocessError):
+        return {"commit": None, "dirty": None, "source": "unknown"}
+
+
+# What is serving, fixed at import and put on EVERY request line (not just the startup line, which log
+# rotation eventually drops): a year of logs mixes model versions, and a score is meaningless without
+# the embedding space and threshold that produced it. Hashes are the same 16-hex sha256 prefix the OOD
+# artifacts use for `checkpoint_sha`.
+BUILD = {
+    "model_sha": _file_sha(CHECKPOINT),
+    "model_dvc_md5": _dvc_md5(CHECKPOINT),
+    "backbone_sha": (model.backbone.weights_sha256[:16] if hasattr(model, "backbone") else None),
+    "ood_reference_sha": _file_sha(ref_path),
+    "ood_probe_sha": _file_sha(probe_path_for(CHECKPOINT)) if probe is not None else None,
+    "ood_threshold": probe["threshold"] if probe is not None else None,
+    "tta": TTA,
+    "code": _code_identity(),
+}
+logger.info("serving %s %s", CHECKPOINT.name, json.dumps(BUILD))
+
 # --- structured request logging -- see docs/logging_plan.html for the field
 # list, the GDPR reasoning, and what's deliberately excluded (client IP,
 # filenames, image bytes, anything beyond a coarse User-Agent category). ---
@@ -91,7 +144,7 @@ class _JsonFormatter(logging.Formatter):
     """
 
     _FIELDS = (
-        "request_id", "endpoint", "status", "latency_ms", "verdict",
+        "request_id", "endpoint", "status", "latency_ms", "model", "build", "verdict",
         "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
         "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
@@ -187,6 +240,8 @@ def _log_request(response):
         "endpoint": request.path,
         "status": response.status_code,
         "latency_ms": round((time.monotonic() - g.t0) * 1000),
+        "model": CHECKPOINT.name,
+        "build": BUILD,
     }
     for field in ("verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
                   "ood_method", "ood_warned",
@@ -281,7 +336,7 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
     ranked = entry.get("ranked")
     if ranked:
         g.top1_class = ranked[0][0]
-        g.top1_score = round(ranked[0][2], 4)
+        g.top1_score = sig12(ranked[0][2])
     if "decoded_wh" in entry:
         g.decoded_w, g.decoded_h = entry["decoded_wh"]
     # Framing geometry. Nothing gates on these -- the scale guard that used to

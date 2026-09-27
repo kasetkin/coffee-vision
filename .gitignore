@@ -24,3 +24,4 @@ __pycache__/
 /models_pretrained/**/*.pth
 /models_pretrained/**/*.pt
 /models_pretrained/**/*.safetensors
+/webapp/BUILD_INFO.json

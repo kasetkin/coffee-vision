@@ -63,8 +63,11 @@ by pointing it back at `dataset/classes.txt`.
 
 ## Two separate procedures -- don't conflate them
 
-**Code or model change (the common case):** `rsync` the updated files to the
-VM, then:
+**Code or model change (the common case):** first stamp the code being deployed
+(`python webapp/deploy/write_build_info.py`, which writes the gitignored
+`webapp/BUILD_INFO.json`). Every request log line carries it with the model's
+hashes, and without it the service falls back to the VM's own `git HEAD`, which
+an rsync deploy does not update. Then `rsync` the updated files to the VM, then:
 - Python/model changes: `systemctl restart coffee-cv-web`
 - `index.html` changes: `setup_server.sh` only ever `cp`'d it to
   `/var/www/coffee-cv/index.html` once, at bootstrap (root-owned, `644`) --
