@@ -1,4 +1,5 @@
-# Rendered by setup_server.sh, which substitutes $DOMAIN and writes the result to
+# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN and $APP_ROOT (and nothing
+# else -- every other $ here is nginx's own) and installs the result as
 # /etc/nginx/conf.d/coffee-cv.conf on the VM -- this template stays domain-generic
 # so the real domain never enters git (see webapp/README.md).
 
@@ -48,7 +49,10 @@ server {
     # this one, at the retention docs/logging_plan.html section 06 sets.
     access_log /var/log/nginx/coffee-cv.access coffee_cv_minimal;
 
-    root /var/www/coffee-cv;
+    # The page comes from the release, beside the API it calls: nginx follows the `current`
+    # symlink on every request, so page and backend switch together at the deploy's flip, with
+    # no copy step to forget (docs/ops1_release_isolation_plan.html §4.6).
+    root $APP_ROOT/current/webapp/static;
 
     location / {
         index index.html;

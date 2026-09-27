@@ -1,14 +1,25 @@
+# Rendered by scripts/deploy_webapp.sh -- never by hand -- in two ways from this one template, so the
+# smoke test runs in exactly the sandbox production does (docs/ops1_release_isolation_plan.html §4.5):
+#   production -> /etc/systemd/system/coffee-cv-web.service
+#                 RELEASE_DIR=/opt/coffee-cv/current  PORT=8000  LOG_DIR=/var/log/coffee-cv
+#   smoke test -> /run/systemd/system/coffee-cv-smoke.service (plus a limits drop-in; removed after)
+#                 RELEASE_DIR=/opt/coffee-cv/releases/<id>  PORT=8001  LOG_DIR=/var/log/coffee-cv/smoke
+# systemd resolves the `current` symlink when the service starts, and coffeecv.config.REPO_ROOT is
+# resolve()d, so a running process stays on the release it started from until it is restarted.
 [Unit]
 Description=Coffee CV classifier web service (gunicorn)
 After=network.target
 
 [Service]
 Type=simple
-User=$APP_USER
-Group=$APP_USER
-WorkingDirectory=/home/$APP_USER/coffee-vision
-Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/home/$APP_USER/coffee-vision-venv/bin/gunicorn -w 1 --worker-class sync -b 127.0.0.1:8000 --timeout 30 --no-control-socket webapp.app:app
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$RELEASE_DIR
+# The model is chosen inside the release (COFFEE_CV_CHECKPOINT=models/<name>.pt), so code and model
+# switch -- and roll back -- together.
+EnvironmentFile=$RELEASE_DIR/release.env
+Environment=PYTHONDONTWRITEBYTECODE=1 COFFEE_CV_LOG_DIR=$LOG_DIR
+ExecStart=$RELEASE_DIR/.venv/bin/gunicorn -w 1 --worker-class sync -b 127.0.0.1:$PORT --timeout 30 --no-control-socket webapp.app:app
 Restart=on-failure
 RestartSec=2
 
@@ -21,9 +32,11 @@ PrivateTmp=true
 ProtectSystem=strict
 # The one carve-out ProtectSystem=strict needs: webapp/app.py's structured
 # request log (docs/logging_plan.html) writes here. Everything else the
-# process touches is read-only, same as before.
-ReadWritePaths=/var/log/coffee-cv
-ProtectHome=read-only
+# process touches -- the release included -- is read-only.
+ReadWritePaths=$LOG_DIR
+# Nothing under /home exists for this process: it runs as its own system user, from /opt, and
+# needs neither the training checkout nor ~/.cache/torch (ResNet18 is built with weights=None).
+ProtectHome=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 ProtectKernelTunables=true

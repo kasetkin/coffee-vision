@@ -1,4 +1,4 @@
-# Installed to /etc/logrotate.d/coffee-cv by setup_server.sh. Retention is a
+# Rendered to /etc/logrotate.d/coffee-cv by scripts/deploy_webapp.sh --bootstrap. Retention is a
 # full year for both files -- see docs/logging_plan.html section 06 for why
 # (and for the disk-space math that says this comfortably fits).
 #
@@ -20,7 +20,7 @@
     delaycompress
     missingok
     notifempty
-    su $APP_USER $APP_USER
+    su $SERVICE_USER $SERVICE_USER
 }
 
 /var/log/nginx/coffee-cv.access {

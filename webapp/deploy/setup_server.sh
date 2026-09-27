@@ -1,36 +1,21 @@
 #!/usr/bin/env bash
-# Bootstraps the coffee-cv web service on a fresh Ubuntu 24.04 box, or brings an
-# existing one back in line with this repo's committed config. Every server-side
-# command lives here -- not scattered across ad hoc SSH sessions -- so the exact
-# configuration is reviewable and re-runnable rather than living only in shell
-# history.
+# Prerequisites for the coffee-cv web service on a fresh Ubuntu 24.04 box: nginx, the TLS cert
+# directory, and the firewall. Nothing else.
 #
-# Idempotent: safe to re-run after `git pull` on the VM, or to stand up a second
-# identical box. It is NOT the redeploy path for ordinary code/model changes --
-# see webapp/README.md for that (rsync + `systemctl restart coffee-cv-web`).
-# `systemctl enable --now` is a no-op on an already-running unit, so re-running
-# this script will not pick up new application code on its own.
+# Everything the service itself needs -- its system user, /opt/coffee-cv, uv, the log directory, and
+# every rendered file (systemd unit, nginx site, logrotate) -- belongs to scripts/deploy_webapp.sh
+# (--bootstrap once, then one command per deploy). A fresh box has no release to serve until that
+# first deploy. See webapp/README.md and docs/ops1_release_isolation_plan.html §4.7.
 #
-# Usage: DOMAIN=yourdomain.example [APP_USER=someuser] sudo -E ./webapp/deploy/setup_server.sh
+# Runs apt and ufw: never while a training sweep is running on the box.
+#
+# Usage: sudo ./webapp/deploy/setup_server.sh
 set -euo pipefail
 
-if [[ -z "${DOMAIN:-}" ]]; then
-  echo "ERROR: DOMAIN environment variable is not set." >&2
-  echo "Usage: DOMAIN=yourdomain.example sudo -E $0" >&2
-  exit 1
-fi
-
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "ERROR: run as root (sudo -E) -- needed for apt/systemd/nginx/ufw." >&2
+  echo "ERROR: run as root (sudo) -- needed for apt/nginx/ufw." >&2
   exit 1
 fi
-
-# Resolve paths relative to this script's own location, not the caller's CWD.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
-APP_USER="${APP_USER:-alioth}"
-VENV="/home/${APP_USER}/coffee-vision-venv"
 
 echo "== 1. nginx =="
 apt-get install -y nginx
@@ -53,60 +38,27 @@ for f in domain.cert.pem public.key.pem; do
     chmod 644 "/etc/nginx/ssl/coffee-cv/${f}"
   fi
 done
-
-echo "== 3. python deps, installed as ${APP_USER} (not root -- the venv is theirs) =="
-sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes -r "${REPO_ROOT}/webapp/requirements.txt"
-# timm without its download-only dependencies -- see the header of requirements-nodeps.txt.
-sudo -u "${APP_USER}" "${VENV}/bin/pip" install --require-hashes --no-deps -r "${REPO_ROOT}/webapp/requirements-nodeps.txt"
-
-echo "== 4. log directory + rotation (docs/logging_plan.html) =="
-mkdir -p /var/log/coffee-cv
-chown "${APP_USER}:${APP_USER}" /var/log/coffee-cv
-APP_USER="${APP_USER}" envsubst '$APP_USER' \
-  < "${REPO_ROOT}/webapp/deploy/coffee-cv.logrotate.template" \
-  > /etc/logrotate.d/coffee-cv
-
-echo "== 5. nginx site + systemd unit =="
-DOMAIN="${DOMAIN}" envsubst '$DOMAIN' \
-  < "${REPO_ROOT}/webapp/deploy/coffee-cv.nginx.conf.template" \
-  > /etc/nginx/conf.d/coffee-cv.conf
-APP_USER="${APP_USER}" envsubst '$APP_USER' \
-  < "${REPO_ROOT}/webapp/deploy/coffee-cv-web.service.template" \
-  > /etc/systemd/system/coffee-cv-web.service
 # Ubuntu's default site (sites-enabled/default) is left alone -- harmless, and
 # touching it is one more thing that can go wrong for no benefit.
 
-echo "== 6. static frontend =="
-mkdir -p /var/www/coffee-cv
-cp "${REPO_ROOT}/webapp/static/index.html" /var/www/coffee-cv/index.html
-chmod 644 /var/www/coffee-cv/index.html
-
-echo "== 7. firewall (SSH allowed before enabling, so this can't lock you out) =="
+echo "== 3. firewall (SSH allowed before enabling, so this can't lock you out) =="
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-echo "== 8. services =="
-systemctl daemon-reload
-systemctl enable --now coffee-cv-web
 systemctl enable nginx
 
 cat <<'EOF'
 
 Done.
 
-coffee-cv-web is running on 127.0.0.1:8000 (check: systemctl status coffee-cv-web).
+Next, from your workstation (docs/ops1_release_isolation_plan.html, webapp/README.md):
 
-nginx was deliberately NOT reloaded: /etc/nginx/conf.d/coffee-cv.conf references
-cert files that don't exist yet at /etc/nginx/ssl/coffee-cv/. Once your
-domain.cert.pem and private.key.pem are in place there (private.key.pem at
-600 permissions):
+    scripts/deploy_webapp.sh --bootstrap
+    DOMAIN=... scripts/deploy_webapp.sh <commit on origin/main> <model name>
 
-    nginx -t && systemctl reload nginx
-
-If this is a fresh box, also confirm the torch pretrained-weight cache exists
-at ~/.cache/torch/hub/checkpoints/ before relying on the service -- without it,
-the app will try to reach download.pytorch.org on its next start. See
-webapp/README.md.
+The deploy renders /etc/nginx/conf.d/coffee-cv.conf, which references cert files at
+/etc/nginx/ssl/coffee-cv/. Put domain.cert.pem and private.key.pem (600) there first,
+or its `nginx -t` fails and the deploy stops before the flip.
 EOF

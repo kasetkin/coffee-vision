@@ -261,8 +261,11 @@ def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: flo
     if is_frozen_model(model_name):
         model = load_frozen_checkpoint(checkpoint, model_name, num_classes).to(DEVICE).eval()
         return model, model.head
-    model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout)
-    model.load_state_dict(torch.load(checkpoint, map_location=DEVICE))
+    # No ImageNet init: the strict load below overwrites every parameter and buffer, and the served
+    # process cannot see ~/.cache/torch (ProtectHome=true).
+    model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout,
+                              pretrained=False)
+    model.load_state_dict(torch.load(checkpoint, map_location=DEVICE), strict=True)
     model.to(DEVICE).eval()
     return model, head
 

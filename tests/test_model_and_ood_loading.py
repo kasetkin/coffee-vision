@@ -13,6 +13,7 @@ import json
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import torch
@@ -95,6 +96,28 @@ class TestOodLoaders(unittest.TestCase):
             ckpt = Path(d) / "x.pt"
             ckpt.write_bytes(b"")
             self.assertIsNone(load_ood_reference(ckpt, self.head))
+
+
+@unittest.skipUnless(DEPLOYED.exists(), f"{DEPLOYED} is not present (dvc pull)")
+class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
+    """load_model builds ResNet18 with weights=None (docs/ops1_release_isolation_plan.html §4.3): the
+    service runs under ProtectHome=true, where ~/.cache/torch does not exist. Safe only because the
+    strict load_state_dict overwrites every parameter and buffer -- which these tests prove."""
+
+    def test_loads_without_touching_the_hub(self):
+        def refuse(*args, **kwargs):
+            raise AssertionError("load_model tried to fetch pretrained weights")
+        with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
+            load_model(DEPLOYED, "resnet18", 10, 0.2)
+
+    @unittest.skipUnless(have_reference_data(), "real crops (data/cropped/cam_iphone) not present")
+    def test_logits_bit_identical_to_imagenet_init(self):
+        x, _, _, _ = reference_patches(per_class=2)
+        new, _ = load_model(DEPLOYED, "resnet18", 10, 0.2)
+        old, _ = build_model("resnet18", num_classes=10, freeze_mode="none", dropout=0.2)  # the old path
+        old.load_state_dict(torch.load(DEPLOYED, map_location="cpu"), strict=True)
+        with torch.inference_mode():
+            self.assertTrue(torch.equal(new(x), old.eval()(x)))
 
 
 if __name__ == "__main__":

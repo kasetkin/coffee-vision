@@ -10,7 +10,7 @@ running the thing that serves it.
 
 ```
 Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
-                      |-- GET /            -> static index.html
+                      |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html
                       |-- POST /preview    -> proxy_pass -> gunicorn (127.0.0.1:8000)
                       |                                     -> Flask app -> coffeecv.dataset.load_rgb_image
                       \-- POST /classify   -> proxy_pass -> gunicorn (127.0.0.1:8000)
@@ -26,25 +26,57 @@ Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
   `/classify` is ever hit.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
-- `deploy/` -- everything needed to stand the server up, committed so the
-  configuration is reviewable and reproducible rather than living in shell
-  history. See "Server bootstrap" below.
+- `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
+  manifest, and the helpers `scripts/deploy_webapp.sh` uses; `setup_server.sh`
+  installs only nginx, the cert directory and ufw on a fresh box. See
+  "Deploying" below.
+- `pyproject.toml` + `uv.lock` -- the service's own environment (uv).
+
+## Where it runs: releases under /opt/coffee-cv
+
+Production does not run from a checkout. Each deploy builds an immutable release from one commit on
+`origin/main` and one model (docs/ops1_release_isolation_plan.html):
+
+```
+/opt/coffee-cv/                       owner alioth (the deploy user), 0755
+  releases/<utc>-<sha7>-<model>/      only the files the service opens (webapp/deploy/release_manifest.py)
+    coffeecv/ webapp/ models/ [models_pretrained/]  release.env  .venv/  .complete
+  current  -> releases/...            what the service AND nginx use
+  previous -> releases/...            the rollback target (only these two are kept)
+  uv-cache/ fixtures/                 deploy's download cache; smoke/compare photos + expected answers
+/var/log/coffee-cv/                   owner coffee-cv
+```
+
+- The service runs as the `coffee-cv` system user with `ProtectHome=true`: nothing under `/home` is
+  visible to it -- not the training checkout, not the training venv, not `~/.cache/torch`. What a
+  sweep does to `~/coffee-vision` or `~/coffee-vision-venv` cannot change what production serves.
+- Each release has its own `.venv`, built on the VM by `uv sync --locked` from `webapp/pyproject.toml`
+  + `webapp/uv.lock` (versions copied from the production freeze; torch/torchvision from the PyTorch
+  CPU index; timm without its download-only deps). Packages are copied, not hard-linked, so every
+  release is independent and a rollback restores exactly what that release was tested with.
+- **The model is chosen inside the release**, in `release.env` (`COFFEE_CV_CHECKPOINT=models/<name>.pt`),
+  so code and model switch -- and roll back -- together. `app.py`'s own default is only for a local
+  dev server.
+- nginx serves the page from `current/webapp/static`, so the page and the API it calls change together
+  at the flip. There is no copy step.
+- ResNet18 checkpoints load with `weights=None` (the strict `load_state_dict` overwrites every
+  parameter and buffer; `tests/test_model_and_ood_loading.py` proves the logits are bit-identical), so
+  no ImageNet download or torch hub cache is needed. DINOv3 checkpoints ship their backbone file in
+  `models_pretrained/`, checked against its sha256 at build time and again at every start.
 
 ## Which checkpoint is deployed
 
-`app.py` hardcodes `CHECKPOINT` near the top of the file; as of 2026-09-09 that
-is `models/allrigs_cam_s123.pt` (exp206). To ship a different model:
-change that one line, make sure the checkpoint's `.json` card and
-`.ood_reference.json` are present beside it (both locally and on the VM -- see
-"Getting code onto the VM" below), redeploy (see "Code/model change" below).
+Whichever model the release was built with: `release.env` in `current`. `cat /opt/coffee-cv/current/release.env`,
+or the `model` / `model_sha` fields on any line of `/var/log/coffee-cv/app.jsonl`.
 
 ### The OOD probe sidecar
 
 A checkpoint may also carry `<name>.ood_probe.json` (~41 KB). **Its presence is
 the switch**: with it, the guard refuses on a fitted linear probe over patch
 embeddings; without it, on the Phase 10 centroid distance. There is no flag and
-no config key -- deploying is copying the file, rolling back is deleting it and
-restarting. `load_ood_probe` refuses a probe whose `checkpoint_sha` does not
+no config key -- a release ships it when the deployed commit has it beside the
+model (the manifest includes it only then), and removing it is a commit plus a
+deploy. `load_ood_probe` refuses a probe whose `checkpoint_sha` does not
 match the weights, so a stale one fails loudly at startup instead of scoring in
 the wrong embedding space.
 
@@ -61,97 +93,79 @@ this 9-class checkpoint's head is fixed at 9. Without the sidecar the head and
 the label list would silently desync. Do not "fix" a shipped model's class list
 by pointing it back at `dataset/classes.txt`.
 
-## Two separate procedures -- don't conflate them
+## Deploying
 
-**Code or model change (the common case):** first stamp the code being deployed
-(`python webapp/deploy/write_build_info.py`, which writes the gitignored
-`webapp/BUILD_INFO.json`). Every request log line carries it with the model's
-hashes, and without it the service falls back to the VM's own `git HEAD`, which
-an rsync deploy does not update. Then `rsync` the updated files to the VM, then:
-- Python/model changes: `systemctl restart coffee-cv-web`
-- `index.html` changes: `setup_server.sh` only ever `cp`'d it to
-  `/var/www/coffee-cv/index.html` once, at bootstrap (root-owned, `644`) --
-  nginx serves *that* file, not the repo checkout, and reloading nginx does
-  not re-copy it. Re-copy it yourself first (`sudo cp
-  ~/coffee-vision/webapp/static/index.html /var/www/coffee-cv/index.html &&
-  sudo chmod 644 /var/www/coffee-cv/index.html`), *then* `nginx -t &&
-  systemctl reload nginx` (the reload only matters if `coffee-cv.nginx.conf.template`
-  itself changed too -- see below). Skipping the copy silently serves the old
-  page with no error anywhere.
-- nginx-config changes: the *rendered* file the VM actually reads is
-  `/etc/nginx/conf.d/coffee-cv.conf`, produced once by substituting `$DOMAIN`
-  into `coffee-cv.nginx.conf.template` at bootstrap -- syncing the template
-  to the repo checkout doesn't touch that rendered file either. Re-render it
-  (`sed 's/\$DOMAIN/yourdomain.example/g' webapp/deploy/coffee-cv.nginx.conf.template`)
-  and place the result at that path yourself, then `nginx -t && systemctl
-  reload nginx`.
-
-This is *not* a re-run of `setup_server.sh`. `systemctl enable --now` is a
-no-op on a unit that's already running, and gunicorn's sync worker doesn't
-hot-reload code -- re-running the bootstrap script would silently leave the
-old code running.
-
-**Server bootstrap or config drift** (a new box, or `/etc/nginx`, `ufw`, or the
-systemd unit itself changed):
+Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the VM over SSH. Set
+`DOMAIN` to the public host name (it is never written into git).
 
 ```
-DOMAIN=yourdomain.example sudo -E ./webapp/deploy/setup_server.sh
+scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, log dir, logrotate
+DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_s123
+scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
+scripts/deploy_webapp.sh --compare <release-id>             # training venv vs release venv, 10 photos, must be bit-identical
+DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves, backend + public site
+DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previous, restart, verify
 ```
 
-Idempotent, safe to re-run. It configures the OS/server layer only -- it does
-not restart the app service if it's already running, so a config-only re-run
-is typically followed by the restart/reload above anyway. Full step list is in
-the script itself, with reasoning inline.
+A full deploy: **preflight** (>= 5 GB available memory, >= 10 GB free on /opt, pinned uv; records the
+sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
+the manifest; the `.pt` from the working tree or the local DVC cache, refused unless its md5 matches the
+commit's `.pt.dvc`; the DINOv3 backbone, refused unless its sha256 matches `models_pretrained/manifest.json`;
+`BUILD_INFO.json` + `release.env`; the expected smoke answers from the staged tree itself) -> **stage**
+(rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **smoke**
+(the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
+sandbox; `/classify`, `/crop`, `/preview` must match the local answers: same top-1, scores within 1e-4,
+same `model_sha`) -> **render** the unit and nginx site from the commit (installed only if changed;
+`nginx -t` failure restores the old site and stops) -> **flip** (`previous` <- `current`, `current` <-
+the new release, each an atomic rename) -> **restart only if enabled** -> **verify** (backend `GET /`
+-> 404, `GET /classify` -> 405, the startup journal line's commit and `model_sha`; public page = the
+release's `index.html`; public `/classify` top-1 as expected; on failure it rolls back, or stops the
+service if there is nothing to roll back to) -> **prune** to `current` + `previous`.
 
-## Getting code (and the model) onto the VM
+**The deploy never enables the service.** If `coffee-cv-web` is disabled it stops after the flip and
+prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the VM, then
+`scripts/deploy_webapp.sh --verify`.
 
-`rsync` the repo per the recipe already used for training deploys (exclude
-`.dvc/cache`, `tensorboard/`, etc.). The one wrinkle specific to this service:
-**the shipped checkpoint's binary files don't come via `dvc pull`** -- this
-repo has no DVC remote configured at all (see top-level `README.md`), so
-`models/allrigs_mixstyle05_e100p20_s17.{pt,json,ood_reference.json}` has to be
-copied directly (`rsync`/`scp`) alongside the code. After copying, worth a
-quick integrity check since this bypasses DVC's own hash verification:
+**Fallback while only one release exists:** `scripts/deploy_webapp.sh <sha> allrigs_cam_s123` (the
+ResNet18 model; about 10 minutes). Both models are covered by `tests/test_release_manifest.py`.
 
-```
-sha256sum models/allrigs_mixstyle05_e100p20_s17.*
-# compare against the same command run on the VM
-```
+### Deploying while a sweep trains
 
-## Prerequisite: torch's pretrained-weight cache
+Allowed, up to and including the flip. Every step that runs code on the VM (venv build, compileall,
+`--compare`, the smoke) is a transient systemd unit with `ProtectSystem=strict` and `ProtectHome=
+read-only`, writable only under `/opt/coffee-cv`, at `CPUQuota=100%` (smoke 200%), `MemoryMax=3G`,
+`MemorySwapMax=0` -- an overrun kills the deploy step, never the sweep. The deploy prints the sweep's
+PIDs and log size before its first VM step and after its last. Never during a sweep: `setup_server.sh`
+(apt, ufw), `remote_launch.sh` with default paths (it deletes `~/sweep.log`), git commands that move the
+VM's checkout, reboots.
 
-`coffeecv/model.py`'s `build_model()` unconditionally requests ImageNet
-pretrained weights from `download.pytorch.org` when building the backbone,
-even though they're immediately overwritten by `load_state_dict` with our own
-checkpoint. That means **the app needs `~/.cache/torch/hub/checkpoints/`
-populated before its first start**, or it'll try to reach the internet on
-every service start for a download whose result is discarded. On the VM this
-repo has been training on, that cache already exists from the training setup.
-Deploying to a *new* box: copy that directory over first, or the service will
-hang/fail to start without internet access.
+### After changing a dependency
+
+Edit `webapp/pyproject.toml`, re-lock with the pinned uv (`uv lock --project webapp`), commit both. A
+lock that does not match `pyproject.toml` is refused by `uv sync --locked` at deploy time. A version
+change is a change in numerics: run `--compare` on the staged release before enabling it.
 
 ## Day-2 commands
 
 ```
 systemctl status coffee-cv-web nginx
-systemctl restart coffee-cv-web        # after a code/model change
-journalctl -u coffee-cv-web -f         # startup only: checkpoint/OOD-reference lines
+readlink /opt/coffee-cv/current /opt/coffee-cv/previous   # which releases
+journalctl -u coffee-cv-web -f         # startup: commit, model_sha, OOD guard
 tail -f /var/log/coffee-cv/app.jsonl   # per-request logs: verdicts, timing, errors
                                         # (never image bytes or filenames --
                                         # see docs/logging_plan.html)
 tail -f /var/log/nginx/coffee-cv.access  # nginx side of the same requests --
                                         # no client IP, joined to the line
                                         # above by request id
-nginx -t && systemctl reload nginx     # after a static/nginx-config change
 ```
 
 ## What lives outside git, and where
 
 Three things are deliberately never committed, and never named in this file
-either -- see `webapp/deploy/coffee-cv.nginx.conf.template` and
-`setup_server.sh` for exactly how each is handled:
+either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
+`setup_server.sh` and `scripts/deploy_webapp.sh` for exactly how each is handled:
 
-- **The domain.** Passed as `DOMAIN=...` when running `setup_server.sh`; the
+- **The domain.** Passed as `DOMAIN=...` to `scripts/deploy_webapp.sh`; the
   nginx config template uses a placeholder everywhere the domain would
   appear. Worth noting privately (e.g. your own shell history) since it's not
   written anywhere in this repo.
@@ -200,8 +214,9 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template` and
   This is also why AVIF/JXL/HEIF-in-JPG-clothing-style attacks are inert here
   structurally: nothing in this pipeline ever executes, unzips, or serves the
   upload as anything other than pixel data passed to `PIL.Image.open`.
-- **`coffee-cv-web.service` runs sandboxed** (`NoNewPrivileges`, `PrivateTmp`,
-  `ProtectSystem=strict`, `ProtectHome=read-only`, empty capability set,
+- **`coffee-cv-web.service` runs sandboxed**, as its own `coffee-cv` system user
+  (`NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome=true`,
+  empty capability set,
   restricted address families, seccomp `@system-service` filter) because this
   process parses attacker-supplied image data over a public endpoint, and no
   code review guarantees a native image codec (libjpeg/libwebp/libheif/

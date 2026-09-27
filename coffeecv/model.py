@@ -121,6 +121,7 @@ FROZEN_MODELS = ("dinov3_vitb16",)
 def build_model(
     name: str, num_classes: int, freeze_mode: str, dropout: float = 0.2,
     mixstyle_p: float = 0.0, mixstyle_alpha: float = 0.1, mixstyle_mode: str = "agnostic",
+    pretrained: bool = True,
 ) -> tuple[nn.Module, nn.Module]:
     """Returns (model, head_module). head_module is used by the caller to give
     the head its own (higher) learning rate, separate from any unfrozen backbone.
@@ -130,7 +131,12 @@ def build_model(
     special-cases per architecture. Raises rather than silently ignoring the
     knob on an architecture it isn't wired for, consistent with this project's
     fail-loudly-on-config-mismatch convention (RunConfig.from_params_yaml,
-    run_folds.py's CLI/config post-condition check)."""
+    run_folds.py's CLI/config post-condition check).
+
+    `pretrained=False` skips the ImageNet initialisation. Inference passes it: a checkpoint's strict
+    load_state_dict overwrites every parameter and buffer anyway, and the served process runs with
+    ProtectHome=true, where ~/.cache/torch is not visible (docs/ops1_release_isolation_plan.html §4.3).
+    Training keeps the default."""
     if mixstyle_mode not in ("agnostic", "cross_rig"):
         raise ValueError(f"Unknown mixstyle_mode: {mixstyle_mode!r} (want 'agnostic' or 'cross_rig')")
     if mixstyle_p > 0 and name != "resnet18":
@@ -147,7 +153,7 @@ def build_model(
             f"`python -m coffeecv.fit_frozen_head`, load it with coffeecv.infer.load_model. train_baseline "
             f"does not train it.")
     if name == "resnet18":
-        model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT if pretrained else None)
         _apply_freeze_mode(model, freeze_mode, last_block=model.layer4)
         in_features = model.fc.in_features
         model.fc = nn.Sequential(nn.Dropout(p=dropout), nn.Linear(in_features, num_classes))

@@ -1,0 +1,60 @@
+# The web service's environment, and nothing else's: exactly what the 13 release modules import
+# (webapp/app.py + the 11 coffeecv modules in webapp/deploy/release_manifest.py), at the versions the
+# production venv ran them with (pip freeze of ~/coffee-vision-venv, 2026-09-27). Locked in
+# webapp/uv.lock; every release's .venv is built from that lock with `uv sync --locked`, which
+# verifies each artifact's hash and refuses a lock that no longer matches this file.
+#
+# Re-lock after any edit here (locally, with the uv version pinned below):
+#     uv lock --project webapp
+# A version change is a deploy of different numerics: run deploy_webapp.sh --compare before enabling.
+# docs/ops1_release_isolation_plan.html §4.1.
+[project]
+name = "coffee-cv-webapp"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = [
+  "flask==3.1.3",
+  "gunicorn==26.2.0",
+  "numpy==2.4.4",
+  "pyyaml==6.0.3",
+  "pillow==12.2.0",
+  "pillow-heif==1.5.0",
+  "pillow-avif-plugin==1.6.0",
+  "pillow-jxl-plugin==1.3.8",
+  "rawpy==0.27.0",
+  # Headless: the service never opens a window, and the GUI build needs libGL. Same version as the
+  # production venv (which has both builds installed); --compare proves the outputs are identical.
+  "opencv-python-headless==5.0.0.93",
+  "torch==2.13.0",
+  "torchvision==0.28.0",
+  # Pinned exactly: a timm upgrade is an architecture change (coffeecv.dino_classifier refuses a
+  # checkpoint fitted under another timm version).
+  "timm==1.0.29",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# Everything pulled in transitively, held to the production freeze too.
+constraint-dependencies = [
+  "blinker==1.9.0", "click==8.4.2", "filelock==3.29.0", "fsspec==2026.4.0", "itsdangerous==2.2.0",
+  "jinja2==3.1.6", "markupsafe==3.0.3", "mpmath==1.3.0", "networkx==3.6.1", "packaging==26.3",
+  "setuptools==78.1.0", "sympy==1.14.0", "typing-extensions==4.15.0", "werkzeug==3.1.8",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+# timm without huggingface_hub/safetensors: they exist only to download pretrained weights, and this
+# service builds with pretrained=False and loads its own sha256-checked file from models_pretrained/.
+[[tool.uv.dependency-metadata]]
+name = "timm"
+version = "1.0.29"
+requires-dist = ["torch", "torchvision", "pyyaml"]
