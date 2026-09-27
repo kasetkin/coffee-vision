@@ -30,7 +30,7 @@ mkdir -p "$C/models_pretrained/dinov3"
 ln -s "$SRC/models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth" "$C/models_pretrained/dinov3/"
 while read -r photo; do
   mkdir -p "$C/$(dirname "$photo")"; ln -s "$SRC/$photo" "$C/$photo"
-done < <(grep -oE 'dataset/[^ "]+\.(jpg|JPG|HEIC)' "$SRC/scripts/deploy_webapp.sh")
+done < <(awk '!/^#/ && NF {print $3}' "$SRC/webapp/deploy/fixtures.txt")
 
 # ------------------------------------------------------------------------------------------ the stubs
 S="$R/stubs"

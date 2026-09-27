@@ -23,7 +23,9 @@ sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import all_files, manifest  # noqa: E402
 
 MODELS = ("allrigs_dino3b16_s123", "allrigs_cam_s123")
-PHOTO = REPO / "dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg"   # the deploy's smoke photo
+# The deploy's smoke photo, from the same list the deploy uses.
+PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.txt").read_text().splitlines()
+                    if line.startswith("smoke "))
 
 TRACE = r"""
 import json, sys

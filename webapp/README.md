@@ -43,7 +43,7 @@ Production does not run from a checkout. Each deploy builds an immutable release
     coffeecv/ webapp/ models/ [models_pretrained/]  release.env  .venv/  .complete
   current  -> releases/...            what the service AND nginx use
   previous -> releases/...            the rollback target (only these two are kept)
-  uv-cache/ fixtures/                 deploy's download cache; smoke/compare photos + expected answers
+  uv-cache/ fixtures/                 deploy's download cache; the photos of webapp/deploy/fixtures.txt + expected answers
 /var/log/coffee-cv/                   owner coffee-cv
 ```
 

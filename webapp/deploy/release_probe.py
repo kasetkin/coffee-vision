@@ -3,7 +3,9 @@
 Run from inside a release directory (its cwd), with whichever interpreter is under test:
 
     python -B release_probe.py smoke PHOTO          # /classify, /crop, /preview via Flask's test client
-    python -B release_probe.py classify PHOTO...    # classify_one's full entry per photo, for --compare
+    python -B release_probe.py classify --list fixtures.txt --role compare --dir PHOTOS_DIR
+                                                    # classify_one's full entry per photo, for --compare
+    python -B release_probe.py classify PHOTO...    # the same, on photos named directly
 
 Each prints one line, `PROBE <json>`. The model comes from COFFEE_CV_CHECKPOINT (release.env) and the
 request log goes to COFFEE_CV_LOG_DIR, exactly as in the service. This file is deploy tooling and is
@@ -79,6 +81,27 @@ def classify(photos: list[Path]) -> None:
     import numpy, torch
     _emit({"build": app.BUILD, "entries": entries, "python": sys.version.split()[0],
            "numpy": numpy.__version__, "torch": torch.__version__, "torch_threads": torch.get_num_threads()})
+
+
+def read_fixtures(list_file: Path, role: str, photo_dir: Path) -> list[Path]:
+    """The `role` photos of a fixtures.txt (`<role> <sha256> <repo path>` per line), found by basename in
+    photo_dir and checked against their sha256 -- the list travels as a file, never as argv."""
+    import hashlib
+
+    photos = []
+    for line in list_file.read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        r, sha, path = line.split()
+        if r != role:
+            continue
+        photo = photo_dir / Path(path).name
+        if hashlib.sha256(photo.read_bytes()).hexdigest() != sha:
+            raise SystemExit(f"release_probe: {photo} does not match its sha256 in {list_file}")
+        photos.append(photo)
+    if not photos:
+        raise SystemExit(f"release_probe: no {role!r} photos in {list_file}")
+    return photos
 
 
 def _probe_line(text: str) -> dict:
@@ -197,7 +220,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("smoke").add_argument("photo", type=Path)
-    sub.add_parser("classify").add_argument("photos", type=Path, nargs="+")
+    p = sub.add_parser("classify")
+    p.add_argument("photos", type=Path, nargs="*")
+    p.add_argument("--list", type=Path, help="a fixtures.txt to take the photos from")
+    p.add_argument("--role", default="compare")
+    p.add_argument("--dir", type=Path, help="where the --list photos are, by basename")
     p = sub.add_parser("compare-smoke")
     p.add_argument("expected", type=Path)
     p.add_argument("smoke", type=Path)
@@ -212,7 +239,9 @@ def main() -> None:
     if args.cmd == "smoke":
         smoke(args.photo)
     elif args.cmd == "classify":
-        classify(args.photos)
+        if bool(args.list) == bool(args.photos):
+            ap.error("classify takes either --list (with --dir) or photo paths")
+        classify(read_fixtures(args.list, args.role, args.dir) if args.list else args.photos)
     elif args.cmd == "compare-smoke":
         compare_smoke(args.expected, args.smoke)
     else:

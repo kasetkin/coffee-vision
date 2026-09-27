@@ -47,27 +47,14 @@ UV_BIN=${UV_BIN:-/usr/local/bin/uv}
 PY_BIN=${PY_BIN:-/usr/bin/python3.12}
 TRAIN_PY=${TRAIN_PY:-/home/$APP_USER/coffee-vision-venv/bin/python}
 
-# Fixed photos, pinned by path and sha256. The smoke photo is what every deploy sends to all three
-# endpoints (one the tray crop fires on, so /crop's box is compared too); the compare set is one per
-# class across six sessions and four cameras, two of them HEIC.
-SMOKE_PHOTO="dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg 30179e3dc9607ac65187914d7b9c2d33ebeae30e263469e2f945d99190e28665"
-COMPARE_PHOTOS=(
-  "dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130838005.jpg 254de232ad1afbb01b56e69639560b03a80dc0df3e731aa2c031b4fae416d9dd"
-  "dataset/2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_201618.JPG 4e46f8056de4cd24b830b5e74df272200b3108523cec2cc4f1861b3326ab6eab"
-  "dataset/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6258D.HEIC 072da5af33c26c46ca80fd78678b6662ae1262a996ffcf8f68a8b1ca1a27f03e"
-  "dataset/2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195610599.jpg 474bd0b21d60a1e466fe394572f1dbd190d15ff4cc090525348b803a56f8fb08"
-  "dataset/2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_072408172.jpg 18939747dfd227d78e5ba2cad3afb30b98344f5c8b7c4251167b5b86fd01ac94"
-  "dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_135958599.jpg 94fb46d397f3f429644200589ac7313dfad2e4fa0afdef26350624ce2296c69f"
-  "dataset/2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6291D.HEIC ba5293ff264b33261acdf83cfa764c863e513db5b36315c903dbf47e859b564c"
-  "dataset/2026-08-09__sony_cam/class_008__Ethiopia_Kochere/PIC_20260809_202937.JPG 5d5d8458ba2bad2318bc359a35652f7e8adfb9b74d1ad1e370ec42d637a79b5e"
-  "dataset/2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185019541.jpg 7f1f3fe470a03c83e2b68f6eb48369eb0f12c7ad73df068b7dd4c4c3158663a9"
-  "dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200129.JPG 932942572f0e3ad56d81d86cb5dfd963073ee9b2854340648e86ca76f2b5e6d9"
-)
-
 REPO=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 SCRATCH=${DEPLOY_SCRATCH:-${XDG_CACHE_HOME:-$HOME/.cache}/coffee-cv-deploy}
 DEPLOY_DIR="$REPO/webapp/deploy"
 FIX="$APP_ROOT/fixtures"          # on the VM: probe script, photos, expected answers -- never in a release
+# The fixed photos every release is run through: webapp/deploy/fixtures.txt, one "<role> <sha256> <path>"
+# per line (one smoke photo; the compare set). One file for the deploy, the probe, the test and the rehearsal.
+FIXTURES="$DEPLOY_DIR/fixtures.txt"
+fixtures() { awk -v r="$1" '$1 == r {print $3}' "$FIXTURES"; }   # fixtures <role>: repo paths
 
 # Keepalives: a silent link is noticed in ~1 min instead of hanging, and an idle one is not dropped.
 SSH_OPTS=(-o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
@@ -227,7 +214,7 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   note "expected smoke answers: the staged tree's own webapp.app, locally"
   local logs; logs=$(mktemp -d)
   (cd "$STAGE" && COFFEE_CV_CHECKPOINT="models/$model.pt" COFFEE_CV_LOG_DIR="$logs" PYTHONDONTWRITEBYTECODE=1 \
-      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$REPO/${SMOKE_PHOTO%% *}" 2>"$logs/stderr") \
+      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$REPO/$(fixtures smoke)" 2>"$logs/stderr") \
       > "$SCRATCH/$ID.expected.json" || { tail -20 "$logs/stderr"; die "the staged tree failed locally"; }
   rm -rf "$logs"
   jq -r '"   /classify \(.classify.body.verdict), top-1 \(.classify.body.ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
@@ -235,19 +222,22 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
 }
 
 check_fixtures() {
-  local entry
-  for entry in "$SMOKE_PHOTO" "${COMPARE_PHOTOS[@]}"; do
-    [[ -f "$REPO/${entry%% *}" ]] || die "fixture photo ${entry%% *} is missing"
-    [[ "$(sha256sum < "$REPO/${entry%% *}" | cut -c1-64)" == "${entry##* }" ]] || die "fixture photo ${entry%% *} changed"
-  done
+  local sha path
+  [[ "$(fixtures smoke | wc -l)" == 1 ]] || die "$FIXTURES must name exactly one smoke photo"
+  [[ -z "$(awk '!/^#/ && NF {print $3}' "$FIXTURES" | xargs -n1 basename | sort | uniq -d)" ]] \
+    || die "$FIXTURES: photo basenames must be unique (the VM stores them flat)"
+  while read -r _ sha path; do
+    [[ -f "$REPO/$path" ]] || die "fixture photo $path is missing"
+    [[ "$(sha256sum < "$REPO/$path" | cut -c1-64)" == "$sha" ]] || die "fixture photo $path does not match its sha256 in $FIXTURES"
+  done < <(grep -v '^#' "$FIXTURES" | grep .)
 }
 
 send_fixtures() {
-  local files=() entry
-  for entry in "$SMOKE_PHOTO" "${COMPARE_PHOTOS[@]}"; do files+=("$REPO/${entry%% *}"); done
+  local files=() path
+  while read -r path; do files+=("$REPO/$path"); done < <(awk '!/^#/ && NF {print $3}' "$FIXTURES")
   vm 'mkdir -p "$APP_ROOT/fixtures/photos" "$APP_ROOT/fixtures/expected"'
   to_vm -a --chmod=D755,F644 "${files[@]}" "$FIX/photos/"
-  to_vm -a --chmod=F644 "$DEPLOY_DIR/release_probe.py" "$FIX/"
+  to_vm -a --chmod=F644 "$DEPLOY_DIR/release_probe.py" "$FIXTURES" "$FIX/"
 }
 
 # --------------------------------------------------------------------------------------------- stage
@@ -349,7 +339,7 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
     echo "SMOKE_PREVIEW $(curl -s -o /dev/null -w "%{http_code} %{content_type} %{size_download}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/preview")"
     echo "SMOKE_RSS $(systemctl show -p MemoryPeak --value "$U")"
     echo "SMOKE_LOG $(grep "\"endpoint\": \"/classify\"" "$LOG_ROOT/smoke/app.jsonl" | tail -1)"
-  ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "${SMOKE_PHOTO%% *}")") || rc=$?
+  ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "$(fixtures smoke)")") || rc=$?
   printf '%s\n' "$out" > "$SCRATCH/$id.smoke.txt"
   if (( rc != 0 )); then
     grep -v '^SMOKE_LOG ' <<<"$out" | sed 's/^/   /'
@@ -468,7 +458,8 @@ verify() {   # returns non-zero on a failed check
     code=$(curl -s -o "$body" -w '%{http_code}' "$PUBLIC_URL/")
     check "public GET /" "$code" 200
     check "public page = the release's index.html" "$(sha256sum < "$body" | cut -c1-64)" "$(kv INDEX_SHA "$out")"
-    local photo="$REPO/${SMOKE_PHOTO%% *}" want
+    local photo want
+    photo="$REPO/$(fixtures smoke)"
     code=$(curl -s -o "$body" -w '%{http_code}' -F "photo=@$photo" "$PUBLIC_URL/classify")
     if [[ "$code" == 503 ]]; then sleep 3; code=$(curl -s -o "$body" -w '%{http_code}' -F "photo=@$photo" "$PUBLIC_URL/classify"); fi
     if [[ "$enabled" == enabled ]]; then
@@ -527,25 +518,24 @@ prune() {
 }
 
 compare() {   # compare <release id>: the staged code under the training venv vs its own venv
-  local id=$1 names=() entry
-  for entry in "${COMPARE_PHOTOS[@]}"; do names+=("$(basename "${entry%% *}")"); done
+  local id=$1
   preflight
   check_fixtures
   send_fixtures
-  say "Compare $id: training venv ($TRAIN_PY -B) vs release venv, ${#names[@]} photos (capped: 1 CPU)"
+  say "Compare $id: training venv ($TRAIN_PY -B) vs release venv, $(fixtures compare | wc -l) photos (capped: 1 CPU)"
   local run='
     R="$APP_ROOT/releases/$ID"
     [[ -f "$R/.complete" ]] || { echo "$R is not a complete release"; exit 1; }
     ckpt=$(sed -n "s/^COFFEE_CV_CHECKPOINT=//p" "$R/release.env")
-    photos=(); for n in $NAMES; do photos+=("$APP_ROOT/fixtures/photos/$n"); done
     capped 100% "$R" -E COFFEE_CV_CHECKPOINT="$ckpt" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs \
       -E PYTHONDONTWRITEBYTECODE=1 -E OMP_NUM_THREADS=1 \
-      "$PY" -B "$APP_ROOT/fixtures/release_probe.py" classify "${photos[@]}" 2> >(tail -5 >&2)'
+      "$PY" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.txt" \
+        --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)'
   mkdir -p "$SCRATCH"
   local t0=$SECONDS
-  vm "$run" ID="$id" NAMES="${names[*]}" PY="$TRAIN_PY" > "$SCRATCH/$id.compare-training.json" || die "the training-venv run failed"
+  vm "$run" ID="$id" PY="$TRAIN_PY" > "$SCRATCH/$id.compare-training.json" || die "the training-venv run failed"
   note "training venv: $((SECONDS - t0)) s"; t0=$SECONDS
-  vm "$run" ID="$id" NAMES="${names[*]}" PY="$APP_ROOT/releases/$id/.venv/bin/python" > "$SCRATCH/$id.compare-release.json" || die "the release-venv run failed"
+  vm "$run" ID="$id" PY="$APP_ROOT/releases/$id/.venv/bin/python" > "$SCRATCH/$id.compare-release.json" || die "the release-venv run failed"
   note "release venv: $((SECONDS - t0)) s"
   local rc=0
   "$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" compare-classify "$SCRATCH/$id.compare-training.json" "$SCRATCH/$id.compare-release.json" || rc=$?
