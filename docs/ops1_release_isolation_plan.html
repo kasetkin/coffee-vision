@@ -1,0 +1,574 @@
+<title>Release Isolation Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">OPS-1 · coffee-vision · implementation plan</div>
+  <h1>Serve the webapp from isolated releases in /opt</h1>
+  <p class="lede">The production service moves out of the training checkout into immutable releases under <code>/opt/coffee-cv</code>, each
+    with its own uv-managed environment and only the files it needs. Deploys are one command, can run while a sweep trains, and never touch it.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Ready for implementation</span></span></div>
+    <div class="field"><span class="k">Owner</span><span class="v">Alex Kasatkin (approvals, enabling the service)</span></div>
+    <div class="field"><span class="k">Implementer</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Host</span><span class="v mono">powervpsssh (4 cores, 16 GB)</span></div>
+    <div class="field"><span class="k">First release</span><span class="v mono">allrigs_dino3b16_s123</span></div>
+    <div class="field"><span class="k">Deploys from</span><span class="v mono">origin/main</span></div>
+    <div class="field"><span class="k">Service user</span><span class="v mono">coffee-cv</span></div>
+    <div class="field"><span class="k">Date</span><span class="v mono">2026-09-27</span></div>
+  </div>
+
+  <h2>1. Goal</h2>
+  <p>Today <code>coffee-cv-web</code> runs from <code>~/coffee-vision</code> with <code>~/coffee-vision-venv</code>, the same checkout and venv
+    that training sweeps rewrite and install into, and its ResNet18 path reads <code>~/.cache/torch</code> at every start. What production serves
+    therefore depends on the state of whatever experiment is running, and the site has been switched off for every sweep. It has been off since 2026-09-20.</p>
+  <p>End state:</p>
+  <ul>
+    <li>The service runs from a release directory under <code>/opt/coffee-cv</code>, with its own environment and nothing under <code>/home</code>.</li>
+    <li>Nothing done in the training checkout or venv changes what production serves.</li>
+    <li>A deploy is one command. It may run while a sweep trains, and once two releases exist, rolling back is one command too.</li>
+  </ul>
+
+  <h2>2. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Serve from <code>/opt/coffee-cv/releases/&lt;id&gt;</code>, selected by a <code>current</code> symlink. Keep only <code>current</code> and <code>previous</code>.</td>
+        <td>Production shares no files with training. Switching releases is one atomic symlink change. Two releases keep disk use bounded and still allow a one-command rollback.</td></tr>
+      <tr><td>One uv-managed <code>.venv</code> per release, with packages copied (<code>UV_LINK_MODE=copy</code>) and versions locked in <code>webapp/uv.lock</code>.</td>
+        <td>Installs are reproducible and hash-verified. Each release is fully independent, so a rollback restores exactly the packages that release was tested with.</td></tr>
+      <tr><td>Copy only the files the service opens, as listed in the release manifest.</td>
+        <td>Nothing training writes can reach production, and a test keeps the list accurate.</td></tr>
+      <tr><td>The model is chosen inside the release, in <code>release.env</code>.</td>
+        <td>Code and model always switch together, and roll back together.</td></tr>
+      <tr><td>nginx serves the page from the release (<code>current/webapp/static</code>).</td>
+        <td>The page and the API it calls change together, and there is no manual copy step to forget.</td></tr>
+      <tr><td>The service runs as a dedicated <code>coffee-cv</code> system user, in the existing systemd sandbox tightened to <code>ProtectHome=true</code>.</td>
+        <td>A compromised worker can neither reach home directories nor signal the training jobs, which run as <code>alioth</code>.</td></tr>
+      <tr><td>Deploy only commits on <code>origin/main</code>, starting with a fast-forward of <code>main</code> to <code>dino-integration</code>.</td>
+        <td><code>main</code> becomes the record of what production runs, and every commit that is ever served is backed up on GitHub.</td></tr>
+      <tr><td>The first release ships <code>allrigs_dino3b16_s123</code>.</td>
+        <td>Owner's choice. Until a second release exists, the fallback is redeploying <code>allrigs_cam_s123</code> with the same script (about 10 minutes).</td></tr>
+      <tr><td>Deploys may run while a sweep trains, inside kernel-enforced limits (§5).</td>
+        <td>The site no longer waits days for a sweep to end, and the limits guarantee that the sweep's files, memory and disk space stay untouched.</td></tr>
+      <tr><td>The VM's sweep commits come back through plain merges and <code>tmp/*</code> branches (§6).</td>
+        <td><code>experiments/index.csv</code> records the commit each run was trained on. Merges keep every recorded hash valid.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. Target layout</h2>
+<pre>/home/alioth/coffee-vision/         training only (unchanged)
+/home/alioth/coffee-vision-venv/    training only (unchanged)
+/opt/coffee-cv/                     owner alioth, 0755
+  releases/
+    20260928T0800Z-&lt;sha7&gt;-allrigs_dino3b16_s123/
+      coffeecv/            11 modules
+      models/              one model + its sidecars
+      models_pretrained/   DINOv3 backbone + manifest (DINOv3 models only)
+      webapp/              app.py, BUILD_INFO.json, pyproject.toml, uv.lock
+        static/index.html  nginx root
+      release.env          COFFEE_CV_CHECKPOINT=models/&lt;name&gt;.pt
+      .venv/               uv sync --locked, built in place
+      .complete            written last; marks the release as usable
+  current  -&gt; releases/…   what the service and nginx use
+  previous -&gt; releases/…   the rollback target
+  uv-cache/                download cache for uv
+/var/log/coffee-cv/                 owner coffee-cv</pre>
+  <p>Paths use three template variables with these defaults: <code>APP_ROOT=/opt/coffee-cv</code>, <code>APP_USER=alioth</code> (the deploy
+    user) and <code>SERVICE_USER=coffee-cv</code>. They are rendered with <code>envsubst</code>, like <code>$DOMAIN</code> is today.</p>
+
+  <h2>4. What to build</h2>
+
+  <h3>4.1 Python environment (uv)</h3>
+  <ul>
+    <li><strong>What to declare.</strong> <code>webapp/pyproject.toml</code> lists exactly what the 13 release modules import. Versions are copied
+      from <code>pip freeze</code> of the production venv on the VM, a read-only step. Transitive packages are held to the same freeze with
+      <code>constraint-dependencies</code>. <code>webapp/uv.lock</code> is committed, and uv verifies every artifact's hash from it on install.</li>
+    <li><strong>torch and torchvision</strong> come from the PyTorch CPU index through <code>[tool.uv.sources]</code>. <code>environments</code>
+      limits the lock to Linux x86_64, the only platform it serves.</li>
+    <li><strong>timm 1.0.29</strong> is declared without <code>huggingface_hub</code>/<code>safetensors</code> through
+      <code>[[tool.uv.dependency-metadata]]</code>. Those two exist only to download weights, and the service never downloads anything.</li>
+    <li><strong>opencv</strong> is the headless build, at the production version. If the pre-cutover comparison (§4.8) shows any difference, switch to
+      the build the production venv has.</li>
+    <li><strong>uv itself</strong> is pinned with <code>required-version</code>. It is installed as one binary at <code>/usr/local/bin/uv</code> on
+      the VM, checked by sha256, and at the same version locally, where <code>uv lock</code> runs.</li>
+  </ul>
+<pre><code># webapp/pyproject.toml   (‹prod› = version from the production pip freeze)
+[project]
+name = "coffee-cv-webapp"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = [
+  "flask==3.1.3", "gunicorn==26.2.0", "numpy==2.4.4", "pyyaml==6.0.3",
+  "pillow==12.2.0", "pillow-heif==‹prod›", "pillow-avif-plugin==1.6.0",
+  "pillow-jxl-plugin==1.3.8", "rawpy==0.27.0", "opencv-python-headless==‹prod›",
+  "torch==2.13.0", "torchvision==0.28.0", "timm==1.0.29",
+]
+
+[tool.uv]
+package = false
+required-version = "==‹uv version›"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+constraint-dependencies = ["werkzeug==3.1.8", "jinja2==3.1.6", "…"]   # rest of the prod freeze
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.dependency-metadata]]
+name = "timm"
+version = "1.0.29"
+requires-dist = ["torch", "torchvision", "pyyaml"]</code></pre>
+  <p>Each release's venv is built on the VM at the release's final path, inside a capped unit (§5):</p>
+<pre><code>export UV_CACHE_DIR=/opt/coffee-cv/uv-cache UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+export UV_PROJECT_ENVIRONMENT=/opt/coffee-cv/releases/$ID/.venv
+cd /opt/coffee-cv/releases/$ID
+uv sync --project webapp --locked --no-dev --compile-bytecode --python /usr/bin/python3.12
+.venv/bin/python -m compileall -q coffeecv webapp</code></pre>
+  <ul>
+    <li><code>--locked</code> refuses a lock that no longer matches <code>pyproject.toml</code>.</li>
+    <li><code>/usr/bin/python3.12</code> with <code>UV_PYTHON_DOWNLOADS=never</code> keeps the interpreter outside <code>/home</code> and identical
+      to the one production uses today.</li>
+    <li>Bytecode is compiled at build time because the service can neither write <code>.pyc</code> files nor afford to compile torch on every start.</li>
+    <li>The venv is built in its final directory and never moved, because the console scripts in <code>.venv/bin</code> contain its absolute path.</li>
+  </ul>
+
+  <h3>4.2 Release manifest</h3>
+  <p>Traced by importing <code>webapp.app</code> under a Python audit hook and sending real requests, then recording every repo file that was opened:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Group</th><th>Files</th><th class="num">Count</th></tr></thead>
+    <tbody>
+      <tr><td>App code</td><td><code>webapp/__init__.py</code>, <code>webapp/app.py</code></td><td class="num">2</td></tr>
+      <tr><td>Library code</td><td><code>coffeecv/</code>: <code>__init__</code>, <code>backbones</code>, <code>bean_scale</code>, <code>config</code>,
+        <code>crop_tray</code>, <code>dataset</code>, <code>dino_classifier</code>, <code>geometry</code>, <code>infer</code>, <code>model</code>, <code>transforms</code> (<code>.py</code>)</td><td class="num">11</td></tr>
+      <tr><td>Model</td><td><code>models/&lt;name&gt;.pt</code> (DVC), plus git-tracked <code>.pt.dvc</code>, <code>.json</code> (card),
+        <code>.classes.txt</code>, <code>.ood_reference.json</code>, <code>.ood_probe.json</code></td><td class="num">6</td></tr>
+      <tr><td>DINOv3 models</td><td><code>models_pretrained/manifest.json</code> (git), <code>models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth</code>
+        (untracked; checked against the manifest's sha256)</td><td class="num">2</td></tr>
+      <tr><td>Frontend</td><td><code>webapp/static/index.html</code></td><td class="num">1</td></tr>
+      <tr><td>Generated</td><td><code>webapp/BUILD_INFO.json</code>, <code>release.env</code></td><td class="num">2</td></tr>
+      <tr><td>Environment</td><td><code>webapp/pyproject.toml</code>, <code>webapp/uv.lock</code></td><td class="num">2</td></tr>
+    </tbody>
+  </table></div>
+  <p>Not shipped: <code>params.yaml</code> (the model card supplies the config), <code>dataset/</code>, <code>data/</code>, <code>outputs/</code>,
+    <code>*.ood_embeddings.npz</code>, <code>.git</code>, <code>coffeecv_dino/</code>, tests and docs.</p>
+  <p><code>tests/test_release_manifest.py</code> repeats the trace for both model types (<code>allrigs_dino3b16_s123</code> and
+    <code>allrigs_cam_s123</code>) and all three endpoints (<code>/classify</code>, <code>/crop</code>, <code>/preview</code>). It fails if the app
+    opens any repo file outside the manifest. The deploy checks the other direction: a staged release holds nothing beyond the manifest, the generated
+    files, <code>.venv</code> and <code>.complete</code>.</p>
+
+  <h3>4.3 ResNet18 without downloaded weights</h3>
+  <p>For inference, <code>build_model</code> creates the ResNet18 backbone with <code>weights=None</code>, set by a flag passed from
+    <code>coffeecv/infer.py:264</code>. Training keeps its ImageNet initialisation.</p>
+  <p><strong>Why:</strong> the fallback model, <code>allrigs_cam_s123</code>, must start under <code>ProtectHome=true</code>, which hides
+    <code>~/.cache/torch</code>. <code>load_model</code> uses <code>load_state_dict</code> with <code>strict=True</code>
+    (<code>coffeecv/infer.py:265</code>), so the checkpoint overwrites every parameter and buffer anyway. The test is therefore bit-identical logits
+    before and after the change, on a fixed image set.</p>
+
+  <h3>4.4 Build stamp</h3>
+  <p><code>webapp/deploy/write_build_info.py</code> gains <code>--ref &lt;sha&gt;</code> and <code>--model &lt;name&gt;</code>. It writes the ref's
+    commit, <code>dirty: false</code> and the model name. <strong>Why:</strong> a release is exported from a commit, not from the working tree, and
+    the app puts this stamp on its startup line and on every request line.</p>
+
+  <h3>4.5 Service unit</h3>
+  <p><code>webapp/deploy/coffee-cv-web.service.template</code> changes these lines. Every other hardening line stays as it is.</p>
+<pre><code>User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$RELEASE_DIR
+EnvironmentFile=$RELEASE_DIR/release.env
+Environment=PYTHONDONTWRITEBYTECODE=1 COFFEE_CV_LOG_DIR=$LOG_DIR
+ExecStart=$RELEASE_DIR/.venv/bin/gunicorn -w 1 --worker-class sync \
+    -b 127.0.0.1:$PORT --timeout 30 --no-control-socket webapp.app:app
+ProtectHome=true
+ReadWritePaths=/var/log/coffee-cv</code></pre>
+  <ul>
+    <li><strong>Two renderings of one template:</strong>
+      <ul>
+        <li>production: <code>RELEASE_DIR=/opt/coffee-cv/current</code>, <code>PORT=8000</code>, <code>LOG_DIR=/var/log/coffee-cv</code>;</li>
+        <li>smoke test: <code>RELEASE_DIR=/opt/coffee-cv/releases/&lt;id&gt;</code>, <code>PORT=8001</code>,
+          <code>LOG_DIR=/var/log/coffee-cv/smoke</code>.</li>
+      </ul>
+      Both run as <code>$SERVICE_USER</code>, so their sandboxing is identical.</li>
+    <li><strong>Which release a process uses:</strong> systemd resolves <code>current</code> when the service starts, and
+      <code>coffeecv.config.REPO_ROOT</code> is built with <code>Path.resolve()</code>. A running process therefore stays on the release it started
+      from until it is restarted.</li>
+    <li><strong>Permissions:</strong> releases are owned by <code>alioth</code> with modes 0755/0644, so <code>coffee-cv</code> can read them but not
+      write them. <code>ProtectSystem=strict</code> makes them read-only to the service as well.</li>
+    <li><strong>Logs:</strong> <code>coffee-cv.logrotate.template</code> uses <code>su $SERVICE_USER $SERVICE_USER</code>.</li>
+  </ul>
+
+  <h3>4.6 nginx</h3>
+  <p>In <code>coffee-cv.nginx.conf.template</code>, <code>root</code> becomes <code>$APP_ROOT/current/webapp/static</code>. Nothing else changes.
+    nginx follows the symlink on every request, so the page switches at the flip.</p>
+
+  <h3>4.7 Server scripts</h3>
+  <ul>
+    <li><strong><code>setup_server.sh</code></strong> keeps only the prerequisites for a fresh box: installing nginx, the cert directory and its
+      permissions, and ufw. It drops:
+      <ul>
+        <li>the pip install into the training venv;</li>
+        <li>rendering the unit, nginx and logrotate files;</li>
+        <li>the <code>/var/www</code> copy;</li>
+        <li><code>systemctl enable --now</code>.</li>
+      </ul>
+      A fresh box has no release to run until the first deploy, and <code>deploy_webapp.sh</code> owns every rendered file from now on.</li>
+    <li><strong><code>deploy_webapp.sh --bootstrap</code></strong> does the one-time setup. Every part of it is safe while a sweep trains:
+      <ul>
+        <li>create the <code>coffee-cv</code> system user (no login, no home);</li>
+        <li>create <code>/opt/coffee-cv</code>, owned by <code>alioth</code>;</li>
+        <li>install the pinned uv;</li>
+        <li>hand <code>/var/log/coffee-cv</code> and its files to <code>coffee-cv</code>;</li>
+        <li>render the logrotate file.</li>
+      </ul></li>
+    <li><strong><code>webapp/README.md</code></strong> describes the new deploy, rollback and fallback commands.</li>
+  </ul>
+
+  <h3>4.8 Deploy script: <code>scripts/deploy_webapp.sh &lt;git-ref&gt; &lt;model-name&gt;</code></h3>
+  <p>Runs locally and drives the VM over SSH. Options:</p>
+  <ul>
+    <li><code>--bootstrap</code>: the one-time setup in §4.7;</li>
+    <li><code>--stage-only</code>: preflight and steps 1–3, no flip;</li>
+    <li><code>--compare</code>: the pre-cutover comparison, described after the steps;</li>
+    <li><code>--verify</code>: step 7 alone;</li>
+    <li><code>--rollback</code>: switch back to <code>previous</code>.</li>
+  </ul>
+  <p>It reads <code>DOMAIN</code>, <code>APP_USER</code>, <code>SERVICE_USER</code>, <code>APP_ROOT</code> and <code>HOST</code> (default
+    <code>powervpsssh</code>).</p>
+  <ol>
+    <li><strong>Preflight</strong> (VM, read-only). Refuse to continue unless <code>MemAvailable</code> is at least 5 GB, <code>/opt</code> has at
+      least 10 GB free, and uv is at the pinned version. Record the sweep's PIDs and the size of <code>~/sweep.log</code> (§5).</li>
+    <li><strong>Build from the ref, locally.</strong>
+      <ul>
+        <li>Resolve the ref to a sha after <code>git fetch origin</code>. Refuse the sha unless
+          <code>git merge-base --is-ancestor &lt;sha&gt; origin/main</code> passes.</li>
+        <li><code>git archive</code> the manifest's git-tracked paths.</li>
+        <li>Add <code>models/&lt;name&gt;.pt</code> from the working tree or the local DVC cache
+          (<code>.dvc/cache/files/md5/&lt;aa&gt;/&lt;rest&gt;</code>). Refuse if its md5 differs from the ref's <code>.pt.dvc</code>.</li>
+        <li>For DINOv3, add the backbone <code>.pth</code>. Refuse if its sha256 differs from the ref's <code>models_pretrained/manifest.json</code>.</li>
+        <li>Write <code>BUILD_INFO.json</code> and <code>release.env</code>.</li>
+        <li>Compute the smoke test's expected response locally: run the staged tree's own <code>webapp.app</code> through Flask's test client on the
+          smoke photo, with <code>COFFEE_CV_LOG_DIR</code> pointed at a scratch directory. The smoke photo is one fixed raw photo from
+          <code>dataset/</code>, pinned by path and sha256 in the script.</li>
+      </ul></li>
+    <li><strong>Stage in place.</strong>
+      <ul>
+        <li>rsync to <code>/opt/coffee-cv/releases/&lt;id&gt;/</code> with <code>--copy-dest</code> pointing at the current release, so files that
+          haven't changed are copied on the VM instead of sent over the network again.</li>
+        <li>Build the venv (§4.1) inside a capped unit (§5).</li>
+        <li>Check the contents against the manifest, then write <code>.complete</code>.</li>
+      </ul></li>
+    <li><strong>Smoke-test in the real sandbox.</strong>
+      <ul>
+        <li>Render the smoke unit and its limits drop-in (§5), then start it.</li>
+        <li>POST the smoke photo to <code>/classify</code>, <code>/crop</code> and <code>/preview</code>. Top-1 must match exactly, and scores must
+          agree within 1e-4, because float32 results differ slightly between machines. <code>model_sha</code> must match.</li>
+        <li>Record time-to-ready and request latency. Gate on them only when no sweep is running, since the caps throttle the smoke on purpose.
+          gunicorn's 30 s timeout also covers worker boot.</li>
+        <li>Stop and remove the unit, its drop-in and <code>/var/log/coffee-cv/smoke</code>.</li>
+      </ul></li>
+    <li><strong>Render the production files.</strong> Render the unit and the nginx config.
+      <ul>
+        <li>If the unit changed, install it and run <code>daemon-reload</code>.</li>
+        <li>If the nginx config changed, back up the old file, install the new one and run <code>nginx -t</code>. If the test fails, restore the
+          backup and stop.</li>
+      </ul>
+      All of this happens before the flip.</li>
+    <li><strong>Flip.</strong> Point <code>previous</code> at the old target, then
+      <code>ln -sfn releases/&lt;id&gt; current.new &amp;&amp; mv -T current.new current</code>. Reload nginx if its config changed.</li>
+    <li><strong>Restart</strong> <code>coffee-cv-web</code> only if it is enabled. If it is disabled, stop here and print
+      <code>systemctl enable --now coffee-cv-web</code> followed by <code>deploy_webapp.sh --verify</code>.</li>
+    <li><strong>Verify.</strong>
+      <ul>
+        <li>Backend, on <code>127.0.0.1:8000</code>: <code>GET /</code> → 404, <code>GET /classify</code> → 405, and the startup journal line shows
+          the expected commit and <code>model_sha</code>.</li>
+        <li>Public site: <code>GET https://$DOMAIN/</code> → 200 with a body whose sha256 equals the release's <code>index.html</code>. A
+          <code>POST /classify</code> of the smoke photo returns the expected top-1; retry it once on 503, because nginx allows one request in flight.</li>
+        <li>If a check fails: roll back when <code>previous</code> exists; otherwise stop the service, which leaves the site as it is today (page up,
+          <code>/classify</code> 502), and report.</li>
+      </ul></li>
+    <li><strong>Prune and postflight.</strong> Keep <code>current</code> and <code>previous</code>, and delete every other release, including any
+      without <code>.complete</code>. Run <code>uv cache prune</code>. Print the sweep's PIDs and log size next to the preflight values.</li>
+  </ol>
+  <p><strong><code>--rollback</code></strong> swaps <code>current</code> and <code>previous</code>, restarts the service and runs step 7. Model and
+    page follow the symlink. <strong>Fallback before a second release exists:</strong> <code>deploy_webapp.sh &lt;sha&gt; allrigs_cam_s123</code>.</p>
+  <p><strong><code>--compare</code></strong> checks that the new venv gives the same answers as the old one. It runs the staged release's code on a
+    fixed set of 10 raw photos (pinned in the script), inside a capped unit, twice: once with the training venv's interpreter
+    (<code>python -B</code>, so nothing is written into that venv) and once with the release venv. Same machine, code and weights, so the outputs must
+    be bit-identical; any difference comes from a package version and must be explained before the service is enabled. If the training venv lacks
+    timm 1.0.29, compare against the local outputs instead, within 1e-4.</p>
+
+  <h2>5. Running alongside a sweep</h2>
+  <p>Everything up to and including the flip may run while a sweep trains. The service stays off until the owner enables it. Each way the deploy could
+    reach the sweep is bounded by the kernel:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Resource</th><th>Guarantee</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>Files</td><td>Nothing of the sweep's is written: <code>~/coffee-vision</code>, <code>~/coffee-vision-venv</code>,
+        <code>~/sweep.log</code>, <code>~/sweep_status.log</code>, <code>~/.cache</code>.</td>
+        <td>Every code-running step (venv build, <code>compileall</code>, <code>--compare</code>, smoke) runs as a transient systemd unit with
+        <code>ProtectSystem=strict</code> and <code>ProtectHome=read-only</code> (the smoke: <code>true</code>). Only <code>/opt/coffee-cv</code>
+        is writable to it, plus <code>/var/log/coffee-cv/smoke</code> for the smoke. The other steps write fixed absolute paths under
+        <code>/opt/coffee-cv</code>, <code>/run/systemd/system</code> and, for the rendered production files, <code>/etc</code>.</td></tr>
+      <tr><td>Processes</td><td>Nothing the sweep runs is signalled, restarted or reloaded.</td>
+        <td>The sweep is not a systemd unit. <code>daemon-reload</code> and an nginx reload act only on their own units. The service is not started
+        while it is disabled.</td></tr>
+      <tr><td>Memory</td><td>An overrun kills the deploy step, never the sweep.</td>
+        <td><code>MemoryMax=3G</code> and <code>MemorySwapMax=0</code> on every unit, so the OOM killer acts only inside that unit. The page cache
+        from its writes is charged to the unit too, so it cannot push the sweep's cached data out of memory. Preflight requires 5 GB available.</td></tr>
+      <tr><td>CPU</td><td>At most 1 logical CPU for builds and 2 for the smoke, about 10 minutes per deploy.</td>
+        <td><code>CPUQuota=100%</code> / <code>200%</code>, a hard cap. The sweep's own thread count is unchanged, so its results are too.</td></tr>
+      <tr><td>Disk</td><td>A deploy cannot fill the disk under the sweep.</td>
+        <td>Preflight requires 10 GB free on <code>/opt</code>, which sits on the same disk the sweep writes to.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Each code-running step, shown for the venv build:</p>
+<pre><code>sudo -n systemd-run --wait --pipe --collect --uid="$APP_USER" --gid="$APP_USER" \
+    -p ProtectSystem=strict -p ProtectHome=read-only -p PrivateTmp=yes \
+    -p ReadWritePaths=/opt/coffee-cv \
+    -p CPUQuota=100% -p MemoryMax=3G -p MemorySwapMax=0 --nice=19 \
+    --working-directory=/opt/coffee-cv/releases/$ID \
+    -E UV_CACHE_DIR=/opt/coffee-cv/uv-cache -E UV_LINK_MODE=copy -E UV_PYTHON_DOWNLOADS=never \
+    -E UV_PROJECT_ENVIRONMENT=/opt/coffee-cv/releases/$ID/.venv \
+    /usr/local/bin/uv sync --project webapp --locked --no-dev --compile-bytecode --python /usr/bin/python3.12</code></pre>
+  <p>The smoke unit gets its limits from <code>/run/systemd/system/coffee-cv-smoke.service.d/limits.conf</code>:
+    <code>CPUQuota=200%</code>, <code>MemoryMax=3G</code>, <code>MemorySwapMax=0</code>. The drop-in adds only limits, so the smoke's sandbox stays
+    identical to production's.</p>
+  <p><strong>Never run during a sweep:</strong></p>
+  <ul>
+    <li><code>setup_server.sh</code>, because it runs apt and ufw.</li>
+    <li>A second <code>remote_launch.sh</code> with default paths. Its first action is <code>rm -f ~/sweep.log ~/sweep_status.log</code>. The deploy
+      never calls it.</li>
+    <li>Git commands that move the VM's checkout (merge, pull, checkout). §6's VM step runs after the sweep.</li>
+    <li>apt, reboots, and anything that writes under <code>~/coffee-vision*</code>.</li>
+  </ul>
+  <p><strong>Proof:</strong> the deploy prints the sweep's PIDs (<code>pgrep -f 'run_folds|train_baseline'</code>) and the size of
+    <code>~/sweep.log</code> before its first VM step and after its last. The same PIDs still running and a log that kept growing show the sweep was
+    left alone. If the sweep finished on its own in between, its <code>SWEEP_DONE_EXIT</code> line shows that.</p>
+
+  <h2>6. Git history</h2>
+  <p>A sweep commits one experiment per fold into the VM's own <code>main</code>. These commits come back with fetch and merge only, rehearsed on
+    <code>tmp/*</code> branches, so every commit keeps its hash and every <code>git_commit</code> recorded in <code>experiments/index.csv</code>
+    stays valid.</p>
+<pre><code># 0. Now, local: main becomes the deploy branch
+git switch main
+git merge --ff-only dino-integration             # 7 commits, main has none of its own
+git push origin main
+
+# 1. After exp239 has finished (SWEEP_DONE_EXIT in ~/sweep_status.log), local
+git fetch powervpsssh main:tmp/vm-sweep          # the VM's commits as a local branch
+git switch -c tmp/merge-sweep main               # rehearse on a copy; main does not move yet
+git merge -m "Merge exp232-239 (ResNet18 seeds 123/7) from the VM" tmp/vm-sweep
+#   run the checks below, then:
+git switch main
+git merge --ff-only tmp/merge-sweep              # main moves only now
+git branch -d tmp/merge-sweep tmp/vm-sweep
+git push origin main
+
+# 2. The VM catches up: a fast-forward, nothing rewritten
+git push powervpsssh main:tmp/from-local         # a branch the VM does not have checked out
+#   on the VM, in ~/coffee-vision:
+git status --short                               # leftovers? diff them against the last commit
+git merge --ff-only tmp/from-local               # if it refuses over leftovers: git stash push -u, retry
+git branch -d tmp/from-local</code></pre>
+  <p><strong>Checks before <code>main</code> moves:</strong></p>
+  <ul>
+    <li><code>git diff --stat main tmp/merge-sweep</code> lists only files the sweep writes (<code>experiments/</code>, <code>params.yaml</code>,
+      <code>dvc.lock</code>, <code>outputs/</code>), and nothing in <code>coffeecv/</code> or <code>webapp/</code>.</li>
+    <li><code>experiments/index.csv</code> has every row from both sides (exp232–239 and exp252–254) and no conflict markers.</li>
+    <li>Every <code>git_commit</code> in those rows resolves: <code>git cat-file -e &lt;sha&gt;^{commit}</code>.</li>
+  </ul>
+  <p>If a check fails, <code>git switch main</code>, delete the scratch branch with <code>git branch -D tmp/merge-sweep</code>, and merge again.
+    <code>main</code> never moved.</p>
+  <ul>
+    <li><strong>No conflict is expected.</strong> A rehearsal with exp232–234 on 2026-09-27 merged cleanly: <code>index.csv</code> is kept in experiment
+      order, so the VM's rows land between 231 and 240 and the local ones after 251. If it conflicts anyway, keep every row in experiment order.
+      <code>params.yaml</code> keeps the last fold's seed and held-out rig, as after every sweep.</li>
+    <li><strong>DVC:</strong> the merge brings <code>dvc.lock</code>, which points at the new fold checkpoints. Those files reach the DVC remote via
+      <code>dvc push</code> from the VM once the remote is back.</li>
+    <li><strong>Every future sweep:</strong> the VM starts equal to <code>main</code>. After the sweep, run steps 1–2 again; if <code>main</code> did
+      not move meanwhile, step 1 is a plain fast-forward.</li>
+    <li><strong>During a sweep</strong>, only read-only fetches: <code>git fetch powervpsssh main</code>.</li>
+  </ul>
+
+  <h2>7. Execution order</h2>
+  <h3>Local, any time</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span>§6 step 0: fast-forward <code>main</code> to <code>dino-integration</code> and push it; all further work goes on <code>main</code></span></li>
+    <li><span class="box"></span><span>Read-only from the VM: <code>pip freeze</code> of <code>~/coffee-vision-venv</code>, its opencv build, and whether timm 1.0.29 is installed</span></li>
+    <li><span class="box"></span><span>Install pinned uv; write <code>webapp/pyproject.toml</code>; run <code>uv lock</code> (§4.1)</span></li>
+    <li><span class="box"></span><span>ResNet18 <code>weights=None</code> for inference, with the bit-identical-logits test (§4.3)</span></li>
+    <li><span class="box"></span><span>Manifest and <code>tests/test_release_manifest.py</code>, covering both models and all three endpoints (§4.2)</span></li>
+    <li><span class="box"></span><span><code>write_build_info.py --ref --model</code> (§4.4)</span></li>
+    <li><span class="box"></span><span>Unit, nginx and logrotate templates; the trimmed <code>setup_server.sh</code>; <code>webapp/README.md</code> (§4.5–4.7)</span></li>
+    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh</code> with all options (§4.8, §5)</span></li>
+    <li><span class="box"></span><span>Rehearse locally in a scratch root: build, stage, flip, prune, <code>--rollback</code>. The devcontainer has no systemd, so the systemd steps are stubbed here and run for real in Phase A</span></li>
+    <li><span class="box"></span><span>Commit and push to <code>origin/main</code></span></li>
+  </ol>
+  <h3>VM, Phase A: allowed during the sweep</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>deploy_webapp.sh --bootstrap</code></span></li>
+    <li><span class="box"></span><span><code>deploy_webapp.sh &lt;main-sha&gt; allrigs_dino3b16_s123 --stage-only</code>; record RSS and timings</span></li>
+    <li><span class="box"></span><span><code>--compare</code> on the staged release: outputs must be bit-identical</span></li>
+    <li><span class="box"></span><span>Full deploy up to the flip. The service stays disabled, and the public site behaves as today: the page loads and <code>/classify</code> answers 502</span></li>
+  </ol>
+  <h3>Phase B: the owner, any time</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>sudo systemctl enable --now coffee-cv-web</code>, then <code>deploy_webapp.sh --verify</code></span></li>
+  </ol>
+  <h3>After exp239</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span>§6 steps 1–2: merge the sweep's commits into <code>main</code>, then fast-forward the VM</span></li>
+    <li><span class="box"></span><span>Delete <code>webapp/requirements.txt</code> and <code>webapp/requirements-nodeps.txt</code>; the old service no longer exists</span></li>
+  </ol>
+
+  <h2>8. Acceptance criteria</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>systemctl cat coffee-cv-web</code> shows <code>User=coffee-cv</code> and no path under <code>/home</code>, and <code>readlink -f /opt/coffee-cv/current/.venv/bin/python</code> resolves outside <code>/home</code>.</span></li>
+    <li><span class="box"></span><span>The release directory holds only the manifest's files, the generated files, <code>.venv</code> and <code>.complete</code>. The manifest test passes for both models and all three endpoints.</span></li>
+    <li><span class="box"></span><span>With the service running, <code>git reset --hard</code> in the training checkout, a <code>params.yaml</code> edit, and a package install in the training venv each leave <code>/classify</code> results and the startup log unchanged after a restart.</span></li>
+    <li><span class="box"></span><span>The startup log line shows the deployed commit from <code>BUILD_INFO.json</code> (a commit on <code>origin/main</code>) and the <code>model_sha</code> of <code>allrigs_dino3b16_s123</code>.</span></li>
+    <li><span class="box"></span><span>Each refusal is shown to work once: <code>uv sync --locked</code> refuses a <code>pyproject.toml</code> edited without re-locking; the deploy refuses a <code>.pt</code> whose md5 does not match its <code>.pt.dvc</code>; the deploy refuses a commit that is not on <code>origin/main</code>.</span></li>
+    <li><span class="box"></span><span>Phase A, run during exp232–239, leaves the sweep alone: the same training PIDs run before and after, <code>~/sweep.log</code> kept growing, and nothing was written outside <code>/opt/coffee-cv</code>, <code>/usr/local/bin/uv</code>, <code>/run/systemd/system</code>, <code>/var/log/coffee-cv</code> and <code>/etc</code> (the <code>coffee-cv</code> user and the rendered files).</span></li>
+    <li><span class="box"></span><span>The ResNet18 fallback stays deployable: the manifest test and the bit-identical-logits test pass for <code>allrigs_cam_s123</code>. <code>--rollback</code> works in the local rehearsal.</span></li>
+    <li><span class="box"></span><span>After §6, every <code>git_commit</code> recorded for exp232–239 and exp252–254 resolves in <code>main</code>'s history, and the VM's <code>main</code> is the same commit as local <code>main</code>.</span></li>
+    <li><span class="box"></span><span>If the site is kept on during a sweep, <code>/classify</code> answers within gunicorn's 30 s timeout. Measure this once with 10 requests and record it next to the idle latency.</span></li>
+  </ul>
+
+  <h2>9. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td>The locked package versions differ from the ones the model was checked with</td><td>Versions come from the production <code>pip freeze</code>, and
+        <code>--compare</code> must be bit-identical before the service is enabled.</td></tr>
+      <tr><td>The DINOv3 smoke needs more than 3 GB</td><td>The smoke dies alone and the sweep is unaffected. Raise its cap using the RSS recorded in
+        <code>--stage-only</code>, staying within <code>MemAvailable</code>.</td></tr>
+      <tr><td>A throttled smoke hits gunicorn's 30 s timeout</td><td>The smoke fails and the sweep is unaffected. Raise the smoke's quota to 300%.</td></tr>
+      <tr><td>No one-command rollback until the second release</td><td>The fallback is <code>deploy_webapp.sh &lt;sha&gt; allrigs_cam_s123</code>, about
+        10 minutes. The manifest and logits tests keep that path deployable.</td></tr>
+      <tr><td>The DVC remote is still down</td><td>Model files come from the local tree or DVC cache and are checked against the hashes in git. The remote is not needed.</td></tr>
+      <tr><td>The live site next to a sweep runs short of memory</td><td>Use the RSS recorded in Phase A. If memory is tight, keep the site off during sweeps, as now.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>10. Out of scope</h2>
+  <ul>
+    <li>Changing the training checkout, the training venv, or how sweeps are launched.</li>
+    <li>CPU priority between sweeps and the site. When both are busy they share the CPU, and whether the site stays on during a sweep is the owner's call.</li>
+    <li>nginx changes beyond the new <code>root</code>.</li>
+    <li>Moving serving to another machine or into a container.</li>
+  </ul>
+
+  <footer>Background and review history: <code>docs/ticket_webapp_release_isolation.html</code>.</footer>
+</main>
