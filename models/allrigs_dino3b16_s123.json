@@ -208,7 +208,7 @@
  ],
  "ood_guard": {
   "reference": "allrigs_dino3b16_s123.ood_reference.json (1536-d; per-photo training medians: median 0.954, p95 1.212, max 1.898 -- the centroid fallback's fixed 1.4 threshold is a ResNet18-space constant and would refuse some TRAINING photos here, so this model must ship WITH its probe)",
-  "probe": "allrigs_dino3b16_s123.ood_probe.json, linear_probe, threshold 0.0459 at certified alpha 4.3% (user_independent calibration, n=22); dev negatives caught 82/82",
+  "probe": "allrigs_dino3b16_s123.ood_probe.json, linear_probe. Threshold 0.5 (owner override 2026-09-27, the probe's decision boundary); calibrated threshold 0.0459 at certified alpha 4.3% (user_independent calibration, n=22), which remains a valid upper bound. At 0.5: dev 0/34 genuine refused, 82/82 negatives caught; holdout 0/22 and 56/56, but the holdout informed the choice. See the probe file's threshold_override.",
   "holdout_verify_2026-09-27": {
    "spent": true,
    "genuine_refused": "4/22 (18%): internet_beans 3/5, user_beans_independent 1/15 (PXL_20260911_061100589, pixel, score 0.130), user_beans_same_day 0/2",

@@ -2880,3 +2880,11 @@ The ResNet18 all-rigs card (`allrigs_cam_s123`) reports test 0.9363. **exp253 sh
 - A genuine photo gets HTTP 200 in 6.2 s on 6 threads on the workstation.
 - A same-camera green legume is refused (`refused_ood`).
 - The default ResNet18 boot is unchanged.
+
+**Threshold override (owner, 2026-09-27):** the B/16 probe's threshold is raised from the calibrated 0.0459 to
+**0.5**, the probe's own decision boundary.
+- At 0.5, genuine photos refused: dev 0/34, holdout 0/22.
+- At 0.5, negatives caught: dev 82/82, holdout 56/56. Every negative anywhere scores ≥ 0.9998.
+- The α ≤ 4.3% certificate stays a valid, now conservative, bound.
+- The holdout informed this choice, so it is no longer an unbiased estimate at 0.5. Recorded in the probe
+  file's `threshold_override`.

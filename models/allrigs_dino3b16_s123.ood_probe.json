@@ -5,7 +5,7 @@
   "method": "linear_probe",
   "score_is": "P(not beans), mean over patches; refuse when score > threshold",
   "embedding_dim": 1536,
-  "threshold": 0.04591044899217108,
+  "threshold": 0.5,
   "alpha": 0.043478260869565216,
   "alpha_floor": 0.043478260869565216,
   "thresholds_by_alpha": {
@@ -4768,5 +4768,13 @@
     0.061639661655074215,
     0.04925161941848173,
     -0.13883977301975706
-  ]
+  ],
+  "threshold_calibrated": 0.04591044899217108,
+  "threshold_override": {
+    "set": "2026-09-27 by the owner",
+    "value": 0.5,
+    "why": "The calibrated 0.0459 refused 4/22 genuine holdout photos (3 of them internet-framed). 0.5 is the probe's own decision boundary (P(not beans) > P(beans)), not a value tuned to the holdout scores. Raising the threshold can only lower false refusals, so the certified alpha <= 4.3% remains a valid (now conservative) upper bound.",
+    "evidence_at_0.5": "dev: 0/34 genuine refused, 82/82 negatives caught; holdout: 0/22 genuine refused, 56/56 negatives caught. Lowest negative score anywhere 0.9998.",
+    "caveat": "The holdout informed this choice, so it no longer gives an unbiased estimate of the guard at 0.5. The negative-side margin (every negative >= 0.9998) is what the choice rests on. Photos in (1.7e-5, 0.5] get the warning note, not a refusal."
+  }
 }

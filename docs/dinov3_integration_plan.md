@@ -1032,8 +1032,10 @@ exp252-254 and in the card's `ood_guard` block.
     covered.
   - On the population the threshold certifies it refuses 1/15, which is consistent with 4.3% at
     this n.
-- **Open question for the owner, at adoption time:** is a guard that is stricter in both directions
-  acceptable? The holdout is spent, so recalibrating needs new holdout photos.
+- **Owner override, same day:** the threshold is now **0.5**, the probe's decision boundary. At 0.5
+  it refuses 0/22 genuine holdout photos and still catches 56/56 negatives; every negative anywhere
+  scores ≥ 0.9998. The α ≤ 4.3% bound still holds, conservatively. Because the holdout informed the
+  choice, it is no longer an unbiased estimate. See `threshold_override` in the probe file.
 
 
 1. Run `build_ood_reference.py`, then `fit_ood_probe.py`, on the shipped checkpoint. The 0.9681
