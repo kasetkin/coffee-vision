@@ -69,6 +69,9 @@ SCRATCH=${DEPLOY_SCRATCH:-${XDG_CACHE_HOME:-$HOME/.cache}/coffee-cv-deploy}
 DEPLOY_DIR="$REPO/webapp/deploy"
 FIX="$APP_ROOT/fixtures"          # on the VM: probe script, photos, expected answers -- never in a release
 
+# Keepalives: a silent link is noticed in ~1 min instead of hanging, and an idle one is not dropped.
+SSH_OPTS=(-o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+
 say()  { printf '\n== %s\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
 die()  { printf '\nDEPLOY FAILED: %s\n' "$*" >&2; exit 1; }
@@ -113,14 +116,23 @@ vm() {
   if [[ "$HOST" == local ]]; then
     env "${envs[@]}" PATH="${STUB_PATH:+$STUB_PATH:}$PATH" bash -c "$full" vm </dev/null
   else
-    ssh -o BatchMode=yes -n "$HOST" "env $(printf '%q ' "${envs[@]}") bash -c $(printf '%q' "$full") vm"
+    ssh "${SSH_OPTS[@]}" -n "$HOST" "env $(printf '%q ' "${envs[@]}") bash -c $(printf '%q' "$full") vm"
   fi
 }
 to_vm() {   # to_vm <rsync args...> <local src> <remote dst>: rsync with the VM as destination
   local args=("$@") n=$#
   local dst=${args[$((n-1))]}
   unset 'args[$((n-1))]'
-  if [[ "$HOST" == local ]]; then rsync "${args[@]}" "$dst"; else rsync "${args[@]}" "$HOST:$dst"; fi
+  if [[ "$HOST" == local ]]; then rsync "${args[@]}" "$dst"; return; fi
+  # A dropped connection must not cost a 343 MB re-send: retry, resuming a half-sent file from
+  # .rsync-partial (which rsync removes on success; the manifest check refuses it otherwise).
+  local attempt
+  for attempt in 1 2 3; do
+    rsync -e "ssh ${SSH_OPTS[*]}" --partial-dir=.rsync-partial "${args[@]}" "$HOST:$dst" && return 0
+    note "rsync attempt $attempt failed; retrying in 10 s"
+    sleep 10
+  done
+  return 1
 }
 render() {  # render <ref> <template path> NAME=value...: a template from the commit being deployed
   local ref=$1 tpl=$2; shift 2
