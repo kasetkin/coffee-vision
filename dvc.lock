@@ -69,7 +69,7 @@ stages:
         eta_min: 1e-05
         floor_epochs: 15
         freeze_mode: none
-        heldout_rig: data/cropped/cam_pixel
+        heldout_rig: data/cropped/cam_sony
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -101,7 +101,7 @@ stages:
         train_patches_per_class: 150
         train_photo_frac: 0.7
         train_rigs:
-        - data/cropped/cam_sony
+        - data/cropped/cam_pixel
         - data/cropped/cam_oneplus
         - data/cropped/cam_iphone
         val_patches_per_class: 40
@@ -112,35 +112,35 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 55eeb7e5eccea668ea0fa2c65cec7bb8
+      md5: 5534a641c49df24d82582b9042aebeeb
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: fd41f3c0d61482c39fe54af2d4e28248
+      md5: 8aa541a8ee0346964e2042acdf989b24
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: b0ab7db61e7676737a0e4e50aef09273
-      size: 24072
+      md5: 99a11e6dfae4869a980bf01624597daf
+      size: 33163
     - path: outputs/metrics.json
       hash: md5
-      md5: 3536fca901daf927fb2a03e2d690733d
-      size: 14232
+      md5: 54d7617ce8562d7464723fc0f373f43a
+      size: 14235
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 114c6b7d9abf29956cf6e6cebeffecf5
+      md5: 0323cb943f22d7603632ed60807c3f84
       size: 10103
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: 6ae9c1dd56d6cfdd229d61f226d08884
+      md5: f68764094b78dc4ffa1aa0a59931e6ae
       size: 10103
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: d128a0f4b9e83c945ec3a9a461933f33
+      md5: 8820bf3140588389d8c70748755303bc
       size: 10823
     - path: outputs/summary.json
       hash: md5
-      md5: 4da4979c34363708261b8117f2f87848
+      md5: d09fbad95b1a183c31966b7c5c89ca3e
       size: 213
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
