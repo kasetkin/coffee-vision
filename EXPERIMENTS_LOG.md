@@ -2836,3 +2836,47 @@ it is spent once at ship time.
 (exp232-239, ~60 h) were launched on the VM on 2026-09-26 15:50 UTC; the adoption bar is 12 sign-consistent
 paired deltas against exp240-251 (plan §7.2). This is a comparison of two designs (fine-tuned ResNet18 +
 MixStyle + TTA at deploy vs frozen DINOv3 + convex head), not an architecture ablation.
+
+### exp252-254: the all-cameras frozen ViT-B/16 ship candidate, and its OOD guard (2026-09-27)
+
+Plan §9.1, run on the workstation ahead of the §7.2 adoption decision at the owner's request, from branch
+`dino-integration` (`coffeecv.fit_frozen_head`). Frozen `dinov3_vitb16` × cls_mean, head fitted on the train
+split of all four cameras at C = 0.1, the lower median of exp240-251's per-fold val picks (converged every
+time). In-distribution only, so compare with the folds' test split, never with a cross-camera number:
+
+| exp | seed | val macro-F1 | test macro-F1 |
+|---|---|---|---|
+| 252 | 42 | 0.9586 | 0.9695 |
+| **253** | **123** | **0.9750** | **0.9749** |
+| 254 | 7 | 0.9645 | 0.9578 |
+
+The ResNet18 all-rigs card (`allrigs_cam_s123`) reports test 0.9363. **exp253 shipped as
+`models/allrigs_dino3b16_s123.pt`**: chosen on val, it is a 64 KB head plus the backbone's sha256. It is
+**not deployed**; that waits for §7.2.
+
+**OOD guard rebuilt in the 1536-d space (plan §9.3).**
+- **Reference:** per-photo training medians have median 0.954 and max 1.898. The centroid fallback's
+  fixed 1.4 threshold is therefore meaningless here, and the model must ship with its probe.
+- **Probe:** threshold 0.0459 at certified α ≤ 4.3% (user_independent, n = 22); 82/82 dev negatives
+  caught.
+- **Holdout, spent once:**
+
+  | | B/16 probe | deployed ResNet18 probe, same photos |
+  |---|---|---|
+  | negatives caught | 56/56 | 51/56 |
+  | genuine photos falsely refused | **4/22** | 0/22 |
+
+  - The four false refusals: internet_beans 3/5, user_beans_independent 1/15, user_beans_same_day 0/2.
+  - The ResNet18 probe's five misses: 3 confusable grain, 1 nut/seed, 1 wrong bean type.
+  - B/16 is stricter in both directions.
+  - On the population the threshold certifies, 1/15 is consistent with α ≤ 4.3%. The excess comes from
+    internet-framed photos, which the calibration never covered.
+  - Scores are saturated: most genuine photos score 0.0000 and every negative 1.0000. So the threshold
+    rests on a handful of photos.
+  - The holdout is now spent. Any change to the probe needs new holdout photos.
+
+**Webapp, in process, with `COFFEE_CV_CHECKPOINT` set:**
+- It boots in 3.9 s with TTA off.
+- A genuine photo gets HTTP 200 in 6.2 s on 6 threads on the workstation.
+- A same-camera green legume is refused (`refused_ood`).
+- The default ResNet18 boot is unchanged.

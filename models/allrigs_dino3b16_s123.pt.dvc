@@ -1,0 +1,5 @@
+outs:
+- md5: 9f6eb100b7dc1fadac6b8706da293dcb
+  size: 63637
+  hash: md5
+  path: allrigs_dino3b16_s123.pt

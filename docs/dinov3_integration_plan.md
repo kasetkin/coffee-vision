@@ -1,7 +1,11 @@
 # DINOv3 in `coffeecv`: implementation, first experiment, and integration plan
 
 Status: Step 0 and Experiment 1 DONE (2026-09-25); **the owner selected DINOv3 ViT-B/16 on
-2026-09-26** (§0.4), so every step from 1b on is run with `dinov3_vitb16 × cls_mean`. This file
+2026-09-26** (§0.4), so every step from 1b on is run with `dinov3_vitb16 × cls_mean`. **2026-09-27:**
+the depth-0 integration (§8.6) and a deploy-ready candidate, `models/allrigs_dino3b16_s123.pt`, with a
+rebuilt and holdout-verified OOD guard (§9.3), are on branch `dino-integration`. It is not deployed:
+that waits for the §7.2 decision (ResNet18 seeds 123/7, exp232-239, running on the VM) and the
+sandbox smoke test (§9.4). This file
 replaces `docs/dinov2_integration_plan.md` (written 2026-09-21; its last version is at commit
 `1caf2f1`). On 2026-09-24 the owner decided that **DINOv3 is the family this project builds first**,
 and that the first experiment is implementing it and testing it, with ViT-S/16 as the pre-registered
@@ -1012,6 +1016,25 @@ Point `webapp/app.py`, `infer.py` main and `ood_eval.py` at this one helper. A m
 fails at import, so a gunicorn deploy fails loudly instead of returning 500s per request.
 
 ### 9.3 OOD rebuild and re-validation (blocking)
+
+**Done 2026-09-27 for `models/allrigs_dino3b16_s123.pt`** (exp253). Full numbers are in EXPERIMENTS_LOG
+exp252-254 and in the card's `ood_guard` block.
+
+- **Probe:** threshold 0.0459 at certified α ≤ 4.3%.
+- **Holdout:**
+
+  | | B/16 probe | deployed ResNet18 probe, same photos |
+  |---|---|---|
+  | negatives caught | 56/56, green legumes 4/4 (gate 3 passes) | 51/56 |
+  | genuine photos falsely refused | **4/22** | 0/22 |
+
+  - Three of B/16's four false refusals are internet-framed photos, which the calibration never
+    covered.
+  - On the population the threshold certifies it refuses 1/15, which is consistent with 4.3% at
+    this n.
+- **Open question for the owner, at adoption time:** is a guard that is stricter in both directions
+  acceptable? The holdout is spent, so recalibrating needs new holdout photos.
+
 
 1. Run `build_ood_reference.py`, then `fit_ood_probe.py`, on the shipped checkpoint. The 0.9681
    threshold and its α ≤ 4.3% are properties of the ResNet18 space and mean nothing in the new

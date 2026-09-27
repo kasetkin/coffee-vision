@@ -1,0 +1,220 @@
+{
+ "name": "allrigs_dino3b16_s123.pt",
+ "source_experiment": "exp253__allrigs_dino3b16_frozen_clsmean_s123",
+ "model": "frozen dinov3_vitb16 (models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth, sha256 73cec8be7427c865..., timm 1.0.29) -> cls_mean readout -> L2 logistic-regression head at C=0.1. This .pt holds only the head and the backbone's identity; the backbone is loaded from models_pretrained/ and checked against that digest.",
+ "why_this_one": "First frozen-DINOv3 ship candidate (docs/dinov3_integration_plan.md \u00a79.1), prepared on 2026-09-27 at the owner's request AHEAD of the \u00a77.2 adoption decision -- not deployed, and not to be deployed until that decision (12 paired fold x seed deltas vs the ResNet18 seed 123/7 sweep exp232-239) and the \u00a79.3 OOD re-validation are done. Backbone and readout were chosen by the folds (owner selected ViT-B/16 on exp240-251: cross-camera patch macro-F1 0.8873, photo-pooled 0.9489, vs the fine-tuned ResNet18 recipe's 0.8025 at seed 42); C=0.1 is the lower median of those twelve folds' own val picks. Of the three all-cameras seeds (exp252/253/254, same C), seed 123 leads on val macro-F1 (0.9750 vs 0.9586 / 0.9645) and is shipped; its test macro-F1 is 0.9749 (siblings 0.9695 / 0.9578). Chosen on val, never test.",
+ "inference_defaults": {
+  "tta": false,
+  "why": "No dihedral TTA: 8 views x 40 patches is ~46 s per photo for ViT-B/16 on the production VM (docs/dinov3_integration_plan.md \u00a76.2), and TTA for the frozen head is unmeasured (Screen D). Without it, model time is ~5.8 s per photo at 4 threads, parity with ResNet18 + TTA."
+ },
+ "expected_performance": {
+  "cross_camera_from_selection_folds": "exp240-251, 3 seeds x 4 camera folds: patch macro-F1 0.8873 (3 ten-class folds), photo-pooled 0.9489 over 40 patches, no TTA",
+  "this_run_in_distribution": {
+   "val": {
+    "macro_f1": 0.9749611207984117,
+    "mcc": 0.9707766401770378,
+    "accuracy": 0.9736842105263158
+   },
+   "test": {
+    "macro_f1": 0.9748847482043853,
+    "mcc": 0.97146505579833,
+    "accuracy": 0.9743421052631579
+   }
+  },
+  "note": "in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, never to a cross-camera number"
+ },
+ "training_config": {
+  "seed": 123,
+  "train_rigs": [
+   "data/cropped/cam_pixel",
+   "data/cropped/cam_sony",
+   "data/cropped/cam_oneplus",
+   "data/cropped/cam_iphone"
+  ],
+  "heldout_rig": "",
+  "classes_file": "dataset/classes.txt",
+  "patch_crop_size": 900,
+  "patch_resize": 224,
+  "safety_margin": 0.97,
+  "patch_store_size": 448,
+  "train_patches_per_class": 150,
+  "val_patches_per_class": 40,
+  "test_patches_per_class": 40,
+  "xrig_patches_per_class": 120,
+  "train_photo_frac": 0.7,
+  "val_photo_frac": 0.15,
+  "test_photo_frac": 0.15,
+  "model_name": "dinov3_vitb16",
+  "freeze_mode": "full",
+  "dropout": 0.0,
+  "label_smoothing": 0.0,
+  "color_jitter_strength": 0.0,
+  "brightness_jitter_strength": 0.0,
+  "patch_scale_frac_min": 0.0,
+  "patch_scale_frac_max": 0.0,
+  "patch_beans_min": 4.0,
+  "patch_beans_max": 7.0,
+  "bean_k_lo": 4,
+  "bean_k_hi": 80,
+  "bean_analysis_frac": 0.4,
+  "bean_calibration_k": 1.18,
+  "rotation_jitter_degrees": 0.0,
+  "zoom_scale_min": 1.0,
+  "random_erasing_p": 0.0,
+  "illum_gradient_strength": 0.0,
+  "mixup_alpha": 0.0,
+  "mixstyle_p": 0.0,
+  "mixstyle_alpha": 0.1,
+  "mixstyle_mode": "agnostic",
+  "batch_size": 32,
+  "epochs": 100,
+  "early_stop_patience": 20,
+  "eta_min": 1e-05,
+  "scheduler": "cosine",
+  "plateau_smooth": 5,
+  "plateau_threshold": 0.003,
+  "plateau_patience": 6,
+  "plateau_cooldown": 3,
+  "plateau_factor": 0.3,
+  "floor_epochs": 15,
+  "optimizer": "adamw",
+  "lr": 0.001,
+  "backbone_lr": 1e-05,
+  "weight_decay": 0.0001,
+  "class_ids": [
+   "001",
+   "002",
+   "003",
+   "004",
+   "005",
+   "006",
+   "007",
+   "008",
+   "009",
+   "010"
+  ]
+ },
+ "dino": {
+  "experiment": "docs/dinov3_integration_plan.md \u00a79.1: all-cameras shipping fit of the selected cell",
+  "backbone": "dinov3_vitb16",
+  "readout": "cls_mean",
+  "weights": "dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
+  "weights_sha256": "73cec8be7427c8655ceced13ce62f6e20a1fa90d1b4d4a550df17a1144081a7c",
+  "timm_version": "1.0.29",
+  "head": "sklearn LogisticRegression (L2, lbfgs) on standardised features at a FIXED C, exported to nn.Linear; the SGD-loop fields above (epochs, lr, optimizer, scheduler, ...) are unused",
+  "C": 0.1,
+  "C_rule": "lower median of the per-fold val picks of exp240-251",
+  "C_fold_picks": [
+   {
+    "exp": 240,
+    "C": 1.0
+   },
+   {
+    "exp": 241,
+    "C": 0.03162277660168379
+   },
+   {
+    "exp": 242,
+    "C": 0.31622776601683794
+   },
+   {
+    "exp": 243,
+    "C": 0.01
+   },
+   {
+    "exp": 244,
+    "C": 0.0031622776601683794
+   },
+   {
+    "exp": 245,
+    "C": 0.001
+   },
+   {
+    "exp": 246,
+    "C": 0.1
+   },
+   {
+    "exp": 247,
+    "C": 0.0031622776601683794
+   },
+   {
+    "exp": 248,
+    "C": 1.0
+   },
+   {
+    "exp": 249,
+    "C": 1.0
+   },
+   {
+    "exp": 250,
+    "C": 1.0
+   },
+   {
+    "exp": 251,
+    "C": 1.0
+   }
+  ],
+  "converged": true,
+  "fit_seconds": 14.7,
+  "diagnostic_val_selected_C": 0.03162277660168379,
+  "diagnostic_val_macro_f1_by_C": {
+   "0.001": 0.9688411145191177,
+   "0.0031622776601683794": 0.9738115195072053,
+   "0.01": 0.975673629014158,
+   "0.03162277660168379": 0.9762906798195813,
+   "0.1": 0.9743366946354985,
+   "0.31622776601683794": 0.9749571070839534,
+   "1.0": 0.9742953235566432,
+   "3.1622776601683795": 0.9742953235566432,
+   "10.0": 0.9736767667062566,
+   "31.622776601683793": 0.9736767667062566,
+   "100.0": 0.9736767667062566
+  },
+  "train_transform": "eval transform (frozen arms get no photometric augmentation)",
+  "sizes": {
+   "train": 5700,
+   "val": 1520,
+   "test": 1520
+  },
+  "embed_ms_per_img": {
+   "train": 137.9,
+   "val": 129.5,
+   "test": 130.3
+  },
+  "smoke": false,
+  "host": "203d0baaaffa",
+  "torch_threads": 6,
+  "run_dir": "outputs/frozen_allrigs/s123"
+ },
+ "sibling_seeds": {
+  "exp252 s42": {
+   "val_macro_f1": 0.9586,
+   "test_macro_f1": 0.9695
+  },
+  "exp253 s123 (this)": {
+   "val_macro_f1": 0.975,
+   "test_macro_f1": 0.9749
+  },
+  "exp254 s7": {
+   "val_macro_f1": 0.9645,
+   "test_macro_f1": 0.9578
+  }
+ },
+ "caveats": [
+  "In-distribution metrics only; the cross-camera estimate comes from exp240-251.",
+  "Model time ~5.8 s/photo at 4 threads on the production VM (145 ms/patch x 40), parity with ResNet18+TTA, not a saving.",
+  "OOD guard must be rebuilt in this 1536-d space (reference + probe); the ResNet18 probe's 0.9681 threshold means nothing here.",
+  "The B/16 OOD feasibility check (plan \u00a76.1) was saturated at AUROC 1.000 in both spaces with extreme margins -- the holdout verify is the real test."
+ ],
+ "ood_guard": {
+  "reference": "allrigs_dino3b16_s123.ood_reference.json (1536-d; per-photo training medians: median 0.954, p95 1.212, max 1.898 -- the centroid fallback's fixed 1.4 threshold is a ResNet18-space constant and would refuse some TRAINING photos here, so this model must ship WITH its probe)",
+  "probe": "allrigs_dino3b16_s123.ood_probe.json, linear_probe, threshold 0.0459 at certified alpha 4.3% (user_independent calibration, n=22); dev negatives caught 82/82",
+  "holdout_verify_2026-09-27": {
+   "spent": true,
+   "genuine_refused": "4/22 (18%): internet_beans 3/5, user_beans_independent 1/15 (PXL_20260911_061100589, pixel, score 0.130), user_beans_same_day 0/2",
+   "negatives_caught": "56/56 (confusable_grain 26/26, other_nuts_seeds 8/8, green_legume 4/4, ground_coffee 6/6, empty_tray 4/4, non_food_objects 4/4, real_world_negatives 3/3, wrong_bean_type 1/1)",
+   "same_holdout_scored_by_the_deployed_resnet18_probe": "genuine refused 0/22; negatives caught 51/56 (missed confusable_grain 3, other_nuts_seeds 1, wrong_bean_type 1)",
+   "reading": "Stricter in BOTH directions than the deployed guard. On the population the threshold certifies (user_independent) 1/15 is consistent with alpha<=4.3% at this n; the excess is internet-framed photos (3/5), a population the calibration never covered. Scores are saturated (most genuine exactly 0.0000, every negative 1.0000), so the threshold sits on a handful of photos. The holdout is spent: any change to the probe or its calibration now needs new holdout photos, not a re-run against these."
+  }
+ }
+}
