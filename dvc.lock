@@ -69,7 +69,7 @@ stages:
         eta_min: 1e-05
         floor_epochs: 15
         freeze_mode: none
-        heldout_rig: data/cropped/cam_sony
+        heldout_rig: data/cropped/cam_oneplus
         illum_gradient_strength: 0.0
         label_smoothing: 0.0
         lr: 0.001
@@ -102,7 +102,7 @@ stages:
         train_photo_frac: 0.7
         train_rigs:
         - data/cropped/cam_pixel
-        - data/cropped/cam_oneplus
+        - data/cropped/cam_sony
         - data/cropped/cam_iphone
         val_patches_per_class: 40
         val_photo_frac: 0.15
@@ -112,35 +112,35 @@ stages:
     outs:
     - path: outputs/checkpoints/best.pt
       hash: md5
-      md5: 5534a641c49df24d82582b9042aebeeb
+      md5: 6d433007402c458efad5f89f17d21c1b
       size: 44797323
     - path: outputs/checkpoints/last.pt
       hash: md5
-      md5: 8aa541a8ee0346964e2042acdf989b24
+      md5: e8b34d8d767b210f7a4a048237417e08
       size: 44797323
     - path: outputs/history.json
       hash: md5
-      md5: 99a11e6dfae4869a980bf01624597daf
-      size: 33163
+      md5: e5f8db9a99e4edcb692810b29db4131f
+      size: 34940
     - path: outputs/metrics.json
       hash: md5
-      md5: 54d7617ce8562d7464723fc0f373f43a
-      size: 14235
+      md5: b50a2a3dade855611d58dab5681aebfc
+      size: 14155
     - path: outputs/predictions_test.csv
       hash: md5
-      md5: 0323cb943f22d7603632ed60807c3f84
+      md5: 85d2457cf243b84d86aaf4872410a918
       size: 10103
     - path: outputs/predictions_val.csv
       hash: md5
-      md5: f68764094b78dc4ffa1aa0a59931e6ae
+      md5: 3aad262c12c63f6eacdc46be6c98442a
       size: 10103
     - path: outputs/predictions_xrig.csv
       hash: md5
-      md5: 8820bf3140588389d8c70748755303bc
+      md5: 8423a33a44dcc3da0914b5912da6feff
       size: 10823
     - path: outputs/summary.json
       hash: md5
-      md5: d09fbad95b1a183c31966b7c5c89ca3e
+      md5: f4a49d58ca863ca9a8d7a4740c668a29
       size: 213
   crop@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.crop_session --session 
