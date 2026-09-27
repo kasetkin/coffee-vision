@@ -1,0 +1,22 @@
+# Rig: iPhone, handheld, same black-tray-on-wood-table framing as
+# 2026-08-07__box_pictures_all_classes (tray is an island in frame, not
+# frame-filling like the 2026-08-09 pixel/sony rigs).
+#
+# method: fixed_trim, trim 10% all sides -- chosen the same way the
+# box_pictures rig was: adaptive (locate_bean_region's saturation-based stage
+# 2) was tried first and collapsed to a sliver on every test frame (extra_trim
+# iters maxed at 32/32, final boxes as small as 147x742 px against a correctly
+# detected ~2166x2227 rough tray box) -- the same failure mode documented in
+# crop_tray.py's crop_dataset_fixed_trim docstring. Fixed trim on the same
+# rough-box detection gave 0/4 flagged, full-bean crops on inspection.
+#
+# 10% symmetric is a starting value, not rim-measured like box_pictures'
+# asymmetric 0.056/0.063/0.012/0.011 -- this rig hasn't had a full-session
+# per-side rim measurement done, only a 4-photo spot check. Revisit if a full
+# contact-sheet review after `dvc repro crop` shows a consistent rim leak on
+# one side.
+#
+# Source files are HEIC (iPhone default). crop_session.py/crop_tray.py must be
+# able to read them -- see the HEIC loader added alongside this config.
+method: fixed_trim
+trim: 0.10
