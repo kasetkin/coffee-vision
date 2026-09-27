@@ -34,7 +34,7 @@ ProtectSystem=strict
 # request log (docs/logging_plan.html) writes here. Everything else the
 # process touches -- the release included -- is read-only.
 ReadWritePaths=$LOG_DIR
-# Nothing under /home exists for this process: it runs as its own system user, from /opt, and
+# No home directory is visible to this process: it runs as its own system user, from /opt, and
 # needs neither the training checkout nor ~/.cache/torch (ResNet18 is built with weights=None).
 ProtectHome=true
 CapabilityBoundingSet=

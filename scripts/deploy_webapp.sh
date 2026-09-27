@@ -30,6 +30,7 @@ SERVICE_USER=${SERVICE_USER:-coffee-cv}
 DOMAIN=${DOMAIN:-}
 LOG_ROOT=${LOG_ROOT:-/var/log/coffee-cv}
 # Where the public checks go; the local rehearsal sets it empty to skip them (there is no nginx there).
+PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
 PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN}}
 # Prefix for /etc and /run -- empty on the VM; a scratch directory in the local rehearsal.
 SYSTEM_ROOT=${SYSTEM_ROOT:-}
@@ -385,7 +386,7 @@ render_production() {   # installs the unit and nginx site from $SHA if they cha
   ' UNIT="$unit" SITE="$site") || { printf '%s\n' "$out" | sed 's/^/   /'; die "nginx -t rejected the new site; the old one is restored, nothing flipped"; }
   printf '%s\n' "$out" | grep -v '^[A-Z_]*=1$' || true
   UNIT_CHANGED=$(kv UNIT_CHANGED "$out"); NGINX_CHANGED=$(kv NGINX_CHANGED "$out")
-  note "unit: ${UNIT_CHANGED:+installed + daemon-reload}${UNIT_CHANGED:-unchanged}; nginx site: ${NGINX_CHANGED:+installed, nginx -t ok}${NGINX_CHANGED:-unchanged}"
+  note "unit: $([[ -n "$UNIT_CHANGED" ]] && echo "installed + daemon-reload" || echo unchanged); nginx site: $([[ -n "$NGINX_CHANGED" ]] && echo "installed, nginx -t ok" || echo unchanged)"
 }
 
 flip() {   # flip <release id>: previous <- current, current <- releases/<id>, atomically each
@@ -412,6 +413,7 @@ restart_if_enabled() {   # prints ENABLED=1 when it restarted the service
 # -------------------------------------------------------------------------------------------- verify
 verify() {   # returns non-zero on a failed check
   say "Verify what current serves"
+  [[ -n "$PUBLIC_URL" || -n "$PUBLIC_URL_GIVEN" ]] || die "DOMAIN is not set -- the public checks need it (DOMAIN=... $0 --verify)"
   local out fails=0
   out=$(vm '
     cur=$(readlink -f "$APP_ROOT/current")
@@ -619,7 +621,7 @@ postflight
 if [[ -z "$ENABLED" ]]; then
   say "Deployed $ID -- coffee-cv-web is NOT enabled, so nothing serves /classify yet. To serve it:"
   note "sudo systemctl enable --now coffee-cv-web     (on $HOST)"
-  note "scripts/deploy_webapp.sh --verify              (here)"
+  note "DOMAIN=$DOMAIN scripts/deploy_webapp.sh --verify   (here)"
 else
   say "Deployed and verified $ID"
 fi
