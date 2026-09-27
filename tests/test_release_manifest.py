@@ -23,7 +23,7 @@ sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import all_files, manifest  # noqa: E402
 
 MODELS = ("allrigs_dino3b16_s123", "allrigs_cam_s123")
-PHOTO = REPO / "dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132314833.jpg"
+PHOTO = REPO / "dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg"   # the deploy's smoke photo
 
 TRACE = r"""
 import json, sys

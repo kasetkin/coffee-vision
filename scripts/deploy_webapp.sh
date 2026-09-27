@@ -48,8 +48,9 @@ PY_BIN=${PY_BIN:-/usr/bin/python3.12}
 TRAIN_PY=${TRAIN_PY:-/home/$APP_USER/coffee-vision-venv/bin/python}
 
 # Fixed photos, pinned by path and sha256. The smoke photo is what every deploy sends to all three
-# endpoints; the compare set is one per class across five sessions and three cameras, two of them HEIC.
-SMOKE_PHOTO="dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132314833.jpg db8ee9220eddad51b073d2ec703e4e31a2d2c7caf890149290a70e5bd143c077"
+# endpoints (one the tray crop fires on, so /crop's box is compared too); the compare set is one per
+# class across six sessions and four cameras, two of them HEIC.
+SMOKE_PHOTO="dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg 30179e3dc9607ac65187914d7b9c2d33ebeae30e263469e2f945d99190e28665"
 COMPARE_PHOTOS=(
   "dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130838005.jpg 254de232ad1afbb01b56e69639560b03a80dc0df3e731aa2c031b4fae416d9dd"
   "dataset/2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_201618.JPG 4e46f8056de4cd24b830b5e74df272200b3108523cec2cc4f1861b3326ab6eab"
@@ -254,7 +255,8 @@ stage() {
     note "reused: hashes and contents re-checked"
     return
   fi
-  cur=$(vm '[[ -e "$APP_ROOT/releases/$ID" ]] && { echo "EXISTS"; exit 0; }; readlink -f "$APP_ROOT/current" 2>/dev/null || true' ID="$ID")
+  cur=$(vm '[[ -e "$APP_ROOT/releases/$ID" ]] && { echo "EXISTS"; exit 0; }
+            if [[ -e "$APP_ROOT/current" ]]; then readlink -f "$APP_ROOT/current"; fi' ID="$ID")
   [[ "$cur" != EXISTS ]] || die "$APP_ROOT/releases/$ID already exists (incomplete: it is pruned by the next full deploy)"
   local t0=$SECONDS
   # --copy-dest: files unchanged since the current release are copied on the VM, not sent again
