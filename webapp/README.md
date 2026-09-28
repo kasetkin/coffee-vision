@@ -1,8 +1,8 @@
 # Coffee CV web service
 
 Public web page + API for the shipped classifier: one photo in, either a
-classification (scores for all 9 classes) or an actionable refusal ("move the
-camera back", "this doesn't look like the training data") out. See the
+classification (scores for every class the model knows, 10 today) or a refusal
+when the photo does not look like the training data (the OOD guard) out. See the
 top-level `README.md` for what the model itself does; this doc is about
 running the thing that serves it.
 
@@ -88,8 +88,8 @@ small, deterministic, and git-tracked beside the reference -- unlike the
 A shipped checkpoint also carries a frozen `.classes.txt` sidecar, and
 `config_for_checkpoint` redirects `classes_file` to it rather than reading
 `dataset/classes.txt`. That is deliberate: `dataset/classes.txt` grows when a
-new bean is added (it is 10 rows since class_010 arrived on 2026-08-30) while
-this 9-class checkpoint's head is fixed at 9. Without the sidecar the head and
+new bean is added (class_010 arrived on 2026-08-30) while
+a checkpoint's head is fixed at the classes it was trained on. Without the sidecar the head and
 the label list would silently desync. Do not "fix" a shipped model's class list
 by pointing it back at `dataset/classes.txt`.
 
@@ -209,8 +209,8 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   `limit_conn` (below), is the better trade for a low-traffic endpoint.
 - **Rate limiting is keyed by connection, not IP** (NAT can put many real
   users behind one IP) -- `limit_conn` caps total *concurrent* `/classify`
-  requests at exactly 1, matching the single gunicorn worker. Inference itself
-  takes 6-8s, so this alone already enforces well under "1 request/sec"; a
+  requests at exactly 1, matching the single gunicorn worker. A request takes
+  about 7 s server-side (12-14 s while a sweep trains), so this alone already enforces well under "1 request/sec"; a
   separate rate-limit zone would just re-enforce a limit this already
   guarantees.
 - **The uploaded photo is never stored, logged, or served back to anyone.**

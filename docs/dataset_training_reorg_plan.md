@@ -1,5 +1,18 @@
 # Dataset & training reorganization plan
 
+> **Read this first (2026-09-28).** This is a dated audit: wherever it says "currently", "the shipped
+> model" or "production", it means 2026-09-02/03. Since then:
+> - Production serves the frozen DINOv3 `allrigs_dino3b16_s123` (since 2026-09-27; 10 classes, camera
+>   rigs). The exp171 model it calls "shipped" was replaced by `allrigs_cam_s123` on 2026-09-09.
+> - The webapp no longer runs from `~/coffee-vision` and is no longer deployed by rsync: it serves
+>   immutable releases from `/opt/coffee-cv` (`scripts/deploy_webapp.sh`, `webapp/README.md`), so the
+>   dirty-remote-tree residue described in §3d cannot recur.
+> - The VM's history comes back through merges on `tmp/*` branches, never `reset --hard` or the
+>   `sync-from-local` recipe (`docs/ops1_release_isolation_plan.html` §6).
+> - The DVC remote exists (A4, done 2026-09-04).
+>
+> The active plan is `docs/dinov3_integration_plan.md`.
+
 Status: REVISED twice on 2026-09-02 — an adversarial re-verification pass (second review), then a
 third pass that actually reached the `powervpsssh` remote box over SSH (its git log, DVC status, and
 plain files) instead of inferring remote state from local evidence alone. The third pass changed §3d's

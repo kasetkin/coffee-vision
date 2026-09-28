@@ -3,7 +3,8 @@
 Status: Step 0 and Experiment 1 DONE (2026-09-25); **the owner selected DINOv3 ViT-B/16 on
 2026-09-26** (§0.4), so every step from 1b on is run with `dinov3_vitb16 × cls_mean`. **2026-09-27:**
 the depth-0 integration (§8.6) and a deploy-ready candidate, `models/allrigs_dino3b16_s123.pt`, with a
-rebuilt and holdout-verified OOD guard (§9.3), are on branch `dino-integration`. **2026-09-27: deployed.**
+rebuilt and holdout-verified OOD guard (§9.3), were built on branch `dino-integration`, merged into `main`
+on 2026-09-27. **2026-09-27: deployed.**
 The owner chose it as the first release of the isolated `/opt/coffee-cv` service (OPS-1,
 `docs/ops1_release_isolation_plan.html`); it passed the smoke test in the real systemd sandbox (§9.4) and
 has been live since 14:25 UTC. That was the owner's call ahead of the §7.2 comparison, which is still
@@ -271,7 +272,7 @@ Meta's `rescale_coords=2` only applies in train mode (§10).
 ### 2.2 The code (sketch)
 
 ```python
-# coffeecv_dino/backbone.py
+# coffeecv_dino/backbone.py -- since moved to coffeecv/backbones.py (SPECS), which is what runs
 ARCHS = {  # arm name -> (timm model name, file under models_pretrained/)
     "dinov3_vits16":     ("vit_small_patch16_dinov3",      "dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth"),
     "dinov3_vits16plus": ("vit_small_plus_patch16_dinov3", "dinov3/dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth"),
@@ -637,8 +638,9 @@ Rules for the split:
 - **Same git commit on both.** Record the hostname and CPU model in the results JSON.
 - **Pre-assign experiment ids per seed** so the machines never write the same `expNNN`: seed 42
   → exp220–223, seed 123 → exp224–227, seed 7 → exp228–231.
-- **The VM needs timm first.** Its only venv, `~/coffee-vision-venv`, is also the one the webapp's
-  gunicorn runs from, so installing timm there changes production's environment (§6.2).
+- **The VM needs timm first.** When this was written its only venv, `~/coffee-vision-venv`, was also the
+  one the webapp's gunicorn ran from (§6.2). Since OPS-1 (2026-09-27) the webapp has its own venv per
+  release, so the training venv is training's alone.
 
 ### 5.6 Gates
 
@@ -750,8 +752,9 @@ TTA after all, the projection becomes 8 × 1.9 s and this gate fails.
 
 Two facts about the VM that matter later:
 
-- **It has one venv, `~/coffee-vision-venv`, shared by training and the webapp** (gunicorn's
-  `ExecStart` runs from it). There is no training-only environment to install timm into. timm
+- **It had one venv, `~/coffee-vision-venv`, shared by training and the webapp** (gunicorn's
+  `ExecStart` ran from it) until OPS-1 gave the webapp its own on 2026-09-27. At the time there was no
+  training-only environment to install timm into. timm
   needs only torch, torchvision and pyyaml when `pretrained=False`; that was verified with
   huggingface_hub and safetensors blocked. So the options are `pip install --no-deps
   timm==1.0.29` into the shared venv (one pure-Python package), or a separate directory on
@@ -759,7 +762,8 @@ Two facts about the VM that matter later:
 - **Production runs 4 of the VM's 8 hardware threads.** DINOv3 at 8 threads is 36.0 vs
   46.8 ms/img. This is a deploy-time knob, not part of this plan's decisions.
 
-`coffee-cv-web.service` is the owner's to manage: check its state and don't restart it.
+`coffee-cv-web.service` is the owner's to manage. Since OPS-1 it runs from `/opt/coffee-cv` and nothing an
+experiment does in `~/coffee-vision` reaches it, so there is no reason to stop it for a run.
 
 ---
 

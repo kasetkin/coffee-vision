@@ -1,6 +1,10 @@
 # Architecture comparison: U-Net variants, Meta model-zoo candidates, and the current ResNet18
 
-Status: DRAFT, written 2026-09-21 while the Stage 1 plateau sweep (exp210-213) still occupies
+**Status (2026-09-28): R1 was taken up and shipped; R2 and R3 were not acted on; R4 is closed.** R1's
+frozen-backbone arm became `docs/dinov3_integration_plan.md`, and a frozen DINOv3 ViT-B/16 has served
+production since 2026-09-27. The rest of this file is the draft as written.
+
+Originally: DRAFT, written 2026-09-21 while the Stage 1 plateau sweep (exp210-213) still occupied
 the VM. Nothing here has been validated through `run_folds.py`. The one empirical result below
 (§5) is a frozen-feature probe run locally, which is a *screen*, not an adoption test.
 

@@ -1,8 +1,14 @@
-# Experiment log — 9h autonomous quality-tuning run
+# Experiment log
+
+The project's experiment record, oldest first. It began as a 9-hour autonomous tuning run (Phases 1-6) and
+has grown one phase at a time since. For the model in production and the current numbers see `README.md`
+("Status"); per-run metrics for every experiment are in `experiments/index.csv`.
+
+## The 2026-07-30 tuning run
 
 Started: 2026-07-30 18:48 UTC. Target budget: ~9h. One hypothesis changed per experiment, isolated from all others.
 
-**Current best**: `crop-700` (resnet18, freeze_mode=none, backbone_lr=1e-5, patch_crop_size=700,
+**Best of this run**: `crop-700` (resnet18, freeze_mode=none, backbone_lr=1e-5, patch_crop_size=700,
 all else default) — val_macro_f1=0.8034, test_macro_f1=0.9296, test_mcc=0.9284 (best_epoch=15/20).
 (Superseded `resnet18-finetune-full`: 0.7402/0.9277/0.9235; `resnet18-lastblock`: 0.7057/0.9023/0.9008;
 `resnet18-frozen`: 0.6500/0.8146/0.8094.)
@@ -15,10 +21,6 @@ a large test swing (>0.09) corroborates, a small one is inconclusive either way.
 below are single-seed (seed=42) for time budget reasons, so borderline results get labeled "inconclusive,"
 not confidently adopted or rejected. Only Phase 6's final combined config gets a multi-seed check.
 
-If this log's "Status" says IN PROGRESS for an experiment with no result recorded, and you're reading this
-after a context reset/interruption: check `dvc exp show` / `git log` for whether that experiment's `dvc exp
-run` actually completed, then resume from there.
-
 ---
 
 ## Phase 0 — Setup (code changes, no training)
@@ -30,7 +32,7 @@ Added to support later experiments:
 - `color_jitter_strength` (was hardcoded at 0.2 in transforms.py).
 - `efficientnet_b0` as a third model_name option.
 
-Status: IN PROGRESS
+Status: finished (Phases 1-6 below).
 
 ## Phase 1 — Noise calibration
 
@@ -762,7 +764,7 @@ was already swept (0.0 vs 0.2) at this exact patch_crop_size in Phase 7 exp 24, 
 worth another look if, e.g., the zoom or rotation work changes what the model is sensitive to enough to
 plausibly change that verdict.
 
-# Phase 8 (running) - 12h autonomous augmentation run
+# Phase 8 - 12h autonomous augmentation run
 
 Started 2026-08-08 18:45 UTC, budget ends ~2026-08-09 06:45 UTC. User's brief: execute the Phase 8 plan
 above, ~12h first pass, review together afterwards and continue in later sessions. Four scoping decisions
@@ -1940,7 +1942,7 @@ each archived run, so the record states the data as well as the hyperparameters.
 
 ---
 
-# Phase 11 (in progress) - Cross-rig generalization, measured
+# Phase 11 - Cross-rig generalization, measured
 
 Two new capture sessions arrived on 2026-08-09, each a complete labelled set: **pixel_cam** (Pixel 9 Pro,
 180 photos, 9 classes x 20) and **sony_cam** (Sony G8441 / Xperia XZ1, same shape). Together with the
@@ -2837,6 +2839,18 @@ it is spent once at ship time.
 paired deltas against exp240-251 (plan §7.2). This is a comparison of two designs (fine-tuned ResNet18 +
 MixStyle + TTA at deploy vs frozen DINOv3 + convex head), not an architecture ablation.
 
+**exp232-239 finished 2026-09-28** (merged at `b224982`). Cross-rig macro-F1, three ten-class folds: seed 123
+**0.7908**, seed 7 **0.7965** (seed 42: 0.8025).
+
+| held-out | seed 123 | seed 7 |
+|---|---|---|
+| cam_pixel | 0.7939 (exp232) | 0.7949 (exp236) |
+| cam_sony | 0.7319 (exp233) | 0.7240 (exp237) |
+| cam_oneplus | 0.8465 (exp234) | 0.8705 (exp238) |
+| cam_iphone, 8 classes | 0.8049 (exp235) | 0.8164 (exp239) |
+
+The §7.2 paired comparison against exp240-251 has not been run yet.
+
 ### exp252-254: the all-cameras frozen ViT-B/16 ship candidate, and its OOD guard (2026-09-27)
 
 Plan §9.1, run on the workstation ahead of the §7.2 adoption decision at the owner's request, from branch
@@ -2852,7 +2866,8 @@ time). In-distribution only, so compare with the folds' test split, never with a
 
 The ResNet18 all-rigs card (`allrigs_cam_s123`) reports test 0.9363. **exp253 shipped as
 `models/allrigs_dino3b16_s123.pt`**: chosen on val, it is a 64 KB head plus the backbone's sha256. It is
-**not deployed**; that waits for §7.2.
+**not deployed**; that waits for §7.2. *(Update 2026-09-27: the owner shipped it anyway as the first release of
+the isolated `/opt/coffee-cv` service (OPS-1); it has served production since 14:25 UTC. §7.2 is still open.)*
 
 **OOD guard rebuilt in the 1536-d space (plan §9.3).**
 - **Reference:** per-photo training medians have median 0.954 and max 1.898. The centroid fallback's

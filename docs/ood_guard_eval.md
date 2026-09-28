@@ -1,6 +1,12 @@
 # OOD guard: what it actually does, measured
 
-**Status: `linear_probe` confirmed on the holdout and prepared for deployment (2026-09-11).**
+**Status (2026-09-28): this is the ResNet18 guard's record.** Its `linear_probe` was deployed on
+2026-09-11 (`78083c7`) and serves with the fallback model, `allrigs_cam_s123`. The model in production since
+2026-09-27, `allrigs_dino3b16_s123`, has its own probe, fitted in its 1536-d embedding space and verified on
+the same holdout, with the owner-set threshold 0.5 (`docs/dinov3_integration_plan.md` §9.3). The
+thresholds and α below are properties of the ResNet18 space only.
+
+Originally: **`linear_probe` confirmed on the holdout and prepared for deployment (2026-09-11).**
 The holdout split has now been spent, once, against a probe frozen beforehand -- see
 "Holdout confirmation" below. `OOD_THRESHOLD` and `ood_scores` are still untouched: the
 centroid metric remains exactly what runs when no probe file sits beside a checkpoint.

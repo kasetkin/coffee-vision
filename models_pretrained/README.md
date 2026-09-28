@@ -20,6 +20,9 @@ python models_pretrained/verify.py     # what you have, and what is missing or w
   Until then, rsync this folder from a machine that has it and run `verify.py` on the receiving
   side -- done for `powervpsssh:~/coffee-vision/models_pretrained/` on 2026-09-24 (all 5 files
   sha256 OK there).
+- **The web service** never reads this folder on the VM: `scripts/deploy_webapp.sh` copies the one
+  backbone a model needs into each release under `/opt/coffee-cv`, from the deploying machine's copy,
+  refusing it unless its sha256 matches `manifest.json`.
 - **Anyone else:** DINOv3 cannot be redistributed from a public repo (licence §1b-i), so a copy
   has to be requested from Meta directly. Full procedure, including the two-incompatible-formats
   trap, is `docs/dinov3_integration_plan.md` **§2.5**. Short version: take the **Meta-direct
@@ -78,7 +81,8 @@ the repo and is where `torchvision.models.resnet18(weights=DEFAULT)` looks; dele
 would make the next `build_model` call re-download 47 MB, which is exactly the mid-run network
 dependency this folder exists to remove. Keeping both copies costs 47 MB and removes that risk.
 Delete the cache copy only once `build_model` loads from this folder instead of from torchvision's
-downloader.
+downloader. Only training still needs it: inference builds ResNet18 with `weights=None`, because the
+checkpoint's strict load overwrites every weight anyway.
 
 The same applies to `dinov2_vits14_pretrain.pth`.
 

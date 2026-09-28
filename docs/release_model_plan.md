@@ -1,5 +1,10 @@
 # Next release model: plan
 
+**Status (2026-09-28): done, and since superseded.** exp204–209 ran and `allrigs_cam_s123` (exp206) was
+shipped on 2026-09-09. Production has served the frozen DINOv3 `allrigs_dino3b16_s123` since 2026-09-27;
+`allrigs_cam_s123` is its fallback. Deploys no longer go through `webapp/app.py`'s `CHECKPOINT` or rsync:
+see `webapp/README.md` and `scripts/deploy_webapp.sh`. The rest of this file is the plan as written.
+
 Written 2026-09-08, from the working tree (`git status` clean, local `main` in sync with
 `origin/main`, `dvc status` shows no stale crop stages) plus `docs/dataset_training_reorg_plan.md`
 and `experiments/index.csv` through exp203. Scope: get a shipped model that reflects the two
@@ -71,9 +76,8 @@ seed here; six seeds is ~2 days of wall clock. Options, in order of preference:
   reorg plan verified it for exp171 rather than assuming.
 - Spot-check through the real `infer.py` CLI path before committing (same precedent: 9/9 on the fixed
   legacy-lens set for exp171). Re-run `eval_legacy_lens_photos.py` against the new checkpoint.
-- Update `webapp/app.py:36`'s `CHECKPOINT` constant, redeploy per the documented rsync process
-  (`project-webapp-production`), and update `webapp/README.md` alongside it — the previous ship left
-  that file naming a different checkpoint than `app.py` actually loaded; don't repeat it.
+- Deploy it. (As written on 2026-09-08 this step edited `webapp/app.py`'s `CHECKPOINT` and rsynced; since
+  OPS-1 a deploy is `scripts/deploy_webapp.sh <sha> <model>`, which picks the model in the release.)
 
 ## 3. Firm up the headline cross-rig number before it goes in release notes
 

@@ -9,14 +9,19 @@ Sample train patches, one row per class, cropped from the current dataset (`data
 ## Repo layout
 
 - `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` maps class id → origin/grade/region and is a plain git-tracked text file.
+- `coffeecv/` — the training, evaluation and inference code; `coffeecv_dino/` holds the DINOv3 screening tools.
+- `models/` — shipped checkpoints (`.pt` via DVC) with their git-tracked cards and OOD sidecars; `models_pretrained/` — upstream backbone weights (untracked) and their checksums.
+- `experiments/` — one archived directory per run, plus `experiments/index.csv`.
 - `webapp/` — the public web service serving the shipped classifier (see [Web service](#web-service) below).
+- `scripts/` — the deploy (`deploy_webapp.sh`) and the remote-sweep toolkit (`remote_launch.sh`, `remote_watch.sh`, `remote_wait.sh`).
+- `docs/` — plans, investigations and their records.
 - `hardware/` — sensor datasheets (NIR: AS7263/AS7265x/AS7343, gas: BME688, LEDs) and a design-research writeup (`Computer vision models for coffee bean origin classification - Claude.pdf`) on which physical/chemical signals actually carry origin information. Reference material for the fallback hardware path — nothing here is built or wired up yet.
 - `.devcontainer/` — the dev environment (below).
 - `.vscode/c_cpp_properties.json` — C/C++ IntelliSense config anticipating firmware work; unused while CV-only is the active path.
 
 ## Dev environment
 
-Open in VS Code with the Dev Containers extension ("Reopen in Container"). It builds `Dockerfile.cpu`: Python 3.12, PyTorch (CPU wheels — no NVIDIA GPU on this machine), OpenCV, scikit-learn, DVC, etc. `--device=/dev/dri` passes through this machine's AMD iGPU for OpenCV's OpenCL path; as configured the devcontainer won't start on a host without that device (cloud VM, macOS, NVIDIA-only box) — there's no separate GPU/cloud variant, training happens on this same workstation.
+Open in VS Code with the Dev Containers extension ("Reopen in Container"). It builds `Dockerfile.cpu`: Python 3.12, PyTorch (CPU wheels — no NVIDIA GPU on this machine), OpenCV, scikit-learn, DVC, etc. `--device=/dev/dri` passes through this machine's AMD iGPU for OpenCV's OpenCL path; as configured the devcontainer won't start on a host without that device (cloud VM, macOS, NVIDIA-only box) — there's no separate GPU/cloud variant. Long training sweeps run on a separate CPU VM (`scripts/remote_launch.sh`), the same box that serves the web app.
 
 Persisted across rebuilds via named Docker volumes (not part of the repo — a `docker volume prune` or Docker reset would lose them): bash history, Claude Code's config/auth/chat history, and IPython/Jupyter history.
 
@@ -31,27 +36,30 @@ git add dataset/<session-name>.dvc dataset/.gitignore
 
 This keeps the actual images out of git (only a small `.dvc` pointer + hash gets committed) while still versioning them alongside code.
 
-**No DVC remote is configured yet** — tracked data only lives in the local `.dvc/cache`, so none of it is backed up anywhere yet. Run `dvc remote add -d <name> <url>` (S3/GCS/local NAS/etc.) and `dvc push` before relying on this for anything you can't afford to lose.
+The default remote is `remoteconfig`, an SSH remote configured in `.dvc/config`; `dvc push` backs the cache up there. Verify a push by checking that the objects `dvc.lock` names exist on the remote, not by `dvc status --cloud`'s summary, which can report "in sync" while objects are missing.
 
 ## Web service
 
-`webapp/` serves the currently-shipped checkpoint (`allrigs_mixstyle05_e100p20_s17.pt`) behind a
-single `POST /classify` endpoint plus a one-page frontend: upload a photo, get either a
-classification with scores for all 9 classes or an actionable refusal ("move the camera back",
-"this doesn't look like the training data"). It wraps `coffeecv.infer` rather than reimplementing
-any of its scale/OOD logic, so the CLI and the web service can never silently disagree. Deployment
-(nginx + gunicorn on a dedicated VM) is fully scripted and git-tracked — see `webapp/README.md` for
-architecture, redeploy procedure, and the couple of things (domain, TLS cert) that live outside git
-by design.
+`webapp/` serves the shipped checkpoint, `allrigs_dino3b16_s123` (a frozen DINOv3 ViT-B/16 with a fitted
+linear head), behind `POST /classify` plus a one-page frontend: upload a photo, get scores for all 10
+classes, or a refusal when the photo does not look like the training data (the OOD guard). It wraps
+`coffeecv.infer` rather than reimplementing any of it, so the CLI and the web service can never silently
+disagree. Production runs from an immutable release under `/opt/coffee-cv` with its own uv environment,
+isolated from the training checkout; a deploy is one command, `scripts/deploy_webapp.sh`. See
+`webapp/README.md` for the architecture, deploy and rollback, and the things (domain, TLS cert) that live
+outside git by design.
 
 ## Status
 
-Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Current adopted config (resnet18, full fine-tune, **bean-unit patch sizing** at 4-7 beans, MixStyle p=0.5 agnostic, random erasing p=0.5, epochs=100/patience=20, eta_min=1e-5, TTA at inference), over the 20 runs at that config: **in-distribution test macro-F1 0.884-0.933**, and **cross-rig (leave-one-rig-out) macro-F1 0.674-0.851** over 14 folds. Quote the range, not a single run — seed-to-seed spread is wider than most of the effects being measured, which is why adoptions since Phase 8 require a *paired* multi-seed check rather than a single seed.
+Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Rigs are camera models (four `cam_*` rigs), and the headline metric is cross-camera (leave-one-camera-out) macro-F1 over the three folds that carry all 10 classes.
 
-The ~20-point gap between those two ranges is the project's central open problem: the model is much worse on a camera it has not seen than on one it has. Do not quote the in-distribution figure on its own.
+- **Shipped: frozen DINOv3 ViT-B/16, `cls_mean` readout, logistic-regression head**, no TTA. Cross-camera patch macro-F1 **0.8873** (exp240-251, 3 seeds × 4 folds), 0.9489 pooled per photo. The owner selected it on those folds and it has been live since 2026-09-27; the formal paired comparison against ResNet18 (`docs/dinov3_integration_plan.md` §7.2) is still to be run.
+- **Fine-tuned ResNet18 recipe** (bean-unit patch sizing at 4-7 beans, MixStyle p=0.5, random erasing p=0.5, 100 epochs / patience 20, TTA): cross-camera **0.7908-0.8025** over seeds 42, 123 and 7 (exp200-203, exp232-239). `allrigs_cam_s123` is its shipped all-cameras model and the deploy's fallback.
+
+Quote ranges over seeds, not a single run: seed-to-seed spread is wider than most of the effects being measured, which is why adoptions require a *paired* multi-seed check. In-distribution test scores (0.97 for the shipped model) sit far above the cross-camera ones; that gap is the project's central problem, so never quote the in-distribution figure on its own.
 
 Full experiment history is in `EXPERIMENTS_LOG.md`. Phases 1-14 (through exp105) were written contemporaneously and are authoritative prose. Phases 15-17 (exp106-175) were **reconstructed on 2026-09-03** from `index.csv` and the archived configs — the numbers are recomputed and exact, but the reasoning-as-it-happened is genuinely lost for those runs, and the section says so. Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary and is regenerated from the archive directories by `archive_experiment.rebuild_index()`, never hand-edited.
 
-Current state, open problems and the ranked plan live in `docs/dataset_training_reorg_plan.md`; that document supersedes this section wherever they disagree.
+The active plan is `docs/dinov3_integration_plan.md`; the dataset and rig reorganisation behind the camera-rig numbers is `docs/dataset_training_reorg_plan.md`.
 
 Known limitation worth reading before further tuning: the validation set is saturating (5 of 9 classes sit at or near f1=1.000, and one run hit val macro-F1 0.9917). Since `best.pt` is selected on peak val macro-F1, this degrades *checkpoint selection*, not just reporting — see the Phase 8 summary.

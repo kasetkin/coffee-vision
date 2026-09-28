@@ -370,7 +370,7 @@
     explicit allowlist, and <code>/var/log/coffee-cv</code> was never added to it, so every
     worker died at import time (<code>OSError: Read-only file system</code>). No local smoke
     test could have caught this; the dev server doesn't run under systemd at all. Fixed with
-    <code>ReadWritePaths=/var/log/coffee-cv</code> in <span class="file">webapp/deploy/coffee-cv-web.service</span>
+    <code>ReadWritePaths=/var/log/coffee-cv</code> in <span class="file">webapp/deploy/coffee-cv-web.service.template</span>
     (commit <code>2b5e718</code>), verified via a real request through the live HTTPS endpoint
     afterward &mdash; both logs written, correct <code>request_id</code> join, zero restarts since.
   </div>
@@ -399,6 +399,6 @@
   </ul>
 
   <footer>
-    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-web.service &middot; webapp/README.md
+    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-web.service.template &middot; webapp/README.md
   </footer>
 </main>
