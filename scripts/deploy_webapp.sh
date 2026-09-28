@@ -366,7 +366,6 @@ render_production() {   # installs the unit and nginx site from $SHA if they cha
     SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
     stamp=$(date -u +%Y%m%dT%H%M%SZ)
     if [[ "$(cat "$UNIT_F" 2>/dev/null)" != "$UNIT" ]]; then
-      [[ -f "$UNIT_F" ]] && $SUDO cp -p "$UNIT_F" "$APP_ROOT/backup-coffee-cv-web.service.$stamp" 2>/dev/null || true
       printf "%s\n" "$UNIT" | $SUDO tee "$UNIT_F" >/dev/null
       $SUDO systemctl daemon-reload
       echo "UNIT_CHANGED=1"
@@ -513,7 +512,10 @@ prune() {
       [[ -d "$d" && "$d" == "$APP_ROOT"/releases/* ]] || continue
       case " $keep " in *" $d "*) continue ;; esac
       rm -rf "$d" && echo "   removed $(basename "$d")"
-      rm -f "fixtures/expected/$(basename "$d").json"
+    done
+    # Expected answers belong to a release; drop any whose release is gone (however it went).
+    for f in fixtures/expected/*.json; do
+      [[ -d "releases/$(basename "$f" .json)" ]] || { rm -f "$f"; echo "   removed $f"; }
     done
     capped 100% "$APP_ROOT" -E UV_CACHE_DIR="$APP_ROOT/uv-cache" "$UV_BIN" cache prune --quiet
     echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"'
