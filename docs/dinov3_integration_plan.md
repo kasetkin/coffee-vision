@@ -3,9 +3,12 @@
 Status: Step 0 and Experiment 1 DONE (2026-09-25); **the owner selected DINOv3 ViT-B/16 on
 2026-09-26** (§0.4), so every step from 1b on is run with `dinov3_vitb16 × cls_mean`. **2026-09-27:**
 the depth-0 integration (§8.6) and a deploy-ready candidate, `models/allrigs_dino3b16_s123.pt`, with a
-rebuilt and holdout-verified OOD guard (§9.3), are on branch `dino-integration`. It is not deployed:
-that waits for the §7.2 decision (ResNet18 seeds 123/7, exp232-239, running on the VM) and the
-sandbox smoke test (§9.4). This file
+rebuilt and holdout-verified OOD guard (§9.3), are on branch `dino-integration`. **2026-09-27: deployed.**
+The owner chose it as the first release of the isolated `/opt/coffee-cv` service (OPS-1,
+`docs/ops1_release_isolation_plan.html`); it passed the smoke test in the real systemd sandbox (§9.4) and
+has been live since 14:25 UTC. That was the owner's call ahead of the §7.2 comparison, which is still
+open: exp232-239 finished 2026-09-28 and are merged (`b224982`), so its 12 paired deltas can now be
+computed. This file
 replaces `docs/dinov2_integration_plan.md` (written 2026-09-21; its last version is at commit
 `1caf2f1`). On 2026-09-24 the owner decided that **DINOv3 is the family this project builds first**,
 and that the first experiment is implementing it and testing it, with ViT-S/16 as the pre-registered
@@ -771,6 +774,11 @@ scheduler fields that postdate them and sit at their cosine defaults). Chained a
 --tag s7`; torch's default thread count, as exp200–203 used. Log `~/exp2_r18.log`, status
 `~/exp2_r18_status.log`.
 
+**FINISHED 2026-09-28 15:44 UTC** (`SWEEP_DONE_EXIT=0`), merged into `main` at `b224982`. Cross-camera
+macro-F1 over the three ten-class folds (pixel/sony/oneplus): seed 123 0.7908, seed 7 0.7965 (seed 42,
+exp200-203: 0.8025). Per fold: pixel 0.7939/0.7949, sony 0.7319/0.7240, oneplus 0.8465/0.8705, iphone
+(8 classes) 0.8049/0.8164. The §7.2 comparison has not been run yet.
+
 The camera-rig era has exactly four fine-tuned fold runs, exp200–203, all at seed 42. An
 adoption needs a multi-seed baseline, and it is the slowest item in this plan: about 7.5 h per
 fold run, so about 60 h for 8 runs (4 folds × 2 seeds). Suggested numbering: exp232–239.
@@ -958,9 +966,10 @@ decision at the owner's request, so a deploy-ready B/16 model exists when the 12
 - **`fold_data.build_fold_datasets(only=...)`** builds a subset of splits. The result is
   byte-identical to building them all (tested), and it bounds the memory the shipping fit needs.
 - **`coffeecv.fit_frozen_head`** is the §9.1 fit, and `--ship` copies a run to `models/`.
-- **Dependencies (§9.4):** `timm==1.0.29` is in `webapp/requirements-nodeps.txt`, installed with
-  `--no-deps` by `setup_server.sh`. `pyyaml==6.0.3` is in `webapp/requirements.txt`. All hashes
-  were checked against real downloads.
+- **Dependencies (§9.4):** `timm==1.0.29` is in `webapp/pyproject.toml` and `webapp/uv.lock` since
+  OPS-1 (2026-09-27); `[[tool.uv.dependency-metadata]]` declares it without huggingface_hub and
+  safetensors. The pip files that held it (`webapp/requirements*.txt`, `--no-deps` via
+  `setup_server.sh`) were deleted on 2026-09-28.
   - `huggingface_hub` and `safetensors` are left out on purpose. timm imports them only to
     download weights, and the production venv has run timm without them since 2026-09-24.
 
@@ -1047,6 +1056,10 @@ exp252-254 and in the card's `ood_guard` block.
 
 ### 9.4 Dependencies and the deploy sandbox
 
+**Done through OPS-1 (2026-09-27).** timm is locked in `webapp/uv.lock` without its download-only
+dependencies, and every deploy smoke-tests the release in the production unit's own sandbox before
+the flip (`scripts/deploy_webapp.sh`). The bullets below are the original plan.
+
 - **Add `timm==1.0.29` to `webapp/requirements.txt` with hashes** via pip-compile, which also
   brings pyyaml, huggingface_hub and safetensors. timm itself runs without the last two when
   `pretrained=False` (§6.2), so leaving them out is an option, but it has to be a deliberate
@@ -1061,6 +1074,11 @@ exp252-254 and in the card's `ood_guard` block.
   remote is back, `dvc pull` is the normal path. Never commit it.
 
 ### 9.5 Deploy checklist
+
+**Superseded by OPS-1.** A deploy is now `DOMAIN=... scripts/deploy_webapp.sh <sha> <model>`: the model
+is chosen in the release's `release.env`, the manifest ships the sidecars together, nginx serves the
+page from the release, and the health checks are its `--verify` step. See `webapp/README.md`. The
+original checklist:
 
 1. Repoint `CHECKPOINT`. The sidecars are addressed as `<checkpoint>.<suffix>`, so repointing
    swaps the whole set: `.json`, `.classes.txt`, `.ood_reference.json`, `.ood_embeddings.npz`,

@@ -139,6 +139,11 @@ PIDs and log size before its first VM step and after its last. Never during a sw
 (apt, ufw), `remote_launch.sh` with default paths (it deletes `~/sweep.log`), git commands that move the
 VM's checkout, reboots.
 
+**Keeping the site on during a sweep** is fine for the frozen DINOv3 model: measured 2026-09-27/28,
+`/classify` takes 12.5 s mean and 13.7 s max server-side during a ResNet18 sweep, against 7.0 s idle, well inside
+gunicorn's and nginx's 30 s. The site and the sweep share the CPU with no priority between them. Compare
+latencies with `latency_ms` in `app.jsonl`: end-to-end times from a slow uplink include several seconds of upload.
+
 ### After changing a dependency
 
 Edit `webapp/pyproject.toml`, re-lock with the pinned uv (`uv lock --project webapp`), commit both. A

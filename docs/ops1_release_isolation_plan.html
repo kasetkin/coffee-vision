@@ -98,6 +98,7 @@
   ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
   .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
   .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
   .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
 
   .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
@@ -115,7 +116,7 @@
     with its own uv-managed environment and only the files it needs. Deploys are one command, can run while a sweep trains, and never touch it.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Ready for implementation</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Implemented · live since 2026-09-27</span></span></div>
     <div class="field"><span class="k">Owner</span><span class="v">Alex Kasatkin (approvals, enabling the service)</span></div>
     <div class="field"><span class="k">Implementer</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Host</span><span class="v mono">powervpsssh (4 cores, 16 GB)</span></div>
@@ -123,6 +124,7 @@
     <div class="field"><span class="k">Deploys from</span><span class="v mono">origin/main</span></div>
     <div class="field"><span class="k">Service user</span><span class="v mono">coffee-cv</span></div>
     <div class="field"><span class="k">Date</span><span class="v mono">2026-09-27</span></div>
+    <div class="field"><span class="k">Completed</span><span class="v mono">2026-09-28 (record: §11)</span></div>
   </div>
 
   <h2>1. Goal</h2>
@@ -505,45 +507,45 @@ git branch -d tmp/from-local</code></pre>
   <h2>7. Execution order</h2>
   <h3>Local, any time</h3>
   <ol class="tasks">
-    <li><span class="box"></span><span>§6 step 0: fast-forward <code>main</code> to <code>dino-integration</code> and push it; all further work goes on <code>main</code></span></li>
-    <li><span class="box"></span><span>Read-only from the VM: <code>pip freeze</code> of <code>~/coffee-vision-venv</code>, its opencv build, and whether timm 1.0.29 is installed</span></li>
-    <li><span class="box"></span><span>Install pinned uv; write <code>webapp/pyproject.toml</code>; run <code>uv lock</code> (§4.1)</span></li>
-    <li><span class="box"></span><span>ResNet18 <code>weights=None</code> for inference, with the bit-identical-logits test (§4.3)</span></li>
-    <li><span class="box"></span><span>Manifest and <code>tests/test_release_manifest.py</code>, covering both models and all three endpoints (§4.2)</span></li>
-    <li><span class="box"></span><span><code>write_build_info.py --ref --model</code> (§4.4)</span></li>
-    <li><span class="box"></span><span>Unit, nginx and logrotate templates; the trimmed <code>setup_server.sh</code>; <code>webapp/README.md</code> (§4.5–4.7)</span></li>
-    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh</code> with all options (§4.8, §5)</span></li>
-    <li><span class="box"></span><span>Rehearse locally in a scratch root: build, stage, flip, prune, <code>--rollback</code>. The devcontainer has no systemd, so the systemd steps are stubbed here and run for real in Phase A</span></li>
-    <li><span class="box"></span><span>Commit and push to <code>origin/main</code></span></li>
+    <li><span class="box done"></span><span>§6 step 0: fast-forward <code>main</code> to <code>dino-integration</code> and push it; all further work goes on <code>main</code></span></li>
+    <li><span class="box done"></span><span>Read-only from the VM: <code>pip freeze</code> of <code>~/coffee-vision-venv</code>, its opencv build, and whether timm 1.0.29 is installed</span></li>
+    <li><span class="box done"></span><span>Install pinned uv; write <code>webapp/pyproject.toml</code>; run <code>uv lock</code> (§4.1)</span></li>
+    <li><span class="box done"></span><span>ResNet18 <code>weights=None</code> for inference, with the bit-identical-logits test (§4.3)</span></li>
+    <li><span class="box done"></span><span>Manifest and <code>tests/test_release_manifest.py</code>, covering both models and all three endpoints (§4.2)</span></li>
+    <li><span class="box done"></span><span><code>write_build_info.py --ref --model</code> (§4.4)</span></li>
+    <li><span class="box done"></span><span>Unit, nginx and logrotate templates; the trimmed <code>setup_server.sh</code>; <code>webapp/README.md</code> (§4.5–4.7)</span></li>
+    <li><span class="box done"></span><span><code>scripts/deploy_webapp.sh</code> with all options (§4.8, §5)</span></li>
+    <li><span class="box done"></span><span>Rehearse locally in a scratch root: build, stage, flip, prune, <code>--rollback</code>. The devcontainer has no systemd, so the systemd steps are stubbed here and run for real in Phase A</span></li>
+    <li><span class="box done"></span><span>Commit and push to <code>origin/main</code></span></li>
   </ol>
   <h3>VM, Phase A: allowed during the sweep</h3>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>deploy_webapp.sh --bootstrap</code></span></li>
-    <li><span class="box"></span><span><code>deploy_webapp.sh &lt;main-sha&gt; allrigs_dino3b16_s123 --stage-only</code>; record RSS and timings</span></li>
-    <li><span class="box"></span><span><code>--compare</code> on the staged release: outputs must be bit-identical</span></li>
-    <li><span class="box"></span><span>Full deploy up to the flip. The service stays disabled, and the public site behaves as today: the page loads and <code>/classify</code> answers 502</span></li>
+    <li><span class="box done"></span><span><code>deploy_webapp.sh --bootstrap</code></span></li>
+    <li><span class="box done"></span><span><code>deploy_webapp.sh &lt;main-sha&gt; allrigs_dino3b16_s123 --stage-only</code>; record RSS and timings</span></li>
+    <li><span class="box done"></span><span><code>--compare</code> on the staged release: outputs must be bit-identical</span></li>
+    <li><span class="box done"></span><span>Full deploy up to the flip. The service stays disabled, and the public site behaves as today: the page loads and <code>/classify</code> answers 502</span></li>
   </ol>
   <h3>Phase B: the owner, any time</h3>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>sudo systemctl enable --now coffee-cv-web</code>, then <code>deploy_webapp.sh --verify</code></span></li>
+    <li><span class="box done"></span><span><code>sudo systemctl enable --now coffee-cv-web</code>, then <code>deploy_webapp.sh --verify</code></span></li>
   </ol>
   <h3>After exp239</h3>
   <ol class="tasks">
-    <li><span class="box"></span><span>§6 steps 1–2: merge the sweep's commits into <code>main</code>, then fast-forward the VM</span></li>
-    <li><span class="box"></span><span>Delete <code>webapp/requirements.txt</code> and <code>webapp/requirements-nodeps.txt</code>; the old service no longer exists</span></li>
+    <li><span class="box done"></span><span>§6 steps 1–2: merge the sweep's commits into <code>main</code>, then fast-forward the VM</span></li>
+    <li><span class="box done"></span><span>Delete <code>webapp/requirements.txt</code> and <code>webapp/requirements-nodeps.txt</code>; the old service no longer exists</span></li>
   </ol>
 
   <h2>8. Acceptance criteria</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>systemctl cat coffee-cv-web</code> shows <code>User=coffee-cv</code> and no path under <code>/home</code>, and <code>readlink -f /opt/coffee-cv/current/.venv/bin/python</code> resolves outside <code>/home</code>.</span></li>
-    <li><span class="box"></span><span>The release directory holds only the manifest's files, the generated files, <code>.venv</code> and <code>.complete</code>. The manifest test passes for both models and all three endpoints.</span></li>
-    <li><span class="box"></span><span>With the service running, <code>git reset --hard</code> in the training checkout, a <code>params.yaml</code> edit, and a package install in the training venv each leave <code>/classify</code> results and the startup log unchanged after a restart.</span></li>
-    <li><span class="box"></span><span>The startup log line shows the deployed commit from <code>BUILD_INFO.json</code> (a commit on <code>origin/main</code>) and the <code>model_sha</code> of <code>allrigs_dino3b16_s123</code>.</span></li>
-    <li><span class="box"></span><span>Each refusal is shown to work once: <code>uv sync --locked</code> refuses a <code>pyproject.toml</code> edited without re-locking; the deploy refuses a <code>.pt</code> whose md5 does not match its <code>.pt.dvc</code>; the deploy refuses a commit that is not on <code>origin/main</code>.</span></li>
-    <li><span class="box"></span><span>Phase A, run during exp232–239, leaves the sweep alone: the same training PIDs run before and after, <code>~/sweep.log</code> kept growing, and nothing was written outside <code>/opt/coffee-cv</code>, <code>/usr/local/bin/uv</code>, <code>/run/systemd/system</code>, <code>/var/log/coffee-cv</code> and <code>/etc</code> (the <code>coffee-cv</code> user and the rendered files).</span></li>
-    <li><span class="box"></span><span>The ResNet18 fallback stays deployable: the manifest test and the bit-identical-logits test pass for <code>allrigs_cam_s123</code>. <code>--rollback</code> works in the local rehearsal.</span></li>
-    <li><span class="box"></span><span>After §6, every <code>git_commit</code> recorded for exp232–239 and exp252–254 resolves in <code>main</code>'s history, and the VM's <code>main</code> is the same commit as local <code>main</code>.</span></li>
-    <li><span class="box"></span><span>If the site is kept on during a sweep, <code>/classify</code> answers within gunicorn's 30 s timeout. Measure this once with 10 requests and record it next to the idle latency.</span></li>
+    <li><span class="box done"></span><span><code>systemctl cat coffee-cv-web</code> shows <code>User=coffee-cv</code> and no path under <code>/home</code>, and <code>readlink -f /opt/coffee-cv/current/.venv/bin/python</code> resolves outside <code>/home</code>.<span class="result">Met. <code>User=coffee-cv</code>, <code>WorkingDirectory</code> and <code>ExecStart</code> under <code>/opt/coffee-cv/current</code>; the python resolves to <code>/usr/bin/python3.12</code>. The only <code>/home</code> text in the unit was a comment, reworded in 4ef7fea; the VM gets it with the next deploy.</span></span></li>
+    <li><span class="box done"></span><span>The release directory holds only the manifest's files, the generated files, <code>.venv</code> and <code>.complete</code>. The manifest test passes for both models and all three endpoints.<span class="result">Met. The deploy checks the release's file list against the manifest on every stage, including a reused one. <code>tests/test_release_manifest.py</code> passes in both directions (nothing opened outside the list, nothing listed that is never opened).</span></span></li>
+    <li><span class="box done"></span><span>With the service running, <code>git reset --hard</code> in the training checkout, a <code>params.yaml</code> edit, and a package install in the training venv each leave <code>/classify</code> results and the startup log unchanged after a restart.<span class="result">Met, with substituted evidence. The §6 fast-forward on 2026-09-28 rewrote <code>coffeecv/</code>, <code>webapp/</code> and <code>params.yaml</code> in the training checkout while the service ran; after a restart the <code>/classify</code> body was byte-identical and the startup line identical. The running worker had 0 files mapped or open under <code>/home</code>, loaded torch from the release venv, and saw an empty <code>/home</code>. <code>git reset --hard</code> was not run (the owner rules it out) and nothing was installed into the training venv (§10); the <code>/proc</code> evidence shows neither can reach the service.</span></span></li>
+    <li><span class="box done"></span><span>The startup log line shows the deployed commit from <code>BUILD_INFO.json</code> (a commit on <code>origin/main</code>) and the <code>model_sha</code> of <code>allrigs_dino3b16_s123</code>.<span class="result">Met. <code>commit ee99f91aa035…</code> (on <code>origin/main</code>), <code>model_sha 5526d6ea69968764</code>, <code>backbone_sha 73cec8be7427c865</code>.</span></span></li>
+    <li><span class="box done"></span><span>Each refusal is shown to work once: <code>uv sync --locked</code> refuses a <code>pyproject.toml</code> edited without re-locking; the deploy refuses a <code>.pt</code> whose md5 does not match its <code>.pt.dvc</code>; the deploy refuses a commit that is not on <code>origin/main</code>.<span class="result">Met. <code>uv sync --locked</code> exits 1 ("the lockfile needs to be updated"). The md5 and <code>origin/main</code> refusals, plus a failing <code>nginx -t</code> restoring the old site byte for byte, run in <code>scripts/rehearse_deploy_local.sh</code>.</span></span></li>
+    <li><span class="box done"></span><span>Phase A, run during exp232–239, leaves the sweep alone: the same training PIDs run before and after, <code>~/sweep.log</code> kept growing, and nothing was written outside <code>/opt/coffee-cv</code>, <code>/usr/local/bin/uv</code>, <code>/run/systemd/system</code>, <code>/var/log/coffee-cv</code> and <code>/etc</code> (the <code>coffee-cv</code> user and the rendered files).<span class="result">Met. PIDs 2123442, 2126784 and 2190193 ran before and after bootstrap, stage, compare and the flip. This sweep logged to <code>~/exp2_r18.log</code>, not <code>~/sweep.log</code>; it grew across every step. Writes stayed in the listed places. A network drop mid-rsync left two orphaned <code>rsync --server</code> processes and a partial release, both under <code>/opt/coffee-cv</code>; they were removed.</span></span></li>
+    <li><span class="box done"></span><span>The ResNet18 fallback stays deployable: the manifest test and the bit-identical-logits test pass for <code>allrigs_cam_s123</code>. <code>--rollback</code> works in the local rehearsal.<span class="result">Met. Both tests pass for <code>allrigs_cam_s123</code>; the rehearsal deploys it, deploys DINOv3 over it, and rolls back and forward.</span></span></li>
+    <li><span class="box done"></span><span>After §6, every <code>git_commit</code> recorded for exp232–239 and exp252–254 resolves in <code>main</code>'s history, and the VM's <code>main</code> is the same commit as local <code>main</code>.<span class="result">Met on 2026-09-28. All 11 resolve; the VM's <code>main</code> and local <code>main</code> are both <code>b224982</code>.</span></span></li>
+    <li><span class="box done"></span><span>If the site is kept on during a sweep, <code>/classify</code> answers within gunicorn's 30 s timeout. Measure this once with 10 requests and record it next to the idle latency.<span class="result">Met. Server-side (<code>latency_ms</code> in <code>app.jsonl</code>): 12.5 s mean, 13.7 s max during the sweep (n=20); 7.0 s mean and max idle (n=12). Details in §11.</span></span></li>
   </ul>
 
   <h2>9. Risks</h2>
@@ -568,6 +570,65 @@ git branch -d tmp/from-local</code></pre>
     <li>CPU priority between sweeps and the site. When both are busy they share the CPU, and whether the site stays on during a sweep is the owner's call.</li>
     <li>nginx changes beyond the new <code>root</code>.</li>
     <li>Moving serving to another machine or into a container.</li>
+  </ul>
+
+  <h2>11. Implementation record</h2>
+  <div class="callout good">Live since 2026-09-27 14:25 UTC: <code>coffee-cv-web</code> serves
+    <code>allrigs_dino3b16_s123</code> from <code>releases/20260927T1338Z-ee99f91-allrigs_dino3b16_s123</code> as <code>coffee-cv</code>.
+    Every phase ran while exp232–239 trained, and the sweep finished on its own (<code>SWEEP_DONE_EXIT=0</code>, 2026-09-28 15:44 UTC).</div>
+
+  <h3>Timeline (UTC)</h3>
+  <div class="log">
+    <div><span class="when">2026-09-27</span> §6 step 0: <code>main</code> fast-forwarded to <code>dino-integration</code>. Built and committed: 2cd38a0 (these docs), 86a7958 (§4), 051ff59 (release reuse, local rehearsal), ee99f91 (fixes from the rehearsal).</div>
+    <div><span class="when">2026-09-27 13:19</span> <code>--bootstrap</code>: <code>coffee-cv</code> (uid 999), <code>/opt/coffee-cv</code>, uv 0.12.19, log directory, logrotate.</div>
+    <div><span class="when">2026-09-27 13:21</span> First <code>--stage-only</code> lost its SSH connection mid-rsync (exit 10). Cleaned up; 7a9acea added keepalives and resumable retries.</div>
+    <div><span class="when">2026-09-27 13:38</span> <code>--stage-only</code> of ee99f91: rsync 149 s, venv 500 s at 1 CPU, smoke passed. <code>--compare</code>: bit-identical on 10 photos.</div>
+    <div><span class="when">2026-09-27 14:14</span> Full deploy up to the flip (release reused, not rebuilt). Service disabled; page 200, <code>/classify</code> 502.</div>
+    <div><span class="when">2026-09-27 14:25</span> Phase B: the owner enabled the service; <code>--verify</code> passed every check.</div>
+    <div><span class="when">2026-09-28 16:3x</span> §6 steps 1–2: merge b224982, VM fast-forwarded. Idle latency measured, restart test run, <code>webapp/requirements*.txt</code> deleted (1fd88b3).</div>
+  </div>
+
+  <h3>Measurements</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>What</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Lock vs production freeze</td><td>27 of 27 packages at the production version; torch and torchvision <code>+cpu</code> from the PyTorch index</td></tr>
+      <tr><td><code>--compare</code>, training venv vs release venv (VM)</td><td>Bit-identical on all 10 photos, every top-1 correct; 255 s and 245 s at 1 CPU</td></tr>
+      <tr><td>Smoke in the real sandbox, sweep running, 200% CPU cap</td><td>Ready in 6.0–6.4 s; <code>/classify</code> 20–21 s; peak 1.0 GB; scores within 5.2e-08 of the local run</td></tr>
+      <tr><td>Live <code>/classify</code>, server-side, during the sweep</td><td>12.5 s mean, 13.7 s max (n=20); inference 11.5 s</td></tr>
+      <tr><td>Live <code>/classify</code>, server-side, idle</td><td>7.0 s mean and max (n=12); inference 6.5 s, decode 0.1 s, crop 0.2 s</td></tr>
+      <tr><td>Service memory</td><td>712 MB steady, 995 MB peak</td></tr>
+      <tr><td>Disk</td><td>2.6 GB in <code>/opt/coffee-cv</code> with one release</td></tr>
+    </tbody>
+  </table></div>
+  <p>End-to-end times from the workstation (18.8 s during the sweep, 20.0 s idle) are not server figures: about 7 s of each is TLS setup and
+    uploading a 1.8 MB photo at roughly 125 KB/s. Compare latencies with <code>latency_ms</code> from <code>app.jsonl</code>.</p>
+
+  <h3>Where the build differs from §4–§5</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Change</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Fixture photos in <code>webapp/deploy/fixtures.txt</code> (<code>role sha256 path</code>), not pinned inside the script</td><td>Owner's request: one list read by the deploy, the probe on the VM (<code>release_probe.py --list</code>), the manifest test and the rehearsal, never passed as argv</td></tr>
+      <tr><td>The sweep's log is found from the sweep process (<code>/proc/&lt;pid&gt;/fd/1</code>)</td><td>exp232–239 logged to <code>~/exp2_r18.log</code>; a fixed <code>~/sweep.log</code> would have proven nothing</td></tr>
+      <tr><td>A complete release of the same commit and model is reused, after re-checking its hashes and contents</td><td>The full deploy then flips exactly the release that was smoked and compared</td></tr>
+      <tr><td>SSH keepalives; rsync retries 3 times and resumes via <code>--partial-dir</code></td><td>The first stage lost its connection while sending the 343 MB backbone</td></tr>
+      <tr><td><code>--verify</code> refuses to run without <code>DOMAIN</code></td><td>Without it the public checks were silently skipped</td></tr>
+      <tr><td>Templates rendered on the workstation by <code>webapp/deploy/render_template.py</code>, with an explicit variable list</td><td>No <code>envsubst</code> there; nginx's own <code>$host</code>/<code>$uri</code> must survive</td></tr>
+      <tr><td>The smoke unit's <code>ReadWritePaths</code> is its own log directory</td><td>The smoke cannot write production's log</td></tr>
+      <tr><td>Deploy tooling lives in <code>/opt/coffee-cv/fixtures/</code>, outside every release: <code>release_probe.py</code>, the photos, <code>fixtures.txt</code>, and each release's expected answers</td><td>Releases hold only the manifest; <code>--verify</code> and <code>--rollback</code> need the expected top-1</td></tr>
+      <tr><td><code>--compare</code> runs both venvs with <code>OMP_NUM_THREADS=1</code></td><td>Same thread count on both sides (bit-identity needs it) and inside the 1-CPU cap</td></tr>
+      <tr><td><code>scripts/rehearse_deploy_local.sh</code> committed</td><td>The local rehearsal is repeatable: stubs for sudo, systemd-run, systemctl, journalctl, nginx and useradd; a real gunicorn from a real release venv</td></tr>
+      <tr><td>The smoke photo is one the tray crop fires on</td><td>With the first choice, <code>/crop</code> returned no box and its comparison checked nothing</td></tr>
+    </tbody>
+  </table></div>
+  <p>Pinned: uv 0.12.19, tarball sha256 <code>23bf5552d220e0842b65c862097b2ebaeba0064b74eda5e565e77fd25969d8c8</code>.</p>
+
+  <h3>Still open</h3>
+  <ul>
+    <li><code>git push origin main</code> for b224982 and later (owner; the implementing session had no GitHub credentials).</li>
+    <li><code>dvc push</code> of the exp232–239 fold checkpoints from the VM once the DVC remote is back.</li>
+    <li>No one-command rollback until a second release exists. Until then the fallback is <code>deploy_webapp.sh &lt;sha&gt; allrigs_cam_s123</code>.</li>
+    <li>Safe to delete by hand: <code>/var/www/coffee-cv</code> (no longer served) and <code>/opt/coffee-cv/backup-coffee-cv-web.service.20260927T141405Z</code> (the old unit).</li>
   </ul>
 
   <footer>Background and review history: <code>docs/ticket_webapp_release_isolation.html</code>.</footer>
