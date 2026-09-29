@@ -41,9 +41,6 @@ def set_all_rigs(
     text = PARAMS_FILE.read_text()
     block = "train_capture_dirs:\n" + "".join(f"  - {c}\n" for c in CAPTURES)
     text = re.sub(r"train_capture_dirs:\n(?:  - .*\n)+", block, text, count=1)
-    # "" is the documented disable switch in RunConfig: no heldout rig, no
-    # test_xrig split, no cross-rig metric.
-    text = re.sub(r"^heldout_rig: .*$", 'heldout_rig: ""', text, count=1, flags=re.M)
     text = re.sub(r"^seed: .*$", f"seed: {seed}", text, count=1, flags=re.M)
     text = re.sub(r"^brightness_jitter_strength: .*$",
                   f"brightness_jitter_strength: {brightness_jitter}", text, count=1, flags=re.M)
@@ -82,7 +79,6 @@ def set_all_rigs(
     # failed would otherwise train the wrong thing and look like a result.
     cfg = RunConfig.from_params_yaml()
     assert cfg.seed == seed, f"seed is {cfg.seed}, wanted {seed}"
-    assert cfg.heldout_rig == "", f"heldout_rig is {cfg.heldout_rig!r}, wanted empty"
     assert list(cfg.train_capture_dirs) == CAPTURES, f"train_capture_dirs is {cfg.train_capture_dirs!r}"
     assert cfg.brightness_jitter_strength == brightness_jitter
     assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"

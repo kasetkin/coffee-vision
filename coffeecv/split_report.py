@@ -66,7 +66,7 @@ def main() -> int:
     cfg = RunConfig.from_params_yaml()
     if args.seed is not None:
         cfg = replace(cfg, seed=args.seed)
-    capture_dirs, _heldout, classes_file = cfg.resolve_paths()
+    capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
     labels = load_class_labels(classes_file)
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}

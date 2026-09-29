@@ -28,48 +28,42 @@ class RunConfig:
     # which session the crops came from is recorded by the crop stage in dvc.yaml
     # and in data/cropped/<session>/crop_manifest.json.
     #
-    # Leave-one-rig-out: `train_capture_dirs` are split into train/val/test at the photo
-    # level; `heldout_rig` contributes every one of its photos as a second,
-    # cross-rig test set and is never seen in training. Setting `heldout_rig` to
-    # "" disables the cross-rig split and reproduces a plain single-rig run.
-    # Overridden by params.yaml on every real run, so these are a sane resting
-    # shape rather than a live configuration. Kept current anyway: a default
-    # naming rigs that no longer exist is the kind of drift that makes a reader
-    # trust the wrong thing.
+    # The capture dirs whose photos are pooled per class and split 70/15/15 into
+    # train/val/test (ticket ML-1, D1(b)); no dir is held out. The same list, in
+    # the same order, as dataset.CAPTURES -- the order seeds patch boxes. Kept as
+    # a literal so this module does not import the dataset stack; a test checks
+    # the two agree. Overridden by params.yaml on every real run, so this is a sane
+    # resting shape rather than a live configuration. Kept current anyway: a
+    # default naming dirs that no longer exist is the kind of drift that makes a
+    # reader trust the wrong thing.
     train_capture_dirs: tuple[str, ...] = (
         "data/cropped/cam_pixel",
         "data/cropped/cam_sony",
         "data/cropped/cam_oneplus",
+        "data/cropped/cam_iphone",
     )
-    heldout_rig: str = "data/cropped/cam_iphone"
     classes_file: str = "dataset/classes.txt"
 
     patch_crop_size: int = 512
     patch_resize: int = 224
     safety_margin: float = 0.97
     # Edge length patches are stored at after extraction. Bounds memory: the
-    # 2026-08-09 rigs decode to 37-57 MB per photo, so holding whole photos would
-    # need ~18 GB across the four datasets. 0 means "keep full patch_crop_size"
-    # (single-rig, pre-Phase-11 behaviour). Keep this well above patch_resize so
+    # 2026-08-09 sessions decode to 37-57 MB per photo, so holding whole photos
+    # would need ~18 GB across the datasets. 0 means "keep full patch_crop_size"
+    # (single-dir, pre-Phase-11 behaviour). Keep this well above patch_resize so
     # zoom augmentation crops into detail rather than upsampling.
     patch_store_size: int = 448
+    # Patches per class *per capture dir*, spread over that dir's photos in the
+    # split (see MultiPhotoPatchDataset).
     train_patches_per_class: int = 150
     val_patches_per_class: int = 40
     test_patches_per_class: int = 40
-    # The held-out rig gets a bigger patch budget than the in-distribution
-    # splits: it is the headline number of the whole phase, and at 40/class the
-    # measured noise band on macro-F1 is +/-0.048, wide enough to hide the effect
-    # sizes being chased. It also draws from 20 photos/class rather than 3, so
-    # the extra patches are spread over more independent photos rather than
-    # resampling the same few.
-    xrig_patches_per_class: int = 120
 
-    # Photo-level split, as fractions of however many cropped photos a given
-    # rig+class actually has (not a fixed count -- rigs differ: box/pixel/sony
-    # have 20/class, oneplus has 10/class, iPhone varies 10-20 *per class*).
-    # val/test each floor at 1 photo; train gets the remainder. See
-    # split_photos_by_class in dataset.py. 0.70/0.15/0.15 reproduces the
-    # original fixed 14/3/3 split exactly for any 20-photo class.
+    # Photo-level split, as fractions of however many cropped photos a class has
+    # pooled across all capture dirs (not a fixed count, and not per dir: dirs
+    # differ in photos per class, and since ticket ML-1 the split ignores which
+    # dir a photo came from). val/test each floor at 1 photo; train gets the
+    # remainder. See split_photos_by_class in dataset.py.
     train_photo_frac: float = 0.70
     val_photo_frac: float = 0.15
     test_photo_frac: float = 0.15
@@ -205,11 +199,9 @@ class RunConfig:
             values["train_capture_dirs"] = tuple(values["train_capture_dirs"])
         return cls(**values)
 
-    def resolve_paths(self) -> tuple[list[Path], Path | None, Path]:
-        """(capture dirs, held-out rig dir or None, classes file)."""
-        train = [REPO_ROOT / d for d in self.train_capture_dirs]
-        heldout = (REPO_ROOT / self.heldout_rig) if self.heldout_rig else None
-        return train, heldout, REPO_ROOT / self.classes_file
+    def resolve_paths(self) -> tuple[list[Path], Path]:
+        """(capture dirs, classes file)."""
+        return [REPO_ROOT / d for d in self.train_capture_dirs], REPO_ROOT / self.classes_file
 
 
 def set_seed(seed: int) -> None:

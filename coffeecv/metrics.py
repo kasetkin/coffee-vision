@@ -23,13 +23,13 @@ def compute_split_metrics(
     macro_labels: list[int] | None = None,
 ) -> dict:
     """`macro_labels` restricts the macro precision/recall/F1 average to a subset
-    of class indices, for a held-out rig that is missing a class entirely (see
+    of class indices, for an evaluation set that is missing a class entirely (see
     MultiPhotoPatchDataset.present_class_idxs). Without this, sklearn scores the
     never-present class as F1=0 (undefined recall, zero_division=0) and that
     phantom zero drags down the macro average for a class that was never
     actually evaluated. Per-class stats and the confusion matrix below stay
     full-size regardless -- this only narrows the macro average. Defaults to
-    every class, unchanged from every existing call site (val/test/normal xrig)."""
+    every class, which is what every current call site (val/test) uses."""
     n_classes = len(class_ids)
     labels_idx = list(range(n_classes))
     if macro_labels is None:
@@ -86,16 +86,11 @@ def build_metrics_json(
     best_epoch: int,
     val_metrics: dict,
     test_metrics: dict,
-    xrig_metrics: dict | None = None,
     captures: list[str] | None = None,
 ) -> dict:
+    # Runs before ticket ML-1 may also carry a held-out camera's split; none is
+    # produced any more. archive_experiment still indexes it from old records.
     splits = {"val": val_metrics, "test": test_metrics}
-    if xrig_metrics is not None:
-        # Held-out rig: a camera/format the model never trained on. Kept as its
-        # own split rather than folded into `test`, because the two answer
-        # different questions and a change can easily improve one and cost the
-        # other.
-        splits["test_xrig"] = xrig_metrics
     out = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "class_ids": class_ids,
@@ -105,8 +100,8 @@ def build_metrics_json(
         "best_epoch_selection_metric": "val_macro_f1",
         "splits": splits,
     }
-    # The capture dirs trained on, by name. Runs before ticket ML-1 wrote a `rigs` key
-    # ({"train": [...], "heldout": ...}) instead; archive_experiment still reads that one.
+    # The capture dirs trained on, by name. Runs before ticket ML-1 wrote a `rigs`
+    # dict instead (naming the held-out camera too); archive_experiment still reads it.
     if captures is not None:
         out["captures"] = captures
     return out
@@ -131,17 +126,6 @@ def build_summary_json(metrics_json: dict) -> dict:
         "best_epoch": metrics_json["best_epoch"],
         "epochs_trained": metrics_json["epochs_trained"],
     }
-    if "test_xrig" in splits:
-        # The headline generalization number, kept in the flat view so it lands
-        # in `dvc exp show` and the VS Code experiments table next to the
-        # in-distribution figures it should be read against.
-        xrig = splits["test_xrig"]
-        out["xrig_macro_f1"] = round(xrig["macro_f1"], 4)
-        out["xrig_mcc"] = round(xrig["mcc"], 4)
-        # Scanning xrig_macro_f1 across runs is misleading without knowing how
-        # many classes each one averaged over; see compute_split_metrics.
-        if "macro_n" in xrig:
-            out["xrig_macro_n"] = xrig["macro_n"]
     return out
 
 

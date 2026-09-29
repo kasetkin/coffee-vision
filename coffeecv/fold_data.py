@@ -50,7 +50,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
     unknown = want - {"train", "val", "test"}
     if unknown:
         raise ValueError(f"unknown split(s) {sorted(unknown)}; want train, val and/or test")
-    capture_dirs, _heldout, classes_file = cfg.resolve_paths()
+    capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
     class_labels = load_class_labels(classes_file)
     class_ids = sorted(class_labels)
@@ -105,7 +105,7 @@ def build_capture_dataset(cfg: RunConfig, capture: Capture, class_ids: list[str]
     builder. It feeds the DINOv3 backbone-equivalence fixture (`coffeecv_dino.reference`), whose
     patches must stay byte-identical to the ones `scripts/make_dinov3_fixture.py` recorded -- so the
     construction, the "all" split's seed component and the single-dir `capture_idx` of 0 must not move.
-    Moved here from `xrig_eval.build_xrig_dataset` on 2026-09-29 (ticket ML-1).
+    Moved here on 2026-09-29 (ticket ML-1) from the retired cross-camera evaluator, construction unchanged.
     """
     return MultiPhotoPatchDataset(
         split="all",

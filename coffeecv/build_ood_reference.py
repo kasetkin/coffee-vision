@@ -58,7 +58,7 @@ def main() -> None:
     # these weights, not from whatever params.yaml currently holds.
     cfg, cfg_source = config_for_checkpoint(Path(args.checkpoint), args.config)
     print(f"config: {cfg_source}")
-    capture_dirs, _, classes_file = cfg.resolve_paths()
+    capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
     class_labels = load_class_labels(classes_file)
     # From classes_file, exactly as train_baseline does, so the label->index
@@ -82,8 +82,7 @@ def main() -> None:
         safety_margin=cfg.safety_margin,
         patches_per_class={"train": cfg.train_patches_per_class,
                            "val": cfg.val_patches_per_class,
-                           "test": cfg.test_patches_per_class,
-                           "all": cfg.xrig_patches_per_class},
+                           "test": cfg.test_patches_per_class},
         photo_frac={"train": cfg.train_photo_frac,
                    "val": cfg.val_photo_frac,
                    "test": cfg.test_photo_frac},
@@ -174,7 +173,6 @@ def main() -> None:
         "model_name": cfg.model_name,
         "patch_beans": [cfg.patch_beans_min, cfg.patch_beans_max],
         "train_capture_dirs": list(cfg.train_capture_dirs),
-        "heldout_rig": cfg.heldout_rig,
         "embedding_dim": int(embeds.shape[1]),
         "classes": classes,
         "self_scores": {"mean": round(float(d.mean()), 3),

@@ -23,10 +23,9 @@ pre-cropped copies would skip a stage every real upload goes through.
 The in-distribution side reuses the checkpoint's own `split_photos_by_class`, so
 the photos scored here are the ones that checkpoint held out, not ones it trained
 on -- for a checkpoint trained since the pooled split (ticket ML-1); see
-`id_photos` for why an older one does not get that guarantee. Train-rig and held-out-rig photos are reported as separate conditions and
-never pooled: they answer different questions (a normal photo vs a photo from a
-camera the model has never seen), and averaging them would hide the second inside
-the first.
+`id_photos` for why an older one does not get that guarantee. Genuine bean photos
+the model has never seen at all come in separately, via `--positives`, as their
+own conditions.
 
     python -m coffeecv.ood_eval --checkpoint models/allrigs_cam_s123.pt \\
         --negatives dataset/ood_negatives/2026-09__user_realworld --split dev
@@ -43,8 +42,8 @@ import numpy as np
 import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import (find_class_dir, list_cropped_photos, load_class_labels,
-                              pooled_class_photos, resolve_captures, split_photos_by_class)
+from coffeecv.dataset import (load_class_labels, pooled_class_photos, resolve_captures,
+                              split_photos_by_class)
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
                             forward_with_embeddings, inference_tta_for, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
@@ -74,8 +73,8 @@ CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grai
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """Wilson score interval -- correct near 0 and 1, where normal-approx isn't.
 
-    Copied rather than imported from photo_pooling_eval, which computes it inside
-    an experiment-resolution flow this file has no business triggering.
+    Kept local: the photo-pooling evaluator it was once copied from was retired
+    with the fold protocol (ticket ML-1).
     """
     if n == 0:
         return (0.0, 0.0)
@@ -215,8 +214,8 @@ def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
     return index[stem]
 
 
-def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[Path]]:
-    """(train-rig photos, held-out-rig photos) for `split`, as *raw* paths.
+def id_photos(cfg, class_ids: list[str], split: str) -> list[Path]:
+    """The checkpoint's own `split` photos (val or test), as *raw* paths.
 
     Reuses the training pipeline's own pooled split (`pooled_class_photos` +
     `split_photos_by_class`) with this checkpoint's seed, so for a checkpoint trained
@@ -230,11 +229,10 @@ def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[P
     `train_rigs` key, which `infer.config_for_checkpoint` names in the config source
     it returns.
 
-    The held-out rig contributes every photo it has -- that is what heldout_rig
-    means -- and is returned separately because pooling it with the train rigs
-    would average a cross-camera question into a same-camera one.
+    There used to be a second list here, every photo of the checkpoint's held-out
+    camera; with no camera held out since ML-1 there is none.
     """
-    train_dirs, heldout_dir, _ = cfg.resolve_paths()
+    train_dirs, _ = cfg.resolve_paths()
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
     index = raw_photo_index()
     captures = resolve_captures(train_dirs)
@@ -247,16 +245,7 @@ def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[P
         chosen = split_photos_by_class(pool, cfg.seed, class_idx, frac)[split]
         train_photos.extend(raw_photo_for(p.path, index) for p in chosen)
 
-    heldout_photos: list[Path] = []
-    if heldout_dir is not None:
-        rig = resolve_captures([heldout_dir])[0]
-        for cid in class_ids:
-            try:
-                photos = list_cropped_photos(find_class_dir(rig.cropped_dir, cid))
-            except FileNotFoundError:
-                continue
-            heldout_photos.extend(raw_photo_for(p, index) for p in photos)
-    return train_photos, heldout_photos
+    return train_photos
 
 
 def negatives_from(batch_dirs: list[Path], split: str) -> list[dict]:
@@ -510,7 +499,7 @@ def main() -> None:
     checkpoint = Path(args.checkpoint)
     cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
     print(f"config: {cfg_source}")
-    _, _, classes_file = cfg.resolve_paths()
+    _, classes_file = cfg.resolve_paths()
     class_ids = sorted(load_class_labels(classes_file))
 
     model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
@@ -526,19 +515,15 @@ def main() -> None:
     tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
     scorer = Scorer(ref, ref_path, methods, args.knn_k)
 
-    train_ids, heldout_ids = id_photos(cfg, class_ids, args.id_split)
+    train_ids = id_photos(cfg, class_ids, args.id_split)
     if args.limit_id:
         train_ids = train_ids[:args.limit_id]
-        heldout_ids = heldout_ids[:args.limit_id]
     negatives = negatives_from([Path(d) for d in args.negatives], args.split)
     positives = negatives_from([Path(d) for d in args.positives], args.split)
 
     conditions: dict[str, list[dict]] = {
         f"id_split[{args.id_split}]": [{"path": q, "scenario_tag": "-"} for q in train_ids],
     }
-    if heldout_ids:
-        conditions[f"id_heldout_rig[{cfg.heldout_rig}]"] = [
-            {"path": q, "scenario_tag": "-"} for q in heldout_ids]
     # One condition per positive tag: photos the user shot on a training day and
     # photos from an unrelated day are different evidence and must not be pooled.
     for tag in sorted({r["scenario_tag"] for r in positives}):

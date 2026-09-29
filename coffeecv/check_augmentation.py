@@ -114,7 +114,7 @@ def check_rotation_jitter() -> None:
     # RNG stream differs by construction even though the dataset never uses it
     # at 0 degrees.)
     cfg = RunConfig.from_params_yaml()
-    capture_dirs, _heldout, classes_file = cfg.resolve_paths()
+    capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs[:1])  # one capture dir is enough to test the sampler
     kwargs = dict(
         captures=captures, classes_file=classes_file, split="train",

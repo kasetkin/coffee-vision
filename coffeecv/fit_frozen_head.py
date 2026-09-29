@@ -77,7 +77,7 @@ def fold_C(backbone: str, readout: str, exps=SELECTION_EXPS) -> tuple[float, lis
 def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
     """params.yaml's sampling geometry, every camera in training, and the fields that describe a frozen
     backbone with a convex head set to what actually runs (as the screen records its folds)."""
-    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES), heldout_rig="",
+    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES),
                   model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
                   color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg

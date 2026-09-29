@@ -422,6 +422,31 @@
       <code>train_baseline.py</code> (<code>train_one_epoch</code> is back to plain <code>(x, y)</code> batches).
       <code>run_all_rigs --mixstyle-mode</code> choices are <code>["agnostic"]</code>: a stale invocation fails at
       argparse. <code>params.yaml</code>/<code>config.py</code> comments updated. Suite 54/54.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 5 done.</strong> Deleted <code>run_folds.py</code>,
+      <code>summarize_folds.py</code>, <code>xrig_eval.py</code>, <code>tta_variants.py</code>,
+      <code>photo_pooling_eval.py</code>, <code>confusion_report.py</code>, <code>coffeecv_dino/screen.py</code>
+      (no surviving importer; every remaining <code>coffeecv</code>/<code>coffeecv_dino</code> module imports).
+      <code>RunConfig</code> loses <code>heldout_rig</code> and <code>xrig_patches_per_class</code>;
+      <code>resolve_paths()</code> returns <code>(capture_dirs, classes_file)</code> and its 8 callers were
+      updated; the default rests at the four <code>cam_*</code> dirs, and so does <code>params.yaml</code> (it rested
+      at the stale 3-camera fold shape with <code>cam_iphone</code> held out); a test checks default, params and
+      <code>CAPTURES</code> agree. Old cards' <code>heldout_rig</code>/<code>xrig_patches_per_class</code> are
+      dropped by <code>config_for_checkpoint</code>'s known-field filter, as before.
+      <code>dvc.yaml</code>: <code>merge_oneplus</code> stage deleted (D6) &mdash; its <code>dvc.lock</code> entry and
+      <code>data/cropped/.gitignore</code> line removed and the 295&nbsp;MB working copy of
+      <code>data/cropped/oneplus_combined</code> deleted after checking all 181 files are in the DVC cache
+      (recover with <code>git checkout main -- dvc.yaml dvc.lock &amp;&amp; dvc checkout merge_oneplus</code>);
+      <code>predictions_xrig.csv</code> and <code>xrig_macro_f1</code> plots removed; <code>train</code>'s deps are now
+      the four <code>data/cropped/cam_*</code> pools + <code>dataset/classes.txt</code> (was: raw-session crop dirs and
+      <code>oneplus_combined</code>, none of which training read) &mdash; <code>dvc dag train</code> now runs through all
+      four <code>merge_cam_*</code> stages. <code>ood_eval</code>: <code>id_photos</code> returns one list; the
+      <code>id_heldout_rig[...]</code> condition is gone. It was reporting-only (probe labels key on
+      <code>id_split[</code>) and empty for every all-rigs checkpoint, both deployed ones included, so guard behaviour
+      is unchanged; <code>fit_ood_probe</code>/<code>ood_feasibility</code> callers updated. <code>metrics.py</code>
+      drops <code>xrig_metrics</code> and the <code>test_xrig</code> summary branch; <code>archive_experiment</code>
+      stops expecting <code>predictions_xrig.csv</code> but keeps its index columns (D5). <code>webapp.app</code> imports
+      with both deployed models. Toy smoke run on all four dirs completes (3 starved cells at seed 7, all
+      cam_iphone). Suite 55/55.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

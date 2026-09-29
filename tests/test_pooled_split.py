@@ -16,7 +16,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from coffeecv.dataset import (MultiPhotoPatchDataset, pooled_class_photos, resolve_captures,
+from coffeecv.config import RunConfig
+from coffeecv.dataset import (CAPTURES, MultiPhotoPatchDataset, pooled_class_photos, resolve_captures,
                               split_census, split_photos_by_class)
 
 FRAC = {"train": 0.70, "val": 0.15, "test": 0.15}
@@ -152,6 +153,14 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
             patches_per_class={"train": 1, "val": 1, "test": 1, "all": 20}, photo_frac=FRAC)
         names = [m.photo_name for m in ds._meta]
         self.assertEqual(names, sorted(p.name for p in (self.a / "class_001__X").glob("*__cropped.jpg")))
+
+
+class TestRestingCaptureDirs(unittest.TestCase):
+    def test_config_default_and_params_rest_at_captures(self):
+        """RunConfig keeps a literal copy of dataset.CAPTURES (to avoid importing the dataset stack), and
+        params.yaml rests at it; all three must agree, order included -- the order seeds patch boxes."""
+        self.assertEqual(RunConfig().train_capture_dirs, tuple(CAPTURES))
+        self.assertEqual(RunConfig.from_params_yaml().train_capture_dirs, tuple(CAPTURES))
 
 
 if __name__ == "__main__":

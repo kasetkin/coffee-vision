@@ -299,30 +299,6 @@ stages:
       md5: fa1968ee9dd01c94bdca8418c57c578c.dir
       size: 245081831
       nfiles: 100
-  merge_oneplus:
-    cmd: python -m coffeecv.merge_rig --name oneplus_combined --sessions 
-      2026-08-25__oneplus 2026-08-27__oneplus_flash
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 23ba64ca48ada645201f698f55db133d
-      size: 5064
-    - path: data/cropped/2026-08-25__oneplus
-      hash: md5
-      md5: de32ec658380e3c24a31885537fdb1ab.dir
-      size: 63504726
-      nfiles: 100
-    - path: data/cropped/2026-08-27__oneplus_flash
-      hash: md5
-      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
-      size: 245081831
-      nfiles: 100
-    outs:
-    - path: data/cropped/oneplus_combined
-      hash: md5
-      md5: 5fc79926fba3d22ab62f8562fedfa311.dir
-      size: 308501197
-      nfiles: 181
   crop@2026-08-30__oneplus:
     cmd: python -m coffeecv.crop_session --session 2026-08-30__oneplus
     deps:
