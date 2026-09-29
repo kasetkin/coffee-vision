@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -37,8 +37,9 @@ pillow_heif.register_heif_opener()
 
 CLASS_FILENAME_RE = re.compile(r"class=(\d+)\.heif$", re.IGNORECASE)
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
-# "all" is the held-out rig's whole-rig test split; it gets its own stream
-# component so its boxes don't coincide with the in-distribution test split's.
+# "all" is every photo of the dirs passed (build_capture_dataset, the DINOv3
+# fixture); it gets its own stream component so its boxes don't coincide with
+# the test split's.
 SPLIT_SEED_COMPONENT = {"train": 0, "val": 1, "test": 2, "all": 3}
 
 
@@ -231,12 +232,11 @@ class PatchMeta:
 
 @dataclass(frozen=True)
 class Rig:
-    """One capture rig (== one session): a camera + framing + lighting setup.
+    """One capture dir under data/cropped/: a name and where its crops live.
 
-    The rig is a first-class dimension because cross-rig transfer is the thing
-    being measured. Photos are split into train/val/test *within* each rig, so
-    every split keeps the intended proportion of every training rig rather than
-    letting a pooled shuffle hand one rig most of the val set.
+    Since ticket ML-1 (D1(b)) photos are pooled across dirs and split per class
+    only (`split_photos_by_class`); the dir survives as the patch budget's unit
+    and as provenance in PatchMeta, not as a split boundary.
     """
     name: str
     cropped_dir: Path
@@ -253,58 +253,130 @@ def resolve_rigs(cropped_dirs: list[Path]) -> list[Rig]:
         rigs.append(Rig(name=path.name, cropped_dir=path))
     if not rigs:
         raise ValueError("At least one rig is required")
+    # The name is the capture half of the pooled split's sort key (CapturePhoto),
+    # so two dirs sharing a basename would make that key ambiguous.
+    names = [r.name for r in rigs]
+    if len(set(names)) != len(names):
+        raise ValueError(f"capture dir names must be unique, got {names}")
     return rigs
 
 
-def split_photos_by_class(
-    photos: list[Path], seed: int, class_idx: int, photo_frac: dict[str, float],
-    rig_idx: int = 0,
-) -> dict[str, list[Path]]:
-    """Shuffles (not just slices in filename order) before splitting, since
-    filenames encode capture timestamp and photos within one class's shoot
-    could still carry a time-correlated drift -- see the lighting-drift
-    finding that broke the original per-image crop heuristic across this
-    same session. Shuffling avoids reintroducing a train/val/test split that
-    quietly correlates with capture order.
+@dataclass(frozen=True, order=True)
+class CapturePhoto:
+    """One cropped photo in its class's pool, tagged with the capture dir it came from.
 
-    Fractional, not a fixed count: a fixed absolute split (the pre-2026-08-26
-    design) required every rig to carry exactly the same photo count per
-    class -- true for box/pixel/sony (20/class) but not for oneplus
-    (10/class uniformly) or iPhone (10-20/class, and *not even uniform across
-    its own classes*). Computing val/test as a fraction of whatever count this
-    particular rig+class actually has, floored at 1 each so a small rig still
-    gets real val/test coverage, generalizes to all of that -- and reproduces
-    the old fixed 14/3/3 split exactly for any 20-photo class, since
-    round(0.15*20)==3 both ways.
+    Ordered (and compared, and hashed) by `(capture, name)` only: that is the global
+    key the pooled split sorts on before it shuffles, so which split a photo lands in
+    depends on the seed, the class and the set of photos -- never on the order the
+    capture dirs happen to be listed in config.
     """
-    n = len(photos)
+    capture: str  # Rig.name, the capture dir's basename
+    name: str     # photo file name
+    path: Path = field(compare=False)
+
+
+def pooled_class_photos(rigs: list[Rig], class_id: str) -> tuple[list[CapturePhoto], list[str]]:
+    """(every cropped photo of `class_id` across `rigs`, sorted by the global key; the
+    names of the rigs with no directory for this class at all).
+
+    A dir lacking a class is normal (cam_iphone has no class_008 or class_010). A class
+    directory that exists but holds no crops is not, and still raises from
+    `list_cropped_photos` -- that means the crop stage has not run.
+    """
+    pool: list[CapturePhoto] = []
+    absent: list[str] = []
+    for rig in rigs:
+        try:
+            class_dir = find_class_dir(rig.cropped_dir, class_id)
+        except FileNotFoundError:
+            absent.append(rig.name)
+            continue
+        pool.extend(CapturePhoto(rig.name, p.name, p) for p in list_cropped_photos(class_dir))
+    return sorted(pool), absent
+
+
+def split_photos_by_class(
+    photos: list[CapturePhoto], seed: int, class_idx: int, photo_frac: dict[str, float],
+) -> dict[str, list[CapturePhoto]]:
+    """Split one class's photos, pooled across every capture dir, into train/val/test.
+
+    Pooled (ticket ML-1, D1(b), 2026-09-29): the split is computed once per class
+    over the union of all capture dirs' photos, not once per (capture dir, class) as
+    before. No camera is guaranteed a share of val or test any more -- a low-count
+    dir can land zero photos in a split for some class, which MultiPhotoPatchDataset
+    records and warns about rather than crashing (see its `starved`).
+
+    Order-independent by construction: the pool is sorted by the global
+    `(capture, name)` key *before* the seeded shuffle, and the shuffle is seeded on
+    `(seed, class_idx)` alone. Reordering `train_capture_dirs` therefore cannot move a
+    photo between splits. Each split is returned sorted by the same key, so any
+    per-dir subset a caller filters out of it is in a stable order too.
+
+    Shuffles (not just slices in filename order) before splitting, since filenames
+    encode capture timestamp and photos within one class's shoot could still carry a
+    time-correlated drift -- see the lighting-drift finding that broke the original
+    per-image crop heuristic. Shuffling avoids a train/val/test split that quietly
+    correlates with capture order.
+
+    Fractional, not a fixed count: val and test are each a fraction of however many
+    photos the pool holds, floored at 1 so every class gets real val/test coverage;
+    train gets the remainder.
+    """
+    pool = sorted(photos)
+    if len(set(pool)) != len(pool):
+        raise ValueError("duplicate (capture, photo name) in the pool -- the split key would be ambiguous")
+    n = len(pool)
     n_val = max(1, round(photo_frac["val"] * n))
     n_test = max(1, round(photo_frac["test"] * n))
     n_train = n - n_val - n_test
     if n_train < 1:
         raise ValueError(
             f"{n} photos is too few to split at fractions {photo_frac} "
-            f"(train would be {n_train}); need at least 3 photos of a class in this rig"
+            f"(train would be {n_train}); need at least 3 photos of a class across all capture dirs"
         )
-    # rig_idx keeps each rig's photo shuffle independent; 9999 keeps this stream
-    # distinct from patch-box sampling below.
-    rng = np.random.default_rng([seed, rig_idx, class_idx, 9999])
-    shuffled = [photos[i] for i in rng.permutation(len(photos))]
+    # 9999 keeps this stream distinct from patch-box sampling (_extract_photo).
+    rng = np.random.default_rng([seed, class_idx, 9999])
+    shuffled = [pool[i] for i in rng.permutation(n)]
     return {
-        "train": shuffled[:n_train],
-        "val": shuffled[n_train:n_train + n_val],
-        "test": shuffled[n_train + n_val:n_train + n_val + n_test],
+        "train": sorted(shuffled[:n_train]),
+        "val": sorted(shuffled[n_train:n_train + n_val]),
+        "test": sorted(shuffled[n_train + n_val:]),
     }
 
 
-class MultiPhotoPatchDataset(Dataset):
-    """Patch dataset over one or more capture rigs.
+def split_census(rigs: list[Rig], class_ids: list[str], seed: int,
+                 photo_frac: dict[str, float]) -> dict[str, dict]:
+    """Photo counts of the pooled split, per class, per split, per capture dir -- no
+    image is decoded, so this is cheap enough to run anywhere.
 
-    Each class has many already-"cropped" photos per rig (one subfolder per
-    class; for frame-filling rigs the crop stage is a byte-copy passthrough).
-    Train/val/test are split at the *photo* level -- disjoint photos per split,
-    within each rig -- rather than by spatial region of one photo, so a split
-    never shares a single photo's lighting/colour with another split.
+    `{class_id: {"pooled": n, "absent": [dirs without the class],
+                 "train"|"val"|"test": {capture: n_photos, ...}}}`, with every dir that
+    has the class present in each split's dict, zero included. A zero there is a dir
+    the pooled split starved out of that split for that class: legitimate under D1(b),
+    but it should be seen, not discovered later. `coffeecv.split_report` prints this.
+    """
+    census: dict[str, dict] = {}
+    for class_idx, class_id in enumerate(class_ids):
+        pool, absent = pooled_class_photos(rigs, class_id)
+        entry: dict = {"pooled": len(pool), "absent": absent}
+        have = [r.name for r in rigs if r.name not in absent]
+        if pool:
+            for split, chosen in split_photos_by_class(pool, seed, class_idx, photo_frac).items():
+                entry[split] = {name: sum(1 for p in chosen if p.capture == name) for name in have}
+        census[class_id] = entry
+    return census
+
+
+class MultiPhotoPatchDataset(Dataset):
+    """Patch dataset over one or more capture dirs.
+
+    Each class has many already-"cropped" photos per dir (one subfolder per
+    class; for frame-filling dirs the crop stage is a byte-copy passthrough).
+    Train/val/test are split at the *photo* level -- disjoint photos per split --
+    rather than by spatial region of one photo, so a split never shares a single
+    photo's lighting/colour with another split. The photo split is pooled across
+    every dir per class (`split_photos_by_class`, ticket ML-1 D1(b)); the patch
+    budget is still spent per (dir, class), over that dir's photos in the split.
 
     Patches are materialised at construction rather than held as whole photos.
     That is forced by rig size: the 2026-08-09 rigs decode to 37 MB and 57 MB per
@@ -385,75 +457,83 @@ class MultiPhotoPatchDataset(Dataset):
 
         self.class_labels = load_class_labels(classes_file)
 
-        # Budget is per class *per rig*, so adding a rig adds data rather than
-        # diluting the existing rigs' share of a fixed total.
+        # Budget is per class *per capture dir*, so adding a dir adds data rather
+        # than diluting the existing dirs' share of a fixed total. Each dir spends
+        # its budget over its own photos in this split -- which dir a photo came
+        # from no longer decides *which* split it is in (that is pooled), only how
+        # the patches are apportioned once it is there.
         n_patches_total = patches_per_class[split]
         self._patches: list[np.ndarray] = []
         # Provenance per patch. The photo itself is dropped after extraction, so
         # this is the only remaining record of where a patch came from -- needed
         # by check_augmentation.py and worth having when a patch looks wrong.
         self._meta: list[PatchMeta] = []
-        # Classes some rig in `rigs` doesn't have (e.g. iPhone missing class_008
-        # as of 2026-08-25). Tolerated on ANY split, not just split=="all": with
-        # multiple training rigs, one of them lacking a class is no longer a
-        # total loss -- the other training rigs still supply it, this rig just
-        # contributes nothing for that one class. What's NOT tolerated is a class
-        # missing from *every* rig passed in -- checked after the loop below,
-        # since that really would mean the model never sees it at all.
+        # (dir, class_id) pairs where the dir has no directory for the class at all
+        # (cam_iphone has no class_008 or class_010). Tolerated: the other dirs
+        # still supply the class.
+        self.absent: list[tuple[str, str]] = []
+        # (dir, class_id) pairs where the dir HAS photos of the class but the pooled
+        # split put none of them in this split, so the dir contributes no patches
+        # to it for that class. Legitimate under D1(b) -- a 10-photo dir pooled with
+        # three 20-photo dirs can miss a 15% split by chance -- but warned and kept
+        # here, so it is visible in the run log rather than discovered later.
+        self.starved: list[tuple[str, str]] = []
+        # Classes with no photos in ANY dir passed. A total loss for train/val/test
+        # (raised below); tolerated for split="all", where one dir is scored as it is.
         self.missing_classes: list[str] = []
-        class_found_in_any_rig: set[str] = set()
 
-        for rig_idx, rig in enumerate(rigs):
-            for class_idx, class_id in enumerate(class_ids):
-                try:
-                    class_dir = find_class_dir(rig.cropped_dir, class_id)
-                except FileNotFoundError:
-                    if class_id not in self.missing_classes:
-                        self.missing_classes.append(class_id)
-                        print(f"  WARNING: {rig.name} has no class_{class_id} -- "
-                              f"skipping it for this rig ({split} split)")
+        for class_idx, class_id in enumerate(class_ids):
+            pool, absent = pooled_class_photos(rigs, class_id)
+            for name in absent:
+                self.absent.append((name, class_id))
+                print(f"  WARNING: {name} has no class_{class_id} -- it contributes nothing to "
+                      f"that class ({split} split)")
+            if not pool:
+                self.missing_classes.append(class_id)
+                continue
+            if split == "all":
+                # Every photo of every dir passed; nothing is withheld.
+                selected = pool
+            else:
+                selected = split_photos_by_class(pool, seed, class_idx, photo_frac)[split]
+
+            for rig_idx, rig in enumerate(rigs):
+                if rig.name in absent:
                     continue
-                class_found_in_any_rig.add(class_id)
-                photos = list_cropped_photos(class_dir)
-                if split == "all":
-                    # Held-out rig: every photo is test data, nothing is withheld.
-                    selected = photos
-                else:
-                    selected = split_photos_by_class(
-                        photos, seed, class_idx, photo_frac, rig_idx
-                    )[split]
-
-                base, extra = divmod(n_patches_total, len(selected))
-                for photo_idx, photo_path in enumerate(selected):
+                # A sorted list filtered stays sorted: photo_idx below is this
+                # photo's rank among the dir's own photos in the split, by name,
+                # and _extract_photo's box RNG is keyed on it.
+                mine = [p for p in selected if p.capture == rig.name]
+                if not mine:
+                    self.starved.append((rig.name, class_id))
+                    n_have = sum(1 for p in pool if p.capture == rig.name)
+                    print(f"  WARNING: {rig.name} has {n_have} photo(s) of class_{class_id}, but the "
+                          f"pooled split put none in {split} ({len(selected)} of {len(pool)} pooled "
+                          f"photos) -- it contributes no {split} patches for this class")
+                    continue
+                base, extra = divmod(n_patches_total, len(mine))
+                for photo_idx, photo in enumerate(mine):
                     n_patches = base + (1 if photo_idx < extra else 0)
                     self._extract_photo(
-                        photo_path, n_patches, seed, rig_idx, class_idx, photo_idx,
+                        photo.path, n_patches, seed, rig_idx, class_idx, photo_idx,
                         class_id, rig.name, crop_size, safety_margin,
                     )
 
-        # split=="all" is a held-out-only evaluation, typically over a single
-        # rig -- that rig lacking a class entirely is expected (iPhone missing
-        # class_008) and already handled above via missing_classes /
-        # present_class_idxs, which excludes it from the macro average. This
-        # check is specifically for train/val/test: there, a class absent from
-        # EVERY training rig really is a total loss (the model would never see
-        # it), which is different from "absent from some of several rigs".
-        if split != "all":
-            totally_missing = set(class_ids) - class_found_in_any_rig
-            if totally_missing:
-                raise ValueError(
-                    f"class(es) {sorted(totally_missing)} not found in ANY of the rigs passed to "
-                    f"this dataset ({[r.name for r in rigs]}) -- every class must exist in at "
-                    f"least one rig here, or the model can never see it at all. A class missing "
-                    f"from SOME but not all rigs is fine (see missing_classes above); this is a "
-                    f"total loss."
-                )
+        # For train/val/test a class absent from EVERY dir really is a total loss
+        # (the model would never see it), which is different from "absent from some
+        # of several dirs" -- that is `absent` above, and fine.
+        if split != "all" and self.missing_classes:
+            raise ValueError(
+                f"class(es) {self.missing_classes} not found in ANY of the capture dirs passed to "
+                f"this dataset ({[r.name for r in rigs]}) -- every class must exist in at least one "
+                f"dir, or the model can never see it at all. A class missing from SOME but not all "
+                f"dirs is fine (see `absent`); this is a total loss."
+            )
 
         # Indices into class_ids that this dataset actually has data for -- lets
         # the metrics layer exclude a never-present class from a macro average
         # instead of scoring it as a phantom F1=0 (see compute_split_metrics's
-        # macro_labels). Equal to every index when nothing was skipped, i.e. the
-        # normal case for every existing rig.
+        # macro_labels). Equal to every index for train/val/test.
         self.present_class_idxs = [
             i for i, c in enumerate(class_ids) if c not in self.missing_classes
         ]

@@ -189,19 +189,19 @@
     <code>dataset.py:406-430</code>) and <code>fold_data.py:build_fold_datasets</code> &mdash; not
     <code>run_all_rigs.py</code> or <code>fit_frozen_head.py</code>, which only call through this shared path.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Gather all photos for a class across every capture dir first, then
+    <li><span class="box done"></span><span>Gather all photos for a class across every capture dir first, then
       split 70/15/15 once per class instead of once per capture dir.
       <span class="result">This is the actual D1(b) behavior change: pooled per-class split, no per-camera grouping.</span></span></li>
-    <li><span class="box"></span><span>Reseed the split from <code>(seed, class_idx)</code> plus a stable
+    <li><span class="box done"></span><span>Reseed the split from <code>(seed, class_idx)</code> plus a stable
       per-photo key (e.g. sorted relative path), not the current <code>rig_idx</code>-dependent seed.
       <span class="result">Pooling makes split membership independent of capture-dir order in principle; the seed should match that, or the split silently changes whenever train_capture_dirs is reordered.</span></span></li>
-    <li><span class="box"></span><span>Leave the patch-box extraction RNG (<code>_extract_photo</code>,
+    <li><span class="box done"></span><span>Leave the patch-box extraction RNG (<code>_extract_photo</code>,
       <code>dataset.py:461-470</code>) alone &mdash; it seeds patch selection within an already-assigned
       photo, unrelated to which split the photo lands in.</span></li>
-    <li><span class="box"></span><span>Drop <code>heldout_rig</code>/<code>xrig_ds</code>/the cross-rig
+    <li><span class="box done"></span><span>Drop <code>heldout_rig</code>/<code>xrig_ds</code>/the cross-rig
       branch from <code>build_fold_datasets</code> and <code>FoldDatasets</code> entirely. Keep the
       module/function/class names &mdash; D4 doesn't ask for this rename, don't add scope.</span></li>
-    <li><span class="box"></span><span>Remove the <code>xrig_metrics</code>/<code>xrig_loader</code>/<code>xrig_ds</code>
+    <li><span class="box done"></span><span>Remove the <code>xrig_metrics</code>/<code>xrig_loader</code>/<code>xrig_ds</code>
       paths and the empty-<code>predictions_xrig.csv</code> workaround from <code>train_baseline.py</code>
       (the dvc.yaml plot declaration that workaround exists for is removed in Phase 5).</span></li>
   </ol>
@@ -311,7 +311,7 @@
     <li><span class="box"></span><span><code>tests/test_dino_backbone.py</code>: confirm it still imports
       and collects cleanly after <code>xrig_eval.py</code>'s deletion and <code>build_xrig_dataset</code>'s
       relocation (Phase 1); update its <code>BANNED</code> symbol list if it references old names.</span></li>
-    <li><span class="box"></span><span>Add a unit test for the rewritten pooling: photos spread across
+    <li><span class="box done"></span><span>Add a unit test for the rewritten pooling: photos spread across
       &ge;2 fake capture dirs in one class &rarr; assert the 70/15/15 split is computed over the pooled
       count, and that it's deterministic across two calls with the same seed.</span></li>
     <li><span class="box"></span><span>Run the full suite (<code>python -m unittest discover</code>)
@@ -366,6 +366,33 @@
       <code>coffeecv_dino/reference.py</code> and (until its deletion) <code>xrig_eval.py</code> import it
       from there. <code>pool_photos</code> confirmed imported only by <code>coffeecv_dino/screen.py</code>.
       41/41 tests green.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 2 done.</strong>
+      <code>dataset.py</code>: new <code>CapturePhoto</code> (ordered/hashed by <code>(capture, name)</code>),
+      <code>pooled_class_photos()</code> and <code>split_census()</code>; <code>split_photos_by_class()</code>
+      now takes the pooled list, sorts it by that global key <em>before</em> shuffling, seeds on
+      <code>[seed, class_idx, 9999]</code> (no <code>rig_idx</code>) and returns each split sorted.
+      <code>MultiPhotoPatchDataset</code> pools once per class, then spends each dir's per-(dir, class)
+      patch budget over that dir's photos in the split, filtered out of the sorted split so
+      <code>photo_idx</code> (and the untouched box RNG) sees a stable order. <code>resolve_rigs</code>
+      refuses duplicate dir names (the key would be ambiguous).
+      <strong>Two review gaps closed:</strong> (1) a dir that lands zero photos in a split for a class is
+      skipped &mdash; no <code>divmod</code> by zero &mdash; with a <code>WARNING</code> naming dir, class,
+      split and pooled counts, and recorded in <code>ds.starved</code>; <code>train_baseline</code> writes
+      the three splits' lists to <code>metrics.json["split_starved"]</code>. (2) New
+      <code>python -m coffeecv.split_report</code> prints per-class pooled/train/val/test counts and the
+      per-dir breakdown of val and test, flagging each starved cell. <code>ood_eval.id_photos</code> (which
+      re-derived the old per-rig split itself, and would have broken on the new signature) now calls the
+      same pooled functions; its docstring states that for a pre-ML-1 checkpoint (both deployed models)
+      the recomputed "held-out" photos are not the ones that checkpoint held out.
+      <code>fold_data</code>: <code>xrig</code>/<code>heldout_rig</code> dropped from
+      <code>FoldDatasets</code> and <code>build_fold_datasets</code>; <code>only</code> rejects unknown
+      split names. <code>train_baseline</code>: xrig loader, per-epoch xrig curve, final xrig metrics,
+      xrig confusion plot and the empty <code>predictions_xrig.csv</code> workaround removed.
+      Verified: DINOv3 fixture patches (<code>reference_patches(1)</code> and <code>(3)</code>)
+      byte-identical to a pre-change snapshot; <code>check_augmentation</code>'s box-RNG assertion passes;
+      toy-scale <code>train_baseline</code> smoke run on cam_oneplus+cam_iphone completes and records
+      4 starved cells (outputs/ restored afterwards). New <code>tests/test_pooled_split.py</code> (10
+      tests); suite 51/51.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

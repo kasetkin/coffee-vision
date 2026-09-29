@@ -22,7 +22,8 @@ pre-cropped copies would skip a stage every real upload goes through.
 
 The in-distribution side reuses the checkpoint's own `split_photos_by_class`, so
 the photos scored here are the ones that checkpoint held out, not ones it trained
-on. Train-rig and held-out-rig photos are reported as separate conditions and
+on -- for a checkpoint trained since the pooled split (ticket ML-1); see
+`id_photos` for why an older one does not get that guarantee. Train-rig and held-out-rig photos are reported as separate conditions and
 never pooled: they answer different questions (a normal photo vs a photo from a
 camera the model has never seen), and averaging them would hide the second inside
 the first.
@@ -43,7 +44,7 @@ import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import (find_class_dir, list_cropped_photos, load_class_labels,
-                              resolve_rigs, split_photos_by_class)
+                              pooled_class_photos, resolve_rigs, split_photos_by_class)
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
                             forward_with_embeddings, inference_tta_for, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
@@ -217,25 +218,34 @@ def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
 def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[Path]]:
     """(train-rig photos, held-out-rig photos) for `split`, as *raw* paths.
 
-    Reuses split_photos_by_class with this checkpoint's own seed so the photos
-    returned are the ones it actually held out. The held-out rig contributes every
-    photo it has -- that is what heldout_rig means -- and is returned separately
-    because pooling it with the train rigs would average a cross-camera question
-    into a same-camera one.
+    Reuses the training pipeline's own pooled split (`pooled_class_photos` +
+    `split_photos_by_class`) with this checkpoint's seed, so for a checkpoint trained
+    by the current code the photos returned are the ones it actually held out.
+
+    NOT for a checkpoint trained before ticket ML-1 (2026-09-29) -- both deployed
+    models included. Those were split per camera and class with a camera-position
+    seed; the pooled split recomputed here is a different partition, so part of
+    what it returns as "held out" was in that checkpoint's training set and scores
+    optimistically in-distribution. Such a card still carries the legacy
+    `train_rigs` key, which `infer.config_for_checkpoint` names in the config source
+    it returns.
+
+    The held-out rig contributes every photo it has -- that is what heldout_rig
+    means -- and is returned separately because pooling it with the train rigs
+    would average a cross-camera question into a same-camera one.
     """
     train_dirs, heldout_dir, _ = cfg.resolve_paths()
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
     index = raw_photo_index()
+    rigs = resolve_rigs(train_dirs)
 
     train_photos: list[Path] = []
-    for rig_idx, rig in enumerate(resolve_rigs(train_dirs)):
-        for class_idx, cid in enumerate(class_ids):
-            try:
-                photos = list_cropped_photos(find_class_dir(rig.cropped_dir, cid))
-            except FileNotFoundError:
-                continue  # a rig need not carry every class -- cam_iphone does not
-            chosen = split_photos_by_class(photos, cfg.seed, class_idx, frac, rig_idx)[split]
-            train_photos.extend(raw_photo_for(p, index) for p in chosen)
+    for class_idx, cid in enumerate(class_ids):
+        pool, _absent = pooled_class_photos(rigs, cid)  # a dir need not carry every class
+        if not pool:
+            continue
+        chosen = split_photos_by_class(pool, cfg.seed, class_idx, frac)[split]
+        train_photos.extend(raw_photo_for(p.path, index) for p in chosen)
 
     heldout_photos: list[Path] = []
     if heldout_dir is not None:
