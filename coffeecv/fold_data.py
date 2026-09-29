@@ -2,7 +2,7 @@
 
 Moved out of `train_baseline.main()` on 2026-09-24, verbatim, so that a second consumer -- the
 frozen-backbone fit (`fit_frozen_head`) -- gets byte-identical patches instead of re-typing the
-construction. Re-typing it is not a safe shortcut here: `rig_idx`, a capture dir's position in the
+construction. Re-typing it is not a safe shortcut here: `capture_idx`, a capture dir's position in the
 config's list, seeds every patch box (`MultiPhotoPatchDataset._extract_photo`), so a caller that builds
 each dir on its own, or in another order, silently draws different patches. The 2026-09-21 backbone
 screen did exactly that. See docs/dinov3_integration_plan.md §0.1 and §4.1.
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import RunConfig
-from coffeecv.dataset import MultiPhotoPatchDataset, Rig, load_class_labels, resolve_rigs
+from coffeecv.dataset import Capture, MultiPhotoPatchDataset, load_class_labels, resolve_captures
 from coffeecv.transforms import build_eval_transform
 
 
@@ -27,7 +27,7 @@ class FoldDatasets:
     train: MultiPhotoPatchDataset | None  # None only when the caller asked for other splits (`only`)
     val: MultiPhotoPatchDataset | None
     test: MultiPhotoPatchDataset | None
-    train_rigs: list[Rig]
+    captures: list[Capture]
     class_ids: list[str]
     class_labels: dict[str, str]
 
@@ -35,7 +35,7 @@ class FoldDatasets:
 def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
                         return_domain_id: bool = False,
                         only: tuple[str, ...] | None = None) -> FoldDatasets:
-    """Build train/val/test from `cfg.train_rigs` exactly as `train_baseline` trains on them.
+    """Build train/val/test from `cfg.train_capture_dirs` exactly as `train_baseline` trains on them.
 
     `train_transform` is applied to the train split only. A frozen-feature caller passes the eval
     transform for both, which changes what `__getitem__` returns but not which boxes are drawn:
@@ -43,7 +43,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
 
     `only` builds just the named splits ("train", "val", "test") and leaves the rest None. The photo
     split is a pure function of (seed, class, photo pool) and each box draws from a generator keyed on
-    (seed, rig_idx, class, photo, split), never from a shared stream, so a split built alone is
+    (seed, capture_idx, class, photo, split), never from a shared stream, so a split built alone is
     byte-identical to the same split built with the others -- and a caller that needs one split at a
     time holds one split's decoded patches in memory, not three.
     """
@@ -51,8 +51,8 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
     unknown = want - {"train", "val", "test"}
     if unknown:
         raise ValueError(f"unknown split(s) {sorted(unknown)}; want train, val and/or test")
-    train_rig_dirs, _heldout, classes_file = cfg.resolve_paths()
-    train_rigs = resolve_rigs(train_rig_dirs)
+    capture_dirs, _heldout, classes_file = cfg.resolve_paths()
+    captures = resolve_captures(capture_dirs)
     class_labels = load_class_labels(classes_file)
     class_ids = sorted(class_labels)
     patches_per_class = {
@@ -67,7 +67,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
     }
 
     common_kwargs = dict(
-        rigs=train_rigs,
+        captures=captures,
         classes_file=classes_file,
         class_ids=class_ids,
         seed=cfg.seed,
@@ -96,23 +96,23 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
               if "val" in want else None)
     test_ds = (MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
                if "test" in want else None)
-    return FoldDatasets(train_ds, val_ds, test_ds, train_rigs, class_ids, class_labels)
+    return FoldDatasets(train_ds, val_ds, test_ds, captures, class_ids, class_labels)
 
 
-def build_capture_dataset(cfg: RunConfig, capture: Rig, class_ids: list[str], classes_file,
+def build_capture_dataset(cfg: RunConfig, capture: Capture, class_ids: list[str], classes_file,
                           n_patches: int) -> MultiPhotoPatchDataset:
     """Every photo of one capture dir, `split="all"`, eval transform, `cfg`'s own patch geometry.
 
     No holdout semantics: this is the generic "draw n_patches per class from all of one dir's photos"
     builder. It feeds the DINOv3 backbone-equivalence fixture (`coffeecv_dino.reference`), whose
     patches must stay byte-identical to the ones `scripts/make_dinov3_fixture.py` recorded -- so the
-    construction, the "all" split's seed component and the single-dir `rig_idx` of 0 must not move.
+    construction, the "all" split's seed component and the single-dir `capture_idx` of 0 must not move.
     Moved here from `xrig_eval.build_xrig_dataset` on 2026-09-29 (ticket ML-1).
     """
     return MultiPhotoPatchDataset(
         split="all",
         transform=build_eval_transform(cfg.patch_resize),
-        rigs=[capture],
+        captures=[capture],
         classes_file=classes_file,
         class_ids=class_ids,
         seed=cfg.seed,

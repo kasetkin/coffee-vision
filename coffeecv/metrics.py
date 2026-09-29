@@ -87,7 +87,7 @@ def build_metrics_json(
     val_metrics: dict,
     test_metrics: dict,
     xrig_metrics: dict | None = None,
-    rigs: dict | None = None,
+    captures: list[str] | None = None,
 ) -> dict:
     splits = {"val": val_metrics, "test": test_metrics}
     if xrig_metrics is not None:
@@ -105,8 +105,10 @@ def build_metrics_json(
         "best_epoch_selection_metric": "val_macro_f1",
         "splits": splits,
     }
-    if rigs is not None:
-        out["rigs"] = rigs
+    # The capture dirs trained on, by name. Runs before ticket ML-1 wrote a `rigs` key
+    # ({"train": [...], "heldout": ...}) instead; archive_experiment still reads that one.
+    if captures is not None:
+        out["captures"] = captures
     return out
 
 

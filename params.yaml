@@ -7,7 +7,7 @@ seed: 7
 # session. Crop *method* settings live per-session in
 # dataset/<session>.crop.yaml -- they describe a rig, not the model.
 #
-# Leave-one-rig-out (Phase 11). train_rigs are split train/val/test at the photo
+# Leave-one-rig-out (Phase 11). train_capture_dirs are split train/val/test at the photo
 # level; heldout_rig contributes every photo as a cross-rig test set and is never
 # trained on, so a fold measures transfer to a camera it has never seen.
 #
@@ -26,7 +26,7 @@ seed: 7
 # session -- four rigs (Pixel, Sony, OnePlus, iPhone) built by the merge_cam_*
 # stages, rather than nine sessions. See run_folds.RIGS for why, and for the
 # cost: this pools framing distance inside each camera.
-train_rigs:
+train_capture_dirs:
   - data/cropped/cam_pixel
   - data/cropped/cam_sony
   - data/cropped/cam_oneplus

@@ -44,7 +44,7 @@ import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.dataset import (find_class_dir, list_cropped_photos, load_class_labels,
-                              pooled_class_photos, resolve_rigs, split_photos_by_class)
+                              pooled_class_photos, resolve_captures, split_photos_by_class)
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
                             forward_with_embeddings, inference_tta_for, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
@@ -237,11 +237,11 @@ def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[P
     train_dirs, heldout_dir, _ = cfg.resolve_paths()
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
     index = raw_photo_index()
-    rigs = resolve_rigs(train_dirs)
+    captures = resolve_captures(train_dirs)
 
     train_photos: list[Path] = []
     for class_idx, cid in enumerate(class_ids):
-        pool, _absent = pooled_class_photos(rigs, cid)  # a dir need not carry every class
+        pool, _absent = pooled_class_photos(captures, cid)  # a dir need not carry every class
         if not pool:
             continue
         chosen = split_photos_by_class(pool, cfg.seed, class_idx, frac)[split]
@@ -249,7 +249,7 @@ def id_photos(cfg, class_ids: list[str], split: str) -> tuple[list[Path], list[P
 
     heldout_photos: list[Path] = []
     if heldout_dir is not None:
-        rig = resolve_rigs([heldout_dir])[0]
+        rig = resolve_captures([heldout_dir])[0]
         for cid in class_ids:
             try:
                 photos = list_cropped_photos(find_class_dir(rig.cropped_dir, cid))

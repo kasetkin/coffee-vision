@@ -19,8 +19,9 @@ from pathlib import Path
 import torch
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.infer import (embedding_dim_of, load_model, load_ood_probe, load_ood_reference,
-                            probe_path_for, reference_path_for)
+from coffeecv.dataset import CAPTURES
+from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding_dim_of, load_model,
+                            load_ood_probe, load_ood_reference, probe_path_for, reference_path_for)
 from coffeecv.model import SUPPORTED_MODELS, build_model
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
@@ -99,6 +100,39 @@ class TestOodLoaders(unittest.TestCase):
 
 
 @unittest.skipUnless(DEPLOYED.exists(), f"{DEPLOYED} is not present (dvc pull)")
+class TestLegacyTrainRigsAlias(unittest.TestCase):
+    """Ticket ML-1 (D4) renamed `train_rigs` to `train_capture_dirs`; every card written before then --
+    both deployed models' -- still says `train_rigs`. config_for_checkpoint must map it, or the key is
+    dropped as unknown and an old model silently resolves to the default dirs."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def card(self, training_config: dict) -> Path:
+        ckpt = self.tmp / "m.pt"
+        ckpt.with_suffix(".json").write_text(json.dumps({"training_config": training_config}))
+        return ckpt
+
+    def test_old_key_is_read_and_flagged(self):
+        dirs = ["data/cropped/cam_sony", "data/cropped/cam_iphone"]
+        cfg, source = config_for_checkpoint(self.card({"train_rigs": dirs, "heldout_rig": ""}), None)
+        self.assertEqual(list(cfg.train_capture_dirs), dirs)
+        self.assertIn(LEGACY_CONFIG_NOTE, source)
+
+    def test_new_key_wins_and_is_not_flagged(self):
+        cfg, source = config_for_checkpoint(
+            self.card({"train_capture_dirs": ["data/cropped/cam_sony"], "train_rigs": ["x"]}), None)
+        self.assertEqual(cfg.train_capture_dirs, ("data/cropped/cam_sony",))
+        self.assertNotIn(LEGACY_CONFIG_NOTE, source)
+
+    def test_both_deployed_cards_resolve_to_the_four_capture_dirs(self):
+        for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):
+            with self.subTest(name=name):
+                cfg, _ = config_for_checkpoint(REPO_ROOT / "models" / f"{name}.pt", None)
+                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], CAPTURES)
+
+
 class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
     """load_model builds ResNet18 with weights=None (docs/ops1_release_isolation_plan.html §4.3): the
     service runs under ProtectHome=true, where ~/.cache/torch does not exist. Safe only because the

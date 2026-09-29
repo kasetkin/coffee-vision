@@ -42,13 +42,12 @@ from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
 from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_backbone
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import load_class_labels
+from coffeecv.dataset import CAPTURES, load_class_labels
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
 from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
-from coffeecv.run_folds import RIGS
 from coffeecv.transforms import build_eval_transform
 
 DEFAULT_OUT = OUTPUTS_DIR / "frozen_allrigs"
@@ -78,7 +77,7 @@ def fold_C(backbone: str, readout: str, exps=SELECTION_EXPS) -> tuple[float, lis
 def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
     """params.yaml's sampling geometry, every camera in training, and the fields that describe a frozen
     backbone with a convex head set to what actually runs (as the screen records its folds)."""
-    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_rigs=tuple(RIGS), heldout_rig="",
+    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES), heldout_rig="",
                   model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
                   color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
@@ -104,7 +103,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
     set_seed(seed)
     eval_tf = build_eval_transform(cfg.patch_resize)
     X, y, sizes, ms = {}, {}, {}, {}
-    class_ids = class_labels = train_rigs = None
+    class_ids = class_labels = captures = None
     for split in ("train", "val", "test"):
         t = time.perf_counter()
         fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=(split,))
@@ -112,7 +111,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
         built = time.perf_counter() - t
         X[split], y[split], ms[split] = embed(ds, bb, readout)
         sizes[split] = len(ds)
-        class_ids, class_labels, train_rigs = fold.class_ids, fold.class_labels, [r.name for r in fold.train_rigs]
+        class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
         log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
         del fold, ds
         gc.collect()
@@ -130,7 +129,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
         split_metrics[s] = compute_split_metrics(y[s], pred, cross_entropy(probs, y[s]), class_ids, class_labels)
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
-                                 rigs={"train": train_rigs, "heldout": None})
+                                 captures=captures)
     metrics["best_epoch_selection_metric"] = "none: C fixed to the selection folds' median (no selection here)"
 
     import timm
@@ -238,7 +237,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages(RIGS)
+        stale = stale_crop_stages(CAPTURES)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
     if args.start_exp is not None:

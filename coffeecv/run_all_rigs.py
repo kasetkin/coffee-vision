@@ -29,8 +29,8 @@ from pathlib import Path
 
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 from coffeecv.lr_schedules import SCHEDULERS
+from coffeecv.dataset import CAPTURES
 from coffeecv.repro_utils import dirty_provenance_paths, run, stale_crop_stages
-from coffeecv.run_folds import RIGS
 
 
 def set_all_rigs(
@@ -39,8 +39,8 @@ def set_all_rigs(
 ) -> RunConfig:
     """Point params.yaml at every rig with no held-out rig, preserving comments."""
     text = PARAMS_FILE.read_text()
-    block = "train_rigs:\n" + "".join(f"  - {r}\n" for r in RIGS)
-    text = re.sub(r"train_rigs:\n(?:  - .*\n)+", block, text, count=1)
+    block = "train_capture_dirs:\n" + "".join(f"  - {c}\n" for c in CAPTURES)
+    text = re.sub(r"train_capture_dirs:\n(?:  - .*\n)+", block, text, count=1)
     # "" is the documented disable switch in RunConfig: no heldout rig, no
     # test_xrig split, no cross-rig metric.
     text = re.sub(r"^heldout_rig: .*$", 'heldout_rig: ""', text, count=1, flags=re.M)
@@ -85,7 +85,7 @@ def set_all_rigs(
     cfg = RunConfig.from_params_yaml()
     assert cfg.seed == seed, f"seed is {cfg.seed}, wanted {seed}"
     assert cfg.heldout_rig == "", f"heldout_rig is {cfg.heldout_rig!r}, wanted empty"
-    assert list(cfg.train_rigs) == RIGS, f"train_rigs is {cfg.train_rigs!r}"
+    assert list(cfg.train_capture_dirs) == CAPTURES, f"train_capture_dirs is {cfg.train_capture_dirs!r}"
     assert cfg.brightness_jitter_strength == brightness_jitter
     assert cfg.mixstyle_p == mixstyle_p, f"mixstyle_p is {cfg.mixstyle_p}, wanted {mixstyle_p}"
     assert cfg.mixstyle_mode == mixstyle_mode, f"mixstyle_mode is {cfg.mixstyle_mode!r}, wanted {mixstyle_mode!r}"
@@ -143,7 +143,7 @@ def main() -> None:
             print(f"    {line}")
         print("\nCommit these before starting. Override with --allow-dirty.")
         raise SystemExit(1)
-    stale = stale_crop_stages(RIGS)
+    stale = stale_crop_stages(CAPTURES)
     if stale and not args.allow_dirty:
         print(f"Crop stages out of date: {', '.join(stale)}. The dataset would be regenerated "
               f"mid-run. Run `dvc repro crop` deliberately first, or --allow-dirty.")

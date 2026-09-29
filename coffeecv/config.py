@@ -28,7 +28,7 @@ class RunConfig:
     # which session the crops came from is recorded by the crop stage in dvc.yaml
     # and in data/cropped/<session>/crop_manifest.json.
     #
-    # Leave-one-rig-out: `train_rigs` are split into train/val/test at the photo
+    # Leave-one-rig-out: `train_capture_dirs` are split into train/val/test at the photo
     # level; `heldout_rig` contributes every one of its photos as a second,
     # cross-rig test set and is never seen in training. Setting `heldout_rig` to
     # "" disables the cross-rig split and reproduces a plain single-rig run.
@@ -36,7 +36,7 @@ class RunConfig:
     # shape rather than a live configuration. Kept current anyway: a default
     # naming rigs that no longer exist is the kind of drift that makes a reader
     # trust the wrong thing.
-    train_rigs: tuple[str, ...] = (
+    train_capture_dirs: tuple[str, ...] = (
         "data/cropped/cam_pixel",
         "data/cropped/cam_sony",
         "data/cropped/cam_oneplus",
@@ -201,13 +201,13 @@ class RunConfig:
         values = {k: v for k, v in raw.items() if k in known}
         # YAML gives a list; the field is a tuple so the config stays hashable
         # and cannot be mutated in place by a caller.
-        if isinstance(values.get("train_rigs"), list):
-            values["train_rigs"] = tuple(values["train_rigs"])
+        if isinstance(values.get("train_capture_dirs"), list):
+            values["train_capture_dirs"] = tuple(values["train_capture_dirs"])
         return cls(**values)
 
     def resolve_paths(self) -> tuple[list[Path], Path | None, Path]:
-        """(train rig dirs, held-out rig dir or None, classes file)."""
-        train = [REPO_ROOT / d for d in self.train_rigs]
+        """(capture dirs, held-out rig dir or None, classes file)."""
+        train = [REPO_ROOT / d for d in self.train_capture_dirs]
         heldout = (REPO_ROOT / self.heldout_rig) if self.heldout_rig else None
         return train, heldout, REPO_ROOT / self.classes_file
 

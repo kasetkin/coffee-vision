@@ -20,7 +20,7 @@ import sys
 from dataclasses import replace
 
 from coffeecv.config import RunConfig
-from coffeecv.dataset import load_class_labels, resolve_rigs, split_census
+from coffeecv.dataset import load_class_labels, resolve_captures, split_census
 
 SPLITS = ("train", "val", "test")
 
@@ -67,7 +67,7 @@ def main() -> int:
     if args.seed is not None:
         cfg = replace(cfg, seed=args.seed)
     capture_dirs, _heldout, classes_file = cfg.resolve_paths()
-    captures = resolve_rigs(capture_dirs)
+    captures = resolve_captures(capture_dirs)
     labels = load_class_labels(classes_file)
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
     census = split_census(captures, sorted(labels), cfg.seed, frac)

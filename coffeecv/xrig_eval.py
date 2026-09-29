@@ -43,7 +43,7 @@ from coffeecv.dataset import (
     list_cropped_photos,
     load_class_labels,
     load_rgb_image,
-    resolve_rigs,
+    resolve_captures,
 )
 from coffeecv.geometry import (
     bean_unit_box_at_center,
@@ -363,7 +363,7 @@ def main() -> None:
     rig_dir = Path(args.rig_dir) if args.rig_dir else heldout_rig_dir
     if rig_dir is None:
         raise SystemExit("this checkpoint's config has no heldout_rig and no --rig-dir was given")
-    rig = resolve_rigs([rig_dir])[0]
+    rig = resolve_captures([rig_dir])[0]
     # Class-id ordering must come from the label set the checkpoint's final layer
     # was actually fitted to -- not from rig_dir, which may be a target the model
     # never trained on (that's the whole point of this script), and not from

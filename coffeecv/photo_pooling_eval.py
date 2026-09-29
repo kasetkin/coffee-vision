@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import resolve_rigs
+from coffeecv.dataset import resolve_captures
 from coffeecv.infer import config_for_checkpoint, load_model
 from coffeecv.xrig_eval import (
     DEFAULT_SCRATCH,
@@ -65,7 +65,7 @@ def evaluate(exp_id: int, n_patches: int, seed: int, dihedral: bool, scratch: Pa
     _, heldout_rig_dir, classes_file = cfg.resolve_paths()
     if heldout_rig_dir is None:
         raise SystemExit(f"exp{exp_id} has no heldout_rig -- an all-rigs run has no cross-rig split")
-    rig = resolve_rigs([heldout_rig_dir])[0]
+    rig = resolve_captures([heldout_rig_dir])[0]
     class_ids, _ = resolve_class_ids(classes_file, config_path)
     model, head = load_model(ckpt, cfg.model_name, len(class_ids), cfg.dropout)
 

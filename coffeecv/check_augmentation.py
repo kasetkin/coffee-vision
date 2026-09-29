@@ -37,7 +37,7 @@ from coffeecv.dataset import (
     discover_classes_multi,
     find_class_dir,
     load_rgb_image,
-    resolve_rigs,
+    resolve_captures,
 )
 from coffeecv.geometry import (
     Region,
@@ -114,11 +114,11 @@ def check_rotation_jitter() -> None:
     # RNG stream differs by construction even though the dataset never uses it
     # at 0 degrees.)
     cfg = RunConfig.from_params_yaml()
-    train_rig_dirs, _heldout, classes_file = cfg.resolve_paths()
-    rigs = resolve_rigs(train_rig_dirs[:1])  # one rig is enough to test the sampler
+    capture_dirs, _heldout, classes_file = cfg.resolve_paths()
+    captures = resolve_captures(capture_dirs[:1])  # one capture dir is enough to test the sampler
     kwargs = dict(
-        rigs=rigs, classes_file=classes_file, split="train",
-        class_ids=discover_classes_multi(rigs[0].cropped_dir)[:1], seed=42, crop_size=CROP_SIZE,
+        captures=captures, classes_file=classes_file, split="train",
+        class_ids=discover_classes_multi(captures[0].cropped_dir)[:1], seed=42, crop_size=CROP_SIZE,
         resize=224, safety_margin=cfg.safety_margin,
         patches_per_class={"train": 14, "val": 4, "test": 4},
         photo_frac={"train": 0.70, "val": 0.15, "test": 0.15},  # -> 14/3/3 for a 20-photo class
@@ -130,7 +130,7 @@ def check_rotation_jitter() -> None:
     # 14 patches over 14 photos is one patch each, so sample i came from photo i.
     #
     # Note this is no longer the *Phase 7* box stream: Phase 11 added the rig as
-    # an RNG dimension ([seed, rig_idx, class_idx, photo_idx, split]), so box
+    # an RNG dimension ([seed, capture_idx, class_idx, photo_idx, split]), so box
     # placement changed by construction and pre-Phase-11 runs are reproducible
     # only from their own commits, not from current code. The invariant still
     # worth asserting, and asserted here, is the one that made jitter safe to
@@ -138,7 +138,7 @@ def check_rotation_jitter() -> None:
     # RNG stream untouched, so enabling the knob is the only thing that moves a box.
     expected = []
     for photo_idx, meta in enumerate(ds_off._meta):
-        photo = find_class_dir(rigs[0].cropped_dir, meta.class_id) / meta.photo_name
+        photo = find_class_dir(captures[0].cropped_dir, meta.class_id) / meta.photo_name
         h, w = load_rgb_image(photo).shape[:2]
         photo_region = compute_valid_region_rect(h, w, cfg.safety_margin)
         rng = np.random.default_rng([42, 0, 0, photo_idx, SPLIT_SEED_COMPONENT["train"]])

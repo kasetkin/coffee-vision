@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from coffeecv.dataset import (MultiPhotoPatchDataset, pooled_class_photos, resolve_rigs,
+from coffeecv.dataset import (MultiPhotoPatchDataset, pooled_class_photos, resolve_captures,
                               split_census, split_photos_by_class)
 
 FRAC = {"train": 0.70, "val": 0.15, "test": 0.15}
@@ -48,7 +48,7 @@ class TestPooledSplit(unittest.TestCase):
         shutil.rmtree(cls.tmp)
 
     def split(self, dirs, seed=7, class_idx=0, cid="001"):
-        pool, _ = pooled_class_photos(resolve_rigs(dirs), cid)
+        pool, _ = pooled_class_photos(resolve_captures(dirs), cid)
         return split_photos_by_class(pool, seed, class_idx, FRAC)
 
     def test_fractions_apply_to_the_pooled_count(self):
@@ -75,7 +75,7 @@ class TestPooledSplit(unittest.TestCase):
             self.assertEqual(photos, sorted(photos))
 
     def test_too_few_pooled_photos_raise(self):
-        pool, _ = pooled_class_photos(resolve_rigs([self.b]), "001")
+        pool, _ = pooled_class_photos(resolve_captures([self.b]), "001")
         with self.assertRaisesRegex(ValueError, "too few"):
             split_photos_by_class(pool[:2], 7, 0, FRAC)
 
@@ -84,12 +84,12 @@ class TestPooledSplit(unittest.TestCase):
         write_capture(other, "capA", {"001": 3})
         try:
             with self.assertRaisesRegex(ValueError, "unique"):
-                resolve_rigs([self.a, other / "capA"])
+                resolve_captures([self.a, other / "capA"])
         finally:
             shutil.rmtree(other)
 
     def test_census_reports_every_dir_per_split(self):
-        census = split_census(resolve_rigs([self.a, self.b]), ["001", "002"], 7, FRAC)
+        census = split_census(resolve_captures([self.a, self.b]), ["001", "002"], 7, FRAC)
         c1 = census["001"]
         self.assertEqual(c1["pooled"], 30)
         self.assertEqual(c1["absent"], [])
@@ -113,8 +113,8 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
         cls.a = write_capture(cls.tmp, "capA", {"001": 20})
         cls.b = write_capture(cls.tmp, "capB", {"001": 1})     # one photo: it lands in exactly one split
         (cls.tmp / "classes.txt").write_text("001;one\n")
-        cls.rigs = resolve_rigs([cls.a, cls.b])
-        pool, _ = pooled_class_photos(cls.rigs, "001")
+        cls.captures = resolve_captures([cls.a, cls.b])
+        pool, _ = pooled_class_photos(cls.captures, "001")
         cls.where = {s: [p for p in ps if p.capture == "capB"]
                      for s, ps in split_photos_by_class(pool, 7, 0, FRAC).items()}
 
@@ -124,7 +124,7 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
 
     def build(self, split):
         return MultiPhotoPatchDataset(
-            rigs=self.rigs, classes_file=self.tmp / "classes.txt", split=split, class_ids=["001"],
+            captures=self.captures, classes_file=self.tmp / "classes.txt", split=split, class_ids=["001"],
             seed=7, crop_size=32, resize=32, safety_margin=0.97,
             patches_per_class={"train": 6, "val": 4, "test": 4}, photo_frac=FRAC)
 
@@ -133,11 +133,11 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
         for split in ("train", "val", "test"):
             with self.subTest(split=split):
                 ds = self.build(split)
-                dirs = {m.rig_name for m in ds._meta}
+                dirs = {m.capture for m in ds._meta}
                 if split == home:
                     self.assertEqual(ds.starved, [])
                     self.assertEqual(dirs, {"capA", "capB"})
-                    self.assertEqual(sum(m.rig_name == "capB" for m in ds._meta),
+                    self.assertEqual(sum(m.capture == "capB" for m in ds._meta),
                                      {"train": 6, "val": 4, "test": 4}[split])  # the whole dir budget
                 else:
                     self.assertEqual(ds.starved, [("capB", "001")])
@@ -147,7 +147,7 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
     def test_all_split_keeps_every_photo_in_name_order(self):
         """split="all" (the DINOv3 fixture's path): each dir's photos in file-name order, photo_idx from 0."""
         ds = MultiPhotoPatchDataset(
-            rigs=[self.rigs[0]], classes_file=self.tmp / "classes.txt", split="all", class_ids=["001"],
+            captures=[self.captures[0]], classes_file=self.tmp / "classes.txt", split="all", class_ids=["001"],
             seed=7, crop_size=32, resize=32, safety_margin=0.97,
             patches_per_class={"train": 1, "val": 1, "test": 1, "all": 20}, photo_frac=FRAC)
         names = [m.photo_name for m in ds._meta]

@@ -1,4 +1,5 @@
-"""Rig x class photo coverage: print the table, and assert what should stay true.
+"""Session x class and capture-dir x class photo coverage: print the tables, and assert what should
+stay true.
 
 Producing this table by hand meant cross-referencing eight session directories,
 and it needs redoing every time a session or a class is added -- which is
@@ -10,16 +11,21 @@ than accidentally missing from it.
 Checks, in order of how badly they bite:
 
 1. **Class-directory naming drift.** The same class id must use the same
-   directory name on every rig. `CLASS_DIR_RE` keys on the numeric id, so
+   directory name in every session. `CLASS_DIR_RE` keys on the numeric id, so
    `class_009__Vietnam` and `class_009__Vietnam_Robusta` train fine today --
    which is why this went unnoticed. It is still the kind of drift that makes a
    grep-based tool silently disagree with the loader.
 2. **Sessions not wired into the pipeline.** A session in dataset/ that is
    neither excluded below nor listed in dvc.yaml's `crop` foreach is almost
    certainly a capture someone forgot to wire in.
-3. **Undeclared / unphotographed classes**, against dataset/classes.txt.
-4. **Rig x class imbalance** -- reported, never fatal, because the dataset is
-   legitimately ragged (iPhone is thin, the 08-30 sessions are class_010 only).
+3. **Undeclared / unphotographed classes**, against dataset/classes.txt -- and a
+   declared class that no training capture dir (`dataset.CAPTURES`) carries, which
+   training would refuse outright.
+4. **Class balance per capture dir and per session** -- reported, never fatal,
+   because the dataset is legitimately ragged (iPhone is thin, the 08-30 sessions
+   are class_010 only). Since ticket ML-1 no capture dir is held out, so a dir
+   missing a class only means the others supply it; this is class balance, not
+   fold coverage.
 
 Exit status is non-zero only for 1-3. Imbalance is information, not an error.
 """
@@ -34,7 +40,10 @@ from pathlib import Path
 import yaml
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import CLASS_DIR_RE
+# A hard import on purpose. This used to be `from coffeecv.run_folds import RIGS` inside a bare
+# try/except, which would have silently dropped the whole capture-dir section once that module
+# was deleted; a broken import must fail loudly instead.
+from coffeecv.dataset import CAPTURES, CLASS_DIR_RE
 
 DATASET_DIR = REPO_ROOT / "dataset"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
@@ -168,34 +177,33 @@ def main() -> int:
     for cid in sorted(set(labels) - set(counts)):
         errors.append(f"class_{cid} ({labels[cid]}) is declared in classes.txt but has no photos")
 
-    # 4a. rig-level coverage. Sessions are the capture unit, but RIGS is what
-    # folds hold out, and since 2026-09-03 a rig is a camera model built by
-    # merging sessions -- so a class can look uncovered per-session while being
-    # perfectly covered per-rig. Reporting only the session view said "class_010
-    # has no broad-session coverage, so every fold scores it on nothing", which
-    # is now simply false: three of the four cameras carry it.
+    # 4a. class balance per capture dir. Sessions are the capture unit on disk, but
+    # training draws from the CAPTURES dirs, each merged from sessions by a merge_*
+    # stage -- so a class can look thin per session and still be well covered per dir.
+    # Counted from the raw sessions through dvc.yaml's merge map, so this runs
+    # without the crop stage having been run.
     merges = {}
     for stage, body in yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"].items():
         if stage.startswith("merge_") and isinstance(body.get("cmd"), str):
             parts = body["cmd"].split()
             if "--name" in parts and "--sessions" in parts:
                 merges[parts[parts.index("--name") + 1]] = parts[parts.index("--sessions") + 1:]
-    try:
-        from coffeecv.run_folds import RIGS
-        rig_names = [Path(r).name for r in RIGS]
-    except Exception:
-        rig_names = []
-    if rig_names:
-        print("\nrig-level coverage (what leave-one-rig-out actually holds out):")
-        for rn in rig_names:
-            srcs = merges.get(rn, [rn])
-            ids = {c for c in counts if any(s in counts[c] for s in srcs)}
-            miss = sorted(set(labels) - ids)
-            print(f"  {rn:<14} {len(ids):>2}/{len(labels)} classes"
-                  + (f"   missing {', '.join('class_' + m for m in miss)}" if miss else "   complete"))
-            for m in miss:
-                warnings.append(f"rig {rn} has no class_{m}: its held-out fold scores "
-                                f"{len(ids)} classes, not {len(labels)}")
+    capture_names = [Path(c).name for c in CAPTURES]
+    per_capture = {cn: {c: sum(counts[c].get(s, 0) for s in merges.get(cn, [cn])) for c in counts}
+                   for cn in capture_names}
+    if not args.quiet:
+        width = max(max(len(cn) for cn in capture_names), 5)
+        print("\nclass balance per capture dir (photos; the pools training draws from):")
+        print(f"{'class':<28} " + " ".join(f"{cn:>{width}}" for cn in capture_names) + "   total")
+        for cid in sorted(labels):
+            name = f"{cid} {labels.get(cid, '?')}"[:27]
+            cells = [per_capture[cn].get(cid, 0) for cn in capture_names]
+            print(f"{name:<28} " + " ".join(f"{n:>{width}}" if n else f"{'-':>{width}}" for n in cells)
+                  + f"   {sum(cells):>5}")
+    for cid in sorted(labels):
+        if not any(per_capture[cn].get(cid, 0) for cn in capture_names):
+            errors.append(f"class_{cid} ({labels[cid]}) is in no training capture dir "
+                          f"({', '.join(capture_names)}) -- training would refuse to start")
 
     # 4. imbalance (informational)
     per_class_totals = {c: sum(v.values()) for c, v in counts.items()}
@@ -220,8 +228,7 @@ def main() -> int:
         if not have:
             warnings.append(f"class_{cid} appears only on single-class sessions "
                             f"({', '.join(sorted(counts[cid]))}) -- fine if those sessions merge "
-                            f"into a camera rig that also carries the other classes, which is what "
-                            f"the rig-level section above checks; a problem only if one does not")
+                            f"into a capture dir, which the capture-dir table above shows")
         elif len(have) < full:
             absent = [s for s in broad if s not in have]
             warnings.append(f"class_{cid} is on {len(have)} of {full} broad sessions; absent from "

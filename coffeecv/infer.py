@@ -72,6 +72,10 @@ from coffeecv.transforms import build_eval_transform
 
 DEVICE = torch.device("cpu")
 
+# Appended to config_for_checkpoint's source description for a config written before ticket ML-1.
+LEGACY_CONFIG_NOTE = (" [pre-ML-1 config: `train_rigs` read as `train_capture_dirs`; trained on the old "
+                      "per-camera photo split, which splits recomputed now do not reproduce]")
+
 # Phase 10's calibration: above the 1.24 in-distribution maximum, below the 1.92
 # observed on a genuinely out-of-rig photo. Recorded as a number with a basis
 # rather than a tuned constant -- one positive example is thin evidence, so the
@@ -240,6 +244,16 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
     if raw is None:
         cfg = RunConfig.from_params_yaml()
     else:
+        # Ticket ML-1 (D4, 2026-09-29) renamed `train_rigs` to `train_capture_dirs`. Every card and
+        # config.json written before then -- both deployed models' included -- says `train_rigs`, and
+        # the filter below would drop it as unknown and silently fall back to the default dirs (so
+        # build_ood_reference on an old model would read the wrong photos). This is the one place the
+        # old name is accepted; RunConfig.from_params_yaml stays strict. The source string says so,
+        # because such a checkpoint was also trained on the pre-ML-1 per-camera photo split, which
+        # the current code no longer reproduces (see ood_eval.id_photos).
+        if "train_rigs" in raw and "train_capture_dirs" not in raw:
+            raw = {**raw, "train_capture_dirs": raw["train_rigs"]}
+            source += LEGACY_CONFIG_NOTE
         known = RunConfig.__dataclass_fields__
         cfg = RunConfig(**{k: (tuple(v) if isinstance(v, list) else v)
                            for k, v in raw.items() if k in known})

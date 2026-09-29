@@ -156,8 +156,8 @@ def main() -> None:
     fold = build_fold_datasets(cfg, train_transform, eval_transform,
                                return_domain_id=cross_domain_mixstyle)
     train_ds, val_ds, test_ds = fold.train, fold.val, fold.test
-    train_rigs, class_ids, class_labels = fold.train_rigs, fold.class_ids, fold.class_labels
-    print(f"train rigs: {[r.name for r in train_rigs]}")
+    captures, class_ids, class_labels = fold.captures, fold.class_ids, fold.class_labels
+    print(f"capture dirs: {[c.name for c in captures]}")
 
     gen = torch.Generator().manual_seed(cfg.seed)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, generator=gen)
@@ -307,7 +307,7 @@ def main() -> None:
     metrics_json = build_metrics_json(
         class_ids, class_labels, epochs_trained=epoch, best_epoch=best_epoch,
         val_metrics=best_val_metrics, test_metrics=test_metrics,
-        rigs={"train": [r.name for r in train_rigs]},
+        captures=[c.name for c in captures],
     )
     # Which capture dirs the pooled split left with no photos in a split, per class (see
     # MultiPhotoPatchDataset.starved). Recorded so an archived run states it, not only its log.

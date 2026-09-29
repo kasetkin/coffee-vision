@@ -60,7 +60,7 @@ def dirty_provenance_paths() -> list[str]:
 # directory, not yet regenerated) still looks clean -- so a `dvc repro train`
 # would re-crop and then re-merge, changing the pixels under a sweep that had
 # been told everything was up to date.
-RIG_STAGE_OVERRIDES = {
+CAPTURE_STAGE_OVERRIDES = {
     "oneplus_combined": ["merge_oneplus",
                          "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash"],
     "cam_pixel":   ["merge_cam_pixel",
@@ -78,7 +78,7 @@ RIG_STAGE_OVERRIDES = {
 def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     """Upstream-of-train stages that `dvc repro train` would regenerate before
     training (crop stages for most dirs, merge stages for a merged one -- see
-    RIG_STAGE_OVERRIDES), for the capture dirs `capture_dirs` names.
+    CAPTURE_STAGE_OVERRIDES), for the capture dirs `capture_dirs` names.
 
     Deliberately *not* a check on overall `dvc status`, which is dirty by design
     here: a driver rewrites params.yaml precisely so the train stage re-runs, so
@@ -95,7 +95,7 @@ def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     stale = []
     for capture in capture_dirs:
         name = Path(capture).name
-        for stage in RIG_STAGE_OVERRIDES.get(name, [f"crop@{name}"]):
+        for stage in CAPTURE_STAGE_OVERRIDES.get(name, [f"crop@{name}"]):
             if stage in stale:
                 continue  # sessions feed more than one dir; report each stage once
             out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()

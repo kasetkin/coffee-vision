@@ -305,7 +305,7 @@
 
   <h2>8. Phase 7 &mdash; tests</h2>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>tests/test_frozen_checkpoint.py:113-114</code>: update the
+    <li><span class="box done"></span><span><code>tests/test_frozen_checkpoint.py:113-114</code>: update the
       <code>RunConfig(...)</code> construction to <code>train_capture_dirs=(...)</code>, drop
       <code>heldout_rig=</code>.</span></li>
     <li><span class="box"></span><span><code>tests/test_dino_backbone.py</code>: confirm it still imports
@@ -393,6 +393,26 @@
       toy-scale <code>train_baseline</code> smoke run on cam_oneplus+cam_iphone completes and records
       4 starved cells (outputs/ restored afterwards). New <code>tests/test_pooled_split.py</code> (10
       tests); suite 51/51.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 3 done.</strong> <code>Rig</code>&rarr;<code>Capture</code>
+      (docstring rewritten: a capture is camera + date + setup + lighting, not a label or an evaluation unit),
+      <code>resolve_rigs</code>&rarr;<code>resolve_captures</code>, <code>CAPTURES</code> now lives in
+      <code>dataset.py</code> (same four dirs, same order &mdash; the order still seeds patch boxes),
+      <code>RunConfig.train_rigs</code>&rarr;<code>train_capture_dirs</code> (and the <code>params.yaml</code>
+      key, which strict loading requires to move in the same commit). Also renamed for consistency: the
+      <code>rigs=</code> kwarg, <code>rig_idx</code>&rarr;<code>capture_idx</code> (same value),
+      <code>PatchMeta.rig_name</code>&rarr;<code>capture</code>, <code>FoldDatasets.train_rigs</code>&rarr;<code>captures</code>,
+      <code>RIG_STAGE_OVERRIDES</code>&rarr;<code>CAPTURE_STAGE_OVERRIDES</code>, and the metrics.json key
+      (<code>rigs</code>&rarr;<code>captures</code>, a list of names; <code>archive_experiment</code> still reads old
+      runs' <code>rigs.heldout</code>). <code>infer.config_for_checkpoint</code> maps a legacy <code>train_rigs</code>
+      (only when <code>train_capture_dirs</code> is absent) and appends <code>LEGACY_CONFIG_NOTE</code> to the source it
+      returns, so every CLI's <code>config: ...</code> line says the checkpoint predates the pooled split. Both
+      deployed cards resolve to the four <code>cam_*</code> dirs; new <code>TestLegacyTrainRigsAlias</code> (3 tests)
+      locks that in. <code>coverage_report.py</code>'s bare-except <code>RIGS</code> import replaced by a hard
+      <code>CAPTURES</code> import and a class-balance-per-capture-dir table (plus an error if a declared class is in
+      no capture dir). Its four pre-existing <code>FAIL</code>s (<code>dataset/ood_*</code> not in the crop foreach)
+      also fail on <code>main</code> and are not ML-1's; left alone. Prose that uses "rig" for a physical setup in
+      untouched files (crop_tray, geometry, bean_scale, ...) left as history. Fixture patches still byte-identical;
+      suite 54/54.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

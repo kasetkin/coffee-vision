@@ -156,7 +156,7 @@ class PatchCoffeeDataset(Dataset):
         return tensor, label
 
 
-# ---- Multi-photo box-rig dataset (2026-08-07__box_pictures_all_classes and later) --------
+# ---- Multi-photo capture-dir dataset (2026-08-07__box_pictures_all_classes and later) ----
 
 
 def discover_classes_multi(cropped_dir: Path) -> list[str]:
@@ -223,42 +223,68 @@ def load_rgb_image(path: Path) -> np.ndarray:
 class PatchMeta:
     """Where one extracted patch came from."""
     class_id: str
-    rig_name: str
+    capture: str  # the capture dir's name (Capture.name)
     photo_name: str
     box: Region
     angle: float
     side: int  # patch side in *source* pixels before storage resize; varies under scale aug
 
 
+# The capture dirs a run trains on: every data/cropped/cam_* pool, each built by
+# its own merge_cam_* stage in dvc.yaml from one camera's sessions. Formerly
+# run_folds.RIGS, the fold rotation; moved here when the fold driver was retired
+# (ticket ML-1, 2026-09-29). run_all_rigs.py and fit_frozen_head.py train on
+# exactly this list, and params.yaml rests at it.
+#
+# The order is not cosmetic: a dir's position here is the `capture_idx` that
+# seeds its patch boxes (MultiPhotoPatchDataset._extract_photo). It no longer
+# decides which photos land in which split -- that is pooled per class and
+# order-independent (split_photos_by_class).
+#
+# cam_iphone carries eight classes (no class_008, no class_010); the other three
+# carry all ten.
+CAPTURES = [
+    "data/cropped/cam_pixel",
+    "data/cropped/cam_sony",
+    "data/cropped/cam_oneplus",
+    "data/cropped/cam_iphone",
+]
+
+
 @dataclass(frozen=True)
-class Rig:
+class Capture:
     """One capture dir under data/cropped/: a name and where its crops live.
 
-    Since ticket ML-1 (D1(b)) photos are pooled across dirs and split per class
-    only (`split_photos_by_class`); the dir survives as the patch budget's unit
-    and as provenance in PatchMeta, not as a split boundary.
+    A capture is a pool of photos defined by camera + date + setup + lighting --
+    deliberately not "a camera": a future dir need not map 1:1 to a physical
+    camera, even though today's four cam_* dirs each merge one camera's
+    sessions. It is not a label and not a unit of evaluation. Since ticket ML-1
+    (2026-09-29) no capture is held out, trained on selectively or reported
+    separately; photos are pooled across captures and split per class only
+    (`split_photos_by_class`, D1(b)). A capture survives as the patch budget's
+    unit, as a box-RNG seed component, and as provenance in PatchMeta.
     """
     name: str
     cropped_dir: Path
 
 
-def resolve_rigs(cropped_dirs: list[Path]) -> list[Rig]:
-    """`.../data/cropped/<session>` -> Rig(name=<session>)."""
-    rigs = []
+def resolve_captures(cropped_dirs: list[Path]) -> list[Capture]:
+    """`.../data/cropped/<name>` -> Capture(name=<name>)."""
+    captures = []
     for path in cropped_dirs:
         if not path.is_dir():
             raise FileNotFoundError(
-                f"No cropped rig at {path}. Run the crop stage first: `dvc repro crop`."
+                f"No cropped capture dir at {path}. Run the crop stage first: `dvc repro crop`."
             )
-        rigs.append(Rig(name=path.name, cropped_dir=path))
-    if not rigs:
-        raise ValueError("At least one rig is required")
+        captures.append(Capture(name=path.name, cropped_dir=path))
+    if not captures:
+        raise ValueError("At least one capture dir is required")
     # The name is the capture half of the pooled split's sort key (CapturePhoto),
     # so two dirs sharing a basename would make that key ambiguous.
-    names = [r.name for r in rigs]
+    names = [c.name for c in captures]
     if len(set(names)) != len(names):
         raise ValueError(f"capture dir names must be unique, got {names}")
-    return rigs
+    return captures
 
 
 @dataclass(frozen=True, order=True)
@@ -270,14 +296,14 @@ class CapturePhoto:
     depends on the seed, the class and the set of photos -- never on the order the
     capture dirs happen to be listed in config.
     """
-    capture: str  # Rig.name, the capture dir's basename
+    capture: str  # Capture.name, the capture dir's basename
     name: str     # photo file name
     path: Path = field(compare=False)
 
 
-def pooled_class_photos(rigs: list[Rig], class_id: str) -> tuple[list[CapturePhoto], list[str]]:
-    """(every cropped photo of `class_id` across `rigs`, sorted by the global key; the
-    names of the rigs with no directory for this class at all).
+def pooled_class_photos(captures: list[Capture], class_id: str) -> tuple[list[CapturePhoto], list[str]]:
+    """(every cropped photo of `class_id` across `captures`, sorted by the global key;
+    the names of the captures with no directory for this class at all).
 
     A dir lacking a class is normal (cam_iphone has no class_008 or class_010). A class
     directory that exists but holds no crops is not, and still raises from
@@ -285,13 +311,13 @@ def pooled_class_photos(rigs: list[Rig], class_id: str) -> tuple[list[CapturePho
     """
     pool: list[CapturePhoto] = []
     absent: list[str] = []
-    for rig in rigs:
+    for capture in captures:
         try:
-            class_dir = find_class_dir(rig.cropped_dir, class_id)
+            class_dir = find_class_dir(capture.cropped_dir, class_id)
         except FileNotFoundError:
-            absent.append(rig.name)
+            absent.append(capture.name)
             continue
-        pool.extend(CapturePhoto(rig.name, p.name, p) for p in list_cropped_photos(class_dir))
+        pool.extend(CapturePhoto(capture.name, p.name, p) for p in list_cropped_photos(class_dir))
     return sorted(pool), absent
 
 
@@ -344,7 +370,7 @@ def split_photos_by_class(
     }
 
 
-def split_census(rigs: list[Rig], class_ids: list[str], seed: int,
+def split_census(captures: list[Capture], class_ids: list[str], seed: int,
                  photo_frac: dict[str, float]) -> dict[str, dict]:
     """Photo counts of the pooled split, per class, per split, per capture dir -- no
     image is decoded, so this is cheap enough to run anywhere.
@@ -357,9 +383,9 @@ def split_census(rigs: list[Rig], class_ids: list[str], seed: int,
     """
     census: dict[str, dict] = {}
     for class_idx, class_id in enumerate(class_ids):
-        pool, absent = pooled_class_photos(rigs, class_id)
+        pool, absent = pooled_class_photos(captures, class_id)
         entry: dict = {"pooled": len(pool), "absent": absent}
-        have = [r.name for r in rigs if r.name not in absent]
+        have = [c.name for c in captures if c.name not in absent]
         if pool:
             for split, chosen in split_photos_by_class(pool, seed, class_idx, photo_frac).items():
                 entry[split] = {name: sum(1 for p in chosen if p.capture == name) for name in have}
@@ -379,9 +405,9 @@ class MultiPhotoPatchDataset(Dataset):
     budget is still spent per (dir, class), over that dir's photos in the split.
 
     Patches are materialised at construction rather than held as whole photos.
-    That is forced by rig size: the 2026-08-09 rigs decode to 37 MB and 57 MB per
-    photo, so the previous "keep every photo in RAM" approach needed 5.5 GB to
-    train on two rigs and 10.4 GB to evaluate on sony_cam, against ~8 GB
+    That is forced by photo size: the 2026-08-09 sessions decode to 37 MB and 57 MB
+    per photo, so the previous "keep every photo in RAM" approach needed 5.5 GB to
+    train on two of them and 10.4 GB to evaluate on sony_cam, against ~8 GB
     available. Extracting each photo's patches and then dropping the photo caps
     peak memory at one photo plus the patch store. This changes no semantics:
     patch boxes were always fixed at construction, so nothing that varies per
@@ -389,15 +415,15 @@ class MultiPhotoPatchDataset(Dataset):
     and those still run in __getitem__.
 
     `patch_store_size` is the edge length patches are kept at. None means "keep
-    the full crop_size", which is what a single-rig run should use to stay
-    comparable with pre-Phase-11 experiments; multi-rig runs set it to bound
+    the full crop_size", which is what a single-dir run should use to stay
+    comparable with pre-Phase-11 experiments; multi-dir runs set it to bound
     memory. It must stay comfortably above `resize` so downstream zoom
     augmentation crops into real detail instead of upsampling.
     """
 
     def __init__(
         self,
-        rigs: list[Rig],
+        captures: list[Capture],
         classes_file: Path,
         split: str,
         class_ids: list[str],
@@ -417,13 +443,13 @@ class MultiPhotoPatchDataset(Dataset):
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
-        self.rigs = rigs
+        self.captures = captures
         # Cross-rig MixStyle (mixstyle_mode="cross_rig") needs a per-sample rig id
         # at train time to restrict the mixing partner to a different rig. Default
         # False keeps __getitem__'s return arity unchanged for every other caller
         # (val/test/xrig loaders, evaluate()) -- no regression risk there.
         self.return_domain_id = return_domain_id
-        self._rig_name_to_domain_id = {r.name: i for i, r in enumerate(rigs)}
+        self._capture_to_domain_id = {c.name: i for i, c in enumerate(captures)}
         self.class_ids = class_ids
         self.resize = resize
         self.crop_size = crop_size
@@ -435,11 +461,11 @@ class MultiPhotoPatchDataset(Dataset):
         # Scale augmentation applies to *every* split, not just train. That is
         # the opposite of the usual rule, and deliberate: the patch side is what
         # decides how many beans a patch covers, so evaluating at one fixed pixel
-        # size would score each rig at a different bean coverage and make the
-        # cross-rig number a measurement of magnification rather than of the
+        # size would score each capture at a different bean coverage, and a val
+        # or test number would partly measure magnification rather than the
         # model. Eval draws are seeded, so they stay deterministic.
         # Bean-unit sizing takes precedence: it is the only mode that is
-        # measurable at inference, since it needs no knowledge of how the rig
+        # measurable at inference, since it needs no knowledge of how the photo
         # was framed. See coffeecv/bean_scale.py.
         self.patch_beans = patch_beans
         self.n_clamped = 0
@@ -448,7 +474,7 @@ class MultiPhotoPatchDataset(Dataset):
         if patch_beans is not None and patch_store_size is None:
             raise ValueError("patch_beans requires patch_store_size to be set")
         if patch_scale_frac is not None and patch_store_size is None:
-            # Sides then vary from ~170px to ~2275px across rigs; storing them at
+            # Sides then vary from ~170px to ~2275px across captures; storing them at
             # native size would make memory depend on the draw (a single 2275px
             # patch is 15 MB).
             raise ValueError("patch_scale_frac requires patch_store_size to be set")
@@ -483,7 +509,7 @@ class MultiPhotoPatchDataset(Dataset):
         self.missing_classes: list[str] = []
 
         for class_idx, class_id in enumerate(class_ids):
-            pool, absent = pooled_class_photos(rigs, class_id)
+            pool, absent = pooled_class_photos(captures, class_id)
             for name in absent:
                 self.absent.append((name, class_id))
                 print(f"  WARNING: {name} has no class_{class_id} -- it contributes nothing to "
@@ -497,17 +523,17 @@ class MultiPhotoPatchDataset(Dataset):
             else:
                 selected = split_photos_by_class(pool, seed, class_idx, photo_frac)[split]
 
-            for rig_idx, rig in enumerate(rigs):
-                if rig.name in absent:
+            for capture_idx, capture in enumerate(captures):
+                if capture.name in absent:
                     continue
                 # A sorted list filtered stays sorted: photo_idx below is this
                 # photo's rank among the dir's own photos in the split, by name,
                 # and _extract_photo's box RNG is keyed on it.
-                mine = [p for p in selected if p.capture == rig.name]
+                mine = [p for p in selected if p.capture == capture.name]
                 if not mine:
-                    self.starved.append((rig.name, class_id))
-                    n_have = sum(1 for p in pool if p.capture == rig.name)
-                    print(f"  WARNING: {rig.name} has {n_have} photo(s) of class_{class_id}, but the "
+                    self.starved.append((capture.name, class_id))
+                    n_have = sum(1 for p in pool if p.capture == capture.name)
+                    print(f"  WARNING: {capture.name} has {n_have} photo(s) of class_{class_id}, but the "
                           f"pooled split put none in {split} ({len(selected)} of {len(pool)} pooled "
                           f"photos) -- it contributes no {split} patches for this class")
                     continue
@@ -515,8 +541,8 @@ class MultiPhotoPatchDataset(Dataset):
                 for photo_idx, photo in enumerate(mine):
                     n_patches = base + (1 if photo_idx < extra else 0)
                     self._extract_photo(
-                        photo.path, n_patches, seed, rig_idx, class_idx, photo_idx,
-                        class_id, rig.name, crop_size, safety_margin,
+                        photo.path, n_patches, seed, capture_idx, class_idx, photo_idx,
+                        class_id, capture.name, crop_size, safety_margin,
                     )
 
         # For train/val/test a class absent from EVERY dir really is a total loss
@@ -525,7 +551,7 @@ class MultiPhotoPatchDataset(Dataset):
         if split != "all" and self.missing_classes:
             raise ValueError(
                 f"class(es) {self.missing_classes} not found in ANY of the capture dirs passed to "
-                f"this dataset ({[r.name for r in rigs]}) -- every class must exist in at least one "
+                f"this dataset ({[c.name for c in captures]}) -- every class must exist in at least one "
                 f"dir, or the model can never see it at all. A class missing from SOME but not all "
                 f"dirs is fine (see `absent`); this is a total loss."
             )
@@ -539,15 +565,18 @@ class MultiPhotoPatchDataset(Dataset):
         ]
 
     def _extract_photo(
-        self, photo_path: Path, n_patches: int, seed: int, rig_idx: int, class_idx: int,
-        photo_idx: int, class_id: str, rig_name: str, crop_size: int, safety_margin: float,
+        self, photo_path: Path, n_patches: int, seed: int, capture_idx: int, class_idx: int,
+        photo_idx: int, class_id: str, capture_name: str, crop_size: int, safety_margin: float,
     ) -> None:
-        """Load one photo, cut its patches out, and let the photo go."""
+        """Load one photo, cut its patches out, and let the photo go.
+
+        The box RNG key `[seed, capture_idx, class_idx, photo_idx, split]` is unchanged by
+        ticket ML-1 (formerly `rig_idx`; same value, new name)."""
         rgb = load_rgb_image(photo_path)
         h, w = rgb.shape[:2]
         region = compute_valid_region_rect(h, w, safety_margin)
         rng = np.random.default_rng(
-            [seed, rig_idx, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
+            [seed, capture_idx, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
         )
         if self.patch_beans is not None:
             # Estimated per photo, never per session: at inference there is only
@@ -594,15 +623,15 @@ class MultiPhotoPatchDataset(Dataset):
                     (self.patch_store_size, self.patch_store_size), Image.BILINEAR
                 )
             self._patches.append(np.asarray(patch, dtype=np.uint8))
-            self._meta.append(PatchMeta(class_id, rig_name, photo_path.name, box, angle, side))
+            self._meta.append(PatchMeta(class_id, capture_name, photo_path.name, box, angle, side))
         del rgb
 
     def __len__(self) -> int:
         return len(self._patches)
 
-    def rig_names(self) -> list[str]:
-        """Per-sample rig name, for reporting metrics broken down by rig."""
-        return [m.rig_name for m in self._meta]
+    def capture_names(self) -> list[str]:
+        """Per-sample capture dir name (provenance; no metric is broken down by it)."""
+        return [m.capture for m in self._meta]
 
     def __getitem__(self, idx: int):
         pil_patch = Image.fromarray(self._patches[idx])
@@ -613,6 +642,6 @@ class MultiPhotoPatchDataset(Dataset):
             pil_patch = pil_patch.resize((self.resize, self.resize), Image.BILINEAR)
             tensor = torch.from_numpy(np.array(pil_patch)).permute(2, 0, 1).float() / 255.0
         if self.return_domain_id:
-            domain_id = self._rig_name_to_domain_id[self._meta[idx].rig_name]
+            domain_id = self._capture_to_domain_id[self._meta[idx].capture]
             return tensor, label, domain_id
         return tensor, label

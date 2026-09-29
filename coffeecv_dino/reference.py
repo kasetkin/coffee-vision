@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import discover_classes_multi, load_class_labels, resolve_rigs
+from coffeecv.dataset import discover_classes_multi, load_class_labels, resolve_captures
 from coffeecv.fold_data import build_capture_dataset
 
 REFERENCE_RIG = "data/cropped/cam_iphone"
@@ -30,7 +30,7 @@ def reference_patches(per_class: int) -> tuple[torch.Tensor, np.ndarray, list[st
     rig_dir = REPO_ROOT / REFERENCE_RIG
     classes_file = REPO_ROOT / cfg.classes_file
     class_ids = sorted(discover_classes_multi(rig_dir))
-    ds = build_capture_dataset(cfg, resolve_rigs([rig_dir])[0], class_ids, classes_file, per_class)
+    ds = build_capture_dataset(cfg, resolve_captures([rig_dir])[0], class_ids, classes_file, per_class)
     items = [ds[i] for i in range(len(ds))]
     labels = load_class_labels(classes_file)
     return (torch.stack([x for x, _ in items]), np.array([int(y) for _, y in items]), class_ids,
