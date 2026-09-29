@@ -47,7 +47,8 @@ from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
-from coffeecv.run_folds import RIGS, dirty_provenance_paths, stale_crop_stages
+from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
+from coffeecv.run_folds import RIGS
 from coffeecv.transforms import build_eval_transform
 
 DEFAULT_OUT = OUTPUTS_DIR / "frozen_allrigs"
@@ -237,7 +238,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages()
+        stale = stale_crop_stages(RIGS)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
     if args.start_exp is not None:

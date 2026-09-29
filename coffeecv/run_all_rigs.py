@@ -29,7 +29,8 @@ from pathlib import Path
 
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 from coffeecv.lr_schedules import SCHEDULERS
-from coffeecv.run_folds import RIGS, dirty_provenance_paths, run, stale_crop_stages
+from coffeecv.repro_utils import dirty_provenance_paths, run, stale_crop_stages
+from coffeecv.run_folds import RIGS
 
 
 def set_all_rigs(
@@ -142,7 +143,7 @@ def main() -> None:
             print(f"    {line}")
         print("\nCommit these before starting. Override with --allow-dirty.")
         raise SystemExit(1)
-    stale = stale_crop_stages()
+    stale = stale_crop_stages(RIGS)
     if stale and not args.allow_dirty:
         print(f"Crop stages out of date: {', '.join(stale)}. The dataset would be regenerated "
               f"mid-run. Run `dvc repro crop` deliberately first, or --allow-dirty.")

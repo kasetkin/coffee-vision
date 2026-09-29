@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import RunConfig
 from coffeecv.dataset import MultiPhotoPatchDataset, Rig, load_class_labels, resolve_rigs
+from coffeecv.transforms import build_eval_transform
 
 
 @dataclass
@@ -108,3 +109,40 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
     )
     return FoldDatasets(train_ds, val_ds, test_ds, xrig_ds, train_rigs, heldout_rig,
                         class_ids, class_labels)
+
+
+def build_capture_dataset(cfg: RunConfig, capture: Rig, class_ids: list[str], classes_file,
+                          n_patches: int) -> MultiPhotoPatchDataset:
+    """Every photo of one capture dir, `split="all"`, eval transform, `cfg`'s own patch geometry.
+
+    No holdout semantics: this is the generic "draw n_patches per class from all of one dir's photos"
+    builder. It feeds the DINOv3 backbone-equivalence fixture (`coffeecv_dino.reference`), whose
+    patches must stay byte-identical to the ones `scripts/make_dinov3_fixture.py` recorded -- so the
+    construction, the "all" split's seed component and the single-dir `rig_idx` of 0 must not move.
+    Moved here from `xrig_eval.build_xrig_dataset` on 2026-09-29 (ticket ML-1).
+    """
+    return MultiPhotoPatchDataset(
+        split="all",
+        transform=build_eval_transform(cfg.patch_resize),
+        rigs=[capture],
+        classes_file=classes_file,
+        class_ids=class_ids,
+        seed=cfg.seed,
+        crop_size=cfg.patch_crop_size,
+        resize=cfg.patch_resize,
+        safety_margin=cfg.safety_margin,
+        patches_per_class={
+            "train": cfg.train_patches_per_class, "val": cfg.val_patches_per_class,
+            "test": cfg.test_patches_per_class, "all": n_patches,
+        },
+        photo_frac={
+            "train": cfg.train_photo_frac, "val": cfg.val_photo_frac,
+            "test": cfg.test_photo_frac,
+        },
+        patch_store_size=cfg.patch_store_size or None,
+        patch_scale_frac=((cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
+                          if cfg.patch_scale_frac_max > 0 else None),
+        patch_beans=((cfg.patch_beans_min, cfg.patch_beans_max)
+                     if cfg.patch_beans_max > 0 else None),
+        pitch_geometry=pitch_kwargs(cfg),
+    )

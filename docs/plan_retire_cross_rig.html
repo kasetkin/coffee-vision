@@ -118,7 +118,7 @@
     modules and fix <code>dvc.yaml</code>, clean up docs, then test.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Draft · not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress · <code>tmp/retire-cross-rig</code></span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -168,16 +168,16 @@
 
   <h2>2. Phase 1 &mdash; extract what survives</h2>
   <ol class="tasks">
-    <li><span class="box"></span><span>Move <code>dirty_provenance_paths</code>, <code>stale_crop_stages</code>,
+    <li><span class="box done"></span><span>Move <code>dirty_provenance_paths</code>, <code>stale_crop_stages</code>,
       and the generic <code>dvc repro</code> runner <code>run()</code> out of <code>run_folds.py</code> into
       <code>config.py</code> (or a new small <code>repro_utils.py</code>). <code>run_all_rigs.py</code> and
       <code>fit_frozen_head.py</code> import these for preflight checks and must keep working.
       <span class="result">These are the sweep drivers' shared preflight machinery, not fold-specific logic &mdash; they were only living in run_folds.py by accident of file history.</span></span></li>
-    <li><span class="box"></span><span>Move <code>build_xrig_dataset</code> (<code>xrig_eval.py:183-210</code>)
+    <li><span class="box done"></span><span>Move <code>build_xrig_dataset</code> (<code>xrig_eval.py:183-210</code>)
       into <code>fold_data.py</code>, renamed off "xrig" (e.g. <code>build_capture_dataset</code>). Update
       <code>coffeecv_dino/reference.py</code>'s import.
       <span class="result">Generic "every photo of one capture dir, split=&quot;all&quot;" builder, no camera-holdout semantics. Feeds the DINOv3 backbone-equivalence test fixture, imported at module scope by test_dino_backbone.py and make_dinov3_fixture.py before any skip decorator runs.</span></span></li>
-    <li><span class="box"></span><span>Confirm <code>pool_photos</code> (<code>photo_pooling_eval.py</code>)
+    <li><span class="box done"></span><span>Confirm <code>pool_photos</code> (<code>photo_pooling_eval.py</code>)
       has no importer left once <code>coffeecv_dino/screen.py</code> is deleted (Phase 5) &mdash; its only
       other reference, in <code>ood_eval.py</code>, is a standalone copy, not an import.
       <span class="result">No move needed if confirmed; delete with the rest of photo_pooling_eval.py.</span></span></li>
@@ -357,6 +357,15 @@
       state, traces every importer of the fold-only modules and the <code>Rig</code>/<code>RIGS</code>/
       <code>train_rigs</code>/<code>heldout_rig</code>/<code>xrig_*</code>/<code>cross_rig</code> symbols
       across the repo, and writes this plan. Not implemented.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 1 done.</strong> <code>run()</code>,
+      <code>dirty_provenance_paths</code>, <code>stale_crop_stages</code> (+ <code>SWEEP_WRITES</code>,
+      <code>RIG_STAGE_OVERRIDES</code>) moved to a new <code>coffeecv/repro_utils.py</code>;
+      <code>stale_crop_stages</code> now takes the capture-dir list explicitly instead of reading
+      <code>run_folds.RIGS</code>, so the helper module imports nothing that is about to be deleted.
+      <code>build_xrig_dataset</code> moved to <code>fold_data.build_capture_dataset</code>;
+      <code>coffeecv_dino/reference.py</code> and (until its deletion) <code>xrig_eval.py</code> import it
+      from there. <code>pool_photos</code> confirmed imported only by <code>coffeecv_dino/screen.py</code>.
+      41/41 tests green.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

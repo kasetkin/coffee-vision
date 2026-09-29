@@ -51,6 +51,7 @@ from coffeecv.geometry import (
     sample_bean_unit_centers,
     sample_bean_unit_patch_boxes,
 )
+from coffeecv.fold_data import build_capture_dataset
 from coffeecv.infer import config_for_checkpoint, forward_with_embeddings, load_model
 from coffeecv.metrics import compute_split_metrics
 from coffeecv.transforms import build_eval_transform
@@ -178,36 +179,6 @@ def resolve_class_ids(classes_file, archive_config_path=None):
         class_ids = list(archived)
         class_labels = {c: class_labels.get(c, c) for c in class_ids}
     return class_ids, class_labels
-
-
-def build_xrig_dataset(cfg, rig, class_ids, classes_file, n_patches: int):
-    """Same construction as `train_baseline.py`'s `xrig_ds` / `build_ood_reference.py`'s
-    `ds` -- split="all", eval transform, this fold's own patch geometry."""
-    return MultiPhotoPatchDataset(
-        split="all",
-        transform=build_eval_transform(cfg.patch_resize),
-        rigs=[rig],
-        classes_file=classes_file,
-        class_ids=class_ids,
-        seed=cfg.seed,
-        crop_size=cfg.patch_crop_size,
-        resize=cfg.patch_resize,
-        safety_margin=cfg.safety_margin,
-        patches_per_class={
-            "train": cfg.train_patches_per_class, "val": cfg.val_patches_per_class,
-            "test": cfg.test_patches_per_class, "all": n_patches,
-        },
-        photo_frac={
-            "train": cfg.train_photo_frac, "val": cfg.val_photo_frac,
-            "test": cfg.test_photo_frac,
-        },
-        patch_store_size=cfg.patch_store_size or None,
-        patch_scale_frac=((cfg.patch_scale_frac_min, cfg.patch_scale_frac_max)
-                          if cfg.patch_scale_frac_max > 0 else None),
-        patch_beans=((cfg.patch_beans_min, cfg.patch_beans_max)
-                    if cfg.patch_beans_max > 0 else None),
-        pitch_geometry=pitch_kwargs(cfg),
-    )
 
 
 def _iter_photos_with_progress(rig, class_ids, label: str):
@@ -423,7 +394,7 @@ def main() -> None:
     # the archived exp reference below has no TTA at all, so diffing an
     # adaptation directly against it would silently credit dihedral TTA's own
     # already-known effect to whichever technique this run is screening.
-    ds = build_xrig_dataset(cfg, rig, class_ids, classes_file, n_patches)
+    ds = build_capture_dataset(cfg, rig, class_ids, classes_file, n_patches)
     labels = np.array([ds[i][1] for i in range(len(ds))])
     tensors = torch.stack([ds[i][0] for i in range(len(ds))])
     baseline_probs, _ = forward_with_embeddings(model, head, tensors, tta=dihedral)

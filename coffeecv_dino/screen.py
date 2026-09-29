@@ -55,7 +55,8 @@ from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, 
 from coffeecv.fold_data import build_fold_datasets  # noqa: E402
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv  # noqa: E402
 from coffeecv.photo_pooling_eval import pool_photos  # noqa: E402
-from coffeecv.run_folds import RIGS, dirty_provenance_paths, stale_crop_stages, train_rigs_for  # noqa: E402
+from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages  # noqa: E402
+from coffeecv.run_folds import RIGS, train_rigs_for  # noqa: E402
 from coffeecv.transforms import build_eval_transform  # noqa: E402
 from coffeecv.xrig_eval import run_photowise  # noqa: E402
 from coffeecv.backbones import READOUTS, SPECS, FrozenBackbone, assert_input_size, build_backbone  # noqa: E402
@@ -503,7 +504,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages()
+        stale = stale_crop_stages(RIGS)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
 
