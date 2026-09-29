@@ -100,7 +100,7 @@ def main() -> None:
     # ground. It is allowed now because rigs are keyed on camera model, so the rig
     # name has to be stable even when a camera has been shot only once: cam_iphone
     # is one session today and two the moment an iPhone frame-filling session
-    # lands, and that must not require editing CAPTURES, params.yaml and every
+    # lands, and that must not require editing RIGS, params.yaml and every
     # downstream reference. Paying one directory copy to keep the identifier
     # stable is the cheaper side of that trade.
     merge_rig(args.name, args.sessions)

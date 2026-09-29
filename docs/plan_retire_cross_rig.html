@@ -465,7 +465,11 @@
       and pointed at <code>coverage_report</code>'s capture-dir table, C1-ship noted. Also cleaned stale references to
       deleted modules in <code>coffeecv_dino/__init__.py</code>, <code>dino_classifier.py</code>,
       <code>linear_head.py</code>, <code>geometry.py</code>, <code>eval_legacy_lens_photos.py</code>, <code>merge_rig.py</code>
-      and <code>scripts/remote_{launch,watch}.sh</code>.</div>
+      and <code>scripts/remote_{launch,watch}.sh</code>. <em>(Correction, pre-flight for Phase 9: the one-word
+      <code>RIGS</code>&rarr;<code>CAPTURES</code> comment edit in <code>coffeecv/merge_rig.py</code> was reverted &mdash;
+      that file is a dep of all four <code>merge_cam_*</code> stages, so the edit made <code>stale_crop_stages</code>
+      flag them and <code>dvc repro train</code> would have re-run every merge. Its comment still says
+      <code>RIGS</code>; change it together with a real <code>merge_rig.py</code> change, not alone.)</em></div>
     <div><div class="when">2026-09-29</div><strong>Phase 7 done.</strong> <code>test_frozen_checkpoint.py</code> was
       updated in Phase 3 (<code>train_capture_dirs=</code>, no <code>heldout_rig=</code>); the pooled-split test
       (<code>tests/test_pooled_split.py</code>) landed with Phase 2 and now has 11 tests, incl. the zero-photo
