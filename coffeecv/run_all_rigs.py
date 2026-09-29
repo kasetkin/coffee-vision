@@ -55,10 +55,8 @@ def set_all_rigs(
     # feedback-experiment-provenance and project-phase16-screens.
     text = re.sub(r"^mixstyle_p: .*$", f"mixstyle_p: {mixstyle_p}", text, count=1, flags=re.M)
     # Same rationale as mixstyle_p/freeze_mode above -- discovered missing while
-    # relaunching the all-rigs sweep after the cross-rig MixStyle screen left
-    # params.yaml resting at mixstyle_mode: cross_rig (its last fold's value).
-    # Without this, an all-rigs run would silently train under the CLOSED,
-    # confirmed-null v2 variant instead of the adopted agnostic one.
+    # relaunching the all-rigs sweep after a MixStyle screen left params.yaml
+    # resting at a variant that was never adopted (since removed, ticket ML-1).
     text = re.sub(r"^mixstyle_mode: \S+", f"mixstyle_mode: {mixstyle_mode}", text, count=1, flags=re.M)
     text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
     # PyYAML's SafeLoader float regex requires a literal decimal point -- "1e-05"
@@ -113,10 +111,11 @@ def main() -> None:
     p.add_argument("--mixstyle-p", type=float, default=0.0,
                    help="per-batch probability of MixStyle (resnet18 only). States its value on EVERY "
                         "run, like --brightness-jitter, not 'leave whatever params.yaml had'.")
-    p.add_argument("--mixstyle-mode", default="agnostic", choices=["agnostic", "cross_rig"],
-                   help="MixStyle partner selection: 'agnostic' (v1, adopted) or 'cross_rig' (v2, "
-                        "CLOSED as a confirmed null -- see project-crossrig-mixstyle-screen). States "
-                        "its value on EVERY run like --mixstyle-p, not 'leave whatever params.yaml had'.")
+    p.add_argument("--mixstyle-mode", default="agnostic", choices=["agnostic"],
+                   help="MixStyle partner selection. 'agnostic' is the only mode: the camera-aware v2 needed "
+                        "camera labels and was removed with ticket ML-1 (it was a confirmed null), so a stale "
+                        "invocation naming it fails here rather than deep inside model.py. States its value "
+                        "on EVERY run like --mixstyle-p, not 'leave whatever params.yaml had'.")
     p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
                    help="how much of the backbone to fine-tune. Stated on EVERY run, matching "
                         "run_folds.py's own convention -- exp124-129 silently trained with the wrong "

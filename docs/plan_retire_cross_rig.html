@@ -251,16 +251,16 @@
   <p><code>mixstyle_mode</code> the field stays (agnostic MixStyle is unaffected); only its
     <code>"cross_rig"</code> value goes.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>model.py</code>: narrow the valid-mode check to
+    <li><span class="box done"></span><span><code>model.py</code>: narrow the valid-mode check to
       <code>"agnostic"</code> only; remove the <code>cross_domain=(mixstyle_mode == "cross_rig")</code>
       branch and any dead code it fed.</span></li>
-    <li><span class="box"></span><span><code>run_all_rigs.py</code>: narrow <code>--mixstyle-mode</code>'s
+    <li><span class="box done"></span><span><code>run_all_rigs.py</code>: narrow <code>--mixstyle-mode</code>'s
       CLI <code>choices</code> to <code>["agnostic"]</code> so a stale invocation fails immediately at the
       CLI, not deep inside <code>model.py</code>.</span></li>
-    <li><span class="box"></span><span><code>dataset.py</code>: drop the <code>return_domain_id</code>
+    <li><span class="box done"></span><span><code>dataset.py</code>: drop the <code>return_domain_id</code>
       plumbing that only existed to feed cross-rig MixStyle, if nothing else consumes it (verify before
       removing).</span></li>
-    <li><span class="box"></span><span><code>params.yaml</code>: drop the <code>cross_rig</code> mention
+    <li><span class="box done"></span><span><code>params.yaml</code>: drop the <code>cross_rig</code> mention
       from <code>mixstyle_mode</code>'s comment.</span></li>
   </ol>
 
@@ -413,6 +413,15 @@
       also fail on <code>main</code> and are not ML-1's; left alone. Prose that uses "rig" for a physical setup in
       untouched files (crop_tray, geometry, bean_scale, ...) left as history. Fixture patches still byte-identical;
       suite 54/54.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 4 done.</strong> <code>model.py</code>:
+      <code>_cross_domain_perm</code>, <code>MixStyle</code>'s <code>cross_domain</code>/<code>domain_ids</code> and
+      the branch feeding them removed; <code>build_model</code> accepts only <code>mixstyle_mode="agnostic"</code>
+      and names the removal in its error. Verified the agnostic path is bit-identical to <code>main</code>'s
+      (same seed, three forward passes, <code>torch.equal</code>). <code>return_domain_id</code> confirmed to have no
+      consumer besides cross-rig MixStyle and removed from <code>dataset.py</code>, <code>fold_data.py</code> and
+      <code>train_baseline.py</code> (<code>train_one_epoch</code> is back to plain <code>(x, y)</code> batches).
+      <code>run_all_rigs --mixstyle-mode</code> choices are <code>["agnostic"]</code>: a stale invocation fails at
+      argparse. <code>params.yaml</code>/<code>config.py</code> comments updated. Suite 54/54.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

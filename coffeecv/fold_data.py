@@ -33,7 +33,6 @@ class FoldDatasets:
 
 
 def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
-                        return_domain_id: bool = False,
                         only: tuple[str, ...] | None = None) -> FoldDatasets:
     """Build train/val/test from `cfg.train_capture_dirs` exactly as `train_baseline` trains on them.
 
@@ -89,8 +88,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
     )
     train_ds = MultiPhotoPatchDataset(
         split="train", transform=train_transform,
-        rotation_jitter_degrees=cfg.rotation_jitter_degrees,
-        return_domain_id=return_domain_id, **common_kwargs,
+        rotation_jitter_degrees=cfg.rotation_jitter_degrees, **common_kwargs,
     ) if "train" in want else None
     val_ds = (MultiPhotoPatchDataset(split="val", transform=eval_transform, **common_kwargs)
               if "val" in want else None)

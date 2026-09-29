@@ -96,27 +96,13 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module):
 
 def train_one_epoch(
     model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module, mixup_alpha: float = 0.0,
-    cross_domain_mixstyle: bool = False,
 ) -> float:
     """`mixup_alpha` > 0 enables mixup: blend each batch with a shuffled copy of
     itself and take the correspondingly weighted loss against both label sets.
-    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8.
-
-    `cross_domain_mixstyle=True` means `loader` yields (x, y, domain_id) triples
-    (see `MultiPhotoPatchDataset(return_domain_id=True)`) and the model has
-    `mixstyle1`/`mixstyle2` submodules expecting `domain_ids` set on them before
-    each forward pass -- a forward hook only sees `(module, input, output)`, so
-    this is the only way to get per-sample rig identity into it."""
+    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8."""
     model.train()
     total_loss, n = 0.0, 0
-    for batch in tqdm(loader, desc="train", leave=False):
-        if cross_domain_mixstyle:
-            x, y, domain_id = batch
-            domain_id = domain_id.to(DEVICE)
-            model.mixstyle1.domain_ids = domain_id
-            model.mixstyle2.domain_ids = domain_id
-        else:
-            x, y = batch
+    for x, y in tqdm(loader, desc="train", leave=False):
         x, y = x.to(DEVICE), y.to(DEVICE)
         optimizer.zero_grad()
         if mixup_alpha > 0:
@@ -149,12 +135,10 @@ def main() -> None:
         illum_gradient_strength=cfg.illum_gradient_strength,
         brightness_jitter_strength=cfg.brightness_jitter_strength,
     )
-    cross_domain_mixstyle = cfg.mixstyle_p > 0 and cfg.mixstyle_mode == "cross_rig"
     eval_transform = build_eval_transform(cfg.patch_resize)
     # One construction for every consumer of a fold (see coffeecv/fold_data.py for why it must not
     # be re-typed): the frozen-backbone screen calls the same function and gets the same patches.
-    fold = build_fold_datasets(cfg, train_transform, eval_transform,
-                               return_domain_id=cross_domain_mixstyle)
+    fold = build_fold_datasets(cfg, train_transform, eval_transform)
     train_ds, val_ds, test_ds = fold.train, fold.val, fold.test
     captures, class_ids, class_labels = fold.captures, fold.class_ids, fold.class_labels
     print(f"capture dirs: {[c.name for c in captures]}")
@@ -220,10 +204,7 @@ def main() -> None:
     epochs_since_improvement = 0
 
     for epoch in range(1, cfg.epochs + 1):
-        train_loss = train_one_epoch(
-            model, train_loader, optimizer, criterion, cfg.mixup_alpha,
-            cross_domain_mixstyle=cross_domain_mixstyle,
-        )
+        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, cfg.mixup_alpha)
         val_true, val_pred, val_losses = evaluate(model, val_loader, criterion)
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 
