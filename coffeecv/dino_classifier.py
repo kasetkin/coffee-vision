@@ -1,8 +1,7 @@
 """Backbone -> readout -> linear head as ONE module whose forward returns logits, and its checkpoint.
 
-That is the whole contract `coffeecv.infer.forward_with_embeddings` and
-`coffeecv.xrig_eval.run_photowise` need, so the photo-level path, the OOD tools and the web service
-score a DINO model with no changes on their side. The head is a real registered submodule that
+That is the whole contract `coffeecv.infer.forward_with_embeddings` needs, so the OOD tools and the
+web service score a DINO model with no changes on their side. The head is a real registered submodule that
 `forward` calls, so the embedding pre-hook captures the readout vector -- the space the OOD guard lives
 in (plan §9.2). Never hand out a slice or an inner layer of it as the head: a slice is a new wrapper
 forward() never calls, and the hook would capture nothing (the old mobilenet bug).

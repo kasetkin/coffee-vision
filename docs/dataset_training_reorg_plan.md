@@ -10,8 +10,14 @@
 > - The VM's history comes back through merges on `tmp/*` branches, never `reset --hard` or the
 >   `sync-from-local` recipe (`docs/ops1_release_isolation_plan.html` §6).
 > - The DVC remote exists (A4, done 2026-09-04).
+> - **2026-09-29, ticket ML-1** (`docs/ticket_retire_cross_rig.html`): the leave-one-camera-out folds
+>   are retired; photos are pooled across the four `cam_*` dirs and split per class only. Everything
+>   below that argues from a held-out rig's fold is history. Per D7: **A2 is dropped**; **A1 is kept only
+>   as class balance** (the per-capture-dir class-balance table in `coffeecv/coverage_report.py` now
+>   shows it); C1-ship is re-scoped to the pooled protocol only if still wanted. `run_folds.py` and the
+>   `merge_oneplus`/`oneplus_combined` stage are deleted.
 >
-> The active plan is `docs/dinov3_integration_plan.md`.
+> The active plan was `docs/dinov3_integration_plan.md`; see ML-1's plan, `docs/plan_retire_cross_rig.html`.
 
 Status: REVISED twice on 2026-09-02 — an adversarial re-verification pass (second review), then a
 third pass that actually reached the `powervpsssh` remote box over SSH (its git log, DVC status, and
@@ -722,8 +728,8 @@ provenance items and one measurement item now outrank the capture work.
 
 | # | Action | Why | Cost |
 |---|---|---|---|
-| **A1** | **iPhone: +88 photos across 8 classes** — class_008 (+20) first, then 001-004/007/009 (+10 each), 005 (+8). 006 needs none | §2c: class_008's absence makes every iPhone-heldout number an 8-class average reported beside 9-class ones. **Not** 88 photos of class_008 | 1 session |
-| **A2** | **class_010 on box and iPhone** (~20 each) | §2a: not because H1 predicts it, but because class_010 is currently unscored in any box- or iPhone-heldout fold. Also consider trimming the existing 40-46 down toward the 20/class convention rather than leaving it oversized | 1-2 sessions |
+| **A1** *(re-scoped 2026-09-29, ML-1 D7: class balance only)* | **iPhone: +88 photos across 8 classes** — class_008 (+20) first, then 001-004/007/009 (+10 each), 005 (+8). 006 needs none | §2c: class_008's absence makes every iPhone-heldout number an 8-class average reported beside 9-class ones. **Not** 88 photos of class_008. *Since ML-1 there is no iPhone-heldout number; what remains is that cam_iphone is the thinnest pool (10/class, no 008/010), which `coverage_report.py`'s capture-dir class-balance table shows* | 1 session |
+| ~~**A2**~~ **DROPPED 2026-09-29 (ML-1 D7)** | ~~**class_010 on box and iPhone** (~20 each)~~ | §2a: its only reason was that class_010 went unscored in box- or iPhone-heldout folds, which no longer exist | — |
 | **B5** | Once A1/A2 land (and C2/B-fix make the metric readable), run a proper multi-seed fold sweep including class_010 and ship a real 10-class model | Nothing has cleared the project's evidence bar at 10 classes; the only 10-class run in existence is a single 5-epoch smoke test | ~1-2 days compute |
 
 ### Tier 3 — exploratory
@@ -756,7 +762,7 @@ C1a/b/c    DONE 2026-09-03 -- harness built, band swept, hypothesis refuted
         └─> C1-ship (fold-sweep _K_LO=5 + refitted CALIBRATION_K)  ── not started
                                                            │
 A1 (iPhone +88 across 8 classes) ──┐                       │
-A2 (class_010 on box + iPhone)  ───┴───────────────────────┴──> B5 (10-class fold sweep + ship)
+A2 (DROPPED 2026-09-29, ML-1)   ───┴───────────────────────┴──> B5 (10-class fold sweep + ship)
 
 A3 (fresh-scoop)   ── independent, parallel with everything
 B3′ (grow photo eval set), B4 (confusable pairs), B1 (val saturation), D1 (docs) ── whenever free

@@ -80,7 +80,7 @@ capped() {
 }
 sweep_state() {
   local pids log="" size=""
-  pids=$(pgrep -f '[r]un_folds|[t]rain_baseline' | sort -n | tr '\n' ' ' || true)
+  pids=$(pgrep -f '[t]rain_baseline' | sort -n | tr '\n' ' ' || true)
   for p in $pids; do
     l=$(readlink "/proc/$p/fd/1" 2>/dev/null || true)
     if [[ -f "$l" ]]; then log=$l; break; fi

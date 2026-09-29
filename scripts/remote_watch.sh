@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Live-tail a remote log over SSH, filtered to the lines worth a notification,
 # reconnecting automatically on a dropped connection. For watching a
-# coffeecv.run_folds sweep launched detached on a remote machine (setsid/nohup,
+# coffeecv.run_all_rigs sweep launched detached on a remote machine (setsid/nohup,
 # so a dropped connection here never touches the training job itself) --
 # replays the log from the start on first connect, then only new lines on any
 # reconnect, so a network blip doesn't re-emit history.

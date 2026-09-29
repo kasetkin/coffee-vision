@@ -1,7 +1,7 @@
 """Evaluate a checkpoint on `dataset/2026-07-24__first_pictures` -- the
 project's earliest capture session, one labeled `class=NNN.heif` photo per
 class, predating the box/pixel/sony rigs and never entered into `dvc.yaml`'s
-crop stage or `run_folds.RIGS`.
+crop stage or `dataset.CAPTURES`.
 
 **Why this needs its own script instead of just calling `infer.py`.** These
 HEIF files use the *original* lens-circle geometry (square frame, a circle

@@ -281,20 +281,20 @@
 
   <h2>7. Phase 6 &mdash; docs and comment cleanup</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>Rewrite <code>run_all_rigs.py</code> / <code>fit_frozen_head.py</code>
+    <li><span class="box done"></span><span>Rewrite <code>run_all_rigs.py</code> / <code>fit_frozen_head.py</code>
       module docstrings &mdash; they describe "the other mode" (folds) as if it still exists.</span></li>
-    <li><span class="box"></span><span><code>params.yaml</code>: rewrite the fold-protocol comment block
+    <li><span class="box done"></span><span><code>params.yaml</code>: rewrite the fold-protocol comment block
       ("BOTH sweep drivers"), the "per class <em>per training rig</em>" comment, the
       <code>train_photo_frac</code> per-rig comment, and <code>bean_calibration_k</code>'s comment about
       needing a <code>run_folds</code> sweep first (D7 drops that gate).</span></li>
-    <li><span class="box"></span><span><code>README.md</code>: add the R2 note &mdash; in-distribution
+    <li><span class="box done"></span><span><code>README.md</code>: add the R2 note &mdash; in-distribution
       val/test scores are not real-world/new-camera accuracy estimates.</span></li>
-    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh</code>: drop the dead
+    <li><span class="box done"></span><span><code>scripts/deploy_webapp.sh</code>: drop the dead
       <code>run_folds</code> alternative from <code>sweep_state()</code>'s <code>pgrep</code> pattern
       (cosmetic, not a functional break).</span></li>
-    <li><span class="box"></span><span><code>docs/dinov3_integration_plan.md</code> §7.2: mark
+    <li><span class="box done"></span><span><code>docs/dinov3_integration_plan.md</code> §7.2: mark
       closed/superseded per D7.</span></li>
-    <li><span class="box"></span><span><code>docs/dataset_training_reorg_plan.md</code>: drop A2, note A1
+    <li><span class="box done"></span><span><code>docs/dataset_training_reorg_plan.md</code>: drop A2, note A1
       folded into the coverage-report rewrite (Phase 3).</span></li>
   </ul>
   <div class="callout good">
@@ -447,6 +447,22 @@
       stops expecting <code>predictions_xrig.csv</code> but keeps its index columns (D5). <code>webapp.app</code> imports
       with both deployed models. Toy smoke run on all four dirs completes (3 starved cells at seed 7, all
       cam_iphone). Suite 55/55.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 6 done.</strong> <code>run_all_rigs.py</code>'s docstring
+      now describes the one remaining workflow (3-seed paired screens on val, test a control, best-val run ships;
+      every number in-distribution) and its example states every lever &mdash; its own flag defaults
+      (<code>--mixstyle-p 0.0</code>, <code>--eta-min 0.0</code>) are not the adopted values, a pre-existing hazard
+      left as is. <code>fit_frozen_head.py</code>'s docstring says honestly that C is <em>still</em> the fold median
+      (exp240-251) and that D3's own-val rule is decided but <strong>not implemented</strong> here. <code>params.yaml</code>:
+      fold-protocol block, per-rig budget/split comments, <code>bean_calibration_k</code>'s run_folds gate (D7),
+      <code>freeze_mode</code>/<code>scheduler</code> comments rewritten. <code>README.md</code>: R2 note, plus the status
+      lines that still called cross-camera the headline metric and §7.2 open. <code>deploy_webapp.sh</code>:
+      <code>pgrep</code> pattern is <code>[t]rain_baseline</code> only. <code>dinov3_integration_plan.md</code>: §7.2 marked
+      CLOSED/superseded (header + section), Screen C/D noted as needing re-scoping (D7).
+      <code>dataset_training_reorg_plan.md</code>: A2 struck (also in the sequencing diagram), A1 marked class-balance-only
+      and pointed at <code>coverage_report</code>'s capture-dir table, C1-ship noted. Also cleaned stale references to
+      deleted modules in <code>coffeecv_dino/__init__.py</code>, <code>dino_classifier.py</code>,
+      <code>linear_head.py</code>, <code>geometry.py</code>, <code>eval_legacy_lens_photos.py</code>, <code>merge_rig.py</code>
+      and <code>scripts/remote_{launch,watch}.sh</code>.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

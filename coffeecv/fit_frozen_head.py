@@ -1,21 +1,19 @@
-"""Fit the shipping head for a frozen backbone on every camera, and ship it (plan §9.1).
+"""Fit the shipping head for a frozen backbone on every capture dir, and ship it (plan §9.1).
 
-The frozen-backbone counterpart of `run_all_rigs.py`, and bound by the same rule: **this run chooses
-nothing.** With every camera in training there is no cross-camera number left to measure, so the folds
-(exp240-251) already made every choice -- backbone, readout, and C -- and this run only applies them to
-all the data. Its val/test scores are an in-distribution sanity check ("did anything break?"),
-comparable to the folds' in-distribution numbers and to the ResNet18 all-rigs card's, never to a
-cross-camera number.
+The frozen-backbone counterpart of `run_all_rigs.py`: photos pooled across `dataset.CAPTURES` and split
+per class (ticket ML-1), val/test in-distribution only -- they say nothing about a new camera or a new
+scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
-- **C is the folds' median, not this run's val pick.** Twelve folds each chose C on their own val split
-  (exp240-251). Picking it again here, on a val split drawn from the same cameras as train, would be a
-  thirteenth, weaker vote. The lower median is taken so a tie goes to the stronger regularisation, the
-  same tie rule `linear_head.fit_head` uses. The val-selected C is still computed and recorded, as a
-  diagnostic only.
-- **Same patches, same transform, same fit as the folds.** Datasets come from
+- **C, as implemented, is still the lower median of the leave-one-camera-out folds' val picks**
+  (exp240-251, kept in experiments/ per ML-1 D5), with a tie going to the stronger regularisation --
+  the rule the deployed `allrigs_dino3b16_s123` was fitted under. The val-selected C is computed and
+  recorded beside it as a diagnostic. **Ticket ML-1 D3 decided the next fit picks C on its own val
+  split instead** (the same rule as ResNet18's best-val checkpoint); that switch is not implemented in
+  this module yet -- `fold_C`/`SELECTION_EXPS` below are what it would replace.
+- **Same patches, same transform, same fit as training.** Datasets come from
   `fold_data.build_fold_datasets` (one split at a time, byte-identical), the train split gets the eval
-  transform (frozen arms get no photometric augmentation, as in the screen), and the head is
-  `linear_head.fit_head_at`: the fold fit's solver, scaler and export at a fixed C.
+  transform (frozen arms get no photometric augmentation), and the head is `linear_head.fit_head_at`:
+  the solver, scaler and export at a fixed C.
 - **Seeds only vary the patch draw** (the head is convex). Each seed is archived; the one to ship is
   chosen on val macro-F1, never test, and shipping is a separate, explicit step.
 
@@ -52,7 +50,8 @@ from coffeecv.transforms import build_eval_transform
 
 DEFAULT_OUT = OUTPUTS_DIR / "frozen_allrigs"
 MODELS_DIR = REPO_ROOT / "models"
-# The folds whose per-fold C picks decide the shipping C: the selected cell of Experiment 1.
+# The folds whose per-fold C picks decide the shipping C: the selected cell of Experiment 1. Fold-era
+# record (ML-1 D5); ML-1 D3 replaces this rule with the run's own val pick from the next fit on.
 SELECTION_EXPS = tuple(range(240, 252))
 EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)

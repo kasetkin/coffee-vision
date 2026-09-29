@@ -237,8 +237,9 @@ def sample_bean_unit_centers(
     Exists so two differently-*sized* patch draws can be compared at identical
     *positions* -- e.g. screening whether a fixed set of scales beats a
     continuous log-uniform draw, without the comparison also being confounded by
-    which random positions each arm happened to land on (see
-    `coffeecv/xrig_eval.py`'s `run_photowise` and [[project-phase16-screens]]).
+    which random positions each arm happened to land on (its caller, the
+    photo-level scorer of the Phase 16 multi-scale TTA screen, was retired with
+    the fold protocol, ticket ML-1; see [[project-phase16-screens]]).
     Sizing the placement margin to `max_beans` (not each individual draw's own
     size) is what guarantees any smaller box centred at the same point fits too.
     """

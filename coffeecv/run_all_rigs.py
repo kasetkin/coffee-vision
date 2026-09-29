@@ -1,23 +1,29 @@
-"""Train the shipping model: every rig, no held-out rig.
+"""Train ResNet18 on every capture dir, one archived and committed run per seed.
 
-Every run in this project so far is a leave-one-rig-out fold, so no model has
-ever seen all three rigs -- each was deliberately blind to a third of the data so
-that a cross-rig number could be measured. That is the right trade for deciding a
-*configuration* and the wrong one for shipping *weights*.
+The one training driver (ticket ML-1, 2026-09-29): it points params.yaml at
+`dataset.CAPTURES`, states every lever explicitly, runs `dvc repro train`, archives
+the run under experiments/ and commits it. Photos are pooled across the capture
+dirs and split 70/15/15 per class; no camera is held out, trained on selectively
+or reported separately. The leave-one-camera-out fold driver that used to sit
+beside this one, and decided configurations on a cross-camera metric, is retired.
 
-**This run cannot be scored on cross-rig transfer, by construction.** With every
-rig in training there is nothing left to transfer to, so the only metrics are
-in-distribution. That is not a gap to apologise for, it is the standard split of
-labour: the folds choose the configuration, the final fit uses all the data. What
-this run must not do is quietly become the thing a configuration claim rests on
--- any *change* still has to be validated through run_folds, where the cross-rig
-metric exists.
+How a change is judged now (ticket ML-1 §4): screen it here at 3 seeds, paired per
+seed against the unchanged baseline at the same seed, and adopt on val macro-F1
+deltas that are sign-consistent over the seeds; test (patch) is a reported
+control, read once, never used to choose. The best-val run of an adopted screen is
+already a shipping candidate -- there is no separate refit.
 
-So the in-distribution test score here is a sanity check ("did adding a third rig
-break anything?"), not evidence of an improvement. Compare it to the folds'
-in-distribution numbers, never to their cross-rig ones.
+**Every number this produces is in-distribution.** Val and test photos come from
+the same bean bags and the same cameras as train, so they say nothing about a new
+camera or a new scoop of beans (ML-1 R2), and they sit near ceiling (R1: before the
+first screen is adopted on this metric, measure its seed-to-seed noise). Never
+compare them with the fold-era cross-camera numbers in index.csv (R3).
 
-    python -m coffeecv.run_all_rigs --seeds 42 123 7 --start-exp 96
+    python -m coffeecv.run_all_rigs --seeds 42 123 7 --mixstyle-p 0.5 --freeze-mode none \\
+        --eta-min 1e-5 --scheduler cosine --start-exp 255
+
+State every lever: the flags' own defaults (e.g. --mixstyle-p 0.0, --eta-min 0.0) are not the adopted
+values in params.yaml, and an omitted flag writes its default, not the resting value.
 """
 from __future__ import annotations
 
@@ -37,7 +43,7 @@ def set_all_rigs(
     seed: int, epochs: int | None, brightness_jitter: float, mixstyle_p: float, freeze_mode: str,
     mixstyle_mode: str, eta_min: float, scheduler: str,
 ) -> RunConfig:
-    """Point params.yaml at every rig with no held-out rig, preserving comments."""
+    """Point params.yaml at every capture dir and state every lever, preserving comments."""
     text = PARAMS_FILE.read_text()
     block = "train_capture_dirs:\n" + "".join(f"  - {c}\n" for c in CAPTURES)
     text = re.sub(r"train_capture_dirs:\n(?:  - .*\n)+", block, text, count=1)
@@ -58,7 +64,7 @@ def set_all_rigs(
     text = re.sub(r"^freeze_mode: \S+", f"freeze_mode: {freeze_mode}", text, count=1, flags=re.M)
     # PyYAML's SafeLoader float regex requires a literal decimal point -- "1e-05"
     # round-trips as the *string* "1e-05", not the float. str(1e-05) omits the
-    # dot, so it must be inserted here. Mirrors run_folds.py's set_fold().
+    # dot, so it must be inserted here.
     eta_min_str = f"{eta_min:.10g}"
     if "e" in eta_min_str:
         mantissa, exp = eta_min_str.split("e")
@@ -67,16 +73,16 @@ def set_all_rigs(
     elif "." not in eta_min_str:
         eta_min_str += ".0"
     text = re.sub(r"^eta_min: .*$", f"eta_min: {eta_min_str}", text, count=1, flags=re.M)
-    # Stated on every invocation, for the same reason as mixstyle_mode above: a plateau sweep
-    # (run_folds --scheduler plateau) leaves params.yaml resting at `plateau`, and inheriting it
-    # here would train a shipping model under a scheduler that has not been adopted.
+    # Stated on every invocation, for the same reason as mixstyle_mode above: a plateau screen
+    # leaves params.yaml resting at `plateau`, and inheriting it here would train a shipping
+    # model under a scheduler that has not been adopted.
     text = re.sub(r"^scheduler: \S+", f"scheduler: {scheduler}", text, count=1, flags=re.M)
     if epochs is not None:
         text = re.sub(r"^epochs: .*$", f"epochs: {epochs}", text, count=1, flags=re.M)
     PARAMS_FILE.write_text(text)
 
-    # Read back through the real loader, same as run_folds: a regex that silently
-    # failed would otherwise train the wrong thing and look like a result.
+    # Read back through the real loader: a regex that silently failed would
+    # otherwise train the wrong thing and look like a result.
     cfg = RunConfig.from_params_yaml()
     assert cfg.seed == seed, f"seed is {cfg.seed}, wanted {seed}"
     assert list(cfg.train_capture_dirs) == CAPTURES, f"train_capture_dirs is {cfg.train_capture_dirs!r}"
@@ -99,7 +105,7 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=None,
                    help="epoch budget; also the cosine T_max, but only a cap under --scheduler plateau. "
                         "Default None leaves params.yaml's resting value "
-                        "untouched, matching run_folds.py's own --epochs -- this script used to default "
+                        "untouched -- this script used to default "
                         "to a hardcoded 80, which silently overrode the adopted epochs=100 (see "
                         "project-epochs100-patience20-relaunch) on any invocation that didn't pass "
                         "--epochs explicitly.")
@@ -113,13 +119,13 @@ def main() -> None:
                         "invocation naming it fails here rather than deep inside model.py. States its value "
                         "on EVERY run like --mixstyle-p, not 'leave whatever params.yaml had'.")
     p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
-                   help="how much of the backbone to fine-tune. Stated on EVERY run, matching "
-                        "run_folds.py's own convention -- exp124-129 silently trained with the wrong "
+                   help="how much of the backbone to fine-tune. Stated on EVERY run -- exp124-129 "
+                        "silently trained with the wrong "
                         "freeze_mode because this script used to inherit whatever params.yaml rested at "
                         "instead of stating it. Default 'none' matches what the MixStyle screen validated.")
     p.add_argument("--eta-min", type=float, default=0.0,
                    help="CosineAnnealingLR floor. States its value on EVERY run, like --mixstyle-p, not "
-                        "'leave whatever params.yaml had' -- see run_folds.py's own --eta-min for why.")
+                        "'leave whatever params.yaml had'.")
     p.add_argument("--scheduler", default="cosine", choices=list(SCHEDULERS),
                    help="LR schedule. Stated on EVERY run (default: the adopted 'cosine'), never inherited "
                         "from params.yaml -- see set_all_rigs. 'plateau' is a screening arm "
@@ -129,8 +135,8 @@ def main() -> None:
     p.add_argument("--allow-dirty", action="store_true")
     args = p.parse_args()
 
-    # Same launch gate as run_folds: this writes commits, and a sweep on
-    # uncommitted source produces experiment commits that cannot re-run it.
+    # Provenance gate: this writes commits, and a sweep on uncommitted source
+    # produces experiment commits that cannot re-run it.
     dirty = dirty_provenance_paths()
     if dirty and not args.allow_dirty:
         print("Uncommitted changes outside params.yaml/dvc.lock/outputs/experiments:\n")
@@ -157,12 +163,13 @@ def main() -> None:
             print(f"exp{exp_id} ({slug}) already archived, skipping", flush=True)
             continue
 
-        print(f"\n{'=' * 72}\nexp{exp_id}  ALL RIGS  seed={seed}  (no held-out rig)\n{'=' * 72}", flush=True)
+        print(f"\n{'=' * 72}\nexp{exp_id}  all capture dirs  seed={seed}\n{'=' * 72}", flush=True)
         cfg = set_all_rigs(seed, args.epochs, args.brightness_jitter, args.mixstyle_p, args.freeze_mode,
                             args.mixstyle_mode, args.eta_min, args.scheduler)
 
-        # Post-condition on the CLI contract, same rationale as run_folds.py's own
-        # check: reads what actually loaded rather than trusting the write.
+        # Post-condition on the CLI contract: reads what actually loaded rather than
+        # trusting the write. A forwarding mistake once ran six folds (~15h) of the
+        # plain config under slugs that claimed otherwise (exp100-105).
         for name, wanted, got in (
             ("mixstyle_p", args.mixstyle_p, cfg.mixstyle_p),
             ("mixstyle_mode", args.mixstyle_mode, cfg.mixstyle_mode),
@@ -182,12 +189,12 @@ def main() -> None:
             raise SystemExit(1)
         print(f"exp{exp_id} finished in {(time.time() - t0) / 60:.0f} min", flush=True)
 
-        note = (f"ALL RIGS (no held-out rig): shipping candidate. "
+        note = (f"all capture dirs, pooled per-class split: shipping candidate. "
                 f"beans={cfg.patch_beans_min}-{cfg.patch_beans_max}, epochs={cfg.epochs}, "
                 f"seed={cfg.seed}, brightness_jitter={cfg.brightness_jitter_strength}, "
                 f"mixstyle_p={cfg.mixstyle_p}, mixstyle_mode={cfg.mixstyle_mode}, freeze_mode={cfg.freeze_mode}, "
                 f"eta_min={cfg.eta_min}, scheduler={cfg.scheduler}. "
-                f"NO cross-rig metric exists for this run by construction; in-distribution only.")
+                f"In-distribution val/test only (not a new-camera estimate; ticket ML-1).")
         if dirty:
             note += " WARNING: uncommitted source at launch."
         if run(["python", "-m", "coffeecv.archive_experiment",
