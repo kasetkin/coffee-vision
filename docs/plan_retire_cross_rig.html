@@ -1,0 +1,366 @@
+<title>Implementation plan: retire cross-camera validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Plan · ML-1 · coffee-vision · implementation</div>
+  <h1>Implementation plan: retire cross-camera validation</h1>
+  <p class="lede">Sequencing for <a href="ticket_retire_cross_rig.html">ticket ML-1</a> now that D1&ndash;D7
+    are answered. The work is mostly deletion, three renames (D4), and one real rewrite (D1(b)'s pooled
+    split). This plan orders it so nothing imports from a module after it's deleted: extract what survives
+    first, rewrite the split, rename, drop the <code>cross_rig</code> MixStyle mode, delete the fold-only
+    modules and fix <code>dvc.yaml</code>, clean up docs, then test.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Draft · not started</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-09-29</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D7 resolved</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a full read of the code, not from the ticket's prose alone: every file that imports
+      <code>RIGS</code>, <code>Rig</code>, <code>train_rigs</code>, <code>heldout_rig</code>,
+      <code>xrig_patches_per_class</code>, <code>mixstyle_mode="cross_rig"</code>, or the doomed modules
+      directly was traced. Two things the ticket doesn't mention turned up and are folded in below:
+      <code>coffeecv_dino/reference.py</code> (the DINOv3 test-fixture builder) imports
+      <code>xrig_eval.build_xrig_dataset</code> at module scope, and <code>coverage_report.py</code> swallows
+      a <code>RIGS</code> import failure in a bare <code>except</code> &mdash; both would fail silently or
+      break test collection if the delete-first order were followed literally.</p>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p><code>run_folds.py</code>, <code>xrig_eval.py</code>, and <code>photo_pooling_eval.py</code> are all
+    marked for deletion, but each has one piece something outside the fold world still imports. Deleting
+    file-first would break <code>run_all_rigs.py</code>, <code>fit_frozen_head.py</code>, and the DINOv3
+    test fixture at import time. So: extract survivors &rarr; rewrite the split &rarr; rename (D4) &rarr;
+    drop <code>cross_rig</code> MixStyle &rarr; delete the fold-only modules and fix <code>dvc.yaml</code>
+    &rarr; docs &rarr; tests.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Key files</th></tr></thead>
+    <tbody>
+      <tr><td class="id">1</td><td>Extract what survives, before deleting anything</td>
+        <td><code>run_folds.py</code>, <code>xrig_eval.py</code>, <code>photo_pooling_eval.py</code></td></tr>
+      <tr><td class="id">2</td><td>Rewrite the split for D1(b): pooled, per-class only</td>
+        <td><code>dataset.py</code>, <code>fold_data.py</code>, <code>train_baseline.py</code></td></tr>
+      <tr><td class="id">3</td><td>D4 rename sweep: <code>Rig</code>&rarr;<code>Capture</code>,
+        <code>RIGS</code>&rarr;<code>CAPTURES</code>, <code>train_rigs</code>&rarr;<code>train_capture_dirs</code></td>
+        <td><code>dataset.py</code>, <code>config.py</code>, <code>infer.py</code>, <code>coverage_report.py</code>, 9 more (below)</td></tr>
+      <tr><td class="id">4</td><td>Drop the <code>cross_rig</code> MixStyle mode; keep <code>agnostic</code></td>
+        <td><code>model.py</code>, <code>run_all_rigs.py</code>, <code>dataset.py</code></td></tr>
+      <tr><td class="id">5</td><td>Delete the fold-only modules; fix <code>dvc.yaml</code>'s stale train deps</td>
+        <td>7 files deleted, <code>params.yaml</code>, <code>dvc.yaml</code>, <code>ood_eval.py</code></td></tr>
+      <tr><td class="id">6</td><td>Docs and comment cleanup</td>
+        <td><code>params.yaml</code>, <code>README.md</code>, <code>deploy_webapp.sh</code>, 2 plan docs</td></tr>
+      <tr><td class="id">7</td><td>Tests</td>
+        <td><code>test_frozen_checkpoint.py</code>, <code>test_dino_backbone.py</code>, new split test</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Phase 1 &mdash; extract what survives</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Move <code>dirty_provenance_paths</code>, <code>stale_crop_stages</code>,
+      and the generic <code>dvc repro</code> runner <code>run()</code> out of <code>run_folds.py</code> into
+      <code>config.py</code> (or a new small <code>repro_utils.py</code>). <code>run_all_rigs.py</code> and
+      <code>fit_frozen_head.py</code> import these for preflight checks and must keep working.
+      <span class="result">These are the sweep drivers' shared preflight machinery, not fold-specific logic &mdash; they were only living in run_folds.py by accident of file history.</span></span></li>
+    <li><span class="box"></span><span>Move <code>build_xrig_dataset</code> (<code>xrig_eval.py:183-210</code>)
+      into <code>fold_data.py</code>, renamed off "xrig" (e.g. <code>build_capture_dataset</code>). Update
+      <code>coffeecv_dino/reference.py</code>'s import.
+      <span class="result">Generic "every photo of one capture dir, split=&quot;all&quot;" builder, no camera-holdout semantics. Feeds the DINOv3 backbone-equivalence test fixture, imported at module scope by test_dino_backbone.py and make_dinov3_fixture.py before any skip decorator runs.</span></span></li>
+    <li><span class="box"></span><span>Confirm <code>pool_photos</code> (<code>photo_pooling_eval.py</code>)
+      has no importer left once <code>coffeecv_dino/screen.py</code> is deleted (Phase 5) &mdash; its only
+      other reference, in <code>ood_eval.py</code>, is a standalone copy, not an import.
+      <span class="result">No move needed if confirmed; delete with the rest of photo_pooling_eval.py.</span></span></li>
+  </ol>
+
+  <h2>3. Phase 2 &mdash; rewrite the split (D1(b))</h2>
+  <p>The target is <code>dataset.py</code>'s <code>split_photos_by_class</code> (today called once per
+    <code>(rig, class)</code> pair from <code>MultiPhotoPatchDataset.__init__</code>'s per-rig loop,
+    <code>dataset.py:406-430</code>) and <code>fold_data.py:build_fold_datasets</code> &mdash; not
+    <code>run_all_rigs.py</code> or <code>fit_frozen_head.py</code>, which only call through this shared path.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Gather all photos for a class across every capture dir first, then
+      split 70/15/15 once per class instead of once per capture dir.
+      <span class="result">This is the actual D1(b) behavior change: pooled per-class split, no per-camera grouping.</span></span></li>
+    <li><span class="box"></span><span>Reseed the split from <code>(seed, class_idx)</code> plus a stable
+      per-photo key (e.g. sorted relative path), not the current <code>rig_idx</code>-dependent seed.
+      <span class="result">Pooling makes split membership independent of capture-dir order in principle; the seed should match that, or the split silently changes whenever train_capture_dirs is reordered.</span></span></li>
+    <li><span class="box"></span><span>Leave the patch-box extraction RNG (<code>_extract_photo</code>,
+      <code>dataset.py:461-470</code>) alone &mdash; it seeds patch selection within an already-assigned
+      photo, unrelated to which split the photo lands in.</span></li>
+    <li><span class="box"></span><span>Drop <code>heldout_rig</code>/<code>xrig_ds</code>/the cross-rig
+      branch from <code>build_fold_datasets</code> and <code>FoldDatasets</code> entirely. Keep the
+      module/function/class names &mdash; D4 doesn't ask for this rename, don't add scope.</span></li>
+    <li><span class="box"></span><span>Remove the <code>xrig_metrics</code>/<code>xrig_loader</code>/<code>xrig_ds</code>
+      paths and the empty-<code>predictions_xrig.csv</code> workaround from <code>train_baseline.py</code>
+      (the dvc.yaml plot declaration that workaround exists for is removed in Phase 5).</span></li>
+  </ol>
+
+  <h2>4. Phase 3 &mdash; D4 rename sweep</h2>
+  <p>Rewrite the <code>Rig</code> dataclass's docstring in <code>dataset.py</code> while renaming it &mdash;
+    "the rig is a first-class dimension because cross-rig transfer is the thing being measured" is no
+    longer true. <code>CAPTURES</code> (the list of the four <code>cam_*</code> dirs, formerly
+    <code>RIGS</code> in <code>run_folds.py</code>) needs a new home since that file is gone &mdash; put it
+    in <code>dataset.py</code> next to <code>Capture</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td><code>coffeecv/dataset.py</code></td><td><code>Rig</code> class + <code>resolve_rigs</code>, docstring rewrite, new <code>CAPTURES</code> home</td></tr>
+      <tr><td><code>coffeecv/config.py</code></td><td><code>RunConfig.train_rigs</code> field, <code>from_params_yaml</code>, <code>resolve_paths</code></td></tr>
+      <tr><td><code>coffeecv/fold_data.py</code></td><td><code>FoldDatasets.train_rigs</code> field</td></tr>
+      <tr><td><code>coffeecv/train_baseline.py</code></td><td>resolves/records <code>train_rigs</code></td></tr>
+      <tr><td><code>coffeecv/build_ood_reference.py</code></td><td>resolves/records <code>train_rigs</code></td></tr>
+      <tr><td><code>coffeecv/run_all_rigs.py</code></td><td>YAML rewrite block, post-write assert</td></tr>
+      <tr><td><code>coffeecv/fit_frozen_head.py</code></td><td><code>train_rigs=tuple(RIGS)</code> literal</td></tr>
+      <tr><td><code>coffeecv/coverage_report.py</code></td><td>see callout below &mdash; not a plain rename</td></tr>
+      <tr><td><code>coffeecv/infer.py</code></td><td><code>config_for_checkpoint</code> &mdash; adds the alias, see below</td></tr>
+      <tr><td><code>tests/test_frozen_checkpoint.py:113-114</code></td><td><code>RunConfig(train_capture_dirs=..., </code>drop <code>heldout_rig=</code></td></tr>
+      <tr><td><code>params.yaml</code>, <code>dvc.yaml</code></td><td>comments only</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout good">
+    <p><strong><code>infer.py:config_for_checkpoint</code> (~lines 213-254).</strong> Add a scoped alias:
+      if the loaded JSON has <code>train_rigs</code> and not <code>train_capture_dirs</code>, remap the key
+      before constructing <code>RunConfig</code>. This is the one place the alias belongs per D4 &mdash;
+      <code>RunConfig.from_params_yaml()</code> stays strict. Verify against both
+      <code>models/allrigs_dino3b16_s123.json</code> and <code>models/allrigs_cam_s123.json</code>:
+      <code>resolve_paths()</code> must still return the original four <code>cam_*</code> dirs for each.</p>
+  </div>
+
+  <div class="callout good">
+    <p><strong><code>coverage_report.py:182-186</code>.</strong> Bare <code>try/except Exception</code> around
+      <code>from coffeecv.run_folds import RIGS</code> &mdash; left as-is it silently stops printing the
+      whole "rig-level coverage" section once <code>run_folds</code> is gone, no error. Don't just fix the
+      import: per D7 ("keep A1 only as class balance"), repurpose the section into a per-capture-dir
+      class-balance report (counts per class per <code>CAPTURES</code> entry, no holdout framing) with a
+      hard import, so a broken import fails loudly instead of vanishing.</p>
+  </div>
+
+  <h2>5. Phase 4 &mdash; drop the <code>cross_rig</code> MixStyle mode</h2>
+  <p><code>mixstyle_mode</code> the field stays (agnostic MixStyle is unaffected); only its
+    <code>"cross_rig"</code> value goes.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>model.py</code>: narrow the valid-mode check to
+      <code>"agnostic"</code> only; remove the <code>cross_domain=(mixstyle_mode == "cross_rig")</code>
+      branch and any dead code it fed.</span></li>
+    <li><span class="box"></span><span><code>run_all_rigs.py</code>: narrow <code>--mixstyle-mode</code>'s
+      CLI <code>choices</code> to <code>["agnostic"]</code> so a stale invocation fails immediately at the
+      CLI, not deep inside <code>model.py</code>.</span></li>
+    <li><span class="box"></span><span><code>dataset.py</code>: drop the <code>return_domain_id</code>
+      plumbing that only existed to feed cross-rig MixStyle, if nothing else consumes it (verify before
+      removing).</span></li>
+    <li><span class="box"></span><span><code>params.yaml</code>: drop the <code>cross_rig</code> mention
+      from <code>mixstyle_mode</code>'s comment.</span></li>
+  </ol>
+
+  <h2>6. Phase 5 &mdash; delete the fold-only modules, fix <code>dvc.yaml</code></h2>
+  <p>Delete outright (confirmed no surviving non-fold importer after Phases 1&ndash;4):
+    <code>run_folds.py</code>, <code>summarize_folds.py</code>, <code>xrig_eval.py</code>,
+    <code>tta_variants.py</code>, <code>photo_pooling_eval.py</code>, <code>confusion_report.py</code>,
+    <code>coffeecv_dino/screen.py</code> (Experiment 1 of the DINOv3 plan, closed by D7 §7.2 &mdash; its
+    imports from all six files above break the moment they're gone, and it has no purpose left).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Target</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>params.yaml</code></td><td>remove <code>heldout_rig</code>, <code>xrig_patches_per_class</code> keys; correct <code>train_capture_dirs</code>'s resting value to all four <code>cam_*</code> dirs (today it rests at a stale 3-camera fold shape, <code>cam_iphone</code> missing)</td></tr>
+      <tr><td><code>dvc.yaml</code></td><td>delete <code>merge_oneplus</code> stage (D6); delete <code>predictions_xrig.csv</code> plot + <code>xrig_macro_f1</code> history plot; fix <code>train</code>'s <code>deps:</code> to the four <code>data/cropped/cam_*</code> dirs + <code>dataset/classes.txt</code> (today it lists raw session dirs and unused <code>oneplus_combined</code> &mdash; a pre-existing bug, fixed here per owner)</td></tr>
+      <tr><td><code>coffeecv/ood_eval.py:222,530</code></td><td><code>cfg.heldout_rig</code> is referenced in a live OOD-guard condition label (<code>id_heldout_rig[...]</code>); the field is being removed from <code>RunConfig</code> entirely, not just left empty &mdash; drop or rename the condition, verify the guard's actual logic doesn't depend on it being meaningful</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Phase 6 &mdash; docs and comment cleanup</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>Rewrite <code>run_all_rigs.py</code> / <code>fit_frozen_head.py</code>
+      module docstrings &mdash; they describe "the other mode" (folds) as if it still exists.</span></li>
+    <li><span class="box"></span><span><code>params.yaml</code>: rewrite the fold-protocol comment block
+      ("BOTH sweep drivers"), the "per class <em>per training rig</em>" comment, the
+      <code>train_photo_frac</code> per-rig comment, and <code>bean_calibration_k</code>'s comment about
+      needing a <code>run_folds</code> sweep first (D7 drops that gate).</span></li>
+    <li><span class="box"></span><span><code>README.md</code>: add the R2 note &mdash; in-distribution
+      val/test scores are not real-world/new-camera accuracy estimates.</span></li>
+    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh</code>: drop the dead
+      <code>run_folds</code> alternative from <code>sweep_state()</code>'s <code>pgrep</code> pattern
+      (cosmetic, not a functional break).</span></li>
+    <li><span class="box"></span><span><code>docs/dinov3_integration_plan.md</code> §7.2: mark
+      closed/superseded per D7.</span></li>
+    <li><span class="box"></span><span><code>docs/dataset_training_reorg_plan.md</code>: drop A2, note A1
+      folded into the coverage-report rewrite (Phase 3).</span></li>
+  </ul>
+  <div class="callout good">
+    <p>No code change needed for <code>experiments/index.csv</code> / <code>rebuild_index()</code> &mdash;
+      confirmed empirically that all-rigs runs already emit blank <code>xrig_*</code>/<code>heldout_rig</code>
+      columns today. R3's requirement is already satisfied by existing code.</p>
+  </div>
+
+  <h2>8. Phase 7 &mdash; tests</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>tests/test_frozen_checkpoint.py:113-114</code>: update the
+      <code>RunConfig(...)</code> construction to <code>train_capture_dirs=(...)</code>, drop
+      <code>heldout_rig=</code>.</span></li>
+    <li><span class="box"></span><span><code>tests/test_dino_backbone.py</code>: confirm it still imports
+      and collects cleanly after <code>xrig_eval.py</code>'s deletion and <code>build_xrig_dataset</code>'s
+      relocation (Phase 1); update its <code>BANNED</code> symbol list if it references old names.</span></li>
+    <li><span class="box"></span><span>Add a unit test for the rewritten pooling: photos spread across
+      &ge;2 fake capture dirs in one class &rarr; assert the 70/15/15 split is computed over the pooled
+      count, and that it's deterministic across two calls with the same seed.</span></li>
+    <li><span class="box"></span><span>Run the full suite (<code>python -m unittest discover</code>)
+      before calling it done.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>dvc repro train</code> end-to-end; confirm the run completes
+      and its <code>metrics.json</code> has no <code>xrig</code>/<code>test_xrig</code> keys.</span></li>
+    <li><span class="box"></span><span>Inspect the produced split: per-class train/val/test counts reflect
+      the pooled total across all four <code>cam_*</code> dirs at 70/15/15, not four independent
+      per-camera splits.</span></li>
+    <li><span class="box"></span><span><code>config_for_checkpoint</code> against both deployed model cards
+      &mdash; <code>resolve_paths()</code> still returns the original four <code>cam_*</code> dirs.</span></li>
+    <li><span class="box"></span><span>Import <code>coffeecv_dino.reference</code> and run (or dry-check)
+      <code>scripts/make_dinov3_fixture.py</code> &mdash; confirms the DINOv3 fixture path survives.</span></li>
+    <li><span class="box"></span><span><code>coffeecv.coverage_report</code> runs and prints the rewritten
+      class-balance-per-capture section without a silently swallowed import error.</span></li>
+    <li><span class="box"></span><span><code>grep -rn 'RIGS\|train_rigs\|heldout_rig\|xrig\|cross_rig'
+      coffeecv/ coffeecv_dino/ tests/ scripts/ webapp/ params.yaml dvc.yaml</code> &mdash; only survivors
+      should be the deliberate <code>train_rigs</code> alias string in <code>config_for_checkpoint</code>
+      and historical strings inside <code>experiments/</code>/model cards.</span></li>
+    <li><span class="box"></span><span>Full test suite green.</span></li>
+    <li><span class="box"></span><span><code>dvc dag</code> / <code>dvc status</code> clean after the
+      <code>dvc.yaml</code> train-stage <code>deps:</code> fix.</span></li>
+    <li><span class="box"></span><span>Smoke-check <code>webapp/app.py</code> still imports
+      <code>coffeecv.infer</code> cleanly &mdash; no redeploy required (ticket §3).</span></li>
+  </ul>
+
+  <h2>Explicitly not in this change</h2>
+  <ul>
+    <li>Retraining or redeploying either deployed model.</li>
+    <li>A new generalization test set (fresh scoops / new phone) &mdash; separate ticket per ML-1's own "out of scope".</li>
+    <li>Pushing pending fold checkpoints to the DVC remote.</li>
+    <li>Re-scoping DINOv3 Screen D or C1-ship to a new protocol (D7, only if wanted later).</li>
+    <li>Measuring val macro-F1's seed-to-seed noise floor (R1's mitigation) &mdash; required before the next screen is adopted on this metric, but not a code change this refactor makes.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-09-29</div>Claude reads ticket ML-1 at its current (D1&ndash;D7-resolved)
+      state, traces every importer of the fold-only modules and the <code>Rig</code>/<code>RIGS</code>/
+      <code>train_rigs</code>/<code>heldout_rig</code>/<code>xrig_*</code>/<code>cross_rig</code> symbols
+      across the repo, and writes this plan. Not implemented.</div>
+  </div>
+
+  <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:
+    <code>coffeecv/run_folds.py</code>, <code>coffeecv/run_all_rigs.py</code>, <code>coffeecv/fold_data.py</code>,
+    <code>coffeecv/fit_frozen_head.py</code>, <code>docs/dinov3_integration_plan.md</code> §7,
+    <code>docs/dataset_training_reorg_plan.md</code>.</footer>
+</main>
