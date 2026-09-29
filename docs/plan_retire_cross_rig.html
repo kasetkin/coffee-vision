@@ -308,14 +308,17 @@
     <li><span class="box done"></span><span><code>tests/test_frozen_checkpoint.py:113-114</code>: update the
       <code>RunConfig(...)</code> construction to <code>train_capture_dirs=(...)</code>, drop
       <code>heldout_rig=</code>.</span></li>
-    <li><span class="box"></span><span><code>tests/test_dino_backbone.py</code>: confirm it still imports
+    <li><span class="box done"></span><span><code>tests/test_dino_backbone.py</code>: confirm it still imports
       and collects cleanly after <code>xrig_eval.py</code>'s deletion and <code>build_xrig_dataset</code>'s
       relocation (Phase 1); update its <code>BANNED</code> symbol list if it references old names.</span></li>
     <li><span class="box done"></span><span>Add a unit test for the rewritten pooling: photos spread across
       &ge;2 fake capture dirs in one class &rarr; assert the 70/15/15 split is computed over the pooled
       count, and that it's deterministic across two calls with the same seed.</span></li>
-    <li><span class="box"></span><span>Run the full suite (<code>python -m unittest discover</code>)
-      before calling it done.</span></li>
+    <li><span class="box done"></span><span>Run the full suite (<code>python -m unittest discover</code>)
+      before calling it done.
+      <span class="result">In this repo that must be <code>python -m unittest discover -s tests</code> (as the test
+      files' own docstrings say): <code>tests/</code> is not a package, so a bare <code>discover</code> from the root
+      finds 0 tests and prints "NO TESTS RAN".</span></span></li>
   </ol>
 
   <h2>9. Verification</h2>
@@ -463,6 +466,14 @@
       deleted modules in <code>coffeecv_dino/__init__.py</code>, <code>dino_classifier.py</code>,
       <code>linear_head.py</code>, <code>geometry.py</code>, <code>eval_legacy_lens_photos.py</code>, <code>merge_rig.py</code>
       and <code>scripts/remote_{launch,watch}.sh</code>.</div>
+    <div><div class="when">2026-09-29</div><strong>Phase 7 done.</strong> <code>test_frozen_checkpoint.py</code> was
+      updated in Phase 3 (<code>train_capture_dirs=</code>, no <code>heldout_rig=</code>); the pooled-split test
+      (<code>tests/test_pooled_split.py</code>) landed with Phase 2 and now has 11 tests, incl. the zero-photo
+      (starved) case, order independence and default/params/<code>CAPTURES</code> agreement;
+      <code>TestLegacyTrainRigsAlias</code> (3) landed with Phase 3. <code>test_dino_backbone.py</code> collects and
+      passes after <code>xrig_eval.py</code>'s deletion; its <code>BANNED</code> list drops the deleted
+      <code>run_photowise</code>/<code>pool_photos</code> and adds <code>build_capture_dataset</code>/<code>pooled_class_photos</code>.
+      Full suite (<code>-s tests</code>): 55/55 OK, up from 41 before ML-1.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:
