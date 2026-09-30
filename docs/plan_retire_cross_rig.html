@@ -493,14 +493,15 @@
       would have surfaced tens of epochs late) and relaunched with <code>PYTHONUNBUFFERED=1</code>. It completed 100 epochs
       in ~9h45m; its <code>dvc.lock</code>/<code>metrics.json</code>/<code>summary.json</code> are committed as
       <code>130b663</code>, explicitly a pipeline-verification run, not archived to <code>experiments/</code> and not a deploy
-      candidate. All nine checks above pass. <strong>Still open, for the owner:</strong> D3 (DINOv3 head C on its own val) is
-      decided but <code>fit_frozen_head.py</code> still uses the fold median; D2's photo-level test is not implemented and the
-      <code>run_photowise</code> it names was deleted with <code>xrig_eval.py</code> (restore from <code>0fa699c^</code>),
-      leaving <code>geometry.sample_bean_unit_centers</code>/<code>bean_unit_box_at_center</code> uncalled; R1's noise-floor
+      candidate. All nine checks above pass. <strong>Still open, for the owner:</strong> R1's noise-floor
       measurement is still required before the first screen on val; patch boxes still key on a dir's position (per this
       plan), only split membership is order-independent; <code>run_all_rigs.py</code>'s flag defaults are not the adopted
       values; <code>ood_eval</code>/<code>fit_ood_probe</code>/<code>build_ood_reference</code> on a pre-ML-1 checkpoint now
       recompute the pooled split, not the one it trained on.</div>
+    <div><div class="when">2026-09-30</div><strong>D2 and D3 settled by the owner.</strong> D3 is now C fixed at 0.1
+      (<code>fit_frozen_head.py</code>'s <code>DEFAULT_C</code>, <code>--C</code> overrides it; the exp240-251 lookup is gone).
+      D2's photo-level test is removed for now, and with it <code>geometry.sample_bean_unit_centers</code>/<code>bean_unit_box_at_center</code>,
+      which only it would have used (restore <code>run_photowise</code> from <code>0fa699c^</code>, the helpers from <code>078b11f</code>).</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

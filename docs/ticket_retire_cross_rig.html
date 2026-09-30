@@ -208,9 +208,9 @@
       <h3>After</h3>
       <ol>
         <li>Screen a change on the pooled data: 3 seeds, one run each, paired per seed against the baseline at the same seed.</li>
-        <li>Adopt on paired val deltas, sign-consistent over seeds. Test and photo-level test are reported controls (D2).</li>
+        <li>Adopt on paired val deltas, sign-consistent over seeds. Test is a reported control (D2).</li>
         <li>The screen's best-val run is already a shipping candidate. There is no separate refit.</li>
-        <li>DINOv3 head: C is picked on the run's own val split (D3).</li>
+        <li>DINOv3 head: C is fixed at 0.1 (D3).</li>
       </ol>
     </div>
   </div>
@@ -243,10 +243,10 @@
         <td><strong>Owner decided (b), 2026-09-29</strong> &mdash; overriding this ticket's (a) recommendation. Photos are pooled across all capture directories and split 70/15/15 within each class only. This gives up the guarantee that every capture appears in val/test in exact proportion, and it means the new code does not reproduce the deployed models' training data. Owner's call: that reproducibility isn't needed since Git/DVC already preserve it.</td></tr>
       <tr><td class="id">D2</td><td>What selects and what is reported?</td>
         <td>Val patch macro-F1 selects (checkpoint, C, adoption). Reported: test patch macro-F1, and optionally test photo-level macro-F1 (40 patches per photo, the <code>/classify</code> path, via <code>run_photowise</code>).</td>
-        <td><strong>Owner accepted, 2026-09-29.</strong> Add photo-level test: it is what the site serves. The val patch budget (40/class/camera) is a separate, later question &mdash; see R1's mitigation; it should not be raised speculatively before that measurement exists.</td></tr>
+        <td><strong>Owner accepted, 2026-09-29; photo-level test removed for now, 2026-09-30.</strong> Val patch macro-F1 selects (checkpoint, adoption; not C, see D3) and test patch macro-F1 is reported. The photo-level test is not implemented: <code>run_photowise</code> went with <code>xrig_eval.py</code> (restore from <code>0fa699c^</code>), and the two geometry helpers only it used were deleted too. Was: add photo-level test, since it is what the site serves. The val patch budget (40/class/camera) is a separate, later question &mdash; see R1's mitigation; it should not be raised speculatively before that measurement exists.</td></tr>
       <tr><td class="id">D3</td><td>How is the DINOv3 head's C chosen?</td>
         <td>(a) The run's own val pick. (b) Freeze C=0.1, the last fold median, as a constant.</td>
-        <td><strong>Owner accepted (a), 2026-09-29</strong>, same rule as the ResNet18 best-val checkpoint. The deployed model is not refitted; the rule applies from the next fit.</td></tr>
+        <td><strong>Owner decided (b), 2026-09-30</strong>, reversing the 2026-09-29 acceptance of (a): C defaults to 0.1 in <code>fit_frozen_head.py</code> (<code>--C</code> overrides it) and no longer reads exp240-251. The run's own val pick is still recorded as a diagnostic. Given R1, a val pick would mostly follow noise. The deployed model is not refitted.</td></tr>
       <tr><td class="id">D4</td><td>Keep the word "rig" in config and code?</td>
         <td>(a) Rename <code>train_rigs</code> to <code>data_dirs</code> and <code>Rig</code> to <code>Source</code>, with an alias so old cards' <code>train_rigs</code> still loads. (b) Keep the names and only delete.</td>
         <td><strong>Owner decided (a), 2026-09-29</strong>, naming it <strong>capture</strong> rather than "source": <code>train_rigs</code> &rarr; <code>train_capture_dirs</code>, <code>Rig</code> &rarr; <code>Capture</code>, <code>RIGS</code> &rarr; <code>CAPTURES</code>, with the alias in <code>config_for_checkpoint</code>. Reasoning: a capture is defined by camera + date + setup + lighting, so a future directory need not correspond to one physical camera the way "source" or "rig" imply. Without the alias, <code>build_ood_reference</code> on an old model would silently fall back to the default dirs. The internal seed component keeps its value; only the variable name changes. The four physical directory names (<code>cam_pixel</code>, etc.) are not renamed &mdash; out of scope, would churn DVC-tracked paths for no behavior change.</td></tr>
@@ -274,6 +274,7 @@
   <div class="log">
     <div><div class="when">2026-09-28</div>Owner decides that all cameras are equal and that cross-camera validation and training logic is removed. Ticket written from a read of the tracked sources at <code>d9089fb</code>. Not implemented.</div>
     <div><div class="when">2026-09-29</div>Owner answers D1 (b, pooled per-class split) and D4 (a, naming it "capture"), and confirms the new code does not need to reproduce the old per-camera split byte-for-byte. D2, D3, D5, D6, D7 accepted as recommended. Claude drafts an implementation plan from this ticket (kept outside the ticket) and trims the ticket itself down to decisions and findings. Still not implemented.</div>
+    <div><div class="when">2026-09-30</div>Implemented and merged into main (<code>078b11f</code>); see the plan's Phase 9 entry for what is left. Owner then changes D3 to (b), C fixed at 0.1, and removes D2's photo-level test for now.</div>
   </div>
 
   <footer>Related: <code>coffeecv/run_folds.py</code>, <code>coffeecv/run_all_rigs.py</code>, <code>coffeecv/fold_data.py</code>, <code>coffeecv/fit_frozen_head.py</code>,

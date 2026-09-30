@@ -4,12 +4,11 @@ The frozen-backbone counterpart of `run_all_rigs.py`: photos pooled across `data
 per class (ticket ML-1), val/test in-distribution only -- they say nothing about a new camera or a new
 scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
-- **C, as implemented, is still the lower median of the leave-one-camera-out folds' val picks**
-  (exp240-251, kept in experiments/ per ML-1 D5), with a tie going to the stronger regularisation --
-  the rule the deployed `allrigs_dino3b16_s123` was fitted under. The val-selected C is computed and
-  recorded beside it as a diagnostic. **Ticket ML-1 D3 decided the next fit picks C on its own val
-  split instead** (the same rule as ResNet18's best-val checkpoint); that switch is not implemented in
-  this module yet -- `fold_C`/`SELECTION_EXPS` below are what it would replace.
+- **C is a fixed default, 0.1** (`--C` overrides it): the lower median of the leave-one-camera-out
+  folds' val picks (exp240-251), the value the deployed `allrigs_dino3b16_s123` was fitted at, frozen as
+  a constant by the owner on 2026-09-30 (ticket ML-1 D3) now that the folds are gone. The val-selected C
+  is computed and recorded beside it as a diagnostic only: the head's val macro-F1 is nearly flat across
+  the C grid, so a val pick would mostly follow noise.
 - **Same patches, same transform, same fit as training.** Datasets come from
   `fold_data.build_fold_datasets` (one split at a time, byte-identical), the train split gets the eval
   transform (frozen arms get no photometric augmentation), and the head is `linear_head.fit_head_at`:
@@ -27,7 +26,6 @@ import gc
 import json
 import shutil
 import socket
-import statistics
 import time
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -50,27 +48,15 @@ from coffeecv.transforms import build_eval_transform
 
 DEFAULT_OUT = OUTPUTS_DIR / "frozen_allrigs"
 MODELS_DIR = REPO_ROOT / "models"
-# The folds whose per-fold C picks decide the shipping C: the selected cell of Experiment 1. Fold-era
-# record (ML-1 D5); ML-1 D3 replaces this rule with the run's own val pick from the next fit on.
-SELECTION_EXPS = tuple(range(240, 252))
+# The fold median of exp240-251's val picks, frozen (ML-1 D3, 2026-09-30).
+DEFAULT_C = 0.1
+DEFAULT_C_RULE = "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)"
 EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
 
 
 def log(msg: str) -> None:
     print(f"[fit_frozen_head {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
-
-
-def fold_C(backbone: str, readout: str, exps=SELECTION_EXPS) -> tuple[float, list[dict]]:
-    """The lower median of the C each selection fold chose on its own val split."""
-    picks = []
-    for e in exps:
-        [d] = list(EXPERIMENTS_DIR.glob(f"exp{e}__*"))
-        dino = json.loads((d / "config.json").read_text())["dino"]
-        if (dino["backbone"], dino["readout"]) != (backbone, readout):
-            raise SystemExit(f"{d.name} is {dino['backbone']}/{dino['readout']}, not {backbone}/{readout}")
-        picks.append({"exp": e, "C": float(dino["C"])})
-    return statistics.median_low([p["C"] for p in picks]), picks
 
 
 def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
@@ -95,7 +81,7 @@ def embed(ds, bb: FrozenBackbone, readout: str) -> tuple[np.ndarray, np.ndarray,
     return np.concatenate(feats), np.array(labels), 1000 * spent / max(len(labels), 1)
 
 
-def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: list[dict],
+def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: str,
                  out: Path, smoke: bool) -> Path:
     cfg = allrigs_config(bb.name, seed, smoke)
     assert_input_size(bb, cfg.patch_resize)
@@ -129,7 +115,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
                                  captures=captures)
-    metrics["best_epoch_selection_metric"] = "none: C fixed to the selection folds' median (no selection here)"
+    metrics["best_epoch_selection_metric"] = f"none: C fixed at {C:g} (no selection here)"
 
     import timm
 
@@ -145,8 +131,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
             "weights_sha256": bb.weights_sha256, "timm_version": timm.__version__,
             "head": "sklearn LogisticRegression (L2, lbfgs) on standardised features at a FIXED C, exported to "
                     "nn.Linear; the SGD-loop fields above (epochs, lr, optimizer, scheduler, ...) are unused",
-            "C": C, "C_rule": f"lower median of the per-fold val picks of exp{SELECTION_EXPS[0]}-{SELECTION_EXPS[-1]}",
-            "C_fold_picks": picks, "converged": converged, "fit_seconds": round(fit_s, 1),
+            "C": C, "C_rule": C_rule, "converged": converged, "fit_seconds": round(fit_s, 1),
             "diagnostic_val_selected_C": grid.C,
             "diagnostic_val_macro_f1_by_C": {str(k): v for k, v in grid.val_macro_f1_by_C.items()},
             "train_transform": "eval transform (frozen arms get no photometric augmentation)",
@@ -218,6 +203,8 @@ def main() -> int:
     p.add_argument("--readout", default="cls_mean")
     p.add_argument("--seeds", type=int, nargs="+", default=[42, 123, 7])
     p.add_argument("--start-exp", type=int, help="first experiment id; one per seed, in --seeds order")
+    p.add_argument("--C", type=float, default=DEFAULT_C,
+                   help=f"the head's inverse regularisation strength (default {DEFAULT_C:g}, ML-1 D3)")
     p.add_argument("--out", default=str(DEFAULT_OUT))
     p.add_argument("--smoke", action="store_true", help="tiny patch budgets; nothing is archived")
     p.add_argument("--allow-dirty", action="store_true", help="skip the provenance checks (smoke only)")
@@ -245,14 +232,14 @@ def main() -> int:
         if taken:
             raise SystemExit(f"experiment ids {taken} already exist")
 
-    C, picks = fold_C(args.backbone, args.readout)
-    log(f"{args.backbone}/{args.readout}: C={C:g}, the lower median of the fold picks "
-        f"{sorted(p['C'] for p in picks)}; torch threads {torch.get_num_threads()}")
+    C = args.C
+    C_rule = DEFAULT_C_RULE if C == DEFAULT_C else "set on the command line (--C)"
+    log(f"{args.backbone}/{args.readout}: C={C:g}, {C_rule}; torch threads {torch.get_num_threads()}")
     bb = build_backbone(args.backbone)
     out = Path(args.out)
     for i, seed in enumerate(args.seeds):
         t = time.perf_counter()
-        run_dir = fit_one_seed(bb, args.readout, seed, C, picks, out / ("smoke" if args.smoke else ""), args.smoke)
+        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke)
         log(f"s{seed}: done in {(time.perf_counter() - t) / 60:.1f} min")
         if args.smoke:
             continue
@@ -264,7 +251,7 @@ def main() -> int:
         archive(str(exp), f"allrigs_{args.backbone.replace('dinov3_vit', 'dino3')}_frozen_"
                           f"{args.readout.replace('_', '')}_s{seed}",
                 f"plan §9.1 all-cameras shipping fit: frozen {args.backbone}, readout {args.readout}, "
-                f"L2 logistic-regression head at the selection folds' median C={C:g}, no TTA; "
+                f"L2 logistic-regression head at fixed C={C:g}, no TTA; "
                 f"in-distribution metrics only", src_dir=run_dir)
     return 0
 
