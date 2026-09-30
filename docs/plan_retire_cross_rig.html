@@ -360,7 +360,7 @@
     <li>A new generalization test set (fresh scoops / new phone) &mdash; separate ticket per ML-1's own "out of scope".</li>
     <li>Pushing pending fold checkpoints to the DVC remote.</li>
     <li>Re-scoping DINOv3 Screen D or C1-ship to a new protocol (D7, only if wanted later).</li>
-    <li>Measuring val macro-F1's seed-to-seed noise floor (R1's mitigation) &mdash; required before the next screen is adopted on this metric, but not a code change this refactor makes.</li>
+    <li>Measuring val macro-F1's seed-to-seed noise floor (R1's mitigation). Dropped from ML-1 by the owner on 2026-09-30; to be done later, another way.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -494,7 +494,7 @@
       in ~9h45m; its <code>dvc.lock</code>/<code>metrics.json</code>/<code>summary.json</code> are committed as
       <code>130b663</code>, explicitly a pipeline-verification run, not archived to <code>experiments/</code> and not a deploy
       candidate. All nine checks above pass. <strong>Still open, for the owner:</strong> R1's noise-floor
-      measurement is still required before the first screen on val; patch boxes still key on a dir's position (per this
+      measurement (dropped from ML-1 on 2026-09-30, see the last entry); patch boxes still key on a dir's position (per this
       plan), only split membership is order-independent; <code>ood_eval</code>/<code>fit_ood_probe</code>/<code>build_ood_reference</code> on a pre-ML-1 checkpoint now
       recompute the pooled split, not the one it trained on.</div>
     <div><div class="when">2026-09-30</div><strong>D2 and D3 settled by the owner.</strong> D3 is now C fixed at 0.1
@@ -508,6 +508,8 @@
       inherited. <code>tests/test_run_all_rigs.py</code> pins the defaults to <code>params.yaml</code>'s committed resting values;
       <code>set_all_rigs</code> with all defaults at seed 7 leaves <code>params.yaml</code> byte-identical. Both documents'
       status lines now say merged.</div>
+    <div><div class="when">2026-09-30</div><strong>R1's noise measurement dropped from ML-1</strong> by the owner, to be
+      done later and another way. The risk itself stays in the ticket: val macro-F1 is near ceiling and barely separates choices.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:

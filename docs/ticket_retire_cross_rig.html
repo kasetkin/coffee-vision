@@ -119,7 +119,7 @@
     what the change costs. Nothing is implemented yet.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done · merged</span> <span class="tag">main 078b11f, not pushed; R1 still open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done · merged</span> <span class="tag">main 078b11f, not pushed</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Refactor + workflow change</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/</code>, <code>coffeecv_dino/</code>, <code>params.yaml</code>, <code>dvc.yaml</code>, docs</span></div>
@@ -224,7 +224,7 @@
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>The remaining metric can barely tell choices apart.</strong> Val macro-F1 is near ceiling and nearly flat.</td>
-        <td>The deployed head's own val split, across the whole C grid from 0.001 to 100, scores 0.9688–0.9763 (<code>models/allrigs_dino3b16_s123.json</code>, <code>diagnostic_val_macro_f1_by_C</code>). It would pick C=0.0316, where the folds picked 0.1, on a margin of 0.002. <code>README.md</code> already flags val saturation for ResNet18 checkpoint selection. Mitigations are in D2. Expect most screens to come back null. <strong>Before the first real screen is adopted on this metric</strong>, measure its own seed-to-seed noise &mdash; rerun the unchanged baseline at a few seeds, or bootstrap val macro-F1 over patches &mdash; so "sign-consistent over 3 seeds" (§4) has a measured floor to clear instead of an assumed one carried over from the fold protocol's ±0.048 band, which does not apply to this metric. That measurement also settles whether raising the val patch budget buys real separation before spending compute on it.</td></tr>
+        <td>The deployed head's own val split, across the whole C grid from 0.001 to 100, scores 0.9688–0.9763 (<code>models/allrigs_dino3b16_s123.json</code>, <code>diagnostic_val_macro_f1_by_C</code>). It would pick C=0.0316, where the folds picked 0.1, on a margin of 0.002. <code>README.md</code> already flags val saturation for ResNet18 checkpoint selection. Mitigations are in D2. Expect most screens to come back null. The fold protocol's ±0.048 noise band does not apply to this metric. Measuring this metric's own noise was dropped from this ticket on 2026-09-30 (owner): it will be done later, by a different method, outside ML-1.</td></tr>
       <tr><td class="id">R2</td><td><strong>No number estimates a new camera or a new scoop of beans.</strong></td>
         <td>Val and test photos come from the same bags and the same cameras as train. This is the trade the decision accepts. State it in <code>README.md</code> so that in-distribution scores are not read as real-world accuracy. Until the out-of-scope generalization ticket exists, the only remaining signals for camera- or scoop-level drift are manual spot-checks (as run against the legacy-lens photos) and the OOD guard; neither is a gate a change must pass, so a regression here can ship silently in the meantime.</td></tr>
       <tr><td class="id">R3</td><td><strong>Old and new headlines are not comparable.</strong></td>
@@ -243,7 +243,7 @@
         <td><strong>Owner decided (b), 2026-09-29</strong> &mdash; overriding this ticket's (a) recommendation. Photos are pooled across all capture directories and split 70/15/15 within each class only. This gives up the guarantee that every capture appears in val/test in exact proportion, and it means the new code does not reproduce the deployed models' training data. Owner's call: that reproducibility isn't needed since Git/DVC already preserve it.</td></tr>
       <tr><td class="id">D2</td><td>What selects and what is reported?</td>
         <td>Val patch macro-F1 selects (checkpoint, C, adoption). Reported: test patch macro-F1, and optionally test photo-level macro-F1 (40 patches per photo, the <code>/classify</code> path, via <code>run_photowise</code>).</td>
-        <td><strong>Owner accepted, 2026-09-29; photo-level test removed for now, 2026-09-30.</strong> Val patch macro-F1 selects (checkpoint, adoption; not C, see D3) and test patch macro-F1 is reported. The photo-level test is not implemented: <code>run_photowise</code> went with <code>xrig_eval.py</code> (restore from <code>0fa699c^</code>), and the two geometry helpers only it used were deleted too. Was: add photo-level test, since it is what the site serves. The val patch budget (40/class/camera) is a separate, later question &mdash; see R1's mitigation; it should not be raised speculatively before that measurement exists.</td></tr>
+        <td><strong>Owner accepted, 2026-09-29; photo-level test removed for now, 2026-09-30.</strong> Val patch macro-F1 selects (checkpoint, adoption; not C, see D3) and test patch macro-F1 is reported. The photo-level test is not implemented: <code>run_photowise</code> went with <code>xrig_eval.py</code> (restore from <code>0fa699c^</code>), and the two geometry helpers only it used were deleted too. Was: add photo-level test, since it is what the site serves. The val patch budget (40/class/camera) is a separate, later question; it should not be raised speculatively.</td></tr>
       <tr><td class="id">D3</td><td>How is the DINOv3 head's C chosen?</td>
         <td>(a) The run's own val pick. (b) Freeze C=0.1, the last fold median, as a constant.</td>
         <td><strong>Owner decided (b), 2026-09-30</strong>, reversing the 2026-09-29 acceptance of (a): C defaults to 0.1 in <code>fit_frozen_head.py</code> (<code>--C</code> overrides it) and no longer reads exp240-251. The run's own val pick is still recorded as a diagnostic. Given R1, a val pick would mostly follow noise. The deployed model is not refitted.</td></tr>
@@ -268,13 +268,14 @@
     <li>Changing any served output, including the fallback's OOD warn-band text in <code>infer.py</code>.</li>
     <li>A new generalization test set, such as fresh scoops or photos from a new phone. That would be the honest replacement for what R2 gives up, and deserves its own ticket.</li>
     <li>Pushing the pending fold checkpoints to the DVC remote. They are history either way.</li>
+    <li>Measuring val macro-F1's noise (R1). Dropped from this ticket 2026-09-30; to be done later, another way.</li>
   </ul>
 
   <h2>Activity</h2>
   <div class="log">
     <div><div class="when">2026-09-28</div>Owner decides that all cameras are equal and that cross-camera validation and training logic is removed. Ticket written from a read of the tracked sources at <code>d9089fb</code>. Not implemented.</div>
     <div><div class="when">2026-09-29</div>Owner answers D1 (b, pooled per-class split) and D4 (a, naming it "capture"), and confirms the new code does not need to reproduce the old per-camera split byte-for-byte. D2, D3, D5, D6, D7 accepted as recommended. Claude drafts an implementation plan from this ticket (kept outside the ticket) and trims the ticket itself down to decisions and findings. Still not implemented.</div>
-    <div><div class="when">2026-09-30</div>Implemented and merged into main (<code>078b11f</code>); see the plan's Phase 9 entry for what is left. Owner then changes D3 to (b), C fixed at 0.1, and removes D2's photo-level test for now. <code>run_all_rigs.py</code>'s lever flags now default to the adopted recipe.</div>
+    <div><div class="when">2026-09-30</div>Implemented and merged into main (<code>078b11f</code>); see the plan's Phase 9 entry for what is left. Owner then changes D3 to (b), C fixed at 0.1, and removes D2's photo-level test for now. <code>run_all_rigs.py</code>'s lever flags now default to the adopted recipe. R1's noise measurement dropped from this ticket, to be done later another way. Nothing in ML-1 is left open.</div>
   </div>
 
   <footer>Related: <code>coffeecv/run_folds.py</code>, <code>coffeecv/run_all_rigs.py</code>, <code>coffeecv/fold_data.py</code>, <code>coffeecv/fit_frozen_head.py</code>,

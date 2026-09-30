@@ -15,8 +15,8 @@ already a shipping candidate -- there is no separate refit.
 
 **Every number this produces is in-distribution.** Val and test photos come from
 the same bean bags and the same cameras as train, so they say nothing about a new
-camera or a new scoop of beans (ML-1 R2), and they sit near ceiling (R1: before the
-first screen is adopted on this metric, measure its seed-to-seed noise). Never
+camera or a new scoop of beans (ML-1 R2), and they sit near ceiling (R1: their noise is not
+yet measured, so a small sign-consistent delta may still be noise). Never
 compare them with the fold-era cross-camera numbers in index.csv (R3).
 
     python -m coffeecv.run_all_rigs --seeds 42 123 7 --start-exp 255
