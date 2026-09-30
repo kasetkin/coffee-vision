@@ -59,10 +59,13 @@ def main() -> int:
         digest = sha256_of(path)
         checked += 1
         if digest != e["sha256"]:
+            # An entry with a pinned "source" says where the right file comes from; the others
+            # are the DINO/torch.hub weights, where the usual mistake is the HF safetensors.
+            hint = (f"    Download it again from {e['source']}" if e.get("source") else
+                    f"    Most likely the Hugging Face safetensors were downloaded instead of the\n"
+                    f"    Meta .pth -- they are different files. See plan §2.5.")
             failures.append(
-                f"{label}: SHA256 {digest[:16]}... != expected {e['sha256'][:16]}...\n"
-                f"    Most likely the Hugging Face safetensors were downloaded instead of the\n"
-                f"    Meta .pth -- they are different files. See plan §2.5.")
+                f"{label}: SHA256 {digest[:16]}... != expected {e['sha256'][:16]}...\n{hint}")
             continue
         stem_hash = path.stem.rsplit("-", 1)[-1]
         self_ok = (len(stem_hash) == 8 and all(c in "0123456789abcdef" for c in stem_hash)

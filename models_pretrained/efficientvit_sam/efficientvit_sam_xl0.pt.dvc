@@ -1,0 +1,5 @@
+outs:
+- md5: 246bfc629317decc29dfb513872a7ca2
+  size: 468211343
+  hash: md5
+  path: efficientvit_sam_xl0.pt

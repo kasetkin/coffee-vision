@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from efficientvit.models.nn.triton_rms_norm import TritonRMSNorm2dFunc
 from efficientvit.models.utils import build_kwargs_from_config
 
 __all__ = ["LayerNorm2d", "TritonRMSNorm2d", "build_norm", "reset_bn", "set_norm_eps"]
@@ -21,6 +20,9 @@ class LayerNorm2d(nn.LayerNorm):
 
 class TritonRMSNorm2d(nn.LayerNorm):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # PATCH(coffee-vision): see third_party/efficientvit/PATCHES.md (1)
+        from efficientvit.models.nn.triton_rms_norm import TritonRMSNorm2dFunc
+
         return TritonRMSNorm2dFunc.apply(x, self.weight, self.bias, self.eps)
 
 

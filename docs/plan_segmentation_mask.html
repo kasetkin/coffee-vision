@@ -489,6 +489,7 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
     <div><div class="when">2026-09-30</div><strong>onnx not installed</strong> (owner). Its import is patched out of the vendored copy (P0 patch 3), and the ticket's R5, R4, P0 and out-of-scope list are updated to match.</div>
     <div><div class="when">2026-09-30</div><strong>Q3 deferred by the owner</strong> until P0&ndash;P3 are implemented. The recommended rule is in force as a provisional default, and P4 has a stop before the comparison for the owner to confirm or replace it.</div>
     <div><div class="when">2026-09-30</div><strong>Ticket updated:</strong> Q1&ndash;Q4 are recorded there as D21&ndash;D24.</div>
+    <div><div class="when">2026-09-30</div><strong>P0 run</strong>; results in <code>analysis/ml2_p0/README.md</code> and the ticket's activity log. Corrections to §3: the largest training photo is 19 MP (sony), not 50 MP (a 50 MP upscale was timed as a stress case). Threads, not <code>use_deterministic_algorithms</code>, decide mask bits, and CPUs differ, so masks are computed once and stored. The mask-selection step is blocked: no fixed whole-image prompt yields the pile on tray photos (D5). Owner decision before P1.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2). Terms:

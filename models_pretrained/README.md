@@ -42,6 +42,11 @@ remove — so verify them too rather than assuming.
 | `dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth` | 21.6M | 384 | 16 | 196 | `facebookresearch/dinov3` · DINOv3 License (gated) |
 | `dinov3/dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth` | 28.7M | 384 | 16 | 196 | same |
 | `dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth` | 85.7M | 768 | 16 | 196 | same |
+| `efficientvit_sam/efficientvit_sam_l0.pt` | 34.8M | — | — | — | HF `mit-han-lab/efficientvit-sam` @ `a2f0c592` (URL in `manifest.json`) · Apache-2.0 · ticket ML-2 |
+
+EfficientViT-SAM-L0 is the ML-2 bean segmenter, built by `coffeecv/sam_loader.py` from the vendored
+`third_party/efficientvit`. It is the first file here that is `dvc add`ed
+(`efficientvit_sam/efficientvit_sam_l0.pt.dvc`); its push waits for the DVC remote.
 
 All five load cleanly. The four whose filenames embed a sha256 prefix (torch.hub's convention)
 were **verified against their contents** — the downloads are intact and authentic. DINOv2's

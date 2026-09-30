@@ -1,0 +1,11 @@
+# ML-2 P0 mask-selection photos: seg train split (seed 239), one per session (+1 box_pictures)
+dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082212145.jpg
+dataset/2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_084902479.jpg
+dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132424922.jpg
+dataset/2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_202124.JPG
+dataset/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6325.HEIC
+dataset/2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192721855.jpg
+dataset/2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183549809.jpg
+dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175818481.jpg
+dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124804239.jpg
+dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200646.JPG

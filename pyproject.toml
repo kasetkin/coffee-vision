@@ -35,6 +35,9 @@ dependencies = [
   "albumentations",
   "tensorboard",
   "tqdm",
+  # ML-2: the vendored EfficientViT-SAM (third_party/efficientvit) builds on Meta's MaskDecoder,
+  # PromptEncoder and ResizeLongestSide. Upstream installs it from git; PyPI 1.0 is the same code.
+  "segment-anything==1.0",
   # [ssh]: the DVC remote is ssh:// (.dvc/config).
   "dvc[ssh]",
 ]

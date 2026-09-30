@@ -2,10 +2,8 @@ import io
 import os
 from typing import Any
 
-import onnx
 import torch
 import torch.nn as nn
-from onnxsim import simplify as simplify_func
 
 __all__ = ["export_onnx"]
 
@@ -20,6 +18,10 @@ def export_onnx(model: nn.Module, export_path: str, sample_inputs: Any, simplify
         simplify: a flag to turn on onnx-simplifier
         opset: int
     """
+    # PATCH(coffee-vision): see third_party/efficientvit/PATCHES.md (3)
+    import onnx
+    from onnxsim import simplify as simplify_func
+
     model.eval()
 
     buffer = io.BytesIO()

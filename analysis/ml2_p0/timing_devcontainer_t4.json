@@ -1,0 +1,49 @@
+{
+  "threads": 4,
+  "runs": 5,
+  "prompt": "box",
+  "mask_select": "multi3",
+  "weights_sha256": "c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8",
+  "photos": {
+    "dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132424922.jpg": {
+      "shape": [
+        3072,
+        4080
+      ],
+      "median_ms": {
+        "decode": 115.7,
+        "resize": 53.4,
+        "encoder": 417.6,
+        "decoder": 99.8,
+        "upsample": 17.7,
+        "fill_crop": 40.0,
+        "total": 744.2
+      },
+      "mask_area_frac": 0.9937,
+      "mask_sha256": [
+        "b8d4e45f989c4460e9537541681cc376bbad388152b4497753cc454e886ffd54"
+      ],
+      "identical_masks_across_runs": true
+    },
+    "dataset/2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_202124.JPG": {
+      "shape": [
+        3792,
+        5056
+      ],
+      "median_ms": {
+        "decode": 205.1,
+        "resize": 77.2,
+        "encoder": 387.9,
+        "decoder": 121.9,
+        "upsample": 28.1,
+        "fill_crop": 101.7,
+        "total": 921.9
+      },
+      "mask_area_frac": 0.9977,
+      "mask_sha256": [
+        "1d4abaa265906e14d3098cc9ab0b02f90cea5ce21c1c848046e2490f9a979c23"
+      ],
+      "identical_masks_across_runs": true
+    }
+  }
+}

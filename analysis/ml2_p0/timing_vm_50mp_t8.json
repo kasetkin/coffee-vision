@@ -1,0 +1,29 @@
+{
+  "threads": 8,
+  "runs": 3,
+  "prompt": "box",
+  "mask_select": "multi3",
+  "weights_sha256": "c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8",
+  "photos": {
+    "outputs/ml2_p0/stress_50mp.jpg": {
+      "shape": [
+        6144,
+        8192
+      ],
+      "median_ms": {
+        "decode": 579.9,
+        "resize": 297.7,
+        "encoder": 316.2,
+        "decoder": 163.5,
+        "upsample": 57.8,
+        "fill_crop": 122.6,
+        "total": 1537.7
+      },
+      "mask_area_frac": 0.9977,
+      "mask_sha256": [
+        "c920e55a95e163f44efdcf4c350781a463610f67382d5584f9bf65403d339015"
+      ],
+      "identical_masks_across_runs": true
+    }
+  }
+}
