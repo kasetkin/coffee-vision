@@ -24,9 +24,10 @@
   },
   "remoteUser": "vscode",
   "mounts": [
-//    "source=${localWorkspaceFolder}/.claude,target=/home/vscode/.claude,type=bind"
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    // Claude Code user config (credentials, sessions, memory) lives in the repo folder so it
+    // is visible on the host; it is gitignored. Not `.claude/`: that is the project settings.
+    "source=${localWorkspaceFolder}/.private_claude,target=/home/vscode/.claude,type=bind",
     "source=jupyter-ipython-${devcontainerId},target=/home/vscode/.ipython,type=volume",
     "source=jupyter-config-${devcontainerId},target=/home/vscode/.jupyter,type=volume"
   ],
