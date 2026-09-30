@@ -139,6 +139,13 @@ class Loop(unittest.TestCase):
         self.assertEqual(row["verdict"], "unjudged")
         self.assertEqual(row["raw"], ["garbage", "still garbage"])
 
+    def test_failed_call_is_not_a_verdict(self):
+        fake = mock.Mock(side_effect=RuntimeError("claude -p exited 1: limit"))
+        with mock.patch.object(seg_judge, "call_cli", fake), mock.patch.object(seg_judge, "RETRY_WAIT_S", 0):
+            seg_judge.judge([self.item], "m", "cli", False, False, False, 1, "claude", None)
+        self.assertEqual((fake.call_count, seg_judge.read_verdicts()), (2, []))
+        self.assertEqual(self.run_with([ACCEPT]).call_count, 1)          # judged on the next run
+
     def test_judged_item_is_skipped_unless_rejudge(self):
         self.run_with([ACCEPT])
         self.assertEqual(self.run_with([]).call_count, 0)

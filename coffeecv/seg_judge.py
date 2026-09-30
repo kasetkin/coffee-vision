@@ -58,6 +58,7 @@ JUDGE_MODEL = "claude-opus-5-5"
 JUDGE_BACKEND = "cli"
 MAX_POINTS = 6
 MAX_TOKENS = 1024
+RETRY_WAIT_S = 30                                     # before retrying a call that failed (limit, network)
 # Plan §4.4: every judged item in ML-2, for projecting the pilot's cost per item to the whole ticket.
 FULL_RUN_ITEMS = 4700
 _append_lock = threading.Lock()
@@ -174,10 +175,11 @@ def call_cli(prompt: str, prep: dict, model: str, claude_bin: str) -> dict:
         res = subprocess.run(cmd, cwd=tmp, input=json.dumps(msg) + "\n", capture_output=True, text=True,
                              timeout=900)
         wall = time.perf_counter() - t0
-    if res.returncode != 0:
-        raise RuntimeError(f"claude -p exited {res.returncode}: {res.stderr.strip()[:500]}")
     out = next((json.loads(l) for l in reversed(res.stdout.splitlines())
-                if l.strip() and json.loads(l).get("type") == "result"), None)
+                if l.strip().startswith("{") and json.loads(l).get("type") == "result"), None)
+    if res.returncode != 0:
+        why = (out or {}).get("result") or res.stderr.strip() or res.stdout.strip()[-500:]
+        raise RuntimeError(f"claude -p exited {res.returncode}: {str(why)[:500]}")
     if out is None:
         raise RuntimeError(f"claude -p gave no result line: {res.stdout[-500:]}")
     if out.get("is_error"):
@@ -308,7 +310,7 @@ def judge(items: list[dict], model: str, backend: str, batch: bool, rejudge: boo
           workers: int, claude_bin: str, limit: int | None) -> None:
     prompt = build_prompt()
     psha = prompt_sha256(prompt)
-    done = {run_key(r) for r in read_verdicts()}
+    done = {run_key(r) for r in read_verdicts() if not _call_failed(r)}
     todo = [it for it in items
             if rejudge or run_key({**it, "model": model, "prompt_sha256": psha, "backend": backend}) not in done]
     todo = todo[:limit] if limit else todo
@@ -346,6 +348,11 @@ def judge(items: list[dict], model: str, backend: str, batch: bool, rejudge: boo
             replies.append(rep)
             if "error" not in rep and _parses(rep["text"], prep):
                 break
+            if "error" in rep:
+                time.sleep(RETRY_WAIT_S)
+        if all("error" in r for r in replies):          # no reply at all (limit, network): not a verdict
+            print(f"  {it['item']}: call failed, not stored; rerun to judge it: {replies[-1]['error'][:200]}")
+            return
         row = make_row(it, prep, model, psha, backend, replies)
         append_verdict(row)
         print(f"  {it['item']}: {row['verdict']} {row.get('failed_rules', '')}  "
@@ -353,6 +360,12 @@ def judge(items: list[dict], model: str, backend: str, batch: bool, rejudge: boo
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
         list(ex.map(one, todo))
+
+
+def _call_failed(row: dict) -> bool:
+    """An unjudged row with no reply text: the call failed (rows stored before calls that fail were
+    dropped). Such an item is judged again on the next run; the new row is the latest and wins."""
+    return row["verdict"] == "unjudged" and not any(row.get("raw") or [])
 
 
 def _parses(text: str, prep: dict) -> bool:
@@ -379,7 +392,7 @@ def score(items: list[dict], model: str, backend: str, prompt_sha: str | None,
     psha = prompt_sha or prompt_sha256(build_prompt())
     latest = {}
     for r in read_verdicts():
-        if r["model"] == model and r["backend"] == backend and r["prompt_sha256"] == psha:
+        if r["model"] == model and r["backend"] == backend and r["prompt_sha256"] == psha and not _call_failed(r):
             latest[(r["photo_sha256"], r["mask_sha256"], r["trial"])] = r
     cells = defaultdict(lambda: [0, 0, 0])            # caught / failed, n, unjudged
     missing, rows = [], []
