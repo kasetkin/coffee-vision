@@ -28,7 +28,8 @@
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
     "source=jupyter-ipython-${devcontainerId},target=/home/vscode/.ipython,type=volume",
-    "source=jupyter-config-${devcontainerId},target=/home/vscode/.jupyter,type=volume"
+    "source=jupyter-config-${devcontainerId},target=/home/vscode/.jupyter,type=volume",
+    "source=uv-cache-${devcontainerId},target=/home/vscode/.cache/uv,type=volume"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
@@ -38,6 +39,8 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
+  // Training venv from pyproject.toml + uv.lock (UV_PROJECT_ENVIRONMENT is set in Dockerfile.cpu).
+  "postCreateCommand": "uv sync --locked",
   "postStartCommand": "sudo /usr/local/bin/setup-opencl-device.sh",
   "waitFor": "postStartCommand"
 

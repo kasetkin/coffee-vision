@@ -24,17 +24,28 @@ ARG USER_GID=1000
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 
-# Dirs this user owns: bash history, Claude config, Jupyter/IPython state
+# Dirs this user owns: bash history, Claude config, Jupyter/IPython state, uv cache
 # (all volume-mounted), workspace.
 RUN mkdir -p /commandhistory /workspace /home/$USERNAME/.claude \
-        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter \
+        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter /home/$USERNAME/.cache/uv \
     && touch /commandhistory/.bash_history \
     && chown -R $USERNAME:$USERNAME /commandhistory /workspace /home/$USERNAME/.claude \
-        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter
+        /home/$USERNAME/.ipython /home/$USERNAME/.jupyter /home/$USERNAME/.cache
 
 # Persist history to that volume, flushed after every command.
 RUN echo "export PROMPT_COMMAND='history -a'" >> /home/$USERNAME/.bashrc \
     && echo "export HISTFILE=/commandhistory/.bash_history" >> /home/$USERNAME/.bashrc
+
+# uv, the version both pyproject.toml and webapp/pyproject.toml require. Version and
+# tarball sha256 match UV_VERSION/UV_TARBALL_SHA256 in scripts/deploy_webapp.sh.
+ARG UV_VERSION=0.12.19
+ARG UV_SHA256=23bf5552d220e0842b65c862097b2ebaeba0064b74eda5e565e77fd25969d8c8
+RUN curl -fsSL -o /tmp/uv.tar.gz \
+        "https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-x86_64-unknown-linux-gnu.tar.gz" \
+    && echo "$UV_SHA256  /tmp/uv.tar.gz" | sha256sum -c --quiet - \
+    && tar -xzf /tmp/uv.tar.gz -C /tmp \
+    && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
+    && rm -rf /tmp/uv.tar.gz /tmp/uv-x86_64-unknown-linux-gnu
 
 # OpenCL device script; sudo scoped to only this one command.
 COPY setup-opencl-device.sh /usr/local/bin/
@@ -46,14 +57,11 @@ RUN echo "$USERNAME ALL=(root) NOPASSWD: /usr/local/bin/setup-opencl-device.sh" 
 WORKDIR /workspace
 USER $USERNAME
 
-# venv owned by this user, so later pip installs don't need sudo.
-RUN python -m venv /home/$USERNAME/.venv
+# The training venv lives outside the bind-mounted workspace. It is built from the repo's
+# pyproject.toml + uv.lock by `uv sync --locked` in devcontainer.json's postCreateCommand: the
+# lock is in the repo root, outside this build context. The image's python only (no uv-managed
+# downloads); copy mode because the uv cache is a separate volume.
+ENV UV_PROJECT_ENVIRONMENT=/home/$USERNAME/.venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_LINK_MODE=copy
 ENV PATH="/home/$USERNAME/.venv/bin:$PATH"
-
-# CPU wheel index avoids the NVIDIA CUDA deps plain `pip install torch` pulls in.
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-    torch==2.13.0 torchvision torchaudio
-
-# Deliberately excludes torch/torchvision — installed above instead.
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
