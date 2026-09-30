@@ -118,7 +118,7 @@
     modules and fix <code>dvc.yaml</code>, clean up docs, then test.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress · <code>tmp/retire-cross-rig</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Implemented · awaiting owner review</span> <span class="tag">tmp/retire-cross-rig, not merged</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -323,26 +323,35 @@
 
   <h2>9. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>dvc repro train</code> end-to-end; confirm the run completes
-      and its <code>metrics.json</code> has no <code>xrig</code>/<code>test_xrig</code> keys.</span></li>
-    <li><span class="box"></span><span>Inspect the produced split: per-class train/val/test counts reflect
+    <li><span class="box done"></span><span><code>dvc repro train</code> end-to-end; confirm the run completes
+      and its <code>metrics.json</code> has no <code>xrig</code>/<code>test_xrig</code> keys.
+      <span class="result">Done 2026-09-29, commit <code>130b663</code>: exit 0 after 100 epochs (best 86), ~9h45m at ~5.5 min/epoch. <code>metrics.json</code> has splits <code>val</code>/<code>test</code> only and no <code>xrig</code>/<code>test_xrig</code>/<code>heldout</code>/<code>rigs</code> key at any depth; <code>history.json</code> has no <code>xrig_macro_f1</code>. val macro-F1 0.9311, test 0.9131 (in-distribution; a verification run, not a deploy candidate).</span></span></li>
+    <li><span class="box done"></span><span>Inspect the produced split: per-class train/val/test counts reflect
       the pooled total across all four <code>cam_*</code> dirs at 70/15/15, not four independent
-      per-camera splits.</span></li>
-    <li><span class="box"></span><span><code>config_for_checkpoint</code> against both deployed model cards
-      &mdash; <code>resolve_paths()</code> still returns the original four <code>cam_*</code> dirs.</span></li>
-    <li><span class="box"></span><span>Import <code>coffeecv_dino.reference</code> and run (or dry-check)
-      <code>scripts/make_dinov3_fixture.py</code> &mdash; confirms the DINOv3 fixture path survives.</span></li>
-    <li><span class="box"></span><span><code>coffeecv.coverage_report</code> runs and prints the rewritten
-      class-balance-per-capture section without a silently swallowed import error.</span></li>
-    <li><span class="box"></span><span><code>grep -rn 'RIGS\|train_rigs\|heldout_rig\|xrig\|cross_rig'
+      per-camera splits.
+      <span class="result">Every class splits at its pooled count (90&rarr;62/14/14, 100&rarr;70/15/15, 80&rarr;56/12/12, 126&rarr;88/19/19); val/test patch supports equal 40 &times; the dirs with photos in that split. <strong>But on this dataset the per-class totals are identical under the old per-camera rule for 10/10 classes</strong> (rounding coincides), so totals alone cannot tell pooled from per-camera; the per-dir breakdown (<code>split_report</code>) does (class 001 val: old 6/3/3/2, pooled 5/6/3/0). Starved at seed 7: cam_iphone out of val for class_001 and out of test for class_002 and class_005 &mdash; identical in the run log, <code>metrics.json[split_starved]</code> and <code>split_report</code>.</span></span></li>
+    <li><span class="box done"></span><span><code>config_for_checkpoint</code> against both deployed model cards
+      &mdash; <code>resolve_paths()</code> still returns the original four <code>cam_*</code> dirs.
+      <span class="result">Both <code>allrigs_dino3b16_s123</code> and <code>allrigs_cam_s123</code> resolve to the four <code>cam_*</code> dirs via the <code>train_rigs</code> alias, with <code>LEGACY_CONFIG_NOTE</code> in the returned source; locked in by <code>TestLegacyTrainRigsAlias</code>.</span></span></li>
+    <li><span class="box done"></span><span>Import <code>coffeecv_dino.reference</code> and run (or dry-check)
+      <code>scripts/make_dinov3_fixture.py</code> &mdash; confirms the DINOv3 fixture path survives.
+      <span class="result">Dry-checked: <code>scripts/make_dinov3_fixture.py</code> imported as a module (not run &mdash; it clones Meta's repo and would rewrite the committed fixture) and its <code>reference_patches(PER_CLASS)</code> input is byte-identical to a pre-ML-1 snapshot; <code>test_matches_meta_reference</code> runs (not skipped) and passes.</span></span></li>
+    <li><span class="box done"></span><span><code>coffeecv.coverage_report</code> runs and prints the rewritten
+      class-balance-per-capture section without a silently swallowed import error.
+      <span class="result">Prints the capture-dir class-balance table under a hard <code>CAPTURES</code> import. Exits 1 only on pre-existing <code>FAIL</code>s (<code>dataset/ood_*</code> not in the crop foreach) that <code>main</code> has too.</span></span></li>
+    <li><span class="box done"></span><span><code>grep -rn 'RIGS\|train_rigs\|heldout_rig\|xrig\|cross_rig'
       coffeecv/ coffeecv_dino/ tests/ scripts/ webapp/ params.yaml dvc.yaml</code> &mdash; only survivors
       should be the deliberate <code>train_rigs</code> alias string in <code>config_for_checkpoint</code>
-      and historical strings inside <code>experiments/</code>/model cards.</span></li>
-    <li><span class="box"></span><span>Full test suite green.</span></li>
-    <li><span class="box"></span><span><code>dvc dag</code> / <code>dvc status</code> clean after the
-      <code>dvc.yaml</code> train-stage <code>deps:</code> fix.</span></li>
-    <li><span class="box"></span><span>Smoke-check <code>webapp/app.py</code> still imports
-      <code>coffeecv.infer</code> cleanly &mdash; no redeploy required (ticket §3).</span></li>
+      and historical strings inside <code>experiments/</code>/model cards.
+      <span class="result">Survivors, all deliberate: the alias in <code>infer.py</code> + its tests + <code>ood_eval.id_photos</code>'s docstring explaining it; <code>archive_experiment.py</code>'s index columns over the fold-era record (D5); history comments in <code>dataset.py</code> and <code>coverage_report.py</code>; <code>merge_rig.py</code>'s comment (a stage dep, see Phase 6 correction).</span></span></li>
+    <li><span class="box done"></span><span>Full test suite green.
+      <span class="result"><code>python -m unittest discover -s tests</code>: 55/55 OK, 0 skipped, at <code>130b663</code>.</span></span></li>
+    <li><span class="box done"></span><span><code>dvc dag</code> / <code>dvc status</code> clean after the
+      <code>dvc.yaml</code> train-stage <code>deps:</code> fix.
+      <span class="result"><code>train</code> and all <code>merge_cam_*</code>/<code>crop@*</code> stages up to date; <code>dvc dag train</code> runs through the four merges. <code>dvc status</code> still lists three dataset <code>.dvc</code> entries that are not ML-1's: <code>classes_labels_only</code> and <code>ood_positives</code> (both dirty before this work began) and <code>ood_positives_2026-09-11</code>, whose directory was merged into <code>dataset/ood_positives/</code> by someone else at 2026-09-29 17:47 UTC during the run (all 30 files present there and in the cache) &mdash; left untouched.</span></span></li>
+    <li><span class="box done"></span><span>Smoke-check <code>webapp/app.py</code> still imports
+      <code>coffeecv.infer</code> cleanly &mdash; no redeploy required (ticket §3).
+      <span class="result">Imports with both deployed checkpoints (given a writable <code>COFFEE_CV_LOG_DIR</code>; production's systemd unit provides one). No redeploy.</span></span></li>
   </ul>
 
   <h2>Explicitly not in this change</h2>
@@ -478,6 +487,20 @@
       passes after <code>xrig_eval.py</code>'s deletion; its <code>BANNED</code> list drops the deleted
       <code>run_photowise</code>/<code>pool_photos</code> and adds <code>build_capture_dataset</code>/<code>pooled_class_photos</code>.
       Full suite (<code>-s tests</code>): 55/55 OK, up from 41 before ML-1.</div>
+    <div><div class="when">2026-09-29 &rarr; 09-30</div><strong>Phase 9 done; plan implemented.</strong> Pre-flight caught
+      the <code>merge_rig.py</code> stage-dep edit (reverted, <code>33c2dcd</code>). A first <code>dvc repro train</code> was
+      stopped during photo decoding because Python block-buffers <code>print()</code> into a redirected log (epoch lines
+      would have surfaced tens of epochs late) and relaunched with <code>PYTHONUNBUFFERED=1</code>. It completed 100 epochs
+      in ~9h45m; its <code>dvc.lock</code>/<code>metrics.json</code>/<code>summary.json</code> are committed as
+      <code>130b663</code>, explicitly a pipeline-verification run, not archived to <code>experiments/</code> and not a deploy
+      candidate. All nine checks above pass. <strong>Still open, for the owner:</strong> D3 (DINOv3 head C on its own val) is
+      decided but <code>fit_frozen_head.py</code> still uses the fold median; D2's photo-level test is not implemented and the
+      <code>run_photowise</code> it names was deleted with <code>xrig_eval.py</code> (restore from <code>0fa699c^</code>),
+      leaving <code>geometry.sample_bean_unit_centers</code>/<code>bean_unit_box_at_center</code> uncalled; R1's noise-floor
+      measurement is still required before the first screen on val; patch boxes still key on a dir's position (per this
+      plan), only split membership is order-independent; <code>run_all_rigs.py</code>'s flag defaults are not the adopted
+      values; <code>ood_eval</code>/<code>fit_ood_probe</code>/<code>build_ood_reference</code> on a pre-ML-1 checkpoint now
+      recompute the pooled split, not the one it trained on.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:
