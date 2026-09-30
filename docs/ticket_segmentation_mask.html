@@ -1,0 +1,329 @@
+<title>Bean Mask Stage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Ticket ML-2 · coffee-vision · classification pipeline</div>
+  <h1>Bean segmentation stage: mask with EfficientViT-SAM-L0, crop to the beans, then classify</h1>
+  <p class="lede">Add a stage before classification. A segmentation model marks which pixels are coffee beans. The mask is
+    applied to the photo, and the photo is cropped to a rectangle that keeps 95% of the bean pixels. Patches are then
+    cut from that rectangle and classified by the DINOv3 classifier as today. The model is EfficientViT-SAM-L0, used
+    first as pretrained and then fine-tuned on our photos, with one output class: beans. The stage runs identically in
+    training and serving. This ticket records the design, the owner's decisions, and what it costs. Nothing is
+    implemented yet.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">D1–D9 answered 2026-09-30; P0 next</span></span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Feature: new pipeline stage</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/infer.py</code>, <code>crop</code> stage, new <code>coffeecv/segment_beans.py</code>, <code>dvc.yaml</code>, deploy</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions); no hand annotation (D6)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-09-30</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v"><span class="pill ok">None until P6</span> <span class="tag">then the serving path changes, §7</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D9 answered 2026-09-30; D6 judge mechanism provisional</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-09-30.</strong> Apply a segmentation mask before classification. Use a custom
+      fine-tuned model based on <a href="https://github.com/mit-han-lab/efficientvit/blob/master/applications/efficientvit_sam/README.md">EfficientViT-SAM-L0</a>:
+      start with the pretrained variant, then fine-tune on our dataset. The output is a mask for one class, coffee
+      beans. After the mask is applied, crop the image so that 95% of the bean pixels remain (or another simple rule).
+      Then classify with the tuned DINOv3.</p>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decisions, 2026-09-30 (D1–D9).</strong> <strong>D1, D2, D3, D4, D5, D7, D9</strong> accepted as recommended:
+      the segmenter replaces the tray heuristic at both ends; "bean" means the pile region, including gaps; non-bean pixels
+      are filled with ImageNet mean gray; crop by quantile trim; prompt with a fixed whole-image box; fine-tune the decoder first;
+      an empty mask falls back to the whole frame and is logged. <strong>D6: no hand annotation.</strong> The pretrained
+      EfficientViT-SAM draws the masks and <strong>Claude acts as judge</strong>. The judge returns a verdict plus corrective
+      point prompts, and is checked against planted defects. It runs through the Anthropic API for now; the owner will
+      revisit that mechanism. <strong>D8: no hard latency limit.</strong> Latency is measured and reported, not gated.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the bean region is found by hand-built heuristics: texture to find the tray, then saturation to separate
+    beans from the rim (<code>crop_tray.py</code>), with per-session settings in <code>dataset/&lt;session&gt;.crop.yaml</code>
+    for training and live tray localization at serving (<code>infer.crop_to_bean_region</code>). The heuristic has a known failure
+    (warm reflections on the tray's inner wall read as beans) and one open residual (oneplus, ~16%). It also needs
+    hand-tuning for every new setup. This ticket replaces it with one learned model that runs the same way at both ends.</p>
+  <p>The segmenter only decides <em>where</em> the beans are. What the classifier sees changes in two ways: the crop
+    boundary moves, and non-bean pixels inside the crop are filled. So the DINOv3 head and the OOD probe must be refitted
+    on patches from the new stage. That is cheap, since the backbone is frozen.</p>
+  <p>The classification metric will not show much of a gain (R1). The stage is judged on its own mask and crop metrics
+    and on classification <em>non-inferiority</em>. Its value is robustness on new setups and the removal of per-session
+    crop tuning. It is not a higher val score.</p>
+
+  <h2>2. Background</h2>
+  <h3>The model</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Property</th><th>EfficientViT-SAM-L0</th></tr></thead>
+    <tbody>
+      <tr><td>Input</td><td>512×512 (the XL variants take 1024)</td></tr>
+      <tr><td>Size / compute</td><td class="mono">34.8M params · 35 GMACs</td></tr>
+      <tr><td>Published speed</td><td>8.2 ms on Jetson Orin, 762 img/s on A100. These are GPU numbers. Our server is a 4-core CPU VM, so latency must be measured there (P0).</td></tr>
+      <tr><td>Prompts</td><td>Box, point, or automatic "segment everything". It is a promptable SAM, not a semantic segmenter: it has no built-in notion of "beans".</td></tr>
+      <tr><td>Loading</td><td><code>create_efficientvit_sam_model(name="efficientvit-sam-l0", pretrained=True)</code> from <code>efficientvit.sam_model_zoo</code>. The checkpoint (<code>efficientvit_sam_l0.pt</code>) downloads from Hugging Face.</td></tr>
+      <tr><td>License</td><td>Code is Apache-2.0 (<code>third_party/efficientvit/LICENSE</code>). The license review is handled outside this ticket.</td></tr>
+      <tr><td>Vendored copy</td><td><code>third_party/efficientvit/</code>: the full upstream repo at <code>de7d7733</code> (2025-09-05), 1.5 MB, unmodified. Only <code>.git/</code> and <code>assets/</code> (25 MB of demo GIFs, PNGs and a PDF poster; no code) are left out.</td></tr>
+      <tr><td>Training code</td><td>The repo's script is for full distillation on SA-1B across 8 GPUs. There is no fine-tuning recipe for a small custom dataset, so we write our own loop (P5).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Prior art in this repo</h3>
+  <p><code>coffeecv/crop_tray_sam.py</code> is an unused MobileSAM prototype (via <code>ultralytics</code>) that replaced
+    only the heuristic's stage 2. Its finding carries over directly: <strong>a single point prompt at the tray center
+    snaps to one bean</strong>, because every bean is its own closed contour. A 3×3 grid of foreground points gives
+    the whole pile. Any prompt we choose must be tested against this failure (D5).</p>
+
+  <h3>Scale of the data</h3>
+  <p>9 crop sessions, 938 cropped photos in the four <code>cam_*</code> pools (406 / 220 / 220 / 92). Raw photos are under
+    <code>dataset/&lt;session&gt;/</code> and are DVC-tracked. There are no bean masks yet.</p>
+
+  <h2>3. Pipeline, before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ol>
+        <li>Decode photo (<code>load_rgb_image</code>).</li>
+        <li>Heuristic bean region: tray by texture, beans by saturation, largest all-bean rectangle + safety trim. Training uses per-session <code>crop.yaml</code>.</li>
+        <li>Bean pitch by FFT.</li>
+        <li>40 bean-unit patches → frozen DINOv3 ViT-B/16 + linear head (C=0.1).</li>
+        <li>Mean of patch probabilities; OOD probe on embeddings (threshold 0.5).</li>
+      </ol>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ol>
+        <li>Decode photo.</li>
+        <li><strong>Segment:</strong> EfficientViT-SAM-L0 at 512 with a fixed prompt → bean mask, upsampled to full resolution.</li>
+        <li><strong>Mask + crop:</strong> fill non-bean pixels (D3), crop to the rectangle that keeps ≥95% of bean pixels (D4).</li>
+        <li>Bean pitch by FFT, unchanged.</li>
+        <li>40 patches → DINOv3 + <strong>refitted</strong> head; <strong>refitted</strong> OOD probe.</li>
+      </ol>
+    </div>
+  </div>
+  <p>Steps 2–3 are one function, called by the training <code>crop</code> stage and by <code>infer.py</code>. This follows the
+    train/inference parity rule: the same estimator runs on both sides, with no accurate-offline, cheap-live split. The
+    function logs <code>mask_area_frac</code>, <code>bean_frac_in_crop</code> and <code>retained_frac</code> per photo, the same
+    way <code>beans_across</code> is logged today.</p>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The classifier recipe.</strong> Same frozen DINOv3 ViT-B/16, <code>cls_mean</code> features, linear head with C fixed at 0.1 (ML-1 D3), 40 patches, TTA off. Only the head's and the probe's weights are refitted.</li>
+    <li><strong>Bean-unit patch sizing and the FFT pitch estimator.</strong> They run on the new crop as they run on the old one.</li>
+    <li><strong>The evaluation protocol from ML-1.</strong> Pooled per-class split, val patch macro-F1 selects, test patch macro-F1 reported, paired multi-seed adoption, no camera reported separately.</li>
+    <li><strong>Raw data and class labels.</strong> Masks are a new, separate DVC-tracked input. Photos are not edited.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The classification metric cannot show the benefit.</strong></td>
+        <td>Val patch macro-F1 is ~0.975 and nearly flat across choices (ML-1 R1). The current crop is already an all-bean rectangle, so in-distribution patches are mostly beans either way. The gate is non-inferiority on val/test plus the mask and crop metrics in §7. The real gain is on photos unlike the training set, which no current split measures.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Filled pixels change the embeddings.</strong> The OOD probe's 0.5 threshold was calibrated on unmasked patches.</td>
+        <td>Refit the head and the probe on new-stage patches, then rerun the OOD holdout against today's bar (0/22 genuine refused, 56/56 negatives caught). Patches that straddle a fill boundary are a new kind of input; <code>bean_frac_in_crop</code> shows how often this happens.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A pretrained SAM repeats the heuristic's failure</strong> by taking reflections on the tray wall as beans, or snaps to single beans.</td>
+        <td>This is why a fine-tuning phase exists. P2 measures it before any integration work.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Latency on the CPU server.</strong> <code>/classify</code> takes 7.0 s idle and 12.5 s during a sweep, and training shares the VM.</td>
+        <td>No gate (D8). L0 at 512 is measured on the VM in P0 and again at P6, and the added seconds are reported in the ship decision. ONNX Runtime on CPU is the likely serving path anyway (R5), which should also help speed.</td></tr>
+      <tr><td class="id">R5</td>
+        <td><strong>Owner decision, 2026-09-30.</strong> <code>triton</code>: patch the vendored copy so it is not needed. RMSNorm's Triton kernel is imported only when used; L0 on CPU never uses it. <code>onnx</code>: probably kept and installed, because ONNX Runtime is fast and has a CPU build, making it the likely way to run the segmenter on the server. Each patch to the vendored copy is listed in a note beside it (<code>third_party/efficientvit/PATCHES.md</code>). Any further missing imports found in P0 are handled the same way: patch if unused on CPU, install if useful.</td></tr>
+      <tr><td class="id">R6</td><td><strong>No human ground truth (D6).</strong> Labels come from the pretrained model itself, corrected where the judge flags them. The eval metric is the judge's pass rate, not IoU. A blind spot that the judge and SAM share would go unseen in both training and eval.</td>
+        <td>Planted defects measure the judge's miss rate (P1), and every eval number is reported next to it. Fine-tuning can only improve on what the judge catches, so its gain is bounded by the judge's quality. The eval photo list is fixed before any fine-tuning and is never trained on. The judge sees full-resolution tiles along the mask boundary as well as the downscaled overview, following the rule that crops and masks are verified at full resolution, not in thumbnails.</td></tr>
+      <tr><td class="id">R6b</td><td><strong>The judge is an external, paid, non-deterministic service.</strong></td>
+        <td>A pinned model ID and a committed prompt; verdicts are stored as a DVC-tracked file, so a rerun is a choice, not a surprise. Cost is measured on a 20-photo pilot before any full pass. Overlays are re-encoded from pixels, so photo metadata (GPS, C2PA) is never sent. An API key is needed on whichever machine runs it.</td></tr>
+      <tr><td class="id">R7</td><td><strong>Every cropped pool regenerates.</strong> New DVC hashes everywhere, and a large push.</td>
+        <td>Expected, not a defect. Keep <code>crop_tray.py</code>'s outputs reproducible until P6 so the comparison in P4 stays paired. Check that the DVC remote is back from maintenance before P3.</td></tr>
+      <tr><td class="id">R8</td><td><strong>Mask resolution.</strong> A mask made at 512 px on a ~4000 px photo is ~8× coarser at its edges.</td>
+        <td>Harmless for a 95% crop rule. It would matter only for per-bean work, which is out of scope.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions (answered 2026-09-30)</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Does the new stage replace the tray heuristic or run after it?</td>
+        <td>(a) Replace <code>crop_tray</code> at both ends; the segmenter sees the whole photo. (b) Keep stage 1 (rough tray box by texture) and segment only inside it, as the MobileSAM prototype did.</td>
+        <td><strong>(a), as recommended.</strong> One learned step instead of two, and no per-session <code>crop.yaml</code>. <code>crop_tray.py</code> stays in the repo until P6 as the comparison baseline; deleting it is a later cleanup.</td></tr>
+      <tr><td class="id">D2</td><td>What exactly is "bean" in the mask?</td>
+        <td>(a) The bean <em>region</em>: the pile, including shadows and gaps between touching beans; tray, rim, table and hands excluded. (b) Individual bean pixels only.</td>
+        <td><strong>(a), as recommended.</strong> Patch texture stays as the classifier knows it. Separate piles in one photo are allowed. This definition goes into the judge's prompt.</td></tr>
+      <tr><td class="id">D3</td><td>What fills non-bean pixels inside the crop?</td>
+        <td>(a) ImageNet mean RGB, which normalizes to exactly 0. (b) Black. (c) No fill: the mask only chooses the rectangle.</td>
+        <td><strong>(a), as recommended</strong>, with no comparison arm: P4 runs gray fill only.</td></tr>
+      <tr><td class="id">D4</td><td>The exact crop rule.</td>
+        <td>(a) Quantile trim. (b) Bounding box of the largest connected blob. (c) Blob, then quantile trim. (d) Largest inscribed all-bean rectangle, as today.</td>
+        <td><strong>(a), as recommended.</strong> Cut each side at the 1.25% / 98.75% quantile of the bean pixels' x and y coordinates. The four cut strips hold at most 5% of bean pixels together, so ≥95% is kept <em>by construction</em>. The keep fraction is one param in <code>params.yaml</code>; <code>retained_frac</code> and <code>bean_frac_in_crop</code> are logged per photo.</td></tr>
+      <tr><td class="id">D5</td><td>How is the model prompted?</td>
+        <td>(a) A fixed box covering the whole image. (b) A fixed grid of points. (c) Automatic "segment everything" mode.</td>
+        <td><strong>(a), as recommended</strong>, in both phases. If the pretrained model returns single beans with (a), the P2 baseline falls back to (b). The judge's corrective points (D6) are used only to make training labels; at serving time the prompt stays the fixed box.</td></tr>
+      <tr><td class="id">D6</td><td>Where do the masks come from, and who says they are right?</td>
+        <td>Proposed: hand-corrected masks (~60+20 eval, ~150 train).</td>
+        <td><strong>Owner decided, differently: no hand annotation.</strong> The pretrained EfficientViT-SAM draws every mask and Claude judges it.
+          <br><strong>Role:</strong> pass/fail plus corrective point prompts on failures ("add here", "exclude the rim here"). SAM is rerun with those points and judged again, for at most 2 rounds; a mask still failing is dropped. This way the hard cases (reflections, rims) enter the fine-tuning set instead of being filtered out.
+          <br><strong>Mechanism:</strong> a committed script calling the Anthropic API, with a pinned model ID and prompt, and verdicts in a DVC-tracked file. <em>Provisional: the owner will revisit this.</em>
+          <br><strong>Trust:</strong> planted defects. Known-good masks are corrupted automatically (shift, erode, dilate over the rim, drop a corner) and mixed in blind with the real ones; the catch rate is the judge's measured quality.
+          <br><strong>Sets:</strong> fine-tuning photos from the classifier's train split only; eval photos from val/test plus the OOD negatives (expected: empty mask). The lists live in one committed file.</td></tr>
+      <tr><td class="id">D7</td><td>What does fine-tuning train?</td>
+        <td>(a) Mask decoder only, with image-encoder embeddings cached. (b) Encoder and decoder. (c) Decoder + adapters/LoRA.</td>
+        <td><strong>(a) first, as recommended.</strong> Loss: focal + dice, as in SAM. Go to (b) only if (a) misses the P5 gate.</td></tr>
+      <tr><td class="id">D8</td><td>Latency budget for the new stage.</td>
+        <td>+1.0 s, +1.5 s, +3.0 s, or no hard limit.</td>
+        <td><strong>No hard limit.</strong> Measured in P0 and P6 and reported in the ship decision; P0 is no longer a kill switch.</td></tr>
+      <tr><td class="id">D9</td><td>What happens when the mask is empty or tiny?</td>
+        <td>(a) Fall back to the whole frame, flag it, and let the OOD probe decide. (b) Refuse as "no beans found".</td>
+        <td><strong>(a), as recommended.</strong> <code>mask_area_frac</code> is logged on real traffic; a gate comes only once it can be calibrated.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Plan and acceptance</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><div><strong>P0 · Setup.</strong> Code is vendored (done 2026-09-30). Patch out the <code>triton</code> import and install <code>onnx</code> (R5), DVC-track the L0 checkpoint, and point the model zoo at it. Time one photo through a thin loader on the VM.
+      <span class="result">Reported, not gated (D8).</span></div></li>
+    <li><span class="box"></span><div><strong>P1 · Judge.</strong> Write the judge prompt from D2, and the overlay renderer (overview + full-resolution boundary tiles). Fix the photo lists. Run a 20-photo pilot for cost and sanity. Then run the planted-defect check.
+      <span class="result">Output: the judge's catch rate on planted defects. Proposed bar ≥ 90%, pending the owner. Below it, the judge prompt is revised before any number from it is used.</span></div></li>
+    <li><span class="box"></span><div><strong>P2 · Pretrained baseline.</strong> L0 with the D5 prompt on the eval set. Report the judge's pass rate, the median <code>bean_frac_in_crop</code>, and the negatives' mask areas. Judge today's heuristic crops the same way, for comparison. Contact sheet of the judge's failures, reviewed at full resolution.
+      <span class="result">Decides whether P3 starts with pretrained masks, or whether fine-tuning comes first.</span></div></li>
+    <li><span class="box"></span><div><strong>P3 · Integrate.</strong> Add <code>segment_beans.py</code> (steps 2–3 of §3) and call it from the <code>crop</code> stage and from <code>infer.crop_to_bean_region</code>. Smoke-test both code paths through the real CLI entry points, then in the deploy sandbox.
+      <span class="result">Per-photo diagnostics logged on both paths.</span></div></li>
+    <li><span class="box"></span><div><strong>P4 · Classifier refit, pretrained masks.</strong> Regenerate pools, refit the head (3 seeds) and the OOD probe. Compare paired per seed against the current recipe (gray fill, D3). Rerun the OOD holdout.
+      <span class="result">Gate: val and test patch macro-F1 not worse than baseline beyond the paired seed spread; OOD holdout at today's bar.</span></div></li>
+    <li><span class="box"></span><div><strong>P5 · Fine-tune.</strong> Build the train-split label set with the judge loop (D6: verdict, corrective points, rerun, at most 2 rounds). Decoder-only fine-tuning (D7) with the fixed box prompt. Judge the fine-tuned model's masks on the eval set.
+      <span class="result">Gate: judge pass rate above P2's pretrained rate beyond its bootstrap interval, with no negative producing a large mask. It is always read next to P1's catch rate. If this gate fails, ship the pretrained model when P4 passed.</span></div></li>
+    <li><span class="box"></span><div><strong>P6 · Ship.</strong> Repeat P4 with the chosen segmenter. Deploy through <code>scripts/deploy_webapp.sh</code>. Update <code>docs/inference_path.html</code>. Spot-check through the real <code>/classify</code> path.
+      <span class="result">The live model changes here, and only here.</span></div></li>
+  </ol>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Fine-tuning the DINOv3 backbone. It stays frozen; only its head is refitted.</li>
+    <li>TensorRT and any GPU serving. (ONNX Runtime on CPU is now probably in scope, R5.)</li>
+    <li>Per-bean instance masks. Also deriving bean pitch or bean counts from masks instead of the FFT: that is a plausible follow-up, but it needs D2 (b).</li>
+    <li>A "no beans" refusal gate (D9) until real-traffic data exists.</li>
+    <li>Deleting <code>crop_tray.py</code>, <code>crop_tray_sam.py</code> and the per-session <code>crop.yaml</code> files. This is a cleanup after P6.</li>
+    <li>A generalization test set of new cameras or fresh scoops. It is still the missing measurement from ML-1 R2, and it would be the fair test of this stage.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-09-30</div>Owner requests a segmentation stage before classification, based on EfficientViT-SAM-L0: pretrained first, then fine-tuned; one class (beans); crop to 95% of bean pixels; then DINOv3. Ticket written from the tracked sources at <code>abedb16</code> and the EfficientViT-SAM README. Not implemented.</div>
+    <div><div class="when">2026-09-30</div>Owner answers D1–D9: D1–D5, D7 and D9 as recommended; D6 changed to no hand annotation, with pretrained EfficientViT-SAM masks judged by Claude (verdict + corrective points, API for now, provisional; judge checked with planted defects); D8 no hard latency limit. Status set to <strong>In progress</strong>. Still not implemented; P0 next.</div>
+    <div><div class="when">2026-09-30</div>Owner: vendor the full upstream code as a subfolder; the license is handled outside this ticket. Vendored into <code>third_party/efficientvit/</code> at <code>de7d7733</code> (1.5 MB, <code>assets/</code> media left out). Building L0 needs <code>onnx</code> and <code>triton</code> at import time (R5).</div>
+    <div><div class="when">2026-09-30</div>Owner decides R5: patch the vendored code so it does not need <code>triton</code>; probably keep <code>onnx</code>, since ONNX Runtime is fast and has a CPU build.</div>
+  </div>
+
+  <footer>Related: <code>coffeecv/crop_tray.py</code>, <code>coffeecv/crop_tray_sam.py</code> (MobileSAM prototype), <code>coffeecv/infer.py</code> (<code>crop_to_bean_region</code>, <code>patches_for_photo</code>),
+    <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>docs/inference_path.html</code>, <code>docs/ood_guard_eval.md</code>,
+    <code>docs/ticket_retire_cross_rig.html</code> (ML-1: evaluation protocol), <code>docs/ticket_webapp_release_isolation.html</code> (deploy procedure).</footer>
+</main>
