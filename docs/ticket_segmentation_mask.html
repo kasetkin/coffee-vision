@@ -112,23 +112,24 @@
 <main>
   <div class="eyebrow">Ticket ML-2 · coffee-vision · classification pipeline</div>
   <h1>Bean segmentation stage: mask with EfficientViT-SAM-L0, crop to the beans, then classify</h1>
-  <p class="lede">Add a stage before classification. A segmentation model marks which pixels are coffee beans. The mask is
-    applied to the photo, and the photo is cropped to a rectangle that keeps 95% of the bean pixels. Patches are then
-    cut from that rectangle and classified by the DINOv3 classifier as today. The model is EfficientViT-SAM-L0, used
-    first as pretrained and then fine-tuned on our photos, with one output class: beans. The stage runs identically in
-    training and serving. This ticket records the design, the owner's decisions, and what it costs. Nothing is
-    implemented yet.</p>
+  <p class="lede">Add a stage before classification. A segmentation model marks the <em>bean region</em>: the part of the
+    photo covered by a pile of coffee beans. The mask is applied to the photo, and the photo is cropped to a rectangle
+    that keeps 95% of the bean region. Patches are then cut from that rectangle and classified by the DINOv3 classifier
+    as today. The model is EfficientViT-SAM-L0, used first as pretrained and then fine-tuned on our photos, with one
+    output class: the bean region, coffee beans only (D10). The stage runs identically in training and serving. This
+    ticket records the design, the owner's decisions, and what it costs. Terms follow <code>GLOSSARY.md</code>. Nothing
+    is implemented yet.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">D1–D9 answered 2026-09-30; P0 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">D1–D20 answered 2026-09-30; P0 next</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Feature: new pipeline stage</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/infer.py</code>, <code>crop</code> stage, new <code>coffeecv/segment_beans.py</code>, <code>dvc.yaml</code>, deploy</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
-    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions); no hand annotation (D6)</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions; accepts or declines masks in the review tool, D12); no hand annotation (D6)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-09-30</span></div>
     <div class="field"><span class="k">Production impact</span><span class="v"><span class="pill ok">None until P6</span> <span class="tag">then the serving path changes, §7</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D9 answered 2026-09-30; D6 judge mechanism provisional</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D20 answered 2026-09-30; judge model and mechanism picked after the P1 pilot (D15)</span></span></div>
   </div>
 
   <div class="callout info">
@@ -147,6 +148,18 @@
       EfficientViT-SAM draws the masks and <strong>Claude acts as judge</strong>. The judge returns a verdict plus corrective
       point prompts, and is checked against planted defects. It runs through the Anthropic API for now; the owner will
       revisit that mechanism. <strong>D8: no hard latency limit.</strong> Latency is measured and reported, not gated.</p>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Design review, 2026-09-30 (D10–D20).</strong> The mask marks <strong>coffee beans only</strong>, green or
+      roasted; a pile of anything else gets an empty mask (D10). The segmenter trains and is evaluated only on the OOD
+      <em>dev</em> negatives (D11). The owner accepts or declines prebuilt masks in a local review tool, with no drawing
+      (D12), under one written accept rule that the judge also uses (D13). The judge must catch ≥ 90% of consequential
+      planted defects with ≤ 10% false fails (D14); the judge's model and mechanism are picked after the P1 pilot (D15).
+      Judging is an annotation step outside <code>dvc repro</code>: verdicts in git, label masks in DVC (D16). Patches are
+      drawn inside the crop and rejected below 80% bean region (D17); an empty or tiny mask means the whole original
+      photo (D18); the FFT runs on the filled crop (D19). ML-2 runs on today's data; the new-data merge fine-tunes the
+      segmenter again in its own ticket (D20).</p>
   </div>
 
   <h2>1. Summary</h2>
@@ -204,24 +217,26 @@
       <h3>After</h3>
       <ol>
         <li>Decode photo.</li>
-        <li><strong>Segment:</strong> EfficientViT-SAM-L0 at 512 with a fixed prompt → bean mask, upsampled to full resolution.</li>
-        <li><strong>Mask + crop:</strong> fill non-bean pixels (D3), crop to the rectangle that keeps ≥95% of bean pixels (D4).</li>
-        <li>Bean pitch by FFT, unchanged.</li>
-        <li>40 patches → DINOv3 + <strong>refitted</strong> head; <strong>refitted</strong> OOD probe.</li>
+        <li><strong>Segment:</strong> EfficientViT-SAM-L0 at 512 with a fixed prompt → bean-region mask, upsampled to full resolution.</li>
+        <li><strong>Mask + crop:</strong> fill non-bean pixels (D3), crop to the rectangle that keeps ≥95% of the bean region (D4). If the mask is empty or tiny, skip this step and use the whole original photo, unfilled (D18).</li>
+        <li>Bean pitch by FFT on the filled crop; the estimator itself is unchanged (D19).</li>
+        <li>40 random patches inside the crop; a patch with less than 80% bean region is rejected and redrawn, and after a capped number of attempts the best rejected patches top up to 40 (D17). No check on fallback photos (D18).</li>
+        <li>DINOv3 + <strong>refitted</strong> head; <strong>refitted</strong> OOD probe.</li>
       </ol>
     </div>
   </div>
   <p>Steps 2–3 are one function, called by the training <code>crop</code> stage and by <code>infer.py</code>. This follows the
     train/inference parity rule: the same estimator runs on both sides, with no accurate-offline, cheap-live split. The
     function logs <code>mask_area_frac</code>, <code>bean_frac_in_crop</code> and <code>retained_frac</code> per photo, the same
-    way <code>beans_across</code> is logged today.</p>
+    way <code>beans_across</code> is logged today. Patch sampling also logs whether the photo fell back to the whole frame
+    (D18) and how many of its patches are below the 80% bar (D17).</p>
 
   <h2>4. What does not change</h2>
   <ul>
     <li><strong>The classifier recipe.</strong> Same frozen DINOv3 ViT-B/16, <code>cls_mean</code> features, linear head with C fixed at 0.1 (ML-1 D3), 40 patches, TTA off. Only the head's and the probe's weights are refitted.</li>
-    <li><strong>Bean-unit patch sizing and the FFT pitch estimator.</strong> They run on the new crop as they run on the old one.</li>
+    <li><strong>Bean-unit patch sizing and the FFT pitch estimator.</strong> They run on the new, filled crop as they run on the old one. P2 checks that the pitch does not shift (D19). Only patch <em>placement</em> gains a check: the 80% bean-region rule (D17).</li>
     <li><strong>The evaluation protocol from ML-1.</strong> Pooled per-class split, val patch macro-F1 selects, test patch macro-F1 reported, paired multi-seed adoption, no camera reported separately.</li>
-    <li><strong>Raw data and class labels.</strong> Masks are a new, separate DVC-tracked input. Photos are not edited.</li>
+    <li><strong>Raw data and class labels.</strong> Masks are a new, separate DVC-tracked input; judge verdicts and the owner's review decisions are committed to git (D16). Photos are not edited.</li>
   </ul>
 
   <h2>5. Risks</h2>
@@ -239,9 +254,9 @@
       <tr><td class="id">R5</td>
         <td><strong>Owner decision, 2026-09-30.</strong> <code>triton</code>: patch the vendored copy so it is not needed. RMSNorm's Triton kernel is imported only when used; L0 on CPU never uses it. <code>onnx</code>: probably kept and installed, because ONNX Runtime is fast and has a CPU build, making it the likely way to run the segmenter on the server. Each patch to the vendored copy is listed in a note beside it (<code>third_party/efficientvit/PATCHES.md</code>). Any further missing imports found in P0 are handled the same way: patch if unused on CPU, install if useful.</td></tr>
       <tr><td class="id">R6</td><td><strong>No human ground truth (D6).</strong> Labels come from the pretrained model itself, corrected where the judge flags them. The eval metric is the judge's pass rate, not IoU. A blind spot that the judge and SAM share would go unseen in both training and eval.</td>
-        <td>Planted defects measure the judge's miss rate (P1), and every eval number is reported next to it. Fine-tuning can only improve on what the judge catches, so its gain is bounded by the judge's quality. The eval photo list is fixed before any fine-tuning and is never trained on. The judge sees full-resolution tiles along the mask boundary as well as the downscaled overview, following the rule that crops and masks are verified at full resolution, not in thumbnails.</td></tr>
+        <td>Planted defects measure the judge's miss rate (P1), and every eval number is reported next to it. Because planted defects only test errors someone thought of, the owner also reviews ~50 of the judge's real P2 verdicts blind, and the agreement rate is reported (D12). Fine-tuning can only improve on what the judge catches, so its gain is bounded by the judge's quality. The eval photo list is fixed before any fine-tuning and is never trained on. The judge sees full-resolution tiles along the mask boundary as well as the downscaled overview, following the rule that crops and masks are verified at full resolution, not in thumbnails.</td></tr>
       <tr><td class="id">R6b</td><td><strong>The judge is an external, paid, non-deterministic service.</strong></td>
-        <td>A pinned model ID and a committed prompt; verdicts are stored as a DVC-tracked file, so a rerun is a choice, not a surprise. Cost is measured on a 20-photo pilot before any full pass. Overlays are re-encoded from pixels, so photo metadata (GPS, C2PA) is never sent. An API key is needed on whichever machine runs it.</td></tr>
+        <td>A pinned model ID and a committed prompt. Verdicts are committed to git, keyed by photo and mask hash, and <code>dvc repro</code> never calls the judge, so a rerun is a choice, not a surprise (D16). Cost is measured on a 20-photo pilot before any full pass, for both <code>claude -p</code> and the API (D15). Overlays are re-encoded from pixels, so photo metadata (GPS, C2PA) is never sent. The machine that runs it needs either a Claude Code login or an API key.</td></tr>
       <tr><td class="id">R7</td><td><strong>Every cropped pool regenerates.</strong> New DVC hashes everywhere, and a large push.</td>
         <td>Expected, not a defect. Keep <code>crop_tray.py</code>'s outputs reproducible until P6 so the comparison in P4 stays paired. Check that the DVC remote is back from maintenance before P3.</td></tr>
       <tr><td class="id">R8</td><td><strong>Mask resolution.</strong> A mask made at 512 px on a ~4000 px photo is ~8× coarser at its edges.</td>
@@ -272,9 +287,9 @@
         <td>Proposed: hand-corrected masks (~60+20 eval, ~150 train).</td>
         <td><strong>Owner decided, differently: no hand annotation.</strong> The pretrained EfficientViT-SAM draws every mask and Claude judges it.
           <br><strong>Role:</strong> pass/fail plus corrective point prompts on failures ("add here", "exclude the rim here"). SAM is rerun with those points and judged again, for at most 2 rounds; a mask still failing is dropped. This way the hard cases (reflections, rims) enter the fine-tuning set instead of being filtered out.
-          <br><strong>Mechanism:</strong> a committed script calling the Anthropic API, with a pinned model ID and prompt, and verdicts in a DVC-tracked file. <em>Provisional: the owner will revisit this.</em>
-          <br><strong>Trust:</strong> planted defects. Known-good masks are corrupted automatically (shift, erode, dilate over the rim, drop a corner) and mixed in blind with the real ones; the catch rate is the judge's measured quality.
-          <br><strong>Sets:</strong> fine-tuning photos from the classifier's train split only; eval photos from val/test plus the OOD negatives (expected: empty mask). The lists live in one committed file.</td></tr>
+          <br><strong>Mechanism:</strong> a committed script calling the Anthropic API, with a pinned model ID and prompt, and verdicts in a DVC-tracked file. <em>Provisional: the owner will revisit this.</em> <em>Superseded by D15 (model and mechanism) and D16 (storage).</em>
+          <br><strong>Trust:</strong> planted defects. Known-good masks are corrupted automatically (shift, erode, dilate over the rim, drop a corner) and mixed in blind with the real ones; the catch rate is the judge's measured quality. <em>The known-good masks are base masks the owner accepted (D12); the bar is D14.</em>
+          <br><strong>Sets:</strong> fine-tuning photos from the classifier's train split only; eval photos from val/test plus the OOD negatives (expected: empty mask). The lists live in one committed file. <em>Negatives: dev only, split for the segmenter (D11).</em></td></tr>
       <tr><td class="id">D7</td><td>What does fine-tuning train?</td>
         <td>(a) Mask decoder only, with image-encoder embeddings cached. (b) Encoder and decoder. (c) Decoder + adapters/LoRA.</td>
         <td><strong>(a) first, as recommended.</strong> Loss: focal + dice, as in SAM. Go to (b) only if (a) misses the P5 gate.</td></tr>
@@ -287,22 +302,54 @@
     </tbody>
   </table></div>
 
+  <h3>Design review (answered 2026-09-30)</h3>
+  <p>A question-by-question review of what D1–D9 left open. The terms used here (coffee bean, bean region, negative,
+    judge, base mask, planted defect, catch rate, false-fail rate) are defined in <code>GLOSSARY.md</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D10</td><td>Does the mask mark only coffee, or any pile of bean-like things?</td>
+        <td><strong>Coffee beans only</strong>, if the segmenter can be shown to do it (D11's negative test). A coffee bean is the seed without cherry pulp or parchment, green or roasted, whole or split. A bean region is a pile of <em>mostly whole</em> coffee beans, including stray foreign objects lying inside it. Piles of other seeds, grains, legumes, ground coffee, cherries or mostly broken beans get an empty mask. A pretrained SAM has no notion of classes and will outline any pile, so only fine-tuning (P5) can deliver this. If P5's negative test fails, the segmenter ships as "any pile" and the OOD probe alone decides whether it is coffee.</td></tr>
+      <tr><td class="id">D11</td><td>Which negatives does the segmenter use, and what counts as success?</td>
+        <td><strong>OOD <em>dev</em> negatives only</strong>, split by scenario tag into seg-train (~2/3) and seg-eval (~1/3). Near-duplicate shots stay on the same side. The OOD holdout is never used by the segmenter. Their labels are empty masks by definition, with no judge involved. <strong>Negative test (added to the P5 gate):</strong> ≥ 90% of pile-like seg-eval negatives produce an empty or tiny mask, reported per tag, with <code>user_samerig</code> (green legumes, confusable grains on our own tray) on its own line and the interval shown. Pass rates are reported per roast state and are not gated. If only the negative test fails with decoder-only training, try encoder + decoder (D7 (b)) once before giving up on coffee-only.</td></tr>
+      <tr><td class="id">D12</td><td>Where do the known-good base masks come from, and how does the owner review?</td>
+        <td><strong>The owner accepts or declines prebuilt pretrained masks; no drawing.</strong> Base masks are drawn only from val/test, spread across sessions and cameras, green and roasted, and never used for training. About 50 are needed (25 for prompt development + 25 held out for the final check), so ~60–70 photos are reviewed. The owner also reviews ~50 randomly drawn real P2 masks blind (the judge's verdict is shown only after the click), and the agreement is reported next to the catch rate. <strong>Tool:</strong> a local review server in the devcontainer, reached through VS Code's port forwarding. Each click is written straight to a decisions file committed to git. The screen shows the photo with a thin mask outline (Space toggles it), click-to-zoom at full resolution, the resulting crop box dashed, Accept/Decline buttons (A/D keys), optional one-click decline reasons (rim/tray included, beans missed, snapped to single beans, not coffee, other), and a progress counter. Every photo is accepted, declined or unreviewed; clicking again overwrites. The tool shows any committed list of (photo, mask) items and is reused for P2's failure review and judge audits.</td></tr>
+      <tr><td class="id">D13</td><td>What makes a mask acceptable?</td>
+        <td><strong>One rule, used word for word on the review page and in the judge's prompt:</strong>
+          <br>Accept the mask only if all of these hold: (1) nothing inside the outline is tray, rim, table, hand or reflection, apart from a few pixels along the edge; (2) no part of a coffee-bean pile bigger than about one bean lies outside the outline; (3) the outline covers each pile as a whole, including the gaps, shadows and anything lying inside it, and doesn't trace individual beans; (4) if the photo has no pile of mostly whole coffee beans (green or roasted; not other seeds, grains, legumes, ground coffee, cherries, parchment or mostly broken beans), the mask is empty or covers at most a few beans. Otherwise, decline.</td></tr>
+      <tr><td class="id">D14</td><td>When is the judge good enough?</td>
+        <td><strong>Catch ≥ 90% of consequential planted defects <em>and</em> false-fail ≤ 10% on unmodified base masks</strong>, per defect type. A defect is consequential if it drops the D4 crop's IoU with the clean crop to ≤ 0.90, or adds non-bean area equal to ≥ 5% of the bean region. Smaller defects are also planted; their catch rate is reported, not gated. The prompt is developed on the first 25 bases, with at most 3 revisions. The final check runs once, on freshly generated defects on the 25 held-out bases. If it fails, work stops and the owner decides.</td></tr>
+      <tr><td class="id">D15</td><td>Which model is the judge, and how does it run?</td>
+        <td><strong>Chosen after the P1 20-photo pilot.</strong> The pilot runs Sonnet 5.5 and Opus 5.5 on the same planted-defect set; the cheaper model that meets D14 is pinned. It runs either as headless <code>claude -p --model …</code> from a committed script (on the owner's Claude Code plan) or as a script on the Anthropic API with Message Batches. The pilot reports measured cost for both, projected to the full run; the owner picks. Nothing runs beyond the pilot until then.</td></tr>
+      <tr><td class="id">D16</td><td>How are judge outputs stored?</td>
+        <td><strong>Judging is an annotation step, not a DVC stage</strong>: <code>dvc repro</code> never calls the judge, and a rerun is a deliberate command. The final label masks are stored and DVC-tracked; the verdicts and corrective points are kept as the record of how each mask was made. Verdicts, corrective points and the owner's review decisions are small text files committed to git, so they don't depend on the DVC remote. Each verdict is keyed by photo and mask hash. A stage that computes pass rates reads only stored verdicts and fails loudly, naming the masks to judge, if one is missing.</td></tr>
+      <tr><td class="id">D17</td><td>Where are patches placed?</td>
+        <td><strong>Crop first (D4), then random patches inside the crop.</strong> A patch whose bean-region share is below a <code>params.yaml</code> value (default <strong>0.80</strong>) is rejected and redrawn, the same way in training and serving. After a capped number of attempts (a param, e.g. 20 × 40), the best rejected patches, highest bean share first, top the photo up to 40. The number of below-threshold patches is logged per photo.</td></tr>
+      <tr><td class="id">D18</td><td>What counts as a tiny mask, and what happens then?</td>
+        <td><strong>A <code>mask_area_frac</code> threshold in <code>params.yaml</code></strong>, set in P2 at half the smallest bean-region area on a genuine eval photo. An empty or tiny mask means patches are drawn from the whole original photo, unfilled, and all of them are accepted (D9 (a)). Every trigger is logged.</td></tr>
+      <tr><td class="id">D19</td><td>What does the FFT pitch estimator see?</td>
+        <td><strong>The filled crop:</strong> mask, fill and crop first, then the FFT. <code>_K_LO</code> is not touched. P2 compares <code>beans_across</code> for the old and new crops of the same photos. It passes if the median relative change is ≤ 5% and 95% of photos change by ≤ 15%. If it fails, the pitch is estimated on the largest all-bean window instead. The check looks for a <em>systematic</em> shift; the data already varies in distance and lens.</td></tr>
+      <tr><td class="id">D20</td><td>When do the new photos (<code>dataset_new_ignored/</code>) join?</td>
+        <td><strong>After ML-2.</strong> ML-2 runs on today's data, which is green coffee apart from 46 roasted photos (<code>2026-08-30__pixel/class_010</code>). The data-merge ticket (classes 011/012 and the rest) re-judges the new photos, fine-tunes the segmenter again, and refits the head and probe. The segmenter's eval list only ever grows: no ML-2 eval photo moves to training, and the post-merge model is also scored on the ML-2 subset. There is no roasted guard in ML-2; P4/P5 choose what ships, and a new release follows the merge.</td></tr>
+    </tbody>
+  </table></div>
+
   <h2>7. Plan and acceptance</h2>
   <ol class="tasks">
     <li><span class="box"></span><div><strong>P0 · Setup.</strong> Code is vendored (done 2026-09-30). Patch out the <code>triton</code> import and install <code>onnx</code> (R5), DVC-track the L0 checkpoint, and point the model zoo at it. Time one photo through a thin loader on the VM.
       <span class="result">Reported, not gated (D8).</span></div></li>
-    <li><span class="box"></span><div><strong>P1 · Judge.</strong> Write the judge prompt from D2, and the overlay renderer (overview + full-resolution boundary tiles). Fix the photo lists. Run a 20-photo pilot for cost and sanity. Then run the planted-defect check.
-      <span class="result">Output: the judge's catch rate on planted defects. Proposed bar ≥ 90%, pending the owner. Below it, the judge prompt is revised before any number from it is used.</span></div></li>
-    <li><span class="box"></span><div><strong>P2 · Pretrained baseline.</strong> L0 with the D5 prompt on the eval set. Report the judge's pass rate, the median <code>bean_frac_in_crop</code>, and the negatives' mask areas. Judge today's heuristic crops the same way, for comparison. Contact sheet of the judge's failures, reviewed at full resolution.
-      <span class="result">Decides whether P3 starts with pretrained masks, or whether fine-tuning comes first.</span></div></li>
-    <li><span class="box"></span><div><strong>P3 · Integrate.</strong> Add <code>segment_beans.py</code> (steps 2–3 of §3) and call it from the <code>crop</code> stage and from <code>infer.crop_to_bean_region</code>. Smoke-test both code paths through the real CLI entry points, then in the deploy sandbox.
-      <span class="result">Per-photo diagnostics logged on both paths.</span></div></li>
+    <li><span class="box"></span><div><strong>P1 · Judge.</strong> Fix the photo lists (D11, D12) in one committed file. Generate pretrained masks for the candidate base photos. Build the review tool (D12) and test it before handing it over. The owner reviews ~60–70 masks to get ~50 base masks. Write the judge prompt around the D13 accept rule, and the overlay renderer (overview + full-resolution boundary tiles). Run the 20-photo pilot with Sonnet 5.5 and Opus 5.5 and report the cost of both mechanisms; the owner picks (D15). Develop the prompt on 25 bases (≤ 3 revisions), then run the final planted-defect check once on the 25 held-out bases.
+      <span class="result">Output: catch rate and false-fail rate per defect type against the D14 bar. If they fail, work stops and the owner decides.</span></div></li>
+    <li><span class="box"></span><div><strong>P2 · Pretrained baseline.</strong> L0 with the D5 prompt on the eval set. Report the judge's pass rate (per roast state), the median <code>bean_frac_in_crop</code>, and the negatives' mask areas per tag. Judge today's heuristic crops the same way, for comparison. The owner reviews the judge's failures and the ~50-mask blind audit in the review tool (D12). Set the tiny-mask threshold (D18). Run the <code>beans_across</code> check (D19).
+      <span class="result">Decides whether P3 starts with pretrained masks, or whether fine-tuning comes first. Reports judge–owner agreement next to the catch rate.</span></div></li>
+    <li><span class="box"></span><div><strong>P3 · Integrate.</strong> Add <code>segment_beans.py</code> (steps 2–3 of §3, with the D18 fallback) and the D17 patch rule, and call them from the <code>crop</code> stage and from <code>infer.crop_to_bean_region</code> / <code>patches_for_photo</code>. Smoke-test both code paths through the real CLI entry points, then in the deploy sandbox.
+      <span class="result">Per-photo diagnostics logged on both paths, including fallbacks and below-threshold patch counts.</span></div></li>
     <li><span class="box"></span><div><strong>P4 · Classifier refit, pretrained masks.</strong> Regenerate pools, refit the head (3 seeds) and the OOD probe. Compare paired per seed against the current recipe (gray fill, D3). Rerun the OOD holdout.
       <span class="result">Gate: val and test patch macro-F1 not worse than baseline beyond the paired seed spread; OOD holdout at today's bar.</span></div></li>
-    <li><span class="box"></span><div><strong>P5 · Fine-tune.</strong> Build the train-split label set with the judge loop (D6: verdict, corrective points, rerun, at most 2 rounds). Decoder-only fine-tuning (D7) with the fixed box prompt. Judge the fine-tuned model's masks on the eval set.
-      <span class="result">Gate: judge pass rate above P2's pretrained rate beyond its bootstrap interval, with no negative producing a large mask. It is always read next to P1's catch rate. If this gate fails, ship the pretrained model when P4 passed.</span></div></li>
+    <li><span class="box"></span><div><strong>P5 · Fine-tune.</strong> Build the train-split label set with the judge loop (D6: verdict, corrective points, rerun, at most 2 rounds), plus empty masks for the seg-train negatives (D11). Store it as D16 describes. Decoder-only fine-tuning (D7) with the fixed box prompt. Judge the fine-tuned model's masks on the eval set.
+      <span class="result">Gate: judge pass rate above P2's pretrained rate beyond its bootstrap interval, and D11's negative test (≥ 90% of pile-like seg-eval negatives empty or tiny). It is always read next to P1's catch rate. If only the negative test fails, try encoder + decoder once (D11); if it still fails, the segmenter is "any pile" (D10). If the pass-rate gate fails, ship the pretrained model when P4 passed.</span></div></li>
     <li><span class="box"></span><div><strong>P6 · Ship.</strong> Repeat P4 with the chosen segmenter. Deploy through <code>scripts/deploy_webapp.sh</code>. Update <code>docs/inference_path.html</code>. Spot-check through the real <code>/classify</code> path.
-      <span class="result">The live model changes here, and only here.</span></div></li>
+      <span class="result">The live model changes here, and only here. A further release follows the data merge (D20).</span></div></li>
   </ol>
 
   <h2>Out of scope</h2>
@@ -311,6 +358,7 @@
     <li>TensorRT and any GPU serving. (ONNX Runtime on CPU is now probably in scope, R5.)</li>
     <li>Per-bean instance masks. Also deriving bean pitch or bean counts from masks instead of the FFT: that is a plausible follow-up, but it needs D2 (b).</li>
     <li>A "no beans" refusal gate (D9) until real-traffic data exists.</li>
+    <li>Merging <code>dataset_new_ignored/</code> (classes 011/012 and the rest), and the segmenter's second fine-tuning on it. That is the data-merge ticket (D20).</li>
     <li>Deleting <code>crop_tray.py</code>, <code>crop_tray_sam.py</code> and the per-session <code>crop.yaml</code> files. This is a cleanup after P6.</li>
     <li>A generalization test set of new cameras or fresh scoops. It is still the missing measurement from ML-1 R2, and it would be the fair test of this stage.</li>
   </ul>
@@ -321,9 +369,10 @@
     <div><div class="when">2026-09-30</div>Owner answers D1–D9: D1–D5, D7 and D9 as recommended; D6 changed to no hand annotation, with pretrained EfficientViT-SAM masks judged by Claude (verdict + corrective points, API for now, provisional; judge checked with planted defects); D8 no hard latency limit. Status set to <strong>In progress</strong>. Still not implemented; P0 next.</div>
     <div><div class="when">2026-09-30</div>Owner: vendor the full upstream code as a subfolder; the license is handled outside this ticket. Vendored into <code>third_party/efficientvit/</code> at <code>de7d7733</code> (1.5 MB, <code>assets/</code> media left out). Building L0 needs <code>onnx</code> and <code>triton</code> at import time (R5).</div>
     <div><div class="when">2026-09-30</div>Owner decides R5: patch the vendored code so it does not need <code>triton</code>; probably keep <code>onnx</code>, since ONNX Runtime is fast and has a CPU build.</div>
+    <div><div class="when">2026-09-30</div>Design review with the owner answers D10–D20: coffee-only mask, segmenter negatives, owner accept/decline review tool, accept rule, judge bar, judge model and mechanism after the pilot, storage of judge outputs, patch placement, tiny-mask fallback, FFT input, and the order relative to the data merge. The owner confirmed the green/roasted split of today's data (roasted only in <code>2026-08-30__pixel/class_010</code>) and that photos show mostly whole beans, a few split; both were checked by eye on random samples at full resolution. <code>GLOSSARY.md</code> created. Still not implemented; P0 next.</div>
   </div>
 
-  <footer>Related: <code>coffeecv/crop_tray.py</code>, <code>coffeecv/crop_tray_sam.py</code> (MobileSAM prototype), <code>coffeecv/infer.py</code> (<code>crop_to_bean_region</code>, <code>patches_for_photo</code>),
+  <footer>Related: <code>GLOSSARY.md</code> (terms), <code>coffeecv/crop_tray.py</code>, <code>coffeecv/crop_tray_sam.py</code> (MobileSAM prototype), <code>coffeecv/infer.py</code> (<code>crop_to_bean_region</code>, <code>patches_for_photo</code>),
     <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>docs/inference_path.html</code>, <code>docs/ood_guard_eval.md</code>,
     <code>docs/ticket_retire_cross_rig.html</code> (ML-1: evaluation protocol), <code>docs/ticket_webapp_release_isolation.html</code> (deploy procedure).</footer>
 </main>
