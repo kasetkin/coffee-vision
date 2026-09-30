@@ -119,7 +119,7 @@
     what the change costs. Nothing is implemented yet.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done · merged</span> <span class="tag">main 078b11f, not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-09-30; merged 078b11f, pushed to origin at 6c458e0</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Refactor + workflow change</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/</code>, <code>coffeecv_dino/</code>, <code>params.yaml</code>, <code>dvc.yaml</code>, docs</span></div>
@@ -276,6 +276,7 @@
     <div><div class="when">2026-09-28</div>Owner decides that all cameras are equal and that cross-camera validation and training logic is removed. Ticket written from a read of the tracked sources at <code>d9089fb</code>. Not implemented.</div>
     <div><div class="when">2026-09-29</div>Owner answers D1 (b, pooled per-class split) and D4 (a, naming it "capture"), and confirms the new code does not need to reproduce the old per-camera split byte-for-byte. D2, D3, D5, D6, D7 accepted as recommended. Claude drafts an implementation plan from this ticket (kept outside the ticket) and trims the ticket itself down to decisions and findings. Still not implemented.</div>
     <div><div class="when">2026-09-30</div>Implemented and merged into main (<code>078b11f</code>); see the plan's Phase 9 entry for what is left. Owner then changes D3 to (b), C fixed at 0.1, and removes D2's photo-level test for now. <code>run_all_rigs.py</code>'s lever flags now default to the adopted recipe. R1's noise measurement dropped from this ticket, to be done later another way. Nothing in ML-1 is left open.</div>
+    <div><div class="when">2026-09-30</div>Owner pushes main to origin (<code>6c458e0</code>). <strong>Ticket closed.</strong></div>
   </div>
 
   <footer>Related: <code>coffeecv/run_folds.py</code>, <code>coffeecv/run_all_rigs.py</code>, <code>coffeecv/fold_data.py</code>, <code>coffeecv/fit_frozen_head.py</code>,
