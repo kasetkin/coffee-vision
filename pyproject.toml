@@ -14,11 +14,11 @@ version = "0"
 requires-python = "==3.12.*"
 dependencies = [
   # From the CPU wheel index (tool.uv.sources below): the default PyPI torch pulls in the CUDA stack.
-  "torch==2.13.0",
+  "torch==2.14.0",
   "torchvision",
   # DINOv3 is built through timm (docs/dinov3_integration_plan.md §2). Pinned exactly: a timm
   # upgrade is an architecture change and must re-pass tests/test_dino_backbone.py.
-  "timm==1.0.29",
+  "timm==1.0.30",
   "numpy",
   "scipy",
   "pyyaml",
@@ -61,5 +61,5 @@ torchvision = { index = "pytorch-cpu" }
 # download pretrained weights, and coffeecv_dino loads its own sha256-checked files from models_pretrained/.
 [[tool.uv.dependency-metadata]]
 name = "timm"
-version = "1.0.29"
+version = "1.0.30"
 requires-dist = ["torch", "torchvision", "pyyaml"]
