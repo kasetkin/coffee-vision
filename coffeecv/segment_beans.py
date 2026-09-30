@@ -79,13 +79,19 @@ def _quantile_span(counts: np.ndarray, cut: float) -> tuple[int, int]:
     return lo, hi
 
 
-def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
-    """D3 fill + D4 quantile crop, or the D18 fallback. `mask` is bool HxW aligned with `rgb`.
+def d4_box(mask: np.ndarray, keep_frac: float = 0.95) -> list[int]:
+    """The D4 crop rectangle [x0, y0, w, h] of a non-empty bool mask: at most (1 - keep_frac) / 4 of the
+    bean pixels are cut from each side, so by the union bound it keeps >= keep_frac of them. Counting
+    pixels per column and row gives the same quantiles as sorting the coordinates, without
+    materialising them on a 50 MP photo."""
+    cut = (1.0 - keep_frac) / 4 * int(np.count_nonzero(mask))
+    x0, x1 = _quantile_span(mask.sum(axis=0, dtype=np.int64), cut)
+    y0, y1 = _quantile_span(mask.sum(axis=1, dtype=np.int64), cut)
+    return [x0, y0, x1 - x0 + 1, y1 - y0 + 1]
 
-    The crop cuts at most (1 - keep_frac) / 4 of the bean pixels from each side, so by the union
-    bound it keeps >= keep_frac of them. Counting pixels per column and row gives the same
-    quantiles as sorting the coordinates, without materialising them on a 50 MP photo.
-    """
+
+def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
+    """D3 fill + D4 quantile crop (`d4_box`), or the D18 fallback. `mask` is bool HxW aligned with `rgb`."""
     h, w = mask.shape
     if rgb.shape[:2] != (h, w):
         raise ValueError(f"mask {mask.shape} does not match photo {rgb.shape[:2]}")
@@ -95,9 +101,8 @@ def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
     if n == 0 or area < p.min_area_frac:
         return BeanCrop(rgb, None, {**info, "fallback": True, "box": None,
                                     "bean_frac_in_crop": None, "retained_frac": None})
-    cut = (1.0 - p.keep_frac) / 4 * n
-    x0, x1 = _quantile_span(mask.sum(axis=0, dtype=np.int64), cut)
-    y0, y1 = _quantile_span(mask.sum(axis=1, dtype=np.int64), cut)
+    x0, y0, bw, bh = d4_box(mask, p.keep_frac)
+    x1, y1 = x0 + bw - 1, y0 + bh - 1
     m = mask[y0:y1 + 1, x0:x1 + 1]
     out = rgb[y0:y1 + 1, x0:x1 + 1].copy()
     out[~m] = p.fill_rgb
