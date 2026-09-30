@@ -6,7 +6,7 @@ checkpoint-on-best-val rule -- selection never sees test or cross-rig data). Tie
 i.e. the stronger regularisation. See docs/dinov3_integration_plan.md §5.3.
 
 The fitted scaler is folded into the exported Linear, so the head is an ordinary module that
-`coffeecv.infer.forward_with_embeddings` and `coffeecv.xrig_eval.run_photowise` accept unchanged.
+`coffeecv.infer.forward_with_embeddings` accepts unchanged.
 """
 from __future__ import annotations
 

@@ -1,0 +1,281 @@
+<title>Retire Cross-Camera Validation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Ticket ML-1 · coffee-vision · training &amp; evaluation</div>
+  <h1>Retire cross-camera validation: one pooled dataset, bean class is the only label</h1>
+  <p class="lede">Training and evaluation are built around leave-one-camera-out folds: a camera held out, a separate
+    cross-rig test split, a cross-rig headline metric, and a rule that every change must win on it. The owner has
+    decided to drop this. All cameras are treated as equal sources of photos, and the only thing the pipeline
+    distinguishes is the ten bean classes. This ticket records what changes and why, how the workflow changes, and
+    what the change costs. Nothing is implemented yet.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open · ready to implement</span></span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Refactor + workflow change</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/</code>, <code>coffeecv_dino/</code>, <code>params.yaml</code>, <code>dvc.yaml</code>, docs</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions D1–D7)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-09-28</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v"><span class="pill ok">None</span> <span class="tag">serving path has no cross-rig logic, §3</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D7 resolved 2026-09-29</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decision, 2026-09-28.</strong> From now on all cameras are equal. No camera is held out, trained on
+      selectively, reported separately, or used as a label. Models and metrics differentiate only coffee bean classes.
+      This replaces the rule that any configuration change must be validated on <code>run_folds.py</code>'s cross-rig
+      metric.</p>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decisions, 2026-09-29 (D1–D7).</strong> <strong>D1: (b)</strong> &mdash; pool all photos across
+      capture directories and split 70/15/15 within each class only, overriding this ticket's own (a) recommendation.
+      <strong>D4: (a), named "capture"</strong> &mdash; not "source" or "rig": a capture is defined by camera + date +
+      setup + lighting, so a future directory need not map to a distinct camera. <code>train_rigs</code> becomes
+      <code>train_capture_dirs</code>, <code>Rig</code> becomes <code>Capture</code>, <code>RIGS</code> becomes
+      <code>CAPTURES</code>; the <code>train_rigs</code> alias in <code>config_for_checkpoint</code> stays so both
+      deployed models' cards keep loading. Reproducing the old per-camera split byte-for-byte with the new code is
+      not required. D1(b) makes it structurally impossible anyway (pooling changes every patch), and Git + DVC
+      already pin the exact code and data that trained
+      <code>allrigs_dino3b16_s123</code> and <code>allrigs_cam_s123</code> if that history is ever needed again.
+      <strong>D2, D3, D5, D6, D7</strong> accepted as recommended.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The pipeline already has the end state as one of its two modes. <code>run_all_rigs.py</code> and
+    <code>fit_frozen_head.py</code> train on all four cameras with <code>heldout_rig: ""</code>, and both production
+    models were made that way (<code>allrigs_dino3b16_s123</code>, live, and <code>allrigs_cam_s123</code>, the fallback).
+    Cross-rig logic lives in the other mode, the leave-one-camera-out folds, and in every tool built to read fold
+    results. So most of the work is deletion. What remains is to make the all-cameras mode the only mode, move the
+    few helpers that other code imports from fold modules, and replace the cross-rig selection rule with an
+    in-distribution one.</p>
+  <p>The hard part is not the code. Once the folds are gone, the only metrics left are in-distribution: a new photo of
+    beans the model has seen, taken with a camera it has seen. Those metrics are near ceiling (0.97), and they are
+    nearly flat across choices (§5, R1). The ticket names this cost so that nobody later compares a new 0.97 with an
+    old 0.887 as if they measured the same thing.</p>
+
+  <h2>2. Background</h2>
+  <p>Today, photos are split 70/15/15 into train/val/test within each camera and class, and a camera's position in
+    the list seeds that split so that a rerun is byte-identical. D1 (§6) replaces this with a pooled split, within
+    each class only, across all cameras.</p>
+
+  <h2>3. What does not change (checked)</h2>
+  <ul>
+    <li><strong>Serving.</strong> <code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>scripts/deploy_webapp.sh</code>'s
+      release path, and the inference path in <code>coffeecv/infer.py</code> have no cross-rig logic. Both deployed models
+      stay valid as they are. No redeploy is needed.</li>
+    <li><strong>Loading old checkpoints.</strong> <code>infer.config_for_checkpoint</code> keeps only the keys
+      <code>RunConfig</code> still defines (<a href="../coffeecv/infer.py">infer.py:243-245</a>), so removing
+      <code>heldout_rig</code>, <code>xrig_patches_per_class</code> and <code>mixstyle_mode</code> from the config does not break
+      any model card in <code>models/</code>. None of the three affects patch geometry. Renaming <code>train_rigs</code> is
+      different; see D4.</li>
+    <li><strong>Data.</strong> The <code>crop</code> and <code>merge_cam_*</code> stages and the four <code>data/cropped/cam_*</code>
+      pools stay. They are the photo pools the two deployed models were trained on.</li>
+    <li><strong>MixStyle, agnostic mode.</strong> It mixes feature statistics between random samples in a batch and never sees
+      which camera a sample came from. It stays in the ResNet18 recipe. Only the <code>cross_rig</code> mode, which needs
+      camera labels and was closed as a null, goes.</li>
+    <li><strong>The OOD guard's same-camera negatives.</strong> Negatives are shot on the same cameras as the training photos
+      so the probe cannot learn "different camera" instead of "not coffee". That matches the new rule. It is not validation
+      by camera.</li>
+    <li><strong>The bean-pitch estimator's cross-camera consistency</strong> (<code>bean_scale.py</code>, <code>geometry.py</code>
+      comments). That describes whether one ruler measures all cameras alike, which still matters when they are pooled.</li>
+    <li><strong>The record.</strong> <code>experiments/</code>, the DVC cache, fold checkpoints and <code>models/*.json</code> cards
+      are history, not logic. They are kept (D5).</li>
+  </ul>
+
+  <h2>4. Workflow, before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ol>
+        <li>Screen a change on folds: 4 cameras × 3 seeds, each fold a full training run.</li>
+        <li>Adopt on 12 paired cross-rig deltas, sign-consistent.</li>
+        <li>Train again on all cameras to ship, 1–3 seeds; pick the seed on val.</li>
+        <li>DINOv3 head: C is the median of the folds' picks.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ol>
+        <li>Screen a change on the pooled data: 3 seeds, one run each, paired per seed against the baseline at the same seed.</li>
+        <li>Adopt on paired val deltas, sign-consistent over seeds. Test and photo-level test are reported controls (D2).</li>
+        <li>The screen's best-val run is already a shipping candidate. There is no separate refit.</li>
+        <li>DINOv3 head: C is picked on the run's own val split (D3).</li>
+      </ol>
+    </div>
+  </div>
+  <p>A screen costs a quarter of what it did: 3 runs instead of 12. Unchanged: adopt only on paired multi-seed evidence;
+    <code>dvc repro</code>, not direct python; commit code, params and outputs together; every lever stated on the command line;
+    test split read once, never used to choose.</p>
+
+  <h2>5. Risks</h2>
+  <h3>What the decision costs</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The remaining metric can barely tell choices apart.</strong> Val macro-F1 is near ceiling and nearly flat.</td>
+        <td>The deployed head's own val split, across the whole C grid from 0.001 to 100, scores 0.9688–0.9763 (<code>models/allrigs_dino3b16_s123.json</code>, <code>diagnostic_val_macro_f1_by_C</code>). It would pick C=0.0316, where the folds picked 0.1, on a margin of 0.002. <code>README.md</code> already flags val saturation for ResNet18 checkpoint selection. Mitigations are in D2. Expect most screens to come back null. <strong>Before the first real screen is adopted on this metric</strong>, measure its own seed-to-seed noise &mdash; rerun the unchanged baseline at a few seeds, or bootstrap val macro-F1 over patches &mdash; so "sign-consistent over 3 seeds" (§4) has a measured floor to clear instead of an assumed one carried over from the fold protocol's ±0.048 band, which does not apply to this metric. That measurement also settles whether raising the val patch budget buys real separation before spending compute on it.</td></tr>
+      <tr><td class="id">R2</td><td><strong>No number estimates a new camera or a new scoop of beans.</strong></td>
+        <td>Val and test photos come from the same bags and the same cameras as train. This is the trade the decision accepts. State it in <code>README.md</code> so that in-distribution scores are not read as real-world accuracy. Until the out-of-scope generalization ticket exists, the only remaining signals for camera- or scoop-level drift are manual spot-checks (as run against the legacy-lens photos) and the OOD guard; neither is a gate a change must pass, so a regression here can ship silently in the meantime.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Old and new headlines are not comparable.</strong></td>
+        <td>0.887 (cross-camera, DINOv3) and 0.975 (val, same model) answer different questions. <code>index.csv</code> keeps both kinds of column; new rows leave <code>xrig_*</code> blank. Blank means not measured, as it does for pre-Phase-11 runs.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Work that relied on folds loses its protocol.</strong></td>
+        <td>DINOv3 §7.2, the formal adoption check, can no longer run as designed, so the owner's 2026-09-26 selection stands without it. Screen C, Screen D and C1-ship need a new protocol or are dropped (D7).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions for the owner</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Recommendation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How are photos split into train/val/test?</td>
+        <td>(a) Keep the split within each camera and class, with no camera ever reported or labelled. (b) Pool all photos and split within each class only.</td>
+        <td><strong>Owner decided (b), 2026-09-29</strong> &mdash; overriding this ticket's (a) recommendation. Photos are pooled across all capture directories and split 70/15/15 within each class only. This gives up the guarantee that every capture appears in val/test in exact proportion, and it means the new code does not reproduce the deployed models' training data. Owner's call: that reproducibility isn't needed since Git/DVC already preserve it.</td></tr>
+      <tr><td class="id">D2</td><td>What selects and what is reported?</td>
+        <td>Val patch macro-F1 selects (checkpoint, C, adoption). Reported: test patch macro-F1, and optionally test photo-level macro-F1 (40 patches per photo, the <code>/classify</code> path, via <code>run_photowise</code>).</td>
+        <td><strong>Owner accepted, 2026-09-29.</strong> Add photo-level test: it is what the site serves. The val patch budget (40/class/camera) is a separate, later question &mdash; see R1's mitigation; it should not be raised speculatively before that measurement exists.</td></tr>
+      <tr><td class="id">D3</td><td>How is the DINOv3 head's C chosen?</td>
+        <td>(a) The run's own val pick. (b) Freeze C=0.1, the last fold median, as a constant.</td>
+        <td><strong>Owner accepted (a), 2026-09-29</strong>, same rule as the ResNet18 best-val checkpoint. The deployed model is not refitted; the rule applies from the next fit.</td></tr>
+      <tr><td class="id">D4</td><td>Keep the word "rig" in config and code?</td>
+        <td>(a) Rename <code>train_rigs</code> to <code>data_dirs</code> and <code>Rig</code> to <code>Source</code>, with an alias so old cards' <code>train_rigs</code> still loads. (b) Keep the names and only delete.</td>
+        <td><strong>Owner decided (a), 2026-09-29</strong>, naming it <strong>capture</strong> rather than "source": <code>train_rigs</code> &rarr; <code>train_capture_dirs</code>, <code>Rig</code> &rarr; <code>Capture</code>, <code>RIGS</code> &rarr; <code>CAPTURES</code>, with the alias in <code>config_for_checkpoint</code>. Reasoning: a capture is defined by camera + date + setup + lighting, so a future directory need not correspond to one physical camera the way "source" or "rig" imply. Without the alias, <code>build_ood_reference</code> on an old model would silently fall back to the default dirs. The internal seed component keeps its value; only the variable name changes. The four physical directory names (<code>cam_pixel</code>, etc.) are not renamed &mdash; out of scope, would churn DVC-tracked paths for no behavior change.</td></tr>
+      <tr><td class="id">D5</td><td>What happens to the fold-era record?</td>
+        <td>Delete scripts whose only input is fold runs; keep <code>experiments/</code>, <code>index.csv</code> columns, <code>EXPERIMENTS_LOG.md</code>, model cards, results JSON and closed plan docs.</td>
+        <td><strong>Owner accepted, 2026-09-29.</strong> As stated. The record is data, not logic, and several memories and cards cite it.</td></tr>
+      <tr><td class="id">D6</td><td>Legacy <code>merge_oneplus</code> / <code>oneplus_combined</code>?</td>
+        <td>Delete, or keep.</td>
+        <td><strong>Owner accepted: delete, 2026-09-29.</strong> No current consumer. Merging the four <code>cam_*</code> pools into one dir is <em>not</em> recommended.</td></tr>
+      <tr><td class="id">D7</td><td>Open items that assumed folds</td>
+        <td>DINOv3 §7.2, §7.3 Screen D, §10 Screen C; reorg plan A1, A2, C1-ship (<code>bean_k_lo=5</code>).</td>
+        <td><strong>Owner accepted, 2026-09-29.</strong> Close §7.2 as superseded. Re-scope Screen D and C1-ship to the new protocol only if still wanted. Drop A2. Keep A1 only as class balance.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Retraining or redeploying. The live model and its fallback are unaffected.</li>
+    <li>Changing any served output, including the fallback's OOD warn-band text in <code>infer.py</code>.</li>
+    <li>A new generalization test set, such as fresh scoops or photos from a new phone. That would be the honest replacement for what R2 gives up, and deserves its own ticket.</li>
+    <li>Pushing the pending fold checkpoints to the DVC remote. They are history either way.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-09-28</div>Owner decides that all cameras are equal and that cross-camera validation and training logic is removed. Ticket written from a read of the tracked sources at <code>d9089fb</code>. Not implemented.</div>
+    <div><div class="when">2026-09-29</div>Owner answers D1 (b, pooled per-class split) and D4 (a, naming it "capture"), and confirms the new code does not need to reproduce the old per-camera split byte-for-byte. D2, D3, D5, D6, D7 accepted as recommended. Claude drafts an implementation plan from this ticket (kept outside the ticket) and trims the ticket itself down to decisions and findings. Still not implemented.</div>
+  </div>
+
+  <footer>Related: <code>coffeecv/run_folds.py</code>, <code>coffeecv/run_all_rigs.py</code>, <code>coffeecv/fold_data.py</code>, <code>coffeecv/fit_frozen_head.py</code>,
+    <code>docs/dinov3_integration_plan.md</code> §7, <code>docs/dataset_training_reorg_plan.md</code>, <code>docs/ticket_webapp_release_isolation.html</code> §7 (merge procedure).</footer>
+</main>

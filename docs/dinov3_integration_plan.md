@@ -7,9 +7,11 @@ rebuilt and holdout-verified OOD guard (§9.3), were built on branch `dino-integ
 on 2026-09-27. **2026-09-27: deployed.**
 The owner chose it as the first release of the isolated `/opt/coffee-cv` service (OPS-1,
 `docs/ops1_release_isolation_plan.html`); it passed the smoke test in the real systemd sandbox (§9.4) and
-has been live since 14:25 UTC. That was the owner's call ahead of the §7.2 comparison, which is still
-open: exp232-239 finished 2026-09-28 and are merged (`b224982`), so its 12 paired deltas can now be
-computed. This file
+has been live since 14:25 UTC. That was the owner's call ahead of the §7.2 comparison.
+**2026-09-29: §7.2 is CLOSED, superseded** -- ticket ML-1 (`docs/ticket_retire_cross_rig.html`, D7)
+retired the leave-one-camera-out fold protocol it was built on, so the owner's 2026-09-26 selection
+stands without it. Screen D (§7.3) and Screen C (§10) score the cross-camera set, which no longer
+exists: they are re-scoped to the pooled protocol only if still wanted (D7). This file
 replaces `docs/dinov2_integration_plan.md` (written 2026-09-21; its last version is at commit
 `1caf2f1`). On 2026-09-24 the owner decided that **DINOv3 is the family this project builds first**,
 and that the first experiment is implementing it and testing it, with ViT-S/16 as the pre-registered
@@ -799,6 +801,11 @@ Before launching:
   its per-fold provenance commits would pick them up.
 
 ### 7.2 The comparison protocol
+
+> **CLOSED 2026-09-29, superseded (ticket ML-1, D7).** Never run. The fold protocol this compares on --
+> 12 paired (fold, seed) cross-camera deltas -- was retired when the owner decided all cameras are equal
+> (no camera held out or reported separately). The owner's 2026-09-26 selection of ViT-B/16 × cls_mean
+> stands without it; exp232-239 remain in the record. What follows is kept as written.
 
 - **Paired per (fold, seed).** Same seed and same held-out rig give the same cross-rig patches;
   §4.1 makes the training photos identical too. Report per-pair deltas, never a difference of two

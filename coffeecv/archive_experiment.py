@@ -34,7 +34,8 @@ ARCHIVED_FILES = [
     "history.json",
     "predictions_val.csv",
     "predictions_test.csv",
-    "predictions_xrig.csv",  # held-out rig; absent on single-rig runs
+    # predictions_xrig.csv (a held-out camera's predictions) is no longer produced
+    # since ticket ML-1; runs archived before then keep theirs.
 ]
 
 # Crop settings live per session (dataset/<session>.crop.yaml) rather than in
@@ -52,6 +53,10 @@ CROP_CONFIGS = sorted((REPO_ROOT / "dataset").glob("*.crop.yaml"))
 # change patch geometry, and at 3.3MB it would dominate the archive.
 PLOT_FILES = ["confusion_matrix_val.png", "confusion_matrix_test.png", "training_curves.png"]
 
+# The cross-camera columns stay (ticket ML-1, D5): rebuild_index() re-reads every
+# archived run, and the fold-era ones carry these numbers. Runs since ML-1 leave
+# them blank, which -- as for pre-Phase-11 runs -- means "not measured", and is
+# not comparable to the in-distribution val/test columns (ML-1 risk R3).
 INDEX_COLUMNS = [
     "exp", "slug", "seed", "val_macro_f1", "val_mcc", "test_macro_f1", "test_mcc",
     # Cross-rig columns are blank for pre-Phase-11 runs, which had no held-out

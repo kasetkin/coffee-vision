@@ -110,8 +110,8 @@ class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
     """fit_frozen_head builds one split at a time to bound memory; that must not change a single box."""
 
     def test_val_alone_equals_val_with_test(self):
-        cfg = replace(RunConfig.from_params_yaml(), seed=42, train_rigs=("data/cropped/cam_sony",),
-                      heldout_rig="", val_patches_per_class=2, test_patches_per_class=2)
+        cfg = replace(RunConfig.from_params_yaml(), seed=42, train_capture_dirs=("data/cropped/cam_sony",),
+                      val_patches_per_class=2, test_patches_per_class=2)
         tf = build_eval_transform(cfg.patch_resize)
         alone = build_fold_datasets(cfg, tf, tf, only=("val",))
         both = build_fold_datasets(cfg, tf, tf, only=("val", "test"))

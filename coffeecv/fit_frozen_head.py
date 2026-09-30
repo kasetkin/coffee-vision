@@ -1,21 +1,19 @@
-"""Fit the shipping head for a frozen backbone on every camera, and ship it (plan §9.1).
+"""Fit the shipping head for a frozen backbone on every capture dir, and ship it (plan §9.1).
 
-The frozen-backbone counterpart of `run_all_rigs.py`, and bound by the same rule: **this run chooses
-nothing.** With every camera in training there is no cross-camera number left to measure, so the folds
-(exp240-251) already made every choice -- backbone, readout, and C -- and this run only applies them to
-all the data. Its val/test scores are an in-distribution sanity check ("did anything break?"),
-comparable to the folds' in-distribution numbers and to the ResNet18 all-rigs card's, never to a
-cross-camera number.
+The frozen-backbone counterpart of `run_all_rigs.py`: photos pooled across `dataset.CAPTURES` and split
+per class (ticket ML-1), val/test in-distribution only -- they say nothing about a new camera or a new
+scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
-- **C is the folds' median, not this run's val pick.** Twelve folds each chose C on their own val split
-  (exp240-251). Picking it again here, on a val split drawn from the same cameras as train, would be a
-  thirteenth, weaker vote. The lower median is taken so a tie goes to the stronger regularisation, the
-  same tie rule `linear_head.fit_head` uses. The val-selected C is still computed and recorded, as a
-  diagnostic only.
-- **Same patches, same transform, same fit as the folds.** Datasets come from
+- **C, as implemented, is still the lower median of the leave-one-camera-out folds' val picks**
+  (exp240-251, kept in experiments/ per ML-1 D5), with a tie going to the stronger regularisation --
+  the rule the deployed `allrigs_dino3b16_s123` was fitted under. The val-selected C is computed and
+  recorded beside it as a diagnostic. **Ticket ML-1 D3 decided the next fit picks C on its own val
+  split instead** (the same rule as ResNet18's best-val checkpoint); that switch is not implemented in
+  this module yet -- `fold_C`/`SELECTION_EXPS` below are what it would replace.
+- **Same patches, same transform, same fit as training.** Datasets come from
   `fold_data.build_fold_datasets` (one split at a time, byte-identical), the train split gets the eval
-  transform (frozen arms get no photometric augmentation, as in the screen), and the head is
-  `linear_head.fit_head_at`: the fold fit's solver, scaler and export at a fixed C.
+  transform (frozen arms get no photometric augmentation), and the head is `linear_head.fit_head_at`:
+  the solver, scaler and export at a fixed C.
 - **Seeds only vary the patch draw** (the head is convex). Each seed is archived; the one to ship is
   chosen on val macro-F1, never test, and shipping is a separate, explicit step.
 
@@ -42,17 +40,18 @@ from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
 from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_backbone
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import load_class_labels
+from coffeecv.dataset import CAPTURES, load_class_labels
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
-from coffeecv.run_folds import RIGS, dirty_provenance_paths, stale_crop_stages
+from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
 from coffeecv.transforms import build_eval_transform
 
 DEFAULT_OUT = OUTPUTS_DIR / "frozen_allrigs"
 MODELS_DIR = REPO_ROOT / "models"
-# The folds whose per-fold C picks decide the shipping C: the selected cell of Experiment 1.
+# The folds whose per-fold C picks decide the shipping C: the selected cell of Experiment 1. Fold-era
+# record (ML-1 D5); ML-1 D3 replaces this rule with the run's own val pick from the next fit on.
 SELECTION_EXPS = tuple(range(240, 252))
 EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
@@ -77,7 +76,7 @@ def fold_C(backbone: str, readout: str, exps=SELECTION_EXPS) -> tuple[float, lis
 def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
     """params.yaml's sampling geometry, every camera in training, and the fields that describe a frozen
     backbone with a convex head set to what actually runs (as the screen records its folds)."""
-    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_rigs=tuple(RIGS), heldout_rig="",
+    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES),
                   model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
                   color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
@@ -103,7 +102,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
     set_seed(seed)
     eval_tf = build_eval_transform(cfg.patch_resize)
     X, y, sizes, ms = {}, {}, {}, {}
-    class_ids = class_labels = train_rigs = None
+    class_ids = class_labels = captures = None
     for split in ("train", "val", "test"):
         t = time.perf_counter()
         fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=(split,))
@@ -111,7 +110,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
         built = time.perf_counter() - t
         X[split], y[split], ms[split] = embed(ds, bb, readout)
         sizes[split] = len(ds)
-        class_ids, class_labels, train_rigs = fold.class_ids, fold.class_labels, [r.name for r in fold.train_rigs]
+        class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
         log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
         del fold, ds
         gc.collect()
@@ -129,7 +128,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, picks: l
         split_metrics[s] = compute_split_metrics(y[s], pred, cross_entropy(probs, y[s]), class_ids, class_labels)
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
-                                 rigs={"train": train_rigs, "heldout": None})
+                                 captures=captures)
     metrics["best_epoch_selection_metric"] = "none: C fixed to the selection folds' median (no selection here)"
 
     import timm
@@ -237,7 +236,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages()
+        stale = stale_crop_stages(CAPTURES)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
     if args.start_exp is not None:

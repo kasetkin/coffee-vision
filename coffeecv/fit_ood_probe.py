@@ -123,7 +123,7 @@ def main() -> None:
     checkpoint = Path(args.checkpoint)
     cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
     print(f"config: {cfg_source}")
-    _, _, classes_file = cfg.resolve_paths()
+    _, classes_file = cfg.resolve_paths()
     class_ids = sorted(load_class_labels(classes_file))
     ckpt_sha = _sha(checkpoint)
 
@@ -139,7 +139,7 @@ def main() -> None:
     pos_dirs = [Path(d) for d in args.positives]
 
     # --- fit set -----------------------------------------------------------
-    train_ids, _ = id_photos(cfg, class_ids, args.id_split)
+    train_ids = id_photos(cfg, class_ids, args.id_split)
     bean_items = [{"path": q, "scenario_tag": "-"} for q in train_ids]
     dev_negs = [r for r in negatives_from(neg_dirs, "dev")
                 if r["scenario_tag"] in CLEAN_NEGATIVE_TAGS]

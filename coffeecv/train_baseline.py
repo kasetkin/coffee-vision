@@ -22,10 +22,6 @@ from coffeecv.config import (
     config_to_dict,
     set_seed,
 )
-from coffeecv.dataset import (
-    load_class_labels,
-    resolve_rigs,
-)
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.lr_schedules import build_scheduler
 from coffeecv.metrics import (
@@ -100,27 +96,13 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module):
 
 def train_one_epoch(
     model: nn.Module, loader: DataLoader, optimizer, criterion: nn.Module, mixup_alpha: float = 0.0,
-    cross_domain_mixstyle: bool = False,
 ) -> float:
     """`mixup_alpha` > 0 enables mixup: blend each batch with a shuffled copy of
     itself and take the correspondingly weighted loss against both label sets.
-    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8.
-
-    `cross_domain_mixstyle=True` means `loader` yields (x, y, domain_id) triples
-    (see `MultiPhotoPatchDataset(return_domain_id=True)`) and the model has
-    `mixstyle1`/`mixstyle2` submodules expecting `domain_ids` set on them before
-    each forward pass -- a forward hook only sees `(module, input, output)`, so
-    this is the only way to get per-sample rig identity into it."""
+    At 0.0 no RNG is drawn, so the unmixed path is bit-identical to pre-Phase-8."""
     model.train()
     total_loss, n = 0.0, 0
-    for batch in tqdm(loader, desc="train", leave=False):
-        if cross_domain_mixstyle:
-            x, y, domain_id = batch
-            domain_id = domain_id.to(DEVICE)
-            model.mixstyle1.domain_ids = domain_id
-            model.mixstyle2.domain_ids = domain_id
-        else:
-            x, y = batch
+    for x, y in tqdm(loader, desc="train", leave=False):
         x, y = x.to(DEVICE), y.to(DEVICE)
         optimizer.zero_grad()
         if mixup_alpha > 0:
@@ -144,13 +126,6 @@ def main() -> None:
     cfg = apply_overrides(RunConfig.from_params_yaml(), args)
     set_seed(cfg.seed)
 
-    train_rig_dirs, heldout_rig_dir, classes_file = cfg.resolve_paths()
-    train_rigs = resolve_rigs(train_rig_dirs)
-    heldout_rig = resolve_rigs([heldout_rig_dir])[0] if heldout_rig_dir else None
-    class_labels = load_class_labels(classes_file)
-    class_ids = sorted(class_labels)
-    print(f"train rigs: {[r.name for r in train_rigs]}")
-    print(f"held-out rig: {heldout_rig.name if heldout_rig else '(none)'}")
     print(f"torch threads: {torch.get_num_threads()} (COFFEECV_TORCH_THREADS={_threads_env!r})")
     train_transform = build_train_transform(
         cfg.patch_resize,
@@ -160,28 +135,23 @@ def main() -> None:
         illum_gradient_strength=cfg.illum_gradient_strength,
         brightness_jitter_strength=cfg.brightness_jitter_strength,
     )
-    cross_domain_mixstyle = cfg.mixstyle_p > 0 and cfg.mixstyle_mode == "cross_rig"
     eval_transform = build_eval_transform(cfg.patch_resize)
     # One construction for every consumer of a fold (see coffeecv/fold_data.py for why it must not
     # be re-typed): the frozen-backbone screen calls the same function and gets the same patches.
-    fold = build_fold_datasets(cfg, train_transform, eval_transform,
-                               return_domain_id=cross_domain_mixstyle)
-    train_ds, val_ds, test_ds, xrig_ds = fold.train, fold.val, fold.test, fold.xrig
+    fold = build_fold_datasets(cfg, train_transform, eval_transform)
+    train_ds, val_ds, test_ds = fold.train, fold.val, fold.test
+    captures, class_ids, class_labels = fold.captures, fold.class_ids, fold.class_labels
+    print(f"capture dirs: {[c.name for c in captures]}")
 
     gen = torch.Generator().manual_seed(cfg.seed)
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, generator=gen)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
-    xrig_loader = (
-        DataLoader(xrig_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
-        if xrig_ds else None
-    )
-    print(f"patches: train={len(train_ds)} val={len(val_ds)} test={len(test_ds)}"
-          + (f" xrig={len(xrig_ds)}" if xrig_ds else ""))
+    print(f"patches: train={len(train_ds)} val={len(val_ds)} test={len(test_ds)}")
     # Clamping means a requested patch did not fit its photo and was shrunk to the
     # frame, flattening the scale distribution. Printed so a run that quietly lost
     # its scale variety shows up in the log, not only in the result.
-    for nm, ds in [("train", train_ds), ("val", val_ds), ("test", test_ds), ("xrig", xrig_ds)]:
+    for nm, ds in [("train", train_ds), ("val", val_ds), ("test", test_ds)]:
         if ds is not None and getattr(ds, "n_clamped", 0):
             print(f"  {nm}: {ds.n_clamped}/{len(ds)} patches clamped "
                   f"({ds.n_clamped / len(ds) * 100:.0f}%)")
@@ -234,10 +204,7 @@ def main() -> None:
     epochs_since_improvement = 0
 
     for epoch in range(1, cfg.epochs + 1):
-        train_loss = train_one_epoch(
-            model, train_loader, optimizer, criterion, cfg.mixup_alpha,
-            cross_domain_mixstyle=cross_domain_mixstyle,
-        )
+        train_loss = train_one_epoch(model, train_loader, optimizer, criterion, cfg.mixup_alpha)
         val_true, val_pred, val_losses = evaluate(model, val_loader, criterion)
         val_metrics = compute_split_metrics(val_true, val_pred, val_losses, class_ids, class_labels)
 
@@ -257,26 +224,6 @@ def main() -> None:
         }
         if len(group_lrs) > 1:
             epoch_row["lr_backbone"] = group_lrs[1]
-        if xrig_loader is not None:
-            # Recorded per epoch purely so the val/cross-rig gap is visible as a
-            # curve -- it is the whole subject of Phase 11. It is NOT used for
-            # checkpoint selection or early stopping: `best_epoch` is chosen on
-            # val_macro_f1 alone (see below), so the held-out rig never
-            # influences training. Treating it as a selection signal would make
-            # the reported transfer number meaningless.
-            xr_true, xr_pred, xr_losses = evaluate(model, xrig_loader, criterion)
-            # macro_labels must match the final metric's (line ~347) or the
-            # plotted curve and the reported number are different measurements:
-            # absent classes score F1=0 and drag the curve while being excluded
-            # from the headline. For an iPhone hold-out that is /9-with-a-
-            # phantom-zero against /8; for a class_010-only 08-30 hold-out it
-            # would be /10 with nine phantom zeros against /1.
-            xr = compute_split_metrics(
-                xr_true, xr_pred, xr_losses, class_ids, class_labels,
-                macro_labels=xrig_ds.present_class_idxs,
-            )
-            epoch_row["xrig_macro_f1"] = xr["macro_f1"]
-            epoch_row["xrig_loss"] = xr["loss_mean"]
         history.append(epoch_row)
         print(
             f"epoch {epoch}/{cfg.epochs}  train_loss={train_loss:.4f}  "
@@ -338,50 +285,22 @@ def main() -> None:
     test_true, test_pred, test_losses = evaluate(model, test_loader, criterion)
     test_metrics = compute_split_metrics(test_true, test_pred, test_losses, class_ids, class_labels)
 
-    xrig_metrics = None
-    if xrig_loader is not None:
-        xrig_true, xrig_pred, xrig_losses = evaluate(model, xrig_loader, criterion)
-        xrig_metrics = compute_split_metrics(
-            xrig_true, xrig_pred, xrig_losses, class_ids, class_labels,
-            macro_labels=xrig_ds.present_class_idxs,
-        )
-        # Self-documenting in the archived record: a held-out rig missing a
-        # class (e.g. iPhone lacking class_008 as of 2026-08-25) states so in
-        # its own metrics.json rather than needing a hardcoded rig-name check
-        # elsewhere. macro_f1 above is already scoped to exclude it.
-        if xrig_ds.missing_classes:
-            xrig_metrics["missing_classes"] = xrig_ds.missing_classes
-
     metrics_json = build_metrics_json(
         class_ids, class_labels, epochs_trained=epoch, best_epoch=best_epoch,
         val_metrics=best_val_metrics, test_metrics=test_metrics,
-        xrig_metrics=xrig_metrics,
-        rigs={
-            "train": [r.name for r in train_rigs],
-            "heldout": heldout_rig.name if heldout_rig else None,
-        },
+        captures=[c.name for c in captures],
     )
+    # Which capture dirs the pooled split left with no photos in a split, per class (see
+    # MultiPhotoPatchDataset.starved). Recorded so an archived run states it, not only its log.
+    metrics_json["split_starved"] = {
+        name: [list(pair) for pair in ds.starved]
+        for name, ds in (("train", train_ds), ("val", val_ds), ("test", test_ds))
+    }
     (OUTPUTS_DIR / "metrics.json").write_text(json.dumps(metrics_json, indent=2))
     (OUTPUTS_DIR / "summary.json").write_text(json.dumps(build_summary_json(metrics_json), indent=2))
 
     write_predictions_csv(OUTPUTS_DIR / "predictions_val.csv", best_val_true, best_val_pred, class_ids)
     write_predictions_csv(OUTPUTS_DIR / "predictions_test.csv", test_true, test_pred, class_ids)
-    if xrig_metrics is not None:
-        write_predictions_csv(OUTPUTS_DIR / "predictions_xrig.csv", xrig_true, xrig_pred, class_ids)
-        plot_confusion_matrix(
-            xrig_metrics["confusion_matrix"], class_ids, class_labels,
-            PLOTS_DIR / "confusion_matrix_xrig.png",
-            f"Cross-rig confusion matrix (held out: {heldout_rig.name})",
-        )
-    else:
-        # A run with no held-out rig (heldout_rig: "") has no cross-rig split, but
-        # dvc.yaml declares this file as a plot and DVC fails the whole stage when
-        # a declared output is missing -- which is how an all-rigs run lost its
-        # pipeline record after training successfully for 27 epochs. Write the
-        # header alone: unambiguous next to a metrics.json that has no test_xrig
-        # split at all, and it cannot be mistaken for a measurement of zero.
-        write_predictions_csv(OUTPUTS_DIR / "predictions_xrig.csv", [], [], class_ids)
-
     plot_confusion_matrix(
         best_val_metrics["confusion_matrix"], class_ids, class_labels,
         PLOTS_DIR / "confusion_matrix_val.png", f"Val confusion matrix (epoch {best_epoch})",

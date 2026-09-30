@@ -76,7 +76,7 @@ def log(msg: str) -> None:
 
 def photo_rows(cfg, class_ids: list[str]) -> list[dict]:
     """Every photo the comparison scores, with the fields ood_eval.main gives it."""
-    train_ids, _ = id_photos(cfg, class_ids, "test")
+    train_ids = id_photos(cfg, class_ids, "test")
     rows = [{"condition": "id_split[test]", "path": p, "scenario_tag": "-", "batch": "id_split",
              "probe_label": 0.0} for p in train_ids]
     for r in negatives_from([REPO_ROOT / d for d in NEGATIVES], SPLIT):
@@ -183,7 +183,7 @@ def main() -> int:
 
     checkpoint = Path(args.checkpoint)
     cfg, cfg_source = config_for_checkpoint(checkpoint, None)
-    _, _, classes_file = cfg.resolve_paths()
+    _, classes_file = cfg.resolve_paths()
     class_ids = sorted(load_class_labels(classes_file))
     r18 = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
     dino = build_backbone(args.backbone).eval()

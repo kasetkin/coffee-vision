@@ -5,32 +5,21 @@ seed: 7
 
 # Training reads the cropped tree produced by the `crop` stage, not the raw
 # session. Crop *method* settings live per-session in
-# dataset/<session>.crop.yaml -- they describe a rig, not the model.
+# dataset/<session>.crop.yaml -- they describe a capture setup, not the model.
 #
-# Leave-one-rig-out (Phase 11). train_rigs are split train/val/test at the photo
-# level; heldout_rig contributes every photo as a cross-rig test set and is never
-# trained on, so a fold measures transfer to a camera it has never seen.
-#
-# BOTH sweep drivers rewrite this block before every run -- run_folds.py sets one
-# fold at a time, run_all_rigs.py sets the whole list with heldout_rig empty --
-# so what is written here is only what a bare `dvc repro train` reproduces, never
-# what a sweep uses. It rests at the all-rigs shipping config (the shape exp171,
-# the currently deployed model, was trained in), because that is the one a plain
-# repro should reproduce.
-#
-# Do not hand-edit this to run a fold. `python -m coffeecv.run_folds` owns the
-# rotation and now distinguishes rig-transfer folds from class-transfer ones:
-# holding out an 08-30 session yields a ONE-CLASS macro average, so those three
-# are excluded from the default sweep and need --include-class-transfer. See
-# run_folds.py's RIGS. As of 2026-09-03 a rig is a CAMERA MODEL, not a capture
-# session -- four rigs (Pixel, Sony, OnePlus, iPhone) built by the merge_cam_*
-# stages, rather than nine sessions. See run_folds.RIGS for why, and for the
-# cost: this pools framing distance inside each camera.
-train_rigs:
+# train_capture_dirs: the photo pools training draws from -- the four cam_*
+# dirs, one per camera, each merged from that camera's sessions by a merge_cam_*
+# stage (dataset.CAPTURES). Since ticket ML-1 (2026-09-29) all are equal: photos
+# are pooled across them and split train/val/test within each class only
+# (D1(b)); none is held out, and there is no cross-camera metric. The order
+# seeds patch boxes, so keep it. run_all_rigs.py rewrites this block to exactly
+# that list on every run, so what rests here is what a bare `dvc repro train`
+# reproduces.
+train_capture_dirs:
   - data/cropped/cam_pixel
   - data/cropped/cam_sony
   - data/cropped/cam_oneplus
-heldout_rig: data/cropped/cam_iphone
+  - data/cropped/cam_iphone
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -38,22 +27,21 @@ patch_crop_size: 900
 patch_resize: 224
 patch_store_size: 448  # 0 = keep full patch_crop_size (single-rig legacy behaviour)
 safety_margin: 0.97
-train_patches_per_class: 150   # per class *per training rig*
-val_patches_per_class: 40
+train_patches_per_class: 150   # per class *per capture dir*, over that dir's photos in the split
+val_patches_per_class: 40     # likewise per capture dir
 test_patches_per_class: 40
-xrig_patches_per_class: 120    # held-out rig: bigger budget, it is the headline metric
 
-# Photo-level split, as fractions of however many photos a rig+class actually
-# has (not a fixed count -- box/pixel/sony have 20/class, oneplus has 10/class,
-# iPhone varies 10-20 *per class*). 0.70/0.15/0.15 reproduces the original
-# fixed 14/3/3 split exactly for any 20-photo class. See split_photos_by_class.
+# Photo-level split, as fractions of however many photos a class has pooled
+# across all capture dirs (ML-1 D1(b)) -- not per dir, so a dir with few photos
+# of a class can land none in val or test; `python -m coffeecv.split_report`
+# shows each dir's share. val/test floor at 1 photo. See split_photos_by_class.
 train_photo_frac: 0.70
 val_photo_frac: 0.15
 test_photo_frac: 0.15
 
 # Model
 model_name: resnet18
-freeze_mode: none  # full | last_block | none -- matches what Phase 16's MixStyle screen (exp115-123) actually validated; run_folds.py's own --freeze-mode CLI default is also "none" independent of this resting value
+freeze_mode: none  # full | last_block | none -- matches what Phase 16's MixStyle screen (exp115-123) actually validated; run_all_rigs.py's --freeze-mode default is also "none" independent of this resting value
 dropout: 0.2
 label_smoothing: 0.0
 color_jitter_strength: 0.2
@@ -87,8 +75,10 @@ patch_beans_max: 7.0
 # hand/VLM-counted crops) -- the floor suppresses 1/f spectral drag rather than
 # clipping bean signal. bean_calibration_k is fitted to the band and must move
 # with it: k_lo=5 refits to 1.334. NOT adopted -- offline reconstruction
-# accuracy is not classification accuracy, so this needs a run_folds cross-rig
-# sweep first ("C1-ship"). See analysis/bean_scale/README.md.
+# accuracy is not classification accuracy. The cross-camera sweep that was to
+# decide it ("C1-ship") went with the fold protocol (ticket ML-1, D7): if still
+# wanted, it is a paired multi-seed screen on the pooled split like any other
+# change. See analysis/bean_scale/README.md.
 bean_k_lo: 4
 bean_k_hi: 80
 bean_analysis_frac: 0.40
@@ -108,8 +98,8 @@ mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a tra
 # project after bean-unit sizing. See EXPERIMENTS_LOG.md Phase 16 / exp115-123.
 mixstyle_p: 0.5
 mixstyle_alpha: 0.1          # Beta(a, a) shape for the mixing coefficient
-# v2 (screening, not yet adopted): restricts the mixing partner to a different
-# rig instead of any random batch sample. agnostic | cross_rig.
+# agnostic is the only mode: the partner is any random batch sample. (The
+# camera-aware v2 was a confirmed null and was removed with ticket ML-1.)
 mixstyle_mode: agnostic
 
 # Training
@@ -129,8 +119,8 @@ eta_min: 1.0e-05
 # Under plateau, `epochs` is only a cap, eta_min is the LR floor for every group, and the
 # raw-F1 patience stop is off -- the scheduler stops training floor_epochs after the floor.
 # The plateau_* values and floor_epochs are inert under cosine, and are fixed for the first
-# screen (chosen from the noise level, not tuned). Rests at cosine: run_folds.py rewrites
-# `scheduler` for a plateau sweep, so restore it afterwards or the next shipping run inherits it.
+# screen (chosen from the noise level, not tuned). Rests at cosine: run_all_rigs.py states
+# `scheduler` on every run, but a hand-edited plateau screen must restore it afterwards.
 scheduler: cosine
 plateau_smooth: 5
 plateau_threshold: 0.003

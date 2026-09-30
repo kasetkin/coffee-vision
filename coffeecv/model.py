@@ -6,26 +6,6 @@ import torch.nn as nn
 import torchvision.models as models
 
 
-def _cross_domain_perm(domain_ids: torch.Tensor) -> torch.Tensor:
-    """For each sample, returns a partner index drawn uniformly from same-batch
-    samples with a *different* domain id. A sample whose domain is the only one
-    present in the batch falls back to pairing with itself -- mathematically a
-    no-op regardless of the mixing coefficient (mixing a value with itself
-    reproduces it exactly), not a crash. O(B^2) via broadcasting, fine at this
-    project's batch sizes (32)."""
-    batch = domain_ids.size(0)
-    diff = domain_ids.unsqueeze(0) != domain_ids.unsqueeze(1)  # [B, B], diff[i, j] = domain_ids[j] != domain_ids[i]
-    # Random score per (i, j), masked to -inf where same-domain, so argmax picks
-    # a uniformly random cross-domain partner for each row (ties broken by argmax's
-    # own first-max convention, immaterial since scores are continuous).
-    scores = torch.rand(batch, batch, device=domain_ids.device)
-    scores = scores.masked_fill(~diff, float("-inf"))
-    has_partner = diff.any(dim=1)
-    perm = torch.arange(batch, device=domain_ids.device)
-    perm[has_partner] = scores[has_partner].argmax(dim=1)
-    return perm
-
-
 class MixStyle(nn.Module):
     """Style mixing (Zhou et al., "Domain Generalization with MixStyle"). Mixes
     each sample's per-channel spatial mean/std with another sample from the same
@@ -33,27 +13,19 @@ class MixStyle(nn.Module):
     learnable parameters -- purely a statistics swap, so it needs no optimizer
     changes.
 
-    Two modes, selected by `cross_domain`:
-    - domain-agnostic (v1, default): partner is a uniformly random permutation of
-      the batch, regardless of which rig each sample came from. Simpler to wire
-      (no rig-id needs to reach the forward pass). Screened and adopted first
-      (Phase 16, mean +0.1400 cross-rig, 9/9 sign-consistent).
-    - cross-domain (v2): partner is drawn only from samples of a *different* rig
-      (`_cross_domain_perm`), via `self.domain_ids` -- set externally on this
-      module right before each forward pass, since a forward hook only receives
-      `(module, input, output)` and has no other way to learn which rig each
-      sample in the batch came from.
+    Domain-agnostic (v1): the partner is a uniformly random permutation of the
+    batch, regardless of which capture dir each sample came from -- nothing about
+    a sample's origin reaches the forward pass. Screened and adopted in Phase 16
+    (mean +0.1400 cross-camera, 9/9 sign-consistent). A cross-domain variant (v2,
+    partner restricted to a different camera) was screened as a confirmed null and
+    removed with the rest of the camera-aware code (ticket ML-1, 2026-09-29).
     """
 
-    def __init__(self, p: float = 0.5, alpha: float = 0.1, eps: float = 1e-6, cross_domain: bool = False):
+    def __init__(self, p: float = 0.5, alpha: float = 0.1, eps: float = 1e-6):
         super().__init__()
         self.p = p
         self.alpha = alpha
         self.eps = eps
-        self.cross_domain = cross_domain
-        # Set externally (train_baseline.py's train_one_epoch) before every
-        # forward call when cross_domain=True; unused otherwise.
-        self.domain_ids: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if not self.training or self.p <= 0.0 or torch.rand(1).item() > self.p:
@@ -67,35 +39,21 @@ class MixStyle(nn.Module):
         x_normed = (x - mu) / sigma
 
         lam = torch.distributions.Beta(self.alpha, self.alpha).sample((batch, 1, 1, 1)).to(x.device)
-        if self.cross_domain:
-            if self.domain_ids is None:
-                raise RuntimeError(
-                    "MixStyle(cross_domain=True) requires domain_ids to be set before forward(); "
-                    "train_one_epoch must set model.mixstyle1.domain_ids/model.mixstyle2.domain_ids "
-                    "each batch when mixstyle_mode='cross_rig'."
-                )
-            if self.domain_ids.size(0) != batch:
-                raise RuntimeError(
-                    f"domain_ids has {self.domain_ids.size(0)} entries but the batch has {batch} -- "
-                    "stale domain_ids from a previous batch were not updated before this forward call."
-                )
-            perm = _cross_domain_perm(self.domain_ids)
-        else:
-            perm = torch.randperm(batch, device=x.device)
+        perm = torch.randperm(batch, device=x.device)
         mu_mix = mu * lam + mu[perm] * (1 - lam)
         sigma_mix = sigma * lam + sigma[perm] * (1 - lam)
         return x_normed * sigma_mix + mu_mix
 
 
-def _install_mixstyle(model: nn.Module, mixstyle_p: float, mixstyle_alpha: float, cross_domain: bool) -> None:
+def _install_mixstyle(model: nn.Module, mixstyle_p: float, mixstyle_alpha: float) -> None:
     """Registers MixStyle after resnet18's layer1 and layer2 (the paper's
     recommended low/mid-level placement, where "style" statistics live) via
     forward hooks rather than a reimplemented forward pass. Registered as real
     submodules (`model.mixstyle1`/`mixstyle2`), not just hook closures, so
     `model.train()`/`.eval()` correctly cascades into their `.training` flag --
     a hook closure over a bare `MixStyle()` would never see that toggle."""
-    model.mixstyle1 = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha, cross_domain=cross_domain)
-    model.mixstyle2 = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha, cross_domain=cross_domain)
+    model.mixstyle1 = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha)
+    model.mixstyle2 = MixStyle(p=mixstyle_p, alpha=mixstyle_alpha)
     model.layer1.register_forward_hook(lambda _m, _i, out: model.mixstyle1(out))
     model.layer2.register_forward_hook(lambda _m, _i, out: model.mixstyle2(out))
 
@@ -131,14 +89,17 @@ def build_model(
     special-cases per architecture. Raises rather than silently ignoring the
     knob on an architecture it isn't wired for, consistent with this project's
     fail-loudly-on-config-mismatch convention (RunConfig.from_params_yaml,
-    run_folds.py's CLI/config post-condition check).
+    run_all_rigs.py's CLI/config post-condition check).
 
     `pretrained=False` skips the ImageNet initialisation. Inference passes it: a checkpoint's strict
     load_state_dict overwrites every parameter and buffer anyway, and the served process runs with
     ProtectHome=true, where ~/.cache/torch is not visible (docs/ops1_release_isolation_plan.html §4.3).
     Training keeps the default."""
-    if mixstyle_mode not in ("agnostic", "cross_rig"):
-        raise ValueError(f"Unknown mixstyle_mode: {mixstyle_mode!r} (want 'agnostic' or 'cross_rig')")
+    # The camera-aware v2 mode was removed with ticket ML-1: it needed camera labels, and was a
+    # confirmed null. An old config naming it must fail here rather than quietly train the agnostic one.
+    if mixstyle_mode != "agnostic":
+        raise ValueError(f"Unknown mixstyle_mode: {mixstyle_mode!r} (only 'agnostic' exists; the "
+                         f"camera-aware v2 mode was removed on 2026-09-29, ticket ML-1)")
     if mixstyle_p > 0 and name != "resnet18":
         raise ValueError(
             f"mixstyle_p={mixstyle_p} was requested but MixStyle is only wired for resnet18, "
@@ -159,7 +120,7 @@ def build_model(
         model.fc = nn.Sequential(nn.Dropout(p=dropout), nn.Linear(in_features, num_classes))
         head_module = model.fc
         if mixstyle_p > 0:
-            _install_mixstyle(model, mixstyle_p, mixstyle_alpha, cross_domain=(mixstyle_mode == "cross_rig"))
+            _install_mixstyle(model, mixstyle_p, mixstyle_alpha)
     else:
         # An old checkpoint card restores its model_name faithfully (config_for_checkpoint), so a pruned
         # architecture must fail here, never fall back to a substitute.

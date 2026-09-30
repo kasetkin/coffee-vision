@@ -85,14 +85,14 @@ class TestDinov3Loader(unittest.TestCase):
 
 
 class TestNoPrivateCopies(unittest.TestCase):
-    """coffeecv_dino owns only its screen drivers -- never a second copy of behaviour that must stay
+    """coffeecv_dino owns only its experiment drivers -- never a second copy of behaviour that must stay
     identical between arms or between the screen and the shipped model. analysis/bean_scale grew such a copy twice and it drifted
     silently both times (plan §4.2)."""
 
     BANNED = ("load_rgb_image", "estimate_bean_pitch", "sample_bean_unit_patch_boxes",
               "sample_bean_unit_centers", "build_eval_transform", "build_train_transform",
-              "compute_split_metrics", "build_fold_datasets", "split_photos_by_class", "run_photowise",
-              "pool_photos", "archive", "patches_for_photo", "forward_with_embeddings", "id_photos",
+              "compute_split_metrics", "build_fold_datasets", "build_capture_dataset", "split_photos_by_class",
+              "pooled_class_photos", "archive", "patches_for_photo", "forward_with_embeddings", "id_photos",
               "negatives_from", "linear_probe_scores", "_fit_logistic", "auroc", "detection_at_fpr",
               # Moved into coffeecv on 2026-09-27 (plan §8.2): the shipped model and the screen must
               # build the backbone and fit the head with one implementation.

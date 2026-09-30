@@ -32,7 +32,7 @@ import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.bean_scale import pitch_kwargs
-from coffeecv.dataset import MultiPhotoPatchDataset, load_class_labels, resolve_rigs
+from coffeecv.dataset import MultiPhotoPatchDataset, load_class_labels, resolve_captures
 from coffeecv.infer import (_sha, config_for_checkpoint, forward_with_embeddings, load_model,
                             reference_path_for)
 from coffeecv.transforms import build_eval_transform
@@ -58,13 +58,13 @@ def main() -> None:
     # these weights, not from whatever params.yaml currently holds.
     cfg, cfg_source = config_for_checkpoint(Path(args.checkpoint), args.config)
     print(f"config: {cfg_source}")
-    train_rig_dirs, _, classes_file = cfg.resolve_paths()
-    train_rigs = resolve_rigs(train_rig_dirs)
+    capture_dirs, classes_file = cfg.resolve_paths()
+    captures = resolve_captures(capture_dirs)
     class_labels = load_class_labels(classes_file)
     # From classes_file, exactly as train_baseline does, so the label->index
     # mapping the centroids are keyed by is the one the checkpoint was fitted with.
     class_ids = sorted(class_labels)
-    print(f"train rigs: {[r.name for r in train_rigs]}")
+    print(f"capture dirs: {[c.name for c in captures]}")
 
     # The *train* split specifically: the reference describes what the model was
     # fitted on. Building it from val or test would measure how far new data sits
@@ -73,7 +73,7 @@ def main() -> None:
     ds = MultiPhotoPatchDataset(
         split="train",
         transform=build_eval_transform(cfg.patch_resize),
-        rigs=train_rigs,
+        captures=captures,
         classes_file=classes_file,
         class_ids=class_ids,
         seed=cfg.seed,
@@ -82,8 +82,7 @@ def main() -> None:
         safety_margin=cfg.safety_margin,
         patches_per_class={"train": cfg.train_patches_per_class,
                            "val": cfg.val_patches_per_class,
-                           "test": cfg.test_patches_per_class,
-                           "all": cfg.xrig_patches_per_class},
+                           "test": cfg.test_patches_per_class},
         photo_frac={"train": cfg.train_photo_frac,
                    "val": cfg.val_photo_frac,
                    "test": cfg.test_photo_frac},
@@ -139,7 +138,7 @@ def main() -> None:
     # held-out rig it is supposed to be judged against.
     by_photo: dict[str, list[float]] = {}
     for meta, score in zip(ds._meta, d):
-        by_photo.setdefault(f"{meta.rig_name}/{meta.photo_name}", []).append(float(score))
+        by_photo.setdefault(f"{meta.capture}/{meta.photo_name}", []).append(float(score))
     photo_med = np.array([np.median(v) for v in by_photo.values()])
 
     out = Path(args.out) if args.out else reference_path_for(Path(args.checkpoint))
@@ -173,8 +172,7 @@ def main() -> None:
         "checkpoint_sha": _sha(Path(args.checkpoint)),
         "model_name": cfg.model_name,
         "patch_beans": [cfg.patch_beans_min, cfg.patch_beans_max],
-        "train_rigs": list(cfg.train_rigs),
-        "heldout_rig": cfg.heldout_rig,
+        "train_capture_dirs": list(cfg.train_capture_dirs),
         "embedding_dim": int(embeds.shape[1]),
         "classes": classes,
         "self_scores": {"mean": round(float(d.mean()), 3),
