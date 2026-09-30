@@ -37,8 +37,6 @@ dependencies = [
   "tqdm",
   # [ssh]: the DVC remote is ssh:// (.dvc/config).
   "dvc[ssh]",
-  # SAM for coffeecv/crop_tray_sam.py and the ML-2 segmentation stage.
-  "ultralytics",
 ]
 
 [dependency-groups]
@@ -48,9 +46,6 @@ dev = ["flask"]
 [tool.uv]
 package = false
 required-version = "==0.12.19"
-# ultralytics requires the GUI opencv-python; opencv-python-headless (above) provides the same cv2 module,
-# and two distributions writing one cv2/ package clobber each other. This marker drops it.
-override-dependencies = ["opencv-python; sys_platform == 'never'"]
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 
 [[tool.uv.index]]
