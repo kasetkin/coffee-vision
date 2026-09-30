@@ -188,6 +188,26 @@ class BeanSegmenter:
         self.timing_ms.update(decoder=(t1 - t0) * 1e3, upsample=(t2 - t1) * 1e3)
         return mask
 
+    @torch.inference_mode()
+    def predict_with_points(self, rgb: np.ndarray, include: list[tuple[float, float]],
+                            exclude: list[tuple[float, float]], output: str = "single") -> tuple[np.ndarray, float]:
+        """Whole-image box plus include/exclude points (the D6 correction prompt; no points = the box alone).
+        Points are (x, y) fractions of the photo's width/height. `output` is the decoder output, as in
+        mask_select: "single" or "multi1".."multi3". Returns (full-resolution mask, pred IoU)."""
+        h, w = rgb.shape[:2]
+        self._encode(rgb)
+        pr = self.predictor
+        xy = [[fx * (w - 1), fy * (h - 1)] for fx, fy in [*include, *exclude]]
+        labels = [1] * len(include) + [0] * len(exclude)
+        box = pr.apply_boxes_torch(torch.tensor([[0, 0, w - 1, h - 1]], dtype=torch.float))
+        pts = pr.apply_coords_torch(torch.tensor([xy], dtype=torch.float)) if xy else None
+        lab = torch.tensor([labels], dtype=torch.int) if xy else None
+        multimask = output != "single"
+        k = int(output[-1]) - 1 if multimask else 0
+        _, iou, low = pr.predict_torch(point_coords=pts, point_labels=lab, boxes=box,
+                                       multimask_output=multimask, return_logits=True)
+        return self._upsample(low[0, k]), float(iou[0, k])
+
     def candidates(self, rgb: np.ndarray) -> dict[str, tuple[np.ndarray, float]]:
         """Every box-prompt output at full resolution: {name: (mask, predicted IoU)}."""
         h, w = rgb.shape[:2]

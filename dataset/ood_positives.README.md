@@ -6,7 +6,7 @@ turned out to be far too easy to stand in for them: photos from sessions the mod
 on score a median 1.02 on the shipped metric, while these score 1.21 and reach 1.57 — well
 into the range the negatives occupy.
 
-Used only for evaluating guard metrics (`coffeecv/ood_eval.py`), never for training.
+Used for evaluating guard metrics (`coffeecv/ood_eval.py`). Since 2026-09-30 (ticket ML-2, D26) the **dev** photos also train and evaluate the bean segmenter (`labels/ml2/photo_lists.yaml`, `pos_seg_*`); a dev photo from a burst that also holds a holdout photo is segmenter-eval only. The **holdout** is never used for any training, and the segmenter never reads it. Nothing here trains the classifier.
 
 ## Batches
 

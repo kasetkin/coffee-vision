@@ -1,0 +1,6 @@
+outs:
+- md5: 7ec33703a9d2fd99f4c25f6e022e6844.dir
+  size: 819813
+  nfiles: 81
+  hash: md5
+  path: base_points

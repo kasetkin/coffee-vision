@@ -1,0 +1,1013 @@
+# Ticket ML-2 P1: points for the judge's test masks (coffeecv/seg_base_masks.py). (x, y) are fractions
+# of the photo's width and height. include = on the bean pile, exclude = tray, rim, table, paper.
+# output: the decoder output (default single); frame-filling photos use the box alone, multi3.
+items:
+- id: 2026-08-07__box_pictures_all_classes__class_003__PXL_20260807_075133627
+  path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075133627.jpg
+  sha256: 9437b1db2bca690738825f186146ab892612d120197ba8b45c710b3d5884237e
+  roast: green
+  include:
+  - [0.37, 0.33]
+  - [0.5, 0.33]
+  - [0.63, 0.33]
+  - [0.37, 0.49]
+  - [0.5, 0.49]
+  - [0.63, 0.49]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: &id001
+  - [0.15, 0.5]
+  - [0.85, 0.5]
+  - [0.5, 0.15]
+  - [0.5, 0.8]
+- id: 2026-08-07__box_pictures_all_classes__class_003__PXL_20260807_075630054
+  path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075630054.jpg
+  sha256: 78875643cf4d42599baa11ef330aefdf912becbfdcba8c9aa06e9cebf6372868
+  roast: green
+  include:
+  - [0.37, 0.33]
+  - [0.5, 0.33]
+  - [0.63, 0.33]
+  - [0.37, 0.49]
+  - [0.5, 0.49]
+  - [0.63, 0.49]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id001
+- id: 2026-08-07__box_pictures_all_classes__class_006__PXL_20260807_071336299
+  path: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071336299.jpg
+  sha256: 2235895b106fa7898bbb0abd3a151521cd1252718ef08f8e402a66051925488c
+  roast: green
+  include:
+  - [0.37, 0.34]
+  - [0.5, 0.34]
+  - [0.63, 0.34]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.66]
+  - [0.5, 0.66]
+  - [0.63, 0.66]
+  exclude: *id001
+- id: 2026-08-09__pixel_cam__class_001__PXL_20260809_130946786
+  path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130946786.jpg
+  sha256: 6a9b2e56b60e6eed49bab621cd6a6c03fb7fe653f8e575866f57070dc65ded31
+  roast: green
+  include: []
+  exclude: &id002 []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_003__PXL_20260809_132636038
+  path: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132636038.jpg
+  sha256: 83a303a115706e7a5d4787633f10b8eccc54c2690f755cb2ce9e8516678d806c
+  roast: green
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_004__PXL_20260809_134959698
+  path: dataset/2026-08-09__pixel_cam/class_004__CostaRica_LaPastora/PXL_20260809_134959698.jpg
+  sha256: bc3d399cd63a12478d12378185b4b2857a3e883830ac9055686caed725790a2d
+  roast: green
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-09__sony_cam__class_006__PIC_20260809_210239
+  path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210239.JPG
+  sha256: df66b082c831b7062f4ec2c0921206680846e2dafa9af970f7ac07029b4adaca
+  roast: green
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-09__sony_cam__class_006__PIC_20260809_210456
+  path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210456.JPG
+  sha256: bb95745a682ccc34a4be780b1e37adc090bd916dd210b34f3f13a8d9f0e465ae
+  roast: green
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-09__sony_cam__class_007__PIC_20260809_205406
+  path: dataset/2026-08-09__sony_cam/class_007__Brazil_MonteCristo/PIC_20260809_205406.JPG
+  sha256: 5025b5c34bcae4f54fd541a0ea04029fdf25b04dbf814f706d91603f67279c35
+  roast: green
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-25__iphone__class_002__IMG_6286
+  path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6286.HEIC
+  sha256: fba4993dae89aa31d993d432a9ee2d3173264f2abd7c2828ce21994bd9c84961
+  roast: green
+  include:
+  - [0.25, 0.32]
+  - [0.5, 0.32]
+  - [0.75, 0.32]
+  - [0.25, 0.52]
+  - [0.5, 0.52]
+  - [0.75, 0.52]
+  - [0.25, 0.72]
+  - [0.5, 0.72]
+  - [0.75, 0.72]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.94]
+  - [0.04, 0.5]
+  - [0.955, 0.5]
+  - [0.5, 0.215]
+  - [0.5, 0.82]
+- id: 2026-08-25__iphone__class_007__IMG_6298
+  path: dataset/2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6298.HEIC
+  sha256: bff504f58d3058a1f58f8161da9059f7ea501f2b3cbb411ec62f72be5aa2d523
+  roast: green
+  include:
+  - [0.25, 0.32]
+  - [0.5, 0.32]
+  - [0.75, 0.32]
+  - [0.25, 0.52]
+  - [0.5, 0.52]
+  - [0.75, 0.52]
+  - [0.25, 0.72]
+  - [0.5, 0.72]
+  - [0.75, 0.72]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.95]
+  - [0.05, 0.5]
+  - [0.95, 0.5]
+  - [0.5, 0.225]
+  - [0.5, 0.83]
+- id: 2026-08-25__oneplus__class_002__PXL_20260825_195410120
+  path: dataset/2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195410120.jpg
+  sha256: c08793b5a568cc19b3621c2a49b202ac1a74049cffe508e052477ef3b44c3929
+  roast: green
+  include:
+  - [0.25, 0.32]
+  - [0.5, 0.32]
+  - [0.75, 0.32]
+  - [0.25, 0.52]
+  - [0.5, 0.52]
+  - [0.75, 0.52]
+  - [0.25, 0.72]
+  - [0.5, 0.72]
+  - [0.75, 0.72]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.92]
+  - [0.07, 0.5]
+  - [0.96, 0.5]
+  - [0.5, 0.21]
+  - [0.5, 0.81]
+- id: 2026-08-27__oneplus_flash__class_003__PXL_20260827_184532420
+  path: dataset/2026-08-27__oneplus_flash/class_003__Colombia_PinkBourbon/PXL_20260827_184532420.jpg
+  sha256: c72ef708c0dab0644c5f442a0eed8da811ecedb8712d1a118f4f1b999a8cd941
+  roast: green
+  include: &id003
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude: &id004
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_006__PXL_20260827_184207722
+  path: dataset/2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184207722.jpg
+  sha256: 0ee2f3d593468f5cb4f495a89dd2cff01ff4d946095f65a5d9ddd8af6622b788
+  roast: green
+  include: *id003
+  exclude: *id004
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175639510
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175639510.jpg
+  sha256: db48d40ce0e1e44e11c431752ee3c248b87cc44726226171a6125c3dd4f340f7
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175718392
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175718392.jpg
+  sha256: abe32e6a904f213b3fca703067a31e8c616196f16ea0845ae39570fe9be78c4d
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124539804
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124539804.jpg
+  sha256: 02666a65185337536a927bc6e320402f4e250c12f14f7ccbe3a959804fff54fd
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124724132
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124724132.jpg
+  sha256: 5952afb23ab05fb2478f45d34c912da4d1987bcf47d9da4ef3d9e2fee827eb39
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200041
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
+  sha256: 213eb08c8e691ab49138673073ef3d75e55701fdc5eeef0b4dc404dad9526f7e
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200454
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200454.JPG
+  sha256: e0ec3e9e0e909d808b80082fd94f6daf8b46199a2a3202d6be0d8ec619e89088
+  roast: roasted
+  include: []
+  exclude: *id002
+  output: multi3
+- id: 2026-08-07__box_pictures_all_classes__class_003__PXL_20260807_075017433
+  path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075017433.jpg
+  sha256: b5ce3a998567a084a218e849c9429935870a4d44a0fdf335320655ff10fe0d2a
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: &id005
+  - [0.15, 0.5]
+  - [0.85, 0.5]
+  - [0.5, 0.15]
+  - [0.5, 0.8]
+- id: 2026-08-07__box_pictures_all_classes__class_003__PXL_20260807_075044607
+  path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075044607.jpg
+  sha256: 3ff97fec276b7d5efc70ba4e29734bd3d5b0cd04ae075dbbdfb4e3253970d404
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_004__PXL_20260807_074317801
+  path: dataset/2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074317801.jpg
+  sha256: 1c2a0708593e5704661ae2f78423ebe0e32d3ed440b1bb6271f0634b897989a9
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_004__PXL_20260807_074517496
+  path: dataset/2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074517496.jpg
+  sha256: a12d81054fbb03fda6e40286265a12572aa35070eb493a9e060bec3abfb6d440
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_005__PXL_20260807_072648312
+  path: dataset/2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_072648312.jpg
+  sha256: 8b7df87ef779dbe80aaa2f76d7365b2484517a7a57b0db6332d5be7b59636e6a
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_005__PXL_20260807_073241357
+  path: dataset/2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_073241357.jpg
+  sha256: c422639730c79935fe906fd5fcbc598181328d8f889986aca2dc323bfefbfb9a
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_006__PXL_20260807_070951591
+  path: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_070951591.jpg
+  sha256: 041971148cd99a264325e3e3f18b74dadcac00fac68452f371a517be2e1ff567
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-07__box_pictures_all_classes__class_007__PXL_20260807_070108266
+  path: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_070108266.jpg
+  sha256: c0c84745c1242e4d11a60266dec371ab88542d00d70662cd2de3641ef084151b
+  roast: green
+  include:
+  - [0.37, 0.35]
+  - [0.5, 0.35]
+  - [0.63, 0.35]
+  - [0.37, 0.5]
+  - [0.5, 0.5]
+  - [0.63, 0.5]
+  - [0.37, 0.65]
+  - [0.5, 0.65]
+  - [0.63, 0.65]
+  exclude: *id005
+- id: 2026-08-09__pixel_cam__class_001__PXL_20260809_130838005
+  path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130838005.jpg
+  sha256: 254de232ad1afbb01b56e69639560b03a80dc0df3e731aa2c031b4fae416d9dd
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_001__PXL_20260809_131123399
+  path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_131123399.jpg
+  sha256: dbb023375ead5ad3fc94f6774400890271bba14accebf31fa7233fbade28eee0
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_001__PXL_20260809_131339700
+  path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_131339700.jpg
+  sha256: 5de7163331f13345cd1bca810514c0b817db59fe13db1eb38afe846efb455a13
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_003__PXL_20260809_132246013
+  path: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132246013.jpg
+  sha256: 8928c30ccdf4e752f8ad57b050eaa0556922fe6e357efec5ef23de961869987d
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_003__PXL_20260809_132500061
+  path: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132500061.jpg
+  sha256: 1dbf4ace6d4b8ab3c73cc3e2ac8d05f5a902bba19f6736233da5c4c6d970d11b
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_005__PXL_20260809_133910334
+  path: dataset/2026-08-09__pixel_cam/class_005__Guatemala_Tata/PXL_20260809_133910334.jpg
+  sha256: 04ea6b2aa92736f51c3f3a80a5dc7416fd14ae87dc24a3c9027f0c6af86949f7
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__pixel_cam__class_005__PXL_20260809_134138781
+  path: dataset/2026-08-09__pixel_cam/class_005__Guatemala_Tata/PXL_20260809_134138781.jpg
+  sha256: 0e91bde2e4192511c5e864a7dedc82490eca1a5be07891c79ea379d9b5c24a64
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_004__PIC_20260809_204750
+  path: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204750.JPG
+  sha256: dbbfe9055ba66825a10a24a9f8efdd6abad1f931ff983b9db05f8417befd6d75
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_005__PIC_20260809_204358
+  path: dataset/2026-08-09__sony_cam/class_005__Guatemala_Tata/PIC_20260809_204358.JPG
+  sha256: 89014379d067be452c6fcb6d3f777169661f996447838351f44b346f2c044ca4
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_006__PIC_20260809_210244
+  path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210244.JPG
+  sha256: fc7935bd0fa68fe5554fd2c73ebc57b9d080f14e884e8ce04b9ca15e3e52c8c5
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_006__PIC_20260809_210532
+  path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210532.JPG
+  sha256: 958284b3bd07721b2e3238c4a1a78d4f6eb7b997f633d50fbf696aa4413076f6
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_007__PIC_20260809_205545
+  path: dataset/2026-08-09__sony_cam/class_007__Brazil_MonteCristo/PIC_20260809_205545.JPG
+  sha256: 902926609141217d7d942af4d1717c5455412e93b2062499a3f60a9d78056999
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_009__PIC_20260809_210742
+  path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210742.JPG
+  sha256: d059437331461eb69b24d9a0f2bed8daf1cecb7bb4db49dfd7c5f540ede1b8f6
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-09__sony_cam__class_009__PIC_20260809_210819
+  path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210819.JPG
+  sha256: d4e802a60caed056cc67991b7667e175f3fc13eec724194741ce97402d6ef5f1
+  roast: green
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-25__iphone__class_001__IMG_6306
+  path: dataset/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6306.HEIC
+  sha256: 34ab3d08687b0c129b263e991fb67544a87eb200e8c0754dd995909214cb7804
+  roast: green
+  include:
+  - [0.25, 0.3]
+  - [0.5, 0.3]
+  - [0.75, 0.3]
+  - [0.25, 0.5]
+  - [0.5, 0.5]
+  - [0.75, 0.5]
+  - [0.25, 0.7]
+  - [0.5, 0.7]
+  - [0.75, 0.7]
+  exclude:
+  - [0.5, 0.07]
+  - [0.5, 0.93]
+  - [0.035, 0.5]
+  - [0.95, 0.5]
+  - [0.5, 0.19]
+  - [0.5, 0.81]
+- id: 2026-08-25__iphone__class_002__IMG_6282
+  path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC
+  sha256: cc6e9885f0fa8387040ab81fc43df4b6a0f3a6fe8cd7258d1a92ab29ab4277be
+  roast: green
+  include:
+  - [0.25, 0.28]
+  - [0.5, 0.28]
+  - [0.75, 0.28]
+  - [0.25, 0.47]
+  - [0.5, 0.47]
+  - [0.75, 0.47]
+  - [0.25, 0.66]
+  - [0.5, 0.66]
+  - [0.75, 0.66]
+  exclude:
+  - [0.5, 0.06]
+  - [0.5, 0.9]
+  - [0.04, 0.5]
+  - [0.95, 0.5]
+  - [0.5, 0.165]
+  - [0.5, 0.78]
+- id: 2026-08-25__iphone__class_002__IMG_6284
+  path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6284.HEIC
+  sha256: 9057b025e726ad1b596d8633cd077058fff1090dd0b317a6d798352c9edff81b
+  roast: green
+  include:
+  - [0.25, 0.32]
+  - [0.5, 0.32]
+  - [0.75, 0.32]
+  - [0.25, 0.5]
+  - [0.5, 0.5]
+  - [0.75, 0.5]
+  - [0.25, 0.7]
+  - [0.5, 0.7]
+  - [0.75, 0.7]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.93]
+  - [0.045, 0.5]
+  - [0.955, 0.5]
+  - [0.5, 0.2]
+  - [0.5, 0.81]
+- id: 2026-08-25__iphone__class_002__IMG_6288
+  path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6288.HEIC
+  sha256: e20058b18dabd6d3f34ad2b6fbfcb94b2daa37e6743bb3084ab56c0cdbf43519
+  roast: green
+  include:
+  - [0.25, 0.36]
+  - [0.5, 0.36]
+  - [0.75, 0.36]
+  - [0.25, 0.54]
+  - [0.5, 0.54]
+  - [0.75, 0.54]
+  - [0.25, 0.73]
+  - [0.5, 0.73]
+  - [0.75, 0.73]
+  exclude:
+  - [0.5, 0.1]
+  - [0.5, 0.96]
+  - [0.045, 0.55]
+  - [0.955, 0.55]
+  - [0.5, 0.25]
+  - [0.5, 0.86]
+- id: 2026-08-25__iphone__class_004__IMG_6277D
+  path: dataset/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6277D.HEIC
+  sha256: dd36ab0d9c1308051af8f3506503b61c5b79eabaf1d5f6c7f1693f5bb457c9c1
+  roast: green
+  include:
+  - [0.25, 0.33]
+  - [0.5, 0.33]
+  - [0.75, 0.33]
+  - [0.25, 0.52]
+  - [0.5, 0.52]
+  - [0.75, 0.52]
+  - [0.25, 0.72]
+  - [0.5, 0.72]
+  - [0.75, 0.72]
+  exclude:
+  - [0.5, 0.1]
+  - [0.5, 0.94]
+  - [0.045, 0.5]
+  - [0.95, 0.5]
+  - [0.5, 0.225]
+  - [0.5, 0.83]
+- id: 2026-08-25__oneplus__class_005__PXL_20260825_194049726
+  path: dataset/2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194049726.jpg
+  sha256: 20a48364056be6fc386a324dbd5d03f752d264c5681ff9bb5e28a9957452bc42
+  roast: green
+  include:
+  - [0.25, 0.32]
+  - [0.5, 0.32]
+  - [0.75, 0.32]
+  - [0.25, 0.51]
+  - [0.5, 0.51]
+  - [0.75, 0.51]
+  - [0.25, 0.7]
+  - [0.5, 0.7]
+  - [0.75, 0.7]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.93]
+  - [0.06, 0.5]
+  - [0.965, 0.5]
+  - [0.5, 0.21]
+  - [0.5, 0.81]
+- id: 2026-08-25__oneplus__class_007__PXL_20260825_195108562
+  path: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195108562.jpg
+  sha256: 01e90b7d9e96f2ee224c2caa8837a5d3242db60239313c827857a85d508650f4
+  roast: green
+  include:
+  - [0.25, 0.34]
+  - [0.5, 0.34]
+  - [0.75, 0.34]
+  - [0.25, 0.53]
+  - [0.5, 0.53]
+  - [0.75, 0.53]
+  - [0.25, 0.72]
+  - [0.5, 0.72]
+  - [0.75, 0.72]
+  exclude:
+  - [0.5, 0.09]
+  - [0.5, 0.95]
+  - [0.05, 0.5]
+  - [0.96, 0.5]
+  - [0.5, 0.23]
+  - [0.5, 0.83]
+- id: 2026-08-25__oneplus__class_008__PXL_20260825_194503052
+  path: dataset/2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194503052.jpg
+  sha256: 86ea59f08cb6adbbffc45001df2918cb6d47bf01dd3a341f02686494987eeeb6
+  roast: green
+  include:
+  - [0.25, 0.33]
+  - [0.5, 0.33]
+  - [0.75, 0.33]
+  - [0.25, 0.52]
+  - [0.5, 0.52]
+  - [0.75, 0.52]
+  - [0.25, 0.71]
+  - [0.5, 0.71]
+  - [0.75, 0.71]
+  exclude:
+  - [0.5, 0.09]
+  - [0.5, 0.93]
+  - [0.05, 0.5]
+  - [0.955, 0.5]
+  - [0.5, 0.22]
+  - [0.5, 0.815]
+- id: 2026-08-25__oneplus__class_009__PXL_20260825_193813455
+  path: dataset/2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193813455.jpg
+  sha256: ccfcb08f3dddb8459396401f9099752324f955896d4a8bb6d7323157f7a98800
+  roast: green
+  include:
+  - [0.25, 0.3]
+  - [0.5, 0.3]
+  - [0.75, 0.3]
+  - [0.25, 0.49]
+  - [0.5, 0.49]
+  - [0.75, 0.49]
+  - [0.25, 0.68]
+  - [0.5, 0.68]
+  - [0.75, 0.68]
+  exclude:
+  - [0.5, 0.06]
+  - [0.5, 0.9]
+  - [0.055, 0.5]
+  - [0.95, 0.5]
+  - [0.5, 0.185]
+  - [0.5, 0.78]
+- id: 2026-08-25__oneplus__class_009__PXL_20260825_193927646-2
+  path: dataset/2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193927646-2.jpg
+  sha256: dbb0fcf8bfff0d76b992cca7461b39072b0ae26e84c35818b269ef1ea74b9c3b
+  roast: green
+  include:
+  - [0.25, 0.36]
+  - [0.5, 0.36]
+  - [0.75, 0.36]
+  - [0.25, 0.54]
+  - [0.5, 0.54]
+  - [0.75, 0.54]
+  - [0.25, 0.73]
+  - [0.5, 0.73]
+  - [0.75, 0.73]
+  exclude:
+  - [0.5, 0.1]
+  - [0.5, 0.94]
+  - [0.05, 0.55]
+  - [0.955, 0.55]
+  - [0.5, 0.235]
+  - [0.5, 0.84]
+- id: 2026-08-27__oneplus_flash__class_004__PXL_20260827_183458045
+  path: dataset/2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183458045.jpg
+  sha256: f13e65cb11927001951dafcc0bfa23f42082c7bef183f9d8c7a39884ed8c50e8
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_004__PXL_20260827_183648295
+  path: dataset/2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183648295.jpg
+  sha256: 0119c606292b4b626c1bcfd089e6afd23ad7076345d2b9145b0eb67df075aff7
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_005__PXL_20260827_184838873
+  path: dataset/2026-08-27__oneplus_flash/class_005__Guatemala_Tata/PXL_20260827_184838873.jpg
+  sha256: 6b306909763ce3d4d0e506b1e56ef2ecc4d0dff29cac0b6935f65963deea632e
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_008__PXL_20260827_185807199
+  path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185807199.jpg
+  sha256: b42efcd5c91ce6fc70d33deec3b2369ced239311a2bc6410e87f147ed8e10680
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_008__PXL_20260827_185847122
+  path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185847122.jpg
+  sha256: f57ca8376a03d55a1acbac295380376efaa0f03ca5c91fee6e9e53d82daffdda
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-27__oneplus_flash__class_009__PXL_20260827_185019541
+  path: dataset/2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185019541.jpg
+  sha256: 7f1f3fe470a03c83e2b68f6eb48369eb0f12c7ad73df068b7dd4c4c3158663a9
+  roast: green
+  include:
+  - [0.3, 0.2]
+  - [0.55, 0.2]
+  - [0.8, 0.2]
+  - [0.3, 0.5]
+  - [0.55, 0.5]
+  - [0.8, 0.5]
+  - [0.3, 0.8]
+  - [0.55, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.04, 0.2]
+  - [0.04, 0.5]
+  - [0.04, 0.8]
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175207319
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175207319.jpg
+  sha256: 20c01b7e88304c5830d74d9a2f6e84fb4e31613201b5853c4cb9f0da55d5c4fd
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175400218
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175400218.jpg
+  sha256: a4fa55dee93dd6c23986684fab8da8ffcc86e11223fdcfe25d99857509852174
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175651950
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175651950.jpg
+  sha256: 1153427b92d29b6f4722ecf3d8edd785148753b7dd617cfdf15795a86aefc982
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__oneplus__class_010__PXL_20260830_175659210
+  path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175659210.jpg
+  sha256: 137da76fc0655ebc3b1452cd3ccc41227782f8bc50fa459647b1f520803302b7
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124019824
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124019824.jpg
+  sha256: c8e59a59288cfaae4f82df59b0b4177ba20059297efdaafef1323a6b03ae651c
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124333854
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124333854.jpg
+  sha256: f808ea8c19df8c2d05dbbaa4287c84bc92c761178ca56db02434103295b50166
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124405349
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124405349.jpg
+  sha256: 76d5dc1c2c449248f80074323e9fd0d9aae5af1001f7725fb5f9c09072e7caa2
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__pixel__class_010__PXL_20260830_124715018
+  path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124715018.jpg
+  sha256: 8aaff4ff93c0f85a3090981d635ee76fe6fec1a70ab955d8b886a51c49f8483a
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200328
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200328.JPG
+  sha256: 3c1dd777496f049ebfab525ed06991706912385706a0e7a6cb214fe9ac2da8b7
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200512
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200512.JPG
+  sha256: 7d6c9a2bae2d1fb62e27806a8ce9094287f924c560b3ab9ce36380b1ad0c35dc
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200654
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200654.JPG
+  sha256: f38b55addf6af574b9b5fc8b35fc7d60e5af0904f16fb5db0bbf234d4ad5f8bc
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: 2026-08-30__sony__class_010__PIC_20260830_200730
+  path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200730.JPG
+  sha256: 5d0ceaca8f6d36063eaac6eaf707839d54e7f0032216b960dbdc1733871040b6
+  roast: roasted
+  include: []
+  exclude: []
+  output: multi3
+- id: ood_positives_2026-09-11__PIC_20260911_130253
+  path: dataset/ood_positives/PIC_20260911_130253.JPG
+  sha256: 16616e07042d26516d1d1248aa95f4020b0a7eeae698d05bdb0c875a97ab31ee
+  roast: unknown
+  include:
+  - [0.32, 0.25]
+  - [0.52, 0.25]
+  - [0.72, 0.25]
+  - [0.32, 0.5]
+  - [0.52, 0.5]
+  - [0.72, 0.5]
+  - [0.32, 0.75]
+  - [0.52, 0.75]
+  - [0.72, 0.75]
+  exclude:
+  - [0.06, 0.5]
+  - [0.95, 0.5]
+  - [0.06, 0.1]
+  - [0.95, 0.9]
+  - [0.1, 0.9]
+  - [0.93, 0.1]
+- id: ood_positives_2026-09-11__PIC_20260911_131225
+  path: dataset/ood_positives/PIC_20260911_131225.JPG
+  sha256: 5aeb2666f89c6cb90344dc745f831e38c8b3c22a85d51bd2b355957d645e1583
+  roast: unknown
+  include: []
+  exclude: []
+  output: multi3
+- id: ood_positives_2026-09-11__PIC_20260911_131316
+  path: dataset/ood_positives/PIC_20260911_131316.JPG
+  sha256: b972ef24b0ad902c1096a4b6b42a44fa8a9df54275e180361f31ae2c62bbda5e
+  roast: unknown
+  include:
+  - [0.3, 0.45]
+  - [0.5, 0.45]
+  - [0.7, 0.45]
+  - [0.3, 0.65]
+  - [0.5, 0.65]
+  - [0.7, 0.65]
+  - [0.3, 0.85]
+  - [0.5, 0.85]
+  - [0.7, 0.85]
+  - [0.5, 0.28]
+  exclude:
+  - [0.05, 0.3]
+  - [0.05, 0.9]
+  - [0.95, 0.3]
+  - [0.95, 0.9]
+  - [0.3, 0.08]
+  - [0.8, 0.1]
+  - [0.5, 0.03]
+- id: ood_positives__PXL_20260809_123112607
+  path: dataset/ood_positives/PXL_20260809_123112607.jpg
+  sha256: b536d53806b5c6105b56dfedbc93bb486b0f100ba17b8570fbf5cb593a66614b
+  roast: unknown
+  include: []
+  exclude: []
+  output: multi3
+- id: ood_positives_2026-09-11__PXL_20260911_055950561
+  path: dataset/ood_positives/PXL_20260911_055950561.jpg
+  sha256: 4e5ced3a1398d51c203ebaeceb90b5fc6080511ba70bb196437ec2ab6644f1cd
+  roast: unknown
+  include:
+  - [0.25, 0.25]
+  - [0.5, 0.25]
+  - [0.75, 0.25]
+  - [0.25, 0.5]
+  - [0.5, 0.5]
+  - [0.75, 0.5]
+  - [0.25, 0.75]
+  - [0.5, 0.75]
+  - [0.75, 0.75]
+  exclude:
+  - [0.04, 0.07]
+  - [0.95, 0.08]
+  - [0.04, 0.3]
+  - [0.96, 0.35]
+  - [0.03, 0.95]
+  - [0.9, 0.97]
+- id: ood_positives_2026-09-11__PXL_20260911_110204912
+  path: dataset/ood_positives/PXL_20260911_110204912.jpg
+  sha256: f9ce15e22c3766466ab35a518beb9f02f77e1ea313b0772f5aa184843e6ebb51
+  roast: unknown
+  include:
+  - [0.2, 0.2]
+  - [0.5, 0.2]
+  - [0.8, 0.2]
+  - [0.2, 0.5]
+  - [0.5, 0.5]
+  - [0.8, 0.5]
+  - [0.2, 0.8]
+  - [0.5, 0.8]
+  - [0.8, 0.8]
+  exclude:
+  - [0.05, 0.02]
+  - [0.95, 0.03]
+  - [0.03, 0.97]
+  - [0.97, 0.95]
+- id: ood_positives_2026-09-11__PXL_20260911_111601235
+  path: dataset/ood_positives/PXL_20260911_111601235.jpg
+  sha256: 29a218e728c51c56bcdca5cbe676271ea5debc90d0b7f59df91227811ce41597
+  roast: unknown
+  include:
+  - [0.3, 0.3]
+  - [0.5, 0.3]
+  - [0.7, 0.3]
+  - [0.3, 0.47]
+  - [0.5, 0.47]
+  - [0.7, 0.47]
+  - [0.3, 0.65]
+  - [0.5, 0.65]
+  - [0.7, 0.65]
+  exclude:
+  - [0.1, 0.1]
+  - [0.9, 0.2]
+  - [0.1, 0.9]
+  - [0.9, 0.9]
+  - [0.5, 0.9]
+  - [0.5, 0.08]
+- id: ood_positives_2026-09-11__PXL_20260911_111613659
+  path: dataset/ood_positives/PXL_20260911_111613659.jpg
+  sha256: a8ea5963da8342c90821f6c9c07e38e04a982ab8d299e0daebfade7a5f20126e
+  roast: unknown
+  include:
+  - [0.25, 0.3]
+  - [0.5, 0.3]
+  - [0.75, 0.3]
+  - [0.25, 0.5]
+  - [0.5, 0.5]
+  - [0.75, 0.5]
+  - [0.25, 0.7]
+  - [0.5, 0.7]
+  - [0.75, 0.7]
+  exclude:
+  - [0.5, 0.08]
+  - [0.5, 0.92]
+  - [0.08, 0.12]
+  - [0.92, 0.12]
+  - [0.1, 0.92]
+  - [0.9, 0.92]
+- id: ood_positives_2026-09-30__PXL_20260915_114946300
+  path: dataset/ood_positives/PXL_20260915_114946300.jpg
+  sha256: 48184b71dd7efe244fb4af86dfff979c63f458db06a000ec1ca80ccdc954c066
+  roast: unknown
+  include: []
+  exclude: []
+  output: multi3
+- id: ood_positives_internet__internet_beans_002
+  path: dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg
+  sha256: e7f7a61cae0f6bf841f8a8d58655fa93a8d908d3d33b1c2412e32312bbad83a5
+  roast: unknown
+  include:
+  - [0.35, 0.4]
+  - [0.55, 0.35]
+  - [0.75, 0.4]
+  - [0.45, 0.6]
+  - [0.65, 0.62]
+  - [0.85, 0.6]
+  - [0.3, 0.65]
+  exclude:
+  - [0.2, 0.05]
+  - [0.6, 0.05]
+  - [0.1, 0.9]
+  - [0.5, 0.93]
+  - [0.9, 0.9]

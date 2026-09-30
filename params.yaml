@@ -132,3 +132,8 @@ optimizer: adamw  # adamw | sgd
 lr: 0.001
 backbone_lr: 0.00001  # used only when freeze_mode != full
 weight_decay: 0.0001
+
+# Ticket ML-2 (D21): split seed for the segmenter's photo lists (seg_lists.py ->
+# labels/ml2/photo_lists.yaml). Not a head seed; changing it after the lists are
+# committed is refused, since the lists are append-only (D20).
+seg_split_seed: 239

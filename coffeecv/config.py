@@ -169,6 +169,11 @@ class RunConfig:
     backbone_lr: float = 1e-5  # used only when freeze_mode != "full"
     weight_decay: float = 1e-4
 
+    # Ticket ML-2 (D21): the seed of the segmenter's own photo split, used only by
+    # seg_lists.py to build labels/ml2/photo_lists.yaml. It is none of the head seeds
+    # (42/123/7), so no head seed's split is the segmenter's. No training run reads it.
+    seg_split_seed: int = 239
+
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":
         if not path.exists():
