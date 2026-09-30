@@ -5,8 +5,8 @@ stages:
     deps:
     - path: coffeecv
       hash: md5
-      md5: 046dc92610770c32119397742c9ebe5f.dir
-      size: 378122
+      md5: 249c539b5a9493ed9e2023d085c5dc93.dir
+      size: 376136
       nfiles: 33
     - path: data/cropped/cam_iphone
       hash: md5
