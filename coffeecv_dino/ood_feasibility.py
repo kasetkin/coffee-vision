@@ -63,9 +63,14 @@ DEPLOYED = REPO_ROOT / "models" / "allrigs_cam_s123.pt"
 SPLIT = "dev"
 NEGATIVES = ("dataset/ood_negatives/2026-09__internet_proxy", "dataset/ood_negatives/2026-09__user_realworld",
              "dataset/ood_negatives/2026-09-11__user_samerig")
-POSITIVES = ("dataset/ood_positives", "dataset/ood_positives_2026-09-11", "dataset/ood_positives_internet")
+# The 2026-09-11 positives were merged into dataset/ood_positives on 2026-09-30; the manifest's
+# `batch` column still names them, so the per-batch groups below are unchanged.
+POSITIVES = ("dataset/ood_positives", "dataset/ood_positives_internet")
 SAMERIG_POS, SAMERIG_NEG = "ood_positives_2026-09-11", "2026-09-11__user_samerig"
 USER_POS = {"ood_positives", SAMERIG_POS}
+# The batches this gate ran on. Photos added since (ood_positives_2026-09-30) are left out, so a
+# rerun scores the photos the recorded verdict was measured on.
+GATE_POS_BATCHES = USER_POS | {"ood_positives_internet"}
 USER_NEG = {"2026-09__user_realworld", SAMERIG_NEG}
 DEFAULT_OUT = OUTPUTS_DIR / "dino_ood_feasibility"
 
@@ -83,6 +88,8 @@ def photo_rows(cfg, class_ids: list[str]) -> list[dict]:
         rows.append({"condition": f"negatives[{SPLIT}]", **r,
                      "probe_label": 1.0 if r["scenario_tag"] in CLEAN_NEGATIVE_TAGS else None})
     for r in negatives_from([REPO_ROOT / d for d in POSITIVES], SPLIT):
+        if r["batch"] not in GATE_POS_BATCHES:
+            continue
         rows.append({"condition": f"id_unseen[{r['scenario_tag']}]", **r, "probe_label": None})
     for r in rows:
         path = Path(r["path"]).resolve()

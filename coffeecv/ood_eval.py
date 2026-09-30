@@ -275,8 +275,11 @@ def negatives_from(batch_dirs: list[Path], split: str) -> list[dict]:
             path = batch / row["filename"]
             if not path.exists():
                 raise FileNotFoundError(f"{manifest} lists {row['filename']}, which is missing")
+            # A merged directory keeps each photo's original batch in the manifest's
+            # `batch` column (dataset/ood_positives since 2026-09-30); otherwise the
+            # directory is the batch.
             rows.append({"path": path, "scenario_tag": row["scenario_tag"],
-                          "batch": batch.name, "notes": row.get("notes", "")})
+                          "batch": row.get("batch") or batch.name, "notes": row.get("notes", "")})
     return rows
 
 
