@@ -19,11 +19,12 @@ camera or a new scoop of beans (ML-1 R2), and they sit near ceiling (R1: before 
 first screen is adopted on this metric, measure its seed-to-seed noise). Never
 compare them with the fold-era cross-camera numbers in index.csv (R3).
 
-    python -m coffeecv.run_all_rigs --seeds 42 123 7 --mixstyle-p 0.5 --freeze-mode none \\
-        --eta-min 1e-5 --scheduler cosine --start-exp 255
+    python -m coffeecv.run_all_rigs --seeds 42 123 7 --start-exp 255
+    python -m coffeecv.run_all_rigs --seeds 42 123 7 --mixstyle-p 0.0 --start-exp 258 --tag no_mixstyle
 
-State every lever: the flags' own defaults (e.g. --mixstyle-p 0.0, --eta-min 0.0) are not the adopted
-values in params.yaml, and an omitted flag writes its default, not the resting value.
+Every lever flag defaults to the adopted recipe (`ADOPTED`), so a screen names only the lever it
+changes. The script writes every lever into params.yaml on every run, flag given or not: it never
+inherits params.yaml's resting value, which a screen can leave at a variant that was not adopted.
 """
 from __future__ import annotations
 
@@ -37,6 +38,19 @@ from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 from coffeecv.lr_schedules import SCHEDULERS
 from coffeecv.dataset import CAPTURES
 from coffeecv.repro_utils import dirty_provenance_paths, run, stale_crop_stages
+
+# The adopted training recipe: each lever flag's default. Until 2026-09-30 --mixstyle-p and --eta-min
+# defaulted to 0.0 instead, so a run that omitted either silently trained MixStyle off and a zero LR
+# floor (see feedback-cli-defaults-overwrite-config). tests/test_run_all_rigs.py keeps this equal to
+# params.yaml's committed resting values; change both together when a lever is adopted.
+ADOPTED = {
+    "brightness_jitter_strength": 0.0,
+    "mixstyle_p": 0.5,
+    "mixstyle_mode": "agnostic",
+    "freeze_mode": "none",
+    "eta_min": 1e-5,
+    "scheduler": "cosine",
+}
 
 
 def set_all_rigs(
@@ -97,7 +111,7 @@ def set_all_rigs(
     return cfg
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--seeds", type=int, nargs="+", required=True,
                    help="one run per seed; several make an ensemble, if the ensemble study says that helps")
@@ -109,31 +123,36 @@ def main() -> None:
                         "to a hardcoded 80, which silently overrode the adopted epochs=100 (see "
                         "project-epochs100-patience20-relaunch) on any invocation that didn't pass "
                         "--epochs explicitly.")
-    p.add_argument("--brightness-jitter", type=float, default=0.0)
-    p.add_argument("--mixstyle-p", type=float, default=0.0,
-                   help="per-batch probability of MixStyle (resnet18 only). States its value on EVERY "
-                        "run, like --brightness-jitter, not 'leave whatever params.yaml had'.")
-    p.add_argument("--mixstyle-mode", default="agnostic", choices=["agnostic"],
+    p.add_argument("--brightness-jitter", type=float, default=ADOPTED["brightness_jitter_strength"])
+    p.add_argument("--mixstyle-p", type=float, default=ADOPTED["mixstyle_p"],
+                   help="per-batch probability of MixStyle (resnet18 only; default: the adopted %(default)s). "
+                        "States its value on EVERY run, like --brightness-jitter, not 'leave whatever "
+                        "params.yaml had'.")
+    p.add_argument("--mixstyle-mode", default=ADOPTED["mixstyle_mode"], choices=["agnostic"],
                    help="MixStyle partner selection. 'agnostic' is the only mode: the camera-aware v2 needed "
                         "camera labels and was removed with ticket ML-1 (it was a confirmed null), so a stale "
                         "invocation naming it fails here rather than deep inside model.py. States its value "
                         "on EVERY run like --mixstyle-p, not 'leave whatever params.yaml had'.")
-    p.add_argument("--freeze-mode", default="none", choices=["none", "last_block", "full"],
+    p.add_argument("--freeze-mode", default=ADOPTED["freeze_mode"], choices=["none", "last_block", "full"],
                    help="how much of the backbone to fine-tune. Stated on EVERY run -- exp124-129 "
                         "silently trained with the wrong "
                         "freeze_mode because this script used to inherit whatever params.yaml rested at "
                         "instead of stating it. Default 'none' matches what the MixStyle screen validated.")
-    p.add_argument("--eta-min", type=float, default=0.0,
-                   help="CosineAnnealingLR floor. States its value on EVERY run, like --mixstyle-p, not "
-                        "'leave whatever params.yaml had'.")
-    p.add_argument("--scheduler", default="cosine", choices=list(SCHEDULERS),
+    p.add_argument("--eta-min", type=float, default=ADOPTED["eta_min"],
+                   help="CosineAnnealingLR floor (default: the adopted %(default)g). States its value on "
+                        "EVERY run, like --mixstyle-p, not 'leave whatever params.yaml had'.")
+    p.add_argument("--scheduler", default=ADOPTED["scheduler"], choices=list(SCHEDULERS),
                    help="LR schedule. Stated on EVERY run (default: the adopted 'cosine'), never inherited "
                         "from params.yaml -- see set_all_rigs. 'plateau' is a screening arm "
                         "(docs/lr_scheduler_plan.md) and is not adopted.")
     p.add_argument("--tag", default="allrigs")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-dirty", action="store_true")
-    args = p.parse_args()
+    return p
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     # Provenance gate: this writes commits, and a sweep on uncommitted source
     # produces experiment commits that cannot re-run it.

@@ -118,7 +118,7 @@
     modules and fix <code>dvc.yaml</code>, clean up docs, then test.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Implemented · awaiting owner review</span> <span class="tag">tmp/retire-cross-rig, not merged</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done · merged</span> <span class="tag">main 078b11f, not pushed</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -495,13 +495,19 @@
       <code>130b663</code>, explicitly a pipeline-verification run, not archived to <code>experiments/</code> and not a deploy
       candidate. All nine checks above pass. <strong>Still open, for the owner:</strong> R1's noise-floor
       measurement is still required before the first screen on val; patch boxes still key on a dir's position (per this
-      plan), only split membership is order-independent; <code>run_all_rigs.py</code>'s flag defaults are not the adopted
-      values; <code>ood_eval</code>/<code>fit_ood_probe</code>/<code>build_ood_reference</code> on a pre-ML-1 checkpoint now
+      plan), only split membership is order-independent; <code>ood_eval</code>/<code>fit_ood_probe</code>/<code>build_ood_reference</code> on a pre-ML-1 checkpoint now
       recompute the pooled split, not the one it trained on.</div>
     <div><div class="when">2026-09-30</div><strong>D2 and D3 settled by the owner.</strong> D3 is now C fixed at 0.1
       (<code>fit_frozen_head.py</code>'s <code>DEFAULT_C</code>, <code>--C</code> overrides it; the exp240-251 lookup is gone).
       D2's photo-level test is removed for now, and with it <code>geometry.sample_bean_unit_centers</code>/<code>bean_unit_box_at_center</code>,
       which only it would have used (restore <code>run_photowise</code> from <code>0fa699c^</code>, the helpers from <code>078b11f</code>).</div>
+    <div><div class="when">2026-09-30</div><strong><code>run_all_rigs.py</code> defaults fixed.</strong> Every lever flag now
+      defaults to the adopted recipe, one <code>ADOPTED</code> dict (<code>--mixstyle-p</code> 0.0&rarr;0.5,
+      <code>--eta-min</code> 0.0&rarr;1e-5; the other four already matched), so omitting a flag trains the adopted config
+      instead of silently switching MixStyle off. Every lever is still written into <code>params.yaml</code> on every run, never
+      inherited. <code>tests/test_run_all_rigs.py</code> pins the defaults to <code>params.yaml</code>'s committed resting values;
+      <code>set_all_rigs</code> with all defaults at seed 7 leaves <code>params.yaml</code> byte-identical. Both documents'
+      status lines now say merged.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_retire_cross_rig.html"><code>ticket_retire_cross_rig.html</code></a> (ML-1). Related:
