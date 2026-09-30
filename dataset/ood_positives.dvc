@@ -1,6 +1,6 @@
 outs:
-- md5: 1600b04a31ded8469e1c4ee196d5980c.dir
-  size: 34171075
-  nfiles: 14
+- md5: 62ad6799f3c691d2a076723b87637e26.dir
+  size: 159719080
+  nfiles: 54
   hash: md5
   path: ood_positives
