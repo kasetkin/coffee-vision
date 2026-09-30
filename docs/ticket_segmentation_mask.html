@@ -121,7 +121,7 @@
     is implemented yet.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">D1–D20 answered 2026-09-30; P0 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">D1–D23 answered 2026-09-30, D24 provisional; P0 next</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Feature: new pipeline stage</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/infer.py</code>, <code>crop</code> stage, new <code>coffeecv/segment_beans.py</code>, <code>dvc.yaml</code>, deploy</span></div>
@@ -129,7 +129,7 @@
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions; accepts or declines masks in the review tool, D12); no hand annotation (D6)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-09-30</span></div>
     <div class="field"><span class="k">Production impact</span><span class="v"><span class="pill ok">None until P6</span> <span class="tag">then the serving path changes, §7</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D20 answered 2026-09-30; judge model and mechanism picked after the P1 pilot (D15)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1–D23 answered 2026-09-30; judge model and mechanism picked after the P1 pilot (D15); D24 confirmed before P4</span></span></div>
   </div>
 
   <div class="callout info">
@@ -250,9 +250,9 @@
       <tr><td class="id">R3</td><td><strong>A pretrained SAM repeats the heuristic's failure</strong> by taking reflections on the tray wall as beans, or snaps to single beans.</td>
         <td>This is why a fine-tuning phase exists. P2 measures it before any integration work.</td></tr>
       <tr><td class="id">R4</td><td><strong>Latency on the CPU server.</strong> <code>/classify</code> takes 7.0 s idle and 12.5 s during a sweep, and training shares the VM.</td>
-        <td>No gate (D8). L0 at 512 is measured on the VM in P0 and again at P6, and the added seconds are reported in the ship decision. ONNX Runtime on CPU is the likely serving path anyway (R5), which should also help speed.</td></tr>
+        <td>No gate (D8). L0 at 512 is measured on the VM in P0 and again at P6, and the added seconds are reported in the ship decision. The segmenter runs on the PyTorch runtime at both ends (R5).</td></tr>
       <tr><td class="id">R5</td>
-        <td><strong>Owner decision, 2026-09-30.</strong> <code>triton</code>: patch the vendored copy so it is not needed. RMSNorm's Triton kernel is imported only when used; L0 on CPU never uses it. <code>onnx</code>: probably kept and installed, because ONNX Runtime is fast and has a CPU build, making it the likely way to run the segmenter on the server. Each patch to the vendored copy is listed in a note beside it (<code>third_party/efficientvit/PATCHES.md</code>). Any further missing imports found in P0 are handled the same way: patch if unused on CPU, install if useful.</td></tr>
+        <td><strong>Owner decision, 2026-09-30.</strong> <code>triton</code>: patch the vendored copy so it is not needed. RMSNorm's Triton kernel is imported only when used; L0 on CPU never uses it. <code>onnx</code>: not installed. The segmenter runs on the PyTorch runtime in training and serving, so nothing uses it; its import in <code>apps/utils/export.py</code> is moved inside the ONNX export function, the only place that needs it (owner, 2026-09-30). Each patch to the vendored copy is listed in a note beside it (<code>third_party/efficientvit/PATCHES.md</code>). Any further missing imports found in P0 are handled the same way: patch if unused on CPU, install if useful.</td></tr>
       <tr><td class="id">R6</td><td><strong>No human ground truth (D6).</strong> Labels come from the pretrained model itself, corrected where the judge flags them. The eval metric is the judge's pass rate, not IoU. A blind spot that the judge and SAM share would go unseen in both training and eval.</td>
         <td>Planted defects measure the judge's miss rate (P1), and every eval number is reported next to it. Because planted defects only test errors someone thought of, the owner also reviews ~50 of the judge's real P2 verdicts blind, and the agreement rate is reported (D12). Fine-tuning can only improve on what the judge catches, so its gain is bounded by the judge's quality. The eval photo list is fixed before any fine-tuning and is never trained on. The judge sees full-resolution tiles along the mask boundary as well as the downscaled overview, following the rule that crops and masks are verified at full resolution, not in thumbnails.</td></tr>
       <tr><td class="id">R6b</td><td><strong>The judge is an external, paid, non-deterministic service.</strong></td>
@@ -334,28 +334,44 @@
     </tbody>
   </table></div>
 
+  <h3>Implementation-plan questions (answered 2026-09-30)</h3>
+  <p>Questions raised while writing <code>docs/plan_segmentation_mask.html</code> from a read of the code.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D21</td><td>Which photo split do the segmenter's lists (train, seg-val, eval, bases) come from? The split is seeded per head seed, so any head seed's split overlaps the other seeds' val/test.</td>
+        <td><strong>A dedicated split seed, 239</strong>, which is not one of the head seeds (42/123/7). It uses <code>split_photos_by_class</code> at 70/15/15 (<code>seg_split_seed</code> in <code>params.yaml</code>). The result is 650 segmenter-train photos and 288 eval photos, 14 of them roasted. D12's base masks are drawn from this eval set. Each head seed has 84&ndash;94 val/test photos that the segmenter never trained on. P6 reports every seed on its full val/test and on that subset; if the two disagree, the owner decides.</td></tr>
+      <tr><td class="id">D22</td><td>How are today's heuristic crops "judged the same way" in P2? A rectangle fails D13 rules (2) and (3) by construction.</td>
+        <td><strong>They are not judged.</strong> The judge only ever analyses masks on full photos, never cropped images. P2 keeps a judge-free geometric comparison: the share of the accepted SAM bean region the heuristic rectangle discards, and its IoU with the D4 crop. The D6 correction loop, judging the P5 fine-tuned masks, and re-judging during P1 prompt development are unchanged.</td></tr>
+      <tr><td class="id">D23</td><td>Which runtime does the segmenter use?</td>
+        <td><strong>PyTorch, at both ends, for now.</strong> Neither <code>onnx</code> nor ONNX Runtime is installed, and the <code>onnx</code> import is patched out (R5). A later move to ONNX Runtime would have to switch training and serving together.</td></tr>
+      <tr><td class="id">D24</td><td>What is the numeric P4/P6 non-inferiority gate ("not worse beyond the paired seed spread")?</td>
+        <td><strong>Deferred:</strong> the owner decides after P0&ndash;P3 are implemented, and before any P4 number is read. <strong>Provisional default:</strong> the new arm fails on val or on test if all three paired Δ (same seed) are negative, or if the mean paired Δ is negative and larger in magnitude than the range of the three Δ.</td></tr>
+    </tbody>
+  </table></div>
+
   <h2>7. Plan and acceptance</h2>
   <ol class="tasks">
-    <li><span class="box"></span><div><strong>P0 · Setup.</strong> Code is vendored (done 2026-09-30). Patch out the <code>triton</code> import and install <code>onnx</code> (R5), DVC-track the L0 checkpoint, and point the model zoo at it. Time one photo through a thin loader on the VM.
+    <li><span class="box"></span><div><strong>P0 · Setup.</strong> Code is vendored (done 2026-09-30). Patch out the <code>triton</code> and <code>onnx</code> imports (R5), DVC-track the L0 checkpoint, and point the model zoo at it. Time one photo through a thin loader on the VM.
       <span class="result">Reported, not gated (D8).</span></div></li>
-    <li><span class="box"></span><div><strong>P1 · Judge.</strong> Fix the photo lists (D11, D12) in one committed file. Generate pretrained masks for the candidate base photos. Build the review tool (D12) and test it before handing it over. The owner reviews ~60–70 masks to get ~50 base masks. Write the judge prompt around the D13 accept rule, and the overlay renderer (overview + full-resolution boundary tiles). Run the 20-photo pilot with Sonnet 5.5 and Opus 5.5 and report the cost of both mechanisms; the owner picks (D15). Develop the prompt on 25 bases (≤ 3 revisions), then run the final planted-defect check once on the 25 held-out bases.
+    <li><span class="box"></span><div><strong>P1 · Judge.</strong> Fix the photo lists (D11, D12, D21) in one committed file. Generate pretrained masks for the candidate base photos. Build the review tool (D12) and test it before handing it over. The owner reviews ~60–70 masks to get ~50 base masks. Write the judge prompt around the D13 accept rule, and the overlay renderer (overview + full-resolution boundary tiles). Run the 20-photo pilot with Sonnet 5.5 and Opus 5.5 and report the cost of both mechanisms; the owner picks (D15). Develop the prompt on 25 bases (≤ 3 revisions), then run the final planted-defect check once on the 25 held-out bases.
       <span class="result">Output: catch rate and false-fail rate per defect type against the D14 bar. If they fail, work stops and the owner decides.</span></div></li>
-    <li><span class="box"></span><div><strong>P2 · Pretrained baseline.</strong> L0 with the D5 prompt on the eval set. Report the judge's pass rate (per roast state), the median <code>bean_frac_in_crop</code>, and the negatives' mask areas per tag. Judge today's heuristic crops the same way, for comparison. The owner reviews the judge's failures and the ~50-mask blind audit in the review tool (D12). Set the tiny-mask threshold (D18). Run the <code>beans_across</code> check (D19).
+    <li><span class="box"></span><div><strong>P2 · Pretrained baseline.</strong> L0 with the D5 prompt on the eval set. Report the judge's pass rate (per roast state), the median <code>bean_frac_in_crop</code>, and the negatives' mask areas per tag. Compare with today's heuristic crops geometrically, without the judge (D22). The owner reviews the judge's failures and the ~50-mask blind audit in the review tool (D12). Set the tiny-mask threshold (D18). Run the <code>beans_across</code> check (D19).
       <span class="result">Decides whether P3 starts with pretrained masks, or whether fine-tuning comes first. Reports judge–owner agreement next to the catch rate.</span></div></li>
     <li><span class="box"></span><div><strong>P3 · Integrate.</strong> Add <code>segment_beans.py</code> (steps 2–3 of §3, with the D18 fallback) and the D17 patch rule, and call them from the <code>crop</code> stage and from <code>infer.crop_to_bean_region</code> / <code>patches_for_photo</code>. Smoke-test both code paths through the real CLI entry points, then in the deploy sandbox.
       <span class="result">Per-photo diagnostics logged on both paths, including fallbacks and below-threshold patch counts.</span></div></li>
     <li><span class="box"></span><div><strong>P4 · Classifier refit, pretrained masks.</strong> Regenerate pools, refit the head (3 seeds) and the OOD probe. Compare paired per seed against the current recipe (gray fill, D3). Rerun the OOD holdout.
-      <span class="result">Gate: val and test patch macro-F1 not worse than baseline beyond the paired seed spread; OOD holdout at today's bar.</span></div></li>
+      <span class="result">Gate: val and test patch macro-F1 not worse than baseline beyond the paired seed spread (numeric rule D24, confirmed by the owner before the comparison); OOD holdout at today's bar.</span></div></li>
     <li><span class="box"></span><div><strong>P5 · Fine-tune.</strong> Build the train-split label set with the judge loop (D6: verdict, corrective points, rerun, at most 2 rounds), plus empty masks for the seg-train negatives (D11). Store it as D16 describes. Decoder-only fine-tuning (D7) with the fixed box prompt. Judge the fine-tuned model's masks on the eval set.
       <span class="result">Gate: judge pass rate above P2's pretrained rate beyond its bootstrap interval, and D11's negative test (≥ 90% of pile-like seg-eval negatives empty or tiny). It is always read next to P1's catch rate. If only the negative test fails, try encoder + decoder once (D11); if it still fails, the segmenter is "any pile" (D10). If the pass-rate gate fails, ship the pretrained model when P4 passed.</span></div></li>
-    <li><span class="box"></span><div><strong>P6 · Ship.</strong> Repeat P4 with the chosen segmenter. Deploy through <code>scripts/deploy_webapp.sh</code>. Update <code>docs/inference_path.html</code>. Spot-check through the real <code>/classify</code> path.
+    <li><span class="box"></span><div><strong>P6 · Ship.</strong> Repeat P4 with the chosen segmenter, also reporting each seed on its segmenter-unseen photos (D21). Deploy through <code>scripts/deploy_webapp.sh</code>. Update <code>docs/inference_path.html</code>. Spot-check through the real <code>/classify</code> path.
       <span class="result">The live model changes here, and only here. A further release follows the data merge (D20).</span></div></li>
   </ol>
 
   <h2>Out of scope</h2>
   <ul>
     <li>Fine-tuning the DINOv3 backbone. It stays frozen; only its head is refitted.</li>
-    <li>TensorRT and any GPU serving. (ONNX Runtime on CPU is now probably in scope, R5.)</li>
+    <li>TensorRT, ONNX Runtime and any GPU serving. The segmenter runs on PyTorch at both ends (R5).</li>
     <li>Per-bean instance masks. Also deriving bean pitch or bean counts from masks instead of the FFT: that is a plausible follow-up, but it needs D2 (b).</li>
     <li>A "no beans" refusal gate (D9) until real-traffic data exists.</li>
     <li>Merging <code>dataset_new_ignored/</code> (classes 011/012 and the rest), and the segmenter's second fine-tuning on it. That is the data-merge ticket (D20).</li>
@@ -370,6 +386,8 @@
     <div><div class="when">2026-09-30</div>Owner: vendor the full upstream code as a subfolder; the license is handled outside this ticket. Vendored into <code>third_party/efficientvit/</code> at <code>de7d7733</code> (1.5 MB, <code>assets/</code> media left out). Building L0 needs <code>onnx</code> and <code>triton</code> at import time (R5).</div>
     <div><div class="when">2026-09-30</div>Owner decides R5: patch the vendored code so it does not need <code>triton</code>; probably keep <code>onnx</code>, since ONNX Runtime is fast and has a CPU build.</div>
     <div><div class="when">2026-09-30</div>Design review with the owner answers D10–D20: coffee-only mask, segmenter negatives, owner accept/decline review tool, accept rule, judge bar, judge model and mechanism after the pilot, storage of judge outputs, patch placement, tiny-mask fallback, FFT input, and the order relative to the data merge. The owner confirmed the green/roasted split of today's data (roasted only in <code>2026-08-30__pixel/class_010</code>) and that photos show mostly whole beans, a few split; both were checked by eye on random samples at full resolution. <code>GLOSSARY.md</code> created. Still not implemented; P0 next.</div>
+    <div><div class="when">2026-09-30</div>Owner: the segmenter runs on the PyTorch runtime for now, in training and serving; <code>onnx</code> is not installed. R5 changed: the <code>onnx</code> import is patched out of the vendored copy like <code>triton</code>'s. This replaces the earlier "probably keep <code>onnx</code>". Implementation plan: <code>docs/plan_segmentation_mask.html</code>.</div>
+    <div><div class="when">2026-09-30</div>Owner answers the implementation-plan questions: D21 the segmenter gets its own split seed, 239; D22 heuristic crops are not judged, and the judge sees full-photo masks only; D23 PyTorch runtime at both ends; D24 the numeric P4 gate is deferred until after P0&ndash;P3, with a provisional default. Still not implemented; P0 next.</div>
   </div>
 
   <footer>Related: <code>GLOSSARY.md</code> (terms), <code>coffeecv/crop_tray.py</code>, <code>coffeecv/crop_tray_sam.py</code> (MobileSAM prototype), <code>coffeecv/infer.py</code> (<code>crop_to_bean_region</code>, <code>patches_for_photo</code>),

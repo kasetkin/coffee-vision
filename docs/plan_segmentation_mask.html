@@ -1,0 +1,500 @@
+<title>Implementation plan: bean segmentation stage (ML-2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Plan · ML-2 · coffee-vision · implementation</div>
+  <h1>Implementation plan: bean segmentation stage before classification</h1>
+  <p class="lede">How to build <a href="ticket_segmentation_mask.html">ticket ML-2</a> now that D1&ndash;D20 are
+    answered. The ticket fixes <em>what</em> gets built. This plan fixes the order, the modules and their
+    interfaces, where each artifact lives (git or DVC), the fine-tuning recipe, the tests, and the points where
+    work stops for an owner decision. The live model is untouched until P6: every earlier phase either adds
+    new code paths beside the old ones or produces reports.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Draft</span> <span class="tag">awaiting owner review</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-09-30</span></div>
+    <div class="field"><span class="k">Branch</span><span class="v mono">tmp/segmentation-mask</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None for P0</span> <span class="tag">Q1, Q2, Q4 answered; Q3 provisional, owner reviews before P4</span></span></div>
+    <div class="field"><span class="k">Owner stops</span><span class="v">P1 pilot (D15) · P1 final check (D14) · P2 · P5 gate · P6 ship</span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Checked against the code, not only the ticket.</strong> I read the crop stage, the
+      patch sampler, the serving path, the head and probe fitting, the deploy manifest and the vendored
+      EfficientViT, and ran an import probe and a split census. Eight things came up that the ticket doesn't
+      cover. They are folded into the phases below; F2 (Q1) and F5 (Q2) were answered on 2026-09-30; F7 (Q3) has a provisional default that the owner reviews before P4 (§12).</p>
+  </div>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Finding</th><th>Where it lands</th></tr></thead>
+    <tbody>
+      <tr><td class="id">F1</td><td><strong>Four import blockers, not two.</strong> Building L0 also needs
+        <code>omegaconf</code> (<code>models/efficientvit/__init__.py</code> imports <code>dc_ae</code>, which
+        SAM never uses) and Meta's <code>segment_anything</code>: <code>sam.py</code> imports its
+        <code>MaskDecoder</code>, <code>PromptEncoder</code> and <code>ResizeLongestSide</code>, so this one is a
+        real dependency. Upstream installs it from git; PyPI's <code>segment-anything==1.0</code> can be locked
+        with hashes. The first failure the probe hit was <code>onnx</code> in <code>apps/utils/export.py</code>, which now gets patched out (Q4).</td>
+        <td>P0</td></tr>
+      <tr><td class="id">F2</td><td><strong>The photo split changes with the head seed.</strong>
+        <code>split_photos_by_class</code> is seeded on <code>(seed, class)</code>. Measured on today's pools:
+        650/144/144 at every seed, but <strong>201 of seed 42's 288 val/test photos are in seed 123's train
+        split</strong> (seed 7 gives the same count). A segmenter fine-tuned on one seed's train photos is scored
+        on in-sample masks at the other two seeds. <strong>Owner, 2026-09-30:</strong> the segmenter gets its own split seed,
+        239, which is none of the head seeds (Q1).</td><td>P1 lists, P6, Q1</td></tr>
+      <tr><td class="id">F3</td><td><strong>Only <code>*__cropped.jpg</code> travels.</strong> <code>merge_rig.py</code>
+        and <code>list_cropped_photos</code> both glob that pattern, so a mask file beside each crop is dropped
+        at the merge step unless <code>merge_rig</code> learns to copy it.</td><td>P3</td></tr>
+      <tr><td class="id">F4</td><td><strong>The web service and training envs have drifted.</strong> The webapp
+        pins torch 2.13 / timm 1.0.29. The training lock is now torch 2.14 / timm 1.0.30, and
+        <code>dino_classifier</code> refuses a checkpoint fitted under a different timm. Every refit in P4/P6
+        is under 1.0.30, so the webapp lock has to move with it at P6. It also needs
+        <code>segment-anything</code>.</td><td>P4 baseline, P6</td></tr>
+      <tr><td class="id">F5</td><td><strong>"Judge the heuristic crops the same way" (P2) can't be done literally.</strong>
+        The heuristic outputs an all-bean rectangle, not an outline, so D13 rules (2) and (3) fail it by
+        construction. <strong>Owner, 2026-09-30:</strong> heuristic crops are not judged at all; the judge only
+        ever analyses masks on full photos (Q2).</td><td>P2, Q2</td></tr>
+      <tr><td class="id">F6</td><td><strong>The deploy manifest lists every module by name.</strong>
+        <code>webapp/deploy/release_manifest.py</code>'s <code>LIBRARY</code> needs
+        <code>segment_beans.py</code>, the loader shim, the vendored files L0 imports and the segmenter weights,
+        or the release won't contain them.</td><td>P3 sandbox, P6</td></tr>
+      <tr><td class="id">F7</td><td><strong>"Beyond the paired seed spread" (P4 gate) has no numeric definition yet.</strong>
+        It needs one before the numbers exist. A provisional default is in force until the owner reviews it before P4 (Q3).</td><td>P4, Q3</td></tr>
+      <tr><td class="id">F8</td><td><strong>The negative test is small.</strong> There are 86 dev negatives, 68 of
+        them pile-like (confusable_grain 39, other_nuts_seeds 11, ground_coffee 9, green_legume 7,
+        wrong_bean_type 2). A ~1/3 seg-eval split leaves ~23 pile-like negatives, and green_legume gets 2&ndash;3.
+        The ≥90% gate is pooled; per-tag lines are descriptive and carry Wilson intervals.</td><td>P1 lists, P5</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>1. Phase map</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>New / changed code</th><th>Ends with</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P0</td><td>Env, weights, thin loader, CPU timing, mask-selection rule</td>
+        <td><code>third_party/efficientvit/PATCHES.md</code>, <code>coffeecv/sam_loader.py</code>, <code>pyproject.toml</code></td>
+        <td>Timing report (not gated, D8)</td></tr>
+      <tr><td class="id">P1</td><td>Photo lists, pretrained masks, review tool, overlays, judge, planted defects, pilot, final check</td>
+        <td><code>seg_lists.py</code>, <code>review_masks.py</code>, <code>seg_overlay.py</code>, <code>seg_judge.py</code>, <code>seg_defects.py</code></td>
+        <td><span class="pill sm high">stop</span> owner picks judge (D15); judge meets D14, or stop</td></tr>
+      <tr><td class="id">P2</td><td>Pretrained baseline on the eval set, owner audit, tiny-mask threshold, pitch check</td>
+        <td><code>seg_eval.py</code> + DVC stage</td>
+        <td><span class="pill sm high">stop</span> owner: integrate pretrained first, or fine-tune first</td></tr>
+      <tr><td class="id">P3</td><td>Integrate at both ends behind <code>crop_method</code></td>
+        <td><code>segment_beans.py</code>, <code>geometry.py</code>, <code>dataset.py</code>, <code>infer.py</code>, <code>merge_rig.py</code>, <code>config.py</code>, <code>dvc.yaml</code></td>
+        <td>Smoke via real CLIs + deploy sandbox; live model byte-identical</td></tr>
+      <tr><td class="id">P4</td><td>Head + probe refit on pretrained-mask pools, paired 3-seed comparison</td>
+        <td><code>fit_frozen_head.py</code> (<code>--pools</code>)</td>
+        <td>Non-inferiority gate (Q3) + OOD holdout bar</td></tr>
+      <tr><td class="id">P5</td><td>Judge-loop labels, decoder-only fine-tune, eval</td>
+        <td><code>seg_labels.py</code>, <code>seg_finetune.py</code> + DVC stages</td>
+        <td><span class="pill sm high">stop</span> pass-rate gate + negative test (D11)</td></tr>
+      <tr><td class="id">P6</td><td>Refit with the chosen segmenter, webapp env, release, docs</td>
+        <td><code>webapp/pyproject.toml</code>, <code>release_manifest.py</code>, <code>docs/inference_path.html</code></td>
+        <td><span class="pill sm high">stop</span> owner ship decision; the only change to the live model</td></tr>
+    </tbody>
+  </table></div>
+  <p>P3 can start as soon as P0 is done, in parallel with P1/P2, because it only adds a code path that no
+    live checkpoint selects. It must not <em>merge to main</em> before P2 has fixed the tiny-mask threshold
+    and the D5 prompt.</p>
+
+  <h2>2. Architecture</h2>
+
+  <h3>2.1 Modules</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>Role</th><th>Runs in</th></tr></thead>
+    <tbody>
+      <tr><td><code>coffeecv/sam_loader.py</code></td><td>Puts <code>third_party/efficientvit</code> on <code>sys.path</code>, builds L0 from a local
+        sha256-checked weight file (never the zoo's default relative path), fixes <code>torch.set_num_threads</code>.
+        This is the only file that imports <code>efficientvit</code>.</td><td>train + serve</td></tr>
+      <tr><td><code>coffeecv/segment_beans.py</code></td><td>The single shared function for §3 steps 2&ndash;3 of the ticket: predict mask → fill → quantile crop
+        → D18 fallback, plus diagnostics. Also has a <code>--time</code> CLI for P0/P6.</td><td>train + serve</td></tr>
+      <tr><td><code>coffeecv/geometry.py</code></td><td>+ <code>sample_masked_bean_unit_boxes</code>: the D17 accept/reject/top-up rule, on an integral image of the mask.</td><td>train + serve</td></tr>
+      <tr><td><code>coffeecv/seg_lists.py</code></td><td>Builds and checks <code>labels/ml2/photo_lists.yaml</code>. It is append-only, and a test enforces that (D20).</td><td>annotation</td></tr>
+      <tr><td><code>coffeecv/review_masks.py</code></td><td>Local Flask review server (D12). Flask is already in the dev group.</td><td>annotation</td></tr>
+      <tr><td><code>coffeecv/seg_overlay.py</code></td><td>Overview + full-resolution boundary tiles, re-encoded from pixels (no metadata).</td><td>annotation</td></tr>
+      <tr><td><code>coffeecv/seg_judge.py</code></td><td>Judge runner with <code>cli</code> (<code>claude -p</code>) and <code>api</code> (Messages + Batches) backends; appends verdicts.</td><td>annotation, never <code>dvc repro</code></td></tr>
+      <tr><td><code>coffeecv/seg_defects.py</code></td><td>Planted-defect generator + the D14 "consequential" metric.</td><td>annotation</td></tr>
+      <tr><td><code>coffeecv/seg_labels.py</code></td><td>P5 judge loop: verdict → corrective points → rerun, ≤2 rounds → label masks.</td><td>annotation</td></tr>
+      <tr><td><code>coffeecv/seg_eval.py</code></td><td>Pass rates, bootstrap CIs, negative test, per-roast/per-tag tables. Reads stored verdicts only and fails loudly on a missing one (D16).</td><td>DVC stage</td></tr>
+      <tr><td><code>coffeecv/seg_finetune.py</code></td><td>Embedding cache + decoder-only training (D7 (a)); encoder+decoder mode for the D11 retry.</td><td>DVC stage</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>2.2 The shared interface</h3>
+  <p>One function sits behind both the training crop stage and <code>infer.patches_for_photo</code>, per the
+    train/inference parity rule. Sketch:</p>
+<pre><code>@dataclass(frozen=True)
+class SegParams:                 # all from RunConfig, recorded in every checkpoint
+    weights: str                 # repo-relative path
+    weights_sha256: str
+    prompt: str                  # "box" (D5 a) | "grid3" (D5 b fallback)
+    mask_select: str             # fixed in P0 (§3), e.g. "single" | "best_iou"
+    keep_frac: float = 0.95      # D4: cut (1-keep)/4 per side
+    fill_rgb: tuple = (124, 116, 104)   # D3: ImageNet mean, rounded to uint8
+    min_area_frac: float = 0.0   # D18: set in P2
+
+@dataclass
+class BeanCrop:
+    rgb: np.ndarray              # filled crop, or the whole original photo on fallback
+    mask: np.ndarray | None      # bool, aligned with rgb; None = fallback (accept every patch)
+    info: dict                   # mask_area_frac, bean_frac_in_crop, retained_frac,
+                                 # fallback, box, mask_sha256, timing_ms
+
+class BeanSegmenter:
+    def __init__(self, p: SegParams): ...           # loads L0 once
+    def predict_mask(self, rgb) -> np.ndarray: ...  # bool HxW at full resolution
+
+def mask_and_crop(rgb, mask, p: SegParams) -> BeanCrop: ...   # pure numpy, unit-testable
+def segment_and_crop(rgb, seg: BeanSegmenter, p) -> BeanCrop: ...</code></pre>
+  <ul>
+    <li><code>predict_mask</code> upsamples the <em>logits</em> to full resolution and removes SAM's
+      bottom/right padding first, then thresholds at 0. That follows SAM's own postprocess. The
+      pad-then-crop step is where an off-by-pad misalignment would come from, so it gets its own test.</li>
+    <li>The fill does not normalize to <em>exactly</em> 0 once rounded to uint8. Channel values come out at
+      +0.006, &minus;0.005 and +0.008. That is negligible, but the ticket's wording is corrected in the ticket
+      update at P3.</li>
+    <li><code>crop_method</code> is a new <code>RunConfig</code> field: <code>"tray_heuristic"</code> |
+      <code>"segment"</code>. A checkpoint without it restores as <code>"tray_heuristic"</code>, so
+      <code>allrigs_dino3b16_s123</code> keeps today's path with no change. CLI flags for the new fields
+      inherit from the checkpoint and never reset to zero.</li>
+  </ul>
+
+  <h3>2.3 Where artifacts live</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Artifact</th><th>Path</th><th>Store</th></tr></thead>
+    <tbody>
+      <tr><td>Pretrained L0 weights</td><td><code>models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt</code> + sha256 in <code>manifest.json</code></td><td>DVC (ticket P0) + sha256 check at load</td></tr>
+      <tr><td>Photo lists (train, seg-val, eval, bases, negatives, audit sample)</td><td><code>labels/ml2/photo_lists.yaml</code></td><td>git</td></tr>
+      <tr><td>Accept rule (D13, verbatim)</td><td><code>labels/ml2/accept_rule.md</code>, the one file read by the review page and by the prompt builder</td><td>git</td></tr>
+      <tr><td>Judge prompt</td><td><code>labels/ml2/judge_prompt.md</code> (includes the rule by reference; a test asserts byte equality)</td><td>git</td></tr>
+      <tr><td>Owner review decisions</td><td><code>labels/ml2/review/&lt;list&gt;.decisions.jsonl</code></td><td>git (D16)</td></tr>
+      <tr><td>Judge verdicts + corrective points</td><td><code>labels/ml2/verdicts.jsonl</code>, keyed by <code>(photo_sha256, mask_sha256)</code></td><td>git (D16)</td></tr>
+      <tr><td>Planted-defect manifests</td><td><code>labels/ml2/defects/&lt;set&gt;.csv</code> (opaque item id → base, type, magnitude, consequential)</td><td>git</td></tr>
+      <tr><td>Predicted masks (pretrained, fine-tuned)</td><td><code>data/seg_masks/&lt;model&gt;/</code> 1-bit PNG + <code>index.csv</code></td><td>DVC stage out</td></tr>
+      <tr><td>Final label masks</td><td><code>data/seg_labels/</code></td><td>DVC (<code>dvc add</code>; built outside <code>repro</code>)</td></tr>
+      <tr><td>Encoder embedding cache</td><td><code>data/seg_cache/</code></td><td>DVC out, <code>push: false</code> (several GB, rebuildable)</td></tr>
+      <tr><td>Fine-tuned segmenter</td><td><code>models/seg/&lt;name&gt;.pt</code> + <code>.json</code> sidecar</td><td>DVC stage out</td></tr>
+      <tr><td>Masked pools</td><td><code>data/segcropped/&lt;session&gt;</code>, <code>data/segcropped/cam_*</code></td><td>DVC stage outs</td></tr>
+    </tbody>
+  </table></div>
+  <p>The mask key is the sha256 of the packed boolean array plus its shape, not of the PNG bytes, so
+    re-encoding a mask never orphans its verdict. The photo key is the sha256 of the raw file.</p>
+
+  <h3>2.4 DVC graph (additions)</h3>
+<pre><code>seg_predict@{pretrained,ft}  photo_lists.yaml + weights  → data/seg_masks/&lt;model&gt;/
+seg_eval@{pretrained,ft}     masks + verdicts.jsonl       → outputs/seg_eval_&lt;model&gt;.json (metric)
+seg_embed_cache              seg_train/seg_val + L0       → data/seg_cache/            (P5)
+seg_finetune                 cache + data/seg_labels      → models/seg/&lt;name&gt;.pt       (P5)
+segcrop@&lt;session&gt;            dataset/&lt;session&gt; + chosen weights + segment_beans.py + seg params
+                                                          → data/segcropped/&lt;session&gt;
+merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/cam_*</code></pre>
+  <p>The existing <code>crop</code> / <code>merge_cam_*</code> stages stay untouched until P6, so P4's
+    comparison is paired against pools that don't move (ticket R7). Judging and label building are
+    deliberately <em>not</em> stages (D16).</p>
+
+  <h2>3. P0 &mdash; setup</h2>
+  <ol class="tasks">
+    <li><span class="box done"></span><span>Vendor upstream at <code>de7d7733</code>. <span class="result">Done 2026-09-30.</span></span></li>
+    <li><span class="box"></span><span>Patch the vendored copy, one entry per patch in <code>third_party/efficientvit/PATCHES.md</code> (file, why, diff summary):
+      (1) <code>models/nn/triton_rms_norm.py</code>: import <code>triton</code> lazily, inside the kernel path;
+      (2) <code>models/efficientvit/__init__.py</code>: stop importing <code>dc_ae</code> eagerly (drops <code>omegaconf</code>);
+      (3) <code>apps/utils/export.py</code>: move <code>import onnx</code> into the ONNX export function, the only code that uses it. <code>models/nn/drop.py</code> imports <code>efficientvit.apps</code>, which is how the model reaches it.
+      <span class="result">Rule from R5: patch what CPU L0 never uses, install what it does use. After each patch, rerun the import probe; anything new it hits gets the same rule.</span></span></li>
+    <li><span class="box"></span><span>Add <code>segment-anything==1.0</code> to <code>pyproject.toml</code> (no <code>onnx</code>: PyTorch runtime, Q4); <code>uv lock</code>; <code>uv sync --locked</code> in the devcontainer and on the VM.</span></li>
+    <li><span class="box"></span><span>Get <code>efficientvit_sam_l0.pt</code> from the upstream Hugging Face repo; record its sha256 in <code>models_pretrained/manifest.json</code>; extend <code>verify.py</code>; <code>dvc add</code>. <span class="result">The DVC remote has been down since 2026-09-24, so the push waits. Verify the object on the remote afterwards; don't trust dvc's exit message.</span></span></li>
+    <li><span class="box"></span><span><code>sam_loader.py</code> + a <code>tests/test_sam_loader.py</code> that builds L0 in an env <em>without</em> triton and omegaconf, loads the weights, and checks a forward pass on a fixed input against a stored logit checksum.</span></li>
+    <li><span class="box"></span><span><strong>Mask-selection rule.</strong> With a box prompt, SAM returns one mask or three. On 10 photos from the <em>train</em> list (never eval), look at all three outputs at full resolution and fix <code>seg_mask_select</code> in <code>params.yaml</code>. <span class="result">This has to be fixed before P1, because base masks are pretrained outputs and changing the rule later would invalidate the owner's review.</span></span></li>
+    <li><span class="box"></span><span><code>python -m coffeecv.segment_beans --time</code> on a 12 MP and a 50 MP (sony) photo, in the devcontainer and on the VM with 4 threads: decode, resize, encoder, decoder, upsample, fill/crop, 5 runs each, median. Run once idle and once during a training job. PyTorch only (Q4).</span></li>
+    <li><span class="box"></span><span>Determinism: the same photo run twice, and at 1 vs 4 threads, gives an identical <code>mask_sha256</code>. <span class="result">If it doesn't, the pools' DVC hashes churn on every rerun. The fix is fixed threads plus <code>torch.use_deterministic_algorithms</code>; if a few pixels still flip, the mask threshold gets a documented epsilon.</span></span></li>
+  </ol>
+
+  <h2>4. P1 &mdash; lists, review tool and judge</h2>
+  <h3>4.1 Lists (one committed file)</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_lists.py</code> writes <code>labels/ml2/photo_lists.yaml</code> from its own split: <code>split_photos_by_class</code> at <strong>seed 239</strong> (<code>seg_split_seed</code> in <code>params.yaml</code>), a seed no head fit uses (Q1). The fractions stay 70/15/15, so the split is still stratified by class, and 14 roasted class_010 photos land in the eval set:
+      <code>seg_train</code> (the 650 train photos minus <code>seg_val</code>), <code>seg_val</code> (~15% of the train split, stratified by session, used only to select fine-tune checkpoints),
+      <code>seg_eval</code> (the 288 val+test photos), <code>base_candidates</code> (~70 from <code>seg_eval</code>, stratified by session × camera, ≥6 from the roasted class_010),
+      <code>neg_seg_train</code> / <code>neg_seg_eval</code> (dev negatives ~2/3 : 1/3 within each tag; the holdout is never listed), and <code>audit_sample</code> (50 of <code>seg_eval</code>, drawn now, before any P2 result).
+      Each entry records the path, the photo sha256 and the roast state.</span></li>
+    <li><span class="box"></span><span>Near-duplicate grouping for negatives: user captures within 120 s of each other on the same camera form one group; internet photos group by <code>source_url</code>. A group never straddles seg-train and seg-eval.</span></li>
+    <li><span class="box"></span><span>Test: the lists are disjoint, cover exactly the stated pools, and are append-only against the committed version (D20).</span></li>
+  </ol>
+  <h3>4.2 Masks and review tool</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc repro seg_predict@pretrained</code> over <code>seg_eval</code> + <code>neg_seg_eval</code> (this also covers the base candidates). It writes the masks plus <code>index.csv</code> with mask sha, area fraction, predicted IoU and the D4 crop box.</span></li>
+    <li><span class="box"></span><span><code>review_masks.py --list base_candidates</code> implements D12 as written: thin outline (Space toggles it), click-to-zoom at full resolution, dashed crop box, A/D keys, optional one-click decline reason, progress counter, and the D13 rule shown from <code>accept_rule.md</code>.
+      Every click appends <code>{item, mask_sha, decision, reason, ts}</code>; the last write wins; an item with no row is "unreviewed". A <code>--blind</code> mode hides a stored verdict until after the click (used for the P2 audit).</span></li>
+    <li><span class="box"></span><span>Test it before handing it over: Flask test-client tests for write, overwrite, unreviewed and blind; then I run it myself through the VS Code port forward on a real list, and check the full-resolution zoom on a 50 MP photo.</span></li>
+    <li><span class="box"></span><span><strong>Owner:</strong> review ~60&ndash;70 candidates until ≥50 are accepted. <code>seg_lists.py</code> then assigns 25 <code>base_dev</code> / 25 <code>base_heldout</code> with a fixed seed, stratified the same way, and commits both.</span></li>
+  </ol>
+  <h3>4.3 Overlays, prompt and defects</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_overlay.py</code>: an overview at ≤1568 px on the long side, with a 2 px magenta outline (it contrasts with both green and roasted beans) and the dashed crop box; plus 6 full-resolution boundary tiles of 768 px, labelled T1&ndash;T6 on the overview. Four tiles are evenly spaced along the contour and two sit at the lowest-confidence boundary points (logit nearest 0). Images are PNG, encoded from pixel arrays, so no EXIF, GPS or C2PA can pass through.</span></li>
+    <li><span class="box"></span><span><code>judge_prompt.md</code> holds the glossary definitions, then the D13 rule verbatim, then the output schema:
+      <code>{"verdict": "accept|decline", "failed_rules": [1-4], "reason": str, "points": [{"where": "overview|T1..T6", "x": 0-1, "y": 0-1, "label": "include|exclude"}]}</code>, at most 6 points.
+      A verdict that fails to parse is retried once, then stored as <code>unjudged</code>. It never defaults to accept.</span></li>
+    <li><span class="box"></span><span><code>seg_defects.py</code> defect types: <code>shift</code>, <code>erode</code>, <code>dilate</code> (grows onto tray/rim), <code>drop_corner</code>, <code>add_band</code> (joins a strip of tray outside the pile). Magnitudes are drawn so each type straddles the D14 boundary: crop IoU ≤0.90 vs the clean crop, or added non-bean area ≥5% of the bean region.
+      "Snaps to single beans" and "outlines a non-coffee pile" can't be planted realistically. The owner's blind audit (P2) covers those.</span></li>
+    <li><span class="box"></span><span><code>seg_judge.py</code>: <code>--backend cli</code> runs <code>claude -p --model &lt;id&gt; --output-format json</code> with the overlay paths and only the Read tool allowed; <code>--backend api</code> sends base64 images, with <code>--batch</code> for Message Batches. Each row records the key, model ID, prompt sha, overlay sha, backend, tokens, cost, round and timestamp. An existing (key, model, prompt) is skipped unless <code>--rejudge</code> is passed. Items are sent one per call, so the judge never sees the base mask behind a defect.</span></li>
+  </ol>
+  <h3>4.4 Pilot, prompt development, final check</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><strong>Pilot (D15):</strong> 20 items from <code>base_dev</code> (clean + defects), judged by Sonnet 5.5 and Opus 5.5 through both backends. Report catch rate, false fails, tokens, $ per item, and wall time, projected to the full run (table below).</span></li>
+    <li><span class="box"></span><span><span class="pill sm high">stop</span> <strong>Owner</strong> picks the model and the mechanism. Nothing beyond the pilot is judged until then.</span></li>
+    <li><span class="box"></span><span>Prompt development on <code>base_dev</code>, ≤3 revisions, each committed with its per-type scores.</span></li>
+    <li><span class="box"></span><span><strong>Final check, once:</strong> fresh defects (a new seed) on <code>base_heldout</code>, two consequential variants per type per base (~50 per type), and each clean base judged twice (50 false-fail trials). Report per-type catch on consequential defects, catch on small defects (not gated), and the false-fail rate, each with a Wilson 95% interval.
+      <span class="pill sm high">stop</span> If D14 isn't met, work stops and the owner decides.</span></li>
+  </ol>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Judged run</th><th>Items (approx.)</th></tr></thead>
+    <tbody>
+      <tr><td>P1 prompt development (≤4 prompt versions × ~25 bases × (2 clean + ~10 defects))</td><td class="num">≤ 1 200</td></tr>
+      <tr><td>P1 final check</td><td class="num">~300</td></tr>
+      <tr><td>P2 pretrained eval (288 + ~29 negatives); no heuristic crops (Q2)</td><td class="num">~320</td></tr>
+      <tr><td>P5 labels (≤650 photos × ≤3 rounds; most accept in round 0)</td><td class="num">~900&ndash;1 950</td></tr>
+      <tr><td>P5 fine-tuned eval (per seed judged)</td><td class="num">~320 each</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>5. P2 &mdash; pretrained baseline</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Judge the pretrained masks on <code>seg_eval</code> + <code>neg_seg_eval</code>. <code>dvc repro seg_eval@pretrained</code> reports: pass rate with a photo-level bootstrap 95% CI, split green / roasted (not gated); the distributions of <code>bean_frac_in_crop</code>, <code>retained_frac</code> and <code>mask_area_frac</code>; and negative mask areas per tag, with <code>user_samerig</code> on its own line.</span></li>
+    <li><span class="box"></span><span>Heuristic comparison, with no judge calls (Q2): for each eval photo whose SAM mask the judge accepted, measure how much of that bean region the heuristic rectangle discards, and the IoU between the heuristic rectangle and the D4 crop. This is pure geometry on existing outputs and is reported as a comparison, not a pass rate.</span></li>
+    <li><span class="box"></span><span><strong>Owner:</strong> review the judge's failures, then the 50-photo blind audit, in the review tool. Report judge&ndash;owner agreement as a 2×2 table with its interval, next to P1's catch rate.</span></li>
+    <li><span class="box"></span><span>D18: set <code>seg_min_area_frac</code> to half the smallest <code>mask_area_frac</code> among judge-<em>accepted</em> genuine eval masks (a declined mask may be a single-bean snap). Commit it to <code>params.yaml</code> and record how many eval photos and negatives it triggers on.</span></li>
+    <li><span class="box"></span><span>D19: compare <code>beans_across</code> on the old crop (<code>data/cropped</code>) and the new filled crop for every eval photo. Pass: median |Δ|/old ≤5% and p95 ≤15%. If it fails, estimate the pitch on the largest all-bean window instead.</span></li>
+    <li><span class="box"></span><span>D5 fallback: if declines are dominated by rule (3) with the reason "snapped to single beans", switch <code>seg_prompt</code> to <code>grid3</code> and rerun P2, with new mask hashes and new verdicts.</span></li>
+    <li><span class="box"></span><span><span class="pill sm high">stop</span> <strong>Owner</strong> decides whether P3/P4 start with pretrained masks or wait for P5.</span></li>
+  </ol>
+
+  <h2>6. P3 &mdash; integrate</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>segment_beans.py</code> per §2.2, and <code>RunConfig</code> fields: <code>crop_method</code>, <code>seg_weights</code>, <code>seg_weights_sha256</code>, <code>seg_prompt</code>, <code>seg_mask_select</code>, <code>seg_keep_frac</code>, <code>seg_min_area_frac</code>, <code>patch_min_bean_share</code> (0.80), <code>patch_max_attempts_factor</code> (20). All of them are written to the checkpoint JSON and restored by <code>config_for_checkpoint</code>.</span></li>
+    <li><span class="box"></span><span><code>geometry.sample_masked_bean_unit_boxes</code>: draw candidates from the same bean-unit distribution; score each box's bean share in O(1) from an integral image; accept a box if share ≥ threshold; stop at <code>factor × n</code> attempts; top up with the best rejected boxes, highest share first; return <code>n_below</code>. With <code>mask=None</code> it accepts everything (D18). RNG consumption changes, so boxes differ from today's even on all-bean crops. That is expected, because the pools regenerate anyway.</span></li>
+    <li><span class="box"></span><span>Training side: <code>coffeecv/segcrop_session.py</code> (<code>segcrop@&lt;session&gt;</code> stage) writes <code>&lt;stem&gt;__cropped.jpg</code> (filled, q95 as today), <code>&lt;stem&gt;__beanmask.png</code> (1-bit, crop-aligned, absent on fallback) and a per-class <code>segcrop_report.json</code>. <code>merge_rig.py</code> copies the mask sibling (F3). <code>MultiPhotoPatchDataset._extract_photo</code> loads the mask when <code>crop_method == "segment"</code> and calls the D17 sampler.</span></li>
+    <li><span class="box"></span><span>Serving side: <code>patches_for_photo</code> branches on <code>cfg.crop_method</code>. <code>skip_crop</code> becomes "whole original photo, unfilled, all patches accepted", the same as D18. New diagnostics: <code>mask_area_frac</code>, <code>bean_frac_in_crop</code>, <code>retained_frac</code>, <code>seg_fallback</code>, <code>patches_below_share</code>, <code>timing_ms.segment</code>. Add them to <code>webapp/app.py</code>'s request-log fields. <code>/preview</code> uses the same segmenter; note that it doubles the segmentation cost per upload.</span></li>
+    <li><span class="box"></span><span>Parity test: for a fixture photo, the arrays the <code>segcrop</code> stage writes (before JPEG encoding) equal what <code>patches_for_photo</code> computes in memory, and the patch boxes are identical for the same RNG key. The JPEG q95 re-encode of training pools is an existing train/serve difference; this plan doesn't widen it.</span></li>
+    <li><span class="box"></span><span>Regression: <code>allrigs_dino3b16_s123</code> on the deploy fixtures gives byte-identical probabilities and diagnostics before and after P3.</span></li>
+    <li><span class="box"></span><span>Smoke through the real entry points: <code>python -m coffeecv.infer</code> with a smoke-budget segment checkpoint; <code>ood_eval</code> on three negatives; then <code>scripts/rehearse_deploy_local.sh</code> with the release-manifest additions (F6).</span></li>
+  </ol>
+
+  <h2>7. P4 &mdash; refit on pretrained-mask pools</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Check that the DVC remote is back and the pending pushes have landed (ticket R7). Then <code>dvc repro merge_segcam_*</code> with the pretrained weights.</span></li>
+    <li><span class="box"></span><span><code>fit_frozen_head.py --pools {cropped,segcropped}</code>. The flag maps to two constant lists in <code>dataset.py</code> (<code>CAPTURES</code>, <code>SEG_CAPTURES</code>) and is recorded in the checkpoint. Its default stays <code>cropped</code>.</span></li>
+    <li><span class="box"></span><span><strong>Baseline arm under the current env:</strong> seeds 42/123/7 on <code>cropped</code> pools with timm 1.0.30 (F4). This also produces the refit the live model needs anyway. <strong>New arm:</strong> the same seeds on <code>segcropped</code>.</span></li>
+    <li><span class="box"></span><span>Paired comparison per seed with <code>compare_experiments</code>: val and test patch macro-F1, plus per-class. Report as a range, and apply the Q3 gate. <span class="pill sm high">stop</span> Before this step runs, the owner reviews the provisional Q3 rule and confirms or replaces it. The rule is fixed before any P4 number is read.</span></li>
+    <li><span class="box"></span><span><code>fit_ood_probe</code> on the new arm's chosen seed (dev split). <code>--verify</code> runs <em>once</em> on the holdout, against today's bar (0/22 genuine refused, 56/56 negatives caught), and nothing is tuned after it.</span></li>
+  </ol>
+
+  <h2>8. P5 &mdash; fine-tune</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_labels.py</code> on <code>seg_train</code> + <code>seg_val</code>: pretrained mask → judge → on decline, map the points to full resolution and rerun SAM with box + points (single mask) → judge; at most 2 rounds; a mask that still fails is dropped with its rules logged. Accepted masks go to <code>data/seg_labels/</code> (<code>dvc add</code>). Seg-train negatives get empty labels with no judge (D11). Report yield by round and by drop reason.</span></li>
+    <li><span class="box"></span><span>Stage <code>seg_embed_cache</code>: L0 encoder embeddings at 512, in fp16, for the identity view plus the dihedral views set by <code>seg_ft.views</code>. Masks are transformed the same way.</span></li>
+    <li><span class="box"></span><span>Stage <code>seg_finetune</code> on the VM through <code>dvc repro</code>, seeds 42/123/7, with the recipe below. Select each seed's checkpoint on <code>seg_val</code> only.</span></li>
+    <li><span class="box"></span><span><code>seg_predict@ft</code> → judge → <code>seg_eval@ft</code>. Judge all three seeds if the pilot's cost allows; otherwise judge the <code>seg_val</code>-selected seed and report the <code>seg_val</code> spread.</span></li>
+    <li><span class="box"></span><span><span class="pill sm high">stop</span> Gate: pass rate above P2's beyond the bootstrap interval, <em>and</em> ≥90% of pile-like <code>neg_seg_eval</code> empty or tiny (pooled, Wilson CI, per-tag lines), always read next to P1's catch rate. If only the negative test fails, run encoder + decoder once (first give the owner the CPU-hour estimate from the P0 timing). If it still fails, the segmenter ships as "any pile" (D10). If the pass-rate gate fails, ship the pretrained model, provided P4 passed.</span></li>
+  </ol>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Setting</th><th>Starting value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Trainable</td><td>Mask decoder only; encoder and prompt encoder frozen</td><td>D7 (a); cached embeddings make it cheap on a 4-core CPU</td></tr>
+      <tr><td>Prompt</td><td>Fixed whole-image box, the same as serving</td><td>D5: training prompts equal serving prompts</td></tr>
+      <tr><td>Output</td><td>Single mask, or the P0 selection rule</td><td>The same rule as inference</td></tr>
+      <tr><td>Loss</td><td>20 × focal (γ 2, α 0.25) + 1 × soft dice (smooth 1) + MSE on the IoU head</td><td>SAM's weighting; smoothed dice is well-defined on empty negatives</td></tr>
+      <tr><td>Loss resolution</td><td>Logits upsampled to 512, the same path as inference</td><td>No resolution mismatch between training and serving</td></tr>
+      <tr><td>Optimizer</td><td>AdamW, lr 1e-4, wd 1e-4, cosine to 1e-6, batch 8, ≤40 epochs, patience 8</td><td>Common for SAM decoder fine-tuning; everything in a <code>seg_ft:</code> params block</td></tr>
+      <tr><td>Sampling</td><td>Positives and negatives in fixed proportion per batch (param, ~1:1 by weight)</td><td>~57 negatives vs ~550 positives would otherwise drown the D10 signal</td></tr>
+      <tr><td>Selection</td><td><code>seg_val</code>: mean IoU vs labels + held seg-train negatives' empty rate</td><td>The eval list and the judge are never used for selection</td></tr>
+    </tbody>
+  </table></div>
+  <p>Label quality bounds this phase (ticket R6). Round-0 accepted labels teach the model what it already
+    does. The gain comes from corrected hard cases and from the negatives, so the P5 report leads with how
+    many corrected masks entered training.</p>
+
+  <h2>9. P6 &mdash; ship</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Point <code>segcrop</code> at the chosen weights; regenerate the pools; repeat P4 (3 seeds paired against P4's baseline arm). Also report each seed on its segmenter-unseen subset (Q1).</span></li>
+    <li><span class="box"></span><span>Webapp env: add <code>segment-anything</code> (no <code>onnxruntime</code>: PyTorch runtime, Q4); move torch/timm to the training versions (F4); <code>uv lock --project webapp</code>. <code>deploy_webapp.sh --compare</code> is expected to show a numeric change, so read it rather than just check it passes.</span></li>
+    <li><span class="box"></span><span><code>release_manifest.py</code>: the new modules, the vendored files L0 imports (found with an import trace, not by hand) plus <code>LICENSE</code>, and the segmenter weights with a sha256 check. Update <code>tests/test_release_manifest.py</code>.</span></li>
+    <li><span class="box"></span><span>Latency on the VM, idle and during a sweep, against P0 and today's 7.0 s / 12.5 s. Reported, not gated (D8).</span></li>
+    <li><span class="box"></span><span><span class="pill sm high">stop</span> <strong>Owner</strong> ship decision. Then <code>scripts/deploy_webapp.sh</code>, a spot check on <code>/classify</code> with the fixtures and a few real photos, <code>docs/inference_path.html</code> updated, and the logged <code>mask_area_frac</code> / <code>seg_fallback</code> on real traffic watched for a week.</span></li>
+  </ol>
+
+  <h2>10. Tests</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Test file</th><th>Pins</th></tr></thead>
+    <tbody>
+      <tr><td><code>test_sam_loader.py</code></td><td>L0 builds without triton/omegaconf; sha256 refusal; logit checksum</td></tr>
+      <tr><td><code>test_segment_beans.py</code></td><td>Quantile crop keeps ≥ <code>keep_frac</code> on random blob masks (property test); pad/upsample alignment on a non-square photo; fill value; empty and tiny masks → fallback; diagnostics keys</td></tr>
+      <tr><td><code>test_masked_sampler.py</code></td><td>Integral-image share equals brute force; reject/top-up order; attempt cap; <code>n_below</code>; determinism per RNG key; <code>mask=None</code> accepts all</td></tr>
+      <tr><td><code>test_seg_parity.py</code></td><td>The <code>segcrop</code> stage's arrays and boxes equal the serving path's for a fixture; the live checkpoint's output is byte-identical (legacy path)</td></tr>
+      <tr><td><code>test_seg_lists.py</code></td><td>Disjointness; append-only; holdout never listed; near-duplicate groups on one side</td></tr>
+      <tr><td><code>test_seg_defects.py</code></td><td>Consequential metric on synthetic masks at the D14 boundaries</td></tr>
+      <tr><td><code>test_seg_judge_io.py</code></td><td>Schema parse and retry; unjudged ≠ accept; key = mask array hash; <code>seg_eval</code> fails loudly naming missing keys; prompt contains the rule byte-for-byte</td></tr>
+      <tr><td><code>test_review_masks.py</code></td><td>Write, overwrite, unreviewed, blind mode</td></tr>
+      <tr><td><code>test_frozen_checkpoint.py</code> (extend)</td><td>A checkpoint without <code>crop_method</code> restores as <code>tray_heuristic</code>; seg fields round-trip</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>11. Compute and cost</h2>
+  <ul>
+    <li><strong>Segmentation passes:</strong> ~940 pool photos per <code>segcrop</code> run, plus ~1 000 list photos for <code>seg_predict</code>. The per-photo cost comes from P0; at a few seconds per photo, each is well under an hour on the VM.</li>
+    <li><strong>Embedding cache:</strong> ~2 MB per view per photo in fp16 → ~1.3 GB per view for ~650 photos. Hence <code>push: false</code>.</li>
+    <li><strong>Decoder fine-tune:</strong> the decoder is ~4M parameters, and cached embeddings mean no encoder pass. Expect minutes per epoch on CPU. The encoder+decoder retry is the expensive case and gets its own estimate first.</li>
+    <li><strong>Head refits:</strong> 6 runs in P4 and 3 in P6, the same cost as the <code>allrigs_dino3b16</code> fits.</li>
+    <li><strong>Judge:</strong> up to ~4 700 items in total (§4.4), all of them full-photo masks; the pilot turns that into money or plan usage.</li>
+  </ul>
+
+  <h2>12. Questions for the owner</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Needed by</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>F2: which split do the segmenter's photo lists come from?</td>
+        <td><span class="pill sm ok">Answered 2026-09-30</span> <strong>Owner:</strong> an entirely different seed, not one of the head seeds. <strong>Seed 239</strong>, chosen over 404 because it puts more roasted photos in the eval set (14 vs 11) and gives a slightly larger unseen subset. All three head seeds are now treated the same way. Of each head seed's 288 val/test photos, 194&ndash;204 are segmenter-train photos (42: 194, 123: 198, 7: 204), and 84&ndash;94 are photos the segmenter never trained on. P4 is unaffected, because the pretrained SAM never saw our photos. At P6, every seed is reported on its full val/test, as the protocol says, and on its unseen subset; if the two readings disagree, the owner decides. The segmenter never sees class labels, so the overlap can inflate mask quality, not class accuracy.</td><td>P1 (lists)</td></tr>
+      <tr><td class="id">Q2</td><td>F5: how are heuristic crops "judged the same way"?</td>
+        <td><span class="pill sm ok">Answered 2026-09-30</span> <strong>Owner:</strong> they are not judged. The judge is used only for full-photo mask analysis, never on cropped images. What P2 keeps is a judge-free geometric comparison: the share of the accepted SAM bean region the heuristic rectangle discards, and its IoU with the D4 crop. This drops ~290 judge calls.</td><td>P2</td></tr>
+      <tr><td class="id">Q3</td><td>F7: the numeric P4/P6 non-inferiority gate.</td>
+        <td><span class="pill sm open">Provisional default</span> <strong>Owner, 2026-09-30:</strong> decided after P0&ndash;P3 are implemented, and before any P4 number is read. Until then this default is in force: the new arm <strong>fails</strong> on val or on test if (a) all three paired Δ (new − baseline, same seed) are negative, or (b) the mean paired Δ is negative and larger in magnitude than the range (max − min) of the three Δ. Otherwise it passes. The rule is implemented as one function in <code>compare_experiments</code>, so that changing it later is a one-line edit.</td><td>P4 (owner review first)</td></tr>
+      <tr><td class="id">Q4</td><td>PyTorch or ONNX Runtime for the segmenter?</td>
+        <td><span class="pill sm ok">Answered 2026-09-30</span> <strong>Owner:</strong> PyTorch runtime for now, at both ends. ONNX Runtime is not used in ML-2. If it comes later, it has to switch at both ends together (training pools rebuilt too), because two runtimes would break train/inference parity.</td><td>P3</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-09-30</div><strong>Plan written</strong> from the ticket at <code>920f904</code> and a read of the code on
+      <code>tmp/segmentation-mask</code> (<code>907890c</code>). Import probe: onnx is the first failure, and triton, omegaconf and segment_anything
+      are also in the chain (F1). Split census: 650/144/144 at seeds 42/123/7, with 201 of seed 42's val/test photos in seed 123's
+      train split (F2). Nothing implemented; P0 next.</div>
+    <div><div class="when">2026-09-30</div><strong>Q1 answered by the owner:</strong> the segmenter's lists use their own split seed,
+      not one of the head seeds. Seed 239 was chosen over 404, measured on today's pools: 650 train / 288 eval, 14 roasted photos in eval
+      (vs 11), and 84&ndash;94 segmenter-unseen photos in each head seed's val/test (vs 80&ndash;90).</div>
+    <div><div class="when">2026-09-30</div><strong>Q2 answered by the owner:</strong> heuristic crops are not judged. The judge
+      analyses only masks on full photos. P2 keeps a judge-free geometric comparison with the heuristic. The P2 judge load
+      falls from ~600 to ~320 items. The owner confirmed that the P5 correction loop (D6), judging the P5 fine-tuned masks, and
+      re-judging per P1 prompt revision all stay as in the ticket.</div>
+    <div><div class="when">2026-09-30</div><strong>Q4 answered by the owner:</strong> the segmenter runs on the PyTorch runtime for now,
+      in training and serving. The P0 ONNX timing is dropped, and no <code>onnxruntime</code> goes into either env.</div>
+    <div><div class="when">2026-09-30</div><strong>onnx not installed</strong> (owner). Its import is patched out of the vendored copy (P0 patch 3), and the ticket's R5, R4, P0 and out-of-scope list are updated to match.</div>
+    <div><div class="when">2026-09-30</div><strong>Q3 deferred by the owner</strong> until P0&ndash;P3 are implemented. The recommended rule is in force as a provisional default, and P4 has a stop before the comparison for the owner to confirm or replace it.</div>
+    <div><div class="when">2026-09-30</div><strong>Ticket updated:</strong> Q1&ndash;Q4 are recorded there as D21&ndash;D24.</div>
+  </div>
+
+  <footer>Ticket: <a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2). Terms:
+    <code>GLOSSARY.md</code>. Related: <code>coffeecv/crop_session.py</code>, <code>coffeecv/crop_tray.py</code>,
+    <code>coffeecv/merge_rig.py</code>, <code>coffeecv/dataset.py</code> (<code>MultiPhotoPatchDataset._extract_photo</code>),
+    <code>coffeecv/geometry.py</code> (<code>sample_bean_unit_patch_boxes</code>), <code>coffeecv/infer.py</code>
+    (<code>crop_to_bean_region</code>, <code>patches_for_photo</code>), <code>coffeecv/fit_frozen_head.py</code>,
+    <code>coffeecv/fit_ood_probe.py</code>, <code>webapp/deploy/release_manifest.py</code>, <a href="plan_retire_cross_rig.html">ML-1 plan</a>.</footer>
+</main>
