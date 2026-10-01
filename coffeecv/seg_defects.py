@@ -64,13 +64,18 @@ class SetSpec:
     clean_trials: int        # each clean base judged this many times (false-fail trials)
     n_cons: int              # consequential variants per type per base
     n_small: int             # small variants per type per base
+    n_cons_scarce: int = 0   # consequential variants per base for SCARCE types, if more than n_cons
 
+
+# plantable on only about half the bases (nothing outside a frame-filling pile), so the final set draws more
+# variants per base for them to keep their consequential count near the other types'
+SCARCE = ("dilate", "add_band")
 
 SETS = {
     # 20 items: 5 clean, and per type 2 consequential + 1 small, each on a different base
     "pilot": SetSpec("base_dev", 11, 1, 2, 1),
     "dev": SetSpec("base_dev", 12, 2, 1, 1),
-    "final": SetSpec("base_heldout", 13, 2, 2, 1),
+    "final": SetSpec("base_heldout", 13, 2, 2, 1, n_cons_scarce=4),
 }
 PILOT_CLEAN = 5
 
@@ -264,7 +269,8 @@ def make(set_name: str) -> Path:
                 rows.append(_clean_row(b, trial))
             p = Planter(b["mask"], rng)
             for kind in TYPES:
-                got = variants(p, kind, spec.n_cons, spec.n_small, rng)
+                n_cons = max(spec.n_cons, spec.n_cons_scarce) if kind in SCARCE else spec.n_cons
+                got = variants(p, kind, n_cons, spec.n_small, rng)
                 if not got:
                     skipped[kind] += 1
                 rows.extend(_defect_row(b, v) for v in got)
