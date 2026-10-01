@@ -454,3 +454,41 @@ stages:
       md5: b9d48cbb60f86a9536e1f372cc7b8e47.dir
       size: 119281284
       nfiles: 93
+  seg_predict@pretrained:
+    cmd: python -m coffeecv.seg_predict pretrained --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 1d5658e8893f314eeb780099107f39ba
+      size: 4053
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 26e43520f1e4fadb8c78b3a7a7623cb8
+      size: 16301
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks/pretrained
+      hash: md5
+      md5: a4147d10b08c41afecd267765c76090c.dir
+      size: 4194715
+      nfiles: 344
