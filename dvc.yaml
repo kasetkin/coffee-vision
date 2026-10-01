@@ -159,3 +159,36 @@ stages:
             - seg_mask_select
       outs:
         - data/seg_masks/${key}
+
+  # Ticket ML-2 P2/P5: score a seg_predict stage's stored masks against the judge's stored verdicts (D16).
+  # Never calls the judge: a mask with no verdict for the pinned judge stops the stage, naming the masks to
+  # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the judge-free heuristic comparison (D22),
+  # the D18 tiny-mask threshold and the D19 pitch check, which decodes the accepted photos (sha256-checked
+  # in photo_lists.yaml, so not deps) and their data/cropped pool JPEGs.
+  seg_eval:
+    foreach:
+      - pretrained
+    do:
+      cmd: python -m coffeecv.seg_eval ${item}
+      deps:
+        - coffeecv/seg_eval.py
+        - coffeecv/segment_beans.py
+        - coffeecv/bean_scale.py
+        - labels/ml2/photo_lists.yaml
+        - labels/ml2/verdicts.jsonl
+        - labels/ml2/judge_prompt.md
+        - labels/ml2/accept_rule.md
+        - data/seg_masks/${item}
+        - data/cropped
+      params:
+        - params.yaml:
+            - safety_margin
+            - bean_k_lo
+            - bean_k_hi
+            - bean_analysis_frac
+            - bean_calibration_k
+      outs:
+        - outputs/ml2_p2/${item}
+      metrics:
+        - outputs/seg_eval_${item}.json:
+            cache: false

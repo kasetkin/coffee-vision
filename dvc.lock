@@ -463,8 +463,8 @@ stages:
       size: 2503
     - path: coffeecv/seg_predict.py
       hash: md5
-      md5: 1d5658e8893f314eeb780099107f39ba
-      size: 4053
+      md5: 068101040542c632713e18f412fb296b
+      size: 4520
     - path: coffeecv/segment_beans.py
       hash: md5
       md5: 26e43520f1e4fadb8c78b3a7a7623cb8
