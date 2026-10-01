@@ -119,6 +119,7 @@ class BeanSegmenter:
         self.predictor, self.weights_sha256 = build_sam_l0(p.weights, p.variant)
         self.model = self.predictor.model
         self.timing_ms: dict[str, float] = {}
+        self.pred_iou: float | None = None
 
     @torch.inference_mode()
     def _encode(self, rgb: np.ndarray) -> None:
@@ -187,6 +188,7 @@ class BeanSegmenter:
         sel = self.p.mask_select
         low, iou = self._decode(h, w, multimask=sel != "single")
         k = 0 if sel == "single" else int(iou.argmax()) if sel == "best_iou" else int(sel[-1]) - 1
+        self.pred_iou = float(iou[k])      # of the selected output, for seg_predict's index
         t1 = time.perf_counter()
         mask = self._upsample(low[k])
         t2 = time.perf_counter()

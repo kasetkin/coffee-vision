@@ -135,3 +135,27 @@ stages:
           template: confusion
           x: true_label
           y: pred_label
+
+  # Ticket ML-2 P1/P5: masks for the eval lists (seg_eval, neg_seg_eval, pos_seg_eval), computed once and
+  # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this runs on the VM at
+  # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's
+  # sha256 is in photo_lists.yaml and checked before use. `ft` joins at P5.
+  seg_predict:
+    foreach:
+      pretrained:
+        weights: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+    do:
+      cmd: python -m coffeecv.seg_predict ${key} --threads 4
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml2/photo_lists.yaml
+        - ${item.weights}
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks/${key}
