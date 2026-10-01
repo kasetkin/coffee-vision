@@ -7,7 +7,7 @@ Run 2026-09-30 on `tmp/segmentation-mask`.
 
 - **Vendored-code patches** (triton, dc_ae/omegaconf, onnx): `third_party/efficientvit/PATCHES.md`.
   After them the only missing import was Meta's `segment_anything`, now `segment-anything==1.0` in
-  `pyproject.toml` / `uv.lock` (devcontainer synced; the VM's shared venv is not yet, see below).
+  `pyproject.toml` / `uv.lock` (devcontainer and the VM's shared venv synced).
 - **Weights**: `models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt` from Hugging Face
   `mit-han-lab/efficientvit-sam` at commit `a2f0c592`, 139,410,184 bytes, sha256 `c4f994b0…` (equal to
   HF's LFS ETag). In `manifest.json` with its `source` URL; `verify.py` passes. `dvc add`ed; **not
@@ -98,16 +98,26 @@ photo upscaled to 8192×6144 as a stress case for large web uploads.
 | VM, idle | 4 | 19 MP sony | 230 | 66 | 258 | 97 | 24 | 45 | **491** |
 | VM, idle | 4 | 50 MP stress | 560 | 293 | 333 | 202 | 70 | 122 | **1021** |
 | VM, idle | 8 | 12 / 19 / 50 MP | | | | | | | 494 / 485 / 958 |
+| VM, during training | 4 | 12 MP pixel | 147 | 69 | 519 | 120 | 25 | 34 | **766** |
+| VM, during training | 4 | 19 MP sony | 250 | 115 | 544 | 148 | 40 | 63 | **911** |
+| VM, during training | 4 | 50 MP stress | 597 | 292 | 526 | 295 | 118 | 135 | **1365** |
 | devcontainer (Ryzen 5600U) | 4 | 12 / 19 / 50 MP | | | | | | | 629 / 717 / 1223 |
 | devcontainer | 1 | 12 / 19 MP | | | | | | | 1588 / 1828 |
 
 Against today's `/classify` at 7.0 s idle, that is about +0.5 s per upload (+1.0 s at 50 MP), minus
-the heuristic crop it replaces. 8 threads does not help on the VM. **Not yet measured: the VM during a
-training job** (none was running); that needs P4's refits and is repeated at P6 anyway. `/preview`
+the heuristic crop it replaces. 8 threads does not help on the VM.
+
+**During training** (2026-10-01): a `train_baseline` run (resting params, resnet18 full fine-tune, 4
+threads, 1.43 s/batch) ran in a scratch copy on the VM while the segmenter was timed at 4 threads. The
+segmenter adds 766 / 911 / 1365 ms (12 / 19 / 50 MP), 1.5-1.9x idle; the encoder nearly doubles and
+decode barely moves. Masks are bit-identical to the idle VM run. Training slowed from 1.43 to about
+1.9 s/batch while the timing ran. Files: `timing_vm_train_t4.json`, `timing_vm_train_50mp_t4.json`.
+P6 repeats it for the full `/classify` path. `/preview`
 would pay the same cost again if it also segments (plan §6).
 
-The VM run used a throwaway copy of these files and its own uv venv in `~/ml2_p0_scratch`, deleted
-afterwards. The VM repo and its shared venv were not touched.
+The idle VM run used a throwaway copy of these files and its own uv venv in `~/ml2_p0_scratch`,
+deleted afterwards. The during-training run (2026-10-01) used the VM repo itself, checked out at
+`tmp/segmentation-mask` and with the shared venv synced (`uv sync --locked`, adding `segment-anything==1.0`).
 
 ## Determinism
 
