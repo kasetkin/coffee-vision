@@ -173,6 +173,11 @@ class RunConfig:
     # seg_lists.py to build labels/ml2/photo_lists.yaml. It is none of the head seeds
     # (42/123/7), so no head seed's split is the segmenter's. No training run reads it.
     seg_split_seed: int = 239
+    # Ticket ML-2 (D5, owner 2026-10-01): the segmenter's fixed prompt is one whole-image box, and
+    # the widest multimask output is kept. P0 found it gives the whole frame on frame-filling photos
+    # and no output gives the pile on tray photos, so P2 measures exactly that baseline.
+    seg_prompt: str = "box"
+    seg_mask_select: str = "multi3"
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":

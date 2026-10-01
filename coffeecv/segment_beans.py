@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from coffeecv.config import REPO_ROOT
+from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam_l0, weights_for
 
 # SAM's box prompt yields either the single-mask token (multimask_output=False) or three multimask
@@ -289,10 +289,10 @@ def main() -> None:
     mode.add_argument("--time", action="store_true", help="per-stage latency, median of --runs")
     mode.add_argument("--candidates", type=Path, metavar="OUT_DIR",
                       help="write every box-prompt output as a full-resolution PNG mask")
-    # Required, not defaulted: both are open owner decisions (P0 finding, D5) until params.yaml
-    # carries them, and a silent default would pick one.
-    ap.add_argument("--mask-select", choices=MASK_SELECT, required=True)
-    ap.add_argument("--prompt", choices=PROMPTS, required=True)
+    # Default to params.yaml (D5); the flags exist for P0-style probes of other prompts and outputs.
+    cfg = RunConfig.from_params_yaml()
+    ap.add_argument("--mask-select", choices=MASK_SELECT, default=cfg.seg_mask_select)
+    ap.add_argument("--prompt", choices=PROMPTS, default=cfg.seg_prompt)
     ap.add_argument("--variant", choices=VARIANTS, default="l0", help="EfficientViT-SAM size (L0 is the ticket's)")
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--threads", type=int, default=None, help="torch.set_num_threads (default: torch's)")

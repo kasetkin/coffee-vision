@@ -137,3 +137,9 @@ weight_decay: 0.0001
 # labels/ml2/photo_lists.yaml). Not a head seed; changing it after the lists are
 # committed is refused, since the lists are append-only (D20).
 seg_split_seed: 239
+
+# Ticket ML-2 (D5, owner 2026-10-01): the segmenter's fixed prompt (one whole-image
+# box) and which decoder output it keeps (multi3, the widest). See
+# analysis/ml2_p0/README.md for why: no fixed prompt finds the pile on tray photos.
+seg_prompt: box
+seg_mask_select: multi3
