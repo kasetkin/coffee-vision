@@ -17,6 +17,7 @@ prompt sha, backend and trial; an existing row is skipped unless --rejudge.
 
     python -m coffeecv.seg_judge judge --set dev --dry-run       # D15 defaults: Opus 5.5 via claude -p
     python -m coffeecv.seg_judge score --set pilot --model claude-sonnet-5-5   # another model's rows
+    python -m coffeecv.seg_judge judge --masks pretrained       # P2: the seg_predict@pretrained masks
 
 On this devcontainer the `claude` binary is VS Code's: CLAUDE_BIN=$CLAUDE_CODE_EXECPATH.
 """
@@ -112,10 +113,14 @@ def parse_verdict(text: str, n_tiles: int) -> dict:
 
 # ---------------------------------------------------------------- items and overlays
 
-def load_items(set_name: str | None, items_csv: Path | None) -> list[dict]:
+def load_items(set_name: str | None, items_csv: Path | None, masks: str | None = None) -> list[dict]:
     """Rows with at least item, path, photo_sha256, mask (repo-relative PNG), mask_sha256; trial defaults to 0."""
-    rows = seg_defects.load_manifest(set_name) if set_name else \
-        list(csv.DictReader(items_csv.read_text().splitlines()))
+    if masks:
+        from coffeecv.seg_predict import mask_items
+        rows = mask_items(masks)
+    else:
+        rows = seg_defects.load_manifest(set_name) if set_name else \
+            list(csv.DictReader(items_csv.read_text().splitlines()))
     for r in rows:
         r["trial"] = int(r.get("trial") or 0)
     return rows
@@ -447,6 +452,7 @@ def main(argv: list[str] | None = None) -> None:
     src = ap.add_mutually_exclusive_group()
     src.add_argument("--set", choices=list(seg_defects.SETS), help="a planted-defect set")
     src.add_argument("--items", type=Path, help="CSV: item, path, photo_sha256, mask, mask_sha256[, trial]")
+    src.add_argument("--masks", help="a seg_predict stage's masks, e.g. pretrained (data/seg_masks/<model>)")
     ap.add_argument("--model", default=JUDGE_MODEL, help=f"default: {JUDGE_MODEL} (D15)")
     ap.add_argument("--backend", choices=["cli", "api"], default=JUDGE_BACKEND, help=f"default: {JUDGE_BACKEND} (D15)")
     ap.add_argument("--batch", action="store_true", help="api: Message Batches")
@@ -465,9 +471,9 @@ def main(argv: list[str] | None = None) -> None:
         print(p)
         print(f"\n# sha256 {prompt_sha256(p)}")
         return
-    if not (args.set or args.items):
-        ap.error("judge/score need --set or --items")
-    items = load_items(args.set, args.items)
+    if not (args.set or args.items or args.masks):
+        ap.error("judge/score need --set, --items or --masks")
+    items = load_items(args.set, args.items, args.masks)
     if args.command == "judge":
         judge(items, args.model, args.backend, args.batch, args.rejudge, args.dry_run, args.workers,
               args.claude_bin, args.limit)

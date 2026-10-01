@@ -45,6 +45,14 @@ def photo_entries(lists: dict[str, list[dict]]) -> list[dict]:
     return out
 
 
+def mask_items(model: str) -> list[dict]:
+    """The stage's index.csv as judge/review items: {item, list, path, photo_sha256, mask, mask_sha256, ...},
+    `mask` repo-relative. Read by seg_judge --masks, seg_eval and review_masks."""
+    out_dir = MASK_ROOT / model
+    rows = list(csv.DictReader((out_dir / "index.csv").read_text().splitlines()))
+    return [{"item": r["id"], "mask": str((out_dir / f"{r['id']}.png").relative_to(REPO_ROOT)), **r} for r in rows]
+
+
 def run(model: str) -> None:
     cfg = RunConfig.from_params_yaml()
     _, lists = seg_lists.load_lists()
