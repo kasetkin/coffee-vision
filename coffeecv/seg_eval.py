@@ -12,11 +12,13 @@ Reports, per list:
                  empty-or-tiny masks under the D18 threshold, with Wilson intervals (the D11 test's form)
   heuristic      judge-free (D22): on each judge-accepted seg_eval mask, the share of the bean region today's
                  heuristic rectangle discards and that rectangle's IoU with the D4 crop
-  d18            the tiny-mask threshold: half the smallest mask_area_frac among judge-accepted genuine masks
-                 (seg_eval + pos_seg_eval), and how many photos it triggers on
-  d19            bean pitch (the FFT estimator, unchanged) on the old crop (the cam_* pool JPEG training reads)
-                 vs the new filled D4 crop, on judge-accepted seg_eval masks. Pass: median |rel change| <= 5%
-                 and p95 <= 15%. beans_across is reported beside it; it also moves with the crop's size.
+  d18            the tiny-mask threshold in force (params.yaml seg_min_area_frac, owner 2026-10-01) and how many
+                 photos it triggers on; the plan's rule (half the smallest judge-accepted genuine mask) beside it
+  d19            beans across (the FFT estimator, unchanged) on the old crop (the cam_* pool JPEG training reads)
+                 vs the new filled D4 crop, on judge-accepted seg_eval masks. Gated on beans_across, not pitch
+                 in px, which moves with the crop's size (owner 2026-10-01). Pass: median |rel change| <= 5%.
+                 The tail is not gated: it is reported next to a trim-only control, the old crop with the D4
+                 crop's per-side cut removed and no mask or fill, which shows the estimator's own bin jitter.
 
 Out: outputs/seg_eval_<model>.json (DVC metric) and outputs/ml2_p2/<model>/per_photo.csv, plus review item
 lists for review_masks --items: declines.csv (every non-accepted genuine mask) and audit.csv (audit_sample).
@@ -50,7 +52,6 @@ SAMERIG_BATCH = "2026-09-11__user_samerig"
 N_BOOT = 10_000
 BOOT_SEED = 239
 D19_MEDIAN_MAX = 0.05
-D19_P95_MAX = 0.15
 QUANTILES = (0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0)
 
 
@@ -125,7 +126,7 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
     psha = prompt_sha256(build_prompt())
     verdicts = require_verdicts([(it["photo_sha256"], it["mask_sha256"]) for it in items], JUDGE_MODEL, psha)
     audit = {e["path"] for e in lists["audit_sample"]}
-    p = SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt)
+    p = SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, min_area_frac=cfg.seg_min_area_frac)
 
     rows = []
     for it in items:
@@ -172,13 +173,14 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
         report.setdefault("distributions", {})[key] = {
             f: quantiles([r[f] for r in rs]) for f in ("mask_area_frac", "bean_frac_in_crop", "retained_frac")}
 
-    # D18: half the smallest area among judge-accepted genuine masks (a declined mask may be a single-bean snap).
+    # D18: the threshold in force; the plan's rule (half the smallest judge-accepted genuine mask) is reported only.
     genuine_acc = [r["mask_area_frac"] for r in se + by["pos_seg_eval"] if r["verdict"] == "accept"]
-    thr = 0.5 * min(genuine_acc) if genuine_acc else None
-    tiny = lambda r: thr is not None and r["mask_area_frac"] < thr               # noqa: E731
-    report["d18"] = {"min_area_frac": round(thr, 6) if thr is not None else None,
-                     "from_n_accepted": len(genuine_acc),
-                     "triggers": {k: sum(tiny(r) for r in by[k]) for k in ("seg_eval", "pos_seg_eval", "neg_seg_eval")}}
+    thr = p.min_area_frac
+    tiny = lambda r: r["mask_area_frac"] < thr                                    # noqa: E731
+    report["d18"] = {"min_area_frac": thr,
+                     "triggers": {k: sum(tiny(r) for r in by[k]) for k in ("seg_eval", "pos_seg_eval", "neg_seg_eval")},
+                     "plan_rule": round(0.5 * min(genuine_acc), 6) if genuine_acc else None,
+                     "plan_rule_from_n_accepted": len(genuine_acc)}
 
     neg = by["neg_seg_eval"]
     pile = [r for r in neg if r["pile_like"] is True]
@@ -203,27 +205,34 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
 
 def pitch_check(rows: list[dict], entries: dict, p: SegParams, cfg: RunConfig) -> dict:
     """D19 on judge-accepted masks: the old crop is the pool JPEG training reads; the new one is the filled D4
-    crop of the raw photo (mask_and_crop, the function P3 calls at both ends)."""
-    rel, rel_across = [], []
+    crop of the raw photo (mask_and_crop, the function P3 calls at both ends). The control trims the old crop
+    by the D4 crop's per-side cut, (1 - keep_frac) / 4 of each side, with no mask or fill."""
+    trim = (1.0 - p.keep_frac) / 4
+    rel, rel_across, rel_control = [], [], []
     for n, r in enumerate(rows, 1):
         _, e = entries[r["path"]]
         old = np.array(Image.open(REPO_ROOT / e["crop"]).convert("RGB"))
         new = mask_and_crop(load_rgb_image(REPO_ROOT / r["path"]), load_mask(r), p).rgb
+        h, w = old.shape[:2]
+        dy, dx = round(h * trim), round(w * trim)
         (po, ao), (pn, an) = pitch_and_across(old, cfg), pitch_and_across(new, cfg)
-        r.update(pitch_old=po, pitch_new=pn, beans_across_old=ao, beans_across_new=an)
+        _, ac = pitch_and_across(old[dy:h - dy, dx:w - dx], cfg)
+        r.update(pitch_old=po, pitch_new=pn, beans_across_old=ao, beans_across_new=an, beans_across_control=ac)
         rel.append(abs(pn - po) / po)
         rel_across.append(abs(an - ao) / ao)
+        rel_control.append(abs(ac - ao) / ao)
         if n % 25 == 0 or n == len(rows):
             print(f"  d19 {n}/{len(rows)}", flush=True)
     if not rel:
         return {"n": 0}
-    med, p95 = float(np.median(rel)), float(np.quantile(rel, 0.95))
-    return {"n": len(rel), "pitch_abs_rel_change": quantiles(rel),
-            "beans_across_abs_rel_change": quantiles(rel_across),
+    return {"n": len(rel), "beans_across_abs_rel_change": quantiles(rel_across),
+            "control_beans_across_abs_rel_change": quantiles(rel_control),
+            "pitch_abs_rel_change": quantiles(rel),
             "signed_pitch_rel_change_median": round(float(np.median(
                 [(r["pitch_new"] - r["pitch_old"]) / r["pitch_old"] for r in rows])), 4),
-            "pass": bool(med <= D19_MEDIAN_MAX and p95 <= D19_P95_MAX),
-            "gate": {"median_max": D19_MEDIAN_MAX, "p95_max": D19_P95_MAX}}
+            "control_trim_per_side": trim,
+            "pass": bool(np.median(rel_across) <= D19_MEDIAN_MAX),
+            "gate": {"measure": "beans_across", "median_max": D19_MEDIAN_MAX}}
 
 
 def write_outputs(model: str, report: dict, rows: list[dict]) -> None:
@@ -264,8 +273,9 @@ def summary(rep: dict) -> str:
              f"{(rep['heuristic']['iou_with_d4'] or {}).get('q50')}"]
     if "d19" in rep and rep["d19"].get("n"):
         d = rep["d19"]
-        lines.append(f"  D19 pitch (n={d['n']})   |rel| median {d['pitch_abs_rel_change']['q50']}, "
-                     f"p95 {d['pitch_abs_rel_change']['q95']} -> {'pass' if d['pass'] else 'FAIL'}")
+        a, c = d["beans_across_abs_rel_change"], d["control_beans_across_abs_rel_change"]
+        lines.append(f"  D19 across (n={d['n']})  |rel| median {a['q50']} -> {'pass' if d['pass'] else 'FAIL'}; "
+                     f"p95 {a['q95']} (trim-only control {c['q95']})")
     return "\n".join(lines)
 
 

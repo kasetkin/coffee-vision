@@ -187,6 +187,7 @@ stages:
             - bean_k_hi
             - bean_analysis_frac
             - bean_calibration_k
+            - seg_min_area_frac
       outs:
         - outputs/ml2_p2/${item}
       metrics:

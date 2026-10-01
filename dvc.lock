@@ -501,8 +501,8 @@ stages:
       size: 7419
     - path: coffeecv/seg_eval.py
       hash: md5
-      md5: 7420b74f2439f37068e7b2f11081ed9c
-      size: 15407
+      md5: 357edc71a1f0ffab5b6f4561d1c3fa79
+      size: 16236
     - path: coffeecv/segment_beans.py
       hash: md5
       md5: 26e43520f1e4fadb8c78b3a7a7623cb8
@@ -540,13 +540,14 @@ stages:
         bean_k_hi: 80
         bean_k_lo: 4
         safety_margin: 0.97
+        seg_min_area_frac: 0.083
     outs:
     - path: outputs/ml2_p2/pretrained
       hash: md5
-      md5: 2dd1bc44a93c86349a85fa46cf905e7c.dir
-      size: 254311
+      md5: 573e2ce465718f574807f1b967377690.dir
+      size: 257379
       nfiles: 3
     - path: outputs/seg_eval_pretrained.json
       hash: md5
-      md5: dfd16f0251269a8ad673c1fb0c571743
-      size: 7838
+      md5: ac25b469a8f65b7612fe9328e09b32c0
+      size: 8134

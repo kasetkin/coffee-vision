@@ -143,3 +143,10 @@ seg_split_seed: 239
 # analysis/ml2_p0/README.md for why: no fixed prompt finds the pile on tray photos.
 seg_prompt: box
 seg_mask_select: multi3
+
+# Ticket ML-2 (D18, owner 2026-10-01): tiny-mask threshold. A mask below this
+# fraction of the photo counts as empty and the whole photo is used. Half the
+# smallest owner-accepted base mask (0.1657). The plan's rule (half the smallest
+# judge-accepted pretrained mask) gives 0.45, since only frame-filling masks
+# pass, and would send every correct tray mask to the fallback.
+seg_min_area_frac: 0.083

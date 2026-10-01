@@ -178,6 +178,10 @@ class RunConfig:
     # and no output gives the pile on tray photos, so P2 measures exactly that baseline.
     seg_prompt: str = "box"
     seg_mask_select: str = "multi3"
+    # Ticket ML-2 (D18, owner 2026-10-01): a mask covering less of the photo than this is treated as empty
+    # and the whole photo is used. Half the smallest owner-accepted base mask (0.1657), not the plan's half
+    # of the smallest judge-accepted pretrained mask, which is 0.45 because only frame-filling masks pass.
+    seg_min_area_frac: float = 0.083
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":
