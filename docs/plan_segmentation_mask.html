@@ -184,8 +184,8 @@
         <td><code>third_party/efficientvit/PATCHES.md</code>, <code>coffeecv/sam_loader.py</code>, <code>pyproject.toml</code></td>
         <td>Timing report (not gated, D8). <strong>Closed 2026-10-01.</strong></td></tr>
       <tr><td class="id">P1</td><td>Photo lists, pretrained masks, review tool, overlays, judge, planted defects, pilot, final check</td>
-        <td><code>seg_lists.py</code>, <code>review_masks.py</code>, <code>seg_overlay.py</code>, <code>seg_judge.py</code>, <code>seg_defects.py</code></td>
-        <td><span class="pill sm high">stop</span> owner picks judge (D15); judge meets D14, or stop</td></tr>
+        <td><code>seg_lists.py</code>, <code>review_masks.py</code>, <code>seg_overlay.py</code>, <code>seg_judge.py</code>, <code>seg_defects.py</code>, <code>seg_predict.py</code></td>
+        <td><span class="pill sm high">stop</span> owner picks judge (D15); judge meets D14, or stop. <strong>Closed 2026-10-01</strong>: D14 missed on dilate, owner accepted the judge.</td></tr>
       <tr><td class="id">P2</td><td>Pretrained baseline on the eval set, owner audit, tiny-mask threshold, pitch check</td>
         <td><code>seg_eval.py</code> + DVC stage</td>
         <td><span class="pill sm high">stop</span> owner: integrate pretrained first, or fine-tune first</td></tr>
@@ -318,7 +318,7 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
     <li><span class="box done"></span><span>Determinism: the same photo run twice, and at 1 vs 4 threads, gives an identical <code>mask_sha256</code>. <span class="result">If it doesn't, the pools' DVC hashes churn on every rerun. The fix is fixed threads plus <code>torch.use_deterministic_algorithms</code>; if a few pixels still flip, the mask threshold gets a documented epsilon.</span> <span class="result">Done 2026-09-30: bit-identical on one machine at a fixed thread count; a few pixels differ across thread counts and across CPUs (AVX2 vs AVX-512), and no epsilon fixes that. Resolution: masks are computed once by one stage on the VM, stored, and never recomputed.</span></span></li>
   </ol>
 
-  <h2>4. P1 &mdash; lists, review tool and judge</h2>
+  <h2>4. P1 &mdash; lists, review tool and judge <span class="pill sm ok">Closed 2026-10-01</span></h2>
   <h3>4.1 Lists (one committed file)</h3>
   <ol class="tasks">
     <li><span class="box done"></span><span><code>seg_lists.py</code> writes <code>labels/ml2/photo_lists.yaml</code> from its own split: <code>split_photos_by_class</code> at <strong>seed 239</strong> (<code>seg_split_seed</code> in <code>params.yaml</code>), a seed no head fit uses (Q1). The fractions stay 70/15/15, so the split is still stratified by class, and 14 roasted class_010 photos land in the eval set:
@@ -368,7 +368,7 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
 
   <h2>5. P2 &mdash; pretrained baseline</h2>
   <ol class="tasks">
-    <li><span class="box"></span><span>Judge the pretrained masks on <code>seg_eval</code> + <code>neg_seg_eval</code>. <code>dvc repro seg_eval@pretrained</code> reports: pass rate with a photo-level bootstrap 95% CI, split green / roasted (not gated); the distributions of <code>bean_frac_in_crop</code>, <code>retained_frac</code> and <code>mask_area_frac</code>; and negative mask areas per tag, with <code>user_samerig</code> on its own line.</span></li>
+    <li><span class="box"></span><span>Judge the pretrained masks on <code>seg_eval</code> + <code>neg_seg_eval</code>. The stored masks also cover <code>pos_seg_eval</code> (25, D26). Judge and report it on its own line, so the 288 + 30 numbers stay as planned (+25 judge calls). <code>dvc repro seg_eval@pretrained</code> reports: pass rate with a photo-level bootstrap 95% CI, split green / roasted (not gated); the distributions of <code>bean_frac_in_crop</code>, <code>retained_frac</code> and <code>mask_area_frac</code>; and negative mask areas per tag, with <code>user_samerig</code> on its own line.</span></li>
     <li><span class="box"></span><span>Heuristic comparison, with no judge calls (Q2): for each eval photo whose SAM mask the judge accepted, measure how much of that bean region the heuristic rectangle discards, and the IoU between the heuristic rectangle and the D4 crop. This is pure geometry on existing outputs and is reported as a comparison, not a pass rate.</span></li>
     <li><span class="box"></span><span><strong>Owner:</strong> review the judge's failures, then the 50-photo blind audit, in the review tool. Report judge&ndash;owner agreement as a 2×2 table with its interval, next to P1's catch rate.</span></li>
     <li><span class="box"></span><span>D18: set <code>seg_min_area_frac</code> to half the smallest <code>mask_area_frac</code> among judge-<em>accepted</em> genuine eval masks (a declined mask may be a single-bean snap). Commit it to <code>params.yaml</code> and record how many eval photos and negatives it triggers on.</span></li>
@@ -491,6 +491,7 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
     <div><div class="when">2026-09-30</div><strong>Ticket updated:</strong> Q1&ndash;Q4 are recorded there as D21&ndash;D24.</div>
     <div><div class="when">2026-09-30</div><strong>P0 run</strong>; results in <code>analysis/ml2_p0/README.md</code> and the ticket's activity log. Corrections to §3: the largest training photo is 19 MP (sony), not 50 MP (a 50 MP upscale was timed as a stress case). Threads, not <code>use_deterministic_algorithms</code>, decide mask bits, and CPUs differ, so masks are computed once and stored. The mask-selection step is blocked: no fixed whole-image prompt yields the pile on tray photos (D5). Owner decision before P1.</div>
     <div><div class="when">2026-10-01</div><strong>P0 closed</strong> by the owner. All §3 tasks are done: the VM shared venv is synced (<code>segment-anything==1.0</code>, L0 weights on the VM), and the segmenter was timed on the VM during a training job (+766 / 911 / 1365 ms at 12 / 19 / 50 MP vs 506 / 491 / 1021 idle). The mask-selection block was resolved by the owner's D5 decision (whole-image box, <code>multi3</code>).</div>
+    <div><div class="when">2026-10-01</div><strong>P1 closed.</strong> The final check missed D14 on dilate (41/48), and the owner accepted the judge anyway (Opus 5.5, prompt <code>aacc4dda51ee</code>). The owner fixed D5 as the whole-image box with <code>multi3</code> output. <code>seg_predict@pretrained</code> ran on the VM, writing 343 masks (<code>pos_seg_eval</code> added, D26). On 29 of the 39 point-prompted (tray) bases the mask misses the pile, as P0 predicted. P2 is next.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2). Terms:
