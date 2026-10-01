@@ -11,6 +11,8 @@ __pycache__/
 /outputs/*
 !/outputs/metrics.json
 !/outputs/summary.json
+# ML-2 seg_eval@<model> metrics (dvc.yaml: cache: false), versioned in git for the same reason.
+!/outputs/seg_eval_*.json
 /tensorboard/
 /dvc_plots/
 *.pt
