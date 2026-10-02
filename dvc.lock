@@ -551,3 +551,347 @@ stages:
       hash: md5
       md5: ac25b469a8f65b7612fe9328e09b32c0
       size: 8134
+  seg_embed_cache:
+    cmd: python -m coffeecv.seg_finetune cache --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: ade75e2abe432d96b53b52a7cd732377
+      size: 18437
+    - path: data/seg_labels
+      hash: md5
+      md5: f2bf591489ed70b1ff78a8a6b8bc3a8c.dir
+      size: 15665544
+      nfiles: 1252
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_ft.neg_select_frac: 0.2
+        seg_ft.views:
+        - id
+        - hflip
+        - vflip
+        - rot180
+        seg_split_seed: 239
+    outs:
+    - path: data/seg_cache
+      hash: md5
+      md5: 84b66f70a9eb17fa435a911f398ca506.dir
+      size: 5794667176
+      nfiles: 14
+  seg_finetune@123:
+    cmd: python -m coffeecv.seg_finetune train --seed 123 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: ade75e2abe432d96b53b52a7cd732377
+      size: 18437
+    - path: data/seg_cache
+      hash: md5
+      md5: 84b66f70a9eb17fa435a911f398ca506.dir
+      size: 5794667176
+      nfiles: 14
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_ft:
+          views:
+          - id
+          - hflip
+          - vflip
+          - rot180
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          neg_select_frac: 0.2
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+    outs:
+    - path: models/seg/ft_s123.json
+      hash: md5
+      md5: 56fa433d9ecb91e30ca3b2aaf1f8cf2c
+      size: 8990
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+  seg_predict_ft@123:
+    cmd: python -m coffeecv.seg_predict ft_s123 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 669358568222d2e5b213810ac3df9f69
+      size: 4913
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 9abc7cc2018edc6dba300b71df13d02b
+      size: 17342
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks/ft_s123
+      hash: md5
+      md5: 326075c0662d493e56229ccfd5c5501a.dir
+      size: 3328150
+      nfiles: 344
+  seg_finetune@7:
+    cmd: python -m coffeecv.seg_finetune train --seed 7 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: ade75e2abe432d96b53b52a7cd732377
+      size: 18437
+    - path: data/seg_cache
+      hash: md5
+      md5: 84b66f70a9eb17fa435a911f398ca506.dir
+      size: 5794667176
+      nfiles: 14
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_ft:
+          views:
+          - id
+          - hflip
+          - vflip
+          - rot180
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          neg_select_frac: 0.2
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+    outs:
+    - path: models/seg/ft_s7.json
+      hash: md5
+      md5: 8b8d545303bc5d861b04764da3b20919
+      size: 6368
+    - path: models/seg/ft_s7.pt
+      hash: md5
+      md5: dc9dfcbe645e8701de4b2e4310ae7aed
+      size: 16264467
+  seg_finetune@42:
+    cmd: python -m coffeecv.seg_finetune train --seed 42 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: ade75e2abe432d96b53b52a7cd732377
+      size: 18437
+    - path: data/seg_cache
+      hash: md5
+      md5: 84b66f70a9eb17fa435a911f398ca506.dir
+      size: 5794667176
+      nfiles: 14
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_ft:
+          views:
+          - id
+          - hflip
+          - vflip
+          - rot180
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          neg_select_frac: 0.2
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+    outs:
+    - path: models/seg/ft_s42.json
+      hash: md5
+      md5: 8204192ed8e4fa157de5ca03eab81b41
+      size: 5042
+    - path: models/seg/ft_s42.pt
+      hash: md5
+      md5: 707b63f3aeea7b4fa5a42b43e2e3b118
+      size: 16265873
+  seg_predict_ft@42:
+    cmd: python -m coffeecv.seg_predict ft_s42 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 669358568222d2e5b213810ac3df9f69
+      size: 4913
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 9abc7cc2018edc6dba300b71df13d02b
+      size: 17342
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: models/seg/ft_s42.pt
+      hash: md5
+      md5: 707b63f3aeea7b4fa5a42b43e2e3b118
+      size: 16265873
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks/ft_s42
+      hash: md5
+      md5: 788e8a3770f97ddfead0f7948b743aff.dir
+      size: 3561668
+      nfiles: 344
+  seg_predict_ft@7:
+    cmd: python -m coffeecv.seg_predict ft_s7 --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 669358568222d2e5b213810ac3df9f69
+      size: 4913
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 9abc7cc2018edc6dba300b71df13d02b
+      size: 17342
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: models/seg/ft_s7.pt
+      hash: md5
+      md5: dc9dfcbe645e8701de4b2e4310ae7aed
+      size: 16264467
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks/ft_s7
+      hash: md5
+      md5: 7e0ff1e37c602fd6dc2e05b905c24a4b.dir
+      size: 4007501
+      nfiles: 344

@@ -1,2 +1,5 @@
 /base_points
 /pretrained
+/ft_s123
+/ft_s42
+/ft_s7
