@@ -72,7 +72,25 @@ CAPTURE_STAGE_OVERRIDES = {
                     "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash",
                     "crop@2026-08-30__oneplus"],
     "cam_iphone":  ["merge_cam_iphone", "crop@2026-08-25__iphone"],
+    # Ticket ML-2: the segmenter's pools (dataset.SEG_CAPTURES) share the cam_* basenames, so they are keyed
+    # by "segcropped/<name>" (see `_stage_key`).
+    "segcropped/cam_pixel":   ["merge_segcam_pixel",
+                               "segcrop@2026-08-07__box_pictures_all_classes",
+                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel"],
+    "segcropped/cam_sony":    ["merge_segcam_sony",
+                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony"],
+    "segcropped/cam_oneplus": ["merge_segcam_oneplus",
+                               "segcrop@2026-08-25__oneplus", "segcrop@2026-08-27__oneplus_flash",
+                               "segcrop@2026-08-30__oneplus"],
+    "segcropped/cam_iphone":  ["merge_segcam_iphone", "segcrop@2026-08-25__iphone"],
 }
+
+
+def _stage_key(capture: str) -> str:
+    """A capture dir's key in CAPTURE_STAGE_OVERRIDES: its basename under data/cropped, else
+    "<parent>/<basename>" (data/segcropped/cam_pixel -> "segcropped/cam_pixel")."""
+    p = Path(capture)
+    return p.name if p.parent.name == "cropped" else f"{p.parent.name}/{p.name}"
 
 
 def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
@@ -95,7 +113,7 @@ def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     stale = []
     for capture in capture_dirs:
         name = Path(capture).name
-        for stage in CAPTURE_STAGE_OVERRIDES.get(name, [f"crop@{name}"]):
+        for stage in CAPTURE_STAGE_OVERRIDES.get(_stage_key(capture), [f"crop@{name}"]):
             if stage in stale:
                 continue  # sessions feed more than one dir; report each stage once
             out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()

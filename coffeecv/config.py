@@ -182,6 +182,26 @@ class RunConfig:
     # and the whole photo is used. Half the smallest owner-accepted base mask (0.1657), not the plan's half
     # of the smallest judge-accepted pretrained mask, which is 0.45 because only frame-filling masks pass.
     seg_min_area_frac: float = 0.083
+    # Ticket ML-2 P3 (plan §2.2, §6): how the bean region is found, the same way at both ends.
+    # "tray_heuristic": crop_tray -- training reads the data/cropped pools the crop stage made, serving runs
+    # infer.crop_to_bean_region. "segment": the segmenter below (segment_beans.py) -- training reads the
+    # data/segcropped pools the segcrop stage made, serving segments the photo live. A checkpoint written
+    # before this field restores as "tray_heuristic", so every shipped model keeps today's path.
+    crop_method: str = "tray_heuristic"
+    # The segmenter: pretrained L0 weights (under models_pretrained/) and, from P5, a fine-tuned mask decoder
+    # (repo-relative; "" = the pretrained decoder). Both sha256s are recorded so a checkpoint names the exact
+    # segmenter its patches came from, and loading refuses any other.
+    seg_weights: str = "efficientvit_sam/efficientvit_sam_l0.pt"
+    seg_weights_sha256: str = ""
+    seg_decoder: str = ""
+    seg_decoder_sha256: str = ""
+    # D4: the crop keeps >= this share of the bean region (a quantile trim of (1 - keep) / 4 per side).
+    seg_keep_frac: float = 0.95
+    # D17: a patch box with less bean region than this share is rejected and redrawn; after
+    # patch_max_attempts_factor x n candidates the best rejected boxes top the photo up to n. Only on the
+    # "segment" path, and never on a D18 fallback photo (no mask: every box is accepted).
+    patch_min_bean_share: float = 0.80
+    patch_max_attempts_factor: int = 20
     # Ticket ML-2 P5 (D7 (a), plan §8): the decoder-only fine-tuning recipe, a block read and checked key by
     # key only by coffeecv/seg_finetune.py (FtParams). Empty = FtParams' defaults.
     seg_ft: dict = field(default_factory=dict)

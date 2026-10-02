@@ -359,8 +359,8 @@ stages:
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23ba64ca48ada645201f698f55db133d
-      size: 5064
+      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
+      size: 5817
     - path: data/cropped/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
@@ -388,8 +388,8 @@ stages:
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23ba64ca48ada645201f698f55db133d
-      size: 5064
+      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
+      size: 5817
     - path: data/cropped/2026-08-09__sony_cam
       hash: md5
       md5: 18718ef8147421421220e191553974fc.dir
@@ -412,8 +412,8 @@ stages:
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23ba64ca48ada645201f698f55db133d
-      size: 5064
+      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
+      size: 5817
     - path: data/cropped/2026-08-25__oneplus
       hash: md5
       md5: de32ec658380e3c24a31885537fdb1ab.dir
@@ -441,8 +441,8 @@ stages:
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23ba64ca48ada645201f698f55db133d
-      size: 5064
+      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
+      size: 5817
     - path: data/cropped/2026-08-25__iphone
       hash: md5
       md5: 9d894bee5feb74d330f98f503ab2ab74.dir
@@ -666,8 +666,8 @@ stages:
       size: 4913
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 9abc7cc2018edc6dba300b71df13d02b
-      size: 17342
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
       md5: 097b83f02b083d049e0df5a8dd7c7592
@@ -824,8 +824,8 @@ stages:
       size: 4913
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 9abc7cc2018edc6dba300b71df13d02b
-      size: 17342
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
       md5: 097b83f02b083d049e0df5a8dd7c7592
@@ -866,8 +866,8 @@ stages:
       size: 4913
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 9abc7cc2018edc6dba300b71df13d02b
-      size: 17342
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
       md5: 097b83f02b083d049e0df5a8dd7c7592
@@ -908,8 +908,8 @@ stages:
       size: 18936
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 9abc7cc2018edc6dba300b71df13d02b
-      size: 17342
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: data/cropped
       hash: md5
       md5: 36fce7ba564aba2237998ac4809bf007.dir

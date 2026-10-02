@@ -50,6 +50,7 @@ not "handled".
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import time
 from dataclasses import replace
@@ -65,7 +66,8 @@ from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.crop_tray import locate_bean_crop
 from coffeecv.dataset import load_class_labels, load_rgb_image
-from coffeecv.geometry import compute_valid_region_rect, sample_bean_unit_patch_boxes
+from coffeecv.geometry import (compute_valid_region_rect, sample_bean_unit_patch_boxes,
+                              sample_masked_bean_unit_boxes)
 from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
 from coffeecv.model import build_model
 from coffeecv.transforms import build_eval_transform
@@ -394,6 +396,43 @@ def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
     return rgb[y:y + h, x:x + w], info
 
 
+@functools.lru_cache(maxsize=2)
+def _segmenter(p):
+    from coffeecv.segment_beans import BeanSegmenter
+    return BeanSegmenter(p)
+
+
+def segmenter_for(cfg: RunConfig):
+    """The segmenter a crop_method "segment" checkpoint was trained with (its config's seg_* fields), loaded
+    once per process. Imported lazily, so a tray-heuristic model never loads, or ships, the segmenter."""
+    from coffeecv.segment_beans import seg_params
+    return _segmenter(seg_params(cfg))
+
+
+def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False):
+    """Ticket ML-2 §3 steps 2-3 live: `segment_and_crop`, the function the segcrop training stage runs.
+    Returns (rgb to sample from, its bean mask or None, crop_info, diagnostics). crop_info is shaped like
+    `crop_to_bean_region`'s: None when the whole photo is used.
+
+    The mask is None on a D18 fallback (empty or tiny mask: the whole original photo, unfilled, every patch
+    accepted) and on skip_crop, the user's override, which now means exactly that fallback, chosen by hand;
+    the segmenter does not run then, so its diagnostics are None."""
+    if skip_crop:
+        return rgb, None, None, {"mask_area_frac": None, "bean_frac_in_crop": None, "retained_frac": None,
+                                 "seg_fallback": None}
+    from coffeecv.segment_beans import segment_and_crop
+    crop = segment_and_crop(rgb, segmenter_for(cfg))
+    i = crop.info
+
+    def r4(x):
+        return None if x is None else round(x, 4)
+
+    crop_info = None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
+    return crop.rgb, crop.mask, crop_info, {
+        "mask_area_frac": r4(i["mask_area_frac"]), "bean_frac_in_crop": r4(i["bean_frac_in_crop"]),
+        "retained_frac": r4(i["retained_frac"]), "seg_fallback": i["fallback"]}
+
+
 def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],
                        skip_crop: bool = False):
     """Sample patches the way training does. Returns (patches, diagnostics).
@@ -404,13 +443,22 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     this lets them fall back to the pre-crop-fix behavior (whole frame, same
     as an undetected passthrough) for that one photo, deliberately, rather
     than silently living with a bad detection.
+
+    A crop_method "segment" checkpoint finds the bean region with the segmenter instead
+    (`segment_bean_region`) and places patches by the D17 rule against its mask, as its training
+    pools did (dataset.MultiPhotoPatchDataset with bean_share_rule).
     """
     t0 = time.monotonic()
     rgb = load_rgb_image(path)
     t1 = time.monotonic()
     decoded_h, decoded_w = rgb.shape[:2]
-    crop_info = None
-    if not skip_crop:
+    crop_info, mask, seg_diag = None, None, {}
+    segment = cfg.crop_method == "segment"
+    if segment:
+        rgb, mask, crop_info, seg_diag = segment_bean_region(rgb, cfg, skip_crop)
+    elif cfg.crop_method != "tray_heuristic":
+        raise ValueError(f"unknown crop_method {cfg.crop_method!r}")
+    elif not skip_crop:
         rgb, crop_info = crop_to_bean_region(rgb)
     t2 = time.monotonic()
     h, w = rgb.shape[:2]
@@ -418,12 +466,18 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
 
     rng = np.random.default_rng(seed_key)
-    boxes, clamped = sample_bean_unit_patch_boxes(
-        rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max,
-        # Rotation jitter is a *training* augmentation; eval splits never get it,
-        # so neither does inference.
-        0.0,
-    )
+    if segment:
+        boxes, clamped, below = sample_masked_bean_unit_boxes(
+            rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max, mask,
+            cfg.patch_min_bean_share, cfg.patch_max_attempts_factor, 0.0)
+        seg_diag["patches_below_share"] = below
+    else:
+        boxes, clamped = sample_bean_unit_patch_boxes(
+            rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max,
+            # Rotation jitter is a *training* augmentation; eval splits never get it,
+            # so neither does inference.
+            0.0,
+        )
 
     patches = []
     for box, angle, side in boxes:
@@ -444,7 +498,11 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
         "decoded_wh": [decoded_w, decoded_h],
         # Diagnostic only, for the web service's request logging -- never used
         # for any pass/fail decision, so it can't become a parity concern.
+        # crop_detect is the bean-region step of either crop_method (segmenter + fill + crop).
         "timing_ms": {"decode": round((t1 - t0) * 1000), "crop_detect": round((t2 - t1) * 1000)},
+        # Segmenter only (ML-2): mask_area_frac, bean_frac_in_crop, retained_frac, seg_fallback
+        # (D18) and patches_below_share (D17). Logged per request; nothing gates on them (D9).
+        **seg_diag,
     }
 
 
@@ -652,6 +710,9 @@ def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
     crop = entry.get("crop")
     if crop and crop.get("needs_review"):
         print(f"  crop: WARNING: {crop['note']}")
+    if entry.get("seg_fallback"):
+        print(f"  segment: mask covers {entry['mask_area_frac']:.1%} of the photo, under the tiny-mask "
+              f"threshold -- whole photo used (D18)")
     print(f"  scale: frame spans {entry['beans_across']:.1f} beans (measured, not enforced)")
 
     if entry["verdict"] == "REFUSED (scale)":
@@ -742,7 +803,8 @@ def main() -> None:
         print(f"OOD guard: centroid, threshold {OOD_THRESHOLD}")
 
     images = sorted(q for q in Path(args.images_dir).iterdir()
-                    if q.suffix.lower() in {".jpg", ".jpeg", ".png"} and not q.name.endswith("__mask.png"))
+                    if q.suffix.lower() in {".jpg", ".jpeg", ".png"}
+                    and not q.name.endswith(("__mask.png", "__beanmask.png")))
     if not images:
         raise FileNotFoundError(f"No images in {args.images_dir}")
 

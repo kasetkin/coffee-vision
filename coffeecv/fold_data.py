@@ -18,7 +18,8 @@ from dataclasses import dataclass
 
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import RunConfig
-from coffeecv.dataset import Capture, MultiPhotoPatchDataset, load_class_labels, resolve_captures
+from coffeecv.dataset import (Capture, MultiPhotoPatchDataset, bean_share_rule, load_class_labels,
+                             resolve_captures)
 from coffeecv.transforms import build_eval_transform
 
 
@@ -85,6 +86,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
             if cfg.patch_beans_max > 0 else None
         ),
         pitch_geometry=pitch_kwargs(cfg),
+        bean_share_rule=bean_share_rule(cfg),
     )
     train_ds = MultiPhotoPatchDataset(
         split="train", transform=train_transform,
@@ -131,4 +133,5 @@ def build_capture_dataset(cfg: RunConfig, capture: Capture, class_ids: list[str]
         patch_beans=((cfg.patch_beans_min, cfg.patch_beans_max)
                      if cfg.patch_beans_max > 0 else None),
         pitch_geometry=pitch_kwargs(cfg),
+        bean_share_rule=bean_share_rule(cfg),
     )

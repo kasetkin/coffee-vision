@@ -2,7 +2,8 @@
 crop to the rectangle that keeps >= 95% of it, or fall back to the whole photo (D18).
 
 One implementation behind both ends, per the train/inference parity rule: the training crop stage
-and infer.patches_for_photo call the same `segment_and_crop` (plan §2.2).
+(segcrop_session.py) and infer.patches_for_photo call the same `segment_and_crop`, with the segmenter
+`seg_params` builds from the run config (plan §2.2).
 
     BeanSegmenter.predict_mask   full-resolution bool mask from L0 with a whole-image box prompt (D5)
     mask_and_crop                pure numpy: D3 fill, D4 quantile crop, D18 fallback, diagnostics
@@ -48,6 +49,9 @@ class SegParams:
     fill_rgb: tuple[int, int, int] = (124, 116, 104)   # D3: ImageNet mean, rounded to uint8
     min_area_frac: float = 0.0         # D18: set in P2
     decoder: str | None = None         # P5: a fine-tuned mask decoder (repo-relative .pt) loaded over `weights`
+    # Expected sha256s, refused on mismatch; "" = not checked beyond the models_pretrained manifest (P0-P5 tools).
+    weights_sha256: str = ""
+    decoder_sha256: str = ""
 
     def __post_init__(self):
         if self.mask_select not in MASK_SELECT:
@@ -133,8 +137,14 @@ class BeanSegmenter:
     def __init__(self, p: SegParams):
         self.p = p
         self.predictor, self.weights_sha256 = build_sam_l0(p.weights, p.variant)
+        if p.weights_sha256 and p.weights_sha256 != self.weights_sha256:
+            raise ValueError(f"models_pretrained/{p.weights} is {self.weights_sha256[:12]}, "
+                             f"not the {p.weights_sha256[:12]} expected")
         self.model = self.predictor.model
         self.decoder_sha256 = load_decoder(self.model, p.decoder, self.weights_sha256) if p.decoder else None
+        if p.decoder_sha256 and p.decoder_sha256 != self.decoder_sha256:
+            raise ValueError(f"{p.decoder} is {(self.decoder_sha256 or 'absent')[:12]}, "
+                             f"not the {p.decoder_sha256[:12]} expected")
         self.timing_ms: dict[str, float] = {}
         self.pred_iou: float | None = None
 
@@ -242,6 +252,17 @@ class BeanSegmenter:
             for k, name in enumerate(names):
                 out[name] = (self._upsample(low[k]), float(iou[k]))
         return out
+
+
+def seg_params(cfg: RunConfig) -> SegParams:
+    """The segmenter a run config names (crop_method "segment"): the training crop stage and the serving
+    path both build it from here, so they cannot disagree on any of it."""
+    if cfg.seg_decoder and not cfg.seg_decoder_sha256:
+        raise ValueError("seg_decoder is set but seg_decoder_sha256 is not; a segmenter must be pinned")
+    return SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=cfg.seg_weights,
+                     keep_frac=cfg.seg_keep_frac, min_area_frac=cfg.seg_min_area_frac,
+                     decoder=cfg.seg_decoder or None, weights_sha256=cfg.seg_weights_sha256,
+                     decoder_sha256=cfg.seg_decoder_sha256)
 
 
 def segment_and_crop(rgb: np.ndarray, seg: BeanSegmenter) -> BeanCrop:

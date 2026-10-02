@@ -20,11 +20,12 @@ import numpy as np
 import torch
 
 from coffeecv.backbones import MODELS_PRETRAINED, SPECS, build_backbone
-from coffeecv.config import RunConfig
+from coffeecv.config import REPO_ROOT, RunConfig, config_to_dict
 from coffeecv.dino_classifier import (CHECKPOINT_FORMAT, DinoClassifier, is_frozen_model,
                                       load_frozen_checkpoint, save_frozen_checkpoint)
 from coffeecv.fold_data import build_fold_datasets
-from coffeecv.infer import embedding_dim_of, forward_with_embeddings, inference_tta_for, load_model
+from coffeecv.infer import (config_for_checkpoint, embedding_dim_of, forward_with_embeddings, inference_tta_for,
+                            load_model)
 from coffeecv.linear_head import fit_head_at, predict
 from coffeecv.model import FROZEN_MODELS, build_model
 from coffeecv.transforms import build_eval_transform
@@ -120,6 +121,31 @@ class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
         self.assertEqual(len(alone.val), len(both.val))
         for i in range(len(alone.val)):
             self.assertTrue(torch.equal(alone.val[i][0], both.val[i][0]))
+
+
+class TestCropMethodRestores(unittest.TestCase):
+    """Ticket ML-2: the bean-region step a checkpoint was trained with travels in its config."""
+    SEG = dict(crop_method="segment", seg_weights="efficientvit_sam/efficientvit_sam_l0.pt",
+               seg_weights_sha256="a" * 64, seg_decoder="models/seg/ft_s123.pt", seg_decoder_sha256="b" * 64,
+               seg_prompt="box", seg_mask_select="multi3", seg_keep_frac=0.95, seg_min_area_frac=0.083,
+               patch_min_bean_share=0.8, patch_max_attempts_factor=20)
+
+    def restored(self, training_config: dict) -> RunConfig:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "m.pt"
+            ckpt.with_suffix(".json").write_text(json.dumps({"training_config": training_config}))
+            return config_for_checkpoint(ckpt, None)[0]
+
+    def test_a_card_without_it_is_the_tray_heuristic(self):
+        for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):        # both shipped cards predate P3
+            card = json.loads((REPO_ROOT / "models" / f"{name}.json").read_text())
+            self.assertNotIn("crop_method", card["training_config"])
+            self.assertEqual(self.restored(card["training_config"]).crop_method, "tray_heuristic")
+
+    def test_segment_fields_round_trip(self):
+        cfg = replace(RunConfig(), **self.SEG)
+        back = self.restored(config_to_dict(cfg))
+        self.assertEqual({k: getattr(back, k) for k in self.SEG}, self.SEG)
 
 
 if __name__ == "__main__":

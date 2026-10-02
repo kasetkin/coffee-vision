@@ -11,6 +11,10 @@ as untracked: crop_tray.py predating the `crop` stage "could not run anywhere th
 crops did not already sit in the working tree" (see EXPERIMENTS_LOG.md Phase 9).
 
     python -m coffeecv.merge_rig --name oneplus_combined --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash
+
+Ticket ML-2 (F3): the segmenter's pools merge the same way from data/segcropped (`--root`), and a crop's
+bean-region mask (`<stem>__beanmask.png`, dataset.bean_mask_path) travels with it. The tray heuristic's
+crops have none, so their merges are unchanged.
 """
 from __future__ import annotations
 
@@ -26,8 +30,8 @@ CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 
 
-def merge_rig(name: str, sessions: list[str]) -> dict:
-    session_dirs = [CROPPED_ROOT / s for s in sessions]
+def merge_rig(name: str, sessions: list[str], root: Path = CROPPED_ROOT) -> dict:
+    session_dirs = [root / s for s in sessions]
     for s, d in zip(sessions, session_dirs):
         if not d.is_dir():
             raise FileNotFoundError(f"No cropped session at {d}. Run the crop stage first: "
@@ -46,7 +50,7 @@ def merge_rig(name: str, sessions: list[str]) -> dict:
                 continue
             class_dirs_by_id.setdefault(m.group(1), []).append((session, class_dir))
 
-    out_root = CROPPED_ROOT / name
+    out_root = root / name
     out_root.mkdir(parents=True, exist_ok=True)
 
     per_class_counts: dict[str, dict[str, int]] = {}
@@ -72,6 +76,10 @@ def merge_rig(name: str, sessions: list[str]) -> dict:
                     )
                 seen[photo.name] = session
                 shutil.copy2(photo, out_dir / photo.name)
+                # dataset.bean_mask_path, spelled out to keep this module free of the dataset stack.
+                mask = photo.with_name(photo.name.replace("__cropped.jpg", "__beanmask.png"))
+                if mask.exists():
+                    shutil.copy2(mask, out_dir / mask.name)
 
         per_class_counts[class_id] = counts
         totals["classes"] += 1
@@ -93,6 +101,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--name", required=True, help="name of the merged rig, under data/cropped/<name>")
     p.add_argument("--sessions", required=True, nargs="+", help="cropped session names to merge (>= 2)")
+    p.add_argument("--root", type=Path, default=CROPPED_ROOT,
+                   help="where the sessions are and the merge goes: data/cropped (default) or data/segcropped")
     args = p.parse_args()
     if not args.sessions:
         raise SystemExit("--sessions needs at least one session")
@@ -103,7 +113,7 @@ def main() -> None:
     # lands, and that must not require editing RIGS, params.yaml and every
     # downstream reference. Paying one directory copy to keep the identifier
     # stable is the cheaper side of that trade.
-    merge_rig(args.name, args.sessions)
+    merge_rig(args.name, args.sessions, args.root.resolve())
 
 
 if __name__ == "__main__":

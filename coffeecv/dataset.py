@@ -24,6 +24,7 @@ from coffeecv.geometry import (
     compute_valid_region,
     compute_valid_region_rect,
     sample_bean_unit_patch_boxes,
+    sample_masked_bean_unit_boxes,
     sample_patch_boxes,
     sample_rotated_patch_boxes,
     sample_scaled_patch_boxes,
@@ -178,6 +179,24 @@ def find_class_dir(cropped_dir: Path, class_id: str) -> Path:
     return matches[0]
 
 
+def bean_mask_path(cropped_photo: Path) -> Path:
+    """The bean-region mask the segcrop stage writes beside a `*__cropped.jpg` (ticket ML-2): same stem,
+    `__beanmask.png`, aligned pixel for pixel with the crop. Absent on a D18 fallback photo."""
+    return cropped_photo.with_name(cropped_photo.name.replace("__cropped.jpg", "__beanmask.png"))
+
+
+def load_bean_mask(cropped_photo: Path, shape: tuple[int, int]) -> np.ndarray | None:
+    """The bool mask beside a segmenter crop, or None if there is none (a D18 fallback photo). A mask
+    whose shape is not the crop's is refused: it would place patches against the wrong pixels."""
+    path = bean_mask_path(cropped_photo)
+    if not path.exists():
+        return None
+    mask = np.array(Image.open(path).convert("1"), dtype=bool)
+    if mask.shape != tuple(shape):
+        raise ValueError(f"{path.name} is {mask.shape}, its crop {tuple(shape)}")
+    return mask
+
+
 def list_cropped_photos(class_dir: Path) -> list[Path]:
     """`class_dir` lives under the *cropped* root (`data/cropped/<session>/`), not
     the raw session directory — the crops are a pipeline output produced by the
@@ -249,6 +268,26 @@ CAPTURES = [
     "data/cropped/cam_oneplus",
     "data/cropped/cam_iphone",
 ]
+# Ticket ML-2: the same four pools built from the segmenter's crops (segcrop@<session> -> merge_segcam_*),
+# in the same order, so a seed draws the same photo split and the same capture_idx on both sets of pools:
+# the photo names are the raw stems on both sides, and Capture.name is the basename.
+SEG_CAPTURES = [
+    "data/segcropped/cam_pixel",
+    "data/segcropped/cam_sony",
+    "data/segcropped/cam_oneplus",
+    "data/segcropped/cam_iphone",
+]
+
+
+def bean_share_rule(cfg) -> tuple[float, int] | None:
+    """(patch_min_bean_share, patch_max_attempts_factor) for a run on the segmenter's pools, where
+    MultiPhotoPatchDataset places patches by the D17 rule against each photo's mask; None on the tray
+    heuristic's pools, whose crops are all-bean rectangles with no mask."""
+    if cfg.crop_method == "segment":
+        return cfg.patch_min_bean_share, cfg.patch_max_attempts_factor
+    if cfg.crop_method != "tray_heuristic":
+        raise ValueError(f"unknown crop_method {cfg.crop_method!r}")
+    return None
 
 
 @dataclass(frozen=True)
@@ -439,6 +478,7 @@ class MultiPhotoPatchDataset(Dataset):
         patch_scale_frac: tuple[float, float] | None = None,
         patch_beans: tuple[float, float] | None = None,
         pitch_geometry: dict | None = None,
+        bean_share_rule: tuple[float, int] | None = None,
     ):
         assert split in ("train", "val", "test", "all")
         self.split = split
@@ -464,6 +504,14 @@ class MultiPhotoPatchDataset(Dataset):
         self.n_clamped = 0
         self.pitch_by_photo: dict[str, float] = {}
         self.patch_scale_frac = patch_scale_frac
+        # Ticket ML-2 D17/D18 (`bean_share_rule(cfg)`): on the segmenter's pools each photo's patches are
+        # placed against its `__beanmask.png`, exactly as infer.patches_for_photo places them against the
+        # mask it computes live. A photo with no mask is a D18 fallback and accepts every box.
+        self.bean_share_rule = bean_share_rule
+        self.n_below_share = 0
+        self.fallback_photos: list[str] = []
+        if bean_share_rule is not None and patch_beans is None:
+            raise ValueError("bean_share_rule (crop_method 'segment') needs bean-unit patch sizing (patch_beans)")
         if patch_beans is not None and patch_store_size is None:
             raise ValueError("patch_beans requires patch_store_size to be set")
         if patch_scale_frac is not None and patch_store_size is None:
@@ -578,10 +626,20 @@ class MultiPhotoPatchDataset(Dataset):
             gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114)
             pitch = estimate_bean_pitch(gray.astype(np.uint8), **self.pitch_geometry)
             self.pitch_by_photo[photo_path.name] = pitch
-            boxes, clamped = sample_bean_unit_patch_boxes(
-                rng, region, n_patches, pitch, self.patch_beans[0], self.patch_beans[1],
-                self.rotation_jitter_degrees,
-            )
+            if self.bean_share_rule is not None:
+                mask = load_bean_mask(photo_path, rgb.shape[:2])
+                if mask is None:
+                    self.fallback_photos.append(photo_path.name)
+                boxes, clamped, below = sample_masked_bean_unit_boxes(
+                    rng, region, n_patches, pitch, self.patch_beans[0], self.patch_beans[1],
+                    mask, *self.bean_share_rule, self.rotation_jitter_degrees,
+                )
+                self.n_below_share += below
+            else:
+                boxes, clamped = sample_bean_unit_patch_boxes(
+                    rng, region, n_patches, pitch, self.patch_beans[0], self.patch_beans[1],
+                    self.rotation_jitter_degrees,
+                )
             self.n_clamped += clamped
         elif self.patch_scale_frac is not None:
             frac_min, frac_max = self.patch_scale_frac

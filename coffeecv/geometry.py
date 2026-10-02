@@ -1,4 +1,5 @@
-"""Geometry for sampling leakage-free patches from the circular macro-lens photos.
+"""Geometry for sampling leakage-free patches from the circular macro-lens photos, and the
+bean-unit patch samplers every current run uses (plain, and ticket ML-2's mask-aware D17 rule).
 
 Each source photo is square with a lens circle exactly inscribed in the frame
 (radius = half the image width) and alpha==0 outside that circle. We compute a
@@ -204,28 +205,108 @@ def sample_bean_unit_patch_boxes(
     count, because a rig that clamps often is framed too tightly for the
     configured range and its patches will be less varied than intended.
     """
+    out, flags = _bean_unit_boxes(rng, region, n, pitch_px, beans_min, beans_max, max_jitter_deg)
+    return out, sum(flags)
+
+
+def _bean_unit_boxes(
+    rng: np.random.Generator, region: Region, n: int, pitch_px: float,
+    beans_min: float, beans_max: float, max_jitter_deg: float,
+) -> tuple[list[tuple[Region, float, int]], list[bool]]:
+    """`sample_bean_unit_patch_boxes`' draw, with a clamped flag per box."""
     room = min(region.width, region.height)
     beans = np.exp(rng.uniform(np.log(beans_min), np.log(beans_max), size=n))
     angles = (
         rng.uniform(-max_jitter_deg, max_jitter_deg, size=n)
         if max_jitter_deg > 0 else np.zeros(n)
     )
-    out, clamped = [], 0
+    out, flags = [], []
     for b, angle in zip(beans, angles):
         side = int(round(b * pitch_px))
         box_side = rotated_box_side(side, angle) if angle else side
-        if box_side > room:
+        clamped = box_side > room
+        if clamped:
             # Take the largest patch that fits rather than failing: the
             # alternative is dropping the sample, which would silently bias the
             # scale distribution toward the small end.
             box_side = room
             side = int(box_side / (rotated_box_side(1000, angle) / 1000)) if angle else box_side
-            clamped += 1
         max_y0, max_x0 = region.y1 - box_side, region.x1 - box_side
         y = int(rng.integers(region.y0, max_y0 + 1))
         x = int(rng.integers(region.x0, max_x0 + 1))
         out.append((Region(y0=y, y1=y + box_side, x0=x, x1=x + box_side), float(angle), side))
-    return out, clamped
+        flags.append(clamped)
+    return out, flags
+
+
+def mask_integral(mask: np.ndarray) -> np.ndarray:
+    """Summed-area table of a bool mask, padded with a zero row and column, so the bean pixels in
+    mask[y0:y1, x0:x1] are ii[y1, x1] - ii[y0, x1] - ii[y1, x0] + ii[y0, x0]. int32 holds any photo
+    under 2 gigapixels."""
+    ii = np.zeros((mask.shape[0] + 1, mask.shape[1] + 1), dtype=np.int32)
+    np.cumsum(np.cumsum(mask, axis=0, dtype=np.int32), axis=1, out=ii[1:, 1:])
+    return ii
+
+
+def box_bean_share(ii: np.ndarray, box: Region) -> float:
+    """Share of `box` that is bean region, in O(1) from `mask_integral`'s table."""
+    n = int(ii[box.y1, box.x1]) - int(ii[box.y0, box.x1]) - int(ii[box.y1, box.x0]) + int(ii[box.y0, box.x0])
+    return n / (box.height * box.width)
+
+
+def sample_masked_bean_unit_boxes(
+    rng: np.random.Generator,
+    region: Region,
+    n: int,
+    pitch_px: float,
+    beans_min: float,
+    beans_max: float,
+    mask: np.ndarray | None,
+    min_share: float,
+    max_attempts_factor: int,
+    max_jitter_deg: float = 0.0,
+) -> tuple[list[tuple[Region, float, int]], int, int]:
+    """Bean-unit patches placed by ticket ML-2's D17 rule: (boxes, n_clamped, n_below).
+
+    Candidates come from exactly `sample_bean_unit_patch_boxes`' distribution, drawn n at a time. A
+    candidate whose bean-region share is at least `min_share` is accepted, in draw order, until n are
+    accepted or `max_attempts_factor * n` candidates have been looked at. The rest are then topped up
+    from the rejected candidates, highest share first (ties: earlier draw first). `n_below` counts the
+    returned boxes under `min_share`, `n_clamped` the returned boxes that were clamped to the room.
+    The share of a rotated patch is that of its bounding box, the pixels actually cropped.
+
+    `mask` (bool, aligned with the photo the boxes index) of None is the D18 fallback: every box is
+    accepted, so this is `sample_bean_unit_patch_boxes` itself.
+    """
+    if mask is None:
+        boxes, clamped = sample_bean_unit_patch_boxes(rng, region, n, pitch_px, beans_min, beans_max,
+                                                      max_jitter_deg)
+        return boxes, clamped, 0
+    if max_attempts_factor < 1:
+        raise ValueError(f"max_attempts_factor must be >= 1, got {max_attempts_factor}")
+    if mask.shape[0] < region.y1 or mask.shape[1] < region.x1:
+        raise ValueError(f"mask {mask.shape} does not cover the region {region}")
+    ii = mask_integral(mask)
+    cap = max_attempts_factor * n
+    accepted: list[tuple[tuple[Region, float, int], bool]] = []
+    rejected: list[tuple[float, int, tuple[Region, float, int], bool]] = []
+    seen = 0
+    while len(accepted) < n and seen < cap:
+        boxes, flags = _bean_unit_boxes(rng, region, min(n, cap - seen), pitch_px, beans_min, beans_max,
+                                        max_jitter_deg)
+        for box, clamped in zip(boxes, flags):
+            if len(accepted) == n:
+                break
+            share = box_bean_share(ii, box[0])
+            if share >= min_share:
+                accepted.append((box, clamped))
+            else:
+                rejected.append((share, seen, box, clamped))
+            seen += 1
+    n_below = n - len(accepted)
+    rejected.sort(key=lambda r: (-r[0], r[1]))
+    out = accepted + [(box, clamped) for _, _, box, clamped in rejected[:n_below]]
+    return [box for box, _ in out], sum(c for _, c in out), n_below
 
 
 def assert_jitter_fits(

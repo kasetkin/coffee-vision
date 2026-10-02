@@ -151,6 +151,24 @@ seg_mask_select: multi3
 # pass, and would send every correct tray mask to the fallback.
 seg_min_area_frac: 0.083
 
+# Ticket ML-2 P3 (plan §6): where the bean region comes from. tray_heuristic = the
+# crop stage's data/cropped pools and infer.crop_to_bean_region (every shipped model);
+# segment = the segmenter below, at both ends (segcrop stage -> data/segcropped,
+# live segmentation in infer.py). fit_frozen_head --pools sets it per run; it rests
+# at tray_heuristic.
+crop_method: tray_heuristic
+# The segmenter (P5, owner 2026-10-02): pretrained L0 + the seed-123 fine-tuned decoder.
+seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+seg_weights_sha256: c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+seg_decoder: models/seg/ft_s123.pt
+seg_decoder_sha256: c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+# D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
+seg_keep_frac: 0.95
+# D17: reject a patch box under 80% bean region; after 20 x n candidates, top up
+# with the best rejected boxes.
+patch_min_bean_share: 0.80
+patch_max_attempts_factor: 20
+
 # Ticket ML-2 P5 (D7 (a), plan §8): decoder-only fine-tuning of the segmenter, read only by
 # coffeecv/seg_finetune.py. The image and prompt encoders stay frozen; the prompt (seg_prompt) and the
 # trained output (seg_mask_select) are the serving ones. Loss: focal_weight x focal(gamma, alpha) +

@@ -65,6 +65,12 @@ def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str]
     pretrained = {}
     card = json.loads(read_text(f"{stem}.json"))
     model_name = card.get("training_config", {}).get("model_name", "")
+    if card.get("training_config", {}).get("crop_method", "tray_heuristic") != "tray_heuristic":
+        # Ticket ML-2: a segmenter model also needs segment_beans/sam_loader, the vendored efficientvit files
+        # it imports, its weights and decoder, and segment-anything in webapp/pyproject.toml. That release
+        # shape is ML-2 P6's (plan §9); until it exists, refuse rather than stage a release that cannot boot.
+        raise ValueError(f"{model} uses crop_method {card['training_config']['crop_method']!r}; releases of "
+                         f"segmenter models are not defined yet (ticket ML-2 P6)")
     if model_name.startswith("dinov3"):
         # A frozen model's .pt holds only the head; the backbone comes from models_pretrained/, checked
         # against the manifest's sha256 (coffeecv.backbones.verify_weights) at every start.

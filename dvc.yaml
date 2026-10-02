@@ -136,6 +136,84 @@ stages:
           x: true_label
           y: pred_label
 
+  # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
+  # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
+  # the filled D4 crop and its bean mask, or the whole photo on a D18 fallback. The segmenter is params.yaml's
+  # seg_* fields. Mask bits differ across CPUs and thread counts (P0), so this runs on the VM at a pinned 4
+  # threads, like seg_predict. The existing crop / merge_cam_* stages stay untouched until P6 (ticket R7).
+  segcrop:
+    foreach:
+      - 2026-08-07__box_pictures_all_classes
+      - 2026-08-09__pixel_cam
+      - 2026-08-09__sony_cam
+      - 2026-08-25__iphone
+      - 2026-08-25__oneplus
+      - 2026-08-27__oneplus_flash
+      - 2026-08-30__oneplus
+      - 2026-08-30__pixel
+      - 2026-08-30__sony
+    do:
+      cmd: python -m coffeecv.segcrop_session --session ${item} --threads 4
+      deps:
+        - dataset/${item}
+        - coffeecv/segcrop_session.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - models_pretrained/${seg_weights}
+        - ${seg_decoder}
+      params:
+        - params.yaml:
+            - seg_weights
+            - seg_weights_sha256
+            - seg_decoder
+            - seg_decoder_sha256
+            - seg_prompt
+            - seg_mask_select
+            - seg_keep_frac
+            - seg_min_area_frac
+      outs:
+        - data/segcropped/${item}
+
+  # The segmenter's capture dirs (dataset.SEG_CAPTURES), merged exactly as merge_cam_* merges the tray
+  # heuristic's; merge_rig copies each crop's bean mask with it (F3).
+  merge_segcam_pixel:
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel
+    deps:
+      - data/segcropped/2026-08-07__box_pictures_all_classes
+      - data/segcropped/2026-08-09__pixel_cam
+      - data/segcropped/2026-08-30__pixel
+      - coffeecv/merge_rig.py
+    outs:
+      - data/segcropped/cam_pixel
+
+  merge_segcam_sony:
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony
+    deps:
+      - data/segcropped/2026-08-09__sony_cam
+      - data/segcropped/2026-08-30__sony
+      - coffeecv/merge_rig.py
+    outs:
+      - data/segcropped/cam_sony
+
+  merge_segcam_oneplus:
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus
+    deps:
+      - data/segcropped/2026-08-25__oneplus
+      - data/segcropped/2026-08-27__oneplus_flash
+      - data/segcropped/2026-08-30__oneplus
+      - coffeecv/merge_rig.py
+    outs:
+      - data/segcropped/cam_oneplus
+
+  merge_segcam_iphone:
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_iphone --sessions 2026-08-25__iphone
+    deps:
+      - data/segcropped/2026-08-25__iphone
+      - coffeecv/merge_rig.py
+    outs:
+      - data/segcropped/cam_iphone
+
   # Ticket ML-2 P1/P5: masks for the eval lists (seg_eval, neg_seg_eval, pos_seg_eval), computed once and
   # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this runs on the VM at
   # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's

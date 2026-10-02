@@ -93,5 +93,16 @@ class TestReleaseManifest(unittest.TestCase):
                 self.assertEqual(unused, [], f"{model}: manifest lists files the app never opened")
 
 
+class TestSegmenterModelsRefused(unittest.TestCase):
+    """Ticket ML-2: until P6 defines a segmenter model's release (its modules, vendored files, weights and
+    webapp env), the manifest refuses one rather than stage a release that cannot boot."""
+
+    def test_refused(self):
+        card = {"training_config": {"model_name": "dinov3_vitb16", "crop_method": "segment"}}
+        files = {"models/m.pt.dvc": "outs:\n- md5: 0\n", "models/m.json": json.dumps(card)}
+        with self.assertRaisesRegex(ValueError, "P6"):
+            manifest("m", files.__getitem__, files.__contains__)
+
+
 if __name__ == "__main__":
     unittest.main()

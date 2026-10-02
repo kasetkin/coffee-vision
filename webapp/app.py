@@ -31,7 +31,7 @@ from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
 from coffeecv.infer import (_sha, classify_one, config_for_checkpoint, crop_to_bean_region,
                             inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
-                            reference_path_for, sig12)
+                            reference_path_for, segment_bean_region, segmenter_for, sig12)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,6 +77,13 @@ if probe is None:
 else:
     logger.info("OOD guard: linear_probe from %s, threshold %.4f, certified alpha %.1f%%",
                 probe["_path"], probe["threshold"], 100 * probe["alpha"])
+
+# Ticket ML-2: a crop_method "segment" model finds the bean region with the segmenter it was trained with,
+# loaded here at import so missing or mismatched segmenter weights fail the boot, not the first request.
+segmenter = segmenter_for(cfg) if cfg.crop_method == "segment" else None
+if segmenter is not None:
+    logger.info("bean region: segmenter %s + decoder %s", segmenter.weights_sha256[:16],
+                (segmenter.decoder_sha256 or "pretrained")[:16])
 
 
 def _file_sha(path: Path) -> str | None:
@@ -125,6 +132,9 @@ BUILD = {
     "ood_probe_sha": _file_sha(probe_path_for(CHECKPOINT)) if probe is not None else None,
     "ood_threshold": probe["threshold"] if probe is not None else None,
     "tta": TTA,
+    "crop_method": cfg.crop_method,
+    **({"segmenter_sha": segmenter.weights_sha256[:16],
+        "seg_decoder_sha": (segmenter.decoder_sha256 or "")[:16] or None} if segmenter is not None else {}),
     "code": _code_identity(),
 }
 logger.info("serving %s %s", CHECKPOINT.name, json.dumps(BUILD))
@@ -149,6 +159,7 @@ class _JsonFormatter(logging.Formatter):
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
         "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
         "beans_across", "bean_pitch_px",
+        "mask_area_frac", "bean_frac_in_crop", "retained_frac", "seg_fallback", "patches_below_share",
         "ua_category", "exc_type",
     )
 
@@ -247,7 +258,8 @@ def _log_request(response):
                   "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
                   "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
-                  "beans_across", "bean_pitch_px"):
+                  "beans_across", "bean_pitch_px",
+                  "mask_area_frac", "bean_frac_in_crop", "retained_frac", "seg_fallback", "patches_below_share"):
         value = getattr(g, field, None)
         if value is not None:
             extra[field] = value
@@ -351,6 +363,12 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
         g.beans_across = entry["beans_across"]
     if "bean_pitch_px" in entry:
         g.bean_pitch_px = entry["bean_pitch_px"]
+    # Segmenter models only (ML-2): how much of the photo the mask covers, what the crop keeps, whether the
+    # D18 whole-photo fallback fired, and how many patches the D17 rule had to top up. Nothing gates on
+    # them yet (D9); a gate needs their real-traffic distribution first.
+    for field in ("mask_area_frac", "bean_frac_in_crop", "retained_frac", "seg_fallback", "patches_below_share"):
+        if field in entry:
+            setattr(g, field, entry[field])
     timing = entry.get("timing_ms")
     if timing:
         g.decode_ms = timing.get("decode")
@@ -434,7 +452,11 @@ def crop():
 
     h, w = rgb.shape[:2]
     g.decoded_w, g.decoded_h = w, h
-    _, crop_info = crop_to_bean_region(rgb)
+    if segmenter is not None:
+        # The same segmentation /classify runs, so a preview costs a second segmenter pass per upload.
+        _, _, crop_info, _ = segment_bean_region(rgb, cfg)
+    else:
+        _, crop_info = crop_to_bean_region(rgb)
     if crop_info is None:
         return jsonify(cropped=False, box=None, needs_review=False)
 
