@@ -895,3 +895,62 @@ stages:
       md5: 7e0ff1e37c602fd6dc2e05b905c24a4b.dir
       size: 4007501
       nfiles: 344
+  seg_eval@ft_s123:
+    cmd: python -m coffeecv.seg_eval ft_s123
+    deps:
+    - path: coffeecv/bean_scale.py
+      hash: md5
+      md5: 98a17853846097cf67515ae0b916e8da
+      size: 7419
+    - path: coffeecv/seg_eval.py
+      hash: md5
+      md5: d125c4767affd851bf45bfe121d93638
+      size: 18936
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 9abc7cc2018edc6dba300b71df13d02b
+      size: 17342
+    - path: data/cropped
+      hash: md5
+      md5: 36fce7ba564aba2237998ac4809bf007.dir
+      size: 4674567490
+      nfiles: 1946
+    - path: data/seg_masks/ft_s123
+      hash: md5
+      md5: 326075c0662d493e56229ccfd5c5501a.dir
+      size: 3328150
+      nfiles: 344
+    - path: labels/ml2/accept_rule.md
+      hash: md5
+      md5: decec76b755b406b85886ca318d5f738
+      size: 621
+    - path: labels/ml2/judge_prompt.md
+      hash: md5
+      md5: 6dfcbe8604d10bd887b758d47a88d52a
+      size: 3123
+    - path: labels/ml2/photo_lists.yaml
+      hash: md5
+      md5: 097b83f02b083d049e0df5a8dd7c7592
+      size: 406717
+    - path: labels/ml2/verdicts.jsonl
+      hash: md5
+      md5: 02d9d783fc7d6b6d569d1f5ecc305875
+      size: 3469878
+    params:
+      params.yaml:
+        bean_analysis_frac: 0.4
+        bean_calibration_k: 1.18
+        bean_k_hi: 80
+        bean_k_lo: 4
+        safety_margin: 0.97
+        seg_min_area_frac: 0.083
+    outs:
+    - path: outputs/ml2_p2/ft_s123
+      hash: md5
+      md5: 82d2393e395658ede3aec2a84144c272.dir
+      size: 220391
+      nfiles: 3
+    - path: outputs/seg_eval_ft_s123.json
+      hash: md5
+      md5: d05db0a091636f11ebaafceb8ff87316
+      size: 8531
