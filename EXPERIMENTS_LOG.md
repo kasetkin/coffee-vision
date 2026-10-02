@@ -2903,3 +2903,27 @@ the isolated `/opt/coffee-cv` service (OPS-1); it has served production since 14
 - The α ≤ 4.3% certificate stays a valid, now conservative, bound.
 - The holdout informed this choice, so it is no longer an unbiased estimate at 0.5. Recorded in the probe
   file's `threshold_override`.
+
+### exp255-260: ML-2 P4, segmenter pools vs tray-heuristic pools, paired by seed (2026-10-02)
+
+Ticket ML-2 (docs/ticket_segmentation_mask.html), plan §7. Run on the VM at `7b273ec`, timm 1.0.30, 4 threads,
+`coffeecv.fit_frozen_head`, frozen `dinov3_vitb16` × cls_mean, C = 0.1. Baseline arm `--pools cropped` (today's
+recipe, refitted under timm 1.0.30); new arm `--pools segcropped` (the seed-123 fine-tuned segmenter, gray fill,
+D4 crop, D17 patch placement). The pools hold 938 photos with 0 D18 fallbacks, and no new-arm patch fell below
+the 80% bean share. In-distribution only.
+
+| seed | baseline exp | val | test | segcrop exp | val | test | val Δ | test Δ |
+|---|---|---|---|---|---|---|---|---|
+| 42 | 255 | 0.9635 | 0.9684 | 258 | 0.9597 | 0.9720 | −0.0037 | +0.0036 |
+| 123 | 256 | 0.9676 | 0.9710 | 259 | 0.9706 | 0.9651 | +0.0030 | −0.0059 |
+| 7 | 257 | 0.9662 | 0.9718 | 260 | 0.9736 | 0.9771 | +0.0073 | +0.0052 |
+
+- Mean Δ val +0.0022, test +0.0010; both spreads 0.0111. No numeric gate (ticket D24): the owner decides.
+- Per class, Colombia,PinkBourbon is lower in all three seeds on both splits (mean −0.018 val, −0.015 test).
+  Full table: `analysis/ml2_p4/paired_258-260_vs_255-257.txt`.
+- exp255-257 do not reproduce exp252-254 (the live card): those were fitted on the pre-ML-1 photo split under
+  timm 1.0.29.
+- **OOD probe on exp260** (new arm, best val): threshold 0.5982 at certified α ≤ 3.4% (n = 28), dev negatives 84/84.
+  Holdout, spent once: negatives 56/56, genuine refused 1/26 at 0.5982 and 2/26 at 0.5 (the live override),
+  AUROC 1.0. The positive set has grown since the live probe's 0/22 (rebuilt 2026-09-30), so the two are not on
+  the same photos. Log and probe: `analysis/ml2_p4/`.

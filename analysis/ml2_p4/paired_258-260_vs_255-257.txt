@@ -1,0 +1,36 @@
+new:      exp 258 259 260 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; ML-2 segmenter pools (data/segcropped, crop_method segment); in-distribution metrics only)
+baseline: exp 255 256 257 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; in-distribution metrics only)
+changed:  crop_method: tray_heuristic -> segment; train_capture_dirs: ['data/cropped/cam_pixel', 'data/cropped/cam_sony', 'data/cropped/cam_oneplus', 'data/cropped/cam_iphone'] -> ['data/segcropped/cam_pixel', 'data/segcropped/cam_sony', 'data/segcropped/cam_oneplus', 'data/segcropped/cam_iphone']
+
+ seed       exp  val base  val new    val Δ  test base  test new   test Δ
+   42   258/255    0.9635   0.9597  -0.0037     0.9684    0.9720  +0.0036
+  123   259/256    0.9676   0.9706  +0.0030     0.9710    0.9651  -0.0059
+    7   260/257    0.9662   0.9736  +0.0073     0.9718    0.9771  +0.0052
+  val Δ: mean +0.0022, range -0.0037 .. +0.0073 (spread 0.0111)
+ test Δ: mean +0.0010, range -0.0059 .. +0.0052 (spread 0.0111)
+
+per-class val F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Colombia,PinkBourbon         0.984 -> 0.975 0.991 -> 0.963 0.975 -> 0.958   -0.018
+  Guatemala,Tata               0.938 -> 0.928 0.975 -> 0.962 0.939 -> 0.945   -0.006
+  Indonesia,Java               1.000 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.000
+  Kenya,AA                     0.978 -> 0.981 0.952 -> 0.962 0.975 -> 0.963   +0.000
+  Vietnam,Robusta              1.000 -> 1.000 1.000 -> 1.000 0.997 -> 1.000   +0.001
+  Ethiopia,Kochere             0.925 -> 0.936 0.996 -> 0.992 1.000 -> 1.000   +0.002
+  Ethiopia,Sidamo              0.981 -> 0.981 0.984 -> 0.983 0.980 -> 0.996   +0.005
+  CostaRica,LaPastora          0.992 -> 0.996 0.991 -> 0.997 0.988 -> 0.997   +0.007
+  Brazil,Cerrado               0.923 -> 0.905 0.892 -> 0.921 0.911 -> 0.942   +0.014
+  Brazil,MonteCristo           0.914 -> 0.895 0.896 -> 0.925 0.898 -> 0.936   +0.016
+
+per-class test F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Colombia,PinkBourbon         0.991 -> 0.981 0.988 -> 0.958 0.981 -> 0.975   -0.015
+  CostaRica,LaPastora          0.991 -> 0.991 0.988 -> 0.979 0.994 -> 0.997   -0.002
+  Kenya,AA                     0.962 -> 0.939 0.961 -> 0.948 0.944 -> 0.979   -0.000
+  Vietnam,Robusta              0.997 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.001
+  Indonesia,Java               0.996 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.001
+  Ethiopia,Kochere             0.980 -> 0.992 1.000 -> 0.996 1.000 -> 1.000   +0.003
+  Guatemala,Tata               0.959 -> 0.950 0.946 -> 0.943 0.912 -> 0.933   +0.003
+  Brazil,MonteCristo           0.916 -> 0.940 0.919 -> 0.915 0.950 -> 0.939   +0.003
+  Ethiopia,Sidamo              0.978 -> 0.991 0.988 -> 0.991 0.991 -> 0.991   +0.005
+  Brazil,Cerrado               0.914 -> 0.936 0.921 -> 0.921 0.947 -> 0.957   +0.011

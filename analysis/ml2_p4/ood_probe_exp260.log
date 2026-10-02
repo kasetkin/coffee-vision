@@ -1,0 +1,52 @@
+=== launch Fri Oct  2 16:35:25 UTC 2026 ===
+config: outputs/ml2_p4/segcropped/s7/config.json
+capture dirs: ['cam_pixel', 'cam_sony', 'cam_oneplus', 'cam_iphone']
+  WARNING: cam_iphone has no class_008 -- it contributes nothing to that class (train split)
+  WARNING: cam_iphone has no class_010 -- it contributes nothing to that class (train split)
+train patches: 5700
+  001 Ethiopia,Sidamo            n=600   spread=6.684
+  002 Kenya,AA                   n=600   spread=6.853
+  003 Colombia,PinkBourbon       n=600   spread=6.637
+  004 CostaRica,LaPastora        n=600   spread=7.043
+  005 Guatemala,Tata             n=600   spread=7.208
+  006 Brazil,Cerrado             n=600   spread=7.218
+  007 Brazil,MonteCristo         n=600   spread=7.080
+  008 Ethiopia,Kochere           n=450   spread=7.049
+  009 Vietnam,Robusta            n=600   spread=6.558
+  010 Indonesia,Java             n=450   spread=6.159
+Wrote outputs/ml2_p4/segcropped/s7/model.ood_embeddings.npz  (5700 embeddings, 32.6 MB)
+
+per-patch  self-scores: mean 0.99  p95 1.32  max 2.70
+per-photo  self-scores: median 0.95  p95 1.23  max 1.90   (650 photos)
+Wrote outputs/ml2_p4/segcropped/s7/model.ood_reference.json
+config: outputs/ml2_p4/segcropped/s7/config.json
+
+fitting on 144 bean photos (test split) + 84 clean dev negatives (2 dropped: ambiguous patch labels)
+  9120 patches (5760 bean / 3360 not-bean), 0 photos declined as unmeasurable
+
+calibrating on 28 unseen genuine photos (user_independent), 0 declined
+  scores: min 0.0000  median 0.0000  max 0.5982
+  alpha   20% -> threshold 0.1568
+  alpha   15% -> threshold 0.2120
+  alpha   10% -> threshold 0.4118
+  alpha    5% -> threshold 0.5982
+  alpha    2% -> not certifiable with n=28
+  alpha    1% -> not certifiable with n=28
+
+SHIPPING threshold 0.5982 at certified alpha 3.4%
+  dev negatives caught at that threshold: 84/84 (100%)
+Wrote outputs/ml2_p4/segcropped/s7/model.ood_probe.json  (122 KB)
+
+=== HOLDOUT (spent once; do not tune against this) ===
+positives n=26 (declined 0)  median 0.0685  max 0.6475
+negatives n=56 (declined 0)  median 1.0000  min 1.0000
+AUROC 1.0000
+at shipped threshold 0.5982: refused 1/26 genuine (4%, certified <= 3%), caught 56/56 negatives (100%)
+at the decision boundary 0.5 (the live override): refused 2/26 genuine, caught 56/56 negatives
+  highest genuine: 0.6475  dataset/ood_positives_internet/internet_beans/internet_beans_017.jpg
+  highest genuine: 0.5751  dataset/ood_positives/PXL_20260911_111643055.jpg
+  highest genuine: 0.4111  dataset/ood_positives/PXL_20260911_061016718.jpg
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_029.jpg  [confusable_grain]
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_017.jpg  [confusable_grain]
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09-11__user_samerig/green_legume/PXL_20260911_113128624.jpg  [green_legume]
+=== exit=0 Fri Oct  2 17:41:06 UTC 2026 ===
