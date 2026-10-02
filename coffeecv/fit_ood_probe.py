@@ -43,6 +43,9 @@ from coffeecv.infer import (_sha, config_for_checkpoint, inference_tta_for, load
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, auroc,
                                embed_photo, id_photos, negatives_from)
 
+# P(not beans) > P(beans): the threshold the live DINO probe serves at (threshold_override, 2026-09-27).
+DECISION_BOUNDARY = 0.5
+
 
 def conformal_threshold(cal_scores: np.ndarray, alpha: float) -> float | None:
     """Split-conformal upper threshold: refuse above it, and at most `alpha` of
@@ -273,6 +276,12 @@ def main() -> None:
         print(f"at shipped threshold {thr:.4f}: refused {fr}/{len(ps)} genuine "
               f"({fr / len(ps):.0%}, certified <= {alpha:.0%}), caught {ct}/{len(ns)} negatives "
               f"({ct / len(ns):.0%})")
+        # The live probe serves at its decision boundary, not the calibrated value (owner override,
+        # 2026-09-27), and today's holdout bar was read there. Printed in the same single pass.
+        fr = int((ps > DECISION_BOUNDARY).sum())
+        ct = int((ns > DECISION_BOUNDARY).sum())
+        print(f"at the decision boundary {DECISION_BOUNDARY:g} (the live override): refused {fr}/{len(ps)} "
+              f"genuine, caught {ct}/{len(ns)} negatives")
         for r, s in sorted(zip(hp, ps), key=lambda t: -t[1])[:3]:
             print(f"  highest genuine: {s:.4f}  {r['photo']}")
         for r, s in sorted(zip(hn, ns), key=lambda t: t[1])[:3]:
