@@ -47,6 +47,7 @@ class SegParams:
     keep_frac: float = 0.95            # D4: cut (1 - keep_frac) / 4 of the bean pixels per side
     fill_rgb: tuple[int, int, int] = (124, 116, 104)   # D3: ImageNet mean, rounded to uint8
     min_area_frac: float = 0.0         # D18: set in P2
+    decoder: str | None = None         # P5: a fine-tuned mask decoder (repo-relative .pt) loaded over `weights`
 
     def __post_init__(self):
         if self.mask_select not in MASK_SELECT:
@@ -111,6 +112,21 @@ def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
                              "bean_frac_in_crop": kept / m.size, "retained_frac": kept / n})
 
 
+def load_decoder(model, path: str, base_sha256: str) -> str:
+    """Load a seg_finetune decoder ({"mask_decoder": state_dict, "base_weights_sha256": ...}) into `model`,
+    strictly, after checking it was fine-tuned from the weights `model` was built with. Returns the file's sha256."""
+    f = REPO_ROOT / path
+    digest = hashlib.sha256(f.read_bytes()).hexdigest()
+    ckpt = torch.load(f, map_location="cpu", weights_only=True)
+    if ckpt["base_weights_sha256"] != base_sha256:
+        raise ValueError(f"{path} was fine-tuned from weights {ckpt['base_weights_sha256'][:12]}, "
+                         f"not the {base_sha256[:12]} loaded")
+    model.mask_decoder.load_state_dict(ckpt["mask_decoder"], strict=True)
+    for q in model.mask_decoder.parameters():
+        q.requires_grad_(False)
+    return digest
+
+
 class BeanSegmenter:
     """L0 loaded once; one photo in, one full-resolution bool mask out."""
 
@@ -118,6 +134,7 @@ class BeanSegmenter:
         self.p = p
         self.predictor, self.weights_sha256 = build_sam_l0(p.weights, p.variant)
         self.model = self.predictor.model
+        self.decoder_sha256 = load_decoder(self.model, p.decoder, self.weights_sha256) if p.decoder else None
         self.timing_ms: dict[str, float] = {}
         self.pred_iou: float | None = None
 

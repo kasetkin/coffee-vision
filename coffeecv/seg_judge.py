@@ -274,7 +274,8 @@ def make_row(item: dict, prep: dict, model: str, prompt_sha: str, backend: str, 
             err = str(e)
     row = {"photo_sha256": item["photo_sha256"], "mask_sha256": item["mask_sha256"], "item": item["item"],
            "trial": item["trial"], "model": model, "prompt_sha256": prompt_sha,
-           "overlay_sha256": prep["overlay_sha256"], "backend": backend, "round": 1, "attempts": len(replies)}
+           "overlay_sha256": prep["overlay_sha256"], "backend": backend, "round": int(item.get("round") or 1),
+           "attempts": len(replies)}
     if parsed:
         points_photo = [{**dict(zip(("x", "y"), seg_overlay.to_photo_xy(p["where"], p["x"], p["y"], prep["meta"]))),
                          "label": p["label"]} for p in parsed["points"]]

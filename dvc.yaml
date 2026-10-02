@@ -160,6 +160,71 @@ stages:
       outs:
         - data/seg_masks/${key}
 
+  # Ticket ML-2 P5: L0 encoder embeddings (fp16) of every label photo in each seg_ft view, with its label in the
+  # same 512 frame (coffeecv/seg_finetune.py). Labels: data/seg_labels (seg_labels.py, the judge loop; dvc add,
+  # built outside repro, D16). Several GB and rebuildable, so never pushed (plan §2.3).
+  seg_embed_cache:
+    cmd: python -m coffeecv.seg_finetune cache --threads 4
+    deps:
+      - coffeecv/seg_finetune.py
+      - coffeecv/sam_loader.py
+      - third_party/efficientvit/efficientvit
+      - labels/ml2/photo_lists.yaml
+      - data/seg_labels
+      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+    params:
+      - params.yaml:
+          - seg_split_seed
+          - seg_ft.views
+          - seg_ft.neg_select_frac
+    outs:
+      - data/seg_cache:
+          push: false
+
+  # Ticket ML-2 P5 (D7 (a)): decoder-only fine-tuning, one seed each; the epoch is chosen on seg_val and the
+  # held seg-train negatives only. The .json card (params, label-set hash, history) is versioned in git.
+  seg_finetune:
+    foreach: [42, 123, 7]
+    do:
+      cmd: python -m coffeecv.seg_finetune train --seed ${item} --threads 4
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/seg_cache
+        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      params:
+        - params.yaml:
+            - seg_ft
+            - seg_prompt
+            - seg_mask_select
+            - seg_min_area_frac
+      outs:
+        - models/seg/ft_s${item}.pt
+        - models/seg/ft_s${item}.json:
+            cache: false
+
+  # Ticket ML-2 P5: the eval lists' masks from each fine-tuned segmenter, as seg_predict@pretrained (same lists,
+  # same pinned threads), for judging (seg_judge judge --masks ft_s<seed>) and seg_eval@ft_s<seed>.
+  seg_predict_ft:
+    foreach: [42, 123, 7]
+    do:
+      cmd: python -m coffeecv.seg_predict ft_s${item} --threads 4
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml2/photo_lists.yaml
+        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+        - models/seg/ft_s${item}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks/ft_s${item}
+
   # Ticket ML-2 P2/P5: score a seg_predict stage's stored masks against the judge's stored verdicts (D16).
   # Never calls the judge: a mask with no verdict for the pinned judge stops the stage, naming the masks to
   # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the judge-free heuristic comparison (D22),
@@ -168,6 +233,9 @@ stages:
   seg_eval:
     foreach:
       - pretrained
+      - ft_s42
+      - ft_s123
+      - ft_s7
     do:
       cmd: python -m coffeecv.seg_eval ${item}
       deps:

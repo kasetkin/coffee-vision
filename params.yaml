@@ -150,3 +150,26 @@ seg_mask_select: multi3
 # judge-accepted pretrained mask) gives 0.45, since only frame-filling masks
 # pass, and would send every correct tray mask to the fallback.
 seg_min_area_frac: 0.083
+
+# Ticket ML-2 P5 (D7 (a), plan §8): decoder-only fine-tuning of the segmenter, read only by
+# coffeecv/seg_finetune.py. The image and prompt encoders stay frozen; the prompt (seg_prompt) and the
+# trained output (seg_mask_select) are the serving ones. Loss: focal_weight x focal(gamma, alpha) +
+# dice_weight x soft dice + iou_weight x MSE on the IoU head (SAM's weighting). views: dihedral views
+# cached per photo (each ~2 MB per photo in fp16). neg_share: share of each batch drawn from the seg-train
+# negatives (D10/D11). neg_select_frac: share of negative near-duplicate groups held out for checkpoint
+# selection, never trained on.
+seg_ft:
+  views: [id, hflip, vflip, rot180]
+  epochs: 40
+  patience: 8
+  batch_size: 8
+  lr: 1.0e-4
+  lr_min: 1.0e-6
+  weight_decay: 1.0e-4
+  focal_weight: 20.0
+  dice_weight: 1.0
+  iou_weight: 1.0
+  focal_gamma: 2.0
+  focal_alpha: 0.25
+  neg_share: 0.5
+  neg_select_frac: 0.2

@@ -4,7 +4,7 @@ from __future__ import annotations
 import random
 import subprocess
 import sys
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 import numpy as np
@@ -182,6 +182,9 @@ class RunConfig:
     # and the whole photo is used. Half the smallest owner-accepted base mask (0.1657), not the plan's half
     # of the smallest judge-accepted pretrained mask, which is 0.45 because only frame-filling masks pass.
     seg_min_area_frac: float = 0.083
+    # Ticket ML-2 P5 (D7 (a), plan §8): the decoder-only fine-tuning recipe, a block read and checked key by
+    # key only by coffeecv/seg_finetune.py (FtParams). Empty = FtParams' defaults.
+    seg_ft: dict = field(default_factory=dict)
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":

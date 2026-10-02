@@ -1,0 +1,6 @@
+outs:
+- md5: f2bf591489ed70b1ff78a8a6b8bc3a8c.dir
+  size: 15665544
+  nfiles: 1252
+  hash: md5
+  path: seg_labels

@@ -3,6 +3,7 @@ lists, computed once and stored, because mask bits differ by a few pixels across
 Verdicts, overlays and the review tool read these stored masks and never recompute them.
 
     python -m coffeecv.seg_predict pretrained --threads 4
+    python -m coffeecv.seg_predict ft_s42 --threads 4      # P5: L0 with the seed-42 fine-tuned decoder
 
 Lists: seg_eval + neg_seg_eval + pos_seg_eval. The plan names the first two; pos_seg_eval joined with D26, and
 it holds the 10 OOD-positive base candidates, so with it every base candidate has a stored mask.
@@ -29,7 +30,9 @@ from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_sha256
 
 MASK_ROOT = REPO_ROOT / "data" / "seg_masks"
 LISTS = ("seg_eval", "neg_seg_eval", "pos_seg_eval")
-MODELS = {"pretrained": L0_WEIGHTS}           # "ft" joins in P5 (plan §8)
+FT_SEEDS = (42, 123, 7)
+# Model name -> the fine-tuned mask decoder loaded over the pretrained L0 (seg_finetune.py), or None.
+MODELS = {"pretrained": None, **{f"ft_s{s}": f"models/seg/ft_s{s}.pt" for s in FT_SEEDS}}
 
 
 def photo_entries(lists: dict[str, list[dict]]) -> list[dict]:
@@ -59,7 +62,8 @@ def run(model: str) -> None:
     entries = photo_entries(lists)
     out_dir = MASK_ROOT / model
     out_dir.mkdir(parents=True, exist_ok=True)
-    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=MODELS[model]))
+    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=L0_WEIGHTS,
+                                  decoder=MODELS[model]))
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
@@ -74,7 +78,8 @@ def run(model: str) -> None:
                      "area_frac": f"{mask.mean():.4f}", "pred_iou": f"{seg.pred_iou:.4f}",
                      "box": " ".join(map(str, box)) if box else "",
                      "prompt": cfg.seg_prompt, "mask_select": cfg.seg_mask_select,
-                     "threads": torch.get_num_threads(), "weights_sha256": seg.weights_sha256})
+                     "threads": torch.get_num_threads(), "weights_sha256": seg.weights_sha256,
+                     **({"decoder_sha256": seg.decoder_sha256} if seg.decoder_sha256 else {})})
         if n % 25 == 0 or n == len(entries):
             print(f"{n}/{len(entries)}  {time.perf_counter() - t0:.0f}s", flush=True)
     with open(out_dir / "index.csv", "w", newline="") as f:

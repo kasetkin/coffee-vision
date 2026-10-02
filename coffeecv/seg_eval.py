@@ -52,6 +52,7 @@ SAMERIG_BATCH = "2026-09-11__user_samerig"
 N_BOOT = 10_000
 BOOT_SEED = 239
 D19_MEDIAN_MAX = 0.05
+NEG_TEST_MIN = 0.90               # D11: share of pile-like neg_seg_eval empty or tiny, pooled
 QUANTILES = (0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0)
 
 
@@ -197,10 +198,39 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
     report["heuristic"] = {"n": len(hr), "discard": quantiles([r["heuristic_discard"] for r in hr]),
                            "iou_with_d4": quantiles([r["heuristic_iou"] for r in hr])}
 
+    if model != "pretrained":
+        report["p5_gate"] = p5_gate(report, rows)
     if not skip_pitch:
         report["d19"] = pitch_check([r for r in se if r["verdict"] == "accept"], entries, p, cfg)
     write_outputs(model, report, rows)
     return report
+
+
+def p5_gate(report: dict, rows: list[dict]) -> dict:
+    """The P5 gate (plan §8): the seg_eval pass rate above the pretrained one beyond its bootstrap interval (the
+    upper end of P2's 95% CI), and D11's negative test (>= 90% of pile-like neg_seg_eval empty or tiny). Also the
+    paired bootstrap of the difference on the same photos, reported, not gated. Read next to P1's catch rate."""
+    pre = json.loads((OUT_DIR / "seg_eval_pretrained.json").read_text())["seg_eval"]["pass"]
+    pre_rows = {r["path"]: r["verdict"] == "accept"
+                for r in csv.DictReader((OUT_DIR / "ml2_p2" / "pretrained" / "per_photo.csv").read_text().splitlines())
+                if r["list"] == "seg_eval"}
+    se = [r for r in rows if r["list"] == "seg_eval"]
+    if {r["path"] for r in se} != set(pre_rows):
+        raise ValueError("seg_eval photos differ from the pretrained run's; the comparison is not paired")
+    diff = np.array([(r["verdict"] == "accept") - pre_rows[r["path"]] for r in se], dtype=float)
+    rng = np.random.default_rng(BOOT_SEED)
+    boots = diff[rng.integers(0, diff.size, size=(N_BOOT, diff.size))].mean(axis=1)
+    ft = report["seg_eval"]["pass"]
+    neg = report["neg_seg_eval"]["empty_or_tiny_pile_like"]
+    pass_gate = ft["rate"] > pre["boot95"][1]
+    neg_gate = neg["n"] > 0 and neg["rate"] >= NEG_TEST_MIN
+    return {"pretrained_pass": pre, "pass_rate": {"pass": bool(pass_gate), "rate": ft["rate"],
+                                                  "must_exceed": pre["boot95"][1]},
+            "paired_diff": {"mean": round(float(diff.mean()), 4),
+                            "boot95": [round(float(x), 4) for x in np.quantile(boots, [0.025, 0.975])],
+                            "gained": int((diff > 0).sum()), "lost": int((diff < 0).sum())},
+            "negative_test": {"pass": bool(neg_gate), **neg, "min": NEG_TEST_MIN},
+            "pass": bool(pass_gate and neg_gate)}
 
 
 def pitch_check(rows: list[dict], entries: dict, p: SegParams, cfg: RunConfig) -> dict:
@@ -271,6 +301,13 @@ def summary(rep: dict) -> str:
              f"  heuristic (n={rep['heuristic']['n']})   discard median "
              f"{(rep['heuristic']['discard'] or {}).get('q50')}, IoU with D4 median "
              f"{(rep['heuristic']['iou_with_d4'] or {}).get('q50')}"]
+    if "p5_gate" in rep:
+        g = rep["p5_gate"]
+        lines.append(f"  P5 gate             {'PASS' if g['pass'] else 'FAIL'}: pass rate {g['pass_rate']['rate']} vs "
+                     f"> {g['pass_rate']['must_exceed']} ({'ok' if g['pass_rate']['pass'] else 'no'}); negative test "
+                     f"{g['negative_test']['rate']} vs >= {g['negative_test']['min']} "
+                     f"({'ok' if g['negative_test']['pass'] else 'no'}); paired diff {g['paired_diff']['mean']} "
+                     f"{g['paired_diff']['boot95']} (+{g['paired_diff']['gained']} / -{g['paired_diff']['lost']})")
     if "d19" in rep and rep["d19"].get("n"):
         d = rep["d19"]
         a, c = d["beans_across_abs_rel_change"], d["control_beans_across_abs_rel_change"]
