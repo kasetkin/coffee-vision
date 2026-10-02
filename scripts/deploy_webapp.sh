@@ -198,9 +198,9 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   done < <(jq -r '.dvc | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
 
   while read -r path sha; do
-    [[ -f "$REPO/$path" ]] || die "$path is missing -- see models_pretrained/README.md"
+    [[ -f "$REPO/$path" ]] || die "$path is missing -- see models_pretrained/README.md (a segmenter decoder: dvc pull it)"
     [[ "$(sha256sum < "$REPO/$path" | cut -c1-64)" == "$sha" ]] \
-      || die "$path does not match its sha256 in models_pretrained/manifest.json at $SHA"
+      || die "$path does not match the sha256 its release manifest pins at $SHA"
     install -D -m 0644 "$REPO/$path" "$STAGE/$path"
     note "$path (sha256 ${sha:0:16}...)"
   done < <(jq -r '.pretrained | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
@@ -279,7 +279,8 @@ stage() {
       -E UV_CACHE_DIR="$APP_ROOT/uv-cache" -E UV_LINK_MODE=copy -E UV_PYTHON_DOWNLOADS=never \
       -E UV_PROJECT_ENVIRONMENT="$R/.venv" -E UV_NO_PROGRESS=1 \
       "$UV_BIN" sync --project webapp --locked --no-dev --compile-bytecode --python "$PY_BIN" 2>&1 | tail -8 | sed "s/^/   /"
-    capped 100% "$R" "$R/.venv/bin/python" -m compileall -q coffeecv webapp
+    # third_party/: the vendored segmenter, in a segmenter model's release only (ticket ML-2).
+    capped 100% "$R" "$R/.venv/bin/python" -m compileall -q coffeecv webapp $([[ -d "$R/third_party" ]] && echo third_party)
   ' ID="$ID" EXPECT="$expect" || die "building the venv failed"
   note "venv $((SECONDS - t0)) s"
 

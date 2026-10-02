@@ -31,6 +31,51 @@ APP = [
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "backbones", "bean_scale", "config", "crop_tray", "dataset", "dino_classifier",
     "geometry", "infer", "model", "transforms")]
+# Ticket ML-2: a segmenter model (card crop_method "segment") also ships the segmenter's loader and the
+# vendored EfficientViT files that building L0 imports, found with an import trace (plan §9) and checked
+# by tests/test_release_manifest.py, plus the vendored copy's license and its patch notes.
+SEG_LIBRARY = ["coffeecv/sam_loader.py", "coffeecv/segment_beans.py",
+               "third_party/efficientvit/LICENSE", "third_party/efficientvit/PATCHES.md"]
+SEG_VENDORED = [f"third_party/efficientvit/efficientvit/{m}" for m in (
+    "__init__.py",
+    "apps/__init__.py",
+    "apps/data_provider/__init__.py",
+    "apps/data_provider/augment/__init__.py",
+    "apps/data_provider/augment/bbox.py",
+    "apps/data_provider/augment/color_aug.py",
+    "apps/data_provider/base.py",
+    "apps/data_provider/random_resolution/__init__.py",
+    "apps/data_provider/random_resolution/controller.py",
+    "apps/trainer/__init__.py",
+    "apps/trainer/base.py",
+    "apps/trainer/run_config.py",
+    "apps/utils/__init__.py",
+    "apps/utils/dist.py",
+    "apps/utils/ema.py",
+    "apps/utils/export.py",
+    "apps/utils/image.py",
+    "apps/utils/init.py",
+    "apps/utils/lr.py",
+    "apps/utils/metric.py",
+    "apps/utils/misc.py",
+    "apps/utils/opt.py",
+    "models/__init__.py",
+    "models/efficientvit/__init__.py",
+    "models/efficientvit/backbone.py",
+    "models/efficientvit/cls.py",
+    "models/efficientvit/sam.py",
+    "models/efficientvit/seg.py",
+    "models/nn/__init__.py",
+    "models/nn/act.py",
+    "models/nn/drop.py",
+    "models/nn/norm.py",
+    "models/nn/ops.py",
+    "models/utils/__init__.py",
+    "models/utils/list.py",
+    "models/utils/network.py",
+    "models/utils/random.py",
+    "sam_model_zoo.py",
+)]
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them
 # (a model without a probe runs the centroid guard -- the probe file's presence is the switch).
 MODEL_REQUIRED = (".pt.dvc", ".json")
@@ -62,22 +107,33 @@ def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str]
 
     dvc = {f"{stem}.pt": dvc_md5(read_text(f"{stem}.pt.dvc"))}
 
+    # Files pinned by sha256 rather than by a .dvc pointer: pretrained weights, and a segmenter's decoder.
     pretrained = {}
     card = json.loads(read_text(f"{stem}.json"))
-    model_name = card.get("training_config", {}).get("model_name", "")
-    if card.get("training_config", {}).get("crop_method", "tray_heuristic") != "tray_heuristic":
-        # Ticket ML-2: a segmenter model also needs segment_beans/sam_loader, the vendored efficientvit files
-        # it imports, its weights and decoder, and segment-anything in webapp/pyproject.toml. That release
-        # shape is ML-2 P6's (plan §9); until it exists, refuse rather than stage a release that cannot boot.
-        raise ValueError(f"{model} uses crop_method {card['training_config']['crop_method']!r}; releases of "
-                         f"segmenter models are not defined yet (ticket ML-2 P6)")
+    training = card.get("training_config", {})
+    model_name = training.get("model_name", "")
+    crop_method = training.get("crop_method", "tray_heuristic")
+    if model_name.startswith("dinov3") or crop_method == "segment":
+        entries = {e["path"]: e for e in json.loads(read_text(PRETRAINED_MANIFEST))}
     if model_name.startswith("dinov3"):
         # A frozen model's .pt holds only the head; the backbone comes from models_pretrained/, checked
         # against the manifest's sha256 (coffeecv.backbones.verify_weights) at every start.
         weights = card["dino"]["weights"]
-        entries = {e["path"]: e for e in json.loads(read_text(PRETRAINED_MANIFEST))}
-        git.append(PRETRAINED_MANIFEST)
         pretrained[f"models_pretrained/{weights}"] = entries[weights]["sha256"]
+    if crop_method == "segment":
+        # Ticket ML-2: the segmenter the model was trained with, as its card pins it (seg_* fields).
+        weights, decoder = training["seg_weights"], training["seg_decoder"]
+        if entries[weights]["sha256"] != training["seg_weights_sha256"]:
+            raise ValueError(f"{model}'s card pins {weights} at sha256 {training['seg_weights_sha256'][:16]}..., "
+                             f"but {PRETRAINED_MANIFEST} has {entries[weights]['sha256'][:16]}...")
+        pretrained[f"models_pretrained/{weights}"] = training["seg_weights_sha256"]
+        if decoder:
+            pretrained[decoder] = training["seg_decoder_sha256"]
+        git += SEG_LIBRARY + SEG_VENDORED
+    elif crop_method != "tray_heuristic":
+        raise ValueError(f"{model} uses crop_method {crop_method!r}, which has no release shape")
+    if pretrained:
+        git.append(PRETRAINED_MANIFEST)
     return {"model": model, "model_name": model_name, "git": git, "dvc": dvc,
             "pretrained": pretrained, "generated": list(GENERATED)}
 
@@ -95,10 +151,10 @@ def unexpected(m: dict, staged: list[str]) -> list[str]:
         top = p.split("/", 1)[0]
         if top in BUILT_TOP or p in allowed:
             continue
-        # compileall's bytecode for a shipped module: <pkg>/__pycache__/<mod>.cpython-312.pyc
+        # compileall's bytecode for a shipped module: <dir>/__pycache__/<mod>.cpython-312.pyc
         parts = p.split("/")
-        if len(parts) == 3 and parts[1] == "__pycache__" and parts[2].endswith(".pyc"):
-            if f"{parts[0]}/{parts[2].split('.', 1)[0]}.py" in allowed:
+        if len(parts) >= 3 and parts[-2] == "__pycache__" and parts[-1].endswith(".pyc"):
+            if "/".join(parts[:-2] + [parts[-1].split(".", 1)[0] + ".py"]) in allowed:
                 continue
         bad.append(p)
     return sorted(bad)

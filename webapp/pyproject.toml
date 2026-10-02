@@ -1,6 +1,8 @@
-# The web service's environment, and nothing else's: exactly what the 13 release modules import
-# (webapp/app.py + the 11 coffeecv modules in webapp/deploy/release_manifest.py), at the versions the
-# production venv ran them with (pip freeze of ~/coffee-vision-venv, 2026-09-27). Locked in
+# The web service's environment, and nothing else's: exactly what the release modules import
+# (webapp/app.py + the coffeecv modules in webapp/deploy/release_manifest.py, and for a segmenter model
+# the vendored efficientvit files), at the versions the production venv ran them with (pip freeze of
+# ~/coffee-vision-venv, 2026-09-27); torch, torchvision and timm moved to the training lock's versions
+# for ML-2 P6 (plan F4), since every head is now fitted under timm 1.0.30. Locked in
 # webapp/uv.lock; every release's .venv is built from that lock with `uv sync --locked`, which
 # verifies each artifact's hash and refuses a lock that no longer matches this file.
 #
@@ -25,11 +27,14 @@ dependencies = [
   # Headless: the service never opens a window, and the GUI build needs libGL. Same version as the
   # production venv (which has both builds installed); --compare proves the outputs are identical.
   "opencv-python-headless==5.0.0.93",
-  "torch==2.13.0",
-  "torchvision==0.28.0",
+  "torch==2.14.0",
+  "torchvision==0.29.1",
   # Pinned exactly: a timm upgrade is an architecture change (coffeecv.dino_classifier refuses a
   # checkpoint fitted under another timm version).
-  "timm==1.0.29",
+  "timm==1.0.30",
+  # Ticket ML-2: the bean segmenter (EfficientViT-SAM-L0, vendored in third_party/efficientvit) imports its
+  # MaskDecoder, PromptEncoder and ResizeLongestSide. PyTorch runtime only, no onnx (D23).
+  "segment-anything==1.0",
 ]
 
 [tool.uv]
@@ -56,5 +61,5 @@ torchvision = { index = "pytorch-cpu" }
 # service builds with pretrained=False and loads its own sha256-checked file from models_pretrained/.
 [[tool.uv.dependency-metadata]]
 name = "timm"
-version = "1.0.29"
+version = "1.0.30"
 requires-dist = ["torch", "torchvision", "pyyaml"]
