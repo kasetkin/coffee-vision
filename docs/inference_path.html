@@ -283,10 +283,10 @@
     everything from the decoded RGB array to the ranked class list is included.
   </p>
   <div class="scope">
-    <span>checkpoint: allrigs_dino3b16_s123.pt</span>
+    <span>checkpoint: allrigs_dino3b16_seg_s7.pt</span>
     <span>backbone: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>40 patches &times; 1 view = 40 forward passes</span>
-    <span>as of 2026-09-28</span>
+    <span>as of 2026-10-03</span>
   </div>
 
   <div class="callout">
@@ -345,10 +345,10 @@
   <!-- N3 crop_to_bean_region -->
   <g>
     <rect x="140" y="282" width="320" height="100" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
-    <text x="300" y="304" text-anchor="middle" style="font-size:14px; font-weight:600">crop_to_bean_region()</text>
-    <text x="300" y="320" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">infer.py &middot; crop_tray.locate_bean_crop()</text>
-    <text x="300" y="339" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">tray or background found &#8594; crop to the beans</text>
-    <text x="300" y="355" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">none found &#8594; whole frame (frame-filling photos)</text>
+    <text x="300" y="304" text-anchor="middle" style="font-size:14px; font-weight:600">segment_bean_region()</text>
+    <text x="300" y="320" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">infer.py &middot; segment_beans.segment_and_crop()</text>
+    <text x="300" y="339" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">SAM-L0 + ft_s123 &#8594; bean mask, gray fill, 95% crop</text>
+    <text x="300" y="355" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">empty/tiny mask &#8594; whole frame, unfilled (D18)</text>
     <text x="300" y="371" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">skip_crop=1 from the page: whole frame, by request</text>
   </g>
   <line x1="300" y1="382" x2="300" y2="412" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
@@ -493,7 +493,7 @@
     <div class="fact"><div class="k">Forward passes</div><div class="v">40</div></div>
     <div class="fact"><div class="k">Patch store size</div><div class="v">448px</div></div>
     <div class="fact"><div class="k">Model input size</div><div class="v">224px</div></div>
-    <div class="fact"><div class="k">Server time / photo</div><div class="v">~7 s idle</div></div>
+    <div class="fact"><div class="k">Server time / photo</div><div class="v">~7.5&ndash;8.5 s</div></div>
     <div class="fact"><div class="k">OOD threshold</div><div class="v">0.5 (probe)</div></div>
   </div>
 
@@ -512,7 +512,11 @@
       used to refuse "too tight" frames could never fire (<code>beans_across</code> has a floor of 8.2
       against thresholds of 4 and 7) and was deleted on 2026-09-03. <code>beans_across</code> is still
       logged on every request, so a future guard can be calibrated on real traffic
-      (<code>docs/scale_guard_plan.md</code>).</p>
+      (<code>docs/scale_guard_plan.md</code>). Since the segmenter model (ticket ML-2), the pitch is measured on
+      the filled crop, and a patch with less than 80% bean region under the mask is redrawn; after 20 &times; 40
+      attempts the best rejected boxes top the photo up to 40 (D17). <code>mask_area_frac</code>,
+      <code>bean_frac_in_crop</code>, <code>retained_frac</code>, <code>seg_fallback</code> and
+      <code>patches_below_share</code> are logged per request.</p>
     <pre>pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
 boxes, clamped = sample_bean_unit_patch_boxes(
     rng, region, n_patches, pitch, cfg.patch_beans_min, cfg.patch_beans_max,
@@ -547,8 +551,8 @@ ranked = sorted(zip(class_ids, mean), key=<span class="k">lambda</span> t: -t[1]
       indistinguishable from 0.997 on an in-distribution one), so the guard asks a different question: does
       each patch's embedding look like a bean patch? A logistic probe, fitted in this model's own 1536-d
       space on genuine photos against non-bean negatives, gives P(not beans) per patch; the mean over the
-      40 patches is the photo's score. It refuses above 0.5 (the owner's choice, 2026-09-27: on the holdout
-      0/22 genuine photos refused and 56/56 negatives caught) and warns between the 20%-false-refusal point
+      40 patches is the photo's score. It refuses above 0.5 (the owner's choice, kept for the segmenter model on 2026-10-03: on the
+      holdout 2/26 genuine photos refused and 56/56 negatives caught; the calibrated threshold is 0.5982) and warns between the 20%-false-refusal point
       and 0.5. A checkpoint without a probe file falls back to the older centroid distance, refusing above
       1.4. <code>docs/ood_guard_eval.md</code> has the ResNet18 guard's record;
       <code>docs/dinov3_integration_plan.md</code> §9.3 has this one's.</p>
@@ -564,6 +568,6 @@ ranked = sorted(zip(class_ids, mean), key=<span class="k">lambda</span> t: -t[1]
   </div>
 
   <footer>
-    coffeecv/infer.py &middot; coffeecv/crop_tray.py &middot; coffeecv/bean_scale.py &middot; coffeecv/geometry.py &middot; coffeecv/transforms.py &middot; coffeecv/dino_classifier.py &middot; coffeecv/backbones.py &middot; webapp/app.py
+    coffeecv/infer.py &middot; coffeecv/segment_beans.py &middot; coffeecv/sam_loader.py &middot; coffeecv/bean_scale.py &middot; coffeecv/geometry.py &middot; coffeecv/transforms.py &middot; coffeecv/dino_classifier.py &middot; coffeecv/backbones.py &middot; webapp/app.py
   </footer>
 </main>
