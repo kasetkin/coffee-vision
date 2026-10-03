@@ -118,7 +118,7 @@
     new code paths beside the old ones or produces reports.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Draft</span> <span class="tag">awaiting owner review</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">P0&ndash;P6 closed 2026-10-03; live as <code>allrigs_dino3b16_seg_s7</code></span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -200,7 +200,7 @@
         <td><span class="pill sm high">stop</span> pass-rate gate + negative test (D11). <strong>Closed 2026-10-02</strong>: both met (seed 123).</td></tr>
       <tr><td class="id">P6</td><td>Refit with the chosen segmenter, webapp env, release, docs</td>
         <td><code>webapp/pyproject.toml</code>, <code>release_manifest.py</code>, <code>docs/inference_path.html</code></td>
-        <td><span class="pill sm high">stop</span> owner ship decision; the only change to the live model</td></tr>
+        <td><span class="pill sm high">stop</span> owner ship decision; the only change to the live model. <strong>Closed 2026-10-03</strong>: deployed <code>allrigs_dino3b16_seg_s7</code>; the week of traffic watching waived by the owner.</td></tr>
     </tbody>
   </table></div>
   <p>P3 can start as soon as P0 is done, in parallel with P1/P2, because it only adds a code path that no
@@ -422,13 +422,13 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
     does. The gain comes from corrected hard cases and from the negatives, so the P5 report leads with how
     many corrected masks entered training.</p>
 
-  <h2>9. P6 &mdash; ship</h2>
+  <h2>9. P6 &mdash; ship <span class="pill sm ok">Closed 2026-10-03</span></h2>
   <ol class="tasks">
     <li><span class="box done"></span><span>Point <code>segcrop</code> at the chosen weights; regenerate the pools; repeat P4 (3 seeds paired against P4's baseline arm). Also report each seed on its segmenter-unseen subset (Q1). <span class="result">Done 2026-10-03. P4's pools already used <code>ft_s123</code>, so P4's exp255&ndash;260 are this refit. Unseen subsets (<code>analysis/ml2_p6/unseen_subset.py</code>, output beside it): 84&ndash;94 val+test photos per seed. Mean paired &Delta; on them val &minus;0.0004, test +0.0007 (full splits +0.0022, +0.0010); per-seed signs are mixed in both readings, within about &plusmn;0.01. The full-split rows reproduce the archived metrics exactly.</span></span></li>
     <li><span class="box done"></span><span>Webapp env: add <code>segment-anything</code> (no <code>onnxruntime</code>: PyTorch runtime, Q4); move torch/timm to the training versions (F4); <code>uv lock --project webapp</code>. <code>deploy_webapp.sh --compare</code> is expected to show a numeric change, so read it rather than just check it passes. <span class="result">Done 2026-10-02: torch 2.14.0, torchvision 0.29.1, timm 1.0.30, <code>segment-anything==1.0</code>. <code>--compare</code> after the deploy: bit-identical on all 10 fixtures, so the numpy/pillow pins left at the production freeze change nothing.</span></span></li>
     <li><span class="box done"></span><span><code>release_manifest.py</code>: the new modules, the vendored files L0 imports (found with an import trace, not by hand) plus <code>LICENSE</code>, and the segmenter weights with a sha256 check. Update <code>tests/test_release_manifest.py</code>. <span class="result">Done 2026-10-02: <code>SEG_LIBRARY</code>, 38 vendored files by trace, LICENSE and PATCHES.md, encoder and decoder pinned by the card's sha256; tests include a fresh import trace and the shipped model's full-app trace.</span></span></li>
     <li><span class="box done"></span><span>Latency on the VM, idle and during a sweep, against P0 and today's 7.0 s / 12.5 s. Reported, not gated (D8). <span class="result">Done 2026-10-03, server-side <code>latency_ms</code> on the 10 compare fixtures through the public site: idle 7.4 s mean (max 8.4) against 7.0 s; during a <code>train_baseline</code> run (resnet18, 4 threads) 12.4 s mean (max 13.7) against 12.5 s / 13.7 s. No fallbacks, all predicted.</span></span></li>
-    <li><span class="box"></span><span><span class="pill sm high">stop</span> <strong>Owner</strong> ship decision. Then <code>scripts/deploy_webapp.sh</code>, a spot check on <code>/classify</code> with the fixtures and a few real photos, <code>docs/inference_path.html</code> updated, and the logged <code>mask_area_frac</code> / <code>seg_fallback</code> on real traffic watched for a week.</span></li>
+    <li><span class="box done"></span><span><span class="pill sm high">stop</span> <strong>Owner</strong> ship decision. Then <code>scripts/deploy_webapp.sh</code>, a spot check on <code>/classify</code> with the fixtures and a few real photos, <code>docs/inference_path.html</code> updated, and the logged <code>mask_area_frac</code> / <code>seg_fallback</code> on real traffic watched for a week. <span class="result">Done 2026-10-03: owner decided to ship (exp260 + <code>ft_s123</code>, probe at 0.5); deployed release <code>20261003T0846Z-a75c3ec</code>, verified, <code>--compare</code> bit-identical; spot check on four real photos; <code>docs/inference_path.html</code> updated. The owner waived the week of watching <code>mask_area_frac</code> / <code>seg_fallback</code>; it is a follow-up, not a gate.</span></span></li>
   </ol>
 
   <h2>10. Tests</h2>
@@ -503,6 +503,7 @@ merge_segcam_{pixel,sony,oneplus,iphone}                  → data/segcropped/ca
     <div><div class="when">2026-10-02</div><strong>P4 closed; owner: ship.</strong> exp260 (seed 7) behind <code>ft_s123</code>. P4's pools already use that segmenter, so P6's "repeat P4" is P4 itself. P6 prep: webapp env (torch 2.14.0, torchvision 0.29.1, timm 1.0.30, <code>segment-anything==1.0</code>; relocked) and the segmenter release in <code>release_manifest.py</code>, with tests (the vendored list is checked by a fresh import trace). Open: the D21 unseen-subset report, shipping exp260 with its OOD files, the merge to <code>main</code>, the deploy and its <code>--compare</code>, latency, the <code>/classify</code> spot check and <code>docs/inference_path.html</code>.</div>
     <div><div class="when">2026-10-03</div><strong>Shipped</strong> <code>models/allrigs_dino3b16_seg_s7.pt</code> (exp260) with its reference and probe; the owner set the probe's threshold to 0.5 (calibrated 0.5982). The manifest trace of the shipped model passes. Next: merge to <code>main</code>, deploy, <code>--compare</code>, spot check.</div>
     <div><div class="when">2026-10-03</div><strong>Deployed</strong> release <code>20261003T0846Z-a75c3ec-allrigs_dino3b16_seg_s7</code>; smoke, verify and <code>--compare</code> (bit-identical, 10/10) pass. Server time 7.5&ndash;8.5 s per photo. Spot check: one unseen genuine photo got an empty mask (D18 fallback, warned). Open: a week of <code>mask_area_frac</code> / <code>seg_fallback</code> on real traffic, the D21 unseen-subset report, latency during a sweep, and <code>dvc push</code> once the remote is back.</div>
+    <div><div class="when">2026-10-03</div><strong>P6 closed by the owner</strong>, without the week of traffic watching. D21 report and latency done the same day (§9). All phases are closed.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_segmentation_mask.html"><code>ticket_segmentation_mask.html</code></a> (ML-2). Terms:
