@@ -1,0 +1,184 @@
+{
+ "name": "allrigs_dino3b16_seg_s7.pt",
+ "source_experiment": "exp260__allrigs_dino3b16_frozen_clsmean_segcrop_s7",
+ "model": "frozen dinov3_vitb16 (models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth, sha256 73cec8be7427c865..., timm 1.0.30) -> cls_mean readout -> L2 logistic-regression head at C=0.1. This .pt holds only the head and the backbone's identity; the backbone is loaded from models_pretrained/ and checked against that digest.",
+ "why_this_one": "Ticket ML-2 P6, shipped by the owner 2026-10-03. The bean region comes from the seed-123 fine-tuned EfficientViT-SAM-L0 segmenter (models/seg/ft_s123.pt; ML-2 P5: judge pass 97.9% on seg_eval, owner audit 337/343), and patches come from its filled D4 crop by the D17 rule. Chosen on val among exp258-260 (seeds 42/123/7: 0.9597 / 0.9706 / 0.9736). Paired against the tray-heuristic refits exp255-257 (P4, D24): val delta -0.0037 / +0.0030 / +0.0073, test +0.0036 / -0.0059 / +0.0052; Colombia,PinkBourbon lower in every seed. OOD probe served at 0.5 (owner override; calibrated 0.5982): holdout 2/26 genuine refused, 56/56 negatives caught.",
+ "inference_defaults": {
+  "tta": false,
+  "why": "No dihedral TTA: 8 views x 40 patches is ~46 s per photo for ViT-B/16 on the production VM (docs/dinov3_integration_plan.md \u00a76.2), and TTA for the frozen head is unmeasured (Screen D). Without it, model time is ~5.8 s per photo at 4 threads, parity with ResNet18 + TTA."
+ },
+ "expected_performance": {
+  "cross_camera_from_selection_folds": "exp240-251, 3 seeds x 4 camera folds: patch macro-F1 0.8873 (3 ten-class folds), photo-pooled 0.9489 over 40 patches, no TTA",
+  "this_run_in_distribution": {
+   "val": {
+    "macro_f1": 0.973558319837003,
+    "mcc": 0.9685176412140738,
+    "accuracy": 0.9716216216216216
+   },
+   "test": {
+    "macro_f1": 0.9770794106355767,
+    "mcc": 0.9745247612857809,
+    "accuracy": 0.9770833333333333
+   }
+  },
+  "note": "in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, never to a cross-camera number"
+ },
+ "training_config": {
+  "seed": 7,
+  "train_capture_dirs": [
+   "data/segcropped/cam_pixel",
+   "data/segcropped/cam_sony",
+   "data/segcropped/cam_oneplus",
+   "data/segcropped/cam_iphone"
+  ],
+  "classes_file": "dataset/classes.txt",
+  "patch_crop_size": 900,
+  "patch_resize": 224,
+  "safety_margin": 0.97,
+  "patch_store_size": 448,
+  "train_patches_per_class": 150,
+  "val_patches_per_class": 40,
+  "test_patches_per_class": 40,
+  "train_photo_frac": 0.7,
+  "val_photo_frac": 0.15,
+  "test_photo_frac": 0.15,
+  "model_name": "dinov3_vitb16",
+  "freeze_mode": "full",
+  "dropout": 0.0,
+  "label_smoothing": 0.0,
+  "color_jitter_strength": 0.0,
+  "brightness_jitter_strength": 0.0,
+  "patch_scale_frac_min": 0.0,
+  "patch_scale_frac_max": 0.0,
+  "patch_beans_min": 4.0,
+  "patch_beans_max": 7.0,
+  "bean_k_lo": 4,
+  "bean_k_hi": 80,
+  "bean_analysis_frac": 0.4,
+  "bean_calibration_k": 1.18,
+  "rotation_jitter_degrees": 0.0,
+  "zoom_scale_min": 1.0,
+  "random_erasing_p": 0.0,
+  "illum_gradient_strength": 0.0,
+  "mixup_alpha": 0.0,
+  "mixstyle_p": 0.0,
+  "mixstyle_alpha": 0.1,
+  "mixstyle_mode": "agnostic",
+  "batch_size": 32,
+  "epochs": 100,
+  "early_stop_patience": 20,
+  "eta_min": 1e-05,
+  "scheduler": "cosine",
+  "plateau_smooth": 5,
+  "plateau_threshold": 0.003,
+  "plateau_patience": 6,
+  "plateau_cooldown": 3,
+  "plateau_factor": 0.3,
+  "floor_epochs": 15,
+  "optimizer": "adamw",
+  "lr": 0.001,
+  "backbone_lr": 1e-05,
+  "weight_decay": 0.0001,
+  "seg_split_seed": 239,
+  "seg_prompt": "box",
+  "seg_mask_select": "multi3",
+  "seg_min_area_frac": 0.083,
+  "crop_method": "segment",
+  "seg_weights": "efficientvit_sam/efficientvit_sam_l0.pt",
+  "seg_weights_sha256": "c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8",
+  "seg_decoder": "models/seg/ft_s123.pt",
+  "seg_decoder_sha256": "c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd",
+  "seg_keep_frac": 0.95,
+  "patch_min_bean_share": 0.8,
+  "patch_max_attempts_factor": 20,
+  "seg_ft": {
+   "views": [
+    "id",
+    "hflip",
+    "vflip",
+    "rot180"
+   ],
+   "epochs": 40,
+   "patience": 8,
+   "batch_size": 8,
+   "lr": 0.0001,
+   "lr_min": 1e-06,
+   "weight_decay": 0.0001,
+   "focal_weight": 20.0,
+   "dice_weight": 1.0,
+   "iou_weight": 1.0,
+   "focal_gamma": 2.0,
+   "focal_alpha": 0.25,
+   "neg_share": 0.5,
+   "neg_select_frac": 0.2
+  },
+  "class_ids": [
+   "001",
+   "002",
+   "003",
+   "004",
+   "005",
+   "006",
+   "007",
+   "008",
+   "009",
+   "010"
+  ]
+ },
+ "dino": {
+  "experiment": "docs/dinov3_integration_plan.md \u00a79.1: all-cameras shipping fit of the selected cell",
+  "backbone": "dinov3_vitb16",
+  "readout": "cls_mean",
+  "weights": "dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
+  "weights_sha256": "73cec8be7427c8655ceced13ce62f6e20a1fa90d1b4d4a550df17a1144081a7c",
+  "timm_version": "1.0.30",
+  "head": "sklearn LogisticRegression (L2, lbfgs) on standardised features at a FIXED C, exported to nn.Linear; the SGD-loop fields above (epochs, lr, optimizer, scheduler, ...) are unused",
+  "C": 0.1,
+  "C_rule": "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)",
+  "converged": true,
+  "fit_seconds": 0.7,
+  "diagnostic_val_selected_C": 0.03162277660168379,
+  "diagnostic_val_macro_f1_by_C": {
+   "0.001": 0.9573706903938615,
+   "0.0031622776601683794": 0.9646712692720552,
+   "0.01": 0.9702052528502094,
+   "0.03162277660168379": 0.9728174209775275,
+   "0.1": 0.9715167531744802,
+   "0.31622776601683794": 0.9716810840007538,
+   "1.0": 0.9710359532419301,
+   "3.1622776601683795": 0.9710359532419301,
+   "10.0": 0.9716573958427294,
+   "31.622776601683793": 0.9716573958427294,
+   "100.0": 0.9716573958427294
+  },
+  "train_transform": "eval transform (frozen arms get no photometric augmentation)",
+  "sizes": {
+   "train": 5700,
+   "val": 1480,
+   "test": 1440
+  },
+  "embed_ms_per_img": {
+   "train": 171.9,
+   "val": 146.4,
+   "test": 142.9
+  },
+  "segment": {
+   "train": {
+    "fallback_photos": [],
+    "patches_below_share": 0
+   },
+   "val": {
+    "fallback_photos": [],
+    "patches_below_share": 0
+   },
+   "test": {
+    "fallback_photos": [],
+    "patches_below_share": 0
+   }
+  },
+  "smoke": false,
+  "host": "compute-vm-8-16-100-ssd-1786788658655",
+  "torch_threads": 4,
+  "run_dir": "outputs/ml2_p4/segcropped/s7"
+ }
+}
