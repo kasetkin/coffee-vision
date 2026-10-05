@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1 done 2026-10-05; P2 in progress (strip waits for the Q8 test extraction)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2 done 2026-10-05; P2b next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -874,6 +874,13 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       <code>2026-08-06__box_pictures.tar</code> <code>6772adb0fd02b7b59a8707c7d7b1e9452d235aee8c4c12081f2ddcd398c0368a</code>).
       The test extraction on the VM was refused by this session's permission check, so it waits for the owner;
       until it passes, nothing is stripped and the local tars stay.</div>
+    <div><div class="when">2026-10-05</div>P2 done. The owner ran the test extraction on the VM: 345 files, names and
+      sizes equal to the local ones (with the tars' equal sha256, the backup is whole). The extraction's leftover
+      copy in the VM's <code>/tmp</code> was removed. The 288 new photos were stripped:
+      <code>labels/ml3/strip_manifest.csv</code> has 288 rows, its header carries both tar hashes; every
+      <code>sha256_before</code> equals <code>new_photos.csv</code>, every <code>sha256_after</code> the bytes on disk,
+      and a separate exiftool audit of all 288 finds no deny-listed tag. Local tars deleted (Q8); the VM copies stay
+      until P4's checks pass. <code>2026-08-06__box_pictures</code> is backed up but not yet stripped: that is P3.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
