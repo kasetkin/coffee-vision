@@ -157,6 +157,11 @@ class TestSegPoolsWiring(unittest.TestCase):
         self.assertLessEqual(set(named), names)
         self.assertEqual({st for st in named if st.startswith("segcrop@")},
                          {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]})
+        for p in CAPTURES:                                              # and per pool, the sessions it merges
+            merge, *segcrops = CAPTURE_STAGE_OVERRIDES[_stage_key(p)]
+            cmd = stages[merge]["cmd"].split()
+            self.assertEqual(cmd[cmd.index("--name") + 1], Path(p).name)
+            self.assertEqual([f"segcrop@{s}" for s in cmd[cmd.index("--sessions") + 1:]], segcrops, p)
         with self.assertRaisesRegex(ValueError, "segmenter"):           # a retired pool: nothing tracks it
             stale_crop_stages(["data/cropped/cam_pixel"])
 

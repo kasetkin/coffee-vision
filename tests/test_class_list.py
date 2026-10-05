@@ -80,6 +80,10 @@ class TestClassList(unittest.TestCase):
     def test_countries_match_classes_short_map(self):
         self.assertEqual(tuple(SHORT_MAP.read_text().split()), COUNTRIES)
 
+    def test_dataset_classes_txt_is_d15(self):
+        """Ticket ML-3 P4 wrote D15 to dataset/classes.txt, word for word; before it, the old ten-line list."""
+        self.assertEqual((REPO_ROOT / "dataset" / "classes.txt").read_text(), D15)
+
     def test_coffees_keep_farm_region_and_misc_apart(self):
         coffees = {c.folder_id: c for c in read_coffees(self.write(D15))}
         self.assertEqual(len(coffees), 14)
@@ -97,7 +101,7 @@ class TestClassList(unittest.TestCase):
     def test_every_shipped_frozen_list_reads_as_before(self):
         frozen = sorted((REPO_ROOT / "models").glob("*.classes.txt"))
         self.assertTrue(frozen)
-        for path in frozen + [REPO_ROOT / "dataset" / "classes.txt"]:
+        for path in frozen:
             with self.subTest(path=path.name):
                 before = legacy_load_class_labels(path)
                 for classes in (load_classes(path), folder_classes(path)):

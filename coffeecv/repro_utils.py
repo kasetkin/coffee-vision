@@ -57,16 +57,20 @@ def dirty_provenance_paths() -> list[str]:
 # regenerated) still looks clean -- so a `dvc repro train` would re-crop and then re-merge, changing the
 # pixels under a sweep that had been told everything was up to date. Keyed "segcropped/<name>" (see
 # `_stage_key`). Until ticket ML-3 P2b this also mapped the tray heuristic's data/cropped pools to their
-# crop@ and merge_cam_* stages, retired then (Q3).
+# crop@ and merge_cam_* stages, retired then (Q3). Ticket ML-3 P4 added the new sessions' segcrop stages.
 CAPTURE_STAGE_OVERRIDES = {
     "segcropped/cam_pixel":   ["merge_segcam_pixel",
                                "segcrop@2026-08-07__box_pictures_all_classes",
-                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel"],
+                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel",
+                               "segcrop@2026-09-11__pixel", "segcrop@2026-09-24__pixel",
+                               "segcrop@random_date_raccoon"],
     "segcropped/cam_sony":    ["merge_segcam_sony",
-                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony"],
+                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony",
+                               "segcrop@2026-09-11__sony", "segcrop@2026-09-24__sony"],
     "segcropped/cam_oneplus": ["merge_segcam_oneplus",
                                "segcrop@2026-08-25__oneplus", "segcrop@2026-08-27__oneplus_flash",
-                               "segcrop@2026-08-30__oneplus"],
+                               "segcrop@2026-08-30__oneplus", "segcrop@2026-09-11__oneplus",
+                               "segcrop@2026-09-24__oneplus"],
     "segcropped/cam_iphone":  ["merge_segcam_iphone", "segcrop@2026-08-25__iphone"],
 }
 

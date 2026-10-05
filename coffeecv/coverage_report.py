@@ -71,6 +71,11 @@ EXCLUDED = {
     "2026-07-24__first_pictures",   # pre-project exploratory shots, no class structure
     "2026-08-06__box_pictures",     # superseded by 2026-08-07__box_pictures_all_classes
     "classes_labels_only",          # label reference photos, not training data
+    # The OOD sets (ticket ML-3 P4): read by the OOD tools from their manifests, never segcropped. Their
+    # check-2 FAILs dated from ticket ML-1.
+    "ood_negatives",
+    "ood_positives",
+    "ood_positives_internet",
 }
 
 
@@ -120,6 +125,8 @@ def print_table(counts: dict, labels: dict) -> None:
     # the rigs apart, short enough that ten classes fit on one screen.
     def abbrev(name: str) -> str:
         date, _, rest = name.partition("__")
+        if not rest:                          # an undated session: random_date_raccoon
+            return name[:12]
         return f"{date.replace('2026-', '').replace('-', '')} {rest.split('_')[0][:7]}"
     short = [abbrev(s) for s in sessions]
     width = max(max(len(s) for s in short), 5) if short else 5
@@ -224,17 +231,18 @@ def main() -> int:
     # Per-class rig coverage, not per-session missing-lists: a session that
     # deliberately carries one class (the 08-30 captures) would otherwise emit a
     # warning naming nine absent classes, every run, drowning the real signal.
-    # "Broad" = a session covering more than one class, i.e. a general capture
-    # session where a hole means something.
+    # "Broad" = a session covering at least half the class folders, i.e. a general
+    # capture session where a hole means something. Until ticket ML-3 P4 this was
+    # "more than one class"; the 09-24 captures carry two new coffees on purpose.
     all_sessions = sorted({s for per in counts.values() for s in per})
     broad = [s for s in all_sessions
-             if sum(1 for c in counts if s in counts[c]) > 1]
+             if 2 * sum(1 for c in counts if s in counts[c]) >= len(counts)]
     cover = {c: sorted(s for s in broad if s in counts[c]) for c in counts}
     full = max((len(v) for v in cover.values()), default=0)
     for cid in sorted(counts):
         have = cover[cid]
         if not have:
-            warnings.append(f"class_{cid} appears only on single-class sessions "
+            warnings.append(f"class_{cid} appears only on narrow sessions "
                             f"({', '.join(sorted(counts[cid]))}) -- fine if those sessions merge "
                             f"into a capture dir, which the capture-dir table above shows")
         elif len(have) < full:

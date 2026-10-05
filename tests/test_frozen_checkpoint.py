@@ -130,17 +130,20 @@ class TestCropMethodRestores(unittest.TestCase):
                seg_prompt="box", seg_mask_select="multi3", seg_keep_frac=0.95, seg_min_area_frac=0.083,
                patch_min_bean_share=0.8, patch_max_attempts_factor=20)
 
-    def restored(self, training_config: dict) -> RunConfig:
+    def restored(self, training_config: dict, frozen_classes: Path | None = None) -> RunConfig:
         with tempfile.TemporaryDirectory() as tmp:
             ckpt = Path(tmp) / "m.pt"
             ckpt.with_suffix(".json").write_text(json.dumps({"training_config": training_config}))
+            if frozen_classes is not None:                                # as shipped: the list beside the card
+                shutil.copy(frozen_classes, ckpt.with_suffix(".classes.txt"))
             return config_for_checkpoint(ckpt, None)[0]
 
     def test_a_card_without_it_is_the_tray_heuristic(self):
         for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):        # both shipped cards predate P3
             card = json.loads((REPO_ROOT / "models" / f"{name}.json").read_text())
             self.assertNotIn("crop_method", card["training_config"])
-            self.assertEqual(self.restored(card["training_config"]).crop_method, "tray_heuristic")
+            restored = self.restored(card["training_config"], REPO_ROOT / "models" / f"{name}.classes.txt")
+            self.assertEqual(restored.crop_method, "tray_heuristic")
 
     def test_segment_fields_round_trip(self):
         cfg = replace(RunConfig(), **self.SEG)
