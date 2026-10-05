@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b, P3, P4 done 2026-10-05; P5 (owner mask review) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b, P3, P4 done 2026-10-05; P5 waits for the owner&rsquo;s mask review</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1024,6 +1024,25 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           against the VM). Suite: 204 tests, none skipped, the one known timm failure only.</li>
         <li><b>Q8:</b> the VM's <code>~/ml3_prestrip/</code> tars are deleted. The new photos' pre-strip bytes now
           exist nowhere.</li>
+      </ul></div>
+    <div><div class="when">2026-10-05</div>P5 up to the owner's review (<code>c4c56c2</code>, VM <code>20b64d3</code>):
+      <ul>
+        <li><b>Masks:</b> stage <code>seg_predict_ml3_new</code> (<code>coffeecv/seg_predict_sessions.py</code>, a
+          module of its own so the ML-2 stages that depend on <code>seg_predict.py</code> stay up to date) wrote
+          ft_s123's full-frame masks of all 288 new photos on the VM at 4 threads, into
+          <code>data/seg_masks/ml3_new_ft_s123/</code> with its <code>index.csv</code>. Each equals the
+          <code>mask_sha256</code> in its <code>segcrop_report.json</code>; the stage stops otherwise (a local smoke
+          run differed on its fourth mask, as cross-CPU masks do). Fetched here and md5-checked.</li>
+        <li><b>Order</b> (<code>analysis/ml3/mask_review.py items</code> &rarr;
+          <code>labels/ml3/mask_review_items.csv</code>): the 18 <code>random_date_raccoon</code> photos, then the
+          other 22 D18 fallbacks, then 248 in a shuffle seeded with <code>seg_split_seed</code> and stratified by
+          session (every session appears within the first 48).</li>
+        <li><b>Fallbacks:</b> a D18 fallback trains on its whole photo, not on its mask, so its decision is about
+          the frame: accept = beans fill it, decline = background would train. <code>mask_review.py summary</code>
+          counts them apart from the masks.</li>
+        <li><b>Waiting:</b> the owner's review, <code>python -m coffeecv.review_masks --items
+          labels/ml3/mask_review_items.csv --name ml3_new_ft_s123</code>, decisions to
+          <code>labels/ml2/review/ml3_new_ft_s123.decisions.jsonl</code>.</li>
       </ul></div>
   </div>
 
