@@ -8,12 +8,14 @@ ENV DEVCONTAINER=true
 # Opt-in flag for Mesa's rusticl OpenCL backend; ignored if unsupported.
 ENV RUSTICL_ENABLE=radeonsi
 
-# Dev tools, Mesa OpenCL (AMD iGPU), libgl1 (cv2 needs it).
+# Dev tools, Mesa OpenCL (AMD iGPU), libgl1 (cv2 needs it), exiftool (coffeecv.strip_metadata, ticket
+# ML-3 D13; its version is recorded in each strip manifest).
 # Kept in one RUN: apt clean in a later layer wouldn't shrink the image.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         less git procps sudo curl ca-certificates \
         mesa-opencl-icd ocl-icd-libopencl1 clinfo libgl1 libglib2.0-0 \
+        libimage-exiftool-perl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

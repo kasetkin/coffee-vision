@@ -123,7 +123,7 @@
     implementation plan yet, and nothing is implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-05 (<a href="plan_country_classes.html">plan</a>, reviewed; Q1&ndash;Q8 answered); P1 implemented 2026-10-05</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-05 (<a href="plan_country_classes.html">plan</a>, reviewed; Q1&ndash;Q8 answered); P1 implemented 2026-10-05, P2 in progress</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and a new class definition</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code>, <code>dataset/classes.txt</code>, <code>dvc.yaml</code> (segcrop, merge stages), <code>coffeecv/dataset.py</code>, head and OOD probe refit, webapp labels, release</span></div>
@@ -150,7 +150,7 @@
   <p>The work splits into five parts. Each part is small, but they all meet in the head and the probe refit:</p>
   <ol>
     <li><strong>Labels.</strong> Training, evaluation, the model card and the web page use the country. The farm region and the misc information stay in <code>classes.txt</code> as facts about each photo, never as labels (D1, D15).</li>
-    <li><strong>Data.</strong> 281 new photos from 7 capture folders move from <code>dataset_new_ignored/</code> into <code>dataset/</code>, are DVC-tracked, and run through the segmenter crop (ML-2), then join the camera pools.</li>
+    <li><strong>Data.</strong> 288 new photos (the set fixed on 2026-10-05, <code>labels/ml3/new_photos.csv</code>) from 7 capture folders move from <code>dataset_new_ignored/</code> into <code>dataset/</code>, are DVC-tracked, and run through the segmenter crop (ML-2), then join the camera pools.</li>
     <li><strong>Privacy.</strong> GPS and other private metadata are stripped from every photo in <code>dataset/</code>, new and old (D13).</li>
     <li><strong>Models.</strong> The frozen DINOv3 head and the OOD probe are refitted on the new classes and data. The owner reviews the existing segmenter's masks on the new photos; a second fine-tune follows only if the owner decides the declines call for it (D8).</li>
     <li><strong>Release.</strong> The web app serves country scores (D12).</li>
@@ -167,7 +167,7 @@
     <tbody>
       <tr><td>Ethiopia</td><td>Sidamo; Yirgacheffe, Kochere</td><td class="num">90 + 80</td><td class="num">2 (Sidamo)</td><td class="num">172</td></tr>
       <tr><td>Kenya</td><td>Nyeri (AA)</td><td class="num">90</td><td class="num">&ndash;</td><td class="num">90</td></tr>
-      <tr><td>Colombia</td><td>Huila (PinkBourbon); <strong>Antioquia (Excelso)</strong>, new</td><td class="num">90</td><td class="num">5 (Antioquia)</td><td class="num">95</td></tr>
+      <tr><td>Colombia</td><td>Huila (PinkBourbon); <strong>Antioquia (Excelso)</strong>, new</td><td class="num">90</td><td class="num">12 (Antioquia)</td><td class="num">102</td></tr>
       <tr><td>CostaRica</td><td>Tarrazu (LaPastora)</td><td class="num">90</td><td class="num">&ndash;</td><td class="num">90</td></tr>
       <tr><td>Guatemala</td><td>Acatenango (TataNahual)</td><td class="num">92</td><td class="num">&ndash;</td><td class="num">92</td></tr>
       <tr><td>Brazil</td><td>Cerrado; Cerrado (MonteCristo); <strong>SulDeMinas</strong>, new</td><td class="num">100 + 90</td><td class="num">4 (SulDeMinas)</td><td class="num">194</td></tr>
@@ -175,7 +175,7 @@
       <tr><td>Indonesia</td><td>Java (all roasted)</td><td class="num">126</td><td class="num">&ndash;</td><td class="num">126</td></tr>
       <tr><td><strong>Peru</strong> (new)</td><td>Junin, Satipo (Minca)</td><td class="num">&ndash;</td><td class="num">150</td><td class="num">150</td></tr>
       <tr><td><strong>Rwanda</strong> (new)</td><td>Western, Rusizi (Gisuma)</td><td class="num">&ndash;</td><td class="num">120</td><td class="num">120</td></tr>
-      <tr><td colspan="2"><strong>Total</strong></td><td class="num">938</td><td class="num">281</td><td class="num">1219</td></tr>
+      <tr><td colspan="2"><strong>Total</strong></td><td class="num">938</td><td class="num">288</td><td class="num">1226</td></tr>
     </tbody>
   </table></div>
   <p><code>classes_short_map.txt</code> holds the ten country names, one per line. The country name is the class key
@@ -194,14 +194,14 @@
       <tr><td class="mono">2026-09-24__pixel</td><td>Pixel 9 Pro</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
       <tr><td class="mono">2026-09-24__sony</td><td>Sony G8441</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
       <tr><td class="mono">2026-09-24__oneplus</td><td>OnePlus 7 Pro</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
-      <tr><td class="mono">random_date_raccoon</td><td>Pixel 9 Pro, 2026-09-26 to 10-02</td><td>Ethiopia Sidamo, Brazil SulDeMinas, Colombia Antioquia (Excelso)</td><td class="num">2 + 4 + 5</td></tr>
+      <tr><td class="mono">random_date_raccoon</td><td>Pixel 9 Pro, 2026-09-26 to 10-04</td><td>Ethiopia Sidamo, Brazil SulDeMinas, Colombia Antioquia (Excelso)</td><td class="num">2 + 4 + 12</td></tr>
     </tbody>
   </table></div>
   <ul>
     <li>The three cameras are the ones behind today's <code>cam_pixel</code>, <code>cam_sony</code> and <code>cam_oneplus</code> pools. The iPhone took none of the new photos, so <code>cam_iphone</code> has no Peru or Rwanda (and, as today, no Indonesia and no Ethiopia Yirgacheffe Kochere).</li>
     <li>All dated sessions are frame-filling piles. <code>random_date_raccoon</code> is mixed: one Ethiopia Sidamo photo shows a ring of beans in a metal hopper, with the metal around it.</li>
     <li><strong>Roast.</strong> In a sample of two photos per folder, every photo looked roasted, light to medium. Roast state is not a label and is not recorded (D4). Today's data is green coffee, except Indonesia Java, which is roasted in all 126 photos (ML-2 P1).</li>
-    <li>File names mix <code>.jpg</code> (191) and <code>.JPG</code> (90). The Pixel and OnePlus photos carry GPS in EXIF, like today's training sessions; the 90 Sony G8441 photos carry none (all 288 checked, 2026-10-05). It is removed wherever it is (D13).</li>
+    <li>File names mix <code>.jpg</code> (198) and <code>.JPG</code> (90). The Pixel and OnePlus photos carry GPS in EXIF, like today's training sessions; the 90 Sony G8441 photos carry none (all 288 checked, 2026-10-05). It is removed wherever it is (D13).</li>
     <li>The Rwanda folders were spelled Gisumo in the Pixel and Sony sessions and Gisuma in the OnePlus session. The owner renamed them all to Gisuma (D3).</li>
   </ul>
 
@@ -228,7 +228,7 @@
       <h3>After</h3>
       <ul>
         <li>Label = country, 10 classes. Each class folder maps to its country through <code>classes.txt</code>; farm region and misc are facts about a photo, never labels (D1, D15).</li>
-        <li>1219 photos, 16 sessions (<code>random_date_raccoon</code> included, D5), the same 4 camera pools (D6).</li>
+        <li>1226 photos, 16 sessions (<code>random_date_raccoon</code> included, D5), the same 4 camera pools (D6).</li>
         <li>A refitted head and OOD probe on the segmenter pools. The site shows ten country scores (D12).</li>
         <li>Confusions inside one country are no longer errors. Peru and Rwanda are new classes.</li>
       </ul>
@@ -410,6 +410,7 @@
     <div><div class="when">2026-10-05</div>Independent review of this ticket and the plan, checked against the code: 3 major and 9 minor problems, 7 nits, none changing a decision. All are fixed in the plan. The main ones: two ML-2 mask stages that were stale before ML-3 are brought up to date before the strip, and never-run <code>seg_eval@ft_s42/ft_s7</code> leave the pipeline. Two more hash-pinning records join the re-key (R8, corrected above). An empty class pool in the OOD probe's photo list now raises instead of being skipped. The D10 printout leads with the 8-country number on old photos, adds a photo-level readout with bootstrap intervals and states the seed rule. The holdout check (D11) prints 2026-09-11 and other days apart. Corrected here: the Sony photos carry no GPS. New plan question Q8: whether to keep a pre-strip copy of <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code>, which have no DVC cache copy.</div>
     <div><div class="when">2026-10-05</div>Owner answers plan Q8: (a), with the VM as the backup's place. Before the first strip, <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code> are tarred and copied to the VM outside the repo and its DVC cache, sha256-checked, and the local tars deleted. The VM copies are deleted once the merge's checks pass (plan P4). This is a short-lived extension of D13.3 for the two folders the DVC caches do not hold.</div>
     <div><div class="when">2026-10-05</div>Plan phase P1 implemented: one class-list module reads both <code>classes.txt</code> formats, and every reader uses it. A D15 file gives the ten countries; an old file, every shipped model's frozen list included, reads exactly as before. With <code>classes.txt</code> unchanged, splits, patches, the smoke fit and both shipped models' answers on the deploy fixtures are identical to before. No number changes and nothing served changes. Details in the plan's activity.</div>
+    <div><div class="when">2026-10-05</div>Owner confirms the set of new photos is final (Q4): 288, recorded in <code>labels/ml3/new_photos.csv</code>, with 12 Colombia Antioquia (Excelso) photos in <code>random_date_raccoon</code>, not 5. The counts above are updated (Colombia 102, 1226 photos in all). Plan phase P2 in progress: the strip tool is written and tested and would strip all 288 cleanly; a pre-strip copy is on the VM (Q8). The strip itself waits for the backup's test extraction. Found for P3 (details in the plan): Pixel DNG previews and HEIC thumbnails are image data the strip tool cannot remove, one internet negative has XMP it will not edit, and 3 photos dated 2026-10-05 sit untracked in <code>dataset/ood_positives</code>.</div>
   </div>
 
   <footer>Related: <code>dataset_new_ignored/classes.txt</code>, <code>dataset_new_ignored/classes_short_map.txt</code>, <code>dataset/classes.txt</code>, <code>GLOSSARY.md</code>,

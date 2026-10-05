@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1 done 2026-10-05; P2 waits for the owner's last photos (Q4)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1 done 2026-10-05; P2 in progress (strip waits for the Q8 test extraction)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -853,6 +853,27 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       <code>seg_lists build</code> already refused at <code>e0104b2</code> (its fresh lists lack <code>base_dev</code>/<code>base_heldout</code>,
       which <code>bases</code> writes), so P1 compares <code>build()</code>'s output instead; P2b's
       "<code>build</code> rewrites <code>photo_lists.yaml</code> unchanged" needs the same reading or a fix.</div>
+    <div><div class="when">2026-10-05</div>P2 in progress. Owner confirms the new photos are final (Q4).
+      <code>analysis/ml3/new_photos.py</code> fixes the set in <code>labels/ml3/new_photos.csv</code>: 288 photos,
+      each class folder one of D15's fourteen, every session's (Make, Model) that of the pool it joins, all of
+      <code>random_date_raccoon</code> from the Pixel 9 Pro; the ticket's counts follow (Colombia 102, 1226 in all).
+      <code>coffeecv/strip_metadata.py</code> is the strip tool, with exiftool 13.25 (<code>libimage-exiftool-perl</code>,
+      now in the devcontainer). It checks every decoded image (HEIC auxiliary images and RAW sensor data too), every
+      non-deny-listed tag byte for byte (the ICC profile as one block, the MPF gain map as bytes) and audits the
+      result; 8 tests. The exact arguments came from a dry run over one file of every camera and format: GPS, maker
+      notes, Google's HDR+ maker note and extended-XMP pointer, C2PA/JUMBF, a JPEG's IFD1 thumbnail, previews, serial
+      numbers, EXIF/XMP/IPTC owner fields. Dry run over the 288 new photos: all pass. Dry run over <code>dataset/</code>
+      (<code>analysis/ml3/strip_dry_run_dataset.txt</code>): 1300 photos, 1068 would be stripped, 30 fail. Found for
+      P3: the 29 Pixel DNGs keep an IFD0 preview, image data exiftool cannot remove; the 101 HEICs keep a 320 px
+      thumbnail item, likewise; one internet-proxy negative (<code>ground_coffee_016.jpg</code>) has an XMP segment
+      with a non-standard header that exiftool will not edit (a photographer credit and a camera serial). And
+      <code>ood_positives</code> is not already clean as §5 assumed: 3 photos dated 2026-10-05
+      (<code>PXL_20261005_*</code>) sit in the working copy, in neither its <code>.dvc</code> nor its manifest. Q8: one
+      tar per folder, copied to the VM's <code>~/ml3_prestrip/</code>; sha256 equal on both ends
+      (<code>dataset_new_ignored.tar</code> <code>ddf8e41f7ecd72f3325f42000498553a058a15b9cff6fc1b0b775eeff5bb2b66</code>,
+      <code>2026-08-06__box_pictures.tar</code> <code>6772adb0fd02b7b59a8707c7d7b1e9452d235aee8c4c12081f2ddcd398c0368a</code>).
+      The test extraction on the VM was refused by this session's permission check, so it waits for the owner;
+      until it passes, nothing is stripped and the local tars stay.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
