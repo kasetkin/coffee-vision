@@ -1,0 +1,842 @@
+<title>Implementation plan: country classes and data merge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Plan · ML-3 · coffee-vision · implementation</div>
+  <h1>Implementation plan: country classes and data merge</h1>
+  <p class="lede">The order of work for <a href="ticket_country_classes.html">ticket ML-3</a>, now that D1&ndash;D15
+    are answered. Three strands meet at the head refit: a class list that maps each class folder to its country,
+    a lossless metadata strip of every photo and the hash re-keying it forces, and the merge of the new photos
+    through the segmenter. The code comes first, with <code>classes.txt</code> untouched, so every existing output
+    must stay byte-identical. The strip comes next and is checked the same way. The merge is the first step that
+    changes a number.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-04</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1&ndash;Q8 answered; P2 waits for the owner's last photos (Q4)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>e0af1c6</code> and of <code>dataset_new_ignored/</code>, not from
+      the ticket alone. I traced every reader of <code>classes.txt</code> and every record that pins a photo by
+      sha256. Seven things the ticket does not cover turned up. They are folded in below, and the ones that need
+      a decision are Q1&ndash;Q7 (§2).</p>
+    <ol>
+      <li><b>The OOD calibration photos share a day with the new training sessions.</b> 31 of the 47
+        <code>user_beans_independent</code> positives (19 dev, 12 holdout) were shot on 2026-09-11, 10&ndash;45
+        minutes after the 2026-09-11 sessions on the same three cameras. By the README's own definition they become
+        same-day photos once those sessions train. D11's regression check and the probe's calibration both lean on
+        them (Q1). <b>Owner, 2026-10-04: ignore; the tags and the calibration stay as they are.</b></li>
+      <li><b>Re-keying makes ML-2's fine-tune stages stale.</b> <code>labels/ml2/photo_lists.yaml</code> and
+        <code>data/seg_labels</code> are deps of <code>seg_embed_cache</code> &rarr; <code>seg_finetune@*</code>.
+        After R8's re-key, a plain <code>dvc repro</code> would retrain the decoder that <code>params.yaml</code>
+        pins by sha256 (Q2). <b>Owner, 2026-10-04: keep the original decoder and retrain nothing (Q2, Q2a).</b></li>
+      <li><b>More records pin photo hashes than R8 lists</b>: <code>labels/ml2/defects/*.csv</code>,
+        <code>labels/ml2/base_points.yaml</code>, <code>data/seg_labels/labels.csv</code> and
+        <code>data/seg_labels/r{1,2,3}/index.csv</code> (DVC), and every <code>data/seg_masks/*/index.csv</code>
+        (DVC). The review decisions files do not pin one: they key on path and mask sha256, so they need no change.
+        (The review of 2026-10-05 found <code>base_points.yaml</code> and the <code>r*</code> indexes.)</li>
+      <li><b>The tray-heuristic pools will not hold Peru or Rwanda (D9)</b>, but <code>params.yaml</code> rests on
+        them, the <code>train</code> stage depends on them, and <code>coverage_report</code> checks classes against
+        them. It also takes its session list from the <code>crop</code> foreach only (Q3). <b>Owner, 2026-10-04: delete <code>data/cropped</code>; the segmenter's pools are
+        the only ones (P2b).</b></li>
+      <li><b>Two consumers must keep per-folder classes.</b> <code>seg_lists</code> rebuilds ML-2's split from
+        sorted folder ids; under country classes its append-only check refuses, and folders 011&ndash;014 have no
+        tray-heuristic crops, so their empty pools would raise. The DINOv3 test fixture's patches are seeded by the
+        folder's index.</li>
+      <li><b>Archived runs record <code>classes_file</code> as a path</b>, not its content. After the rewrite, a
+        tool that rebuilds a pre-ML-3 run (e.g. <code>analysis/ml2_p6/unseen_subset.py</code>) would read country
+        classes.</li>
+      <li><b><code>random_date_raccoon</code> holds 18 photos, not 11</b>: 2 Sidamo, 4 SulDeMinas and 12 Excelso
+        (dated up to 2026-10-04). That makes 288 new photos, Colombia 102 and 1226 in total (Q4). <b>Owner, 2026-10-04: more photos may
+        still arrive; the set is fixed when P2 starts.</b></li>
+    </ol>
+  </div>
+
+  <div class="callout info">
+    <p><b>Review, 2026-10-05.</b> An independent review of the ticket and this plan (an ML engineer's read, checked
+      against the code) found 3 major and 9 minor problems, and 7 nits. None changes an owner answer. All are folded in
+      below; the phase each one changed is in brackets.</p>
+    <ol>
+      <li><b>Two P3 exit checks could not pass [P3].</b> <code>seg_eval@ft_s42</code> and <code>@ft_s7</code> never
+        ran (ML-2 judged seed 123 only, and running them needs Opus calls, which D8 rules out).
+        <code>seg_predict@pretrained</code> and <code>seg_eval@pretrained</code> were already stale on code deps before
+        ML-3. Now P3 first brings those two up to date at the pre-strip commit. It drops ft_s42/ft_s7 from the
+        <code>seg_eval</code> foreach and names its stages in every <code>dvc status</code> check.</li>
+      <li><b>Two hash-pinning records were missing from the re-key [P3]:</b> <code>labels/ml2/base_points.yaml</code>
+        (the source <code>seg_base_masks</code> copies into its index) and <code>data/seg_labels/r{1,2,3}/index.csv</code>
+        (the judge loop looks verdicts up by photo and mask sha256). The final grep lists its two legitimate exceptions.</li>
+      <li><b><code>ood_eval.id_photos</code> skipped an empty pool silently [P1].</b> A country key passed where
+        folder ids belong would drop that country from the probe's positives without an error. Now an empty pool
+        raises, and a test ties <code>id_photos</code> to the dataset's split.</li>
+      <li>Minor: mask review starts with the riskiest photos [P5]. The holdout check prints 2026-09-11 and other days
+        apart [P8]. The printout states the seed rule, and the card carries all three seeds [P7, P8]. The printout
+        leads with the 8-country number on old photos and adds a photo-level readout [P1, P7]. The ship card loses
+        its old-class text [P8]. The strip checks every kept field byte for byte [P2]. An environment-drift check
+        runs before the strip [P3]. The plan now lists the missed readers, tests and <code>"cropped"</code> paths
+        [P1, P2b]. <code>dvc status</code> checks are scoped to named stages [P2b, P3, P4].</li>
+      <li>Nits, folded in where cheap. The byte-identity checks compare what P1 does not reformat [P1].
+        <code>RunConfig</code> asserts its pool and crop method agree [P2b]. A <code>dvc.yaml</code> note says the
+        segmenter cache is not reproducible after the re-key, and no <code>rsync --inplace</code> to the VM
+        [P3]. The web log's <code>top1_class</code> changes meaning [P9]. The ticket wrongly said all new photos carry
+        GPS: the 90 Sony G8441 photos carry none. The strip cannot be undone for two folders, which is Q8.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>The country label is a code change that existing data can prove harmless. With <code>classes.txt</code> still
+    in the old format, the new loader must give today's classes and today's patches bit for bit. The metadata strip
+    is the same kind of change: only hashes move, and every crop must come out identical. Doing both before the merge
+    keeps each check clean. Once the new photos are in, outputs are supposed to change, and nothing could tell a
+    regression from the merge. The <code>classes.txt</code> rewrite lands in the same commit as the merge, so
+    <code>coverage_report</code> never sees a declared class with no photos, or photos of an undeclared class.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P0</td><td>Owner answers Q1&ndash;Q7</td><td>&ndash;</td><td>no</td></tr>
+      <tr><td class="id">P1</td><td>Class list module; every reader of <code>classes.txt</code> uses it</td><td>local</td><td>no: byte-identical checks</td></tr>
+      <tr><td class="id">P2</td><td>Lossless metadata strip tool; freeze the new photos (Q4), strip them before <code>dvc add</code></td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2b</td><td>Retire <code>data/cropped</code> and the tray-heuristic crop stages (Q3); the segmenter's pools become the only pools</td><td>local + VM</td><td>no: same patches on the segmenter pools</td></tr>
+      <tr><td class="id">P3</td><td>Strip <code>dataset/</code> in place; re-key hash-pinned records; re-run the segmenter's crop and mask stages with identical outputs</td><td>local + VM</td><td>no: identical outs</td></tr>
+      <tr><td class="id">P4</td><td>Merge: new sessions into <code>dataset/</code>, <code>classes.txt</code> in D15 format, segmenter crops and pools</td><td>local + VM</td><td>yes</td></tr>
+      <tr><td class="id">P5</td><td>Owner reviews ft_s123's masks on the new photos (D8) <span class="pill sm open">stop</span></td><td>VM + owner</td><td>&ndash;</td></tr>
+      <tr><td class="id">P6</td><td>Head refits at seeds 42, 123, 7 on the segmenter pools</td><td>VM</td><td>yes</td></tr>
+      <tr><td class="id">P7</td><td>The D10 printout; owner picks the seed <span class="pill sm open">stop</span></td><td>local</td><td>&ndash;</td></tr>
+      <tr><td class="id">P8</td><td>Ship; OOD reference and probe refit; spent holdout as a regression check <span class="pill sm open">stop</span></td><td>VM</td><td>&ndash;</td></tr>
+      <tr><td class="id">P9</td><td>Release through <code>scripts/deploy_webapp.sh</code>; verify on the live domain</td><td>VM</td><td>live classes change</td></tr>
+      <tr><td class="id">P10</td><td>Docs, glossary, close-out</td><td>local</td><td>&ndash;</td></tr>
+    </tbody>
+  </table></div>
+  <p>P1 and P2 depend on no answer and can start at once. P2b follows P1, because P1's byte-identity
+    checks still read <code>data/cropped</code>. All of Q1&ndash;Q8 are answered.</p>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>31 <code>user_beans_independent</code> OOD positives (19 dev, 12 holdout) were shot on
+        2026-09-11, 10&ndash;45 min after that day's new training sessions. Pixel: positives 05:58&ndash;06:11, session
+        05:23&ndash;05:28. Sony: 13:02&ndash;13:15 against 12:46&ndash;12:52. OnePlus: 11:00&ndash;11:17 against
+        10:35&ndash;10:39. They may show the same Peru beans. What are they after the merge?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-04: ignore it and use them as they are now. The
+        manifest tags stay, the probe calibrates on <code>user_independent</code> as for exp260, and the holdout
+        check runs as on 2026-10-02.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q2</td><td>R8's re-key changes <code>photo_lists.yaml</code> and <code>data/seg_labels</code>,
+        which are deps of the ML-2 stages <code>seg_predict*</code>, <code>seg_embed_cache</code>,
+        <code>seg_finetune@*</code> and <code>seg_eval@*</code>. How are those stages brought up to date?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-04: (b), revised by Q2a. The mask stages
+        (<code>seg_predict*</code>, <code>seg_eval@*</code>) re-run on the VM as a pixel check. The fine-tune is
+        not re-run: <code>seg_embed_cache</code> and <code>seg_finetune@*</code> are brought up to date with
+        <code>dvc commit</code> against their existing outputs. Nothing is frozen and nothing is retrained.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q2a</td><td>If a re-run decoder is not byte-identical, which one is kept? A new one changes every
+        mask. All 16 segcrop stages re-run. <code>seg_eval@ft_s*</code> needs judge verdicts for the new masks
+        (Opus calls; D8 says none). The owner's 343-mask audit then describes a decoder that no longer exists, and the
+        live card's pin no longer loads at the new commit.</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-04: (i), keep the original decoders. The
+        reproducibility re-run (about 1 h 48 min on the VM in ML-2) is skipped, and the existing <code>ft_s*.pt</code>
+        are reused as they are. A second fine-tune happens only if the owner's P5 review calls for one (D8).</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q3</td><td>Under D9 the tray-heuristic pools (<code>data/cropped/cam_*</code>) never get Peru or
+        Rwanda, so a country fit on them refuses to start. <code>params.yaml</code> rests on them, the <code>train</code>
+        stage depends on them, and <code>coverage_report</code> checks against them.</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-04: delete <code>data/cropped</code>
+        altogether; training uses the segmenter only. This goes beyond moving the resting state: it is phase P2b. It
+        takes part of the ticket's "Out of scope" cleanup (the <code>crop.yaml</code> files) into this ticket.
+        <code>crop_tray.py</code> stays: the ResNet fallback serves with it, as does the <code>/crop</code>
+        endpoint for a tray-heuristic model.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q4</td><td><code>random_date_raccoon</code> has 18 photos (12 Colombia Excelso), not 11. Are all
+        18 meant to join? Can more arrive before P4?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-04: (c). All 18 join, and the owner may add more
+        until P2 starts. P2's first step fixes the set, and the ticket's counts are updated from it. Photos added after
+        that wait for the next ticket. Counts in this plan (288 new) are today's.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q5</td><td>Does <code>classes_short_map.txt</code> move into <code>dataset/</code>?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-05: (a), it does not move. The loader derives
+        the countries and their order from <code>classes.txt</code>, in order of first appearance. A test checks the
+        result against <code>classes_short_map.txt</code> once, then keeps the list itself, and the file is deleted
+        with <code>dataset_new_ignored/</code>.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q6</td><td>D10's last items, as I read them. (a) "Confusion between farm regions of one
+        country": the model predicts countries only, so for each coffee (class folder) in val/test, print its patch
+        count, the share predicted as its own country, and its top wrong countries. (b) "The ML-2 segmenter eval
+        subset": D21's subset, meaning each seed's val/test photos that are in neither <code>seg_train</code> nor
+        <code>seg_val</code>, with old and new photos printed apart. All new photos count as unseen.</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-05: both readings as written. More views can
+        be added to the printout later if needed.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q7</td><td>The deploy's <code>--compare</code> fixtures are "one per class". Should Peru and
+        Rwanda get one?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-05: (a), add them. One Peru and one Rwanda
+        photo from the 2026-09-24 sessions, a Pixel and a Sony, from the chosen seed's test split. Thirteen
+        fixtures: 1 smoke and 12 compare. The existing eleven stay, re-keyed in P3.</td><td>&ndash;</td></tr>
+      <tr><td class="id">Q8</td><td>The strip cannot be undone for two folders. <code>dataset_new_ignored/</code>
+        (288 photos) and <code>2026-08-06__box_pictures</code> are in no git and no DVC cache, so after P2/P3 their
+        original bytes exist nowhere, unless the owner still has them on the phones. D13.3 keeps the originals of the
+        DVC-tracked folders in the caches, but these two have none. Should a pre-strip copy be kept?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-05: (a), with the VM as the backup's place.
+        Before the first strip, one tar per folder is made locally and copied to the VM under
+        <code>~/ml3_prestrip/</code>, outside the repo checkout and its DVC cache. Its sha256 is checked on the VM and
+        recorded in the P2 manifest's header, and then the local tar is deleted. The VM copies are deleted when P4's
+        checks pass, so the GPS-bearing copy lives only for the length of P2&ndash;P4. The VM already holds the
+        other folders' GPS-bearing originals in its DVC cache (D13.3).</td><td>&ndash;</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; one class list, every reader taught it</h2>
+  <p>Today each of 14 call sites runs <code>sorted(load_class_labels(path))</code>, and the label is a position in
+    a list of folder ids. Every one of them has to learn the country, and old frozen lists must keep reading as they do
+    today. So the format is parsed in one place. A new stdlib-only module, <code>coffeecv/class_list.py</code>, has no
+    torch, so <code>coverage_report</code> and the release can import it cheaply. Its interface:</p>
+  <pre><code>ClassList(keys, labels, folders)    # keys: label order (index = model output); folders: key -> class folder ids
+  .index(key)   .key_of(folder_id)
+load_classes(path)    # the format decides:
+                      #   D15  "id;Country[,Region[,Subregion]];misc"  -> one class per country, keys in order of
+                      #        first appearance by id (= classes_short_map.txt), label = key (D2)
+                      #   old  "id;label"  -> one class per folder id, sorted, label as written: every shipped
+                      #        model's frozen .classes.txt reads exactly as today
+folder_classes(path)  # one class per folder id, sorted, either format: for seg_lists and the DINOv3 fixture
+read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverage_report, diagnostics</code></pre>
+  <p>Parsing is strict. A file is all one format or an error. D15 lines must be ASCII with a non-empty country, and
+    ids must not repeat. The format is the switch between country and folder classes: a new model's frozen
+    <code>.classes.txt</code> is a copy of the D15 file, so it serves countries, and an old one serves folders. No
+    config field is needed.</p>
+
+  <h3>Dataset</h3>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>pooled_class_photos(captures, folder_ids)</code>
+      (<code>dataset.py:343</code>) pools every folder of one class across every capture. A capture is
+      <code>absent</code> only if it has none of them.
+      <span class="result">D6 then needs no code: the per-(capture, class) budget at <code>dataset.py:581</code> already spreads over every photo of that class in that capture, whichever folder it came from.</span></span></li>
+    <li><span class="box"></span><span><code>MultiPhotoPatchDataset</code> takes the <code>ClassList</code> instead of
+      <code>(classes_file, class_ids)</code>. <code>PatchMeta</code> gains <code>folder_id</code>, the coffee a
+      patch came from: the farm-region diagnostic (D10) and R3 need it.</span></li>
+    <li><span class="box"></span><span>Keep the split key <code>(capture, photo name)</code>. A country pools several
+      folders inside one capture, so names must be unique across them. They are today, including the new photos (no
+      repeated stem under any <code>class_*</code> folder). <code>split_photos_by_class</code> already raises on a
+      duplicate; a test covers the cross-folder case.</span></li>
+    <li><span class="box"></span><span>Delete <code>load_class_labels</code> and <code>get_class_label</code>
+      once nothing imports them, so no reader can bypass the format check. <code>PatchCoffeeDataset</code>
+      (<code>dataset.py:96</code>) goes with them. It is dead code, imported nowhere, but it calls
+      <code>load_class_labels</code>, so the deletion would fail without it.</span></li>
+    <li><span class="box"></span><span>An empty pool is an error, not a skip. <code>ood_eval.id_photos</code>
+      (<code>:241-246</code>) <code>continue</code>s past a class with no photos, so a country key passed where its
+      folder ids belong would silently drop that country from the OOD probe's positives. It raises instead, naming
+      the class. <code>split_census</code> (<code>dataset.py:425</code>) keeps recording <code>pooled: 0</code>, and
+      <code>split_report</code> exits non-zero on it.</span></li>
+  </ol>
+
+  <h3>Readers</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>fold_data.py</code></td><td><code>FoldDatasets</code> carries the <code>ClassList</code>; <code>class_ids</code>/<code>class_labels</code> derive from it</td></tr>
+      <tr><td><code>infer.py</code>, <code>webapp/app.py</code>, <code>webapp/deploy/release_probe.py</code></td><td><code>load_classes(cfg.classes_file)</code>. For both shipped models the frozen list is the old format, so the same ten keys and labels</td></tr>
+      <tr><td><code>infer.config_for_checkpoint</code></td><td>Refuses a config whose recorded <code>class_ids</code> differ from the list it would now read, naming the commit to rebuild from. This catches finding 6 instead of letting it mislabel silently</td></tr>
+      <tr><td><code>build_ood_reference.py</code>, <code>fit_ood_probe.py</code>, <code>coffeecv_dino/ood_feasibility.py</code></td><td><code>load_classes</code></td></tr>
+      <tr><td><code>ood_eval.id_photos</code></td><td>More than a name swap: it rebuilds the checkpoint's split, which <code>fit_ood_probe.py:145</code> uses for the probe's positives. It iterates the <code>ClassList</code>, pooling each class's folder ids at its own class index, and raises on an empty pool (Dataset, above)</td></tr>
+      <tr><td><code>fit_frozen_head.py</code></td><td>Ship check on <code>load_classes(...).keys</code>. <code>config.json</code> also records <code>classes_sha256</code>, so a later rewrite of the file is detectable. Predictions get provenance columns (next row). <code>ship()</code>'s card text (<code>:196-202</code>) hard-codes the old classes' cross-camera folds and a pointer to <code>allrigs_cam_s123</code>'s card. For a country list both go, replaced by the three-seed summary (P8)</td></tr>
+      <tr><td><code>metrics.write_predictions_csv</code></td><td>Optional extra columns after <code>true_label, pred_label</code> (DVC's confusion template reads only those two): <code>capture, photo, folder_id</code>, then one <code>p_&lt;key&gt;</code> probability column per class. P7 and the ML-2 subset then score from the archive, with no rebuild on the VM, including an argmax restricted to the 8 old countries and a photo-pooled F1</td></tr>
+      <tr><td><code>analysis/ml2_p0/pick_photos.py</code></td><td><code>folder_classes</code>: it is the record of how ML-2 picked the segmenter's photos, seeded by folder index, so it must keep reproducing that pick</td></tr>
+      <tr><td><code>tests/test_seg_parity.py:44-48</code>, <code>tests/test_dino_head.py:27</code></td><td>Pass a <code>ClassList</code> (the first writes a one-line old-format file and passes <code>classes_file, class_ids</code>)</td></tr>
+      <tr><td><code>seg_lists.py</code></td><td><code>folder_classes</code>; skip a folder with an empty pool (011&ndash;014 have no tray-heuristic crops); take its capture dirs from the lists file's own <code>meta</code>, not <code>params.yaml</code>, so Q3 cannot move ML-2's split</td></tr>
+      <tr><td><code>coffeecv_dino/reference.py</code>, <code>check_augmentation.py</code></td><td><code>folder_classes</code>: the fixture's <code>class_idx</code> seeds its boxes and must not move</td></tr>
+      <tr><td><code>split_report.py</code></td><td>Per country, plus each coffee's photos in val and test (D7: a coffee can miss val or test by chance; R3)</td></tr>
+      <tr><td><code>coverage_report.py</code></td><td><code>read_coffees</code> instead of its own parser (<code>:109</code>); a country table beside the folder table</td></tr>
+      <tr><td><code>eval_legacy_lens_photos.py</code></td><td><code>load_classes</code>; a <code>class=NNN.heif</code> name maps through <code>key_of</code></td></tr>
+      <tr><td><code>plotting.py</code></td><td>Tick label printed once when key and label are equal (<code>Brazil</code>, not <code>Brazil\nBrazil</code>)</td></tr>
+      <tr><td><code>webapp/deploy/release_manifest.py</code></td><td><code>class_list</code> joins <code>LIBRARY</code>; <code>test_release_manifest</code>'s import trace fails if it is missing</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Checks (classes.txt still in the old format)</h3>
+  <ul class="checks">
+    <li><span class="box"></span><span>New <code>tests/test_class_list.py</code>: the D15 content from the ticket
+      yields the ten countries in <code>classes_short_map.txt</code>'s order. Brazil maps to 006, 007, 013. Every
+      <code>models/*.classes.txt</code> reads as today's keys and labels. Mixed, non-ASCII or duplicate-id files
+      are refused. <code>folder_classes</code> of a D15 file gives sorted folder ids.</span></li>
+    <li><span class="box"></span><span><code>tests/test_pooled_split.py</code>: two folders of one country in one
+      capture form one pool; the budget spreads over both; a name repeated across them raises.</span></li>
+    <li><span class="box"></span><span>Byte-identity, on what P1 does not reformat: DINOv3 fixture patches unchanged
+      (<code>test_dino_backbone</code>); <code>split_census</code>'s dict unchanged at seeds 42/123/7 (the report's
+      text gains per-coffee rows, so it is not compared); <code>seg_lists build</code> rewrites an identical file;
+      <code>fit_frozen_head --smoke</code> predictions' <code>true_label, pred_label</code> columns and its metrics
+      identical to a pre-change smoke run (the CSV gains columns).</span></li>
+    <li><span class="box"></span><span><code>tests/test_ood_id_photos.py</code>: on the D15 content, <code>id_photos</code>
+      returns exactly the val and test photos that the matching <code>MultiPhotoPatchDataset</code> splits use, for
+      a country pooled from two folders; a class with no photos raises.</span></li>
+    <li><span class="box"></span><span>Served answers unchanged: <code>release_probe.py classify</code> on the eleven
+      fixtures with <code>allrigs_dino3b16_seg_s7</code> and <code>allrigs_cam_s123</code>, before and after, give
+      identical JSON.</span></li>
+    <li><span class="box"></span><span>Full suite: <code>python -m unittest discover -s tests</code>.</span></li>
+  </ul>
+
+  <h2>4. P2 &mdash; the strip tool, and the new photos first</h2>
+  <p>The 2026-09-30 <code>ood_positives</code> strip is documented in its README, but its tool is not in the repo.
+    D13 now covers JPEG, HEIC and DNG, and the strip must be repeatable, so it becomes a committed tool:
+    <code>python -m coffeecv.strip_metadata DIR... --manifest labels/ml3/strip_manifest.csv [--dry-run]</code>.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Backend: <code>exiftool</code> for all three formats. It edits metadata
+      without re-encoding image data, and handles HEIC and DNG, which a hand-written JPEG segment editor would not.
+      Add <code>libimage-exiftool-perl</code> to <code>.devcontainer</code> and record its version in the manifest.
+      The strip runs locally only; the VM receives stripped files.</span></li>
+    <li><span class="box"></span><span>What goes is D13.1 as a deny list: GPS, device and lens serials, maker notes,
+      C2PA/JUMBF, extended XMP (HDR+), embedded thumbnails and previews, owner/artist fields. The rest stays, ICC and
+      Orientation included. They stay because they are not private and they describe the photo; no stage of this
+      pipeline applies them. Segcrop and serving both decode with <code>load_rgb_image</code>, which ignores EXIF
+      rotation (<code>segcrop_session.py:16-17</code>), and the <code>crop</code> stage that did apply it goes in
+      P2b. The exact exiftool arguments are fixed by a <code>--dry-run</code> over one file of every (camera,
+      format) pair, which lists what would go.</span></li>
+    <li><span class="box"></span><span>Per file, in a temp copy, replaced atomically only if every check passes:
+      decode with <code>dataset.load_rgb_image</code> before and after (rawpy for DNG), and the pixel arrays must be
+      equal. For a JPEG with an MPF gain map, the secondary image's bytes must be equal too, and likewise a HEIC's
+      auxiliary images (depth, gain map). The pixel check cannot see a lost Orientation or ICC profile, because
+      <code>load_rgb_image</code> ignores both. So every kept field is compared byte for byte before and after:
+      Orientation, the ICC profile's bytes, Make, Model, DateTimeOriginal and the exposure tags. This matters for
+      the new photos: 80 of the 90 Sony photos have Orientation 3, 6 or 8, and every Pixel and OnePlus photo
+      carries an ICC profile. A post-strip audit with <code>exiftool -a -G1</code>, including embedded
+      documents, fails on any deny-listed tag. The manifest row is <code>path, sha256_before, sha256_after,
+      pixel_sha256, removed</code>. It is the re-key map for P3 and the record of D13.</span></li>
+    <li><span class="box"></span><span>Fix the set of new photos (Q4): the owner confirms there are no more, then the
+      count per (session, class folder) is recorded in <code>labels/ml3/new_photos.csv</code>, with path, camera
+      model from EXIF and capture time, and copied into the ticket's tables. Checks before anything is stripped:
+      every class folder is one of the fourteen in D15 (a new coffee needs its own <code>classes.txt</code> line
+      first); every <code>random_date_raccoon</code> photo is from the Pixel 9 Pro, because the folder joins
+      <code>cam_pixel</code> (D6); and every dated session's photos are from its own camera. Nothing joins after this
+      step.</span></li>
+    <li><span class="box"></span><span>Q8 backup, after the set is fixed (previous task) and before the first file is
+      stripped: <code>tar</code> <code>dataset_new_ignored/</code> and <code>dataset/2026-08-06__box_pictures/</code>
+      into one archive each, copy both to the VM's <code>~/ml3_prestrip/</code> (outside the checkout and its DVC
+      cache) and compare the sha256 on both ends. Record each sha256 in the manifest's header, then delete the local
+      tars. A test extraction on the VM lists every file in <code>labels/ml3/new_photos.csv</code>. The VM copies
+      are deleted at the end of P4, after its checks pass.</span></li>
+    <li><span class="box"></span><span>Run it on the seven folders in <code>dataset_new_ignored/</code> (288 files today).
+      They are tracked nowhere yet, so nothing downstream moves. Then a <code>--dry-run</code> over all of
+      <code>dataset/</code>, as a report of what P3 will remove per folder.</span></li>
+    <li><span class="box"></span><span>Tests: a pixel-equality failure leaves the original untouched; a deny-listed
+      tag that survives fails the file; a dropped Orientation or ICC profile fails the file; a JPEG, a HEIC and a
+      DNG fixture pass.</span></li>
+  </ol>
+
+  <h2>4b. P2b &mdash; retire <code>data/cropped</code> (Q3)</h2>
+  <p>The tray heuristic's pools (4.4 GB here, also on the VM) go, with the stages that build them. Training,
+    the reports and ML-2's tools read the segmenter's pools only. This comes after P1, whose checks still use the
+    old pools, and before P3, so the strip has no tray-heuristic crops to re-run. Every reader was traced. Each
+    one switches or goes, in this order:</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>One pool list.</b> <code>dataset.CAPTURES</code> becomes the four
+      <code>data/segcropped/cam_*</code> pools, in the same order, and <code>SEG_CAPTURES</code> goes.
+      <code>params.yaml</code> rests at them with <code>crop_method: segment</code>. So do
+      <code>RunConfig</code>'s default <code>train_capture_dirs</code>, <code>run_all_rigs.py</code>, the
+      <code>train</code> stage's deps, and <code>fit_frozen_head</code>, whose <code>--pools</code> flag and
+      <code>POOLS["cropped"]</code> go. <code>RunConfig</code>'s default <code>crop_method</code> stays
+      <code>tray_heuristic</code>: cards written before ML-2 have no such field, and <code>allrigs_cam_s123</code>
+      must keep serving with the tray heuristic. So a config that sets neither field would sample the segmenter's
+      pools without their masks (D17). <code>RunConfig</code> asserts that the pair agrees: a
+      <code>data/segcropped</code> pool needs <code>crop_method: segment</code>, and the other way round.</span></li>
+    <li><span class="box"></span><span><b>The DINOv3 test fixture</b> (<code>coffeecv_dino/reference.py</code>,
+      used by four test modules) moves from <code>data/cropped/cam_iphone</code> to
+      <code>data/segcropped/cam_iphone</code>. P4 adds no iPhone photos, so the pool stays fixed through the merge.
+      <code>tests/fixtures/dinov3_vits16_reference.npz</code> is regenerated once with
+      <code>scripts/make_dinov3_fixture.py</code>, since its Meta outputs belong to the old patches. The segmenter
+      pools are copied into the devcontainer from the VM's DVC cache (the remote is down), so these tests keep running
+      locally instead of skipping.</span></li>
+    <li><span class="box"></span><span><b><code>seg_lists</code></b> rebuilds ML-2's split from the nine ML-2
+      sessions' segmenter crops (<code>data/segcropped/&lt;session&gt;</code>), each filed under its pool's name.
+      It does not read the merged pools: after P4 they hold new photos, and its split would move. Check on the
+      VM: <code>build</code> rewrites <code>photo_lists.yaml</code> unchanged. The committed entries'
+      <code>crop:</code> paths stay as history; the append-only check compares path and hash only.</span></li>
+    <li><span class="box"></span><span><b><code>seg_eval</code></b> loses the two parts that read the old pools: D22's
+      heuristic-rectangle comparison and D19's pitch check against the old crops. Both are recorded results of ML-2
+      (<code>outputs/seg_eval_*.json</code>, committed). Its <code>data/cropped</code> dep goes, and so does
+      <code>test_seg_eval</code>'s box test. Its foreach drops <code>ft_s42</code> and <code>ft_s7</code>. They have
+      no <code>dvc.lock</code> entry and never ran: ML-2 judged only the seed that <code>seg_val</code> selected
+      (123), and running them needs judge calls, which D8 rules out. A <code>dvc.yaml</code> comment records
+      this.</span></li>
+    <li><span class="box"></span><span><b><code>coverage_report</code></b> takes sessions from the
+      <code>segcrop</code> foreach and checks classes against <code>CAPTURES</code>.
+      <code>repro_utils.CAPTURE_STAGE_OVERRIDES</code> keeps only the segmenter's pools.</span></li>
+    <li><span class="box"></span><span><b>Deleted:</b> the <code>crop</code> foreach and the four
+      <code>merge_cam_*</code> stages (with their <code>dvc.lock</code> entries), <code>coffeecv/crop_session.py</code>,
+      the nine <code>dataset/*.crop.yaml</code>, <code>coffeecv/qa_live_crop.py</code> (it only compares the live
+      crop with a <code>crop.yaml</code>), and <code>archive_experiment</code>'s copying of the <code>crop.yaml</code>
+      files into each run. <code>merge_rig.py</code> stays (it builds the segmenter's pools), with its default root
+      moved to <code>data/segcropped</code>. <code>crop_tray.py</code> stays (Q3).</span></li>
+    <li><span class="box"></span><span><b>The working copies</b> of <code>data/cropped</code>, here and on the VM, are
+      deleted only after checking that every file is in that machine's DVC cache, as ML-1 did for
+      <code>oneplus_combined</code>. An older commit plus <code>dvc checkout</code> brings them back. No
+      <code>dvc gc</code> (R6).</span></li>
+    <li><span class="box"></span><span><b>Paths a literal grep misses</b>, built as <code>REPO_ROOT / "data" /
+      "cropped"</code>:
+      <ul>
+        <li><code>seg_lists.py:48</code>, <code>seg_eval.py:50</code> and <code>merge_rig.py:29</code> are covered above.</li>
+        <li><code>analysis/bean_scale/{band_sweep,benchmark,make_crops}.py</code> are the record of a finished
+          experiment. They stay, with a header line saying they read the retired pools and run at their own
+          commit.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><b>Tests that would break or silently skip:</b>
+      <ul>
+        <li><code>test_seg_lists.py:178</code> skips unless <code>seg_lists.CROPPED_ROOT/"cam_pixel"</code> exists.
+          After P2b it would skip forever, losing the only test that <code>build</code> reproduces
+          <code>photo_lists.yaml</code>. The guard moves to the segmenter's session dirs.</li>
+        <li><code>test_frozen_checkpoint.py:114</code> hard-codes <code>data/cropped/cam_sony</code> and moves to
+          the segmenter's pool.</li>
+        <li><code>test_seg_parity.py:136-148</code> asserts <code>SEG_CAPTURES</code> mirrors <code>CAPTURES</code>
+          and keys a <code>data/cropped</code> path. It is rewritten against the single pool list.</li>
+        <li><code>test_model_and_ood_loading.py:118-126</code> uses <code>data/cropped</code> paths only as strings
+          in old cards and stays.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><b>On the VM, at P2b's commit, before any strip</b> (the review's M1 and
+      m7):
+      <ul>
+        <li><b>Stale before ML-3:</b> <code>seg_predict@pretrained</code> and <code>seg_eval@pretrained</code> are
+          already stale on code deps (<code>seg_predict.py</code>, <code>segment_beans.py</code>,
+          <code>seg_eval.py</code>, <code>verdicts.jsonl</code>) from ML-2's later work, and P2b's
+          <code>seg_eval</code> change makes <code>seg_eval@ft_s123</code> stale too. Re-run all three at 4
+          threads.</li>
+        <li><b>Check:</b> every pretrained mask's <code>mask_sha256</code> and the
+          <code>data/seg_masks/pretrained</code> out hash are unchanged. <code>seg_eval_*.json</code> is identical
+          apart from the D19/D22 fields. If a pretrained mask changes, <code>seg_eval</code> stops and names masks to
+          judge. That is a stop: the owner decides, because D8 rules out judge calls.</li>
+        <li><b>Environment drift:</b> force a re-run of one <code>segcrop@</code> session (the smallest) against
+          today's unstripped bytes. Its out hash must equal <code>dvc.lock</code>'s. If it does not, the VM's
+          environment has drifted since ML-2 P4. Stop: P3's identity check would then be meaningless, and the
+          cause is not the strip.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><b>Accepted consequence:</b> at commits from P2b on, a tray-heuristic model
+      (<code>allrigs_cam_s123</code> and older) still serves, but no tool can rebuild its split, OOD reference or
+      probe. Those stay reproducible from the models' own commits.</span></li>
+    <li><span class="box"></span><span>Checks:
+      <ul>
+        <li><code>grep -rn 'data/cropped\|"cropped"'</code> over code, tests, scripts, <code>params.yaml</code> and
+          <code>dvc.yaml</code> finds only history in comments, the old-card strings above and the
+          <code>bean_scale</code> record.</li>
+        <li><code>split_report</code> on the segmenter pools gives P1's census.</li>
+        <li><code>fit_frozen_head --smoke</code> gives the same predictions as a <code>--pools segcropped</code> smoke
+          run before P2b.</li>
+        <li><code>dvc status</code> is clean for <code>segcrop@*</code>, <code>merge_segcam_*</code>,
+          <code>seg_predict@pretrained</code>, <code>seg_predict_ft@*</code>, <code>seg_embed_cache</code>,
+          <code>seg_finetune@*</code>, <code>seg_eval@pretrained</code> and <code>seg_eval@ft_s123</code>. This
+          is P3's starting state. The legacy ResNet <code>train</code>
+          stage has been stale since before ML-3 (<code>coffeecv</code> changed, new params). It is not run and
+          not counted in any check in this plan.</li>
+        <li>Full suite green, with the backbone tests running, not skipped.</li>
+      </ul></span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; strip <code>dataset/</code>, re-key, prove nothing else moved</h2>
+  <p>Every pointer under <code>dataset/</code> changes, and every <code>segcrop@*</code>
+    stage goes stale (R8). They must re-run to identical outputs. That is the end-to-end proof that the strip touched
+    no pixel.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Before: <code>dvc status</code> clean for the stages P2b's last check names
+      (P2b brought the stale ML-2 ones up to date and ruled out environment drift). Save their out hashes from
+      <code>dvc.lock</code>.</span></li>
+    <li><span class="box"></span><span>Strip in place, D13.2 (a): the 9 training sessions,
+      <code>2026-07-24__first_pictures</code> (DNG, HEIF), <code>2026-08-06__box_pictures</code> (in no git and
+      no DVC; stripped only), <code>classes_labels_only</code>, <code>ood_negatives</code> (three nested
+      <code>.dvc</code> dirs, PNGs included) and <code>ood_positives_internet</code>. <code>ood_positives</code> is
+      audited only and must already pass. Then <code>dvc add</code> each tracked folder.</span></li>
+    <li><span class="box"></span><span>Re-key from the manifest, with each file's hash checked against it. Every old
+      hash found must be in the manifest, or the step stops. Report the count per file:
+      <code>webapp/deploy/fixtures.txt</code> (11); <code>labels/ml2/photo_lists.yaml</code> (1164 entries, through a
+      new <code>seg_lists rekey</code> subcommand, the only path allowed to change a pinned hash, so <code>build</code>
+      keeps its append-only refusal); <code>labels/ml2/verdicts.jsonl</code> (2544 rows);
+      <code>labels/ml2/defects/*.csv</code>; <code>labels/ml2/base_points.yaml</code> (the source that
+      <code>seg_base_masks.py:62,78,198</code> copies into its index; re-keying the index alone would let its next
+      run write the old hashes back); <code>data/seg_labels/labels.csv</code> and
+      <code>data/seg_labels/r{1,2,3}/index.csv</code> (column <code>photo_sha256</code>; the judge loop looks
+      verdicts up by <code>(photo_sha256, mask_sha256)</code>, <code>seg_labels.py:101-109,154</code>, so a missed
+      one means fresh judge calls); <code>data/seg_masks/base_points/index.csv</code>. Then <code>dvc add
+      data/seg_labels data/seg_masks/base_points</code>. The <code>data/seg_masks/*/index.csv</code> written by
+      <code>seg_predict</code> are rewritten by its re-run below, not by hand. The <code>seg_eval</code> outputs
+      under <code>outputs/ml2_p2/</code> are rewritten by their re-run.</span></li>
+    <li><span class="box"></span><span>On the VM, after moving the stripped photos and the commit there as ML-2 P4 did
+      (the remote is down). Copy into fresh files, never <code>rsync --inplace</code>: if the VM's DVC cache links
+      its working files, an in-place write would overwrite the cached originals that D13.3 keeps. Then
+      <code>dvc commit seg_embed_cache seg_finetune@42 seg_finetune@123 seg_finetune@7</code>
+      (Q2, Q2a). This records the re-keyed <code>photo_lists.yaml</code> and <code>data/seg_labels</code> against
+      the existing outputs. It has to run on the VM, because <code>data/seg_cache</code> lives only there. The
+      original decoders are reused, and nothing is retrained. Check: the three <code>ft_s*.pt</code> out hashes in
+      <code>dvc.lock</code> are unchanged.</span></li>
+    <li><span class="box"></span><span>Accepted with Q2a: <code>data/seg_cache/{index.csv, cache.json}</code> and the
+      label-set hash in <code>models/seg/ft_s*.json</code> keep values derived from the old photo hashes
+      (<code>seg_finetune.py:149-152,195-197</code>). A forced <code>dvc repro seg_embed_cache</code> would not
+      reproduce the recorded outputs. A <code>dvc.yaml</code> comment on both stages says so.</span></li>
+    <li><span class="box"></span><span>Then, at 4 threads, <code>seg_predict@pretrained</code>, <code>seg_predict_ft@*</code>,
+      <code>seg_eval@pretrained</code>, <code>seg_eval@ft_s123</code>, <code>segcrop@*</code> (9) and
+      <code>merge_segcam_*</code> (4). Check: segcrop and merge out hashes unchanged; every mask's
+      <code>mask_sha256</code> unchanged; <code>outputs/seg_eval_*.json</code> identical to P2b's; <code>dvc
+      status</code> clean for the stages P2b's check names.</span></li>
+    <li><span class="box"></span><span><code>deploy_webapp.sh</code>'s <code>check_fixtures</code> passes on the
+      re-keyed <code>fixtures.txt</code>. <code>release_probe classify</code> on the live model gives the P1 JSON
+      again.</span></li>
+    <li><span class="box"></span><span>No <code>dvc gc</code> anywhere until the remote is back (R6). The GPS-bearing
+      originals stay in both caches by design (D13.3), and the only copy of the new hashes is local and on the VM.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; the merge</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Pre-checks on the stripped new photos: no sha256 or capture-timestamp stem
+      matches any photo under <code>dataset/</code> (as done for <code>ood_positives</code> on 2026-09-30); camera
+      EXIF matches the pool each session joins (D6). Count per (session, folder) against
+      <code>labels/ml3/new_photos.csv</code> (P2), so nothing was added or lost since the set was fixed.</span></li>
+    <li><span class="box"></span><span>Move the six dated sessions and <code>random_date_raccoon</code> into
+      <code>dataset/</code>. <code>dvc add</code> each; commit the <code>.dvc</code> pointers and the
+      <code>dataset/.gitignore</code> lines.</span></li>
+    <li><span class="box"></span><span><code>dataset/classes.txt</code> to the D15 content, word for word from the
+      ticket, in the same commit. The pinning test from Q5 runs against
+      <code>dataset_new_ignored/classes_short_map.txt</code> one last time, then pins the list in the test itself.</span></li>
+    <li><span class="box"></span><span><code>dvc.yaml</code>: the seven sessions join the <code>segcrop</code> foreach
+      (not <code>crop</code>, D9). <code>merge_segcam_pixel</code> gains <code>2026-09-11__pixel</code>,
+      <code>2026-09-24__pixel</code> and <code>random_date_raccoon</code>; <code>merge_segcam_sony</code> and
+      <code>merge_segcam_oneplus</code> gain their two sessions each. <code>repro_utils.CAPTURE_STAGE_OVERRIDES</code>
+      lists the new segcrop stages under the same pools, or <code>stale_crop_stages</code> cannot see them.</span></li>
+    <li><span class="box"></span><span><code>coverage_report.py</code>: the <code>ood_*</code> folders in <code>EXCLUDED</code>
+      (P2b already moved it to the segmenter's pools and stage list). Their four pre-existing FAILs date from ML-1, and the ticket asks for a clean
+      report.</span></li>
+    <li><span class="box"></span><span>On the VM: <code>dvc repro</code> the seven new <code>segcrop</code> stages and
+      the three changed merges. Read the D18 fallback count per session. A fallback photo trains on its whole frame,
+      so a cluster of them (say on the hopper photo) goes to the owner with P5.</span></li>
+    <li><span class="box"></span><span>Checks: <code>coverage_report</code> exits 0; <code>split_report</code> at seeds
+      42, 123 and 7 shows 10 countries, the iPhone pool without Peru, Rwanda and Indonesia, and the coffees each split
+      left out of val or test. The run log carries the same list (D7, R3). <code>dvc status</code> is clean for
+      P2b's named stages plus the seven new <code>segcrop@</code> stages. The <code>train</code> stage is not
+      counted.</span></li>
+    <li><span class="box"></span><span>Q8: with every check above passed, delete the pre-strip tars from the VM's
+      <code>~/ml3_prestrip/</code>.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; owner mask review (D8) <span class="pill sm open">stop</span></h2>
+  <p><code>segcrop</code> stores the crop-aligned mask, but the review tool shows a full-photo mask. The full-frame mask
+    is not on disk.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>On the VM, compute ft_s123's full-frame masks for the 288 new photos at 4
+      threads (a small <code>seg_predict</code> mode that takes the new sessions instead of a list), into
+      <code>data/seg_masks/ml3_new_ft_s123/</code> with its <code>index.csv</code>. Check: every mask's sha256 equals
+      the <code>mask_sha256</code> in that photo's <code>segcrop_report.json</code>. The owner then judges exactly
+      the masks training uses.</span></li>
+    <li><span class="box"></span><span>Items CSV &rarr; <code>python -m coffeecv.review_masks --items ... --name
+      ml3_new_ft_s123</code>. Decisions go to <code>labels/ml2/review/ml3_new_ft_s123.decisions.jsonl</code>,
+      committed. The order puts the riskiest masks first, so stopping early (D8: "as many as needed") never skips
+      them. First come all of <code>random_date_raccoon</code> (the hopper photo and the only other settings, R4)
+      and every D18 fallback. The rest follow in a seeded shuffle stratified by session, so any prefix covers every
+      session.</span></li>
+    <li><span class="box"></span><span>Print the accept rate overall and per session, each with its denominator
+      (masks judged and masks in the session), the declines with reasons, and the D18 fallbacks. Stop. The owner
+      decides whether the declines call for a second fine-tune. If they do, that is a new decision for the ticket,
+      and P6 waits for it.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; head refits</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>On the VM: <code>python -m coffeecv.fit_frozen_head --seeds
+      42 123 7 --start-exp N</code>, with N the next free id. The archive name gains <code>_country</code>, so
+      the new runs never sort beside exp258&ndash;260 as if they were comparable. C stays fixed at 0.1 (ML-1 D3).</span></li>
+    <li><span class="box"></span><span>Read each run's log before P7: per-split D18 fallbacks and below-share
+      patches, starved (capture, country) cells, convergence. Expect 600 train patches per country in four pools and
+      450 in three (D6).</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; the D10 printout <span class="pill sm open">stop</span></h2>
+  <p><code>analysis/ml3/printout.py</code> writes <code>analysis/ml3/printout.txt</code>. It runs locally, from the
+    archived predictions and their provenance columns (P1).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>Headline, printed first:</b> per seed, val and test patch macro-F1 over the
+      8 old countries, on old photos only (sessions before ML-3), both as scored and with the argmax restricted
+      to those 8 classes (from the <code>p_&lt;key&gt;</code> columns, P1). This is the number closest to the
+      reference below.</span></li>
+    <li><span class="box"></span><span>Then, per seed and the mean and range over seeds: val and test patch macro-F1
+      over 10 countries and over the 8 old countries (<code>macro_labels</code>), and per-country F1. A note says
+      that Peru and Rwanda are one coffee each, each camera's block 20&ndash;40 frames shot within 5&ndash;25
+      minutes (file-name timestamps), spread across all splits. Their F1 is near 1.0 by construction, which lifts the 10-country macro-F1, so it is not
+      evidence of generalization.</span></li>
+    <li><span class="box"></span><span>Photo level: macro-F1 with each photo's eval patches pooled by mean
+      probability, as serving pools its 40. It is labelled as pooled over the eval split's patches, not serving's 40.
+      Each headline number carries a 95% CI from a bootstrap that resamples photos (patches of one photo are
+      correlated), 1000 draws, seeded.</span></li>
+    <li><span class="box"></span><span>Reference: exp258&ndash;260's archived predictions, folder ids mapped to
+      countries by the new <code>classes.txt</code>, macro-F1 recomputed. It must reproduce the ticket's numbers (val
+      0.9796 / 0.9826 / 0.9815, test 0.9785 / 0.9759 / 0.9835) and the share of old errors that stay inside one
+      country. It is printed under D10's own caveat: unpaired, old split, 8 classes, top-1 only. The caveat also
+      names the ways it favours the old model. It had no Peru or Rwanda to confuse with, and Indonesia, the one
+      roasted class, now has two roasted neighbours. Ethiopia and Brazil had two coffees' val/test support and
+      training budget (exp258 test: 280 and 320 patches, against at most 160 per country now). The new 8-country
+      sets include the roasted <code>random_date_raccoon</code> photos.</span></li>
+    <li><span class="box"></span><span>Per coffee (Q6 a): patches in val and test, share predicted as its country,
+      top wrong countries; "not in this split" where D7 left a coffee out.</span></li>
+    <li><span class="box"></span><span>The ML-2 subset (Q6 b): macro-F1 on each seed's val/test photos outside
+      <code>seg_train</code> and <code>seg_val</code>, old and new photos apart. The code reuses
+      <code>analysis/ml2_p6/unseen_subset.py</code>'s matching, on the archived <code>photo</code> column.</span></li>
+    <li><span class="box"></span><span>The owner's accept rate from P5, under D8's note that it is not comparable with
+      ML-2's 97.9%.</span></li>
+    <li><span class="box"></span><span>The seed rule, printed with a marker on the seed it points at: pick on val, as
+      ML-1 and ML-2 did (exp260 was val's best), and report test. Each seed draws its own split
+      (<code>dataset.py:381</code>), so comparing seeds partly compares val/test sets, and the picked seed's test
+      number carries a selection bias. Stop: the owner picks the seed.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; ship and the OOD probe <span class="pill sm open">stop</span></h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>fit_frozen_head --ship EXP --name allrigs_dino3b16_seg_country_sNN</code>.
+      The frozen <code>.classes.txt</code> is the D15 file. The card's <code>expected_performance</code> carries P7's
+      in-distribution numbers: the shipped seed's, plus the mean and range over all three seeds, since the shipped
+      seed's own test number is selection-biased (P7). The old-class <code>cross_camera_from_selection_folds</code>
+      text and the pointer to <code>allrigs_cam_s123</code>'s card go (P1). Its note says country classes are not
+      comparable with any earlier card (R2).</span></li>
+    <li><span class="box"></span><span><code>build_ood_reference --store-knn-embeddings</code>, then
+      <code>fit_ood_probe</code> as for exp260 (test-split photos plus clean dev negatives), calibrated on <code>user_independent</code> as for exp260 (Q1). Then
+      <code>--verify</code> on the spent holdout, once, as a regression check only (D11). It prints negatives caught,
+      genuine refused at the calibrated threshold and at 0.5. The live probe's
+      2026-10-02 figures are the comparison: 56/56 negatives, 2/26 genuine refused at 0.5.</span></li>
+    <li><span class="box"></span><span>The comparison is not like for like, and the printout says so. Q1's tags and
+      calibration stay; only the readout grows. 12 of the 19 <code>user_beans_independent</code> holdout photos
+      and 19 of the 28 dev ones were shot on 2026-09-11, the day of three new training sessions. By the README's own
+      rule ("The two tags are not interchangeable"), same-day photos flatter the new probe. So
+      <code>--verify</code> also prints genuine refused for 2026-09-11 and for other days apart (12 and 7 holdout
+      photos), from the manifest's <code>date</code>. The calibration step prints the calibrated α on the 9 dev
+      positives from other days beside the α it uses.</span></li>
+    <li><span class="box"></span><span>The card and <code>analysis/ml3/README.md</code> say plainly that the guard is
+      not freshly validated (D11). Stop: the owner sets the served threshold, as with 0.5 for the live probe, and
+      fills in <code>why_this_one</code>.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; release (D12)</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Fixtures per Q7: two <code>compare</code> lines, a Peru and a Rwanda test-split
+      photo, in <code>webapp/deploy/fixtures.txt</code>. Their basenames must be unique (the VM stores the photos flat). <code>scripts/rehearse_deploy_local.sh</code> from a scratch
+      clone, as ML-2 P3 did, because the release manifest now carries <code>class_list.py</code>.</span></li>
+    <li><span class="box"></span><span>After the owner pushes <code>main</code>: <code>scripts/deploy_webapp.sh &lt;sha&gt;
+      &lt;model&gt;</code>, then <code>--compare</code>, which must be bit-identical on all fixtures. Verify through the
+      live domain: <code>/classify</code> returns ten country scores under their keys (<code>CostaRica</code>, D2),
+      and the startup line shows the new model sha.</span></li>
+    <li><span class="box"></span><span>Spot check on the public site with one test-split photo each of Peru, Rwanda
+      and a merged country (Brazil SulDeMinas). Rollback is <code>--rollback</code> to
+      <code>allrigs_dino3b16_seg_s7</code>, which still serves its ten old classes from its own frozen list.</span></li>
+    <li><span class="box"></span><span><code>docs/inference_path.html</code>: classes are countries; the class list is
+      read through <code>class_list.load_classes</code>. The web app's log field <code>top1_class</code>
+      (<code>webapp/app.py:350</code>) now holds a country key (<code>Brazil</code>), not a folder id
+      (<code>006</code>). The page says so, with the release date, so a later recalibration that joins logs across
+      releases maps the old ids through the D15 file.</span></li>
+  </ol>
+
+  <h2>12. P10 &mdash; docs and close-out</h2>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>GLOSSARY.md</code>: country, farm region, misc, and "the photo's bean
+      region" as D14 words them.</span></li>
+    <li><span class="box"></span><span><code>README.md</code> (<code>classes.txt</code> line 11: the D15 format, the
+      country is the class), <code>webapp/README.md</code> (frozen class lists: two formats), <code>params.yaml</code>
+      and <code>dvc.yaml</code> comments that say "ten classes" or describe the old pools and
+      <code>EXPERIMENTS_LOG.md</code>.</span></li>
+    <li><span class="box"></span><span>Empty <code>dataset_new_ignored/</code> and remove its line from
+      <code>.git/info/exclude</code>. Update the ticket's counts (Q4) and its activity. (Its R8 list was completed with the review, 2026-10-05.)</span></li>
+  </ol>
+
+  <h2>13. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: DINOv3 fixture, <code>split_census</code>, <code>seg_lists build</code>,
+      the smoke fit's labels and metrics, and both shipped models' fixture answers are identical to before.
+      <code>id_photos</code> matches the dataset's split, and an empty pool raises.</span></li>
+    <li><span class="box"></span><span>P2/P3: every stripped photo decodes to identical pixels, keeps its
+      Orientation, ICC profile and the other kept fields byte for byte, and the audit finds no deny-listed tag in
+      any file under <code>dataset/</code>. Segcrop and merge out hashes are unchanged, the decoders are the
+      original ones, mask hashes are unchanged, and <code>seg_eval_*.json</code> is identical to P2b's.</span></li>
+    <li><span class="box"></span><span>P2b: no code path reads <code>data/cropped</code> (literal or joined path);
+      <code>seg_lists build</code> reproduces <code>photo_lists.yaml</code> and its test runs, not skips; the
+      regenerated DINOv3 fixture passes locally; the pre-ML-3 stale <code>seg_*@pretrained</code> stages are
+      up to date with unchanged masks; one segcrop session reproduces its lock hash (no environment drift); both
+      working copies deleted only after the cache check.</span></li>
+    <li><span class="box"></span><span>P3: no old photo hash remains in any git or DVC-tracked record (a grep of the
+      manifest's <code>sha256_before</code> column over the repo and the DVC-tracked CSVs and YAML finds none). Two
+      exceptions are expected and listed: <code>labels/ml3/strip_manifest.csv</code> itself and the VM-only
+      <code>data/seg_cache/index.csv</code> (kept by Q2a).</span></li>
+    <li><span class="box"></span><span>P4: <code>coverage_report</code> exit 0; <code>split_report</code> at the
+      three seeds read; <code>dvc status</code> clean for the named stages (never the legacy <code>train</code>).</span></li>
+    <li><span class="box"></span><span>P5: the risky masks are reviewed first; accept rates carry their
+      denominators.</span></li>
+    <li><span class="box"></span><span>P7: the remapped reference reproduces the ticket's numbers to four decimals;
+      the headline is the 8-country, old-photo number with photo-bootstrap CIs; the seed rule is printed.</span></li>
+    <li><span class="box"></span><span>P8: the card carries all three seeds and no old-class text; the holdout check
+      prints 2026-09-11 and other days apart.</span></li>
+    <li><span class="box"></span><span>P9: <code>--compare</code> is bit-identical; ten country scores on the live
+      domain; rollback target intact.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope", unchanged: new captures, a second probe refit, roast-split classes,
+      a display-name map, the segmenter retrain on a bigger dataset, a farm-region classifier, the 3-digit ids, a
+      generalization test set, deleting <code>crop_tray.py</code> (the ResNet fallback still serves with it; the
+      <code>crop.yaml</code> files and the crop stage do go, in P2b), pushing to the DVC remote, purging old copies.</li>
+    <li>Refitting the ResNet fallback <code>allrigs_cam_s123</code> (D9). It and the previous release keep their old
+      classes.</li>
+    <li>Rebuilding any pre-ML-3 run in place. They stay reproducible from their own commits; P1 makes a rebuild at a
+      later commit fail loudly instead of reading country classes.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-04</div>Claude reads ticket ML-3 at <code>e0af1c6</code> (D1&ndash;D15 answered),
+      traces every reader of <code>classes.txt</code> and every record that pins a photo by sha256, reads
+      <code>dataset_new_ignored/</code> and the OOD positive manifest, and writes this plan. Seven findings not in the
+      ticket; Q1&ndash;Q7 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-04</div>Owner answers Q1: ignore the 2026-09-11 overlap and use the OOD positives
+      as they are now. The manifest tags, the probe's <code>user_independent</code> calibration and the holdout
+      regression check are unchanged; the README re-tag is dropped from P10. Q2&ndash;Q7 still open.</div>
+    <div><div class="when">2026-10-04</div>Owner answers Q2: (b), re-run every stale ML-2 stage on the VM, the
+      segmenter fine-tune included; nothing is frozen. P3 now runs the fine-tune first and compares the decoders
+      with the pinned ones. New question Q2a: which decoder is kept if a re-run one is not byte-identical.</div>
+    <div><div class="when">2026-10-04</div>Owner answers Q2a: keep the original decoders, and skip the
+      reproducibility re-run of the fine-tune. P3 brings <code>seg_embed_cache</code> and <code>seg_finetune@*</code>
+      up to date with <code>dvc commit</code> on the VM. No segmenter retraining in this ticket unless P5 calls
+      for it (D8).</div>
+    <div><div class="when">2026-10-04</div>Owner answers Q3: delete <code>data/cropped</code>; training uses the
+      segmenter's pools only. New phase P2b retires the pools, the <code>crop</code> and <code>merge_cam_*</code>
+      stages, <code>crop_session.py</code>, the <code>crop.yaml</code> files and <code>qa_live_crop.py</code>. It
+      moves the DINOv3 fixture, <code>seg_lists</code>, <code>seg_eval</code> and <code>coverage_report</code> off
+      them. <code>crop_tray.py</code> stays for the ResNet fallback. Q4&ndash;Q7 still open.</div>
+    <div><div class="when">2026-10-04</div>Owner answers Q4: (c). All 18 <code>random_date_raccoon</code> photos join,
+      and the owner may add more photos until P2 starts. P2's first step fixes the set in
+      <code>labels/ml3/new_photos.csv</code>, checking each photo's class folder and camera; P4 re-counts against it.
+      Q5&ndash;Q7 still open.</div>
+    <div><div class="when">2026-10-05</div>Owner answers Q5: (a). <code>classes_short_map.txt</code> does not move
+      into <code>dataset/</code>; the country list and order come from <code>classes.txt</code> alone. Q6&ndash;Q7
+      still open.</div>
+    <div><div class="when">2026-10-05</div>Owner answers Q6: both readings of D10's last items stand: a per-coffee
+      table for the farm-region item, and D21's segmenter-unseen subset, old and new photos apart. More can be added
+      to the printout later. Q7 still open.</div>
+    <div><div class="when">2026-10-05</div>Owner answers Q7: (a), a Peru and a Rwanda photo join the deploy's
+      <code>compare</code> fixtures (13 in all). All plan questions are answered. P1 can start; P2 starts once the
+      owner has added the last photos (Q4).</div>
+    <div><div class="when">2026-10-05</div>Independent review of the ticket and plan, checked against the code: 3 major, 9
+      minor, 7 nits; no owner answer changes. The fixes are in the review callout at the top. In short:
+      P2b now brings the stale ML-2 stages up to date and checks for environment drift before any strip; the
+      <code>seg_eval</code> foreach drops the never-run ft_s42/ft_s7; P3 re-keys <code>base_points.yaml</code> and
+      the <code>seg_labels/r*</code> indexes; <code>id_photos</code> raises on an empty pool; P2 checks kept fields
+      byte for byte; P5 reviews risky masks first; P7 leads with the 8-country, old-photo number, adds a photo-level
+      readout with bootstrap CIs and states the seed rule; P8 splits the holdout check by day and drops the old-class
+      card text. New question Q8: keep a pre-strip copy of the two folders that have no DVC cache. Not
+      implemented.</div>
+    <div><div class="when">2026-10-05</div>Owner answers Q8: (a), with the VM as the backup's place. Before the
+      first strip, P2 tars <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code>, copies them
+      to the VM's <code>~/ml3_prestrip/</code> with sha256 checked, and deletes the local tars. P4 deletes the VM copies
+      once its checks pass. All plan questions answered.</div>
+  </div>
+
+  <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
+    <code>coffeecv/dataset.py</code>, <code>coffeecv/fold_data.py</code>, <code>coffeecv/infer.py</code>,
+    <code>coffeecv/seg_lists.py</code>, <code>coffeecv/coverage_report.py</code>, <code>coffeecv/repro_utils.py</code>,
+    <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>webapp/deploy/</code>,
+    <code>dataset/ood_positives.README.md</code>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
+    <a href="plan_retire_cross_rig.html">ML-1 plan</a>.</footer>
+</main>
