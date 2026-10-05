@@ -18,9 +18,9 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from coffeecv.class_list import folder_classes
 from coffeecv.config import PARAMS_FILE, REPO_ROOT
-from coffeecv.dataset import (load_class_labels, pooled_class_photos, resolve_captures,
-                              split_photos_by_class)
+from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
 
 SEG_SPLIT_SEED = 239          # D21; params.yaml seg_split_seed
 HERE = Path(__file__).resolve().parent
@@ -44,13 +44,14 @@ def raw_index() -> dict[tuple[str, str], Path]:
 def main() -> None:
     params = yaml.safe_load(PARAMS_FILE.read_text())
     captures = resolve_captures([REPO_ROOT / d for d in params["train_capture_dirs"]])
-    class_ids = sorted(load_class_labels(REPO_ROOT / params["classes_file"]))
+    # Per folder, whatever classes.txt's format (ticket ML-3): the folder's index seeds ML-2's pick.
+    classes = folder_classes(REPO_ROOT / params["classes_file"])
     frac = {s: params[f"{s}_photo_frac"] for s in ("train", "val", "test")}
     idx = raw_index()
 
     by_session: dict[str, list[Path]] = defaultdict(list)
-    for class_idx, class_id in enumerate(class_ids):
-        pool, _ = pooled_class_photos(captures, class_id)
+    for class_idx, class_id in enumerate(classes.keys):
+        pool, _ = pooled_class_photos(captures, classes.folders[class_id])
         for ph in split_photos_by_class(pool, SEG_SPLIT_SEED, class_idx, frac)["train"]:
             raw = idx[(ph.path.parent.name.split("__")[0], ph.name.removesuffix("__cropped.jpg"))]
             by_session[raw.parts[-3]].append(raw)

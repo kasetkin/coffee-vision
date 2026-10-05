@@ -20,7 +20,9 @@ Checks, in order of how badly they bite:
    certainly a capture someone forgot to wire in.
 3. **Undeclared / unphotographed classes**, against dataset/classes.txt -- and a
    declared class that no training capture dir (`dataset.CAPTURES`) carries, which
-   training would refuse outright.
+   training would refuse outright. Checked per class folder (a coffee): since ticket
+   ML-3 a class can pool several folders, and a table per class (a country) is
+   printed beside the folder table when one does.
 4. **Class balance per capture dir and per session** -- reported, never fatal,
    because the dataset is legitimately ragged (iPhone is thin, the 08-30 sessions
    are class_010 only). Since ticket ML-1 no capture dir is held out, so a dir
@@ -39,6 +41,7 @@ from pathlib import Path
 
 import yaml
 
+from coffeecv.class_list import load_classes, read_coffees
 from coffeecv.config import REPO_ROOT
 # A hard import on purpose. This used to be `from coffeecv.run_folds import RIGS` inside a bare
 # try/except, which would have silently dropped the whole capture-dir section once that module
@@ -107,13 +110,8 @@ def scan() -> tuple[dict, dict]:
 
 
 def declared_classes() -> dict[str, str]:
-    out = {}
-    for line in (DATASET_DIR / "classes.txt").read_text().splitlines():
-        line = line.strip()
-        if line and ";" in line:
-            cid, label = line.split(";", 1)
-            out[cid.strip()] = label.strip()
-    return out
+    """{class folder id: its classes.txt text}, either format (class_list.read_coffees)."""
+    return {c.folder_id: c.label for c in read_coffees(DATASET_DIR / "classes.txt")}
 
 
 def print_table(counts: dict, labels: dict) -> None:
@@ -200,6 +198,16 @@ def main() -> int:
             cells = [per_capture[cn].get(cid, 0) for cn in capture_names]
             print(f"{name:<28} " + " ".join(f"{n:>{width}}" if n else f"{'-':>{width}}" for n in cells)
                   + f"   {sum(cells):>5}")
+        classes = load_classes(DATASET_DIR / "classes.txt")
+        if any(len(f) > 1 for f in classes.folders.values()):
+            # What training draws from: a class pools its folders in each capture dir (ML-3 D6).
+            print("\nper class (what the model predicts; its folders pooled):")
+            print(f"{'class':<28} " + " ".join(f"{cn:>{width}}" for cn in capture_names) + "   total")
+            for key in classes.keys:
+                cells = [sum(per_capture[cn].get(f, 0) for f in classes.folders[key]) for cn in capture_names]
+                name = f"{key} ({', '.join(classes.folders[key])})"[:27]
+                print(f"{name:<28} " + " ".join(f"{n:>{width}}" if n else f"{'-':>{width}}" for n in cells)
+                      + f"   {sum(cells):>5}")
     for cid in sorted(labels):
         if not any(per_capture[cn].get(cid, 0) for cn in capture_names):
             errors.append(f"class_{cid} ({labels[cid]}) is in no training capture dir "

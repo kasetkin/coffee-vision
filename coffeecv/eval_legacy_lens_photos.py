@@ -14,8 +14,8 @@ photos directly would treat the transparent corners as valid bean-pile content
 and produce a garbage bean-pitch estimate.
 
 The fix is a one-off pre-crop using the *original* `geometry.compute_valid_region`
-(lens-circle-aware) to get the same safe inscribed square `PatchCoffeeDataset`
-used to use, with alpha dropped -- after that, the cropped square stands in for
+(lens-circle-aware) to get the same safe inscribed square the single-photo
+`PatchCoffeeDataset` (deleted in ticket ML-3) used, with alpha dropped -- after that, the cropped square stands in for
 a "loaded photo" and every downstream step (pitch estimation, bean-unit patch
 sampling, dihedral TTA) is `infer.py.patches_for_photo`'s own logic, not a
 reimplementation, so this stays exactly as parity-faithful to training as
@@ -50,7 +50,7 @@ from PIL import Image
 
 from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import load_class_labels
+from coffeecv.class_list import load_classes
 from coffeecv.geometry import compute_valid_region, compute_valid_region_rect, sample_bean_unit_patch_boxes
 from coffeecv.infer import config_for_checkpoint, forward_with_embeddings, grayscale_like_training, load_model
 from coffeecv.transforms import build_eval_transform
@@ -117,8 +117,8 @@ def main() -> None:
     cfg, cfg_source = config_for_checkpoint(ckpt, args.config)
     print(f"checkpoint: {ckpt}\nconfig: {cfg_source}")
 
-    class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
-    class_ids = sorted(class_labels)
+    classes = load_classes(REPO_ROOT / cfg.classes_file)
+    class_ids, class_labels = list(classes.keys), dict(classes.labels)
     model, head = load_model(ckpt, cfg.model_name, len(class_ids), cfg.dropout)
     eval_transform = build_eval_transform(cfg.patch_resize)
 
@@ -129,7 +129,8 @@ def main() -> None:
 
     n_correct = 0
     for idx, heif_path in enumerate(heifs):
-        true_id = heif_path.name.split("class=")[1].split(".")[0]
+        # The file name carries the class folder id; the model's class is its key (a country since ML-3).
+        true_id = classes.key_of(heif_path.name.split("class=")[1].split(".")[0])
         rgb = crop_to_safe_square(heif_path, args.safety_margin)
         patches, diag = patches_for_legacy_photo(rgb, cfg, args.n_patches, [args.seed, idx])
         tensors = torch.stack([eval_transform(patch) for patch in patches])

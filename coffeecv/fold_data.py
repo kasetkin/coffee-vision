@@ -17,9 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from coffeecv.bean_scale import pitch_kwargs
+from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import RunConfig
-from coffeecv.dataset import (Capture, MultiPhotoPatchDataset, bean_share_rule, load_class_labels,
-                             resolve_captures)
+from coffeecv.dataset import Capture, MultiPhotoPatchDataset, bean_share_rule, resolve_captures
 from coffeecv.transforms import build_eval_transform
 
 
@@ -29,8 +29,15 @@ class FoldDatasets:
     val: MultiPhotoPatchDataset | None
     test: MultiPhotoPatchDataset | None
     captures: list[Capture]
-    class_ids: list[str]
-    class_labels: dict[str, str]
+    classes: ClassList
+
+    @property
+    def class_ids(self) -> list[str]:
+        return list(self.classes.keys)
+
+    @property
+    def class_labels(self) -> dict[str, str]:
+        return dict(self.classes.labels)
 
 
 def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
@@ -53,8 +60,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
         raise ValueError(f"unknown split(s) {sorted(unknown)}; want train, val and/or test")
     capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
-    class_labels = load_class_labels(classes_file)
-    class_ids = sorted(class_labels)
+    classes = load_classes(classes_file)
     patches_per_class = {
         "train": cfg.train_patches_per_class,
         "val": cfg.val_patches_per_class,
@@ -68,8 +74,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
 
     common_kwargs = dict(
         captures=captures,
-        classes_file=classes_file,
-        class_ids=class_ids,
+        classes=classes,
         seed=cfg.seed,
         crop_size=cfg.patch_crop_size,
         resize=cfg.patch_resize,
@@ -96,10 +101,10 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
               if "val" in want else None)
     test_ds = (MultiPhotoPatchDataset(split="test", transform=eval_transform, **common_kwargs)
                if "test" in want else None)
-    return FoldDatasets(train_ds, val_ds, test_ds, captures, class_ids, class_labels)
+    return FoldDatasets(train_ds, val_ds, test_ds, captures, classes)
 
 
-def build_capture_dataset(cfg: RunConfig, capture: Capture, class_ids: list[str], classes_file,
+def build_capture_dataset(cfg: RunConfig, capture: Capture, classes: ClassList,
                           n_patches: int) -> MultiPhotoPatchDataset:
     """Every photo of one capture dir, `split="all"`, eval transform, `cfg`'s own patch geometry.
 
@@ -113,8 +118,7 @@ def build_capture_dataset(cfg: RunConfig, capture: Capture, class_ids: list[str]
         split="all",
         transform=build_eval_transform(cfg.patch_resize),
         captures=[capture],
-        classes_file=classes_file,
-        class_ids=class_ids,
+        classes=classes,
         seed=cfg.seed,
         crop_size=cfg.patch_crop_size,
         resize=cfg.patch_resize,

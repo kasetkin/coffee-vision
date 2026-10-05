@@ -12,8 +12,9 @@ from dataclasses import replace
 import numpy as np
 import torch
 
+from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import discover_classes_multi, load_class_labels, resolve_captures
+from coffeecv.dataset import discover_classes_multi, resolve_captures
 from coffeecv.fold_data import build_capture_dataset
 
 REFERENCE_RIG = "data/cropped/cam_iphone"
@@ -28,10 +29,10 @@ def reference_patches(per_class: int) -> tuple[torch.Tensor, np.ndarray, list[st
     """(eval-transformed patches [N, 3, 224, 224], labels [N], class_ids, class_labels)."""
     cfg = replace(RunConfig.from_params_yaml(), seed=REFERENCE_SEED)
     rig_dir = REPO_ROOT / REFERENCE_RIG
-    classes_file = REPO_ROOT / cfg.classes_file
-    class_ids = sorted(discover_classes_multi(rig_dir))
-    ds = build_capture_dataset(cfg, resolve_captures([rig_dir])[0], class_ids, classes_file, per_class)
+    # Per folder, whatever classes.txt's format: a class's index seeds its boxes, so the fixture's
+    # classes must stay the 8 folder ids the rig carries, in sorted order (ticket ML-3).
+    classes = folder_classes(REPO_ROOT / cfg.classes_file).select(sorted(discover_classes_multi(rig_dir)))
+    ds = build_capture_dataset(cfg, resolve_captures([rig_dir])[0], classes, per_class)
     items = [ds[i] for i in range(len(ds))]
-    labels = load_class_labels(classes_file)
-    return (torch.stack([x for x, _ in items]), np.array([int(y) for _, y in items]), class_ids,
-            {c: labels.get(c, c) for c in class_ids})
+    return (torch.stack([x for x, _ in items]), np.array([int(y) for _, y in items]), list(classes.keys),
+            dict(classes.labels))

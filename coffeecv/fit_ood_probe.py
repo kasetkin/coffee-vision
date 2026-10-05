@@ -37,7 +37,7 @@ from pathlib import Path
 import numpy as np
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import load_class_labels
+from coffeecv.class_list import load_classes
 from coffeecv.infer import (_sha, config_for_checkpoint, inference_tta_for, load_model, load_ood_reference,
                             probe_path_for, probe_score, reference_path_for)
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, auroc,
@@ -127,11 +127,11 @@ def main() -> None:
     cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
-    class_ids = sorted(load_class_labels(classes_file))
+    classes = load_classes(classes_file)
     ckpt_sha = _sha(checkpoint)
 
     ref_path = reference_path_for(checkpoint)
-    model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
     # The one checked loader (sha and embedding width), like every other caller (plan §9.2).
     ref = load_ood_reference(checkpoint, head)
     if ref is None:
@@ -142,7 +142,7 @@ def main() -> None:
     pos_dirs = [Path(d) for d in args.positives]
 
     # --- fit set -----------------------------------------------------------
-    train_ids = id_photos(cfg, class_ids, args.id_split)
+    train_ids = id_photos(cfg, classes, args.id_split)
     bean_items = [{"path": q, "scenario_tag": "-"} for q in train_ids]
     dev_negs = [r for r in negatives_from(neg_dirs, "dev")
                 if r["scenario_tag"] in CLEAN_NEGATIVE_TAGS]

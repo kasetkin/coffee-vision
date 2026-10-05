@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1 done 2026-10-05; P2 waits for the owner's last photos (Q4)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -831,6 +831,28 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       first strip, P2 tars <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code>, copies them
       to the VM's <code>~/ml3_prestrip/</code> with sha256 checked, and deletes the local tars. P4 deletes the VM copies
       once its checks pass. All plan questions answered.</div>
+    <div><div class="when">2026-10-05</div>P1 implemented. New <code>coffeecv/class_list.py</code>
+      (<code>load_classes</code>, <code>folder_classes</code>, <code>read_coffees</code>), strict about the format; every
+      reader of <code>classes.txt</code> uses it, and <code>load_class_labels</code>, <code>get_class_label</code> and
+      <code>PatchCoffeeDataset</code> are gone. <code>pooled_class_photos</code> pools a class's folders;
+      <code>PatchMeta</code> gains <code>folder_id</code>; <code>id_photos</code> raises on an empty pool;
+      <code>config_for_checkpoint</code> refuses a config whose recorded <code>class_ids</code> its class list no longer
+      reads; predictions carry <code>capture</code>, <code>photo</code>, <code>folder_id</code> and <code>p_&lt;key&gt;</code>;
+      <code>config.json</code> records <code>classes_sha256</code>; <code>class_list</code> joins the release's
+      <code>LIBRARY</code>. Checks, with <code>classes.txt</code> unchanged, against the same runs at <code>e0104b2</code>:
+      <code>split_census</code> and every class's split at seeds 42/123/7, and the sha256 of every
+      <code>--smoke</code>-budget patch at seed 7 with its meta and label, identical; <code>fit_frozen_head --smoke</code>
+      at seed 7 gives the same head weights, the same <code>true_label, pred_label</code> columns and the same metrics;
+      <code>seg_lists</code>' <code>build()</code> output identical and <code>check</code> OK; <code>coverage_report</code>
+      output identical; <code>release_probe classify</code> bit-identical for <code>allrigs_dino3b16_seg_s7</code> and
+      <code>allrigs_cam_s123</code> on all 11 fixtures; <code>check_augmentation</code> passes. New tests:
+      <code>test_class_list</code>, <code>test_ood_id_photos</code>, country pools in <code>test_pooled_split</code>,
+      the refusal and the provenance columns in <code>test_model_and_ood_loading</code>. Suite: 193 tests, one failure
+      that predates P1 (<code>allrigs_dino3b16_s123.pt</code> was fitted under timm 1.0.29; the pin is 1.0.30 since
+      <code>bc1867c</code>). Run locally, on the tray-heuristic pools: the segmenter's pools are on the VM only. Found:
+      <code>seg_lists build</code> already refused at <code>e0104b2</code> (its fresh lists lack <code>base_dev</code>/<code>base_heldout</code>,
+      which <code>bases</code> writes), so P1 compares <code>build()</code>'s output instead; P2b's
+      "<code>build</code> rewrites <code>photo_lists.yaml</code> unchanged" needs the same reading or a fix.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import shutil
 import socket
@@ -40,9 +41,10 @@ import torch
 
 from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
 from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_backbone
+from coffeecv.class_list import folder_classes, load_classes
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import CAPTURES, SEG_CAPTURES, load_class_labels
+from coffeecv.dataset import CAPTURES, SEG_CAPTURES
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
@@ -96,7 +98,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     assert_input_size(bb, cfg.patch_resize)
     set_seed(seed)
     eval_tf = build_eval_transform(cfg.patch_resize)
-    X, y, sizes, ms, seg = {}, {}, {}, {}, {}
+    X, y, sizes, ms, seg, meta = {}, {}, {}, {}, {}, {}
     class_ids = class_labels = captures = None
     for split in ("train", "val", "test"):
         t = time.perf_counter()
@@ -105,6 +107,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         built = time.perf_counter() - t
         X[split], y[split], ms[split] = embed(ds, bb, readout)
         sizes[split] = len(ds)
+        meta[split] = list(ds._meta)
         class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
         log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
         if ds.bean_share_rule is not None:
@@ -122,10 +125,10 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     # Diagnostic only: what this run's own val split would have picked. Never used.
     grid = fit_head(X["train"], y["train"], X["val"], y["val"], class_ids, class_labels)
 
-    split_metrics, preds = {}, {}
+    split_metrics, preds, probs_by = {}, {}, {}
     for s in ("val", "test"):
         pred, probs, _ = predict(head, X[s])
-        preds[s] = pred
+        preds[s], probs_by[s] = pred, probs
         split_metrics[s] = compute_split_metrics(y[s], pred, cross_entropy(probs, y[s]), class_ids, class_labels)
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
@@ -139,7 +142,10 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     save_frozen_checkpoint(run_dir / "model.pt", bb, readout, head, class_ids, C)
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     (run_dir / "config.json").write_text(json.dumps({
-        **config_to_dict(cfg), "class_ids": class_ids, "env": build_env_block(),
+        **config_to_dict(cfg), "class_ids": class_ids,
+        # classes_file is a path; its digest tells a later reader whether the file still says what it said.
+        "classes_sha256": hashlib.sha256((REPO_ROOT / cfg.classes_file).read_bytes()).hexdigest(),
+        "env": build_env_block(),
         "dino": {
             "experiment": "docs/dinov3_integration_plan.md §9.1: all-cameras shipping fit of the selected cell",
             "backbone": bb.name, "readout": readout, "weights": bb.spec.weights,
@@ -156,7 +162,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         },
     }, indent=2))
     for s in ("val", "test"):
-        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], preds[s], class_ids)
+        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], preds[s], class_ids, meta[s], probs_by[s])
     log(f"s{seed}: C={C:g} ({'converged' if converged else 'NOT CONVERGED'}, {fit_s:.0f}s)  "
         f"val {split_metrics['val']['macro_f1']:.4f}  test {split_metrics['test']['macro_f1']:.4f}  "
         f"(val alone would pick C={grid.C:g})")
@@ -178,9 +184,11 @@ def ship(exp: int, name: str) -> None:
     # The class list the head was fitted against, frozen beside it (infer.classes_path_for): classes.txt
     # may grow before the next fit, and this head's width must not follow it.
     live_classes = REPO_ROOT / config["classes_file"]
-    if sorted(load_class_labels(live_classes)) != config["class_ids"]:
+    if list(load_classes(live_classes).keys) != config["class_ids"]:
         raise SystemExit(f"{live_classes} no longer lists exp{exp}'s classes {config['class_ids']}")
     shutil.copy2(live_classes, classes_path_for(dst))
+    # The fold-era numbers below describe the per-folder classes; a country list (ticket ML-3) has none.
+    per_folder = list(folder_classes(live_classes).keys) == config["class_ids"]
     training_config = {k: v for k, v in config.items() if k not in ("dino", "env")}
     dino = config["dino"]
     card = {
@@ -198,12 +206,15 @@ def ship(exp: int, name: str) -> None:
                     "Without it, model time is ~5.8 s per photo at 4 threads, parity with ResNet18 + TTA."),
         },
         "expected_performance": {
-            "cross_camera_from_selection_folds": ("exp240-251, 3 seeds x 4 camera folds: patch macro-F1 0.8873 "
-                                                  "(3 ten-class folds), photo-pooled 0.9489 over 40 patches, no TTA"),
+            **({"cross_camera_from_selection_folds": ("exp240-251, 3 seeds x 4 camera folds: patch macro-F1 "
+                                                      "0.8873 (3 ten-class folds), photo-pooled 0.9489 over 40 "
+                                                      "patches, no TTA")} if per_folder else {}),
             "this_run_in_distribution": {s: {k: metrics["splits"][s][k] for k in ("macro_f1", "mcc", "accuracy")}
                                          for s in ("val", "test")},
-            "note": "in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
-                    "never to a cross-camera number",
+            "note": ("in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
+                     "never to a cross-camera number" if per_folder else
+                     "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
+                     "fitted on per-folder classes"),
         },
         "training_config": training_config,
         "dino": dino,

@@ -22,6 +22,7 @@ from PIL import Image
 from coffeecv import infer
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.bean_scale import pitch_kwargs
+from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import (CAPTURES, SEG_CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset,
                               bean_mask_path, bean_share_rule, load_rgb_image)
@@ -45,7 +46,7 @@ def dataset_patches(cap_dir: Path, cfg: RunConfig) -> MultiPhotoPatchDataset:
     classes.write_text("003;Colombia,PinkBourbon\n")
     budget = {"train": N, "val": N, "test": N, "all": N}
     return MultiPhotoPatchDataset(
-        captures=[Capture("cap", cap_dir)], classes_file=classes, split="all", class_ids=["003"], seed=cfg.seed,
+        captures=[Capture("cap", cap_dir)], classes=folder_classes(classes), split="all", seed=cfg.seed,
         crop_size=cfg.patch_crop_size, resize=cfg.patch_resize, safety_margin=cfg.safety_margin,
         patches_per_class=budget, photo_frac={"train": 0.7, "val": 0.15, "test": 0.15},
         patch_store_size=cfg.patch_store_size, patch_beans=(cfg.patch_beans_min, cfg.patch_beans_max),

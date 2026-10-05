@@ -41,8 +41,9 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_class_labels, pooled_class_photos, resolve_captures, split_photos_by_class
+from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
 
 LISTS_FILE = REPO_ROOT / "labels" / "ml2" / "photo_lists.yaml"
 CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
@@ -116,16 +117,30 @@ def raw_photo(session: str, class_key: str, crop_name: str) -> Path:
     return hits[0]
 
 
+def split_basis(cfg: RunConfig) -> tuple[list[str], dict[str, float]]:
+    """(capture dirs, photo fractions) ML-2's split is drawn over: the lists file's own meta once it exists,
+    so a later change of params.yaml's pools (ticket ML-3) cannot move it; params.yaml only for a first build."""
+    if LISTS_FILE.exists():
+        meta, _ = load_lists()
+        return list(meta["capture_dirs"]), dict(zip(("train", "val", "test"), meta["photo_frac"]))
+    return list(cfg.train_capture_dirs), {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac,
+                                          "test": cfg.test_photo_frac}
+
+
 def pooled_split(cfg: RunConfig) -> dict[str, list[dict]]:
-    """{"train": [...], "eval": [...]} positive entries: the head fit's own pooled split, at seg_split_seed."""
-    capture_dirs, classes_file = cfg.resolve_paths()
-    captures = resolve_captures(capture_dirs)
-    class_ids = sorted(load_class_labels(classes_file))
-    frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
+    """{"train": [...], "eval": [...]} positive entries: the head fit's pooled split as ML-2 drew it, at
+    seg_split_seed: one class per class folder (class_list.folder_classes), whatever classes.txt's format,
+    so each folder keeps its class index. A folder with no photos in these pools is skipped (ML-3's new
+    folders have no tray-heuristic crops); it sorts after every ML-2 folder, so no index moves."""
+    capture_dirs, frac = split_basis(cfg)
+    captures = resolve_captures([REPO_ROOT / d for d in capture_dirs])
+    classes = folder_classes(REPO_ROOT / cfg.classes_file)
     sessions = crop_sessions()
     out: dict[str, list[dict]] = {"train": [], "eval": []}
-    for class_idx, class_id in enumerate(class_ids):
-        pool, _ = pooled_class_photos(captures, class_id)
+    for class_idx, class_id in enumerate(classes.keys):
+        pool, _ = pooled_class_photos(captures, classes.folders[class_id])
+        if not pool:
+            continue
         for split, photos in split_photos_by_class(pool, cfg.seg_split_seed, class_idx, frac).items():
             for ph in photos:
                 class_key = ph.path.parent.name.split("__")[0]
@@ -523,6 +538,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "build":
+        capture_dirs, frac = split_basis(cfg)
         new = build(cfg)
         if LISTS_FILE.exists():
             meta, old = load_lists()
@@ -531,8 +547,8 @@ def main(argv: list[str] | None = None) -> int:
                                  f"params.yaml says {cfg.seg_split_seed}; the lists are append-only (D20)")
             new = merge_append_only(old, new)
         meta = {"seg_split_seed": cfg.seg_split_seed,
-                "photo_frac": [cfg.train_photo_frac, cfg.val_photo_frac, cfg.test_photo_frac],
-                "capture_dirs": list(cfg.train_capture_dirs), "seg_val_frac": SEG_VAL_FRAC,
+                "photo_frac": [frac["train"], frac["val"], frac["test"]],
+                "capture_dirs": capture_dirs, "seg_val_frac": SEG_VAL_FRAC,
                 "neg_eval_frac": round(NEG_EVAL_FRAC, 4), "near_dup_seconds": NEAR_DUP_SECONDS}
         problems = structural_problems(new)
         if problems:

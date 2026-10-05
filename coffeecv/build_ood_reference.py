@@ -32,7 +32,8 @@ import torch
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.bean_scale import pitch_kwargs
-from coffeecv.dataset import MultiPhotoPatchDataset, bean_share_rule, load_class_labels, resolve_captures
+from coffeecv.class_list import load_classes
+from coffeecv.dataset import MultiPhotoPatchDataset, bean_share_rule, resolve_captures
 from coffeecv.infer import (_sha, config_for_checkpoint, forward_with_embeddings, load_model,
                             reference_path_for)
 from coffeecv.transforms import build_eval_transform
@@ -60,10 +61,10 @@ def main() -> None:
     print(f"config: {cfg_source}")
     capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
-    class_labels = load_class_labels(classes_file)
     # From classes_file, exactly as train_baseline does, so the label->index
     # mapping the centroids are keyed by is the one the checkpoint was fitted with.
-    class_ids = sorted(class_labels)
+    class_list = load_classes(classes_file)
+    class_ids, class_labels = list(class_list.keys), dict(class_list.labels)
     print(f"capture dirs: {[c.name for c in captures]}")
 
     # The *train* split specifically: the reference describes what the model was
@@ -74,8 +75,7 @@ def main() -> None:
         split="train",
         transform=build_eval_transform(cfg.patch_resize),
         captures=captures,
-        classes_file=classes_file,
-        class_ids=class_ids,
+        classes=class_list,
         seed=cfg.seed,
         crop_size=cfg.patch_crop_size,
         resize=cfg.patch_resize,

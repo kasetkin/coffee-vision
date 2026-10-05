@@ -1,4 +1,4 @@
-"""HEIF loading and patch-based PyTorch Dataset for the coffee bean classes."""
+"""Photo loading and the patch-based PyTorch Dataset for the coffee classes (`coffeecv.class_list`)."""
 from __future__ import annotations
 
 import re
@@ -17,18 +17,16 @@ from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 
 from coffeecv.bean_scale import estimate_bean_pitch
+from coffeecv.class_list import ClassList
 from coffeecv.geometry import (
     Region,
     assert_jitter_fits,
-    assert_region_fully_opaque,
-    compute_valid_region,
     compute_valid_region_rect,
     sample_bean_unit_patch_boxes,
     sample_masked_bean_unit_boxes,
     sample_patch_boxes,
     sample_rotated_patch_boxes,
     sample_scaled_patch_boxes,
-    split_regions,
 )
 
 pillow_heif.register_heif_opener()
@@ -36,125 +34,11 @@ pillow_heif.register_heif_opener()
 # call -- each self-registers with Pillow's `Image.ID` on import, same effect as this
 # line has for HEIF, just triggered differently by each library's own __init__.
 
-CLASS_FILENAME_RE = re.compile(r"class=(\d+)\.heif$", re.IGNORECASE)
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 # "all" is every photo of the dirs passed (build_capture_dataset, the DINOv3
 # fixture); it gets its own stream component so its boxes don't coincide with
 # the test split's.
 SPLIT_SEED_COMPONENT = {"train": 0, "val": 1, "test": 2, "all": 3}
-
-
-def discover_classes(dataset_dir: Path) -> list[str]:
-    ids = set()
-    for p in Path(dataset_dir).glob("*.heif"):
-        m = CLASS_FILENAME_RE.search(p.name)
-        if m:
-            ids.add(m.group(1))
-    if not ids:
-        raise FileNotFoundError(f"No 'class=NNN.heif' files found under {dataset_dir}")
-    return sorted(ids)
-
-
-def find_class_file(dataset_dir: Path, class_id: str) -> Path:
-    matches = []
-    for p in Path(dataset_dir).glob("*.heif"):
-        m = CLASS_FILENAME_RE.search(p.name)
-        if m and m.group(1) == class_id:
-            matches.append(p)
-    if len(matches) != 1:
-        raise FileNotFoundError(f"Expected exactly one heif file for class={class_id}, found {len(matches)}")
-    return matches[0]
-
-
-def load_class_labels(classes_file: Path) -> dict[str, str]:
-    labels: dict[str, str] = {}
-    if not Path(classes_file).exists():
-        return labels
-    for line in Path(classes_file).read_text().splitlines():
-        line = line.strip()
-        if not line or ";" not in line:
-            continue
-        cid, label = line.split(";", 1)
-        labels[cid.strip()] = label.strip()
-    return labels
-
-
-def get_class_label(class_id: str, labels: dict[str, str]) -> str:
-    if class_id not in labels:
-        print(f"WARNING: class {class_id} missing from classes.txt, using raw id as label")
-        return class_id
-    return labels[class_id]
-
-
-def load_source_image(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Returns (rgb HxWx3 uint8, alpha HxW uint8)."""
-    img = Image.open(path)
-    arr = np.array(img.convert("RGBA"))
-    return arr[:, :, :3], arr[:, :, 3]
-
-
-class PatchCoffeeDataset(Dataset):
-    """Yields (patch_tensor, class_index) pairs cropped from the source photos.
-
-    Patch boxes are precomputed once at construction time from a seeded RNG,
-    so a given (seed, class, split) always yields the same boxes regardless
-    of DataLoader iteration order.
-    """
-
-    def __init__(
-        self,
-        dataset_dir: Path,
-        classes_file: Path,
-        split: str,
-        class_ids: list[str],
-        seed: int,
-        crop_size: int,
-        resize: int,
-        safety_margin: float,
-        patches_per_class: dict[str, int],
-        transform=None,
-    ):
-        assert split in ("train", "val", "test")
-        self.split = split
-        self.class_ids = class_ids
-        self.resize = resize
-        self.transform = transform
-        self.class_labels = load_class_labels(classes_file)
-
-        n_patches = patches_per_class[split]
-        self._images: dict[str, np.ndarray] = {}
-        self._samples: list[tuple[str, Region]] = []  # (class_id, box)
-
-        for class_idx, class_id in enumerate(class_ids):
-            img_path = find_class_file(dataset_dir, class_id)
-            rgb, alpha = load_source_image(img_path)
-            h, w = alpha.shape
-            valid_region = compute_valid_region(h, w, safety_margin)
-            regions = split_regions(valid_region)
-            region = regions[split]
-            assert_region_fully_opaque(alpha, region)
-
-            rng = np.random.default_rng([seed, class_idx, SPLIT_SEED_COMPONENT[split]])
-            boxes = sample_patch_boxes(rng, region, n_patches, crop_size)
-
-            self._images[class_id] = rgb
-            self._samples.extend((class_id, box) for box in boxes)
-
-    def __len__(self) -> int:
-        return len(self._samples)
-
-    def __getitem__(self, idx: int):
-        class_id, box = self._samples[idx]
-        rgb = self._images[class_id]
-        patch = rgb[box.y0:box.y1, box.x0:box.x1]
-        pil_patch = Image.fromarray(patch)
-        label = self.class_ids.index(class_id)
-        if self.transform is not None:
-            tensor = self.transform(pil_patch)
-        else:
-            pil_patch = pil_patch.resize((self.resize, self.resize), Image.BILINEAR)
-            tensor = torch.from_numpy(np.array(pil_patch)).permute(2, 0, 1).float() / 255.0
-        return tensor, label
 
 
 # ---- Multi-photo capture-dir dataset (2026-08-07__box_pictures_all_classes and later) ----
@@ -241,12 +125,13 @@ def load_rgb_image(path: Path) -> np.ndarray:
 @dataclass(frozen=True)
 class PatchMeta:
     """Where one extracted patch came from."""
-    class_id: str
+    class_id: str  # the class key the patch is labelled with (ClassList.keys): a country since ML-3
     capture: str  # the capture dir's name (Capture.name)
     photo_name: str
     box: Region
     angle: float
     side: int  # patch side in *source* pixels before storage resize; varies under scale aug
+    folder_id: str  # the class folder (coffee) the photo came from; equals class_id for per-folder classes
 
 
 # The capture dirs a run trains on: every data/cropped/cam_* pool, each built by
@@ -338,25 +223,36 @@ class CapturePhoto:
     capture: str  # Capture.name, the capture dir's basename
     name: str     # photo file name
     path: Path = field(compare=False)
+    folder_id: str | None = field(default=None, compare=False)  # its class folder (coffee)
 
 
-def pooled_class_photos(captures: list[Capture], class_id: str) -> tuple[list[CapturePhoto], list[str]]:
-    """(every cropped photo of `class_id` across `captures`, sorted by the global key;
-    the names of the captures with no directory for this class at all).
+def pooled_class_photos(captures: list[Capture], folder_ids) -> tuple[list[CapturePhoto], list[str]]:
+    """(every cropped photo of one class -- all of `folder_ids`, its class folders -- across `captures`,
+    sorted by the global key; the names of the captures with none of those folders at all).
+
+    A class pools several folders since ML-3 (a country's coffees, `ClassList.folders`). Within one
+    capture they share one pool and one patch budget (D6). The split key stays (capture, photo name), so
+    a name repeated across the folders makes `split_photos_by_class` refuse the pool.
 
     A dir lacking a class is normal (cam_iphone has no class_008 or class_010). A class
     directory that exists but holds no crops is not, and still raises from
     `list_cropped_photos` -- that means the crop stage has not run.
     """
+    if isinstance(folder_ids, str):
+        raise TypeError("pooled_class_photos takes a class's folder ids (ClassList.folders[key]), not one id")
     pool: list[CapturePhoto] = []
     absent: list[str] = []
     for capture in captures:
-        try:
-            class_dir = find_class_dir(capture.cropped_dir, class_id)
-        except FileNotFoundError:
+        found = False
+        for folder_id in folder_ids:
+            try:
+                class_dir = find_class_dir(capture.cropped_dir, folder_id)
+            except FileNotFoundError:
+                continue
+            found = True
+            pool.extend(CapturePhoto(capture.name, p.name, p, folder_id) for p in list_cropped_photos(class_dir))
+        if not found:
             absent.append(capture.name)
-            continue
-        pool.extend(CapturePhoto(capture.name, p.name, p) for p in list_cropped_photos(class_dir))
     return sorted(pool), absent
 
 
@@ -409,26 +305,26 @@ def split_photos_by_class(
     }
 
 
-def split_census(captures: list[Capture], class_ids: list[str], seed: int,
+def split_census(captures: list[Capture], classes: ClassList, seed: int,
                  photo_frac: dict[str, float]) -> dict[str, dict]:
     """Photo counts of the pooled split, per class, per split, per capture dir -- no
     image is decoded, so this is cheap enough to run anywhere.
 
-    `{class_id: {"pooled": n, "absent": [dirs without the class],
+    `{class key: {"pooled": n, "absent": [dirs without the class],
                  "train"|"val"|"test": {capture: n_photos, ...}}}`, with every dir that
     has the class present in each split's dict, zero included. A zero there is a dir
     the pooled split starved out of that split for that class: legitimate under D1(b),
     but it should be seen, not discovered later. `coffeecv.split_report` prints this.
     """
     census: dict[str, dict] = {}
-    for class_idx, class_id in enumerate(class_ids):
-        pool, absent = pooled_class_photos(captures, class_id)
+    for class_idx, key in enumerate(classes.keys):
+        pool, absent = pooled_class_photos(captures, classes.folders[key])
         entry: dict = {"pooled": len(pool), "absent": absent}
         have = [c.name for c in captures if c.name not in absent]
         if pool:
             for split, chosen in split_photos_by_class(pool, seed, class_idx, photo_frac).items():
                 entry[split] = {name: sum(1 for p in chosen if p.capture == name) for name in have}
-        census[class_id] = entry
+        census[key] = entry
     return census
 
 
@@ -463,9 +359,8 @@ class MultiPhotoPatchDataset(Dataset):
     def __init__(
         self,
         captures: list[Capture],
-        classes_file: Path,
+        classes: ClassList,
         split: str,
-        class_ids: list[str],
         seed: int,
         crop_size: int,
         resize: int,
@@ -483,7 +378,8 @@ class MultiPhotoPatchDataset(Dataset):
         assert split in ("train", "val", "test", "all")
         self.split = split
         self.captures = captures
-        self.class_ids = class_ids
+        self.classes = classes
+        self.class_ids = list(classes.keys)
         self.resize = resize
         self.crop_size = crop_size
         self.transform = transform
@@ -522,7 +418,7 @@ class MultiPhotoPatchDataset(Dataset):
         # Train-only, like every other augmentation: val/test stay deterministic.
         self.rotation_jitter_degrees = rotation_jitter_degrees if split == "train" else 0.0
 
-        self.class_labels = load_class_labels(classes_file)
+        self.class_labels = dict(classes.labels)
 
         # Budget is per class *per capture dir*, so adding a dir adds data rather
         # than diluting the existing dirs' share of a fixed total. Each dir spends
@@ -549,11 +445,11 @@ class MultiPhotoPatchDataset(Dataset):
         # (raised below); tolerated for split="all", where one dir is scored as it is.
         self.missing_classes: list[str] = []
 
-        for class_idx, class_id in enumerate(class_ids):
-            pool, absent = pooled_class_photos(captures, class_id)
+        for class_idx, class_id in enumerate(self.class_ids):
+            pool, absent = pooled_class_photos(captures, classes.folders[class_id])
             for name in absent:
                 self.absent.append((name, class_id))
-                print(f"  WARNING: {name} has no class_{class_id} -- it contributes nothing to "
+                print(f"  WARNING: {name} has no class {class_id} -- it contributes nothing to "
                       f"that class ({split} split)")
             if not pool:
                 self.missing_classes.append(class_id)
@@ -574,7 +470,7 @@ class MultiPhotoPatchDataset(Dataset):
                 if not mine:
                     self.starved.append((capture.name, class_id))
                     n_have = sum(1 for p in pool if p.capture == capture.name)
-                    print(f"  WARNING: {capture.name} has {n_have} photo(s) of class_{class_id}, but the "
+                    print(f"  WARNING: {capture.name} has {n_have} photo(s) of class {class_id}, but the "
                           f"pooled split put none in {split} ({len(selected)} of {len(pool)} pooled "
                           f"photos) -- it contributes no {split} patches for this class")
                     continue
@@ -583,7 +479,7 @@ class MultiPhotoPatchDataset(Dataset):
                     n_patches = base + (1 if photo_idx < extra else 0)
                     self._extract_photo(
                         photo.path, n_patches, seed, capture_idx, class_idx, photo_idx,
-                        class_id, capture.name, crop_size, safety_margin,
+                        class_id, photo.folder_id, capture.name, crop_size, safety_margin,
                     )
 
         # For train/val/test a class absent from EVERY dir really is a total loss
@@ -602,12 +498,13 @@ class MultiPhotoPatchDataset(Dataset):
         # instead of scoring it as a phantom F1=0 (see compute_split_metrics's
         # macro_labels). Equal to every index for train/val/test.
         self.present_class_idxs = [
-            i for i, c in enumerate(class_ids) if c not in self.missing_classes
+            i for i, c in enumerate(self.class_ids) if c not in self.missing_classes
         ]
 
     def _extract_photo(
         self, photo_path: Path, n_patches: int, seed: int, capture_idx: int, class_idx: int,
-        photo_idx: int, class_id: str, capture_name: str, crop_size: int, safety_margin: float,
+        photo_idx: int, class_id: str, folder_id: str, capture_name: str, crop_size: int,
+        safety_margin: float,
     ) -> None:
         """Load one photo, cut its patches out, and let the photo go.
 
@@ -674,7 +571,7 @@ class MultiPhotoPatchDataset(Dataset):
                     (self.patch_store_size, self.patch_store_size), Image.BILINEAR
                 )
             self._patches.append(np.asarray(patch, dtype=np.uint8))
-            self._meta.append(PatchMeta(class_id, capture_name, photo_path.name, box, angle, side))
+            self._meta.append(PatchMeta(class_id, capture_name, photo_path.name, box, angle, side, folder_id))
         del rgb
 
     def __len__(self) -> int:
@@ -686,7 +583,7 @@ class MultiPhotoPatchDataset(Dataset):
 
     def __getitem__(self, idx: int):
         pil_patch = Image.fromarray(self._patches[idx])
-        label = self.class_ids.index(self._meta[idx].class_id)
+        label = self.classes.index(self._meta[idx].class_id)
         if self.transform is not None:
             tensor = self.transform(pil_patch)
         else:
