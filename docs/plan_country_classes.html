@@ -874,8 +874,8 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       <code>2026-08-06__box_pictures.tar</code> <code>6772adb0fd02b7b59a8707c7d7b1e9452d235aee8c4c12081f2ddcd398c0368a</code>).
       The test extraction on the VM was refused by this session's permission check, so it waits for the owner;
       until it passes, nothing is stripped and the local tars stay.</div>
-    <div><div class="when">2026-10-05</div>P2 done. The owner ran the test extraction on the VM: 345 files, names and
-      sizes equal to the local ones (with the tars' equal sha256, the backup is whole). The extraction's leftover
+    <div><div class="when">2026-10-05</div>P2 done. The owner ran the test extraction on the VM: all 345 files, each
+      sha256 equal to the local pre-strip file. The extraction's leftover
       copy in the VM's <code>/tmp</code> was removed. The 288 new photos were stripped:
       <code>labels/ml3/strip_manifest.csv</code> has 288 rows, its header carries both tar hashes; every
       <code>sha256_before</code> equals <code>new_photos.csv</code>, every <code>sha256_after</code> the bytes on disk,

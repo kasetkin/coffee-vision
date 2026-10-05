@@ -1,7 +1,7 @@
 # ML-3 D13 strip manifest: coffeecv/strip_metadata.py, exiftool 13.25
 # started 2026-10-05T11:39:11+00:00
 # exiftool -gps:all= -xmp:gps*= -makernotes:all= -xmp-gcamera:hdrplusmakernote= -xmp-xmpnote:all= -jumbf:all= -ifd1:all= -previewimage= -*serialnumber= -artist= -copyright= -ownername= -xpauthor= -xmp-dc:creator= -xmp-dc:rights= -iptc:by-line= -iptc:by-linetitle= -iptc:copyrightnotice=
-# Q8 pre-strip backup on the VM, ~/ml3_prestrip/ (outside the checkout and its DVC cache), sha256 equal on both ends; test extraction on the VM listed all 345 files, names and sizes equal to the local ones (2026-10-05):
+# Q8 pre-strip backup on the VM, ~/ml3_prestrip/ (outside the checkout and its DVC cache), sha256 equal on both ends; test extraction on the VM gave all 345 files, each sha256 equal to the local pre-strip file (2026-10-05):
 #   dataset_new_ignored.tar ddf8e41f7ecd72f3325f42000498553a058a15b9cff6fc1b0b775eeff5bb2b66
 #   2026-08-06__box_pictures.tar 6772adb0fd02b7b59a8707c7d7b1e9452d235aee8c4c12081f2ddcd398c0368a
 # paths are as stripped; P4 moves dataset_new_ignored/<session> to dataset/<session>
