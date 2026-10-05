@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b, P3 done 2026-10-05; P4 (the merge) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b, P3, P4 done 2026-10-05; P5 (owner mask review) next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -624,6 +624,11 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
     <li><span class="box"></span><span>Q8: with every check above passed, delete the pre-strip tars from the VM's
       <code>~/ml3_prestrip/</code>.</span></li>
   </ol>
+  <p><b>As run (2026-10-05).</b> <code>coverage_report</code> had three FAILs, not four (<code>ood_negatives</code>,
+    <code>ood_positives</code>, <code>ood_positives_internet</code>). Its "broad session" warning also changed: it
+    took any session with more than one class as a general capture, so the two-coffee 09-24 sessions marked every old
+    coffee absent; a broad session now carries at least half the class folders. The D18 fallbacks are a cluster
+    (activity below): 24 of the 288 new photos, none of the 938 old ones.</p>
 
   <h2>7. P5 &mdash; owner mask review (D8) <span class="pill sm open">stop</span></h2>
   <p><code>segcrop</code> stores the crop-aligned mask, but the review tool shows a full-photo mask. The full-frame mask
@@ -982,6 +987,44 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       </ul>
       No <code>dvc gc</code> anywhere (R6). The VM's <code>~/ml3_prestrip/</code> tars stay until P4's checks pass
       (Q8).</div>
+    <div><div class="when">2026-10-05</div>P4 done (<code>e799d7b</code>, VM <code>3724b23</code>):
+      <ul>
+        <li><b>Pre-checks</b> (<code>analysis/ml3/premerge_check.py</code>): the 288 photos are exactly
+          <code>new_photos.csv</code>'s, each with the strip manifest's <code>sha256_after</code>; the cameras fit
+          their pools; no sha256 or file-name stem matches any of the 1,300 photos under <code>dataset/</code>.</li>
+        <li><b>The merge:</b> the seven sessions moved into <code>dataset/</code> and were <code>dvc add</code>ed;
+          <code>classes.txt</code> is D15, equal to the ticket's text and pinned by <code>test_class_list</code>; the
+          segcrop foreach, the three merges and <code>CAPTURE_STAGE_OVERRIDES</code> carry the new sessions, and a
+          test checks the overrides against each merge's session list. Two tests that leaned on the old
+          <code>classes.txt</code> were fixed: the shipped-card test now gives the card its frozen class list, as
+          shipped (the live list's refusal is P1's intent); the split test passes once the merged pools are here.</li>
+        <li><b>On the VM</b> at 4 threads: <code>segcrop@</code> for the seven sessions, then
+          <code>merge_segcam_pixel</code> (514 crops, 14 folders), <code>_sony</code> (310, 12) and
+          <code>_oneplus</code> (310, 12); <code>cam_iphone</code> unchanged. One uploaded object had arrived
+          truncated (a <code>--partial</code> left by an interrupted first upload, then skipped by
+          <code>--ignore-existing</code>); the md5 check named it, it was replaced, and its session was checked out
+          and cropped again. All 295 objects match.</li>
+        <li><b>D18 fallbacks: 24 of 288 new photos, none of the 938 old ones.</b> 16 in
+          <code>2026-09-24__oneplus</code> (4 of 30 Peru, 12 of 40 Rwanda), 2 in <code>2026-09-24__pixel</code>, 4 in
+          <code>2026-09-24__sony</code> (all Rwanda), 2 in <code>random_date_raccoon</code> (the hopper photo and one
+          Excelso photo); 22 have a mask area of 0. Seen on a contact sheet: 16 fill the frame or nearly, so the whole
+          frame is beans. 8 show background a whole-frame crop trains on: OnePlus Peru
+          <code>PXL_20260924_174814080</code> (white surface), OnePlus Rwanda <code>PXL_20260924_103614873</code>
+          (metal bowl), <code>_103948127</code> (plate), <code>_104055590</code> (table), Pixel Rwanda
+          <code>PXL_20260924_055543146</code> (blue surface), Sony Rwanda <code>PIC_20260924_150406</code> (plate on
+          a table), and in <code>random_date_raccoon</code> the hopper ring <code>PXL_20260927_103241427</code> and
+          an Excelso grinder hopper in a kitchen, <code>PXL_20261003_061204827</code>. They go to the owner with P5,
+          first in its order.</li>
+        <li><b>Checks:</b> <code>coverage_report</code> exits 0, here and on the VM. <code>split_report</code> at
+          seeds 42, 123 and 7: 10 countries; <code>cam_iphone</code> has no Indonesia, Peru or Rwanda; the only coffee
+          a split leaves out is 013 Brazil SulDeMinas (4 photos), out of val and test at seeds 42 and 123 (D7,
+          accepted). The fit's run log is read at P6. <code>dvc status</code> is clean for every
+          <code>segcrop@</code> (16), every <code>merge_segcam_*</code>, <code>seg_predict@pretrained</code> and
+          <code>seg_eval@*</code>, on the VM and here (the new crops and pools fetched, 569 objects, each md5 checked
+          against the VM). Suite: 204 tests, none skipped, the one known timm failure only.</li>
+        <li><b>Q8:</b> the VM's <code>~/ml3_prestrip/</code> tars are deleted. The new photos' pre-strip bytes now
+          exist nowhere.</li>
+      </ul></div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
