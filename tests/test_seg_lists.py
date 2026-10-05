@@ -165,6 +165,14 @@ class CommittedLists(unittest.TestCase):
         if shown.returncode != 0:
             self.skipTest("the lists are not committed yet")
         committed = yaml.safe_load(shown.stdout)["lists"]
+        # The one allowed content change: a photo's hash before -> after the ML-3 metadata strip (`seg_lists
+        # rekey`, from labels/ml3/strip_manifest.csv). Pixels are unchanged; any other hash change still fails.
+        from coffeecv.rekey_photos import MANIFEST, load_map
+        rekey, _ = load_map() if MANIFEST.exists() else ({}, set())
+        for entries in committed.values():
+            for e in entries:
+                if e.get("sha256") in rekey:
+                    e["sha256"] = rekey[e["sha256"]]
         seg_lists.merge_append_only(committed, self.lists)       # raises on a drop, move or content change
         for name, entries in committed.items():
             self.assertEqual(self.lists[name][:len(entries)], entries, f"{name}: committed entries rewritten")

@@ -10,7 +10,8 @@ Used for evaluating guard metrics (`coffeecv/ood_eval.py`). Since 2026-09-30 (ti
 
 ## Batches
 
-54 photos, one flat directory since 2026-09-30. The manifest's `batch` column records which
+57 photos, one flat directory since 2026-09-30; 54 are in the manifest (3 awaiting a split, below). The
+manifest's `batch` column records which
 collection each photo arrived in, because the conditions measured on them were defined per batch:
 
 | `batch` | photos | what |
@@ -68,6 +69,19 @@ with nothing load-bearing in it.
   files: the signing certificate carries a device-stable ID shared by every photo), Google's
   opaque `HdrPlusMakernote` extended XMP (36), the Sony MakerNote (10) and EXIF thumbnails. Kept:
   Orientation (the Sony files need it), make/model, capture time, exposure tags, ICC.
+
+## 2026-10-05: three new photos, metadata pass over everything
+
+- **New photos**, not yet in the manifest: `PXL_20261005_054730718.jpg`, `PXL_20261005_054735253.jpg`
+  (a near-duplicate pair 5 s apart: roasted beans in a grinder hopper) and `PXL_20261005_073955312.jpg`
+  (top-down close-up, roasted). Pixel 9 Pro, shot 2026-10-05, a day with no training session, so
+  `user_beans_independent` by the rule above. Checked by SHA-256 and capture-timestamp stem against all
+  1,585 other photos under `dataset/` and `dataset_new_ignored/` (zero matches) and by eye. Their `split`
+  is the owner's to set (the holdout is spent, ticket ML-3 R5); until a manifest row exists, no
+  evaluation or segmenter list reads them.
+- **Metadata** (ticket ML-3, D13): every photo here went through `coffeecv.strip_metadata`; the three new
+  ones lost GPS, C2PA, the HDR+ maker note and the EXIF thumbnail, the 54 others were already clean. Rows in
+  `labels/ml3/strip_manifest.csv`.
 
 ## Sibling batch
 

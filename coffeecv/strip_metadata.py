@@ -6,7 +6,8 @@
 D13.1 as a deny list: GPS (EXIF, XMP and any GPS* tag), maker notes (Sony face info, Apple, Google HDR+
 maker note), C2PA/JUMBF (its signing certificate carries a device-stable id), extended XMP, embedded
 thumbnails and previews, device and lens serial numbers, owner/artist fields. Everything else stays,
-Orientation and the ICC profile included: they are not private and they describe the photo.
+Orientation and the ICC profile included: they are not private and they describe the photo. A RAW file's
+preview and a HEIF's thumbnail item are image data exiftool cannot remove; the owner keeps them (2026-10-05).
 
 exiftool edits metadata without re-encoding image data. Each photo is written to a new file beside it,
 checked, and only then moved over the original (a new inode: a DVC cache file linked from the working
@@ -74,6 +75,11 @@ DENY_TAGS = {"Artist", "Copyright", "OwnerName", "CameraOwnerName", "XPAuthor", 
              "By-line", "By-lineTitle", "CopyrightNotice", "HdrPlusMakernote", "HasExtendedXMP", "ThumbnailImage", "ThumbnailOffset",
              "ThumbnailLength", "PreviewImage", "PreviewImageStart", "PreviewImageLength"}
 _DENY_TAG_RE = re.compile(r"^GPS|SerialNumber")
+
+# Deny-listed, but kept by the owner's decision of 2026-10-05: a RAW file's embedded preview is image data
+# exiftool cannot remove without rewriting the file's structure (HEIF thumbnails, likewise kept, are image
+# items exiftool does not even list). Noted in the report, not failed.
+ACCEPTED_IN_RAW = {"PreviewImage", "PreviewImageStart", "PreviewImageLength"}
 
 # D13.1's "keep" list: must be there after if it was there before, byte for byte.
 KEPT_TAGS = {"Orientation", "ICC_Profile", "Make", "Model", "DateTimeOriginal", "CreateDate",
@@ -170,10 +176,14 @@ def pixel_digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def compare(before: dict, after: dict) -> tuple[list[str], list[str]]:
-    """(denied tags that went, problems). A problem is a denied tag still there, or a compared tag that
-    changed or went."""
-    problems = [f"deny-listed tag survived: {k}" for k in after if is_denied(k)]
+def accepted(key: str, ext: str) -> bool:
+    return ext.lower() in RAW_EXTENSIONS and _parts(key)[2] in ACCEPTED_IN_RAW
+
+
+def compare(before: dict, after: dict, ext: str = "") -> tuple[list[str], list[str]]:
+    """(denied tags that went, problems). A problem is a denied tag still there (unless accepted for this
+    file type), or a compared tag that changed or went."""
+    problems = [f"deny-listed tag survived: {k}" for k in after if is_denied(k) and not accepted(k, ext)]
     for k, v in before.items():
         if not is_compared(k):
             continue
@@ -203,7 +213,9 @@ def strip_one(path: Path, dry_run: bool) -> dict:
         n = sum(len(img.info.get("thumbnails") or []) for img in pillow_heif.open_heif(str(path)))
         if n:
             row["notes"].append("HEIF thumbnail image item stays (exiftool cannot remove it)")
-    if not any(is_denied(k) for k in before):
+    if any(accepted(k, path.suffix) for k in before):
+        row["notes"].append("RAW preview image stays (owner, 2026-10-05)")
+    if not any(is_denied(k) and not accepted(k, path.suffix) for k in before):
         return row
     # Beside the photo for a real strip (os.replace is atomic within one filesystem); a dry run writes
     # nothing under the photo's folder.
@@ -219,7 +231,7 @@ def strip_one(path: Path, dry_run: bool) -> dict:
             row["problems"].append(f"exiftool failed: {(proc.stderr or proc.stdout).strip()}")
             return row
         after = read_tags(tmp)
-        removed, problems = compare(before, after)
+        removed, problems = compare(before, after, path.suffix)
         if pixel_digest(tmp) != pix_before:
             problems.append("decoded pixels differ")
         row["removed"] = " ".join(removed)

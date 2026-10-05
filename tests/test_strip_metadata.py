@@ -115,16 +115,17 @@ class TestStrip(unittest.TestCase):
 
     @unittest.skipUnless(DNG.exists(), "the 2026-07-24 DNGs are not present (dvc pull)")
     def test_pixel_dng(self):
-        """A Pixel DNG loses GPS and maker notes with its sensor data and rendering unchanged. Its IFD0
-        preview is image data exiftool cannot remove, so it is the one deny-listed item left: such a
-        file fails rather than passing with a preview in it (ticket ML-3 P3 decides)."""
+        """A Pixel DNG loses GPS and its artist with its sensor data and rendering unchanged. Its IFD0
+        preview is image data exiftool cannot remove; the owner keeps it (2026-10-05), so it is noted, not
+        failed -- and nothing else deny-listed may stay."""
         path = self.tmp / DNG.name
         shutil.copyfile(DNG, path)
+        # The dataset's DNGs are stripped since 2026-10-05: give the copy GPS and an artist back first.
+        subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE[:5], str(path)], check=True)
         row = sm.strip_one(path, dry_run=True)
         self.assertIn("EXIF:GPS:GPSLatitude", row["removed"].split())
-        self.assertEqual(row["problems"], ["deny-listed tag survived: EXIF:IFD0:PreviewImageStart",
-                                           "deny-listed tag survived: EXIF:IFD0:PreviewImageLength"])
-
+        self.assertEqual(row["problems"], [])
+        self.assertEqual(row["notes"], ["RAW preview image stays (owner, 2026-10-05)"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@
 
     python -m coffeecv.seg_lists build     # writes labels/ml2/photo_lists.yaml (refuses to move or drop entries)
     python -m coffeecv.seg_lists check     # structural checks + coverage against today's pools
+    python -m coffeecv.seg_lists rekey     # photo hashes before -> after the ML-3 metadata strip (its manifest)
 
 Every list names raw photos, because the segmenter sees whole photos, never crops:
 
@@ -25,6 +26,8 @@ Every list names raw photos, because the segmenter sees whole photos, never crop
 
 The file is append-only (D20): `build` rebuilds from the data and refuses to write if any committed entry
 would change list, change hash or disappear. The eval lists only ever grow; no eval photo moves to training.
+`rekey` is the one way a pinned hash changes: ticket ML-3 stripped private metadata from every photo, which
+changes its bytes but not its pixels, and labels/ml3/strip_manifest.csv records each hash before and after.
 """
 from __future__ import annotations
 
@@ -516,7 +519,7 @@ def summary(lists: dict[str, list[dict]]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["build", "check", "bases"])
+    ap.add_argument("command", choices=["build", "check", "bases", "rekey"])
     args = ap.parse_args(argv)
     cfg = RunConfig.from_params_yaml()
 
@@ -535,6 +538,23 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("refusing to write inconsistent lists:\n  " + "\n  ".join(problems))
         write_lists(meta, lists)
         print(f"{len(accepted)} accepted; wrote base_dev / base_heldout\n{summary(lists)}")
+        return 0
+
+    if args.command == "rekey":
+        from coffeecv.rekey_photos import load_map, rekey_values
+        meta, lists = load_lists()
+        rekey, current = load_map()
+        values = [e["sha256"] for entries in lists.values() for e in entries if "sha256" in e]
+        todo, unknown = rekey_values(values, rekey, current)
+        if unknown:
+            raise ValueError(f"{len(unknown)} listed photo hash(es) are in no row of the strip manifest, "
+                             f"e.g. {unknown[0]}; nothing written")
+        for entries in lists.values():
+            for e in entries:
+                if e.get("sha256") in todo:
+                    e["sha256"] = todo[e["sha256"]]
+        write_lists(meta, lists)
+        print(f"re-keyed {sum(1 for v in values if v in todo)} of {len(values)} listed photo hashes")
         return 0
 
     if args.command == "build":

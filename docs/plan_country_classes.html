@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2 done 2026-10-05; P2b next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2 done 2026-10-05; P3's local strip done early (owner); P2b next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -881,6 +881,28 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       <code>sha256_before</code> equals <code>new_photos.csv</code>, every <code>sha256_after</code> the bytes on disk,
       and a separate exiftool audit of all 288 finds no deny-listed tag. Local tars deleted (Q8); the VM copies stay
       until P4's checks pass. <code>2026-08-06__box_pictures</code> is backed up but not yet stripped: that is P3.</div>
+    <div><div class="when">2026-10-05</div>Owner decides: the DNG previews and HEIC thumbnails stay; the three new
+      <code>ood_positives</code> photos are stripped and go into DVC; <code>ground_coffee_016.jpg</code> may be fixed any
+      way; and before any further phase, every photo in <code>dataset/</code> and <code>dataset_new_ignored/</code> is to
+      be stripped with the clean versions in DVC. So P3's local half runs now, ahead of P2b. Done:
+      <code>strip_metadata</code> keeps a RAW preview as a note; <code>analysis/ml3/fix_ground_coffee_016.py</code>
+      drops its XMP segment, whose header is <code>XMP\0://</code> instead of <code>http://</code>, losslessly (pixels
+      equal); every photo under <code>dataset/</code> stripped in place (1,299 checked, 1,097 stripped, none failing);
+      re-keyed by the new <code>coffeecv.rekey_photos</code> (fixtures, verdicts, defects, <code>base_points.yaml</code>,
+      <code>data/seg_labels</code>, the base-point mask index: 4,931 hashes, every one in the manifest) and
+      <code>seg_lists rekey</code> (1,137 of 1,244; the rest had nothing to strip); <code>dvc add</code> of the 16
+      tracked folders, <code>data/seg_labels</code>, <code>data/seg_masks/base_points</code> and, new in DVC,
+      <code>2026-08-06__box_pictures</code>. Final checks: a fresh exiftool audit of all 1,588 photos in
+      <code>dataset/</code> and <code>dataset_new_ignored/</code> finds no private tag (29 DNG previews kept); every photo
+      has a manifest row matching its bytes; all 19 pointers match the working tree with all 2,636 objects in the local
+      cache; the deploy fixtures verify; suite green but for the old timm failure. Old photo hashes remain only in the
+      two manifests (by design), in <code>seg_predict</code>'s mask indexes and <code>seg_eval</code>'s
+      <code>outputs/ml2_p2</code> (rewritten by their VM re-run, §5), and in git-ignored scratch
+      (<code>outputs/ml2_p5</code>). The 288 new photos enter DVC at P4, when they move into <code>dataset/</code> with the
+      D15 <code>classes.txt</code>. Still to do from P3, on the VM, after P2b's VM checks have run there against its
+      unstripped copies: copy the stripped photos in (fresh files, never <code>--inplace</code>),
+      <code>dvc commit</code> the fine-tune stages, re-run the mask, eval, segcrop and merge stages, and check every
+      output is unchanged.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
