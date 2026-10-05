@@ -259,6 +259,40 @@ stages:
       outs:
         - data/seg_masks/ft_s${item}
 
+  # Ticket ML-3 P5 (D8): ft_s123's full-frame masks of the 288 new photos, for the owner's review. segcrop keeps
+  # only crop-aligned masks; this recomputes the full-frame ones on the VM at the same 4 threads and stops unless
+  # each equals the mask_sha256 segcrop recorded, so the owner judges exactly the masks training crops with.
+  seg_predict_ml3_new:
+    cmd: python -m coffeecv.seg_predict_sessions ft_s123 --threads 4 --out ml3_new_ft_s123 --sessions 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon
+    deps:
+      - coffeecv/seg_predict_sessions.py
+      - coffeecv/seg_predict.py
+      - coffeecv/segment_beans.py
+      - coffeecv/sam_loader.py
+      - third_party/efficientvit/efficientvit
+      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      - models/seg/ft_s123.pt
+      - dataset/2026-09-11__oneplus
+      - dataset/2026-09-11__pixel
+      - dataset/2026-09-11__sony
+      - dataset/2026-09-24__oneplus
+      - dataset/2026-09-24__pixel
+      - dataset/2026-09-24__sony
+      - dataset/random_date_raccoon
+      - data/segcropped/2026-09-11__oneplus
+      - data/segcropped/2026-09-11__pixel
+      - data/segcropped/2026-09-11__sony
+      - data/segcropped/2026-09-24__oneplus
+      - data/segcropped/2026-09-24__pixel
+      - data/segcropped/2026-09-24__sony
+      - data/segcropped/random_date_raccoon
+    params:
+      - params.yaml:
+          - seg_prompt
+          - seg_mask_select
+    outs:
+      - data/seg_masks/ml3_new_ft_s123
+
   # Ticket ML-2 P2/P5: score a seg_predict stage's stored masks against the judge's stored verdicts (D16).
   # Never calls the judge: a mask with no verdict for the pinned judge stops the stage, naming the masks to
   # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the D18 tiny-mask threshold. Until ticket
