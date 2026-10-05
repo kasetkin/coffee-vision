@@ -1,5 +1,8 @@
 """Sweep the FFT search band against the 30 hand-counted crops, via PRODUCTION code.
 
+Reads the tray heuristic's data/cropped pools, retired in ticket ML-3 P2b: a record of a finished experiment,
+run at its own commit (or after `git checkout dbb4e62 && dvc checkout`).
+
 Why this exists rather than another entry in estimators.py: `m0_fft_radial` there
 is a frozen private copy of the FFT method, kept as the incumbent for the 2026-08-11
 five-method comparison. It hardcodes `lo, hi = 4, 80`, so editing

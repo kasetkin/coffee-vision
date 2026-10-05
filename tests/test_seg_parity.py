@@ -24,10 +24,10 @@ from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import (CAPTURES, SEG_CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset,
-                              bean_mask_path, bean_share_rule, load_rgb_image)
+from coffeecv.dataset import (CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset, bean_mask_path,
+                              bean_share_rule, load_rgb_image)
 from coffeecv.merge_rig import merge_rig
-from coffeecv.repro_utils import CAPTURE_STAGE_OVERRIDES, _stage_key
+from coffeecv.repro_utils import CAPTURE_STAGE_OVERRIDES, _stage_key, stale_crop_stages
 from coffeecv.segcrop_session import crop_photo, write_crop
 
 CFG = replace(RunConfig.from_params_yaml(), crop_method="segment")
@@ -133,20 +133,32 @@ class TestMergeCarriesMasks(unittest.TestCase):
 
 
 class TestSegPoolsWiring(unittest.TestCase):
-    def test_seg_pools_mirror_the_tray_pools(self):
-        self.assertEqual([Path(p).name for p in SEG_CAPTURES], [Path(p).name for p in CAPTURES])
-        self.assertEqual({Path(p).parent for p in SEG_CAPTURES}, {Path("data/segcropped")})
+    def test_the_pools_are_the_segmenters(self):
+        """Ticket ML-3 P2b: the tray heuristic's pools are retired; training reads the segmenter's only."""
+        self.assertEqual({Path(p).parent for p in CAPTURES}, {Path("data/segcropped")})
+        self.assertEqual(RunConfig.from_params_yaml().crop_method, "segment")
+
+    def test_pools_and_crop_method_must_agree(self):
+        """A config naming neither field gets the segmenter's pools and the tray heuristic (old cards need that
+        default): sampled so, the pools would skip their masks' patch rule (D17). It is refused when read."""
+        with self.assertRaisesRegex(ValueError, "crop_method"):
+            RunConfig().resolve_paths()
+        with self.assertRaisesRegex(ValueError, "crop_method"):
+            replace(RunConfig(), train_capture_dirs=("data/cropped/cam_sony",), crop_method="segment").resolve_paths()
+        replace(RunConfig(), crop_method="segment").resolve_paths()
+        replace(RunConfig(), train_capture_dirs=("data/cropped/cam_sony",)).resolve_paths()     # an old card
 
     def test_staleness_check_names_real_stages(self):
         """Every stage the fit's staleness check asks dvc about for the segmenter's pools is in dvc.yaml,
         and every segcrop session feeds one of them."""
         stages = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"]
         names = set(stages) | {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]}
-        named = [st for p in SEG_CAPTURES for st in CAPTURE_STAGE_OVERRIDES[_stage_key(p)]]
+        named = [st for p in CAPTURES for st in CAPTURE_STAGE_OVERRIDES[_stage_key(p)]]
         self.assertLessEqual(set(named), names)
         self.assertEqual({st for st in named if st.startswith("segcrop@")},
                          {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]})
-        self.assertEqual(_stage_key("data/cropped/cam_pixel"), "cam_pixel")
+        with self.assertRaisesRegex(ValueError, "segmenter"):           # a retired pool: nothing tracks it
+            stale_crop_stages(["data/cropped/cam_pixel"])
 
 
 if __name__ == "__main__":

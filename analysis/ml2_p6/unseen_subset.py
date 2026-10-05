@@ -8,7 +8,8 @@ checked against the rebuilt patch's class before it is used.
 
     python analysis/ml2_p6/unseen_subset.py --pairs 258:255 259:256 260:257 > analysis/ml2_p6/unseen_subset.txt
 
-Needs data/segcropped (the VM).
+Needs data/segcropped (the VM), and data/cropped for the tray-heuristic arms (255-257): those pools were
+retired in ticket ML-3 P2b, so run it at its own commit (dbb4e62).
 """
 from __future__ import annotations
 

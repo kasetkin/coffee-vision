@@ -82,15 +82,15 @@ def load_bean_mask(cropped_photo: Path, shape: tuple[int, int]) -> np.ndarray | 
 
 
 def list_cropped_photos(class_dir: Path) -> list[Path]:
-    """`class_dir` lives under the *cropped* root (`data/cropped/<session>/`), not
+    """`class_dir` lives under a crop root (`data/segcropped/<session or pool>/`), not
     the raw session directory — the crops are a pipeline output produced by the
-    `crop` stage, while the raw photos stay `dvc add`-tracked data. Sibling files
-    such as `crop_report.json` are excluded by the `*__cropped.jpg` glob."""
+    `segcrop` stage, while the raw photos stay `dvc add`-tracked data. Sibling files
+    such as `segcrop_report.json` and the bean masks are excluded by the `*__cropped.jpg` glob."""
     photos = sorted(class_dir.glob("*__cropped.jpg"))
     if not photos:
         raise FileNotFoundError(
-            f"No cropped photos found in {class_dir}. Run the crop stage first: "
-            f"`dvc repro crop` (or `python -m coffeecv.crop_session --session <name>`)."
+            f"No cropped photos found in {class_dir}. Run the segmenter's crop stage first: "
+            f"`dvc repro segcrop` (on the VM, at 4 threads)."
         )
     return photos
 
@@ -134,11 +134,13 @@ class PatchMeta:
     folder_id: str  # the class folder (coffee) the photo came from; equals class_id for per-folder classes
 
 
-# The capture dirs a run trains on: every data/cropped/cam_* pool, each built by
-# its own merge_cam_* stage in dvc.yaml from one camera's sessions. Formerly
-# run_folds.RIGS, the fold rotation; moved here when the fold driver was retired
-# (ticket ML-1, 2026-09-29). run_all_rigs.py and fit_frozen_head.py train on
-# exactly this list, and params.yaml rests at it.
+# The capture dirs a run trains on: the segmenter's four data/segcropped/cam_* pools, each built by its
+# own merge_segcam_* stage in dvc.yaml from one camera's segcrop@<session> crops. Formerly
+# run_folds.RIGS, the fold rotation; moved here when the fold driver was retired (ticket ML-1,
+# 2026-09-29). run_all_rigs.py and fit_frozen_head.py train on exactly this list, and params.yaml
+# rests at it. Until ticket ML-3 P2b this named the tray heuristic's data/cropped/cam_* pools, and
+# ML-2's SEG_CAPTURES named these; the tray heuristic's pools and their crop stages were then retired
+# (Q3), so a tray-heuristic model's split is rebuilt at its own commit.
 #
 # The order is not cosmetic: a dir's position here is the `capture_idx` that
 # seeds its patch boxes (MultiPhotoPatchDataset._extract_photo). It no longer
@@ -148,15 +150,6 @@ class PatchMeta:
 # cam_iphone carries eight classes (no class_008, no class_010); the other three
 # carry all ten.
 CAPTURES = [
-    "data/cropped/cam_pixel",
-    "data/cropped/cam_sony",
-    "data/cropped/cam_oneplus",
-    "data/cropped/cam_iphone",
-]
-# Ticket ML-2: the same four pools built from the segmenter's crops (segcrop@<session> -> merge_segcam_*),
-# in the same order, so a seed draws the same photo split and the same capture_idx on both sets of pools:
-# the photo names are the raw stems on both sides, and Capture.name is the basename.
-SEG_CAPTURES = [
     "data/segcropped/cam_pixel",
     "data/segcropped/cam_sony",
     "data/segcropped/cam_oneplus",
@@ -177,7 +170,7 @@ def bean_share_rule(cfg) -> tuple[float, int] | None:
 
 @dataclass(frozen=True)
 class Capture:
-    """One capture dir under data/cropped/: a name and where its crops live.
+    """One capture dir under data/segcropped/: a name and where its crops live.
 
     A capture is a pool of photos defined by camera + date + setup + lighting --
     deliberately not "a camera": a future dir need not map 1:1 to a physical
@@ -193,12 +186,13 @@ class Capture:
 
 
 def resolve_captures(cropped_dirs: list[Path]) -> list[Capture]:
-    """`.../data/cropped/<name>` -> Capture(name=<name>)."""
+    """`.../data/segcropped/<name>` -> Capture(name=<name>)."""
     captures = []
     for path in cropped_dirs:
         if not path.is_dir():
             raise FileNotFoundError(
-                f"No cropped capture dir at {path}. Run the crop stage first: `dvc repro crop`."
+                f"No cropped capture dir at {path}. Run the segmenter's crop stages first: "
+                f"`dvc repro merge_segcam_pixel` (and the other merge_segcam_* stages)."
             )
         captures.append(Capture(name=path.name, cropped_dir=path))
     if not captures:

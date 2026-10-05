@@ -2,19 +2,22 @@
 
 For a rig re-shot on a different day/setup (different framing, lighting, even a
 different crop trim) that should still be trained on as *one* rig rather than a
-new, separate one -- see dataset/2026-08-27__oneplus_flash.crop.yaml for why that
-session and 2026-08-25__oneplus are being merged rather than kept apart.
+new, separate one -- see dataset/2026-08-27__oneplus_flash.crop.yaml (deleted in
+ticket ML-3 P2b; in git history) for why that session and 2026-08-25__oneplus were
+first merged rather than kept apart.
 
-This is deliberately a real, tracked pipeline stage (`merge_oneplus` in dvc.yaml),
-not a manual one-off copy -- this project already has a scar from treating a step
-as untracked: crop_tray.py predating the `crop` stage "could not run anywhere the
-crops did not already sit in the working tree" (see EXPERIMENTS_LOG.md Phase 9).
+This is deliberately a real, tracked pipeline stage (the merge_segcam_* stages in
+dvc.yaml), not a manual one-off copy -- this project already has a scar from
+treating a step as untracked: crop_tray.py predating the `crop` stage "could not
+run anywhere the crops did not already sit in the working tree" (see
+EXPERIMENTS_LOG.md Phase 9).
 
-    python -m coffeecv.merge_rig --name oneplus_combined --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash
+    python -m coffeecv.merge_rig --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony
 
 Ticket ML-2 (F3): the segmenter's pools merge the same way from data/segcropped (`--root`), and a crop's
-bean-region mask (`<stem>__beanmask.png`, dataset.bean_mask_path) travels with it. The tray heuristic's
-crops have none, so their merges are unchanged.
+bean-region mask (`<stem>__beanmask.png`, dataset.bean_mask_path) travels with it; a D18 fallback crop has
+none. Since ticket ML-3 P2b data/segcropped is the default root: the tray heuristic's data/cropped pools,
+which this first merged, are retired (Q3).
 """
 from __future__ import annotations
 
@@ -26,16 +29,16 @@ from pathlib import Path
 
 from coffeecv.config import REPO_ROOT
 
-CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
+SEGCROPPED_ROOT = REPO_ROOT / "data" / "segcropped"
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 
 
-def merge_rig(name: str, sessions: list[str], root: Path = CROPPED_ROOT) -> dict:
+def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT) -> dict:
     session_dirs = [root / s for s in sessions]
     for s, d in zip(sessions, session_dirs):
         if not d.is_dir():
-            raise FileNotFoundError(f"No cropped session at {d}. Run the crop stage first: "
-                                     f"`dvc repro crop` (or `crop_session.py --session {s}`).")
+            raise FileNotFoundError(f"No cropped session at {d}. Run its crop stage first: "
+                                     f"`dvc repro segcrop@{s}` (on the VM, at 4 threads).")
 
     # Union of class directories across all source sessions -- a session missing
     # one class (e.g. iPhone lacking class_008) just contributes nothing for it,
@@ -99,10 +102,10 @@ def merge_rig(name: str, sessions: list[str], root: Path = CROPPED_ROOT) -> dict
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--name", required=True, help="name of the merged rig, under data/cropped/<name>")
+    p.add_argument("--name", required=True, help="name of the merged rig, under <root>/<name>")
     p.add_argument("--sessions", required=True, nargs="+", help="cropped session names to merge (>= 2)")
-    p.add_argument("--root", type=Path, default=CROPPED_ROOT,
-                   help="where the sessions are and the merge goes: data/cropped (default) or data/segcropped")
+    p.add_argument("--root", type=Path, default=SEGCROPPED_ROOT,
+                   help="where the sessions are and the merge goes (default data/segcropped)")
     args = p.parse_args()
     if not args.sessions:
         raise SystemExit("--sessions needs at least one session")

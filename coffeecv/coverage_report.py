@@ -16,8 +16,9 @@ Checks, in order of how badly they bite:
    which is why this went unnoticed. It is still the kind of drift that makes a
    grep-based tool silently disagree with the loader.
 2. **Sessions not wired into the pipeline.** A session in dataset/ that is
-   neither excluded below nor listed in dvc.yaml's `crop` foreach is almost
-   certainly a capture someone forgot to wire in.
+   neither excluded below nor listed in dvc.yaml's `segcrop` foreach is almost
+   certainly a capture someone forgot to wire in. (The tray heuristic's `crop`
+   foreach, read here until ticket ML-3 P2b, is retired.)
 3. **Undeclared / unphotographed classes**, against dataset/classes.txt -- and a
    declared class that no training capture dir (`dataset.CAPTURES`) carries, which
    training would refuse outright. Checked per class folder (a coffee): since ticket
@@ -64,7 +65,7 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
 ACCEPTED_DRIFT = {"009"}
 
 # Deliberately outside the pipeline -- flat directories with no class_* children,
-# absent from dvc.yaml's crop foreach on purpose. Listed here so check 2 does not
+# absent from dvc.yaml's segcrop foreach on purpose. Listed here so check 2 does not
 # flag them forever; anything NOT here and not in the foreach is a real finding.
 EXCLUDED = {
     "2026-07-24__first_pictures",   # pre-project exploratory shots, no class structure
@@ -79,12 +80,11 @@ def sessions_on_disk() -> list[Path]:
 
 
 def sessions_in_dvc() -> set[str]:
-    """The `crop` stage's foreach list -- the pipeline's own idea of what exists."""
+    """The `segcrop` stage's foreach list -- the pipeline's own idea of what exists. By name: the first
+    list-valued foreach was the tray heuristic's `crop` until ticket ML-3 P2b, and is seg_finetune's seeds
+    now."""
     dvc = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())
-    for stage in dvc.get("stages", {}).values():
-        if isinstance(stage.get("foreach"), list):
-            return set(stage["foreach"])
-    return set()
+    return set(dvc["stages"]["segcrop"]["foreach"])
 
 
 def count_photos(class_dir: Path) -> int:
@@ -164,10 +164,10 @@ def main() -> int:
     on_disk = {s.name for s in sessions_on_disk()}
     in_dvc = sessions_in_dvc()
     for name in sorted(on_disk - in_dvc):
-        errors.append(f"session {name!r} is on disk but not in dvc.yaml's crop foreach "
+        errors.append(f"session {name!r} is on disk but not in dvc.yaml's segcrop foreach "
                       f"(add it, or add it to EXCLUDED here if it is deliberately outside)")
     for name in sorted(in_dvc - on_disk):
-        errors.append(f"session {name!r} is in dvc.yaml's crop foreach but not on disk")
+        errors.append(f"session {name!r} is in dvc.yaml's segcrop foreach but not on disk")
 
     # 3. classes.txt vs reality
     for cid in sorted(set(counts) - set(labels)):
@@ -176,13 +176,13 @@ def main() -> int:
         errors.append(f"class_{cid} ({labels[cid]}) is declared in classes.txt but has no photos")
 
     # 4a. class balance per capture dir. Sessions are the capture unit on disk, but
-    # training draws from the CAPTURES dirs, each merged from sessions by a merge_*
+    # training draws from the CAPTURES dirs, each merged from sessions by a merge_segcam_*
     # stage -- so a class can look thin per session and still be well covered per dir.
     # Counted from the raw sessions through dvc.yaml's merge map, so this runs
-    # without the crop stage having been run.
+    # without the segcrop stage having been run.
     merges = {}
     for stage, body in yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"].items():
-        if stage.startswith("merge_") and isinstance(body.get("cmd"), str):
+        if stage.startswith("merge_segcam_") and isinstance(body.get("cmd"), str):
             parts = body["cmd"].split()
             if "--name" in parts and "--sessions" in parts:
                 merges[parts[parts.index("--name") + 1]] = parts[parts.index("--sessions") + 1:]

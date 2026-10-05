@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2 done 2026-10-05; P3's local strip done early (owner); P2b next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b done 2026-10-05; P3's local strip done early (owner); P3's VM half next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -511,6 +511,14 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           today's unstripped bytes. Its out hash must equal <code>dvc.lock</code>'s. If it does not, the VM's
           environment has drifted since ML-2 P4. Stop: P3's identity check would then be meaningless, and the
           cause is not the strip.</li>
+        <li><b>As run (2026-10-05).</b> The owner had the local strip done before P2b, so from <code>c0bf070</code>
+          on every record pins the stripped hashes, and no commit after it can run these checks against the VM's
+          unstripped bytes. The two that need those bytes ran at the VM's own checkout (<code>dbb4e62</code>,
+          ML-2's close, whose mask code is identical to P2b's), writing to a scratch dir only:
+          <code>segcrop</code> of <code>2026-08-30__sony</code> and <code>seg_predict</code> of the pretrained
+          model. The <code>seg_eval</code> re-runs need <code>seg_predict</code>'s index, which pins photo hashes,
+          so they move to P3's VM run, after <code>seg_predict</code> re-runs on the stripped photos. Their check
+          is the same: <code>seg_eval_*.json</code> equal to the committed one apart from the D19/D22 fields.</li>
       </ul></span></li>
     <li><span class="box"></span><span><b>Accepted consequence:</b> at commits from P2b on, a tray-heuristic model
       (<code>allrigs_cam_s123</code> and older) still serves, but no tool can rebuild its split, OOD reference or
@@ -575,7 +583,8 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
     <li><span class="box"></span><span>Then, at 4 threads, <code>seg_predict@pretrained</code>, <code>seg_predict_ft@*</code>,
       <code>seg_eval@pretrained</code>, <code>seg_eval@ft_s123</code>, <code>segcrop@*</code> (9) and
       <code>merge_segcam_*</code> (4). Check: segcrop and merge out hashes unchanged; every mask's
-      <code>mask_sha256</code> unchanged; <code>outputs/seg_eval_*.json</code> identical to P2b's; <code>dvc
+      <code>mask_sha256</code> unchanged; <code>outputs/seg_eval_*.json</code> identical to the committed ones apart
+      from the retired D19/D22 fields (P2b's <code>seg_eval</code> check, moved here: see P2b's VM item); <code>dvc
       status</code> clean for the stages P2b's check names.</span></li>
     <li><span class="box"></span><span><code>deploy_webapp.sh</code>'s <code>check_fixtures</code> passes on the
       re-keyed <code>fixtures.txt</code>. <code>release_probe classify</code> on the live model gives the P1 JSON
@@ -903,6 +912,46 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       unstripped copies: copy the stripped photos in (fresh files, never <code>--inplace</code>),
       <code>dvc commit</code> the fine-tune stages, re-run the mask, eval, segcrop and merge stages, and check every
       output is unchanged.</div>
+    <div><div class="when">2026-10-05</div>P2b done, locally; its VM checks ran at the VM's own checkout, since the
+      strip had already happened here (see P2b's VM item). <code>dataset.CAPTURES</code> is the four
+      <code>data/segcropped/cam_*</code> pools and <code>SEG_CAPTURES</code> is gone; <code>params.yaml</code> rests at
+      them with <code>crop_method: segment</code>; <code>RunConfig.resolve_paths</code> refuses a
+      <code>data/segcropped</code> pool without <code>segment</code> and a <code>data/cropped</code> one with it (other
+      dirs, such as tests' temp pools, are not judged); <code>fit_frozen_head</code> loses <code>--pools</code>;
+      <code>run_all_rigs</code> states <code>crop_method</code>; <code>repro_utils</code> maps only the segmenter's
+      pools and refuses any other dir; <code>merge_rig</code> defaults to <code>data/segcropped</code>;
+      <code>coverage_report</code> reads the <code>segcrop</code> foreach by name; <code>seg_eval</code> drops D19/D22
+      (their results stay in the metrics files as of <code>8eef7f5</code>) and its foreach drops ft_s42/ft_s7;
+      <code>seg_lists</code> rebuilds ML-2's split from the nine sessions' segmenter crops, each under its pool's name,
+      and <code>build</code> now carries <code>base_dev</code>/<code>base_heldout</code>, so it no longer refuses (P1's
+      finding). Deleted: the <code>crop</code> foreach, <code>merge_cam_*</code> and their 13 <code>dvc.lock</code>
+      entries, <code>crop_session.py</code>, <code>qa_live_crop.py</code>, the nine <code>crop.yaml</code> files and
+      <code>archive_experiment</code>'s copying of them; header notes on the <code>bean_scale</code>,
+      <code>xrig_probe</code> and <code>unseen_subset</code> records. The DINOv3 fixture is regenerated from
+      <code>data/segcropped/cam_iphone</code> (same 8 classes, Meta commit and weights). Checks:
+      <ul>
+        <li>VM, at <code>dbb4e62</code> against the unstripped photos, into a scratch dir: <code>segcrop</code> of
+          <code>2026-08-30__sony</code> byte-identical to the tracked out (its report's <code>out_path</code> aside), so
+          no environment drift; <code>seg_predict</code> pretrained gives all 343 masks and the index byte-identical, so
+          <code>seg_predict@pretrained</code> was stale on code deps only.</li>
+        <li>The segmenter's pools copied from the VM (4.3 GB): all 3,821 files of the 13 outs match
+          <code>dvc.lock</code>.</li>
+        <li><code>split_census</code> and every class's split membership at seeds 42/123/7 identical to the tray
+          pools' at <code>c0bf070</code>; <code>split_report</code> exits 0.</li>
+        <li><code>seg_lists build</code> rewrites <code>photo_lists.yaml</code> byte for byte; <code>check</code> OK;
+          <code>build()</code> equals <code>c0bf070</code>'s apart from fresh entries' <code>crop:</code> path.</li>
+        <li><code>fit_frozen_head --smoke</code> at seed 7: head weights, predictions and metrics identical to a
+          <code>--pools segcropped</code> run at <code>c0bf070</code>.</li>
+        <li><code>coverage_report</code>: the same output, the stage name in its three pre-existing <code>ood_*</code>
+          FAILs aside.</li>
+        <li>The <code>grep</code> finds only history in comments, old-card strings in tests and the analysis
+          records.</li>
+        <li>Suite: 203 tests, none skipped, one failure that predates ML-3 (the timm pin).</li>
+      </ul>
+      <code>data/cropped</code>'s 1,945 files are in the DVC cache here and on the VM. The local working copy is
+      deleted; the VM's goes when its checkout moves to this branch, at the start of P3's VM half. Not yet clean:
+      <code>merge_segcam_*</code> (<code>merge_rig.py</code> changed), <code>seg_eval@*</code> (code and deps
+      changed) and, since the strip, every <code>segcrop@</code> stage; P3's VM run re-runs them all.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:

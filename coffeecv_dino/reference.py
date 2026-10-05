@@ -3,7 +3,10 @@
 Drawn by coffeecv's own single-capture-dir builder (`fold_data.build_capture_dataset`: every photo of
 one dir, split="all") from the DVC-tracked crops, through the project's eval transform, so no
 check in this package runs on synthetic data. cam_iphone because it is the smallest rig (92 photos,
-~12 s to decode); it carries 8 of the 10 classes, and labels here index those 8.
+~12 s to decode); it carries 8 of the 10 classes, and labels here index those 8. The segmenter's pool
+since ticket ML-3 P2b (the tray heuristic's data/cropped/cam_iphone is retired), with params.yaml's
+crop_method, so patches are placed by the D17 rule against each crop's mask. ML-3 adds no iPhone
+photos, so the pool stays fixed through the merge.
 """
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import discover_classes_multi, resolve_captures
 from coffeecv.fold_data import build_capture_dataset
 
-REFERENCE_RIG = "data/cropped/cam_iphone"
+REFERENCE_RIG = "data/segcropped/cam_iphone"
 REFERENCE_SEED = 42
 
 

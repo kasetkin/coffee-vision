@@ -46,16 +46,26 @@ import yaml
 
 from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
+from coffeecv.dataset import Capture, pooled_class_photos, split_photos_by_class
 
 LISTS_FILE = REPO_ROOT / "labels" / "ml2" / "photo_lists.yaml"
-CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
+SEGCROPPED_ROOT = REPO_ROOT / "data" / "segcropped"
+# ML-2's nine sessions, by the pool (capture dir basename) each was merged into when ML-2 drew its split. The
+# split is rebuilt from these sessions' own crops, never from the merged pools: ticket ML-3 adds new sessions
+# to the pools, and the split must not move (D20).
+ML2_SESSIONS = {
+    "cam_pixel": ("2026-08-07__box_pictures_all_classes", "2026-08-09__pixel_cam", "2026-08-30__pixel"),
+    "cam_sony": ("2026-08-09__sony_cam", "2026-08-30__sony"),
+    "cam_oneplus": ("2026-08-25__oneplus", "2026-08-27__oneplus_flash", "2026-08-30__oneplus"),
+    "cam_iphone": ("2026-08-25__iphone",),
+}
 NEGATIVES_ROOT = REPO_ROOT / "dataset" / "ood_negatives"
 POSITIVE_DIRS = (REPO_ROOT / "dataset" / "ood_positives", REPO_ROOT / "dataset" / "ood_positives_internet")
 
 POSITIVE_LISTS = ("seg_train", "seg_val", "seg_eval")
 NEGATIVE_LISTS = ("neg_seg_train", "neg_seg_eval")
 OOD_POSITIVE_LISTS = ("pos_seg_train", "pos_seg_eval")
+BASE_LISTS = ("base_dev", "base_heldout")         # written by `bases` from the owner's decisions, never by build()
 # The roasted photos in today's data: class_010 (Indonesia Java) in all three 2026-08-30 sessions, 126 photos,
 # each session checked by eye. The ticket's D20 names only the pixel session (46).
 ROASTED = {(s, "class_010") for s in ("2026-08-30__pixel", "2026-08-30__sony", "2026-08-30__oneplus")}
@@ -97,17 +107,18 @@ def rel(path: Path) -> str:
 
 # --- positives -------------------------------------------------------------------------------------
 
-def crop_sessions() -> dict[tuple[str, str], str]:
-    """(class_NNN, crop file name) -> session, from the per-session crop dirs the cam_* pools merge.
-    Refuses a name two sessions share: the cam_* pool could not say which raw photo it came from."""
-    index: dict[tuple[str, str], str] = {}
-    for crop in sorted(CROPPED_ROOT.glob("2026-*/class_*/*__cropped.jpg")):
-        key = (crop.parent.name.split("__")[0], crop.name)
-        session = crop.parts[-3]
-        if key in index:
-            raise ValueError(f"{crop.name} of {key[0]} is in both {index[key]} and {session}")
-        index[key] = session
-    return index
+def ml2_captures(capture_dirs: list[str]) -> list[Capture]:
+    """One Capture per ML-2 session's segmenter crops (data/segcropped/<session>), named after the pool it
+    was merged into, in `capture_dirs`' order. Sessions sharing a name pool exactly as the merged pool did:
+    the split key is (pool name, photo name), and merge_rig refuses a name two sessions share."""
+    captures = []
+    for d in capture_dirs:
+        for session in ML2_SESSIONS[Path(d).name]:
+            path = SEGCROPPED_ROOT / session
+            if not path.is_dir():
+                raise FileNotFoundError(f"no segmenter crops at {rel(path)}: `dvc repro segcrop@{session}` (VM)")
+            captures.append(Capture(name=Path(d).name, cropped_dir=path))
+    return captures
 
 
 def raw_photo(session: str, class_key: str, crop_name: str) -> Path:
@@ -133,12 +144,15 @@ def split_basis(cfg: RunConfig) -> tuple[list[str], dict[str, float]]:
 def pooled_split(cfg: RunConfig) -> dict[str, list[dict]]:
     """{"train": [...], "eval": [...]} positive entries: the head fit's pooled split as ML-2 drew it, at
     seg_split_seed: one class per class folder (class_list.folder_classes), whatever classes.txt's format,
-    so each folder keeps its class index. A folder with no photos in these pools is skipped (ML-3's new
-    folders have no tray-heuristic crops); it sorts after every ML-2 folder, so no index moves."""
+    so each folder keeps its class index. A folder with no photos in ML-2's sessions is skipped (ML-3's new
+    folders); it sorts after every ML-2 folder, so no index moves.
+
+    ML-2 drew it over the tray heuristic's pools, retired in ticket ML-3 P2b. The segmenter's crops hold the
+    same photo names (one `<stem>__cropped.jpg` per raw photo, D18 fallbacks included), so the split is the
+    same; a committed entry's `crop:` path stays as history."""
     capture_dirs, frac = split_basis(cfg)
-    captures = resolve_captures([REPO_ROOT / d for d in capture_dirs])
+    captures = ml2_captures(capture_dirs)
     classes = folder_classes(REPO_ROOT / cfg.classes_file)
-    sessions = crop_sessions()
     out: dict[str, list[dict]] = {"train": [], "eval": []}
     for class_idx, class_id in enumerate(classes.keys):
         pool, _ = pooled_class_photos(captures, classes.folders[class_id])
@@ -147,7 +161,7 @@ def pooled_split(cfg: RunConfig) -> dict[str, list[dict]]:
         for split, photos in split_photos_by_class(pool, cfg.seg_split_seed, class_idx, frac).items():
             for ph in photos:
                 class_key = ph.path.parent.name.split("__")[0]
-                session = sessions[(class_key, ph.name)]
+                session = ph.path.parts[-3]
                 raw = raw_photo(session, class_key, ph.name)
                 out["train" if split == "train" else "eval"].append({
                     "path": rel(raw),
@@ -565,7 +579,9 @@ def main(argv: list[str] | None = None) -> int:
             if meta["seg_split_seed"] != cfg.seg_split_seed:
                 raise ValueError(f"{rel(LISTS_FILE)} was built at seg_split_seed {meta['seg_split_seed']}, "
                                  f"params.yaml says {cfg.seg_split_seed}; the lists are append-only (D20)")
-            new = merge_append_only(old, new)
+            # base_dev / base_heldout come from the owner's mask decisions (`bases`), not from the data, so a
+            # rebuild carries them as they are; without this `build` refused once they existed (ticket ML-3).
+            new = merge_append_only(old, {**{k: old[k] for k in BASE_LISTS if k in old}, **new})
         meta = {"seg_split_seed": cfg.seg_split_seed,
                 "photo_frac": [frac["train"], frac["val"], frac["test"]],
                 "capture_dirs": capture_dirs, "seg_val_frac": SEG_VAL_FRAC,

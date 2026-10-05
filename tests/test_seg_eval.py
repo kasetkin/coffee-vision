@@ -1,5 +1,5 @@
-"""The seg_eval stage's statistics and the heuristic box lookup (ticket ML-2 P2, plan §5). Plain unittest;
-the box test needs data/cropped (DVC) and skips without it.
+"""The seg_eval stage's statistics (ticket ML-2 P2, plan §5). Plain unittest. The heuristic box lookup's
+test went with the lookup in ticket ML-3 P2b (data/cropped retired).
 
     python -m unittest discover -s tests -p 'test_seg_eval.py'
 """
@@ -9,8 +9,7 @@ import unittest
 
 import numpy as np
 
-from coffeecv import seg_lists
-from coffeecv.seg_eval import CROPPED_ROOT, bootstrap_rate, heuristic_box, quantiles, wilson_rate
+from coffeecv.seg_eval import bootstrap_rate, quantiles, wilson_rate
 from coffeecv.segment_beans import SegParams, mask_and_crop
 
 
@@ -44,21 +43,6 @@ class GeometryOnlyCrop(unittest.TestCase):
         photo = rng.integers(0, 255, (60, 80, 3), dtype=np.uint8)
         blank = np.broadcast_to(np.zeros(3, np.uint8), (60, 80, 3))
         self.assertEqual(mask_and_crop(photo, mask, p).info, mask_and_crop(blank, mask, p).info)
-
-
-@unittest.skipUnless(CROPPED_ROOT.exists(), "needs data/cropped (dvc pull)")
-class HeuristicBox(unittest.TestCase):
-    def test_every_eval_photo_has_a_box_inside_its_frame(self):
-        _, lists = seg_lists.load_lists()
-        for e in lists["seg_eval"]:
-            box = heuristic_box(e, 10**5, 10**5)
-            self.assertEqual(len(box), 4, e["path"])
-            self.assertTrue(all(v >= 0 for v in box), e["path"])
-
-    def test_box_outside_the_frame_is_refused(self):
-        _, lists = seg_lists.load_lists()
-        with self.assertRaises(ValueError):
-            heuristic_box(lists["seg_eval"][0], 10, 10)
 
 
 if __name__ == "__main__":

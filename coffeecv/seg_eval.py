@@ -10,15 +10,13 @@ Reports, per list:
   pos_seg_eval   the OOD positives (D26), on their own line
   neg_seg_eval   mask area per tag, pile-like pooled, the user_samerig batch on its own line; the share of
                  empty-or-tiny masks under the D18 threshold, with Wilson intervals (the D11 test's form)
-  heuristic      judge-free (D22): on each judge-accepted seg_eval mask, the share of the bean region today's
-                 heuristic rectangle discards and that rectangle's IoU with the D4 crop
   d18            the tiny-mask threshold in force (params.yaml seg_min_area_frac, owner 2026-10-01) and how many
                  photos it triggers on; the plan's rule (half the smallest judge-accepted genuine mask) beside it
-  d19            beans across (the FFT estimator, unchanged) on the old crop (the cam_* pool JPEG training reads)
-                 vs the new filled D4 crop, on judge-accepted seg_eval masks. Gated on beans_across, not pitch
-                 in px, which moves with the crop's size (owner 2026-10-01). Pass: median |rel change| <= 5%.
-                 The tail is not gated: it is reported next to a trim-only control, the old crop with the D4
-                 crop's per-side cut removed and no mask or fill, which shows the estimator's own bin jitter.
+
+Until ticket ML-3 P2b it also compared each mask with the tray heuristic's crops: the share of the bean region
+the heuristic rectangle discards (D22) and beans across on the old vs the new crop (D19). Both read the retired
+data/cropped pools; their results are ML-2's record, in outputs/seg_eval_{pretrained,ft_s123}.json as of
+commit 8eef7f5 ("heuristic" and "d19").
 
 Out: outputs/seg_eval_<model>.json (DVC metric) and outputs/ml2_p2/<model>/per_photo.csv, plus review item
 lists for review_masks --items: declines.csv (every non-accepted genuine mask) and audit.csv (audit_sample).
@@ -30,28 +28,20 @@ import csv
 import json
 import math
 from collections import Counter, defaultdict
-from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 from coffeecv import seg_lists
-from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_rgb_image
-from coffeecv.geometry import compute_valid_region_rect
-from coffeecv.infer import grayscale_like_training
-from coffeecv.seg_defects import box_iou
 from coffeecv.seg_judge import JUDGE_MODEL, build_prompt, prompt_sha256, require_verdicts, wilson
 from coffeecv.seg_predict import mask_items
 from coffeecv.segment_beans import SegParams, mask_and_crop
 
 OUT_DIR = REPO_ROOT / "outputs"
-CROPPED_ROOT = REPO_ROOT / "data" / "cropped"
 SAMERIG_BATCH = "2026-09-11__user_samerig"
 N_BOOT = 10_000
 BOOT_SEED = 239
-D19_MEDIAN_MAX = 0.05
 NEG_TEST_MIN = 0.90               # D11: share of pile-like neg_seg_eval empty or tiny, pooled
 QUANTILES = (0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0)
 
@@ -86,40 +76,13 @@ def wilson_rate(k: int, n: int) -> dict:
 
 # ---------------------------------------------------------------- inputs
 
-def heuristic_box(entry: dict, h: int, w: int) -> list[int]:
-    """Today's crop rectangle [x, y, w, h] for a pool photo, from its session's crop_report.json; the whole
-    frame for a passthrough session. It is in the raw photo's pixel frame (no EXIF rotation), the frame
-    load_rgb_image and the masks use: checked against every seg_eval crop JPEG on 2026-10-01."""
-    raw = Path(entry["path"])
-    class_key = raw.parent.name.split("__")[0]
-    reports = list((CROPPED_ROOT / entry["session"]).glob(f"{class_key}__*/crop_report.json"))
-    if len(reports) != 1:
-        raise FileNotFoundError(f"expected one crop_report.json for {entry['session']}/{class_key}, got {reports}")
-    row = next((r for r in json.loads(reports[0].read_text()) if r["file"] == raw.name), None)
-    if row is None:
-        raise KeyError(f"{raw.name} is not in {reports[0]}")
-    box = row.get("box") or [0, 0, w, h]
-    x, y, bw, bh = box
-    if x < 0 or y < 0 or x + bw > w or y + bh > h:
-        raise ValueError(f"{entry['path']}: heuristic box {box} outside the {w}x{h} frame")
-    return list(box)
-
-
 def load_mask(item: dict) -> np.ndarray:
     return np.array(Image.open(REPO_ROOT / item["mask"])) > 0
 
 
-def pitch_and_across(rgb: np.ndarray, cfg: RunConfig) -> tuple[float, float]:
-    """The estimator exactly as infer.patches_for_photo runs it: luma, then pitch; beans_across over the
-    safety-margin region's short side."""
-    pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
-    region = compute_valid_region_rect(*rgb.shape[:2], cfg.safety_margin)
-    return pitch, min(region.width, region.height) / pitch
-
-
 # ---------------------------------------------------------------- the stage
 
-def evaluate(model: str, skip_pitch: bool = False) -> dict:
+def evaluate(model: str) -> dict:
     cfg = RunConfig.from_params_yaml()
     _, lists = seg_lists.load_lists()
     entries = {e["path"]: (name, e) for name in ("seg_eval", "neg_seg_eval", "pos_seg_eval") for e in lists[name]}
@@ -145,13 +108,6 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
                "pile_like": e.get("pile_like", ""), "audit": it["path"] in audit,
                "mask_area_frac": info["mask_area_frac"], "bean_frac_in_crop": info["bean_frac_in_crop"],
                "retained_frac": info["retained_frac"], "d4_box": info["box"]}
-        if name == "seg_eval":
-            hb = heuristic_box(e, *mask.shape)
-            row["heuristic_box"] = hb
-            if v["verdict"] == "accept" and mask.any():
-                x, y, bw, bh = hb
-                row["heuristic_discard"] = 1 - int(np.count_nonzero(mask[y:y + bh, x:x + bw])) / int(mask.sum())
-                row["heuristic_iou"] = box_iou(hb, info["box"])
         rows.append(row)
 
     by = defaultdict(list)
@@ -194,14 +150,8 @@ def evaluate(model: str, skip_pitch: bool = False) -> dict:
                         for t in sorted({r["tag"] for r in neg})},
         "area_samerig_pile_like": quantiles([r["mask_area_frac"] for r in pile if r["batch"] == SAMERIG_BATCH])}
 
-    hr = [r for r in se if "heuristic_iou" in r]
-    report["heuristic"] = {"n": len(hr), "discard": quantiles([r["heuristic_discard"] for r in hr]),
-                           "iou_with_d4": quantiles([r["heuristic_iou"] for r in hr])}
-
     if model != "pretrained":
         report["p5_gate"] = p5_gate(report, rows)
-    if not skip_pitch:
-        report["d19"] = pitch_check([r for r in se if r["verdict"] == "accept"], entries, p, cfg)
     write_outputs(model, report, rows)
     return report
 
@@ -231,38 +181,6 @@ def p5_gate(report: dict, rows: list[dict]) -> dict:
                             "gained": int((diff > 0).sum()), "lost": int((diff < 0).sum())},
             "negative_test": {"pass": bool(neg_gate), **neg, "min": NEG_TEST_MIN},
             "pass": bool(pass_gate and neg_gate)}
-
-
-def pitch_check(rows: list[dict], entries: dict, p: SegParams, cfg: RunConfig) -> dict:
-    """D19 on judge-accepted masks: the old crop is the pool JPEG training reads; the new one is the filled D4
-    crop of the raw photo (mask_and_crop, the function P3 calls at both ends). The control trims the old crop
-    by the D4 crop's per-side cut, (1 - keep_frac) / 4 of each side, with no mask or fill."""
-    trim = (1.0 - p.keep_frac) / 4
-    rel, rel_across, rel_control = [], [], []
-    for n, r in enumerate(rows, 1):
-        _, e = entries[r["path"]]
-        old = np.array(Image.open(REPO_ROOT / e["crop"]).convert("RGB"))
-        new = mask_and_crop(load_rgb_image(REPO_ROOT / r["path"]), load_mask(r), p).rgb
-        h, w = old.shape[:2]
-        dy, dx = round(h * trim), round(w * trim)
-        (po, ao), (pn, an) = pitch_and_across(old, cfg), pitch_and_across(new, cfg)
-        _, ac = pitch_and_across(old[dy:h - dy, dx:w - dx], cfg)
-        r.update(pitch_old=po, pitch_new=pn, beans_across_old=ao, beans_across_new=an, beans_across_control=ac)
-        rel.append(abs(pn - po) / po)
-        rel_across.append(abs(an - ao) / ao)
-        rel_control.append(abs(ac - ao) / ao)
-        if n % 25 == 0 or n == len(rows):
-            print(f"  d19 {n}/{len(rows)}", flush=True)
-    if not rel:
-        return {"n": 0}
-    return {"n": len(rel), "beans_across_abs_rel_change": quantiles(rel_across),
-            "control_beans_across_abs_rel_change": quantiles(rel_control),
-            "pitch_abs_rel_change": quantiles(rel),
-            "signed_pitch_rel_change_median": round(float(np.median(
-                [(r["pitch_new"] - r["pitch_old"]) / r["pitch_old"] for r in rows])), 4),
-            "control_trim_per_side": trim,
-            "pass": bool(np.median(rel_across) <= D19_MEDIAN_MAX),
-            "gate": {"measure": "beans_across", "median_max": D19_MEDIAN_MAX}}
 
 
 def write_outputs(model: str, report: dict, rows: list[dict]) -> None:
@@ -297,10 +215,7 @@ def summary(rep: dict) -> str:
              f"  declined rules      {se['declined_rules']}",
              f"  D18 min_area_frac   {rep['d18']['min_area_frac']}  triggers {rep['d18']['triggers']}",
              f"  neg empty/tiny      pile-like {rate(rep['neg_seg_eval']['empty_or_tiny_pile_like'])}; "
-             f"samerig {rate(rep['neg_seg_eval']['empty_or_tiny_samerig'])}",
-             f"  heuristic (n={rep['heuristic']['n']})   discard median "
-             f"{(rep['heuristic']['discard'] or {}).get('q50')}, IoU with D4 median "
-             f"{(rep['heuristic']['iou_with_d4'] or {}).get('q50')}"]
+             f"samerig {rate(rep['neg_seg_eval']['empty_or_tiny_samerig'])}"]
     if "p5_gate" in rep:
         g = rep["p5_gate"]
         lines.append(f"  P5 gate             {'PASS' if g['pass'] else 'FAIL'}: pass rate {g['pass_rate']['rate']} vs "
@@ -308,20 +223,14 @@ def summary(rep: dict) -> str:
                      f"{g['negative_test']['rate']} vs >= {g['negative_test']['min']} "
                      f"({'ok' if g['negative_test']['pass'] else 'no'}); paired diff {g['paired_diff']['mean']} "
                      f"{g['paired_diff']['boot95']} (+{g['paired_diff']['gained']} / -{g['paired_diff']['lost']})")
-    if "d19" in rep and rep["d19"].get("n"):
-        d = rep["d19"]
-        a, c = d["beans_across_abs_rel_change"], d["control_beans_across_abs_rel_change"]
-        lines.append(f"  D19 across (n={d['n']})  |rel| median {a['q50']} -> {'pass' if d['pass'] else 'FAIL'}; "
-                     f"p95 {a['q95']} (trim-only control {c['q95']})")
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model")
-    ap.add_argument("--skip-pitch", action="store_true", help="leave out D19 (it decodes every accepted photo)")
     args = ap.parse_args(argv)
-    print(summary(evaluate(args.model, args.skip_pitch)))
+    print(summary(evaluate(args.model)))
 
 
 if __name__ == "__main__":

@@ -383,8 +383,8 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
 def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
     """Crop `rgb` to the detected bean-filled region -- the live-inference
     mirror of the offline crop stage (coffeecv.crop_session, driven by
-    coffeecv.crop_tray) that box_pictures/iphone/oneplus's training data
-    already went through before training ever saw it. Returns (possibly
+    coffeecv.crop_tray; retired in ticket ML-3 P2b) that a tray-heuristic
+    model's training data went through before training ever saw it. Returns (possibly
     cropped rgb, crop_info): crop_info is None for passthrough (no tray
     found -- the common, correct outcome for a frame-filling photo, same as
     pixel_cam/sony_cam's raw captures), or a dict describing the crop.

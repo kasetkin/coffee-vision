@@ -5,7 +5,7 @@ checked out -- covering exactly today's pools. Plain unittest.
     python -m unittest discover -s tests -p 'test_seg_lists.py'
 
 The grouping, allocation and append-only rules run on synthetic rows. The committed-file checks need only
-git-tracked files; the coverage check skips without data/cropped.
+git-tracked files; the coverage check skips without ML-2's sessions' segmenter crops (data/segcropped).
 """
 from __future__ import annotations
 
@@ -183,7 +183,8 @@ class CommittedLists(unittest.TestCase):
         self.assertEqual(len(pos_bases), seg_lists.N_POS_BASE_CANDIDATES)
         self.assertTrue(all(e["path"] in pos_eval for e in pos_bases))
 
-    @unittest.skipUnless((seg_lists.CROPPED_ROOT / "cam_pixel").is_dir(), "needs the DVC-tracked pools")
+    @unittest.skipUnless(all((seg_lists.SEGCROPPED_ROOT / s).is_dir() for ss in seg_lists.ML2_SESSIONS.values()
+                             for s in ss), "needs ML-2's sessions' segmenter crops (DVC, from the VM)")
     def test_covers_exactly_todays_pools(self):
         fresh = seg_lists.build(RunConfig.from_params_yaml())
         for name in (*seg_lists.POSITIVE_LISTS, *seg_lists.NEGATIVE_LISTS, *seg_lists.OOD_POSITIVE_LISTS):

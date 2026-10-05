@@ -33,7 +33,7 @@ class TestEmbeddingContract(unittest.TestCase):
     """A future arm cannot land without proving its head's pre-hook fires and captures
     embedding_dim_of(head) features -- the vector every OOD artifact is built in (plan §8.0)."""
 
-    @unittest.skipUnless(have_reference_data(), "real crops (data/cropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_pre_hook_captures_the_embedding(self):
         x, _, _, _ = reference_patches(per_class=1)
         for name in SUPPORTED_MODELS:
@@ -126,11 +126,15 @@ class TestLegacyTrainRigsAlias(unittest.TestCase):
         self.assertEqual(cfg.train_capture_dirs, ("data/cropped/cam_sony",))
         self.assertNotIn(LEGACY_CONFIG_NOTE, source)
 
-    def test_both_deployed_cards_resolve_to_the_four_capture_dirs(self):
-        for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):
+    def test_shipped_cards_resolve_to_their_own_four_capture_dirs(self):
+        """The segmenter model reads today's pools; the two tray-heuristic models keep naming the pools they
+        were fitted on, retired in ticket ML-3 P2b (their split is rebuilt at their own commit)."""
+        tray = [f"data/cropped/{Path(c).name}" for c in CAPTURES]
+        for name, want in (("allrigs_dino3b16_seg_s7", CAPTURES), ("allrigs_dino3b16_s123", tray),
+                           ("allrigs_cam_s123", tray)):
             with self.subTest(name=name):
                 cfg, _ = config_for_checkpoint(REPO_ROOT / "models" / f"{name}.pt", None)
-                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], CAPTURES)
+                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], want)
 
 
 class TestRecordedClassIds(unittest.TestCase):
@@ -207,7 +211,7 @@ class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
         with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
             load_model(DEPLOYED, "resnet18", 10, 0.2)
 
-    @unittest.skipUnless(have_reference_data(), "real crops (data/cropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_logits_bit_identical_to_imagenet_init(self):
         x, _, _, _ = reference_patches(per_class=2)
         new, _ = load_model(DEPLOYED, "resnet18", 10, 0.2)

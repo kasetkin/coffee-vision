@@ -1,95 +1,24 @@
 stages:
-  # Raw session photos -> cropped bean-tray images. Iterates over *sessions*
-  # rather than class directories: a session is the unit that gets added to this
-  # project over time, so a new capture session is a one-line change here.
-  # Crop settings live in dataset/<session>.crop.yaml and are declared as a dep,
-  # not a param -- they describe a rig, not the model, so they must not enter the
-  # hyperparameter surface or the experiments table.
-  crop:
-    foreach:
-      - 2026-08-07__box_pictures_all_classes
-      - 2026-08-09__pixel_cam
-      - 2026-08-09__sony_cam
-      - 2026-08-25__iphone
-      - 2026-08-25__oneplus
-      - 2026-08-27__oneplus_flash
-      - 2026-08-30__oneplus
-      - 2026-08-30__pixel
-      - 2026-08-30__sony
-    do:
-      cmd: python -m coffeecv.crop_session --session ${item}
-      deps:
-        - dataset/${item}
-        - dataset/${item}.crop.yaml
-        - coffeecv/crop_tray.py
-        - coffeecv/crop_session.py
-      outs:
-        - data/cropped/${item}
-
-  # The capture dirs training reads (dataset.CAPTURES): one pool per camera model,
-  # merged from that camera's sessions -- box_0807 and pixel_cam_0809 are the same
-  # Pixel 9 Pro at two framing distances, so they share a pool. Three of the four
-  # carry all ten classes, because each camera's 08-30 class_010 session folds into
-  # its own pool; cam_iphone has eight. Each pool spans framing distances (cam_pixel
-  # covers 87-362 px bean pitch).
-  #
-  # Since ticket ML-1 (2026-09-29) these are photo pools, not labels: photos are
-  # pooled across all four per class before the train/val/test split, and no pool
-  # is held out. The legacy merge_oneplus stage (oneplus_combined) was deleted then
-  # too (D6); cam_oneplus supersedes it.
-  merge_cam_pixel:
-    cmd: python -m coffeecv.merge_rig --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel
-    deps:
-      - data/cropped/2026-08-07__box_pictures_all_classes
-      - data/cropped/2026-08-09__pixel_cam
-      - data/cropped/2026-08-30__pixel
-      - coffeecv/merge_rig.py
-    outs:
-      - data/cropped/cam_pixel
-
-  merge_cam_sony:
-    cmd: python -m coffeecv.merge_rig --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony
-    deps:
-      - data/cropped/2026-08-09__sony_cam
-      - data/cropped/2026-08-30__sony
-      - coffeecv/merge_rig.py
-    outs:
-      - data/cropped/cam_sony
-
-  merge_cam_oneplus:
-    cmd: python -m coffeecv.merge_rig --name cam_oneplus --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus
-    deps:
-      - data/cropped/2026-08-25__oneplus
-      - data/cropped/2026-08-27__oneplus_flash
-      - data/cropped/2026-08-30__oneplus
-      - coffeecv/merge_rig.py
-    outs:
-      - data/cropped/cam_oneplus
-
-  merge_cam_iphone:
-    cmd: python -m coffeecv.merge_rig --name cam_iphone --sessions 2026-08-25__iphone
-    deps:
-      - data/cropped/2026-08-25__iphone
-      - coffeecv/merge_rig.py
-    outs:
-      - data/cropped/cam_iphone
-
+  # Ticket ML-3 P2b (Q3, owner 2026-10-04): the tray heuristic's stages -- the `crop` foreach (raw session ->
+  # data/cropped/<session>, settings in dataset/<session>.crop.yaml) and merge_cam_* (data/cropped/cam_*) --
+  # are retired, with their pools. Training reads the segmenter's pools only (segcrop, merge_segcam_* below).
+  # They are in git history up to ML-3 P2b's parent, and an older commit plus `dvc checkout` brings them back.
   train:
     cmd: python -m coffeecv.train_baseline
     deps:
       - coffeecv
       # The capture dirs training actually reads -- params.yaml's
       # train_capture_dirs, which rests at dataset.CAPTURES -- so the DAG runs
-      # merge_cam_* (and the crops behind them) before train, and a changed pool
+      # merge_segcam_* (and the crops behind them) before train, and a changed pool
       # invalidates the run. Until ticket ML-1 this listed raw-session crop dirs
       # and the legacy oneplus_combined instead of the cam_* pools, so a change
-      # to a pool did not invalidate train at all. Point train_capture_dirs at a
-      # dir not listed here and add it here too, or a changed dir reuses a
-      # stale run.
-      - data/cropped/cam_pixel
-      - data/cropped/cam_sony
-      - data/cropped/cam_oneplus
-      - data/cropped/cam_iphone
+      # to a pool did not invalidate train at all; until ticket ML-3 P2b, the tray
+      # heuristic's data/cropped pools. Point train_capture_dirs at a dir not
+      # listed here and add it here too, or a changed dir reuses a stale run.
+      - data/segcropped/cam_pixel
+      - data/segcropped/cam_sony
+      - data/segcropped/cam_oneplus
+      - data/segcropped/cam_iphone
       - dataset/classes.txt
     params:
       - params.yaml:
@@ -140,7 +69,7 @@ stages:
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
   # the filled D4 crop and its bean mask, or the whole photo on a D18 fallback. The segmenter is params.yaml's
   # seg_* fields. Mask bits differ across CPUs and thread counts (P0), so this runs on the VM at a pinned 4
-  # threads, like seg_predict. The existing crop / merge_cam_* stages stay untouched until P6 (ticket R7).
+  # threads, like seg_predict. Since ticket ML-3 P2b these are the only crops training reads.
   segcrop:
     foreach:
       - 2026-08-07__box_pictures_all_classes
@@ -175,8 +104,12 @@ stages:
       outs:
         - data/segcropped/${item}
 
-  # The segmenter's capture dirs (dataset.SEG_CAPTURES), merged exactly as merge_cam_* merges the tray
-  # heuristic's; merge_rig copies each crop's bean mask with it (F3).
+  # The capture dirs training reads (dataset.CAPTURES): one pool per camera model, merged from that camera's
+  # sessions -- box_0807 and pixel_cam_0809 are the same Pixel 9 Pro at two framing distances, so they share
+  # a pool. Since ticket ML-1 (2026-09-29) these are photo pools, not labels: photos are pooled across all
+  # four per class before the train/val/test split, and no pool is held out. merge_rig copies each crop's
+  # bean mask with it (ML-2 F3). Until ticket ML-3 P2b the tray heuristic's merge_cam_* stages built the
+  # same four pools from its own crops.
   merge_segcam_pixel:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel
     deps:
@@ -305,34 +238,27 @@ stages:
 
   # Ticket ML-2 P2/P5: score a seg_predict stage's stored masks against the judge's stored verdicts (D16).
   # Never calls the judge: a mask with no verdict for the pinned judge stops the stage, naming the masks to
-  # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the judge-free heuristic comparison (D22),
-  # the D18 tiny-mask threshold and the D19 pitch check, which decodes the accepted photos (sha256-checked
-  # in photo_lists.yaml, so not deps) and their data/cropped pool JPEGs.
+  # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the D18 tiny-mask threshold. Until ticket
+  # ML-3 P2b it also ran the heuristic comparison (D22) and the D19 pitch check against the tray heuristic's
+  # data/cropped pools, retired then; their results stay in the metrics files as of commit 8eef7f5.
+  # Only pretrained and ft_s123: ML-2 judged the seed seg_val selected (123), so ft_s42's and ft_s7's masks
+  # have no verdicts and their stages never ran; running them needs judge calls, which ML-3 D8 rules out.
   seg_eval:
     foreach:
       - pretrained
-      - ft_s42
       - ft_s123
-      - ft_s7
     do:
       cmd: python -m coffeecv.seg_eval ${item}
       deps:
         - coffeecv/seg_eval.py
         - coffeecv/segment_beans.py
-        - coffeecv/bean_scale.py
         - labels/ml2/photo_lists.yaml
         - labels/ml2/verdicts.jsonl
         - labels/ml2/judge_prompt.md
         - labels/ml2/accept_rule.md
         - data/seg_masks/${item}
-        - data/cropped
       params:
         - params.yaml:
-            - safety_margin
-            - bean_k_lo
-            - bean_k_hi
-            - bean_analysis_frac
-            - bean_calibration_k
             - seg_min_area_frac
       outs:
         - outputs/ml2_p2/${item}

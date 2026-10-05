@@ -193,8 +193,8 @@ def raw_photo_index() -> dict[str, Path]:
     """Filename stem -> raw photo, across every session in `dataset/`.
 
     An index rather than a path transform because the rigs a checkpoint trains on
-    are *merged* ones (`data/cropped/cam_pixel` is three sessions stitched together
-    by the merge_cam_* stages), so a cropped photo's directory no longer names the
+    are *merged* ones (`data/segcropped/cam_pixel` is three sessions stitched together
+    by the merge_segcam_* stages), so a cropped photo's directory no longer names the
     session its raw original lives in. The stems survive both the crop and the
     merge unchanged and are unique across the whole tree, which makes them the one
     thing that still joins the two sides.

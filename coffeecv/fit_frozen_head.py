@@ -19,9 +19,10 @@ scoop of beans, and are never comparable to the fold-era cross-camera numbers.
     python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 252
     python -m coffeecv.fit_frozen_head --ship 252 --name allrigs_dino3b16_s42
 
-`--pools segcropped` (ticket ML-2) fits on the segmenter's pools (dataset.SEG_CAPTURES) with crop_method
-"segment", so patches are placed by the D17 rule against each photo's mask and the checkpoint serves through
-the segmenter; params.yaml's seg_* fields name it. The default, `cropped`, is today's recipe.
+Every fit reads the segmenter's pools (dataset.CAPTURES) with crop_method "segment", so patches are placed
+by the D17 rule against each photo's mask and the checkpoint serves through the segmenter; params.yaml's seg_*
+fields name it. Until ticket ML-3 P2b this took `--pools cropped|segcropped` and defaulted to the tray
+heuristic's pools, which are retired (Q3).
 """
 from __future__ import annotations
 
@@ -44,7 +45,7 @@ from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_b
 from coffeecv.class_list import folder_classes, load_classes
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import CAPTURES, SEG_CAPTURES
+from coffeecv.dataset import CAPTURES
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
@@ -59,21 +60,18 @@ DEFAULT_C = 0.1
 DEFAULT_C_RULE = "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)"
 EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
-# --pools: the capture dirs a fit reads and the crop_method that made them (ticket ML-2, plan §7).
-POOLS = {"cropped": (CAPTURES, "tray_heuristic"), "segcropped": (SEG_CAPTURES, "segment")}
 
 
 def log(msg: str) -> None:
     print(f"[fit_frozen_head {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def allrigs_config(backbone: str, seed: int, smoke: bool, pools: str = "cropped") -> RunConfig:
-    """params.yaml's sampling geometry, every camera in training (`pools`' set of them), and the fields
+def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
+    """params.yaml's sampling geometry, every camera in training (the segmenter's pools), and the fields
     that describe a frozen backbone with a convex head set to what actually runs (as the screen records its
     folds)."""
-    captures, crop_method = POOLS[pools]
-    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(captures),
-                  crop_method=crop_method,
+    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES),
+                  crop_method="segment",
                   model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
                   color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
@@ -93,8 +91,8 @@ def embed(ds, bb: FrozenBackbone, readout: str) -> tuple[np.ndarray, np.ndarray,
 
 
 def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: str,
-                 out: Path, smoke: bool, pools: str = "cropped") -> Path:
-    cfg = allrigs_config(bb.name, seed, smoke, pools)
+                 out: Path, smoke: bool) -> Path:
+    cfg = allrigs_config(bb.name, seed, smoke)
     assert_input_size(bb, cfg.patch_resize)
     set_seed(seed)
     eval_tf = build_eval_transform(cfg.patch_resize)
@@ -232,8 +230,6 @@ def main() -> int:
     p.add_argument("--start-exp", type=int, help="first experiment id; one per seed, in --seeds order")
     p.add_argument("--C", type=float, default=DEFAULT_C,
                    help=f"the head's inverse regularisation strength (default {DEFAULT_C:g}, ML-1 D3)")
-    p.add_argument("--pools", choices=list(POOLS), default="cropped",
-                   help="the tray heuristic's pools (default) or the segmenter's (ticket ML-2)")
     p.add_argument("--out", default=str(DEFAULT_OUT))
     p.add_argument("--smoke", action="store_true", help="tiny patch budgets; nothing is archived")
     p.add_argument("--allow-dirty", action="store_true", help="skip the provenance checks (smoke only)")
@@ -252,7 +248,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages(POOLS[args.pools][0])
+        stale = stale_crop_stages(CAPTURES)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
     if args.start_exp is not None:
@@ -268,8 +264,7 @@ def main() -> int:
     out = Path(args.out)
     for i, seed in enumerate(args.seeds):
         t = time.perf_counter()
-        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke,
-                               args.pools)
+        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke)
         log(f"s{seed}: done in {(time.perf_counter() - t) / 60:.1f} min")
         if args.smoke:
             continue
@@ -278,13 +273,12 @@ def main() -> int:
         cfg = json.loads(cfg_path.read_text())
         cfg["dino"]["run_dir"] = str(run_dir.resolve().relative_to(REPO_ROOT))
         cfg_path.write_text(json.dumps(cfg, indent=2))
-        seg = args.pools == "segcropped"
         archive(str(exp), f"allrigs_{args.backbone.replace('dinov3_vit', 'dino3')}_frozen_"
-                          f"{args.readout.replace('_', '')}{'_segcrop' if seg else ''}_s{seed}",
+                          f"{args.readout.replace('_', '')}_segcrop_s{seed}",
                 f"plan §9.1 all-cameras shipping fit: frozen {args.backbone}, readout {args.readout}, "
                 f"L2 logistic-regression head at fixed C={C:g}, no TTA; "
-                + ("ML-2 segmenter pools (data/segcropped, crop_method segment); " if seg else "")
-                + "in-distribution metrics only", src_dir=run_dir)
+                "ML-2 segmenter pools (data/segcropped, crop_method segment); "
+                "in-distribution metrics only", src_dir=run_dir)
     return 0
 
 
