@@ -90,7 +90,7 @@ with nothing load-bearing in it.
 
 - **New photo** (`ood_positives_2026-10-06`): `PXL_20261006_053625750.jpg`, roasted beans in a grinder
   hopper, top-down (the setting of the 2026-10-05 pair). Pixel 9 Pro, shot 2026-10-06 10:36 local. Four
-  training photos (`random_date_raccoon/class_005__Guatemala`) were shot about an hour later the same
+  training photos (`random_date_raccoon/class_005__Guatemala_Tata`) were shot about an hour later the same
   morning, so the rule above would make it `user_beans_same_day`; it is **`user_beans_independent`** by
   the owner's call (2026-10-06). **Holdout** (owner). Checked by SHA-256 and capture-timestamp stem against
   all 1,583 other photos under `dataset/` and `dataset_new_ignored/` (zero matches) and by eye.
