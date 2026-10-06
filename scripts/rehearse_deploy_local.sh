@@ -5,6 +5,10 @@
 #
 #   scripts/rehearse_deploy_local.sh [scratch-dir]
 #
+# Deploy 2 (and --compare and the roll-forward) use $REHEARSE_MODEL, by default the model being released.
+# It was allrigs_dino3b16_s123 until ticket ML-3; that model was fitted under timm 1.0.29 and the release
+# pins 1.0.30, so it no longer loads.
+#
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
 # its -E variables -- no sandbox, no caps), systemctl (starts the ExecStart of the rendered unit in the
 # background, so the smoke and verify steps hit a real gunicorn from a real release venv), journalctl,
@@ -147,6 +151,7 @@ export TRAIN_PY="${TRAIN_PY:-$(command -v python3)}" LOCAL_PY="${LOCAL_PY:-pytho
 export STUB_PATH="$S" STUB_STATE="$R/state" DEPLOY_SCRATCH="$R/scratch"
 export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOKE_PORT=18001
 D="$C/scripts/deploy_webapp.sh"
+MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_seg_country_s123}
 SHA=$(git -C "$C" rev-parse origin/main)
 cleanup() { PATH="$S:$PATH" systemctl stop coffee-cv-web >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -182,13 +187,13 @@ step "refusal: nginx -t fails -> old site restored, nothing flipped"
 before=$(readlink "$APP_ROOT/current")
 sed -i 's|^    root .*|    root /changed/for/the/test;|' "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
 cp "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" "$R/site.before"
-expect_fail "nginx -t rejected the new site" env STUB_NGINX_FAIL=1 "$D" "$SHA" allrigs_dino3b16_s123
+expect_fail "nginx -t rejected the new site" env STUB_NGINX_FAIL=1 "$D" "$SHA" "$MODEL"
 cmp -s "$R/site.before" "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" || { echo "site not restored"; exit 1; }
 [[ "$(readlink "$APP_ROOT/current")" == "$before" ]] || { echo "current moved"; exit 1; }
 echo "   site restored byte for byte; current unchanged"
 
-step "deploy 2: allrigs_dino3b16_s123 (service enabled: restart + verify, prune)"
-"$D" "$SHA" allrigs_dino3b16_s123
+step "deploy 2: $MODEL (service enabled: restart + verify, prune)"
+"$D" "$SHA" "$MODEL"
 ls "$APP_ROOT/releases"
 
 step "--compare on the current release"
@@ -198,6 +203,6 @@ step "--rollback to allrigs_cam_s123, and back"
 "$D" --rollback
 [[ "$(readlink "$APP_ROOT/current")" == releases/*-allrigs_cam_s123 ]] || { echo "rollback did not switch"; exit 1; }
 "$D" --rollback
-[[ "$(readlink "$APP_ROOT/current")" == releases/*-allrigs_dino3b16_s123 ]] || { echo "roll-forward did not switch"; exit 1; }
+[[ "$(readlink "$APP_ROOT/current")" == releases/*-"$MODEL" ]] || { echo "roll-forward did not switch"; exit 1; }
 
 step "REHEARSAL PASSED"

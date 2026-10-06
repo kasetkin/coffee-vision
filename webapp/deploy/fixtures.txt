@@ -3,8 +3,10 @@
 # (release_probe.py --list), by tests/test_release_manifest.py and by scripts/rehearse_deploy_local.sh.
 #   smoke    exactly one: sent to /classify, /crop and /preview on every deploy -- a photo the tray
 #            crop fires on, so the /crop box is compared too
-#   compare  one per class across six sessions and four cameras, two of them HEIC; the training venv
-#            and the release venv must give bit-identical results on all of them
+#   compare  one per class folder 001-010 across six sessions and four cameras, two of them HEIC, plus
+#            a Peru and a Rwanda photo from seed 123's test split (ticket ML-3 Q7: the 2026-09-24
+#            sessions, a Pixel and a Sony; the first by name); the training venv and the release venv
+#            must give bit-identical results on all of them
 # Basenames must be unique: the VM stores the photos flat, in /opt/coffee-cv/fixtures/photos/.
 smoke   4b541302d83f53cb3a466939f58bdcb9adc707c32754bb5bb270f3342e9e6252 dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg
 compare e9289bcd6f3827091f139d68f5dc96aaa94a04d3910054811897b3cb7d30d5ee dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130838005.jpg
@@ -17,3 +19,5 @@ compare bcd95630ade0792d84b3d2b5e4e864b2356655e389e4492eccb177aa154bdc6e dataset
 compare 085bb9e9ee3aa5c52a5453e7914e4976110de43bb6becc7107f4b60fa9efd145 dataset/2026-08-09__sony_cam/class_008__Ethiopia_Kochere/PIC_20260809_202937.JPG
 compare 2009d9e47a140231e3f0c05599097bf32692b811a565c3ee980b3ce605a9a393 dataset/2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185019541.jpg
 compare 1dc6ea7f70d6d32f099af3a7c1d9b72ab667b597009868854c082afa1fd0f3cb dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200129.JPG
+compare e5d49b24b42d2171f2da167225b7eb8068b98af01ca8556c8f361b44a6dccee4 dataset/2026-09-24__pixel/class_011__Peru_Minca/PXL_20260924_123010061.jpg
+compare ac6146e707d803af65422c181fafd26c9b4c0c5740144ee4f2ee30c39a1ba490 dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_150009.JPG
