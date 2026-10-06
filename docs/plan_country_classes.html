@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P5 done (P5 2026-10-06: 19 declined crops leave the pools); P6 (head refits) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P6 done (P6 2026-10-06: exp261&ndash;263); P7 (the D10 printout) next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1075,6 +1075,21 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           Ethiopia 171. <code>merge_cmd_args</code> parses a merge's sessions up to the next flag, for
           <code>coverage_report</code> (which also subtracts the exclusions), <code>new_photos.py</code> and the
           wiring test.</li>
+      </ul></div>
+    <div><div class="when">2026-10-06</div>P6 on the VM: <code>fit_frozen_head --seeds 42 123 7 --start-exp
+      261</code> at commit 6a842a1 (the archive name gains <code>_country</code>), after a smoke fit. exp261&ndash;263,
+      about 29 min per seed. Run logs read:
+      <ul>
+        <li>10 country classes; 5,550 train patches per seed, the D6 expectation (600 &times; 7 countries in four
+          pools, 450 &times; Indonesia, Peru, Rwanda in three). Val/test 1,440/1,440 at s42 and s123, 1,480/1,400 at s7.</li>
+        <li>C=0.1 converged at every seed (6&ndash;7 s). The val-only pick would be 0.0316, 1 and 0.1.</li>
+        <li>D18 fallback photos (train/val/test): s42 13/1/2, s123 13/0/3, s7 11/3/2. No patch below the D17 bean
+          share in any split.</li>
+        <li>Starved cells are iPhone only: no Indonesia, Peru or Rwanda in any split, and two cells per seed with
+          no iPhone photo in val or test: s42 CostaRica val, Kenya test; s123 Ethiopia val, CostaRica test; s7 Kenya
+          and Guatemala test.</li>
+        <li>Patch macro-F1 over 10 countries, val/test: s42 0.9731/0.9668, s123 0.9790/0.9683, s7 0.9700/0.9808.
+          Not comparable with exp258&ndash;260; P7 prints the comparison.</li>
       </ul></div>
   </div>
 
