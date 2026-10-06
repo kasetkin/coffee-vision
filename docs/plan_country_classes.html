@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P6 done (P6 2026-10-06: exp261&ndash;263); P7 (the D10 printout) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P6 done; P7 printout written 2026-10-06, waiting for the owner's seed pick</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1091,6 +1091,23 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
         <li>Patch macro-F1 over 10 countries, val/test: s42 0.9731/0.9668, s123 0.9790/0.9683, s7 0.9700/0.9808.
           Not comparable with exp258&ndash;260; P7 prints the comparison.</li>
       </ul></div>
+    <div><div class="when">2026-10-06</div>P7: <code>analysis/ml3/printout.py</code> &rarr;
+      <code>analysis/ml3/printout.txt</code>, from the archives only. Its checks pass: the remap of exp258&ndash;260
+      reproduces the ticket's six numbers, every recomputed 10-country F1 equals the run's <code>metrics.json</code>,
+      and each run's <code>classes_sha256</code> is today's <code>classes.txt</code>. Read:
+      <ul>
+        <li>Headline, 8 old countries on old photos, patch macro-F1 val/test: s42 0.9700/0.9693, s123
+          0.9789/0.9664, s7 0.9727/0.9811 (95% CIs about &plusmn;0.02). No old patch is predicted Peru or Rwanda, so
+          the restricted argmax changes nothing. Photo-pooled: 0.984&ndash;1.000.</li>
+        <li>Remapped reference (unpaired, old split): val 0.9796&ndash;0.9826, test 0.9759&ndash;0.9835, about 0.005&ndash;0.01
+          above, inside the CIs.</li>
+        <li>The weak spots are the three new coffees of old countries, a few roasted <code>random_date_raccoon</code>
+          photos each: Colombia Excelso is predicted its own country on 12&ndash;75% of its 6&ndash;12 patches, mostly
+          lost to Peru; Brazil SulDeMinas is in val/test only at s7 (one photo each, 1 of 4 patches right).
+          Guatemala is the weakest old country (F1 0.91&ndash;0.95).</li>
+        <li>The seed rule (val's best) points at s123, exp262 (val 0.9790, test 0.9683).</li>
+      </ul>
+      Stop: the owner picks the seed.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
