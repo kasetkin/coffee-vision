@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P8 done 2026-10-06 (probe served at 0.5); P9 (release) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P8 done 2026-10-06 (probe served at 0.5); P9 rehearsed, waiting for the owner to push main</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1134,6 +1134,25 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
     <div><div class="when">2026-10-06</div>Owner: serve the probe at 0.5, as both live probes do (calibrated
       0.5957), and the drafted <code>why_this_one</code> as written. Recorded in the probe's
       <code>threshold_override</code> (dev at 0.5: 2/40 genuine refused, 84/84 negatives) and the card. P8 done.</div>
+    <div><div class="when">2026-10-06</div>P9 up to the deploy:
+      <ul>
+        <li>Fixtures (Q7): <code>PXL_20260924_123010061.jpg</code> (Peru, Pixel) and <code>PIC_20260924_150009.JPG</code>
+          (Rwanda, Sony), the first by name of their session in seed 123's test split; 1 smoke + 12 compare,
+          basenames unique.</li>
+        <li><code>docs/inference_path.html</code>: classes are countries, <code>top1_class</code> holds a country key
+          from this release on (old ids map through the D15 file), probe at 0.5 on 2/29 and 56/56.</li>
+        <li><code>rehearse_deploy_local.sh</code> deploys <code>$REHEARSE_MODEL</code>, by default the country model:
+          its old second model, <code>allrigs_dino3b16_s123</code>, was fitted under timm 1.0.29 and no longer loads under
+          the release's 1.0.30. The clone now gets the L0 encoder and <code>models/seg/ft_s123.pt</code> linked in;
+          without them a segmenter model cannot stage.</li>
+        <li>Rehearsal passed at 46ec30e, from a scratch clone whose <code>main</code> was set to that commit (the real
+          <code>main</code> untouched): both refusals, deploy of <code>allrigs_cam_s123</code> and <code>--verify</code>,
+          the nginx refusal, deploy of the country model with restart and verify (10 classes, probe 0.5, the
+          segmenter loaded), <code>--compare</code> bit-identical on all 12 photos with every top-1 its own country
+          (Peru and Rwanda included), rollback and back.</li>
+      </ul>
+      Stop: the owner merges to <code>main</code> and pushes it; then <code>deploy_webapp.sh</code>, <code>--compare</code>
+      on the VM and the live checks.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
