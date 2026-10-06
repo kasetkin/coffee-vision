@@ -36,7 +36,7 @@ git add dataset/<session-name>.dvc dataset/.gitignore
 
 This keeps the actual images out of git (only a small `.dvc` pointer + hash gets committed) while still versioning them alongside code.
 
-The default remote is `remoteconfig`, an SSH remote configured in `.dvc/config`; `dvc push` backs the cache up there. Verify a push by checking that the objects `dvc.lock` names exist on the remote, not by `dvc status --cloud`'s summary, which can report "in sync" while objects are missing.
+The default remote is `powervpsssh`, an SSH remote configured in `.dvc/config`: `/home/alioth/dvc-store` on the VM, reached through the `powervpsssh` SSH host alias. On the VM itself, `.dvc/config.local` points the same remote at that folder as a local path. `dvc push` backs the cache up there. The old remote, `remoteconfig` (down since 2026-09-24), is kept in the config but is not the default. Verify a push by checking that the objects `dvc.lock` names exist on the remote, not by `dvc status --cloud`'s summary, which can report "in sync" while objects are missing.
 
 ## Web service
 

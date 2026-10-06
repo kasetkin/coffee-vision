@@ -1,4 +1,6 @@
 [core]
-    remote = remoteconfig
+    remote = powervpsssh
 ['remote "remoteconfig"']
     url = ssh://coffdvc@dvcremote:49081/mnt/toshaPool/homedirs/coffdvc/
+['remote "powervpsssh"']
+    url = ssh://alioth@powervpsssh/home/alioth/dvc-store
