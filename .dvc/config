@@ -1,4 +1,6 @@
 [core]
-    remote = remoteconfig
+    remote = dvcnewremote
 ['remote "remoteconfig"']
     url = ssh://coffdvc@dvcremote:49081/mnt/toshaPool/homedirs/coffdvc/
+['remote "dvcnewremote"']
+    url = ssh://sun@dvcnewremote:49083/home/sun/dvc/coffee-vision
