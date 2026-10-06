@@ -274,10 +274,11 @@ def main() -> int:
         cfg["dino"]["run_dir"] = str(run_dir.resolve().relative_to(REPO_ROOT))
         cfg_path.write_text(json.dumps(cfg, indent=2))
         archive(str(exp), f"allrigs_{args.backbone.replace('dinov3_vit', 'dino3')}_frozen_"
-                          f"{args.readout.replace('_', '')}_segcrop_s{seed}",
+                          f"{args.readout.replace('_', '')}_segcrop_country_s{seed}",
                 f"plan §9.1 all-cameras shipping fit: frozen {args.backbone}, readout {args.readout}, "
                 f"L2 logistic-regression head at fixed C={C:g}, no TTA; "
                 "ML-2 segmenter pools (data/segcropped, crop_method segment); "
+                "country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; "
                 "in-distribution metrics only", src_dir=run_dir)
     return 0
 
