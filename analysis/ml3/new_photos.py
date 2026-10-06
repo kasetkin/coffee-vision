@@ -25,6 +25,9 @@ from pathlib import Path
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from coffeecv.merge_rig import merge_cmd_args  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NEW = REPO_ROOT / "dataset_new_ignored"
 OUT = REPO_ROOT / "labels" / "ml3" / "new_photos.csv"
@@ -46,10 +49,9 @@ def pool_cameras() -> dict[str, set[tuple[str, str]]]:
     for name, body in stages.items():
         if not name.startswith("merge_segcam_"):
             continue
-        parts = body["cmd"].split()
-        sessions = parts[parts.index("--sessions") + 1:]
+        name, sessions = merge_cmd_args(body["cmd"])     # the list ends at --exclude since P5
         photos = [p for s in sessions for p in sorted((REPO_ROOT / "dataset" / s).glob("class_*/*")) if p.is_file()]
-        cameras[parts[parts.index("--name") + 1]] = {(d.get("Make"), d.get("Model")) for d in exif(photos).values()}
+        cameras[name] = {(d.get("Make"), d.get("Model")) for d in exif(photos).values()}
     return cameras
 
 

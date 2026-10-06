@@ -26,7 +26,7 @@ from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import (CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset, bean_mask_path,
                               bean_share_rule, load_rgb_image)
-from coffeecv.merge_rig import merge_rig
+from coffeecv.merge_rig import merge_cmd_args, merge_rig, read_exclusions
 from coffeecv.repro_utils import CAPTURE_STAGE_OVERRIDES, _stage_key, stale_crop_stages
 from coffeecv.segcrop_session import crop_photo, write_crop
 
@@ -131,6 +131,36 @@ class TestMergeCarriesMasks(unittest.TestCase):
                               "c__cropped.jpg"])
             self.assertEqual((out / "c__beanmask.png").read_bytes(), b"pngc")
 
+    def test_excluded_photos_leave_the_pool_with_their_masks(self):
+        """Ticket ML-3 P5: a declined crop stays in its session and leaves the pool; a row naming one of the
+        merge's sessions but no crop there stops the merge before anything is written."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            d = root / "s1" / "class_001__X"
+            d.mkdir(parents=True)
+            for s in ("a", "b"):
+                (d / f"{s}__cropped.jpg").write_bytes(b"jpg")
+                (d / f"{s}__beanmask.png").write_bytes(b"png")
+            manifest = merge_rig("cam_x", ["s1"], root, {("s1", "class_001__X", "a.JPG"), ("s9", "class_001__X", "z.jpg")})
+            self.assertEqual(sorted(p.name for p in (root / "cam_x" / "class_001__X").iterdir()),
+                             ["b__beanmask.png", "b__cropped.jpg"])
+            self.assertEqual((manifest["images"], manifest["excluded"]), (1, ["s1/class_001__X/a.JPG"]))
+            self.assertEqual(sorted(p.name for p in d.iterdir())[:2], ["a__beanmask.png", "a__cropped.jpg"])
+            with self.assertRaisesRegex(ValueError, "match no crop"):
+                merge_rig("cam_y", ["s1"], root, {("s1", "class_001__X", "nope.jpg")})
+            self.assertFalse((root / "cam_y").exists())
+            self.assertNotIn("excluded", merge_rig("cam_z", ["s1"], root))      # no flag: as before
+
+    def test_committed_exclusions_follow_the_review(self):
+        """labels/ml3/pool_exclude.csv is what analysis/ml3/mask_review.py derives from the committed review."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mask_review", REPO_ROOT / "analysis/ml3/mask_review.py")
+        mask_review = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mask_review)
+        want = {(r["session"], r["class_folder"], r["file"]) for r in mask_review.exclusions()}
+        self.assertEqual(read_exclusions(mask_review.POOL_EXCLUDE), want)
+        self.assertEqual(len(want), 19)
+
 
 class TestSegPoolsWiring(unittest.TestCase):
     def test_the_pools_are_the_segmenters(self):
@@ -159,9 +189,9 @@ class TestSegPoolsWiring(unittest.TestCase):
                          {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]})
         for p in CAPTURES:                                              # and per pool, the sessions it merges
             merge, *segcrops = CAPTURE_STAGE_OVERRIDES[_stage_key(p)]
-            cmd = stages[merge]["cmd"].split()
-            self.assertEqual(cmd[cmd.index("--name") + 1], Path(p).name)
-            self.assertEqual([f"segcrop@{s}" for s in cmd[cmd.index("--sessions") + 1:]], segcrops, p)
+            name, sessions = merge_cmd_args(stages[merge]["cmd"])
+            self.assertEqual(name, Path(p).name)
+            self.assertEqual([f"segcrop@{s}" for s in sessions], segcrops, p)
         with self.assertRaisesRegex(ValueError, "segmenter"):           # a retired pool: nothing tracks it
             stale_crop_stages(["data/cropped/cam_pixel"])
 

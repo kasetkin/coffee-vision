@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P4 done 2026-10-05; P5 reviewed 2026-10-06, the owner decides how declines are handled</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P5 done (P5 2026-10-06: 19 declined crops leave the pools); P6 (head refits) next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1060,6 +1060,22 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           Colombia Excelso 4 of 12, Ethiopia Sidamo 1 of 2 (the hopper ring). Nothing from 2026-09-11.</li>
       </ul>
       Stop (D8): the owner decides whether the declines call for a second fine-tune or another handling; P6 waits.</div>
+    <div><div class="when">2026-10-06</div>Owner decides (D8): no second fine-tune; the declined crops leave the
+      camera pools (option b), except the D18 fallbacks whose beans fill the frame, which stay and train whole.
+      The review had declined all 24 fallbacks on their empty masks. Done:
+      <ul>
+        <li><code>analysis/ml3/mask_review.py exclude</code> writes <code>labels/ml3/pool_exclude.csv</code>, 19
+          photos: the 11 declined masks and the 8 fallbacks with background (named in the script, from the
+          2026-10-05 contact sheet). A test checks the committed file against the committed review.</li>
+        <li><code>merge_rig --exclude</code> leaves them out of <code>cam_pixel</code> (10), <code>cam_sony</code>
+          (2) and <code>cam_oneplus</code> (7); a row that matches no crop stops the merge. The sessions' segcrop
+          outs keep every photo, and <code>cam_iphone</code> is untouched. Out of the pool means out of val and test
+          too: these crops are bad data, and the segmenter's failure rate is the P5 record above.</li>
+        <li>Pools: 1,207 photos. Rwanda 108 (pixel 36, sony 38, oneplus 34), Peru 148, Colombia 98 (Excelso 8),
+          Ethiopia 171. <code>merge_cmd_args</code> parses a merge's sessions up to the next flag, for
+          <code>coverage_report</code> (which also subtracts the exclusions), <code>new_photos.py</code> and the
+          wiring test.</li>
+      </ul></div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:

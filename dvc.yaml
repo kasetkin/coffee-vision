@@ -118,9 +118,11 @@ stages:
   # four per class before the train/val/test split, and no pool is held out. merge_rig copies each crop's
   # bean mask with it (ML-2 F3). Until ticket ML-3 P2b the tray heuristic's merge_cam_* stages built the
   # same four pools from its own crops. Ticket ML-3 P4 added the new sessions to the pools of their cameras
-  # (D6): random_date_raccoon is the Pixel 9 Pro's; the iPhone took none, so cam_iphone is unchanged.
+  # (D6): random_date_raccoon is the Pixel 9 Pro's; the iPhone took none, so cam_iphone is unchanged. Since
+  # ML-3 P5 (D8, owner 2026-10-06) the three pools leave out the crops the owner declined
+  # (labels/ml3/pool_exclude.csv, from analysis/ml3/mask_review.py exclude); the sessions' segcrop outs keep them.
   merge_segcam_pixel:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon --exclude labels/ml3/pool_exclude.csv
     deps:
       - data/segcropped/2026-08-07__box_pictures_all_classes
       - data/segcropped/2026-08-09__pixel_cam
@@ -128,29 +130,32 @@ stages:
       - data/segcropped/2026-09-11__pixel
       - data/segcropped/2026-09-24__pixel
       - data/segcropped/random_date_raccoon
+      - labels/ml3/pool_exclude.csv
       - coffeecv/merge_rig.py
     outs:
       - data/segcropped/cam_pixel
 
   merge_segcam_sony:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony 2026-09-11__sony 2026-09-24__sony
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony 2026-09-11__sony 2026-09-24__sony --exclude labels/ml3/pool_exclude.csv
     deps:
       - data/segcropped/2026-08-09__sony_cam
       - data/segcropped/2026-08-30__sony
       - data/segcropped/2026-09-11__sony
       - data/segcropped/2026-09-24__sony
+      - labels/ml3/pool_exclude.csv
       - coffeecv/merge_rig.py
     outs:
       - data/segcropped/cam_sony
 
   merge_segcam_oneplus:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus --exclude labels/ml3/pool_exclude.csv
     deps:
       - data/segcropped/2026-08-25__oneplus
       - data/segcropped/2026-08-27__oneplus_flash
       - data/segcropped/2026-08-30__oneplus
       - data/segcropped/2026-09-11__oneplus
       - data/segcropped/2026-09-24__oneplus
+      - labels/ml3/pool_exclude.csv
       - coffeecv/merge_rig.py
     outs:
       - data/segcropped/cam_oneplus

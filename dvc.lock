@@ -800,12 +800,13 @@ stages:
   merge_segcam_pixel:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel 
       --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
-      2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon
+      2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon 
+      --exclude labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23b29fade413a71137d040e804b98377
-      size: 5946
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: 10ea00aaeff7c17c2890efba529dc1eb.dir
@@ -836,12 +837,16 @@ stages:
       md5: f754eb0c89cc1f947f61174ef26d3d53.dir
       size: 45055275
       nfiles: 38
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_pixel
       hash: md5
-      md5: 313ba45f0d5700ac5f4b1e9d355aa9b8.dir
-      size: 1173235500
-      nfiles: 1025
+      md5: 7a94a94726d87750b62fb0da0265d72a.dir
+      size: 1146298422
+      nfiles: 1008
   segcrop@2026-08-27__oneplus_flash:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-27__oneplus_flash 
       --threads 4
@@ -1001,12 +1006,12 @@ stages:
   merge_segcam_sony:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony 
       --sessions 2026-08-09__sony_cam 2026-08-30__sony 2026-09-11__sony 
-      2026-09-24__sony
+      2026-09-24__sony --exclude labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23b29fade413a71137d040e804b98377
-      size: 5946
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-09__sony_cam
       hash: md5
       md5: 04fa561258cf0bed5b0cfe5e90a603e2.dir
@@ -1027,12 +1032,16 @@ stages:
       md5: 8ec253bafb9019ca75ede164c715ceaf.dir
       size: 359818493
       nfiles: 139
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_sony
       hash: md5
-      md5: f8a32bda7089a23a24eb53b653e3a063.dir
-      size: 1280476678
-      nfiles: 617
+      md5: 1a33a3163436e9db3745f4627aef029f.dir
+      size: 1272133268
+      nfiles: 614
   segcrop@2026-08-25__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-25__oneplus 
       --threads 4
@@ -1159,12 +1168,13 @@ stages:
   merge_segcam_oneplus:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus 
       --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 
-      2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus
+      2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus --exclude 
+      labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 23b29fade413a71137d040e804b98377
-      size: 5946
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-25__oneplus
       hash: md5
       md5: b1fd8e5c674be36dcdd0b7f31f7500df.dir
@@ -1190,12 +1200,16 @@ stages:
       md5: bb439abb851ca4c0d258b7eaa1f4ad7e.dir
       size: 212542726
       nfiles: 127
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_oneplus
       hash: md5
-      md5: 5be02124b13a2d020d160edfd4b19551.dir
-      size: 762599638
-      nfiles: 605
+      md5: 8acb3e40ce6449504d63c40cb87e2b37.dir
+      size: 742033998
+      nfiles: 595
   segcrop@2026-09-11__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-09-11__oneplus 
       --threads 4
