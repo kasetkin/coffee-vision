@@ -18,6 +18,7 @@ scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
     python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 252
     python -m coffeecv.fit_frozen_head --ship 252 --name allrigs_dino3b16_s42
+    python -m coffeecv.fit_frozen_head --ship 262 --name allrigs_dino3b16_seg_country_s123 --seed-exps 261 262 263
 
 Every fit reads the segmenter's pools (dataset.CAPTURES) with crop_method "segment", so patches are placed
 by the D17 rule against each photo's mask and the checkpoint serves through the segmenter; params.yaml's seg_*
@@ -167,11 +168,38 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     return run_dir
 
 
-def ship(exp: int, name: str) -> None:
+def seed_summary(exp: int, seed_exps: list[int], config: dict) -> dict:
+    """The in-distribution numbers of every seed of one fit, with the mean and range: the shipped seed was picked
+    on val, so its own test number is selection-biased (ticket ML-3 P7)."""
+    if exp not in seed_exps or len(set(seed_exps)) != len(seed_exps):
+        raise SystemExit(f"--seed-exps {seed_exps} must list exp{exp} and each run once")
+    runs = {}
+    for e in seed_exps:
+        [d] = list(EXPERIMENTS_DIR.glob(f"exp{e}__*"))
+        c = json.loads((d / "config.json").read_text())
+        if c.get("classes_sha256") != config.get("classes_sha256") or c["class_ids"] != config["class_ids"]:
+            raise SystemExit(f"exp{e} was not fitted on exp{exp}'s class list")
+        runs[c["seed"]] = (d.name, json.loads((d / "metrics.json").read_text()))
+    if len(runs) != len(seed_exps):
+        raise SystemExit(f"--seed-exps {seed_exps} repeat a seed")
+    out = {"runs": {f"s{sd}": name for sd, (name, _) in runs.items()}}
+    for split in ("val", "test"):
+        v = {f"s{sd}": m["splits"][split]["macro_f1"] for sd, (_, m) in runs.items()}
+        out[f"{split}_macro_f1"] = {**v, "mean": float(np.mean(list(v.values()))),
+                                    "min": min(v.values()), "max": max(v.values())}
+    return out
+
+
+def ship(exp: int, name: str, seed_exps: list[int] | None = None) -> None:
     """experiments/exp<N> + its fitted head -> models/<name>.pt with card and frozen class list."""
     [exp_dir] = list(EXPERIMENTS_DIR.glob(f"exp{exp}__*"))
     config = json.loads((exp_dir / "config.json").read_text())
     metrics = json.loads((exp_dir / "metrics.json").read_text())
+    # A country list (ticket ML-3) has no fold-era numbers, so the card carries every seed's instead.
+    per_folder = list(folder_classes(REPO_ROOT / config["classes_file"]).keys) == config["class_ids"]
+    if not per_folder and not seed_exps:
+        raise SystemExit("a country-class head ships with --seed-exps, every seed of its fit (ticket ML-3 P8)")
+    seeds = seed_summary(exp, seed_exps, config) if seed_exps else None
     src = Path(config["dino"]["run_dir"]) / "model.pt"
     if not src.exists():
         raise SystemExit(f"{src} is gone -- refit exp{exp} (same seed gives the same head) before shipping")
@@ -185,8 +213,6 @@ def ship(exp: int, name: str) -> None:
     if list(load_classes(live_classes).keys) != config["class_ids"]:
         raise SystemExit(f"{live_classes} no longer lists exp{exp}'s classes {config['class_ids']}")
     shutil.copy2(live_classes, classes_path_for(dst))
-    # The fold-era numbers below describe the per-folder classes; a country list (ticket ML-3) has none.
-    per_folder = list(folder_classes(live_classes).keys) == config["class_ids"]
     training_config = {k: v for k, v in config.items() if k not in ("dino", "env")}
     dino = config["dino"]
     card = {
@@ -209,11 +235,18 @@ def ship(exp: int, name: str) -> None:
                                                       "patches, no TTA")} if per_folder else {}),
             "this_run_in_distribution": {s: {k: metrics["splits"][s][k] for k in ("macro_f1", "mcc", "accuracy")}
                                          for s in ("val", "test")},
+            **({"all_seeds_in_distribution": seeds,
+                "headline": ("analysis/ml3/printout.txt: patch macro-F1 over the 8 pre-ML-3 countries on "
+                             "pre-ML-3 photos, with photo-level scores and bootstrap CIs, and the live model's "
+                             "remapped reference")} if seeds else {}),
             "note": ("in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
                      "never to a cross-camera number" if per_folder else
                      "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
                      "fitted on per-folder classes"),
         },
+        **({"ood_guard": ("not freshly validated (ticket ML-3 D11): the probe is refitted on this head, but its "
+                          "holdout was spent before; --verify on it is a regression check only")}
+           if not per_folder else {}),
         "training_config": training_config,
         "dino": dino,
     }
@@ -235,12 +268,14 @@ def main() -> int:
     p.add_argument("--allow-dirty", action="store_true", help="skip the provenance checks (smoke only)")
     p.add_argument("--ship", type=int, metavar="EXP", help="ship an archived run to models/ and exit")
     p.add_argument("--name", help="with --ship: the models/<name>.pt to create")
+    p.add_argument("--seed-exps", type=int, nargs="+",
+                   help="with --ship: every seed's experiment of the shipped fit, for the card's mean and range")
     args = p.parse_args()
 
     if args.ship is not None:
         if not args.name:
             raise SystemExit("--ship needs --name")
-        ship(args.ship, args.name)
+        ship(args.ship, args.name, args.seed_exps)
         return 0
     if not args.smoke and args.start_exp is None:
         raise SystemExit("--start-exp is required for a real run (the ids must not collide with another machine's)")

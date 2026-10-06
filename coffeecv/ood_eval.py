@@ -284,7 +284,8 @@ def negatives_from(batch_dirs: list[Path], split: str) -> list[dict]:
             # `batch` column (dataset/ood_positives since 2026-09-30); otherwise the
             # directory is the batch.
             rows.append({"path": path, "scenario_tag": row["scenario_tag"],
-                          "batch": row.get("batch") or batch.name, "notes": row.get("notes", "")})
+                          "batch": row.get("batch") or batch.name, "notes": row.get("notes", ""),
+                          "date": row.get("date", "")})
     return rows
 
 
