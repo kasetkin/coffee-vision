@@ -10,6 +10,11 @@
 # 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
 #
+# NOT YET RUN in this form (2026-10-06, aedfb93): the one-model rewrite above passed `bash -n` only. The last
+# passing rehearsal was at 46ec30e, with allrigs_cam_s123 as deploy 1. Untested: deploy 1 at an older commit,
+# and a rollback between two releases of the same model (same model_sha, told apart only by commit). Run it
+# before the next release (a new model or segmenter) and drop this note once it passes.
+#
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
 # its -E variables -- no sandbox, no caps), systemctl (starts the ExecStart of the rendered unit in the
 # background, so the smoke and verify steps hit a real gunicorn from a real release venv), journalctl,
