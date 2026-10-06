@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P8 done 2026-10-06 (probe served at 0.5); P9 rehearsed, waiting for the owner to push main</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P1&ndash;P9 done; released 2026-10-06 (7c1e087, allrigs_dino3b16_seg_country_s123); P10 (docs, close-out) next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1153,6 +1153,26 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
       </ul>
       Stop: the owner merges to <code>main</code> and pushes it; then <code>deploy_webapp.sh</code>, <code>--compare</code>
       on the VM and the live checks.</div>
+    <div><div class="when">2026-10-06</div>Released. The owner merged the branch into <code>main</code> (7c1e087, a merge
+      commit whose tree equals the rehearsed 323954c) and pushed it, then ran <code>DOMAIN=coffee.kasetkin.com
+      scripts/deploy_webapp.sh 7c1e087 allrigs_dino3b16_seg_country_s123</code>:
+      <ul>
+        <li>Release <code>20261006T0900Z-7c1e087-allrigs_dino3b16_seg_country_s123</code>. Smoke in the real sandbox
+          (top-1 Colombia, max score diff vs local 1.8e-07, /crop box identical); flip with previous
+          <code>20261003T0846Z-a75c3ec-allrigs_dino3b16_seg_s7</code>; verify through the live domain: startup line
+          commit 7c1e087 and model_sha 1ef12a19f56c9070, public page and <code>POST /classify</code> 200. The prune
+          removed the 2026-09-27 <code>allrigs_dino3b16_s123</code> release.</li>
+        <li><code>--compare</code> on the VM: bit-identical on all 12 photos, every top-1 its own country.</li>
+        <li>Spot check on the public site, each the first by name in seed 123's test split on the camera the fixtures
+          did not use: Peru (Sony <code>PIC_20260924_200348</code>) Peru 0.993; Rwanda (Pixel
+          <code>PXL_20260924_055639328</code>) Rwanda 0.858; ten country keys each. Brazil SulDeMinas has no photo
+          in seed 123's val or test (D7), so the merged-country check used Colombia Excelso
+          (<code>random_date_raccoon</code> <code>PXL_20260927_105940963</code>): predicted Rwanda 0.295, Peru 0.271,
+          Indonesia 0.175, Colombia 0.101. This is P7's weak spot (2 of its 6 test patches were Colombia): the roasted
+          Excelso photos are not yet recognised as Colombia.</li>
+        <li>Rollback, if needed: <code>DOMAIN=coffee.kasetkin.com scripts/deploy_webapp.sh --rollback</code> to
+          <code>allrigs_dino3b16_seg_s7</code>.</li>
+      </ul></div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
