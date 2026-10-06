@@ -8,7 +8,7 @@ Sample train patches, one row per class, cropped from the current dataset (`data
 
 ## Repo layout
 
-- `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` maps class id → origin/grade/region and is a plain git-tracked text file.
+- `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` is a plain git-tracked text file with one line per coffee (class folder), `id;Country[,Region[,Subregion]];Misc`, e.g. `011;Peru,Junin,Satipo;Minca` (ticket ML-3 D15). The model's class is the **country**: several folders of one country train as one class. The farm region and misc are facts about the photos, never labels (`GLOSSARY.md`).
 - `coffeecv/` — the training, evaluation and inference code; `coffeecv_dino/` holds the DINOv3 screening tools.
 - `models/` — shipped checkpoints (`.pt` via DVC) with their git-tracked cards and OOD sidecars; `models_pretrained/` — upstream backbone weights (untracked) and their checksums.
 - `experiments/` — one archived directory per run, plus `experiments/index.csv`.

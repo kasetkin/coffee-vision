@@ -93,6 +93,13 @@ a checkpoint's head is fixed at the classes it was trained on. Without the sidec
 the label list would silently desync. Do not "fix" a shipped model's class list
 by pointing it back at `dataset/classes.txt`.
 
+A frozen list comes in one of two formats, and `coffeecv.class_list.load_classes` reads both. Models
+shipped before ticket ML-3 (`allrigs_cam_s123`, `allrigs_dino3b16_seg_s7`, ...) carry the old
+`id;label` lines, and each folder id is a class: the page shows `006` and its label. Since ML-3
+(`allrigs_dino3b16_seg_country_s123`) the list is in the D15 format, `id;Country[,Region];Misc`, and
+the class is the country: the page shows ten keys such as `Brazil` and `CostaRica`, and the request
+log's `top1_class` holds a country key. A rollback to an older release shows folder classes again.
+
 ## Deploying
 
 Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the VM over SSH. Set

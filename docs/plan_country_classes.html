@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P1&ndash;P9 done; released 2026-10-06 (7c1e087, allrigs_dino3b16_seg_country_s123); P10 (docs, close-out) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P1&ndash;P10 done 2026-10-06; released (7c1e087, allrigs_dino3b16_seg_country_s123); the owner closes the ticket</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1172,6 +1172,23 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           Excelso photos are not yet recognised as Colombia.</li>
         <li>Rollback, if needed: <code>DOMAIN=coffee.kasetkin.com scripts/deploy_webapp.sh --rollback</code> to
           <code>allrigs_dino3b16_seg_s7</code>.</li>
+      </ul></div>
+    <div><div class="when">2026-10-06</div>P10, committed on <code>main</code> (owner):
+      <ul>
+        <li><code>GLOSSARY.md</code>: Country, Farm region and Misc as D14 words them; "the photo's bean region", never
+          "region" alone.</li>
+        <li><code>README.md</code> (the D15 line format; the class is the country), <code>webapp/README.md</code> (frozen
+          class lists in two formats; a rollback shows folder classes), <code>params.yaml</code> comments
+          (<code>classes_file</code>, the split within each country). <code>dvc.yaml</code> had no stale class or
+          pool comment left after P2b and P4. <code>EXPERIMENTS_LOG.md</code>: exp261&ndash;263.</li>
+        <li><code>dataset_new_ignored/</code> was already removed by the owner; its <code>.git/info/exclude</code> line
+          is gone. The test that compared the pinned country list with its <code>classes_short_map.txt</code> is
+          removed; the list in <code>tests/test_class_list.py</code> is the record (Q5).</li>
+        <li>Ticket counts: the 19 exclusions and the 1,207 pooled photos beside Q4's 1226; Antioquia 12 (8 pooled),
+          up to 288 masks.</li>
+        <li>Suite: 208 tests, no skips. The one failure is the known <code>test_release_manifest</code> subtest for
+          <code>allrigs_dino3b16_s123</code>, fitted under timm 1.0.29, which the release's timm 1.0.30 refuses to
+          load (since ML-2's upgrade; out of scope here).</li>
       </ul></div>
   </div>
 

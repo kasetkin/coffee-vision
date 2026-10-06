@@ -9,8 +9,19 @@ One seed of the coffee plant with no cherry pulp or parchment around it, green (
 _Avoid_: Coffee cherry (the whole fruit, pulp included), parchment coffee
 
 **Bean region**:
-The part of a photo covered by a pile of mostly whole coffee beans, including the gaps and shadows between touching beans and any stray foreign object lying inside the pile. The tray, its rim, the table and hands are outside it. One photo may contain several. A pile of other seeds, or of mostly broken beans, is not a bean region.
-_Avoid_: Bean pixels, beans (for an area), tray region
+The part of a photo covered by a pile of mostly whole coffee beans, including the gaps and shadows between touching beans and any stray foreign object lying inside the pile. The tray, its rim, the table and hands are outside it. One photo may contain several. A pile of other seeds, or of mostly broken beans, is not a bean region. Always written "the photo's bean region", never "region" on its own.
+_Avoid_: Bean pixels, beans (for an area), tray region, region
+
+**Country**:
+The country a coffee was grown in, by name only (e.g. Ethiopia). Since ticket ML-3 it is the class: what the model predicts and is scored on.
+
+**Farm region**:
+The growing area inside a country, written Country, Region[, Subregion] (e.g. Ethiopia, Yirgacheffe, Kochere). It means the same as "origin". It may be unknown, leaving the country only. A fact about a photo, never a label.
+_Avoid_: Region (on its own), lot
+
+**Misc**:
+Anything else known about a coffee, kept apart from its country and farm region in `classes.txt`: grade (AA, Excelso), variety (PinkBourbon), species (Robusta), or a farm, brand or washing-station name (LaPastora, TataNahual, MonteCristo, Minca, Gisuma). Never a label.
+_Avoid_: Lot
 
 **Negative**:
 A photo with no bean region in it. A **pile-like negative** shows a pile of something bean-like that is not coffee beans (other seeds, grains, legumes, ground coffee, coffee cherries).

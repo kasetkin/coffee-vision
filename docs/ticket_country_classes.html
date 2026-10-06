@@ -123,7 +123,7 @@
     implementation plan yet, and nothing is implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-05 (<a href="plan_country_classes.html">plan</a>, reviewed; Q1&ndash;Q8 answered); P1&ndash;P4 implemented 2026-10-05; P5 done 2026-10-06 (19 declined crops leave the pools); P6 done 2026-10-06 (exp261&ndash;263); D10 printout 2026-10-06, seed 123 picked; shipped as <code>allrigs_dino3b16_seg_country_s123</code> with its OOD probe served at 0.5 (owner); released 2026-10-06 (7c1e087); docs and close-out (P10) next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-05 (<a href="plan_country_classes.html">plan</a>, reviewed; Q1&ndash;Q8 answered); P1&ndash;P4 implemented 2026-10-05; P5 done 2026-10-06 (19 declined crops leave the pools); P6 done 2026-10-06 (exp261&ndash;263); D10 printout 2026-10-06, seed 123 picked; shipped as <code>allrigs_dino3b16_seg_country_s123</code> with its OOD probe served at 0.5 (owner); released 2026-10-06 (7c1e087); docs done (P10); the owner closes the ticket</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and a new class definition</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code>, <code>dataset/classes.txt</code>, <code>dvc.yaml</code> (segcrop, merge stages), <code>coffeecv/dataset.py</code>, head and OOD probe refit, webapp labels, release</span></div>
@@ -178,6 +178,10 @@
       <tr><td colspan="2"><strong>Total</strong></td><td class="num">938</td><td class="num">288</td><td class="num">1226</td></tr>
     </tbody>
   </table></div>
+  <p>After the owner's mask review (D8, 2026-10-06), 19 of the new photos' crops leave the camera pools (11 broken
+    masks, 8 frames with background; <code>labels/ml3/pool_exclude.csv</code>). The photos stay in <code>dataset/</code>.
+    1,207 photos train and are scored: Peru 148, Rwanda 108, Colombia 98 (Antioquia 8), Ethiopia 171; the
+    other rows as above.</p>
   <p><code>classes_short_map.txt</code> holds the ten country names, one per line. The country name is the class key
     and is shown on the site as written (D2). Each class folder (<code>class_NNN__…</code>) gets its country and
     farm region from its line in <code>classes.txt</code> (D1, D15). The two Brazil Cerrado coffees are separate lines
@@ -228,7 +232,7 @@
       <h3>After</h3>
       <ul>
         <li>Label = country, 10 classes. Each class folder maps to its country through <code>classes.txt</code>; farm region and misc are facts about a photo, never labels (D1, D15).</li>
-        <li>1226 photos, 16 sessions (<code>random_date_raccoon</code> included, D5), the same 4 camera pools (D6).</li>
+        <li>1226 photos (1,207 in the pools after the mask review), 16 sessions (<code>random_date_raccoon</code> included, D5), the same 4 camera pools (D6).</li>
         <li>A refitted head and OOD probe on the segmenter pools. The site shows ten country scores (D12).</li>
         <li>Confusions inside one country are no longer errors. Peru and Rwanda are new classes.</li>
       </ul>
@@ -252,9 +256,9 @@
       <tr><td class="id">R2</td><td><strong>New numbers are not comparable with old ones.</strong></td>
         <td>A country label removes the confusions inside one country by construction, so macro-F1 rises without the model learning anything new. Two new classes make it harder at the same time. Mitigation: the archived results of the live model, remapped to countries, are printed as an unpaired reference (D10). Remapping alone lifts its macro-F1 by about 0.01&ndash;0.02.</td></tr>
       <tr><td class="id">R3</td><td><strong>Class sizes and farm regions inside a class are uneven.</strong></td>
-        <td>Brazil has 194 photos and Ethiopia 172, against 90 for Kenya. Training draws 150 patches per class per camera pool (<code>train_patches_per_class</code>), so the patch count per country stays even. Within a country, however, each coffee gets a smaller share, and Brazil SulDeMinas (4 photos) and Colombia Antioquia (5) are almost invisible. The split is by country (D7), so a small coffee lands in val or test only by chance.</td></tr>
+        <td>Brazil has 194 photos and Ethiopia 172, against 90 for Kenya. Training draws 150 patches per class per camera pool (<code>train_patches_per_class</code>), so the patch count per country stays even. Within a country, however, each coffee gets a smaller share, and Brazil SulDeMinas (4 photos) and Colombia Antioquia (12, 8 after the mask review) are almost invisible. The split is by country (D7), so a small coffee lands in val or test only by chance.</td></tr>
       <tr><td class="id">R4</td><td><strong>The segmenter has not seen these photos.</strong></td>
-        <td>ft_s123 was fine-tuned on today's data: green, plus 126 roasted Java photos. The new photos are frame-filling, which the segmenter handles best (ML-2 P1: frame-filling masks match, tray photos fail). The hopper photo is the exception. The owner reviews the masks in the review tool, up to all 281 (D8); no judge calls. Declined masks show where the segmenter needs more training.</td></tr>
+        <td>ft_s123 was fine-tuned on today's data: green, plus 126 roasted Java photos. The new photos are frame-filling, which the segmenter handles best (ML-2 P1: frame-filling masks match, tray photos fail). The hopper photo is the exception. The owner reviews the masks in the review tool, up to all 288 (D8); no judge calls. Declined masks show where the segmenter needs more training.</td></tr>
       <tr><td class="id">R5</td><td><strong>The OOD probe holdout is spent.</strong></td>
         <td>The probe must be refitted, because the head and the data change. The holdout is recorded as spent: any probe change needs new holdout photos to be validated honestly. Owner decision (D11): refit, and use the spent holdout as a regression check only. New photos and a second refit come later, outside this ticket.</td></tr>
       <tr><td class="id">R6</td><td><strong>Data can't be backed up yet.</strong></td>
@@ -424,6 +428,7 @@
     <div><div class="when">2026-10-06</div>Owner: the probe serves at 0.5, the same rule as the live models (refuse when "not beans" is the likelier answer); the model card's reason for this model is approved as drafted. Release preparation (P9) starts.</div>
     <div><div class="when">2026-10-06</div>The release is rehearsed end to end on a local copy: the new model deploys and serves ten country scores, gives bit-identical results in the training and release environments on all 12 fixture photos (each one its own country, a Peru and a Rwanda photo among them), and rolls back. The deploy itself waits for the owner to push <code>main</code>.</div>
     <div><div class="when">2026-10-06</div>Released: <code>allrigs_dino3b16_seg_country_s123</code> serves coffee.kasetkin.com from commit 7c1e087, verified through the live domain, and gives bit-identical results in both environments on all 12 fixtures. On the public site a Peru and a Rwanda test photo come back as their country (0.99, 0.86), with ten country scores each. A roasted Colombia Excelso photo comes back as Rwanda, with Colombia fourth: the known weak spot from the printout. The previous model stays one <code>--rollback</code> away.</div>
+    <div><div class="when">2026-10-06</div>Docs closed out: the glossary has Country, Farm region and Misc as D14 words them; the READMEs, <code>params.yaml</code> and the experiments log describe country classes; this ticket's counts include the mask review's 19 exclusions (1,207 photos in the pools). <code>dataset_new_ignored/</code> is gone. Every phase of the plan is done; closing the ticket is the owner's call.</div>
   </div>
 
   <footer>Related: <code>dataset_new_ignored/classes.txt</code>, <code>dataset_new_ignored/classes_short_map.txt</code>, <code>dataset/classes.txt</code>, <code>GLOSSARY.md</code>,

@@ -30,11 +30,10 @@ D15 = """\
 013;Brazil,SulDeMinas;
 014;Colombia,Antioquia;Excelso
 """
-# The ten countries in dataset_new_ignored/classes_short_map.txt's order, pinned here (Q5): the file goes
-# with dataset_new_ignored/, and this list stays.
+# The ten countries in the order of dataset_new_ignored/classes_short_map.txt, pinned here (Q5). The test checked
+# them against that file until P10 deleted it with dataset_new_ignored/; this list is now the record.
 COUNTRIES = ("Ethiopia", "Kenya", "Colombia", "CostaRica", "Guatemala", "Brazil", "Vietnam", "Indonesia",
              "Peru", "Rwanda")
-SHORT_MAP = REPO_ROOT / "dataset_new_ignored" / "classes_short_map.txt"
 
 
 def legacy_load_class_labels(path: Path) -> dict[str, str]:
@@ -75,10 +74,6 @@ class TestClassList(unittest.TestCase):
         lines = D15.splitlines()
         shuffled = "\n".join(lines[7:] + lines[:7]) + "\n"
         self.assertEqual(load_classes(self.write(shuffled)), load_classes(self.write(D15)))
-
-    @unittest.skipUnless(SHORT_MAP.exists(), "dataset_new_ignored/ is gone (ticket ML-3 P10); the list is pinned")
-    def test_countries_match_classes_short_map(self):
-        self.assertEqual(tuple(SHORT_MAP.read_text().split()), COUNTRIES)
 
     def test_dataset_classes_txt_is_d15(self):
         """Ticket ML-3 P4 wrote D15 to dataset/classes.txt, word for word; before it, the old ten-line list."""

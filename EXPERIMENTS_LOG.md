@@ -2927,3 +2927,30 @@ the 80% bean share. In-distribution only.
   Holdout, spent once: negatives 56/56, genuine refused 1/26 at 0.5982 and 2/26 at 0.5 (the live override),
   AUROC 1.0. The positive set has grown since the live probe's 0/22 (rebuilt 2026-09-30), so the two are not on
   the same photos. Log and probe: `analysis/ml2_p4/`.
+
+### exp261-263: ML-3, country classes on the segmenter pools plus the new photos (2026-10-06)
+
+Ticket ML-3 (docs/ticket_country_classes.html), plan §8-§11. Run on the VM at `6a842a1`, timm 1.0.30, 4 threads,
+`coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 261`, frozen `dinov3_vitb16` × cls_mean, C = 0.1. The class
+is the country (D15 `classes.txt`): 10 classes, 14 coffee folders. The pools hold 1,207 photos: the 938 old ones
+plus 288 new (Peru, Rwanda, and three new coffees of old countries), less 19 crops the owner declined (P5). 5,550
+train patches per seed (600 per country in four pools, 450 for Indonesia, Peru and Rwanda, which cam_iphone lacks).
+No patch fell below the 80% bean share. In-distribution only, and **not comparable with any earlier run**.
+
+| seed | exp | val (10) | test (10) | val, 8 old countries, old photos | test, same |
+|---|---|---|---|---|---|
+| 42 | 261 | 0.9731 | 0.9668 | 0.9700 | 0.9693 |
+| 123 | 262 | 0.9790 | 0.9683 | 0.9789 | 0.9664 |
+| 7 | 263 | 0.9700 | 0.9808 | 0.9727 | 0.9811 |
+
+- Peru and Rwanda score near 1.0 by construction (one coffee each, each camera's block shot on one day, spread
+  over all splits), which lifts the 10-country number.
+- The live model's exp258-260 remapped to countries (unpaired, old split, 8 classes): val 0.9796-0.9826, test
+  0.9759-0.9835. The 8-old-country gap is inside the 95% photo-bootstrap CIs (about ±0.02). No old photo's
+  patch was predicted Peru or Rwanda.
+- Weak spots: the roasted Colombia Excelso photos (12-75% of their patches called Colombia, mostly lost to
+  Peru), Brazil SulDeMinas (in val/test only at seed 7), Guatemala (F1 0.91-0.95). Full printout:
+  `analysis/ml3/printout.txt`.
+- **Shipped exp262** (seed 123, val's best) as `allrigs_dino3b16_seg_country_s123`, released 2026-10-06 (7c1e087).
+  OOD probe: calibrated 0.5957 at α ≤ 3.4% (n = 28), served at 0.5 (owner); holdout, read once and not freshly
+  validated (D11): negatives 56/56, genuine refused 2/29 at 0.5, 1/29 at 0.5957. Log: `analysis/ml3/`.

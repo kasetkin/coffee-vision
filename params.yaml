@@ -9,7 +9,7 @@ seed: 7
 # train_capture_dirs: the photo pools training draws from -- the four cam_*
 # dirs, one per camera, each merged from that camera's sessions by a merge_segcam_*
 # stage (dataset.CAPTURES). Since ticket ML-1 (2026-09-29) all are equal: photos
-# are pooled across them and split train/val/test within each class only
+# are pooled across them and split train/val/test within each class (country) only
 # (D1(b)); none is held out, and there is no cross-camera metric. The order
 # seeds patch boxes, so keep it. run_all_rigs.py rewrites this block to exactly
 # that list on every run, so what rests here is what a bare `dvc repro train`
@@ -20,6 +20,8 @@ train_capture_dirs:
   - data/segcropped/cam_sony
   - data/segcropped/cam_oneplus
   - data/segcropped/cam_iphone
+# One line per coffee in the D15 format (id;Country[,Region];Misc); the class is the
+# country, so a class pools every folder of its country (ticket ML-3).
 classes_file: dataset/classes.txt
 
 # Patch geometry
