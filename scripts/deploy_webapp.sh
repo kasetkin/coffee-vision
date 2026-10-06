@@ -9,7 +9,7 @@
 #   scripts/deploy_webapp.sh --rollback                      switch back to `previous`
 #
 # Runs locally and drives the VM over SSH. <git-ref> must resolve to a commit on origin/main. <model> is
-# a name under models/ (e.g. allrigs_dino3b16_s123). Environment (defaults in brackets):
+# a name under models/ (e.g. allrigs_dino3b16_seg_country_s123). Environment (defaults in brackets):
 #   HOST [powervpsssh]  APP_ROOT [/opt/coffee-cv]  APP_USER [alioth, the deploy user]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
 #

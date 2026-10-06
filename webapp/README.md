@@ -94,7 +94,7 @@ the label list would silently desync. Do not "fix" a shipped model's class list
 by pointing it back at `dataset/classes.txt`.
 
 A frozen list comes in one of two formats, and `coffeecv.class_list.load_classes` reads both. Models
-shipped before ticket ML-3 (`allrigs_cam_s123`, `allrigs_dino3b16_seg_s7`, ...) carry the old
+shipped before ticket ML-3 (all retired on 2026-10-06, e.g. `allrigs_cam_s123`) carried the old
 `id;label` lines, and each folder id is a class: the page shows `006` and its label. Since ML-3
 (`allrigs_dino3b16_seg_country_s123`) the list is in the D15 format, `id;Country[,Region];Misc`, and
 the class is the country: the page shows ten keys such as `Brazil` and `CostaRica`, and the request
@@ -107,7 +107,7 @@ Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives t
 
 ```
 scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, log dir, logrotate
-DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_s123
+DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_seg_country_s123
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
 scripts/deploy_webapp.sh --compare <release-id>             # training venv vs release venv, 10 photos, must be bit-identical
 DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves, backend + public site
@@ -133,8 +133,10 @@ service if there is nothing to roll back to) -> **prune** to `current` + `previo
 prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the VM, then
 `scripts/deploy_webapp.sh --verify`.
 
-**Fallback while only one release exists:** `scripts/deploy_webapp.sh <sha> allrigs_cam_s123` (the
-ResNet18 model; about 10 minutes). Both models are covered by `tests/test_release_manifest.py`.
+**Fallback:** `--rollback` to `previous`. There is no second model in `models/` (the ResNet18 fallback,
+`allrigs_cam_s123`, was retired on 2026-10-06 with every other old model). A retired model can still be
+deployed from a commit that holds it, `scripts/deploy_webapp.sh <sha> <model>`, as long as its `.pt` is in the
+local DVC cache (`dvc fetch` at that commit); the release is built from that commit's tree.
 
 ### Deploying while a sweep trains
 

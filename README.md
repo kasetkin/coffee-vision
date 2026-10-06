@@ -40,9 +40,9 @@ The default remote is `powervpsssh`, an SSH remote configured in `.dvc/config`: 
 
 ## Web service
 
-`webapp/` serves the shipped checkpoint, `allrigs_dino3b16_s123` (a frozen DINOv3 ViT-B/16 with a fitted
-linear head), behind `POST /classify` plus a one-page frontend: upload a photo, get scores for all 10
-classes, or a refusal when the photo does not look like the training data (the OOD guard). It wraps
+`webapp/` serves the shipped checkpoint, `allrigs_dino3b16_seg_country_s123` (a frozen DINOv3 ViT-B/16 with a
+fitted linear head, on segmenter crops), behind `POST /classify` plus a one-page frontend: upload a photo, get
+scores for all 10 countries, or a refusal when the photo does not look like the training data (the OOD guard). It wraps
 `coffeecv.infer` rather than reimplementing any of it, so the CLI and the web service can never silently
 disagree. Production runs from an immutable release under `/opt/coffee-cv` with its own uv environment,
 isolated from the training checkout; a deploy is one command, `scripts/deploy_webapp.sh`. See
@@ -53,8 +53,10 @@ outside git by design.
 
 Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Training draws from four capture dirs (`data/segcropped/cam_*`, one per camera, cut by the segmenter; the tray heuristic's `data/cropped` pools were retired in ticket ML-3), pools their photos, and splits them 70/15/15 within each class. Since ticket ML-1 (2026-09-29, `docs/ticket_retire_cross_rig.html`) all cameras are equal: none is held out, and the only label is the bean class. Val patch macro-F1 selects checkpoints and adoptions (ML-1 D3 also moves the DINOv3 head's C onto it from the next fit; `fit_frozen_head.py` does not do that yet); test is reported. The cross-camera figures below come from the leave-one-camera-out folds that ML-1 retired.
 
-- **Shipped: frozen DINOv3 ViT-B/16, `cls_mean` readout, logistic-regression head**, no TTA. Cross-camera patch macro-F1 **0.8873** (exp240-251, 3 seeds × 4 folds), 0.9489 pooled per photo. The owner selected it on those folds and it has been live since 2026-09-27; the formal paired comparison against ResNet18 (`docs/dinov3_integration_plan.md` §7.2) was closed as superseded when ML-1 retired the folds (D7).
-- **Fine-tuned ResNet18 recipe** (bean-unit patch sizing at 4-7 beans, MixStyle p=0.5, random erasing p=0.5, 100 epochs / patience 20, TTA): cross-camera **0.7908-0.8025** over seeds 42, 123 and 7 (exp200-203, exp232-239). `allrigs_cam_s123` is its shipped all-cameras model and the deploy's fallback.
+- **Shipped: frozen DINOv3 ViT-B/16, `cls_mean` readout, logistic-regression head**, no TTA. Cross-camera patch macro-F1 **0.8873** (exp240-251, 3 seeds × 4 folds), 0.9489 pooled per photo. The owner selected it on those folds and it has been live since 2026-09-27; the formal paired comparison against ResNet18 (`docs/dinov3_integration_plan.md` §7.2) was closed as superseded when ML-1 retired the folds (D7). The model in `models/`, `allrigs_dino3b16_seg_country_s123` (exp262, live since 2026-10-06), is that recipe on segmenter crops with country classes: in-distribution val 0.9790, test 0.9683.
+- **Fine-tuned ResNet18 recipe** (bean-unit patch sizing at 4-7 beans, MixStyle p=0.5, random erasing p=0.5, 100 epochs / patience 20, TTA): cross-camera **0.7908-0.8025** over seeds 42, 123 and 7 (exp200-203, exp232-239). No ResNet18 model ships any more.
+
+`models/` holds only the current release. Every older model (`allrigs_cam_s123`, `allrigs_dino3b16_s123`, `allrigs_dino3b16_seg_s7` and the `phase*`/`allrigs_*_s17` ResNets) was retired on 2026-10-06; its card, sidecars and `.pt.dvc` are in git history and its `.pt` in the DVC cache and remote.
 
 Quote ranges over seeds, not a single run: seed-to-seed spread is wider than most of the effects being measured, which is why adoptions require a *paired* multi-seed check.
 

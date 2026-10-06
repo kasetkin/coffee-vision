@@ -4,7 +4,7 @@ puts on its startup line and on every request log line.
 A release is exported from a commit (scripts/deploy_webapp.sh: git archive of the manifest), not from a
 working tree, so the deploy passes the commit and the model and says where to write:
 
-    python webapp/deploy/write_build_info.py --ref <sha> --model allrigs_dino3b16_s123 --out <release>/webapp/BUILD_INFO.json
+    python webapp/deploy/write_build_info.py --ref <sha> --model allrigs_dino3b16_seg_country_s123 --out <release>/webapp/BUILD_INFO.json
 
 Without --ref it describes the working tree instead (HEAD, plus whether tracked files differ from it) --
 for a local dev server only. The file is gitignored.
@@ -27,7 +27,7 @@ def git(*args: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--ref", help="the commit the release is exported from (default: working tree)")
-    ap.add_argument("--model", help="the model the release serves, e.g. allrigs_dino3b16_s123")
+    ap.add_argument("--model", help="the model the release serves, e.g. allrigs_dino3b16_seg_country_s123")
     ap.add_argument("--out", type=Path, default=REPO / "webapp" / "BUILD_INFO.json")
     args = ap.parse_args()
 

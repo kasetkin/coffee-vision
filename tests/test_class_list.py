@@ -1,5 +1,5 @@
 """coffeecv.class_list (ticket ML-3): one parser for classes.txt, in both formats. The D15 file gives one class
-per country; an old "id;label" file -- every shipped model's frozen list -- reads exactly as before. Plain
+per country; an old "id;label" file -- the frozen list of every model fitted before ML-3 -- reads exactly as before. Plain
 unittest, no data needed.
 
     python -m unittest discover -s tests -p 'test_class_list.py'
@@ -29,6 +29,20 @@ D15 = """\
 012;Rwanda,Western,Rusizi;Gisuma
 013;Brazil,SulDeMinas;
 014;Colombia,Antioquia;Excelso
+"""
+# An old-format frozen list, word for word: allrigs_cam_s123's (the same bytes as allrigs_dino3b16_s123's), from
+# the 10-class models retired on 2026-10-06. Archived experiments' configs still name lists in this format.
+OLD_FORMAT = """\
+001;Ethiopia,Sidamo
+002;Kenya,AA
+003;Colombia,PinkBourbon
+004;CostaRica,LaPastora
+005;Guatemala,Tata
+006;Brazil,Cerrado
+007;Brazil,MonteCristo
+008;Ethiopia,Kochere
+009;Vietnam,Robusta
+010;Indonesia,Java
 """
 # The ten countries in the order of dataset_new_ignored/classes_short_map.txt, pinned here (Q5). The test checked
 # them against that file until P10 deleted it with dataset_new_ignored/; this list is now the record.
@@ -93,21 +107,21 @@ class TestClassList(unittest.TestCase):
         self.assertEqual(classes.keys, tuple(f"{i:03d}" for i in range(1, 15)))
         self.assertEqual(classes.folders["013"], ("013",))
 
-    def test_every_shipped_frozen_list_reads_as_before(self):
+    def test_every_shipped_frozen_list_is_d15(self):
         frozen = sorted((REPO_ROOT / "models").glob("*.classes.txt"))
-        old = [p for p in frozen if read_coffees(p)[0].country is None]
-        self.assertTrue(old)
-        for path in sorted(set(frozen) - set(old)):     # shipped since ML-3: exactly the D15 file
+        self.assertTrue(frozen)
+        for path in frozen:                             # shipped since ML-3: exactly the D15 file
             with self.subTest(path=path.name):
                 self.assertEqual(path.read_text(), D15)
-        for path in old:
-            with self.subTest(path=path.name):
-                before = legacy_load_class_labels(path)
-                for classes in (load_classes(path), folder_classes(path)):
-                    self.assertEqual(list(classes.keys), sorted(before))
-                    self.assertEqual(classes.labels, before)
-                    self.assertEqual(classes.folders, {k: (k,) for k in before})
-                self.assertTrue(all(c.country is None for c in read_coffees(path)))
+
+    def test_old_format_list_reads_as_before(self):
+        path = self.write(OLD_FORMAT)
+        before = legacy_load_class_labels(path)
+        for classes in (load_classes(path), folder_classes(path)):
+            self.assertEqual(list(classes.keys), sorted(before))
+            self.assertEqual(classes.labels, before)
+            self.assertEqual(classes.folders, {k: (k,) for k in before})
+        self.assertTrue(all(c.country is None for c in read_coffees(path)))
 
     def test_bad_files_are_refused(self):
         bad = {

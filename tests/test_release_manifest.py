@@ -22,8 +22,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import SEG_LIBRARY, SEG_VENDORED, all_files, manifest  # noqa: E402
 
-# allrigs_dino3b16_seg_s7: the ML-2 segmenter model (P6); skipped until it is shipped.
-MODELS = ("allrigs_dino3b16_s123", "allrigs_cam_s123", "allrigs_dino3b16_seg_s7", "allrigs_dino3b16_seg_country_s123")
+# The one model in models/: every older one was retired on 2026-10-06 (their release shape, tray heuristic
+# included, is still covered by TestSegmenterRelease's synthetic cards).
+MODELS = ("allrigs_dino3b16_seg_country_s123",)
 # Shipped beside the code they describe, never opened by it.
 DOCS = {"third_party/efficientvit/LICENSE", "third_party/efficientvit/PATCHES.md"}
 # The deploy's smoke photo, from the same list the deploy uses.
@@ -168,9 +169,13 @@ class TestSegmenterRelease(unittest.TestCase):
             _seg_manifest(_seg_card(crop_method="mystery"))
 
     def test_tray_model_unchanged(self):
-        for model in ("allrigs_cam_s123", "allrigs_dino3b16_s123"):
-            m = manifest(model, lambda p: (REPO / p).read_text(), lambda p: (REPO / p).is_file())
-            self.assertFalse(any(p.startswith("third_party/") for p in m["git"]), model)
+        """A card without crop_method (every model before ML-2 P3) is a tray-heuristic model: no segmenter."""
+        for name, card in (("resnet18", {"training_config": {"model_name": "resnet18"}}),
+                           ("dinov3", {"training_config": {"model_name": "dinov3_vitb16"},
+                                       "dino": {"weights": "dinov3/w.pth"}})):
+            m = _seg_manifest(card)
+            self.assertFalse(any(p.startswith("third_party/") for p in m["git"]), name)
+            self.assertNotIn(SEG_LIBRARY[0], m["git"], name)
 
     def test_segmenter_opens_only_manifest_files(self):
         """The import trace behind SEG_VENDORED, rerun: building L0 and segmenting one photo opens no
