@@ -5,7 +5,7 @@ per class (ticket ML-1), val/test in-distribution only -- they say nothing about
 scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
 - **C is a fixed default, 0.1** (`--C` overrides it): the lower median of the leave-one-camera-out
-  folds' val picks (exp240-251), the value the deployed `allrigs_dino3b16_s123` was fitted at, frozen as
+  folds' val picks (exp240-251), the value the first shipped DINOv3 head (`allrigs_dino3b16_s123`, retired) was fitted at, frozen as
   a constant by the owner on 2026-09-30 (ticket ML-1 D3) now that the folds are gone. The val-selected C
   is computed and recorded beside it as a diagnostic only: the head's val macro-F1 is nearly flat across
   the C grid, so a val pick would mostly follow noise.
@@ -239,8 +239,7 @@ def ship(exp: int, name: str, seed_exps: list[int] | None = None) -> None:
                 "headline": ("analysis/ml3/printout.txt: patch macro-F1 over the 8 pre-ML-3 countries on "
                              "pre-ML-3 photos, with photo-level scores and bootstrap CIs, and the live model's "
                              "remapped reference")} if seeds else {}),
-            "note": ("in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
-                     "never to a cross-camera number" if per_folder else
+            "note": ("in-distribution only -- compare to the folds' test split, never to a cross-camera number" if per_folder else
                      "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
                      "fitted on per-folder classes"),
         },

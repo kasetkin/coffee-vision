@@ -20,7 +20,7 @@ Two rules this file exists to enforce:
    rather than restated, so the probe that ships is fitted from exactly the
    photos the probe that was measured was fitted from.
 
-    python -m coffeecv.fit_ood_probe --checkpoint models/allrigs_cam_s123.pt \
+    python -m coffeecv.fit_ood_probe --checkpoint models/allrigs_dino3b16_seg_country_s123.pt \
         --negatives dataset/ood_negatives/2026-09__internet_proxy \
                     dataset/ood_negatives/2026-09__user_realworld \
         --positives dataset/ood_positives dataset/ood_positives_internet

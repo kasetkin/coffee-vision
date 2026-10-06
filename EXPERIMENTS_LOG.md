@@ -2954,3 +2954,26 @@ No patch fell below the 80% bean share. In-distribution only, and **not comparab
 - **Shipped exp262** (seed 123, val's best) as `allrigs_dino3b16_seg_country_s123`, released 2026-10-06 (7c1e087).
   OOD probe: calibrated 0.5957 at α ≤ 3.4% (n = 28), served at 0.5 (owner); holdout, read once and not freshly
   validated (D11): negatives 56/56, genuine refused 2/29 at 0.5, 1/29 at 0.5957. Log: `analysis/ml3/`.
+
+### Old models retired; `models/` holds only the current release (2026-10-06)
+
+Owner decision. Removed from `models/`: `allrigs_cam_s123` (the ResNet18 deploy fallback),
+`allrigs_dino3b16_s123` (exp253), `allrigs_dino3b16_seg_s7` (exp260), `allrigs_mixstyle05_e100p20_s17`,
+`allrigs_oneplusmerged_s17`, `phase8_best_random_erasing_0.5`, `phase12_beans47_s7`, `phase14_allrigs_s42`,
+`phase16_allrigs_mixstyle05_s17`. Cards, class lists, OOD references/probes and `.pt.dvc` pointers stay in git
+history; every `.pt` was checked present in the DVC cache with its pointer's md5 before its working copy was
+deleted. The untracked `.ood_embeddings.npz` sidecars of the three newest were moved, not deleted, to
+`~/retired_models_2026-10-06/` on the devcontainer. `models/seg/ft_s*` (DVC stage outputs) are untouched.
+
+- Why: `allrigs_dino3b16_s123` was the suite's one failure. Its head was fitted under timm 1.0.29, and
+  `dino_classifier` refuses any other timm version. Under the same torch (2.14), timm 1.0.29 and 1.0.30 give
+  bit-identical ViT-B/16 cls_mean features and old-head logits (224 and 256 px, max |Δ| 0.0). So the refusal
+  was only the version stamp, not drift. That model has not been live since 2026-10-06, so it was retired
+  with the rest rather than allow-listed.
+- Tests now use the current model or synthetic artifacts: the OOD loaders run on the 1536-d country model; the
+  ResNet18 `weights=None` load and the old-format class list are checked on a seeded checkpoint and a pinned
+  copy of the retired list. Suite: 209 tests, OK, no skips.
+- `coffeecv_dino/ood_feasibility.py` was removed: it measured the probe in the retired ResNet18's space (plan
+  §6.1 gate, passed 2026-09-26 at `7cd4c7e`).
+- `scripts/rehearse_deploy_local.sh` now deploys the current model twice, at origin/main~1 and origin/main, for
+  its rollback pair. Not yet rerun.

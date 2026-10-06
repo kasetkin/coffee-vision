@@ -27,7 +27,7 @@ from coffeecv_dino.reference import REFERENCE_RIG, REFERENCE_SEED, reference_pat
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 META_URL = "https://github.com/facebookresearch/dinov3.git"
-META_COMMIT = "6876159a11b4df116f30f667f8c9888617df0751"   # verified against timm 1.0.29 on 2026-09-24
+META_COMMIT = "6876159a11b4df116f30f667f8c9888617df0751"   # verified against timm 1.0.29 on 2026-09-24; tests/test_dino_backbone.py passes under 1.0.30
 WEIGHTS = REPO_ROOT / "models_pretrained" / "dinov3" / "dinov3_vits16_pretrain_lvd1689m-08c60483.pth"
 OUT = REPO_ROOT / "tests" / "fixtures" / "dinov3_vits16_reference.npz"
 PER_CLASS = 1

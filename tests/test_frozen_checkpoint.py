@@ -139,11 +139,12 @@ class TestCropMethodRestores(unittest.TestCase):
             return config_for_checkpoint(ckpt, None)[0]
 
     def test_a_card_without_it_is_the_tray_heuristic(self):
-        for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):        # both shipped cards predate P3
-            card = json.loads((REPO_ROOT / "models" / f"{name}.json").read_text())
-            self.assertNotIn("crop_method", card["training_config"])
-            restored = self.restored(card["training_config"], REPO_ROOT / "models" / f"{name}.classes.txt")
-            self.assertEqual(restored.crop_method, "tray_heuristic")
+        # Every card before P3 lacked the field. None ships any more, so: today's card with it removed.
+        name = "allrigs_dino3b16_seg_country_s123"
+        card = json.loads((REPO_ROOT / "models" / f"{name}.json").read_text())
+        old = {k: v for k, v in card["training_config"].items() if k != "crop_method" and not k.startswith("seg_")}
+        restored = self.restored(old, REPO_ROOT / "models" / f"{name}.classes.txt")
+        self.assertEqual(restored.crop_method, "tray_heuristic")
 
     def test_segment_fields_round_trip(self):
         cfg = replace(RunConfig(), **self.SEG)

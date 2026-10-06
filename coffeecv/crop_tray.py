@@ -26,8 +26,8 @@ computed per-image (Otsu) rather than hardcoded, and morphological kernel
 sizes scale with the detected tray size rather than being fixed pixel
 counts.
 
-Since ticket ML-3 P2b (Q3) this module serves only: infer.crop_to_bean_region (tray-heuristic models such as
-allrigs_cam_s123, the ResNet fallback) and the webapp's /crop endpoint. The offline crop stage it drove
+Since ticket ML-3 P2b (Q3) this module serves only: infer.crop_to_bean_region (crop_method tray_heuristic
+checkpoints; none has shipped since the old models were retired on 2026-10-06) and the webapp's /crop endpoint. The offline crop stage it drove
 (coffeecv/crop_session.py, dataset/<session>.crop.yaml), its data/cropped pools and coffeecv/qa_live_crop.py
 were retired then; the comments below that cite them refer to git history.
 """

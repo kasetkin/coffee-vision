@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # The shipped model. COFFEE_CV_CHECKPOINT (a path relative to the repo) overrides it without a code
 # edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
-CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_cam_s123.pt")
+CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_dino3b16_seg_country_s123.pt")
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light

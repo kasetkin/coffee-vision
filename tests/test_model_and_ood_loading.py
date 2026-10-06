@@ -3,9 +3,9 @@ Plain unittest.
 
     python -m unittest discover -s tests -p 'test_model_and_ood_loading.py'
 
-On real artifacts: the deployed checkpoint `models/allrigs_cam_s123.pt` with its own OOD reference and
-probe, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked, not in git,
-so the tests that need it skip with a reason when it is absent.
+On real artifacts: the deployed checkpoint `models/allrigs_dino3b16_seg_country_s123.pt` with its own OOD
+reference and probe, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked and
+its ViT-B/16 backbone is not in git, so the tests that need them skip with a reason when either is absent.
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import torch
 
+from coffeecv.backbones import MODELS_PRETRAINED, SPECS
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import CAPTURES
 from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding_dim_of, load_model,
@@ -25,8 +26,9 @@ from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding
 from coffeecv.model import SUPPORTED_MODELS, build_model
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
-DEPLOYED = REPO_ROOT / "models" / "allrigs_cam_s123.pt"
-HAVE_DEPLOYED = DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and probe_path_for(DEPLOYED).exists()
+DEPLOYED = REPO_ROOT / "models" / "allrigs_dino3b16_seg_country_s123.pt"
+HAVE_DEPLOYED = (DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and probe_path_for(DEPLOYED).exists()
+                 and (MODELS_PRETRAINED / SPECS["dinov3_vitb16"].weights).exists())
 
 
 class TestEmbeddingContract(unittest.TestCase):
@@ -54,11 +56,11 @@ class TestEmbeddingContract(unittest.TestCase):
                 build_model(name, num_classes=10, freeze_mode="full")
 
 
-@unittest.skipUnless(HAVE_DEPLOYED, f"{DEPLOYED} and its OOD sidecars are not present (dvc pull)")
+@unittest.skipUnless(HAVE_DEPLOYED, f"{DEPLOYED}, its OOD sidecars or the ViT-B/16 weights are not present")
 class TestOodLoaders(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        _, cls.head = load_model(DEPLOYED, "resnet18", 10, 0.2)
+        _, cls.head = load_model(DEPLOYED, "dinov3_vitb16", 10, 0.0)
 
     def _copy_with(self, tmp: Path, suffix: str, **overrides) -> Path:
         ckpt = tmp / DEPLOYED.name
@@ -71,19 +73,19 @@ class TestOodLoaders(unittest.TestCase):
         return ckpt
 
     def test_deployed_pairing_loads(self):
-        self.assertEqual(embedding_dim_of(self.head), 512)
-        self.assertEqual(load_ood_reference(DEPLOYED, self.head)["embedding_dim"], 512)
-        self.assertEqual(load_ood_probe(DEPLOYED, head=self.head)["embedding_dim"], 512)
+        self.assertEqual(embedding_dim_of(self.head), 1536)
+        self.assertEqual(load_ood_reference(DEPLOYED, self.head)["embedding_dim"], 1536)
+        self.assertEqual(load_ood_probe(DEPLOYED, head=self.head)["embedding_dim"], 1536)
 
     def test_width_mismatch_refused(self):
-        # What a ResNet18 reference beside a DINOv3 ViT-B/16 cls_mean model would look like, seen
-        # from the other side: the artifact's width is not what this head is fed.
+        # A ResNet18 (512-d) reference beside this DINOv3 ViT-B/16 cls_mean model: the artifact's width is
+        # not what this head is fed.
         with tempfile.TemporaryDirectory() as d:
-            ckpt = self._copy_with(Path(d), ".ood_reference.json", embedding_dim=1536)
-            with self.assertRaisesRegex(SystemExit, "1536-d but this model emits 512-d"):
+            ckpt = self._copy_with(Path(d), ".ood_reference.json", embedding_dim=512)
+            with self.assertRaisesRegex(SystemExit, "512-d but this model emits 1536-d"):
                 load_ood_reference(ckpt, self.head)
-            ckpt = self._copy_with(Path(d), ".ood_probe.json", embedding_dim=1536)
-            with self.assertRaisesRegex(SystemExit, "1536-d but this model emits 512-d"):
+            ckpt = self._copy_with(Path(d), ".ood_probe.json", embedding_dim=512)
+            with self.assertRaisesRegex(SystemExit, "512-d but this model emits 1536-d"):
                 load_ood_probe(ckpt, head=self.head)
 
     def test_other_checkpoint_refused(self):
@@ -99,11 +101,11 @@ class TestOodLoaders(unittest.TestCase):
             self.assertIsNone(load_ood_reference(ckpt, self.head))
 
 
-@unittest.skipUnless(DEPLOYED.exists(), f"{DEPLOYED} is not present (dvc pull)")
 class TestLegacyTrainRigsAlias(unittest.TestCase):
-    """Ticket ML-1 (D4) renamed `train_rigs` to `train_capture_dirs`; every card written before then --
-    both deployed models' -- still says `train_rigs`. config_for_checkpoint must map it, or the key is
-    dropped as unknown and an old model silently resolves to the default dirs."""
+    """Ticket ML-1 (D4) renamed `train_rigs` to `train_capture_dirs`; every card and run config written
+    before then still says `train_rigs` (the retired models' cards, the archived experiments' configs).
+    config_for_checkpoint must map it, or the key is dropped as unknown and an old model silently resolves
+    to the default dirs."""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -126,15 +128,9 @@ class TestLegacyTrainRigsAlias(unittest.TestCase):
         self.assertEqual(cfg.train_capture_dirs, ("data/cropped/cam_sony",))
         self.assertNotIn(LEGACY_CONFIG_NOTE, source)
 
-    def test_shipped_cards_resolve_to_their_own_four_capture_dirs(self):
-        """The segmenter model reads today's pools; the two tray-heuristic models keep naming the pools they
-        were fitted on, retired in ticket ML-3 P2b (their split is rebuilt at their own commit)."""
-        tray = [f"data/cropped/{Path(c).name}" for c in CAPTURES]
-        for name, want in (("allrigs_dino3b16_seg_s7", CAPTURES), ("allrigs_dino3b16_s123", tray),
-                           ("allrigs_cam_s123", tray)):
-            with self.subTest(name=name):
-                cfg, _ = config_for_checkpoint(REPO_ROOT / "models" / f"{name}.pt", None)
-                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], want)
+    def test_shipped_card_resolves_to_todays_four_capture_dirs(self):
+        cfg, _ = config_for_checkpoint(DEPLOYED, None)
+        self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], list(CAPTURES))
 
 
 class TestRecordedClassIds(unittest.TestCase):
@@ -203,20 +199,30 @@ class TestPredictionsProvenance(unittest.TestCase):
 class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
     """load_model builds ResNet18 with weights=None (docs/ops1_release_isolation_plan.html §4.3): the
     service runs under ProtectHome=true, where ~/.cache/torch does not exist. Safe only because the
-    strict load_state_dict overwrites every parameter and buffer -- which these tests prove."""
+    strict load_state_dict overwrites every parameter and buffer -- which these tests prove. No ResNet18
+    checkpoint ships since 2026-10-06, so the checkpoint is a seeded random one: unlike ImageNet's init."""
+
+    @classmethod
+    def setUpClass(cls):
+        tmp = Path(tempfile.mkdtemp())
+        cls.addClassCleanup(shutil.rmtree, tmp)
+        torch.manual_seed(0)
+        model, _ = build_model("resnet18", num_classes=10, freeze_mode="none", dropout=0.2, pretrained=False)
+        cls.ckpt = tmp / "resnet18.pt"
+        torch.save(model.state_dict(), cls.ckpt)
 
     def test_loads_without_touching_the_hub(self):
         def refuse(*args, **kwargs):
             raise AssertionError("load_model tried to fetch pretrained weights")
         with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
-            load_model(DEPLOYED, "resnet18", 10, 0.2)
+            load_model(self.ckpt, "resnet18", 10, 0.2)
 
     @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_logits_bit_identical_to_imagenet_init(self):
         x, _, _, _ = reference_patches(per_class=2)
-        new, _ = load_model(DEPLOYED, "resnet18", 10, 0.2)
+        new, _ = load_model(self.ckpt, "resnet18", 10, 0.2)
         old, _ = build_model("resnet18", num_classes=10, freeze_mode="none", dropout=0.2)  # the old path
-        old.load_state_dict(torch.load(DEPLOYED, map_location="cpu"), strict=True)
+        old.load_state_dict(torch.load(self.ckpt, map_location="cpu"), strict=True)
         with torch.inference_mode():
             self.assertTrue(torch.equal(new(x), old.eval()(x)))
 

@@ -27,7 +27,7 @@ on -- for a checkpoint trained since the pooled split (ticket ML-1); see
 the model has never seen at all come in separately, via `--positives`, as their
 own conditions.
 
-    python -m coffeecv.ood_eval --checkpoint models/allrigs_cam_s123.pt \\
+    python -m coffeecv.ood_eval --checkpoint models/allrigs_dino3b16_seg_country_s123.pt \\
         --negatives dataset/ood_negatives/2026-09__user_realworld --split dev
 """
 from __future__ import annotations

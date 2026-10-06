@@ -6,7 +6,7 @@ running app with an audit hook and fails if it opens a repo file outside this li
 the other direction, that a staged release holds nothing beyond it. Stdlib only: the deploy runs it
 before any environment exists.
 
-    python webapp/deploy/release_manifest.py --model allrigs_dino3b16_s123 [--ref <sha>]
+    python webapp/deploy/release_manifest.py --model allrigs_dino3b16_seg_country_s123 [--ref <sha>]
 
 prints the manifest as JSON, reading the model card and pointers from the ref (default: the working
 tree).
@@ -176,7 +176,7 @@ def _readers(ref: str | None):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--model", required=True, help="model name, e.g. allrigs_dino3b16_s123")
+    ap.add_argument("--model", required=True, help="model name, e.g. allrigs_dino3b16_seg_country_s123")
     ap.add_argument("--ref", help="git ref to read the card and pointers from (default: working tree)")
     ap.add_argument("--check-staged", metavar="LISTING",
                     help="file listing of a staged release (one relative path per line, '-' = stdin); "

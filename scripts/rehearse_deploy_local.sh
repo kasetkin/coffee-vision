@@ -5,9 +5,15 @@
 #
 #   scripts/rehearse_deploy_local.sh [scratch-dir]
 #
-# Deploy 2 (and --compare and the roll-forward) use $REHEARSE_MODEL, by default the model being released.
-# It was allrigs_dino3b16_s123 until ticket ML-3; that model was fitted under timm 1.0.29 and the release
-# pins 1.0.30, so it no longer loads.
+# Both deploys use $REHEARSE_MODEL, by default the one model in models/: deploy 1 at $REHEARSE_PREV_REF
+# (default origin/main~1), deploy 2 at origin/main, so the rollback switches between two releases of it. Until
+# 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
+# REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
+#
+# NOT YET RUN in this form (2026-10-06, aedfb93): the one-model rewrite above passed `bash -n` only. The last
+# passing rehearsal was at 46ec30e, with allrigs_cam_s123 as deploy 1. Untested: deploy 1 at an older commit,
+# and a rollback between two releases of the same model (same model_sha, told apart only by commit). Run it
+# before the next release (a new model or segmenter) and drop this note once it passes.
 #
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
 # its -E variables -- no sandbox, no caps), systemctl (starts the ExecStart of the rendered unit in the
@@ -157,6 +163,8 @@ export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOK
 D="$C/scripts/deploy_webapp.sh"
 MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_seg_country_s123}
 SHA=$(git -C "$C" rev-parse origin/main)
+PREV_SHA=$(git -C "$C" rev-parse "${REHEARSE_PREV_REF:-origin/main~1}")
+[[ "$PREV_SHA" != "$SHA" ]] || { echo "REHEARSE_PREV_REF resolves to origin/main itself"; exit 1; }
 cleanup() { PATH="$S:$PATH" systemctl stop coffee-cv-web >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 step() { printf '\n\n############ %s\n' "$*"; }
@@ -172,16 +180,16 @@ step "bootstrap"
 
 step "refusal: a commit that is not on origin/main"
 git -C "$C" -c user.name=rehearsal -c user.email=rehearsal@invalid commit -q --allow-empty -m "local only"
-expect_fail "is not on origin/main" "$D" --stage-only HEAD allrigs_cam_s123
+expect_fail "is not on origin/main" "$D" --stage-only HEAD "$MODEL"
 
 step "refusal: a .pt whose md5 does not match its .pt.dvc"
-mv "$C/.dvc/cache" "$C/.dvc/cache.off"; printf 'not a model' > "$C/models/allrigs_cam_s123.pt"
-expect_fail "no copy in the working tree or the DVC cache has md5" "$D" --stage-only "$SHA" allrigs_cam_s123
-rm "$C/models/allrigs_cam_s123.pt"; mv "$C/.dvc/cache.off" "$C/.dvc/cache"
+mv "$C/.dvc/cache" "$C/.dvc/cache.off"; printf 'not a model' > "$C/models/$MODEL.pt"
+expect_fail "no copy in the working tree or the DVC cache has md5" "$D" --stage-only "$SHA" "$MODEL"
+rm "$C/models/$MODEL.pt"; mv "$C/.dvc/cache.off" "$C/.dvc/cache"
 
-step "deploy 1: allrigs_cam_s123 (service disabled: flip, no restart)"
-"$D" "$SHA" allrigs_cam_s123
-[[ "$(readlink "$APP_ROOT/current")" == releases/*-allrigs_cam_s123 ]] || { echo "current not flipped"; exit 1; }
+step "deploy 1: $MODEL at ${PREV_SHA:0:7} (service disabled: flip, no restart)"
+"$D" "$PREV_SHA" "$MODEL"
+[[ "$(readlink "$APP_ROOT/current")" == releases/*-"${PREV_SHA:0:7}-$MODEL" ]] || { echo "current not flipped"; exit 1; }
 
 step "enable the service (the owner's Phase B), then --verify"
 PATH="$S:$PATH" systemctl enable --now coffee-cv-web
@@ -196,17 +204,17 @@ cmp -s "$R/site.before" "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" || { echo
 [[ "$(readlink "$APP_ROOT/current")" == "$before" ]] || { echo "current moved"; exit 1; }
 echo "   site restored byte for byte; current unchanged"
 
-step "deploy 2: $MODEL (service enabled: restart + verify, prune)"
+step "deploy 2: $MODEL at ${SHA:0:7} (service enabled: restart + verify, prune)"
 "$D" "$SHA" "$MODEL"
 ls "$APP_ROOT/releases"
 
 step "--compare on the current release"
 "$D" --compare "$(basename "$(readlink "$APP_ROOT/current")")"
 
-step "--rollback to allrigs_cam_s123, and back"
+step "--rollback to ${PREV_SHA:0:7}, and back"
 "$D" --rollback
-[[ "$(readlink "$APP_ROOT/current")" == releases/*-allrigs_cam_s123 ]] || { echo "rollback did not switch"; exit 1; }
+[[ "$(readlink "$APP_ROOT/current")" == releases/*-"${PREV_SHA:0:7}-$MODEL" ]] || { echo "rollback did not switch"; exit 1; }
 "$D" --rollback
-[[ "$(readlink "$APP_ROOT/current")" == releases/*-"$MODEL" ]] || { echo "roll-forward did not switch"; exit 1; }
+[[ "$(readlink "$APP_ROOT/current")" == releases/*-"${SHA:0:7}-$MODEL" ]] || { echo "roll-forward did not switch"; exit 1; }
 
 step "REHEARSAL PASSED"

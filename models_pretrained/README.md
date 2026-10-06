@@ -99,7 +99,7 @@ Weights alone are not enough — the *architecture definition* has to be pinned 
   `~/.cache/torch/hub/facebookresearch_dinov2_main/`, fetched from a floating `main`. Since
   2026-09-24 it is only a reference arm in Experiment 1 (plan §5.2), loaded exactly as the
   2026-09-21 screen loaded it; pin it only if it ever becomes a candidate again.
-- **DINOv3** loads through **timm** (pin `timm==1.0.29`; Apache-2.0 code), not through Meta's
+- **DINOv3** loads through **timm** (pin `timm==1.0.30`, in both locks; Apache-2.0 code), not through Meta's
   repository: `timm.create_model("vit_small_patch16_dinov3", pretrained=False, num_classes=0,
   global_pool="token")`, timm's `checkpoint_filter_fn`, a strict load of the `.pth` above, then
   copy the checkpoint's `rope_embed.periods` into `model.rope.periods`. The checkpoint stores those
