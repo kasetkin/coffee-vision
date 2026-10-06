@@ -32,6 +32,10 @@ C="$R/clone"
 ln -s "$SRC/.dvc/cache" "$C/.dvc/cache"
 mkdir -p "$C/models_pretrained/dinov3"
 ln -s "$SRC/models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth" "$C/models_pretrained/dinov3/"
+# The segmenter models' L0 encoder and fine-tuned decoder (ticket ML-2): DVC-tracked, so the clone has only
+# their .dvc files, and the deploy reads both from the working tree (the release manifest's `pretrained`).
+ln -s "$SRC/models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt" "$C/models_pretrained/efficientvit_sam/"
+ln -s "$SRC/models/seg/ft_s123.pt" "$C/models/seg/"
 while read -r photo; do
   mkdir -p "$C/$(dirname "$photo")"; ln -s "$SRC/$photo" "$C/$photo"
 done < <(awk '!/^#/ && NF {print $3}' "$SRC/webapp/deploy/fixtures.txt")
