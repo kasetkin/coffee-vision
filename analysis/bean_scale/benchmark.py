@@ -1,5 +1,8 @@
 """Run every estimator over the 30 manually-counted crops and score them.
 
+Reads the tray heuristic's data/cropped pools, retired in ticket ML-3 P2b: a record of a finished experiment,
+run at its own commit (or after `git checkout dbb4e62 && dvc checkout`).
+
 The headline metric is NOT raw accuracy. A method with a large but *constant*
 multiplicative bias is fixable with one global constant, which is legitimate; a
 method whose bias changes per rig is not fixable without a per-rig constant,

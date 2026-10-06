@@ -37,7 +37,7 @@ from pathlib import Path
 import numpy as np
 
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import load_class_labels
+from coffeecv.class_list import load_classes
 from coffeecv.infer import (_sha, config_for_checkpoint, inference_tta_for, load_model, load_ood_reference,
                             probe_path_for, probe_score, reference_path_for)
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, auroc,
@@ -88,7 +88,7 @@ def _collect(items, cfg, model, head, n_patches, tta, cache_dir, ckpt_sha, label
             continue
         shown = path.resolve()
         shown = shown.relative_to(REPO_ROOT) if shown.is_relative_to(REPO_ROOT) else shown
-        rows.append({"photo": str(shown), "tag": item.get("scenario_tag", "-"),
+        rows.append({"photo": str(shown), "tag": item.get("scenario_tag", "-"), "date": item.get("date", ""),
                      "embeds": embeds, "label": label})
     return rows, declined
 
@@ -120,18 +120,24 @@ def main() -> None:
     p.add_argument("--verify", action="store_true",
                    help="after fitting, score the HOLDOUT split once against the frozen probe. "
                         "Spends the holdout: do not re-run and then change anything.")
+    p.add_argument("--training-days", nargs="+", default=[], metavar="YYYY-MM-DD",
+                   help="days the head's training photos were shot. Positives from those days flatter the probe "
+                        "(ticket ML-3 P8), so calibration also reports the other days' positives alone and "
+                        "--verify prints both groups apart, from the manifests' date column. Reporting only: "
+                        "the shipped threshold does not change.")
     p.add_argument("--out", default=None)
     args = p.parse_args()
+    training_days = set(args.training_days)
 
     checkpoint = Path(args.checkpoint)
     cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
-    class_ids = sorted(load_class_labels(classes_file))
+    classes = load_classes(classes_file)
     ckpt_sha = _sha(checkpoint)
 
     ref_path = reference_path_for(checkpoint)
-    model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
     # The one checked loader (sha and embedding width), like every other caller (plan §9.2).
     ref = load_ood_reference(checkpoint, head)
     if ref is None:
@@ -142,7 +148,7 @@ def main() -> None:
     pos_dirs = [Path(d) for d in args.positives]
 
     # --- fit set -----------------------------------------------------------
-    train_ids = id_photos(cfg, class_ids, args.id_split)
+    train_ids = id_photos(cfg, classes, args.id_split)
     bean_items = [{"path": q, "scenario_tag": "-"} for q in train_ids]
     dev_negs = [r for r in negatives_from(neg_dirs, "dev")
                 if r["scenario_tag"] in CLEAN_NEGATIVE_TAGS]
@@ -199,6 +205,13 @@ def main() -> None:
             alternatives[name] = {"n": len(rows), "alpha_floor": 1.0 / (len(rows) + 1),
                                   "threshold_at_floor": float(s.max()),
                                   "max": float(s.max()), "median": float(np.median(s))}
+    if training_days:
+        rows = [r for r in pos_rows if r["tag"] == "user_beans_independent" and r["date"] not in training_days]
+        if rows:
+            s = np.array([r["score"] for r in rows])
+            alternatives["user_independent_other_days"] = {
+                "n": len(rows), "training_days": sorted(training_days), "alpha_floor": 1.0 / (len(rows) + 1),
+                "threshold_at_floor": float(s.max()), "max": float(s.max()), "median": float(np.median(s))}
     floor = 1.0 / (len(cal) + 1)
     alpha = args.alpha if args.alpha is not None else floor
     if alpha < floor:
@@ -216,6 +229,11 @@ def main() -> None:
         print(f"  alpha {a:>5.0%} -> " + (f"threshold {t:.4f}" if t is not None
                                           else f"not certifiable with n={len(cal)}"))
     print(f"\nSHIPPING threshold {thr:.4f} at certified alpha {alpha:.1%}")
+    other = alternatives.get("user_independent_other_days")
+    if other:
+        print(f"  beside it, the {other['n']} user_independent dev positives shot off the training days "
+              f"({', '.join(other['training_days'])}) alone would certify alpha {other['alpha_floor']:.1%} at "
+              f"threshold {other['threshold_at_floor']:.4f} (reporting only)")
 
     dev_neg_scores = np.array([_score_with(probe, r["embeds"]) for r in neg_rows])
     caught = int((dev_neg_scores > thr).sum())
@@ -282,6 +300,15 @@ def main() -> None:
         ct = int((ns > DECISION_BOUNDARY).sum())
         print(f"at the decision boundary {DECISION_BOUNDARY:g} (the live override): refused {fr}/{len(ps)} "
               f"genuine, caught {ct}/{len(ns)} negatives")
+        if training_days:
+            days = ", ".join(sorted(training_days))
+            for name, on in ((f"on a training day ({days})", True), (f"off the training days", False)):
+                g = [s for r, s in zip(hp, ps) if r["tag"] == "user_beans_independent" and (r["date"] in training_days) == on]
+                if g:
+                    g = np.array(g)
+                    print(f"  user_independent genuine {name}: refused "
+                          f"{int((g > thr).sum())}/{len(g)} at {thr:.4f}, {int((g > DECISION_BOUNDARY).sum())}/{len(g)} "
+                          f"at {DECISION_BOUNDARY:g}")
         for r, s in sorted(zip(hp, ps), key=lambda t: -t[1])[:3]:
             print(f"  highest genuine: {s:.4f}  {r['photo']}")
         for r, s in sorted(zip(hn, ns), key=lambda t: t[1])[:3]:

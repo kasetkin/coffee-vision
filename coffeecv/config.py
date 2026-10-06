@@ -23,10 +23,10 @@ TENSORBOARD_DIR = REPO_ROOT / "tensorboard"
 class RunConfig:
     seed: int = 42
 
-    # Training reads the *cropped* tree, which the `crop` stage produces from the
-    # raw session. The raw photos are `dvc add`-tracked data and are not read here;
-    # which session the crops came from is recorded by the crop stage in dvc.yaml
-    # and in data/cropped/<session>/crop_manifest.json.
+    # Training reads the *cropped* tree, which the `segcrop` stage produces from the
+    # raw session (and merge_segcam_* pools per camera). The raw photos are `dvc
+    # add`-tracked data and are not read here; which session the crops came from is
+    # recorded in dvc.yaml and in data/segcropped/<session>/segcrop_manifest.json.
     #
     # The capture dirs whose photos are pooled per class and split 70/15/15 into
     # train/val/test (ticket ML-1, D1(b)); no dir is held out. The same list, in
@@ -35,12 +35,15 @@ class RunConfig:
     # the two agree. Overridden by params.yaml on every real run, so this is a sane
     # resting shape rather than a live configuration. Kept current anyway: a
     # default naming dirs that no longer exist is the kind of drift that makes a
-    # reader trust the wrong thing.
+    # reader trust the wrong thing. Since ticket ML-3 P2b these are the segmenter's
+    # pools (the tray heuristic's data/cropped pools are retired), while
+    # crop_method below still defaults to "tray_heuristic" for old cards; so a
+    # config that sets neither is refused by resolve_paths, never read.
     train_capture_dirs: tuple[str, ...] = (
-        "data/cropped/cam_pixel",
-        "data/cropped/cam_sony",
-        "data/cropped/cam_oneplus",
-        "data/cropped/cam_iphone",
+        "data/segcropped/cam_pixel",
+        "data/segcropped/cam_sony",
+        "data/segcropped/cam_oneplus",
+        "data/segcropped/cam_iphone",
     )
     classes_file: str = "dataset/classes.txt"
 
@@ -183,10 +186,11 @@ class RunConfig:
     # of the smallest judge-accepted pretrained mask, which is 0.45 because only frame-filling masks pass.
     seg_min_area_frac: float = 0.083
     # Ticket ML-2 P3 (plan §2.2, §6): how the bean region is found, the same way at both ends.
-    # "tray_heuristic": crop_tray -- training reads the data/cropped pools the crop stage made, serving runs
-    # infer.crop_to_bean_region. "segment": the segmenter below (segment_beans.py) -- training reads the
-    # data/segcropped pools the segcrop stage made, serving segments the photo live. A checkpoint written
-    # before this field restores as "tray_heuristic", so every shipped model keeps today's path.
+    # "tray_heuristic": crop_tray -- training read the data/cropped pools the crop stage made (both retired
+    # in ticket ML-3 P2b), serving runs infer.crop_to_bean_region. "segment": the segmenter below
+    # (segment_beans.py) -- training reads the data/segcropped pools the segcrop stage made, serving segments
+    # the photo live. A checkpoint written before this field restores as "tray_heuristic", so every shipped
+    # model keeps its own path; that is why the default stays here while params.yaml rests at "segment".
     crop_method: str = "tray_heuristic"
     # The segmenter: pretrained L0 weights (under models_pretrained/) and, from P5, a fine-tuned mask decoder
     # (repo-relative; "" = the pretrained decoder). Both sha256s are recorded so a checkpoint names the exact
@@ -237,7 +241,15 @@ class RunConfig:
         return cls(**values)
 
     def resolve_paths(self) -> tuple[list[Path], Path]:
-        """(capture dirs, classes file)."""
+        """(capture dirs, classes file). Refuses a pool the crop method did not make (ticket ML-3 P2b):
+        the segmenter's data/segcropped pools sampled as tray-heuristic crops would skip their masks' patch
+        rule (D17), and the tray heuristic's data/cropped pools read as "segment" find no masks, so every
+        photo would pass as a D18 fallback. Either way nothing fails; the patches are just wrong."""
+        made_by = {"segcropped": "segment", "cropped": "tray_heuristic"}
+        for d in self.train_capture_dirs:
+            want = made_by.get(Path(d).parent.name)
+            if want is not None and want != self.crop_method:
+                raise ValueError(f"capture dir {d} needs crop_method {want!r}, not {self.crop_method!r}")
         return [REPO_ROOT / d for d in self.train_capture_dirs], REPO_ROOT / self.classes_file
 
 

@@ -63,9 +63,10 @@ import torch.nn.functional as F
 from PIL import Image
 
 from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
+from coffeecv.class_list import load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.crop_tray import locate_bean_crop
-from coffeecv.dataset import load_class_labels, load_rgb_image
+from coffeecv.dataset import load_rgb_image
 from coffeecv.geometry import (compute_valid_region_rect, sample_bean_unit_patch_boxes,
                               sample_masked_bean_unit_boxes)
 from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
@@ -228,6 +229,11 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
 
     `classes_file` is overridden separately, below, to a frozen snapshot beside
     the checkpoint when one exists -- see `classes_path_for`.
+
+    A config that records its `class_ids` must still read them from that class list. A run archives
+    `classes_file` as a path, not its content, so after classes.txt changed format (ticket ML-3) a
+    pre-ML-3 run rebuilt at a later commit would read countries where it was fitted on folder ids. That
+    is refused, naming the commit to rebuild it from.
     """
     card = checkpoint.with_suffix(".json")          # shipped model: models/<name>.json
     run_cfg = checkpoint.parent.parent / "config.json"  # live run: outputs/config.json
@@ -267,6 +273,13 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
         # this back onto REPO_ROOT, which pathlib resolves to the right-hand side
         # unchanged when it's already absolute -- so resolving here is safe either way.
         cfg = replace(cfg, classes_file=str(frozen_classes.resolve()))
+    recorded = (raw or {}).get("class_ids")
+    if recorded is not None:
+        now = list(load_classes(REPO_ROOT / cfg.classes_file).keys)
+        if now != list(recorded):
+            commit = ((raw or {}).get("env") or {}).get("git_commit") or "the commit that wrote it"
+            raise ValueError(f"{source} was fitted on classes {list(recorded)}, but {cfg.classes_file} now "
+                             f"reads as {now}: rebuild it at {commit}, not at this commit")
     return cfg, source
 
 
@@ -370,8 +383,8 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
 def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
     """Crop `rgb` to the detected bean-filled region -- the live-inference
     mirror of the offline crop stage (coffeecv.crop_session, driven by
-    coffeecv.crop_tray) that box_pictures/iphone/oneplus's training data
-    already went through before training ever saw it. Returns (possibly
+    coffeecv.crop_tray; retired in ticket ML-3 P2b) that a tray-heuristic
+    model's training data went through before training ever saw it. Returns (possibly
     cropped rgb, crop_info): crop_info is None for passthrough (no tray
     found -- the common, correct outcome for a frame-filling photo, same as
     pixel_cam/sony_cam's raw captures), or a dict describing the crop.
@@ -781,8 +794,8 @@ def main() -> None:
             "the rig was framed. Inference is only defined for bean-unit runs."
         )
 
-    class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
-    class_ids = sorted(class_labels)
+    classes = load_classes(REPO_ROOT / cfg.classes_file)
+    class_ids, class_labels = list(classes.keys), dict(classes.labels)
     model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
     tta = False if args.no_tta else inference_tta_for(Path(args.checkpoint), cfg.model_name)
 

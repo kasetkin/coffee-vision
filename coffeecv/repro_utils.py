@@ -51,52 +51,43 @@ def dirty_provenance_paths() -> list[str]:
     return dirty
 
 
-# Most capture dirs' upstream stage is `crop@<name>`, derived straight from the
-# dir's own name. A merged capture dir (see merge_rig.py) is the exception: its
-# data comes from its own differently-named stage instead of a 1:1 crop.
-# A merged dir maps to its merge stage *and* to the crop stages feeding it. Both
-# matter, and the merge stage alone is not enough: if crop_tray.py changes,
-# crop@<session> goes stale while the merge's dependency (the crop output
-# directory, not yet regenerated) still looks clean -- so a `dvc repro train`
-# would re-crop and then re-merge, changing the pixels under a sweep that had
-# been told everything was up to date.
+# A capture dir's upstream stages: its merge stage and the segcrop stages feeding it (dataset.CAPTURES is
+# all merged pools). Both matter, and the merge stage alone is not enough: if segment_beans.py changes,
+# segcrop@<session> goes stale while the merge's dependency (the crop output directory, not yet
+# regenerated) still looks clean -- so a `dvc repro train` would re-crop and then re-merge, changing the
+# pixels under a sweep that had been told everything was up to date. Keyed "segcropped/<name>" (see
+# `_stage_key`). Until ticket ML-3 P2b this also mapped the tray heuristic's data/cropped pools to their
+# crop@ and merge_cam_* stages, retired then (Q3). Ticket ML-3 P4 added the new sessions' segcrop stages.
 CAPTURE_STAGE_OVERRIDES = {
-    "oneplus_combined": ["merge_oneplus",
-                         "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash"],
-    "cam_pixel":   ["merge_cam_pixel",
-                    "crop@2026-08-07__box_pictures_all_classes",
-                    "crop@2026-08-09__pixel_cam", "crop@2026-08-30__pixel"],
-    "cam_sony":    ["merge_cam_sony",
-                    "crop@2026-08-09__sony_cam", "crop@2026-08-30__sony"],
-    "cam_oneplus": ["merge_cam_oneplus",
-                    "crop@2026-08-25__oneplus", "crop@2026-08-27__oneplus_flash",
-                    "crop@2026-08-30__oneplus"],
-    "cam_iphone":  ["merge_cam_iphone", "crop@2026-08-25__iphone"],
-    # Ticket ML-2: the segmenter's pools (dataset.SEG_CAPTURES) share the cam_* basenames, so they are keyed
-    # by "segcropped/<name>" (see `_stage_key`).
     "segcropped/cam_pixel":   ["merge_segcam_pixel",
                                "segcrop@2026-08-07__box_pictures_all_classes",
-                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel"],
+                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel",
+                               "segcrop@2026-09-11__pixel", "segcrop@2026-09-24__pixel",
+                               "segcrop@random_date_raccoon"],
     "segcropped/cam_sony":    ["merge_segcam_sony",
-                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony"],
+                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony",
+                               "segcrop@2026-09-11__sony", "segcrop@2026-09-24__sony"],
     "segcropped/cam_oneplus": ["merge_segcam_oneplus",
                                "segcrop@2026-08-25__oneplus", "segcrop@2026-08-27__oneplus_flash",
-                               "segcrop@2026-08-30__oneplus"],
+                               "segcrop@2026-08-30__oneplus", "segcrop@2026-09-11__oneplus",
+                               "segcrop@2026-09-24__oneplus"],
     "segcropped/cam_iphone":  ["merge_segcam_iphone", "segcrop@2026-08-25__iphone"],
 }
 
 
 def _stage_key(capture: str) -> str:
-    """A capture dir's key in CAPTURE_STAGE_OVERRIDES: its basename under data/cropped, else
-    "<parent>/<basename>" (data/segcropped/cam_pixel -> "segcropped/cam_pixel")."""
+    """A capture dir's key in CAPTURE_STAGE_OVERRIDES: "<parent>/<basename>"
+    (data/segcropped/cam_pixel -> "segcropped/cam_pixel")."""
     p = Path(capture)
-    return p.name if p.parent.name == "cropped" else f"{p.parent.name}/{p.name}"
+    return f"{p.parent.name}/{p.name}"
 
 
 def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     """Upstream-of-train stages that `dvc repro train` would regenerate before
-    training (crop stages for most dirs, merge stages for a merged one -- see
-    CAPTURE_STAGE_OVERRIDES), for the capture dirs `capture_dirs` names.
+    training (a segmenter pool's merge stage and its segcrop stages -- see
+    CAPTURE_STAGE_OVERRIDES), for the capture dirs `capture_dirs` names. A
+    session's own segcrop dir maps to its segcrop stage; any other dir is refused,
+    since no stage here could tell whether it is stale.
 
     Deliberately *not* a check on overall `dvc status`, which is dirty by design
     here: a driver rewrites params.yaml precisely so the train stage re-runs, so
@@ -106,14 +97,20 @@ def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     regenerates the dataset first, and every run then trains on different pixels
     than the reference runs it is about to be compared against -- a silent
     comparison-invalidating event. It is also the one failure git cannot see:
-    `data/cropped/` is gitignored, so on-disk loss or corruption of the crops
+    `data/segcropped/` is gitignored, so on-disk loss or corruption of the crops
     shows up in `dvc status` and nowhere else. An interrupted `dvc repro` deletes
     the stage's outs, which is exactly how this happens in practice.
     """
     stale = []
     for capture in capture_dirs:
-        name = Path(capture).name
-        for stage in CAPTURE_STAGE_OVERRIDES.get(_stage_key(capture), [f"crop@{name}"]):
+        name, key = Path(capture).name, _stage_key(capture)
+        if key in CAPTURE_STAGE_OVERRIDES:
+            stages = CAPTURE_STAGE_OVERRIDES[key]
+        elif key.startswith("segcropped/"):
+            stages = [f"segcrop@{name}"]
+        else:
+            raise ValueError(f"{capture} is not one of the segmenter's crop dirs; no stage tracks it")
+        for stage in stages:
             if stage in stale:
                 continue  # sessions feed more than one dir; report each stage once
             out = subprocess.check_output(["dvc", "status", "--json", stage], cwd=REPO_ROOT).decode()

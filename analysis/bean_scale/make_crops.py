@@ -1,5 +1,8 @@
 """Pick 10 random photos per rig and render a centred crop for manual bean counting.
 
+Reads the tray heuristic's data/cropped pools, retired in ticket ML-3 P2b: a record of a finished experiment,
+run at its own commit (or after `git checkout dbb4e62 && dvc checkout`).
+
 Ground truth is defined as equivalent centre-to-centre spacing:
     spacing_px = crop_side_px / sqrt(N_beans_in_crop)
 which is the quantity that decides how many beans land in a patch, and is directly

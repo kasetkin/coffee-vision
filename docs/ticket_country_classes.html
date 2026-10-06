@@ -1,0 +1,435 @@
+<title>Country Classes and Data Merge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+
+<main>
+  <div class="eyebrow">Ticket ML-3 · coffee-vision · dataset and class list</div>
+  <h1>Country classes and the new photos: merge the farm regions of one country into one class, add Peru and Rwanda</h1>
+  <p class="lede">The classifier's label changes from one coffee (a country plus a farm region, variety or grade, e.g.
+    Brazil Cerrado or Kenya AA) to the <em>country</em> alone. Coffees from the same country become one class, so the two
+    Brazil Cerrado coffees and the new Brazil Sul de Minas all train as Brazil. At the same time, the photos waiting in
+    <code>dataset_new_ignored/</code> join the dataset. They include two new countries, Peru and Rwanda, and a few photos
+    of two new farm regions. <code>classes.txt</code> is rewritten to keep country and farm region apart from
+    other information (D15). This is the data-merge ticket that ML-2 deferred (ML-2 D20). Terms follow
+    <code>GLOSSARY.md</code> and D14. This ticket records the request, the data, the risks and the decisions. It has no
+    implementation plan yet, and nothing is implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-05 (<a href="plan_country_classes.html">plan</a>, reviewed; Q1&ndash;Q8 answered); P1&ndash;P4 implemented 2026-10-05; P5 done 2026-10-06 (19 declined crops leave the pools); P6 done 2026-10-06 (exp261&ndash;263); D10 printout 2026-10-06, seed 123 picked; shipped as <code>allrigs_dino3b16_seg_country_s123</code> with its OOD probe served at 0.5 (owner); release rehearsed 2026-10-06, waiting for the owner to push <code>main</code></span></span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: new photos and a new class definition</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code>, <code>dataset/classes.txt</code>, <code>dvc.yaml</code> (segcrop, merge stages), <code>coffeecv/dataset.py</code>, head and OOD probe refit, webapp labels, release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, dataset facts, mask review)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-04</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v"><span class="pill open">Changes the served classes</span> <span class="tag">at the release step (D12)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">plan questions answered; <a href="plan_country_classes.html">plan_country_classes.html</a></span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-04.</strong> Expand the dataset and change the list of classes. Farm regions from
+      one country are merged into one class, for example the two Brazils, Cerrado and Monte Cristo, become Brazil. The new
+      class list is <code>dataset_new_ignored/classes_short_map.txt</code>; <code>dataset_new_ignored/classes.txt</code>
+      lists the coffees behind it. The data in <code>dataset_new_ignored/</code> moves into <code>dataset/</code>. A
+      ticket only for now; planning and implementation come later.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today each class is one coffee we photographed, named by its country and farm region, variety or grade
+    (<code>dataset/classes.txt</code>, ten classes). Two countries have two coffees each (Brazil, Ethiopia), so the model
+    must tell apart coffees from one country. The new list has ten <strong>countries</strong>. Fourteen coffees map onto
+    them, four of them new.</p>
+  <p>The work splits into five parts. Each part is small, but they all meet in the head and the probe refit:</p>
+  <ol>
+    <li><strong>Labels.</strong> Training, evaluation, the model card and the web page use the country. The farm region and the misc information stay in <code>classes.txt</code> as facts about each photo, never as labels (D1, D15).</li>
+    <li><strong>Data.</strong> 288 new photos (the set fixed on 2026-10-05, <code>labels/ml3/new_photos.csv</code>) from 7 capture folders move from <code>dataset_new_ignored/</code> into <code>dataset/</code>, are DVC-tracked, and run through the segmenter crop (ML-2), then join the camera pools.</li>
+    <li><strong>Privacy.</strong> GPS and other private metadata are stripped from every photo in <code>dataset/</code>, new and old (D13).</li>
+    <li><strong>Models.</strong> The frozen DINOv3 head and the OOD probe are refitted on the new classes and data. The owner reviews the existing segmenter's masks on the new photos; a second fine-tune follows only if the owner decides the declines call for it (D8).</li>
+    <li><strong>Release.</strong> The web app serves country scores (D12).</li>
+  </ol>
+  <p>The new photos look <strong>roasted</strong>. Most of today's data is green (§2, R1). The owner accepts that for
+    now (D4).</p>
+
+  <h2>2. Background</h2>
+  <h3>Classes, before and after</h3>
+  <p>Photo counts are raw photos: today's training sessions, plus <code>dataset_new_ignored/</code>. Farm regions are
+    written Country, Region[, Subregion]; misc information is in brackets (D15).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>New class (country)</th><th>Coffees: farm region (misc)</th><th class="num">Photos today</th><th class="num">New photos</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr><td>Ethiopia</td><td>Sidamo; Yirgacheffe, Kochere</td><td class="num">90 + 80</td><td class="num">2 (Sidamo)</td><td class="num">172</td></tr>
+      <tr><td>Kenya</td><td>Nyeri (AA)</td><td class="num">90</td><td class="num">&ndash;</td><td class="num">90</td></tr>
+      <tr><td>Colombia</td><td>Huila (PinkBourbon); <strong>Antioquia (Excelso)</strong>, new</td><td class="num">90</td><td class="num">12 (Antioquia)</td><td class="num">102</td></tr>
+      <tr><td>CostaRica</td><td>Tarrazu (LaPastora)</td><td class="num">90</td><td class="num">&ndash;</td><td class="num">90</td></tr>
+      <tr><td>Guatemala</td><td>Acatenango (TataNahual)</td><td class="num">92</td><td class="num">&ndash;</td><td class="num">92</td></tr>
+      <tr><td>Brazil</td><td>Cerrado; Cerrado (MonteCristo); <strong>SulDeMinas</strong>, new</td><td class="num">100 + 90</td><td class="num">4 (SulDeMinas)</td><td class="num">194</td></tr>
+      <tr><td>Vietnam</td><td>DakLak (Robusta)</td><td class="num">90</td><td class="num">&ndash;</td><td class="num">90</td></tr>
+      <tr><td>Indonesia</td><td>Java (all roasted)</td><td class="num">126</td><td class="num">&ndash;</td><td class="num">126</td></tr>
+      <tr><td><strong>Peru</strong> (new)</td><td>Junin, Satipo (Minca)</td><td class="num">&ndash;</td><td class="num">150</td><td class="num">150</td></tr>
+      <tr><td><strong>Rwanda</strong> (new)</td><td>Western, Rusizi (Gisuma)</td><td class="num">&ndash;</td><td class="num">120</td><td class="num">120</td></tr>
+      <tr><td colspan="2"><strong>Total</strong></td><td class="num">938</td><td class="num">288</td><td class="num">1226</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>classes_short_map.txt</code> holds the ten country names, one per line. The country name is the class key
+    and is shown on the site as written (D2). Each class folder (<code>class_NNN__…</code>) gets its country and
+    farm region from its line in <code>classes.txt</code> (D1, D15). The two Brazil Cerrado coffees are separate lines
+    and folders with the same farm region; that is fine, because only the country is a label.</p>
+
+  <h3>The new photos (<code>dataset_new_ignored/</code>)</h3>
+  <p>The folder is excluded locally (<code>.git/info/exclude</code>). It is neither in git nor in DVC yet.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Folder</th><th>Camera (EXIF)</th><th>Coffees</th><th class="num">Photos</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">2026-09-11__pixel</td><td>Pixel 9 Pro</td><td>Peru</td><td class="num">20</td></tr>
+      <tr><td class="mono">2026-09-11__sony</td><td>Sony G8441</td><td>Peru</td><td class="num">20</td></tr>
+      <tr><td class="mono">2026-09-11__oneplus</td><td>OnePlus 7 Pro</td><td>Peru</td><td class="num">20</td></tr>
+      <tr><td class="mono">2026-09-24__pixel</td><td>Pixel 9 Pro</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
+      <tr><td class="mono">2026-09-24__sony</td><td>Sony G8441</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
+      <tr><td class="mono">2026-09-24__oneplus</td><td>OnePlus 7 Pro</td><td>Peru, Rwanda</td><td class="num">30 + 40</td></tr>
+      <tr><td class="mono">random_date_raccoon</td><td>Pixel 9 Pro, 2026-09-26 to 10-04</td><td>Ethiopia Sidamo, Brazil SulDeMinas, Colombia Antioquia (Excelso)</td><td class="num">2 + 4 + 12</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>The three cameras are the ones behind today's <code>cam_pixel</code>, <code>cam_sony</code> and <code>cam_oneplus</code> pools. The iPhone took none of the new photos, so <code>cam_iphone</code> has no Peru or Rwanda (and, as today, no Indonesia and no Ethiopia Yirgacheffe Kochere).</li>
+    <li>All dated sessions are frame-filling piles. <code>random_date_raccoon</code> is mixed: one Ethiopia Sidamo photo shows a ring of beans in a metal hopper, with the metal around it.</li>
+    <li><strong>Roast.</strong> In a sample of two photos per folder, every photo looked roasted, light to medium. Roast state is not a label and is not recorded (D4). Today's data is green coffee, except Indonesia Java, which is roasted in all 126 photos (ML-2 P1).</li>
+    <li>File names mix <code>.jpg</code> (198) and <code>.JPG</code> (90). The Pixel and OnePlus photos carry GPS in EXIF, like today's training sessions; the 90 Sony G8441 photos carry none (all 288 checked, 2026-10-05). It is removed wherever it is (D13).</li>
+    <li>The Rwanda folders were spelled Gisumo in the Pixel and Sony sessions and Gisuma in the OnePlus session. The owner renamed them all to Gisuma (D3).</li>
+  </ul>
+
+  <h3>What ML-2 committed this ticket to (ML-2 D20)</h3>
+  <ul>
+    <li>The new photos are judged again, the segmenter is fine-tuned again on them, and the head and probe are refitted. D8 narrows this: the owner reviews the existing segmenter's masks, and fine-tuning again is the owner's call.</li>
+    <li>The segmenter's eval list (<code>labels/ml2/photo_lists.yaml</code>) is append-only: no ML-2 eval photo moves to training, and the post-merge model is also scored on the ML-2 subset.</li>
+    <li>A new release follows the merge (D12).</li>
+  </ul>
+  <p>ML-2 also left a separate follow-up open: retrain the segmenter on a bigger and more varied dataset (thin <code>box_pictures</code> labels, a negative test passed by one photo). It stays its own ticket (D8).</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Label = one coffee, 10 classes (<code>dataset/classes.txt</code>, <code>Country,Name</code>).</li>
+        <li>938 photos, 9 sessions, 4 camera pools.</li>
+        <li>Live: <code>allrigs_dino3b16_seg_s7</code>, which shows ten scores such as "Brazil,Cerrado".</li>
+        <li>Confusions inside one country (Sidamo vs Kochere, Cerrado vs Monte Cristo) count as errors.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Label = country, 10 classes. Each class folder maps to its country through <code>classes.txt</code>; farm region and misc are facts about a photo, never labels (D1, D15).</li>
+        <li>1226 photos, 16 sessions (<code>random_date_raccoon</code> included, D5), the same 4 camera pools (D6).</li>
+        <li>A refitted head and OOD probe on the segmenter pools. The site shows ten country scores (D12).</li>
+        <li>Confusions inside one country are no longer errors. Peru and Rwanda are new classes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Pipeline shape.</strong> Segmenter crop at both ends (ML-2), the frozen DINOv3 ViT-B/16 with <code>cls_mean</code>, a logistic-regression head with C fixed at 0.1 (ML-1 D3), no TTA.</li>
+    <li><strong>Evaluation protocol</strong> (ML-1). Photos are pooled across capture folders and split 70/15/15 within each class, now the country (D7). Val patch macro-F1 selects, test is reported. Both are in-distribution, not a real-world estimate.</li>
+    <li><strong>Shipped models keep working.</strong> Every model carries its own frozen <code>.classes.txt</code> (<code>infer.classes_path_for</code>). The live model and the ResNet fallback keep their ten old classes until a new release replaces them.</li>
+    <li><strong>Class folder names.</strong> The raw class folders keep their names (D1). Their pixels do not change; their bytes do, through the metadata strip (D13, R8).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Roast becomes a shortcut to the class.</strong> If all of Peru and Rwanda are roasted and the old seven countries are green, roast colour alone separates them.</td>
+        <td>From the sample (§2), 3 of 10 classes would be roasted only (Indonesia, Peru, Rwanda), and 7 green with a handful of roasted photos (Ethiopia, Brazil, Colombia, from <code>random_date_raccoon</code>). The in-distribution metric cannot see this: val and test inherit the same roast-to-class link. On the site, a roasted photo of Kenyan beans would be pushed towards Peru, Rwanda or Indonesia. Roast state is not recorded per photo and is not reported (D4), so this ticket does not measure the effect. The real fix is photos: the same coffees in the other roast state. <strong>Accepted for now by the owner (D4):</strong> one mixed class per country; more green captures or roast-split classes may follow later.</td></tr>
+      <tr><td class="id">R2</td><td><strong>New numbers are not comparable with old ones.</strong></td>
+        <td>A country label removes the confusions inside one country by construction, so macro-F1 rises without the model learning anything new. Two new classes make it harder at the same time. Mitigation: the archived results of the live model, remapped to countries, are printed as an unpaired reference (D10). Remapping alone lifts its macro-F1 by about 0.01&ndash;0.02.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Class sizes and farm regions inside a class are uneven.</strong></td>
+        <td>Brazil has 194 photos and Ethiopia 172, against 90 for Kenya. Training draws 150 patches per class per camera pool (<code>train_patches_per_class</code>), so the patch count per country stays even. Within a country, however, each coffee gets a smaller share, and Brazil SulDeMinas (4 photos) and Colombia Antioquia (5) are almost invisible. The split is by country (D7), so a small coffee lands in val or test only by chance.</td></tr>
+      <tr><td class="id">R4</td><td><strong>The segmenter has not seen these photos.</strong></td>
+        <td>ft_s123 was fine-tuned on today's data: green, plus 126 roasted Java photos. The new photos are frame-filling, which the segmenter handles best (ML-2 P1: frame-filling masks match, tray photos fail). The hopper photo is the exception. The owner reviews the masks in the review tool, up to all 281 (D8); no judge calls. Declined masks show where the segmenter needs more training.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The OOD probe holdout is spent.</strong></td>
+        <td>The probe must be refitted, because the head and the data change. The holdout is recorded as spent: any probe change needs new holdout photos to be validated honestly. Owner decision (D11): refit, and use the spent holdout as a regression check only. New photos and a second refit come later, outside this ticket.</td></tr>
+      <tr><td class="id">R6</td><td><strong>Data can't be backed up yet.</strong></td>
+        <td>The DVC remote has been down since 2026-09-24, and earlier pushes are still pending. The new raw photos, the re-hashed old ones (R8) and their crops would sit in the local cache and the VM cache only.</td></tr>
+      <tr><td class="id">R7</td><td><strong>Still no generalization test.</strong></td>
+        <td>As ML-1 R2: val and test share bags and cameras with training. The new sessions are the same three cameras. <code>random_date_raccoon</code> (other dates, at least one other setting) would have been the nearest thing to a fresh-scoop check, but it joins the pooled split (D5), so nothing new measures this.</td></tr>
+      <tr><td class="id">R8</td><td><strong>Stripping metadata changes every photo's file hash (D13).</strong></td>
+        <td>Pixels stay the same if the strip is lossless, but the bytes do not. Every session's <code>.dvc</code> pointer changes, and every <code>crop</code>/<code>segcrop</code> stage becomes stale and must run again. Its outputs should come out identical; that is the check that the strip touched no pixels. The segmenter masks are bit-identical only on the same machine and thread count (ML-2 P0), so they are rebuilt on the VM as before. Records that pin photos by sha256 must be re-keyed from old hash to new hash: the deploy fixtures (<code>webapp/deploy/fixtures.txt</code>), and ML-2's <code>labels/ml2/photo_lists.yaml</code>, <code>verdicts.jsonl</code>, <code>defects/*.csv</code> and <code>base_points.yaml</code>, and the DVC-tracked <code>data/seg_labels/labels.csv</code>, <code>data/seg_labels/r{1,2,3}/index.csv</code> and <code>data/seg_masks/*/index.csv</code>. The review decisions files key on path and mask sha256 and need no change (corrected 2026-10-05 from the plan and its review). <code>seg_eval</code> fails loudly on a missing verdict, so a missed re-key shows up. The OOD manifests reference photos by file name and are not affected. The old GPS-bearing copies remain in the DVC caches by owner decision (D13.3).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Where does the merge into countries happen?</td>
+        <td>(a) Raw class folders keep their names; each folder's line in <code>classes.txt</code> gives its country, which is the training label. (b) Move or rename raw photos into country folders.</td>
+        <td><strong>(a), 2026-10-04.</strong> Today's raw folders don't move. The farm region stays available for diagnostics, and a later return to finer classes costs nothing.</td></tr>
+      <tr><td class="id">D2</td><td>What identifies a country class, and what does the site show?</td>
+        <td>(a) The country name is the key; display order as in <code>classes_short_map.txt</code>. (b) New numeric ids in that file's order. Display text: "CostaRica" or "Costa Rica".</td>
+        <td><strong>(a), 2026-10-04:</strong> the country name is the class key; no new numeric ids. <strong>Display text:</strong> for now the site shows the key as written in <code>classes_short_map.txt</code> (<code>CostaRica</code>). A map from key to display name may be added later.</td></tr>
+      <tr><td class="id">D3</td><td>Rwanda folders: Gisuma or Gisumo?</td>
+        <td>Rename the folders that disagree before <code>dvc add</code>.</td>
+        <td><strong>Fixed by the owner, 2026-10-04:</strong> Gisuma, in all three 2026-09-24 sessions.</td></tr>
+      <tr><td class="id">D4</td><td>Roast state of the new photos (R1).</td>
+        <td>(a) Green and roasted beans of a country are one class. (b) Split classes by roast state. (c) Wait for green captures of the new coffees.</td>
+        <td><strong>(a), 2026-10-04:</strong> for now, green and roasted beans of a country are one mixed class. Roast state is not a label, is not recorded and is not reported. Later the owner may split classes by roast state or shoot more green samples; both are outside this ticket. R1 is the accepted cost.</td></tr>
+      <tr><td class="id">D5</td><td>Is <code>random_date_raccoon</code> training data?</td>
+        <td>(a) Train on it like any session. (b) Hold it out as a small spot-check set. (c) Leave it out.</td>
+        <td><strong>(a), 2026-10-04:</strong> it joins the main dataset and the pooled train/val/test split like any session. Its 11 Pixel photos join <code>cam_pixel</code> (D6).</td></tr>
+      <tr><td class="id">D6</td><td>Which training pool does each new session join?</td>
+        <td>(a) The existing pool of its camera: the two Pixel sessions and <code>random_date_raccoon</code> &rarr; <code>cam_pixel</code>; Sony &rarr; <code>cam_sony</code>; OnePlus &rarr; <code>cam_oneplus</code>. (b) New pools for the new sessions. The choice matters because the patch budget is per class <em>per pool</em> (<code>train_patches_per_class: 150</code>, val/test 40): a class in more pools gets more patches.</td>
+        <td><strong>(a), 2026-10-04.</strong> Train patches per country: 600 (4 pools) for the seven countries the iPhone pool has, 450 (3 pools) for Peru, Rwanda and Indonesia (as Indonesia has today). Under (b), counts would follow capture history: Peru in 6 pools = 900, Rwanda 450, and a class in a single-folder pool would get 150 patches from 2&ndash;5 photos. A pool holds several class folders of one country (e.g. <code>cam_pixel</code> has three for Brazil), and its per-class budget spreads over all of them.</td></tr>
+      <tr><td class="id">D7</td><td>What is the split stratified by?</td>
+        <td>(a) Country, the new class: ML-1 D1(b) taken literally. (b) Class folder within country, so each coffee lands in train, val and test in proportion where it can.</td>
+        <td><strong>(a), 2026-10-04:</strong> split by country. All photos of a country are pooled and split 70/15/15. Accepted consequence: a coffee can by chance be missing from its country's val or test, and the farm-region diagnostic in D10 then has nothing for it. For today's coffees, which were split one by one so far, the photo assignment changes.</td></tr>
+      <tr><td class="id">D8</td><td>How much segmenter work is in this ticket (ML-2 D20)?</td>
+        <td>(a) Run ft_s123 on the new photos, judge the masks for evaluation only, and fine-tune again only if needed. (b) Full re-judge and re-fine-tune as D20 wrote. (c) (b) plus ML-2's "bigger, more varied dataset" follow-up.</td>
+        <td><strong>(a), 2026-10-04, with the owner as judge:</strong> the existing fine-tuned segmenter (ft_s123) makes masks for the new photos, and the owner accepts or declines them in the existing web review tool (<code>coffeecv/review_masks.py</code>, ML-2 D12), not Opus. The owner reviews as many photos as needed, up to all 281. The decisions file is committed, as in ML-2. No judge calls. The accept rate is the owner's, so it is not directly comparable with ML-2's 97.9% Opus pass rate (Opus was the stricter of the two: owner and Opus agreed on 337 of 343 masks). Whether declines call for a second fine-tune is the owner's call from the results. The bigger-dataset retrain stays its own ticket.</td></tr>
+      <tr><td class="id">D9</td><td>Do the new sessions get a tray-heuristic crop (<code>crop.yaml</code>) too?</td>
+        <td>(a) Segmenter crop only. (b) Both, to keep the tray-heuristic arm comparable.</td>
+        <td><strong>(a), 2026-10-04:</strong> segmenter crop only; no <code>crop.yaml</code> and no tray-heuristic crop stage for the new sessions. The live model is a segmenter model, and the heuristic is due for deletion (ML-2 Out of scope). Consequences: no tray-heuristic arm to compare against, and the ResNet fallback (<code>allrigs_cam_s123</code>, a heuristic-crop model) is not refitted on the new data.</td></tr>
+      <tr><td class="id">D10</td><td>How is the result judged?</td>
+        <td>(a) Print and let the owner decide (as ML-2 D24), with a refitted old-class baseline on the same new split and seeds, mapped to countries. (b) The same printout, with the archived old results remapped to countries as an unpaired reference. (c) No old-model reference.</td>
+        <td><strong>(b), 2026-10-04.</strong> No numeric gate and no refitted baseline; the owner decides from a printout of:
+          <ol>
+            <li>The new country model at seeds 42, 123 and 7: val/test patch macro-F1, overall, per country, and on the 8 countries of the old data, with the range over seeds.</li>
+            <li>Reference: the live model's runs exp258&ndash;260 (segmenter crop), with each archived patch prediction's true and predicted class mapped to its country and macro-F1 recomputed. Computed on 2026-10-04: val 0.9796 / 0.9826 / 0.9815 and test 0.9785 / 0.9759 / 0.9835 (seeds 42 / 123 / 7), against old-class val 0.9597&ndash;0.9736 and test 0.9651&ndash;0.9771. Between 29% and 49% of the old errors were confusions inside one country.</li>
+            <li>The new model's confusion between farm regions of one country, for those the split put in val/test (D7).</li>
+            <li>The ML-2 segmenter eval subset, scored with the new model (ML-2 D20).</li>
+            <li>The owner's mask accept rate on the new photos (D8).</li>
+          </ol>
+          The reference is <em>not paired</em>. It is on the old split's val/test photos, which differ from the new split (D7) and have no new photos. It covers 8 classes, not 10. It maps the top predicted class, because the archive keeps no probabilities. A live-model score on the new val/test would be inflated, because many of those photos were in its training split; that is why this reference uses the archived results instead. Both numbers are in-distribution near ceiling, so a gap of about 0.01 says little.</td></tr>
+      <tr><td class="id">D11</td><td>OOD probe.</td>
+        <td>(a) Refit, and report on the spent holdout as a regression check only. (b) Also capture a fresh holdout before release.</td>
+        <td><strong>(a), 2026-10-04:</strong> refit the OOD probe on the new head and data, and run the spent holdout as a regression check only. The model card and the D10 printout say plainly that the guard is not freshly validated. The release does not wait for new photos. Later the owner adds more photos and refits the probe once more, outside this ticket.</td></tr>
+      <tr><td class="id">D12</td><td>Does this ticket end with a release?</td>
+        <td>(a) Yes: a country model goes live, and the page shows country scores. (b) No: stop at printed results, and release later.</td>
+        <td><strong>(a), 2026-10-04:</strong> the ticket ends with a new release. The owner picks the seed from the D10 printout. The country model and its refitted probe go live through <code>scripts/deploy_webapp.sh</code> and are verified on the live domain. The page shows ten country scores under their keys (<code>CostaRica</code>, D2). The ResNet fallback (<code>allrigs_cam_s123</code>) and the previous release (<code>allrigs_dino3b16_seg_s7</code>) keep their old classes: a rollback shows them again. Each model carries its own class list, so nothing breaks.</td></tr>
+      <tr><td class="id">D13</td><td>GPS and other private metadata in the photos.</td>
+        <td>(a) Leave as is, as for today's training sessions (owner, 2026-09-30). (b) Strip from the new photos before <code>dvc add</code>. (c) Strip from every photo in <code>dataset/</code>, new and old.</td>
+        <td><strong>(c), 2026-10-04:</strong> remove GPS and all privacy-related metadata from every photo in the dataset, new and old. This replaces the 2026-09-30 "for now ignore". Stripping must be lossless, without re-encoding, as for <code>ood_positives</code> on 2026-09-30: decoded pixels stay bit-identical, checked per photo before and after. Then crops, masks and patches do not change, and only file hashes do (R8). Details in D13.1&ndash;D13.3.</td></tr>
+      <tr><td class="id">D13.1</td><td>What counts as private?</td>
+        <td>Remove: GPS, device and lens serial numbers, maker notes, C2PA/JUMBF (its signing certificate carries a device-stable id), extended XMP (e.g. Google HDR+), embedded thumbnails, owner/artist fields. Keep: camera make and model, date and time, exposure settings, the orientation tag (the pipeline ignores it), the ICC colour profile.</td>
+        <td><strong>Accepted as listed, 2026-10-04.</strong> This is the 2026-09-30 <code>ood_positives</code> set plus owner fields. Camera model and date stay, because the dataset is organized by them and they are not location data.</td></tr>
+      <tr><td class="id">D13.2</td><td>Which folders?</td>
+        <td>(a) Everything under <code>dataset/</code>: the 9 training sessions, the 7 new folders, and the non-training folders (<code>2026-07-24__first_pictures</code> with DNG and HEIF, <code>2026-08-06__box_pictures</code>, <code>classes_labels_only</code>, <code>ood_negatives</code>, <code>ood_positives_internet</code>; <code>ood_positives</code> is already clean). (b) Training sessions and new folders only.</td>
+        <td><strong>(a), 2026-10-04:</strong> everything under <code>dataset/</code>. HEIC (iPhone) and DNG need a different tool than JPEG; DNG keeps the EXIF its raw decoding needs and loses only the private fields.</td></tr>
+      <tr><td class="id">D13.3</td><td>What happens to the old, GPS-bearing copies?</td>
+        <td>The originals stay as objects in the DVC caches (here, on the VM, and on the remote once it is back), and older commits' <code>.dvc</code> pointers still name them. (a) Keep them: new commits are clean, history is not. (b) Purge them (<code>dvc gc</code> plus deletion on the remote): history is clean, but every past experiment loses its raw input and can no longer be reproduced from its commit.</td>
+        <td><strong>(a), 2026-10-04:</strong> keep them. New commits are clean; the DVC caches and older commits still hold the GPS-bearing originals, so every past experiment stays reproducible.</td></tr>
+      <tr><td class="id">D14</td><td>Terms (<code>GLOSSARY.md</code>).</td>
+        <td>Was proposed: "origin class" and "lot". The owner replaced both.</td>
+        <td><strong>Owner, 2026-10-04.</strong> No "lot": the project has no division by bag or grade. "Region" is never used alone. Terms, written into <code>GLOSSARY.md</code> during implementation:
+          <ul>
+            <li><strong>Country</strong>: the country a coffee was grown in, by name only (e.g. Ethiopia). Since ML-3 it is the class: what the model predicts and is scored on.</li>
+            <li><strong>Farm region</strong>: the growing area inside a country, written Country, Region[, Subregion] (e.g. Ethiopia, Yirgacheffe, Kochere). It means the same as "origin". It may be unknown, leaving the country only. A fact about a photo, never a label. <em>Avoid:</em> region on its own, lot.</li>
+            <li><strong>Misc</strong>: anything else known about a coffee, kept apart from country and farm region in <code>classes.txt</code>: grade (AA, Excelso), variety (PinkBourbon), species (Robusta), farm, brand or washing-station name (LaPastora, TataNahual, MonteCristo, Minca, Gisuma). Never a label.</li>
+            <li><strong>Bean region</strong> (existing term, ML-2): always written as "the photo's bean region", never "region" on its own.</li>
+          </ul>
+          The 3-digit ids in <code>classes.txt</code> and in the folder names stay for now. They are not a term, and the project does not use them.</td></tr>
+      <tr><td class="id">D15</td><td>How does <code>classes.txt</code> describe each coffee?</td>
+        <td>Today: <code>id;Country,Name</code>, where the name is a farm region, a variety, a species or a grade. New: country and farm region first, everything else after a second <code>;</code>.</td>
+        <td><strong>Owner, 2026-10-04.</strong> Format <code>id;Country[,Region[,Subregion]];misc</code>, ASCII only. Farm regions were found by web research where the name allowed it (Tarrazu for La Pastora, Cerrado for Daterra Monte Cristo, Acatenango for Tata Nahual, Rusizi for the Gisuma washing station) and given by the owner for the rest. The target content, written to <code>dataset/classes.txt</code> during implementation:
+<pre><code>001;Ethiopia,Sidamo;
+002;Kenya,Nyeri;AA
+003;Colombia,Huila;PinkBourbon
+004;CostaRica,Tarrazu;LaPastora
+005;Guatemala,Acatenango;TataNahual
+006;Brazil,Cerrado;
+007;Brazil,Cerrado;MonteCristo
+008;Ethiopia,Yirgacheffe,Kochere;
+009;Vietnam,DakLak;Robusta
+010;Indonesia,Java;
+011;Peru,Junin,Satipo;Minca
+012;Rwanda,Western,Rusizi;Gisuma
+013;Brazil,SulDeMinas;
+014;Colombia,Antioquia;Excelso</code></pre>
+          Every reader of <code>classes.txt</code> (<code>dataset.load_class_labels</code>, <code>coverage_report</code>, the web app) reads <code>id;label</code> today and must learn the new format. Old models keep their own frozen class lists.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance (to be planned)</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><strong>Data moved from <code>dataset_new_ignored/</code> into <code>dataset/</code></strong> (owner, 2026-10-04): the six dated session folders and <code>random_date_raccoon</code>, all as training sessions (D5). Each session is <code>dvc add</code>ed, with its <code>.dvc</code> pointer and <code>dataset/.gitignore</code> entry committed, as for every session so far. Nothing is left behind in <code>dataset_new_ignored/</code> that the pipeline needs, and the folder's line in <code>.git/info/exclude</code> can go once it is empty.</span></li>
+    <li><span class="box"></span><span><code>dataset/classes.txt</code> rewritten in the D15 format with the D15 content, and every reader taught it. The country is the label everywhere a class is read: training, evaluation, OOD tools, inference and the web app (D1, D2).</span></li>
+    <li><span class="box"></span><span>GPS and private metadata stripped losslessly from every photo in <code>dataset/</code>, new photos before <code>dvc add</code> (D13); pixels checked bit-identical; hash-pinned records re-keyed; crop and segcrop stages re-run with identical outputs (R8).</span></li>
+    <li><span class="box"></span><span><code>coverage_report</code> and <code>split_report</code> clean against the new classes.</span></li>
+    <li><span class="box"></span><span>ft_s123 masks for the new photos; the owner accepts or declines them in the review tool (D8). Segmenter crops for the new sessions, with the ML-2 eval subset preserved (D9).</span></li>
+    <li><span class="box"></span><span>Head refits at seeds 42, 123 and 7 and an OOD probe refit; the D10 printout, including the remapped old results; the owner picks.</span></li>
+    <li><span class="box"></span><span>A new release with country labels, verified on the live domain (D12).</span></li>
+    <li><span class="box"></span><span><code>GLOSSARY.md</code> gets the D14 terms; <code>README.md</code> and the model card describe country classes.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>New captures: the iPhone shortfall, more green samples of the new coffees (R1, D4) and a fresh OOD holdout.</li>
+    <li>The OOD probe&rsquo;s second refit on more photos, which the owner will add later (D11).</li>
+    <li>Splitting classes by roast state (D4: maybe later).</li>
+    <li>A map from class key to display name, e.g. <code>CostaRica</code> &rarr; "Costa Rica" (D2: maybe later).</li>
+    <li>The segmenter retrain on a bigger, more varied dataset (ML-2 follow-up, D8).</li>
+    <li>A farm-region classifier, or a two-level one (country, then farm region).</li>
+    <li>Any use of, or change to, the 3-digit ids (D14).</li>
+    <li>A generalization test set (ML-1 R2). <code>random_date_raccoon</code> joins the pooled split, so it is not one (D5).</li>
+    <li>Deleting <code>crop_tray.py</code> and the <code>crop.yaml</code> files (ML-2 cleanup).</li>
+    <li>Pushing to the DVC remote while it is down (R6).</li>
+    <li>Purging the GPS-bearing originals from the DVC caches and the remote (D13.3).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-04</div>Owner requests country classes and the merge of <code>dataset_new_ignored/</code>. Ticket written from the tracked sources at <code>dbb4e62</code>, the two class files, a file count and EXIF read of all 281 new photos, and a two-per-folder visual sample. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-04</div>Owner fixes the Rwanda folder names to Gisuma in all three 2026-09-24 sessions (D3, checked). Owner adds to the scope: the data in <code>dataset_new_ignored/</code> moves into <code>dataset/</code> (§7).</div>
+    <div><div class="when">2026-10-04</div>Owner decides D1 (a): raw class folders keep their names, and <code>classes.txt</code> maps each to its country, the training label.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D2 (a): the country name is the class key; no new numeric ids. The site shows the key as is (<code>CostaRica</code>) for now; a key-to-display-name map may come later.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D4 (a): green and roasted beans of a country form one mixed class for now; roast state is not recorded or reported. A roast split or more green captures may follow later, outside this ticket. R1 is the accepted cost.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D5 (a): <code>random_date_raccoon</code> joins the main dataset and the pooled train/val/test split like any session.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D6 (a): each new session joins the existing pool of its camera; no new pools. D7 (a): the 70/15/15 split is stratified by country.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D8 (a): check the new photos with the existing fine-tuned segmenter (ft_s123). The owner judges the masks in the existing web review tool, not Opus, up to all of them. D9 (a): the new sessions get the segmenter crop only.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D10: no gate; a printout of the new model's results, with the live model's archived results (exp258&ndash;260) remapped to countries as an unpaired reference. Remapped there and then: val 0.9796&ndash;0.9826, test 0.9759&ndash;0.9835, up 0.01&ndash;0.02 from the old-class scores.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D11 (a): refit the OOD probe, with the spent holdout as a regression check only; more photos and a second refit later. D12 (a): the ticket ends with a new release.</div>
+    <div><div class="when">2026-10-04</div>Owner decides D13 (c), D13.1, D13.2 (a) and D13.3 (a): strip GPS and private metadata from every photo in <code>dataset/</code>, new and old, losslessly; keep the old copies in the DVC caches. Found while recording it: the deploy fixtures and ML-2's photo lists, verdicts and review decisions pin photos by sha256 and need re-keying (R8).</div>
+    <div><div class="when">2026-10-04</div>Owner settles the terms (D14): country, farm region, misc, and "the photo's bean region"; "lot" and "region" on its own are dropped, and the 3-digit ids are left alone. Owner settles <code>classes.txt</code> (D15): country and farm region first, misc after a second <code>;</code>. Farm regions found by web research where the name allowed it (Tarrazu, Cerrado, Acatenango, Rusizi) and given by the owner for the rest. The ticket is reworded throughout in these terms. All decisions answered; planning next.</div>
+    <div><div class="when">2026-10-04</div>Implementation plan written: <a href="plan_country_classes.html"><code>plan_country_classes.html</code></a>. Read from the code, it finds seven things this ticket does not cover. 31 of the 47 independent-day OOD positives were shot on 2026-09-11, minutes after that day's new sessions. R8's re-key makes ML-2's fine-tune stages stale. More records pin photo hashes than R8 lists (defects CSVs, <code>data/seg_labels</code>, the mask indexes), while the review decisions files pin none. The tray-heuristic pools will hold no Peru or Rwanda (D9), yet <code>params.yaml</code> rests on them. <code>seg_lists</code> and the DINOv3 fixture need per-folder classes. Archived runs name <code>classes.txt</code> by path. <code>random_date_raccoon</code> has 18 photos, not 11. Questions Q1&ndash;Q7 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-04</div>Owner answers plan Q1: ignore the 2026-09-11 overlap; the OOD positives, their tags and the probe calibration stay as they are.</div>
+    <div><div class="when">2026-10-04</div>Owner answers plan Q2: (b), every ML-2 stage that the re-key makes stale is re-run on the VM, the segmenter fine-tune included. Plan Q2a follows: which decoder is kept if the re-run is not byte-identical.</div>
+    <div><div class="when">2026-10-04</div>Owner answers plan Q2a: keep the original segmenter decoders and skip the fine-tune re-run. The stale fine-tune stages are recorded with <code>dvc commit</code>; nothing about the segmenter is retrained unless the P5 mask review calls for it (D8).</div>
+    <div><div class="when">2026-10-04</div>Owner answers plan Q3: delete <code>data/cropped</code> altogether; training uses the segmenter only. This brings part of the "Out of scope" ML-2 cleanup into this ticket: the <code>crop</code> and <code>merge_cam_*</code> stages, <code>crop_session.py</code> and the <code>crop.yaml</code> files go (plan phase P2b). <code>crop_tray.py</code> stays, because the ResNet fallback serves with it.</div>
+    <div><div class="when">2026-10-04</div>Owner answers plan Q4: (c). <code>random_date_raccoon</code> holds 18 photos today, not 11 (12 Colombia Excelso), and the owner may add more photos until plan phase P2 starts. The counts in this ticket are updated when P2 fixes the set.</div>
+    <div><div class="when">2026-10-05</div>Owner answers plan Q5: <code>classes_short_map.txt</code> does not move into <code>dataset/</code>. The ten countries and their order are read from <code>classes.txt</code> (first appearance), checked once against that file by a test.</div>
+    <div><div class="when">2026-10-05</div>Owner answers plan Q6, how D10's last two items are read. "Confusion between farm regions of one country" is a per-coffee table: patches in val/test, share predicted as its own country, top wrong countries. "The ML-2 segmenter eval subset" is D21's: each seed's val/test photos the segmenter never trained on, old and new photos apart. More can be added to the printout later.</div>
+    <div><div class="when">2026-10-05</div>Owner answers plan Q7: one Peru and one Rwanda test-split photo join the deploy's compare fixtures (13 in all). All plan questions answered; ready for implementation, P1 first. P2 waits for the owner's last new photos.</div>
+    <div><div class="when">2026-10-05</div>Independent review of this ticket and the plan, checked against the code: 3 major and 9 minor problems, 7 nits, none changing a decision. All are fixed in the plan. The main ones: two ML-2 mask stages that were stale before ML-3 are brought up to date before the strip, and never-run <code>seg_eval@ft_s42/ft_s7</code> leave the pipeline. Two more hash-pinning records join the re-key (R8, corrected above). An empty class pool in the OOD probe's photo list now raises instead of being skipped. The D10 printout leads with the 8-country number on old photos, adds a photo-level readout with bootstrap intervals and states the seed rule. The holdout check (D11) prints 2026-09-11 and other days apart. Corrected here: the Sony photos carry no GPS. New plan question Q8: whether to keep a pre-strip copy of <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code>, which have no DVC cache copy.</div>
+    <div><div class="when">2026-10-05</div>Owner answers plan Q8: (a), with the VM as the backup's place. Before the first strip, <code>dataset_new_ignored/</code> and <code>2026-08-06__box_pictures</code> are tarred and copied to the VM outside the repo and its DVC cache, sha256-checked, and the local tars deleted. The VM copies are deleted once the merge's checks pass (plan P4). This is a short-lived extension of D13.3 for the two folders the DVC caches do not hold.</div>
+    <div><div class="when">2026-10-05</div>Plan phase P1 implemented: one class-list module reads both <code>classes.txt</code> formats, and every reader uses it. A D15 file gives the ten countries; an old file, every shipped model's frozen list included, reads exactly as before. With <code>classes.txt</code> unchanged, splits, patches, the smoke fit and both shipped models' answers on the deploy fixtures are identical to before. No number changes and nothing served changes. Details in the plan's activity.</div>
+    <div><div class="when">2026-10-05</div>Owner confirms the set of new photos is final (Q4): 288, recorded in <code>labels/ml3/new_photos.csv</code>, with 12 Colombia Antioquia (Excelso) photos in <code>random_date_raccoon</code>, not 5. The counts above are updated (Colombia 102, 1226 photos in all). Plan phase P2 in progress: the strip tool is written and tested and would strip all 288 cleanly; a pre-strip copy is on the VM (Q8). The strip itself waits for the backup's test extraction. Found for P3 (details in the plan): Pixel DNG previews and HEIC thumbnails are image data the strip tool cannot remove, one internet negative has XMP it will not edit, and 3 photos dated 2026-10-05 sit untracked in <code>dataset/ood_positives</code>.</div>
+    <div><div class="when">2026-10-05</div>Plan phase P2 done: the owner verified the pre-strip backup on the VM (Q8), and GPS and the other private metadata were stripped losslessly from all 288 new photos (D13), recorded in <code>labels/ml3/strip_manifest.csv</code>. Decoded pixels, Orientation, the ICC profile and every other kept tag are unchanged; an audit finds no private tag left.</div>
+    <div><div class="when">2026-10-05</div>Owner decides: the DNG previews and HEIC thumbnails stay (D13.1 as applied), the three new <code>ood_positives</code> photos join DVC, and every photo is stripped before any further phase. Done: all 1,588 photos in <code>dataset/</code> and <code>dataset_new_ignored/</code> carry no private metadata, checked by a separate audit; the hash-pinned records are re-keyed (R8); the clean <code>dataset/</code> folders, <code>2026-08-06__box_pictures</code> included, are in DVC (local cache; the remote is still down, R6). The new photos go into DVC when they move into <code>dataset/</code> (P4). The VM half of the re-key check (segmenter outputs unchanged) follows P2b.</div>
+    <div><div class="when">2026-10-05</div>Plan phase P2b done (Q3): the tray heuristic's <code>data/cropped</code> pools and their crop stages are retired, and training, the reports and ML-2's tools read the segmenter's pools only. The same photos land in the same splits at every seed, ML-2's photo lists rebuild unchanged, and a smoke fit gives identical results. On the VM, before the strip reaches it: no environment drift, and the pretrained segmenter's masks are unchanged. A tray-heuristic model (<code>allrigs_cam_s123</code>) still serves, but its split is rebuilt only at its own commit. Next: the VM half of P3.</div>
+    <div><div class="when">2026-10-05</div>Owner puts the three new 2026-10-05 OOD positives in the holdout. Plan phase P3 done: the VM now has the stripped photos, and every segmenter stage re-run on them gives identical results: the same crops and pools, the same 343 masks from each segmenter, the same evaluation numbers. The live and fallback models give bit-identical answers on the stripped deploy fixtures. The fine-tuned segmenters were kept, not retrained (Q2a). Old photo hashes survive only in the two strip records. Next: P4, the merge of the new photos.</div>
+    <div><div class="when">2026-10-05</div>Plan phase P4 done: the 288 new photos are in <code>dataset/</code> and DVC, <code>classes.txt</code> has the D15 content, and the segmenter's crops and the camera pools include them (<code>cam_iphone</code> unchanged). The coverage report is clean. At seeds 42, 123 and 7 the split has 10 countries, and only Brazil SulDeMinas (4 photos) is missing from val and test at two seeds. The pre-strip backup on the VM is deleted (Q8). Found: the segmenter returned no usable mask on 24 of the new photos (none of the old), most of them Rwanda from the 2026-09-24 OnePlus session. Each trains on its whole frame (D18), and 8 of them show background: bowls, plates, tables, the hopper ring and a grinder hopper. They come first in the owner's P5 review. Details in the plan's activity.</div>
+    <div><div class="when">2026-10-06</div>The owner reviewed all 288 masks (D8). 253 of the 264 real masks accepted (95.8%; every 2026-09-11 photo accepted); the 11 declined masks are all broken into bean-sized pieces. All 24 photos the segmenter found no mask for were declined. Rwanda is hit hardest: 27 of its 120 photos are declined or have no mask. Whether this calls for a second fine-tune, or for leaving these photos out, is the owner's decision; the head refit (P6) waits for it.</div>
+    <div><div class="when">2026-10-06</div>Owner decides (D8): no second fine-tune. The declined crops leave the camera pools, and so every split: the 11 broken masks and the 8 no-mask photos that show background. The 16 no-mask photos whose beans fill the frame stay and train on the whole frame. 1,207 photos remain; Rwanda keeps 108 of 120 (at least 34 per camera). The photos stay in <code>dataset/</code> and DVC; <code>labels/ml3/pool_exclude.csv</code> lists them.</div>
+    <div><div class="when">2026-10-06</div>The head is refitted on the 10 countries at seeds 42, 123 and 7 (exp261&ndash;263). Patch macro-F1 over the 10 countries, val/test: 0.9731/0.9668, 0.9790/0.9683, 0.9700/0.9808. These are not comparable with the old 8-class runs, and Peru and Rwanda lift them by construction; the comparison printout (P7) comes next, then the owner picks the seed.</div>
+    <div><div class="when">2026-10-06</div>The D10 printout is ready (<code>analysis/ml3/printout.txt</code>). On the 8 old countries and old photos only, the country model scores val 0.9700&ndash;0.9789 and test 0.9664&ndash;0.9811 per patch, against the live model's remapped 0.9796&ndash;0.9826 and 0.9759&ndash;0.9835 (unpaired, old split; the gap is inside the 95% CIs). No old photo is ever called Peru or Rwanda. The roasted Colombia Excelso photos are mostly called Peru. The seed rule points at seed 123 (exp262). The owner picks.</div>
+    <div><div class="when">2026-10-06</div>Owner picks seed 123. exp262 is shipped as <code>models/allrigs_dino3b16_seg_country_s123.pt</code>; its card carries all three seeds (val 0.9700&ndash;0.9790, test 0.9668&ndash;0.9808) and says the OOD guard is not freshly validated (D11). The refitted probe catches 56/56 holdout negatives and refuses 2/29 genuine photos at 0.5 (live probe: 56/56 and 2/26), 1/29 at its calibrated 0.5957. The owner sets the served threshold.</div>
+    <div><div class="when">2026-10-06</div>Owner: the probe serves at 0.5, the same rule as the live models (refuse when "not beans" is the likelier answer); the model card's reason for this model is approved as drafted. Release preparation (P9) starts.</div>
+    <div><div class="when">2026-10-06</div>The release is rehearsed end to end on a local copy: the new model deploys and serves ten country scores, gives bit-identical results in the training and release environments on all 12 fixture photos (each one its own country, a Peru and a Rwanda photo among them), and rolls back. The deploy itself waits for the owner to push <code>main</code>.</div>
+  </div>
+
+  <footer>Related: <code>dataset_new_ignored/classes.txt</code>, <code>dataset_new_ignored/classes_short_map.txt</code>, <code>dataset/classes.txt</code>, <code>GLOSSARY.md</code>,
+    <code>docs/ticket_segmentation_mask.html</code> (ML-2: D20, Out of scope), <code>docs/ticket_retire_cross_rig.html</code> (ML-1: evaluation protocol),
+    <code>docs/ticket_webapp_release_isolation.html</code> (deploy), <code>coffeecv/coverage_report.py</code>, <code>coffeecv/split_report.py</code>.
+    Farm-region sources (D15): <a href="https://interamericancoffee.com/?p=2600">Tarrazú La Pastora</a>,
+    <a href="https://interamericancoffee.com/?p=12458">Daterra Monte Cristo, Cerrado</a>,
+    <a href="https://mareterracoffee.com/en/green-coffee/tata-nahual_pro2737/">Tata Nahual, Acatenango</a>,
+    <a href="https://farmdirectory.cupofexcellence.org/listing/2014-rwanda-88-97-9/">Gisuma washing station, Rusizi</a>.</footer>
+</main>

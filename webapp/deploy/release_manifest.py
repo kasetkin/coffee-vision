@@ -29,7 +29,7 @@ APP = [
     "webapp/uv.lock",
 ]
 LIBRARY = [f"coffeecv/{m}.py" for m in (
-    "__init__", "backbones", "bean_scale", "config", "crop_tray", "dataset", "dino_classifier",
+    "__init__", "backbones", "bean_scale", "class_list", "config", "crop_tray", "dataset", "dino_classifier",
     "geometry", "infer", "model", "transforms")]
 # Ticket ML-2: a segmenter model (card crop_method "segment") also ships the segmenter's loader and the
 # vendored EfficientViT files that building L0 imports, found with an import trace (plan §9) and checked

@@ -61,6 +61,8 @@ def set_all_rigs(
     text = PARAMS_FILE.read_text()
     block = "train_capture_dirs:\n" + "".join(f"  - {c}\n" for c in CAPTURES)
     text = re.sub(r"train_capture_dirs:\n(?:  - .*\n)+", block, text, count=1)
+    # The pools are the segmenter's (ticket ML-3 P2b), so the crop method that made them is stated with them.
+    text = re.sub(r"^crop_method: \S+", "crop_method: segment", text, count=1, flags=re.M)
     text = re.sub(r"^seed: .*$", f"seed: {seed}", text, count=1, flags=re.M)
     text = re.sub(r"^brightness_jitter_strength: .*$",
                   f"brightness_jitter_strength: {brightness_jitter}", text, count=1, flags=re.M)
@@ -166,7 +168,7 @@ def main() -> None:
     stale = stale_crop_stages(CAPTURES)
     if stale and not args.allow_dirty:
         print(f"Crop stages out of date: {', '.join(stale)}. The dataset would be regenerated "
-              f"mid-run. Run `dvc repro crop` deliberately first, or --allow-dirty.")
+              f"mid-run. Run them deliberately first (on the VM, at 4 threads), or --allow-dirty.")
         raise SystemExit(1)
     branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"],
                                      cwd=REPO_ROOT).decode().strip()

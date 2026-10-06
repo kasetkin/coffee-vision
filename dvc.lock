@@ -117,343 +117,6 @@ stages:
       hash: md5
       md5: 256f058baebeb4b4fdfaf616b6279770
       size: 143
-  crop@2026-08-07__box_pictures_all_classes:
-    cmd: python -m coffeecv.crop_session --session 
-      2026-08-07__box_pictures_all_classes
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-07__box_pictures_all_classes
-      hash: md5
-      md5: cc2f6d9fe926a012cf1330b808220889.dir
-      size: 403667130
-      nfiles: 180
-    - path: dataset/2026-08-07__box_pictures_all_classes.crop.yaml
-      hash: md5
-      md5: edd2ec680845ebae6c89561118ae9cf3
-      size: 2456
-    outs:
-    - path: data/cropped/2026-08-07__box_pictures_all_classes
-      hash: md5
-      md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
-      size: 151678124
-      nfiles: 190
-  crop@2026-08-09__pixel_cam:
-    cmd: python -m coffeecv.crop_session --session 2026-08-09__pixel_cam
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-09__pixel_cam
-      hash: md5
-      md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
-      size: 434695623
-      nfiles: 180
-    - path: dataset/2026-08-09__pixel_cam.crop.yaml
-      hash: md5
-      md5: bcbb473a98b7c8af3d8a42b8a160e47e
-      size: 1199
-    outs:
-    - path: data/cropped/2026-08-09__pixel_cam
-      hash: md5
-      md5: 8d4c7f0adc67051268a4ac6515e2aaef.dir
-      size: 434742111
-      nfiles: 190
-  crop@2026-08-09__sony_cam:
-    cmd: python -m coffeecv.crop_session --session 2026-08-09__sony_cam
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-09__sony_cam
-      hash: md5
-      md5: d9e73dda514dadd8597a74650fd93434.dir
-      size: 970211492
-      nfiles: 180
-    - path: dataset/2026-08-09__sony_cam.crop.yaml
-      hash: md5
-      md5: a913e0ae2b3af246e8333c1b5e564a37
-      size: 1603
-    outs:
-    - path: data/cropped/2026-08-09__sony_cam
-      hash: md5
-      md5: 18718ef8147421421220e191553974fc.dir
-      size: 970256719
-      nfiles: 190
-  crop@2026-08-25__oneplus:
-    cmd: python -m coffeecv.crop_session --session 2026-08-25__oneplus
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-25__oneplus
-      hash: md5
-      md5: 44438c897ca8cf2369d7986728d4f9aa.dir
-      size: 164240910
-      nfiles: 90
-    - path: dataset/2026-08-25__oneplus.crop.yaml
-      hash: md5
-      md5: c6a43ad6e2b716d36b4c2d3f38ed7499
-      size: 737
-    outs:
-    - path: data/cropped/2026-08-25__oneplus
-      hash: md5
-      md5: de32ec658380e3c24a31885537fdb1ab.dir
-      size: 63504726
-      nfiles: 100
-  crop@2026-08-25__iphone:
-    cmd: python -m coffeecv.crop_session --session 2026-08-25__iphone
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-25__iphone
-      hash: md5
-      md5: 2868cad8b178baf567318c461ca54228.dir
-      size: 215516421
-      nfiles: 92
-    - path: dataset/2026-08-25__iphone.crop.yaml
-      hash: md5
-      md5: 6cacb4e23b3908db359bedfdc2b16cdd
-      size: 1221
-    outs:
-    - path: data/cropped/2026-08-25__iphone
-      hash: md5
-      md5: 9d894bee5feb74d330f98f503ab2ab74.dir
-      size: 119322024
-      nfiles: 101
-  crop@2026-08-27__oneplus_flash:
-    cmd: python -m coffeecv.crop_session --session 2026-08-27__oneplus_flash
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-27__oneplus_flash
-      hash: md5
-      md5: ae2c8306a90f711b30a3314fbd35819c.dir
-      size: 265920872
-      nfiles: 90
-    - path: dataset/2026-08-27__oneplus_flash.crop.yaml
-      hash: md5
-      md5: 4e76e95562ab391b2496e89ff3f06dd9
-      size: 1606
-    outs:
-    - path: data/cropped/2026-08-27__oneplus_flash
-      hash: md5
-      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
-      size: 245081831
-      nfiles: 100
-  crop@2026-08-30__oneplus:
-    cmd: python -m coffeecv.crop_session --session 2026-08-30__oneplus
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-30__oneplus
-      hash: md5
-      md5: c864952c104fba3e60680de04ccbc9b4.dir
-      size: 87508122
-      nfiles: 40
-    - path: dataset/2026-08-30__oneplus.crop.yaml
-      hash: md5
-      md5: cd03fc8af8aabafe635eddaf64e4d678
-      size: 1676
-    outs:
-    - path: data/cropped/2026-08-30__oneplus
-      hash: md5
-      md5: 26acca3695978f0c1bd5296a584fd478.dir
-      size: 87518411
-      nfiles: 42
-  crop@2026-08-30__pixel:
-    cmd: python -m coffeecv.crop_session --session 2026-08-30__pixel
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-30__pixel
-      hash: md5
-      md5: 1d72335009072d9549688ec028452355.dir
-      size: 119677934
-      nfiles: 46
-    - path: dataset/2026-08-30__pixel.crop.yaml
-      hash: md5
-      md5: e406715e2ab2c696fadde176665e7f4a
-      size: 966
-    outs:
-    - path: data/cropped/2026-08-30__pixel
-      hash: md5
-      md5: 7a147f28d18fe25af41cc230f49ac65d.dir
-      size: 119689653
-      nfiles: 48
-  crop@2026-08-30__sony:
-    cmd: python -m coffeecv.crop_session --session 2026-08-30__sony
-    deps:
-    - path: coffeecv/crop_session.py
-      hash: md5
-      md5: 8e4097d77663c989b06cd91327fb32a2
-      size: 3858
-    - path: coffeecv/crop_tray.py
-      hash: md5
-      md5: 93abe5c0ee0ec89683c9f7a890c551f2
-      size: 33494
-    - path: dataset/2026-08-30__sony
-      hash: md5
-      md5: 7f51b7c493faedf12e4faf58b29a67d0.dir
-      size: 145649324
-      nfiles: 40
-    - path: dataset/2026-08-30__sony.crop.yaml
-      hash: md5
-      md5: ffcc739ff609c26f7df3f97235a24987
-      size: 977
-    outs:
-    - path: data/cropped/2026-08-30__sony
-      hash: md5
-      md5: 619696d7cc8b5c3190ccb1cef56871d7.dir
-      size: 145659250
-      nfiles: 42
-  merge_cam_pixel:
-    cmd: python -m coffeecv.merge_rig --name cam_pixel --sessions 
-      2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
-      2026-08-30__pixel
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
-    - path: data/cropped/2026-08-07__box_pictures_all_classes
-      hash: md5
-      md5: dd4abd09ac3d44f571ad9d0bb82dff89.dir
-      size: 151678124
-      nfiles: 190
-    - path: data/cropped/2026-08-09__pixel_cam
-      hash: md5
-      md5: 8d4c7f0adc67051268a4ac6515e2aaef.dir
-      size: 434742111
-      nfiles: 190
-    - path: data/cropped/2026-08-30__pixel
-      hash: md5
-      md5: 7a147f28d18fe25af41cc230f49ac65d.dir
-      size: 119689653
-      nfiles: 48
-    outs:
-    - path: data/cropped/cam_pixel
-      hash: md5
-      md5: b81973c3061afcbd66b2282ef7c25f3c.dir
-      size: 705962207
-      nfiles: 407
-  merge_cam_sony:
-    cmd: python -m coffeecv.merge_rig --name cam_sony --sessions 
-      2026-08-09__sony_cam 2026-08-30__sony
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
-    - path: data/cropped/2026-08-09__sony_cam
-      hash: md5
-      md5: 18718ef8147421421220e191553974fc.dir
-      size: 970256719
-      nfiles: 190
-    - path: data/cropped/2026-08-30__sony
-      hash: md5
-      md5: 619696d7cc8b5c3190ccb1cef56871d7.dir
-      size: 145659250
-      nfiles: 42
-    outs:
-    - path: data/cropped/cam_sony
-      hash: md5
-      md5: be6adf11e6c485c3a614627972ceda9a.dir
-      size: 1115861501
-      nfiles: 221
-  merge_cam_oneplus:
-    cmd: python -m coffeecv.merge_rig --name cam_oneplus --sessions 
-      2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
-    - path: data/cropped/2026-08-25__oneplus
-      hash: md5
-      md5: de32ec658380e3c24a31885537fdb1ab.dir
-      size: 63504726
-      nfiles: 100
-    - path: data/cropped/2026-08-27__oneplus_flash
-      hash: md5
-      md5: fa1968ee9dd01c94bdca8418c57c578c.dir
-      size: 245081831
-      nfiles: 100
-    - path: data/cropped/2026-08-30__oneplus
-      hash: md5
-      md5: 26acca3695978f0c1bd5296a584fd478.dir
-      size: 87518411
-      nfiles: 42
-    outs:
-    - path: data/cropped/cam_oneplus
-      hash: md5
-      md5: 5e2b3d93485b5e47425a6ff1a7151b50.dir
-      size: 396009394
-      nfiles: 221
-  merge_cam_iphone:
-    cmd: python -m coffeecv.merge_rig --name cam_iphone --sessions 
-      2026-08-25__iphone
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
-    - path: data/cropped/2026-08-25__iphone
-      hash: md5
-      md5: 9d894bee5feb74d330f98f503ab2ab74.dir
-      size: 119322024
-      nfiles: 101
-    outs:
-    - path: data/cropped/cam_iphone
-      hash: md5
-      md5: b9d48cbb60f86a9536e1f372cc7b8e47.dir
-      size: 119281284
-      nfiles: 93
   seg_predict@pretrained:
     cmd: python -m coffeecv.seg_predict pretrained --threads 4
     deps:
@@ -463,15 +126,15 @@ stages:
       size: 2503
     - path: coffeecv/seg_predict.py
       hash: md5
-      md5: 068101040542c632713e18f412fb296b
-      size: 4520
+      md5: 669358568222d2e5b213810ac3df9f69
+      size: 4913
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 26e43520f1e4fadb8c78b3a7a7623cb8
-      size: 16301
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       hash: md5
@@ -489,32 +152,23 @@ stages:
     outs:
     - path: data/seg_masks/pretrained
       hash: md5
-      md5: a4147d10b08c41afecd267765c76090c.dir
+      md5: dd2f52b1cc8d52d0c3ea3aa932c74ff8.dir
       size: 4194715
       nfiles: 344
   seg_eval@pretrained:
     cmd: python -m coffeecv.seg_eval pretrained
     deps:
-    - path: coffeecv/bean_scale.py
-      hash: md5
-      md5: 98a17853846097cf67515ae0b916e8da
-      size: 7419
     - path: coffeecv/seg_eval.py
       hash: md5
-      md5: 357edc71a1f0ffab5b6f4561d1c3fa79
-      size: 16236
+      md5: de1b8f9ed2afcdfee53d19056399c4c8
+      size: 13318
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: 26e43520f1e4fadb8c78b3a7a7623cb8
-      size: 16301
-    - path: data/cropped
-      hash: md5
-      md5: 36fce7ba564aba2237998ac4809bf007.dir
-      size: 4674567490
-      nfiles: 1946
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
     - path: data/seg_masks/pretrained
       hash: md5
-      md5: a4147d10b08c41afecd267765c76090c.dir
+      md5: dd2f52b1cc8d52d0c3ea3aa932c74ff8.dir
       size: 4194715
       nfiles: 344
     - path: labels/ml2/accept_rule.md
@@ -527,30 +181,25 @@ stages:
       size: 3123
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: labels/ml2/verdicts.jsonl
       hash: md5
-      md5: b41c7719af50342ae8e7feb3813e8739
-      size: 1458157
+      md5: 3d14eb7bd259c58230d7be4c22c24346
+      size: 3469878
     params:
       params.yaml:
-        bean_analysis_frac: 0.4
-        bean_calibration_k: 1.18
-        bean_k_hi: 80
-        bean_k_lo: 4
-        safety_margin: 0.97
         seg_min_area_frac: 0.083
     outs:
     - path: outputs/ml2_p2/pretrained
       hash: md5
-      md5: 573e2ce465718f574807f1b967377690.dir
-      size: 257379
+      md5: 0d20dab9487d45a2fc12c7f2c93e9b0a.dir
+      size: 232580
       nfiles: 3
     - path: outputs/seg_eval_pretrained.json
       hash: md5
-      md5: ac25b469a8f65b7612fe9328e09b32c0
-      size: 8134
+      md5: 1ec37873cc0aec1b01801e927c4d50c2
+      size: 6897
   seg_embed_cache:
     cmd: python -m coffeecv.seg_finetune cache --threads 4
     deps:
@@ -564,12 +213,12 @@ stages:
       size: 18437
     - path: data/seg_labels
       hash: md5
-      md5: f2bf591489ed70b1ff78a8a6b8bc3a8c.dir
-      size: 15665544
+      md5: 455f5b5bbf5b4ad34c353884c5e6f120.dir
+      size: 15663627
       nfiles: 1252
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       hash: md5
@@ -670,7 +319,7 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -692,7 +341,7 @@ stages:
     outs:
     - path: data/seg_masks/ft_s123
       hash: md5
-      md5: 326075c0662d493e56229ccfd5c5501a.dir
+      md5: 56dd84d20ad8290a77ea6ee4f581bbf5.dir
       size: 3328150
       nfiles: 344
   seg_finetune@7:
@@ -828,7 +477,7 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: models/seg/ft_s42.pt
       hash: md5
@@ -850,7 +499,7 @@ stages:
     outs:
     - path: data/seg_masks/ft_s42
       hash: md5
-      md5: 788e8a3770f97ddfead0f7948b743aff.dir
+      md5: 3a48be564eadd173ad33de629217b416.dir
       size: 3561668
       nfiles: 344
   seg_predict_ft@7:
@@ -870,7 +519,7 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: models/seg/ft_s7.pt
       hash: md5
@@ -892,32 +541,23 @@ stages:
     outs:
     - path: data/seg_masks/ft_s7
       hash: md5
-      md5: 7e0ff1e37c602fd6dc2e05b905c24a4b.dir
+      md5: 0d2de5ef0892430065715acb66c33527.dir
       size: 4007501
       nfiles: 344
   seg_eval@ft_s123:
     cmd: python -m coffeecv.seg_eval ft_s123
     deps:
-    - path: coffeecv/bean_scale.py
-      hash: md5
-      md5: 98a17853846097cf67515ae0b916e8da
-      size: 7419
     - path: coffeecv/seg_eval.py
       hash: md5
-      md5: d125c4767affd851bf45bfe121d93638
-      size: 18936
+      md5: de1b8f9ed2afcdfee53d19056399c4c8
+      size: 13318
     - path: coffeecv/segment_beans.py
       hash: md5
       md5: 82f026920972255cc5bb55b83ea317a0
       size: 18803
-    - path: data/cropped
-      hash: md5
-      md5: 36fce7ba564aba2237998ac4809bf007.dir
-      size: 4674567490
-      nfiles: 1946
     - path: data/seg_masks/ft_s123
       hash: md5
-      md5: 326075c0662d493e56229ccfd5c5501a.dir
+      md5: 56dd84d20ad8290a77ea6ee4f581bbf5.dir
       size: 3328150
       nfiles: 344
     - path: labels/ml2/accept_rule.md
@@ -930,30 +570,25 @@ stages:
       size: 3123
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: 097b83f02b083d049e0df5a8dd7c7592
+      md5: ef0306416d716fff7b335b24f5d37242
       size: 406717
     - path: labels/ml2/verdicts.jsonl
       hash: md5
-      md5: 02d9d783fc7d6b6d569d1f5ecc305875
+      md5: 3d14eb7bd259c58230d7be4c22c24346
       size: 3469878
     params:
       params.yaml:
-        bean_analysis_frac: 0.4
-        bean_calibration_k: 1.18
-        bean_k_hi: 80
-        bean_k_lo: 4
-        safety_margin: 0.97
         seg_min_area_frac: 0.083
     outs:
     - path: outputs/ml2_p2/ft_s123
       hash: md5
-      md5: 82d2393e395658ede3aec2a84144c272.dir
-      size: 220391
+      md5: 1722b3f1b7b52357cb06f24920c7f95e.dir
+      size: 181550
       nfiles: 3
     - path: outputs/seg_eval_ft_s123.json
       hash: md5
-      md5: d05db0a091636f11ebaafceb8ff87316
-      size: 8531
+      md5: 55cbf6f42078be5d6f1d191d0c04333c
+      size: 7292
   segcrop@2026-08-30__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-30__oneplus 
       --threads 4
@@ -972,8 +607,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-30__oneplus
       hash: md5
-      md5: c864952c104fba3e60680de04ccbc9b4.dir
-      size: 87508122
+      md5: 1c4946d2258be0ab934c7c862328c39b.dir
+      size: 84677347
       nfiles: 40
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1024,8 +659,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: cc2f6d9fe926a012cf1330b808220889.dir
-      size: 403667130
+      md5: 0f41bdd98d340d8efda9ec2f5e262bc5.dir
+      size: 387426329
       nfiles: 180
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1076,8 +711,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-09__pixel_cam
       hash: md5
-      md5: 11c7a2b0fa1a49d0912bca4b05c02b39.dir
-      size: 434695623
+      md5: 067830c46dc6be92037e82ee2fd403e3.dir
+      size: 413733342
       nfiles: 180
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1128,8 +763,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-30__pixel
       hash: md5
-      md5: 1d72335009072d9549688ec028452355.dir
-      size: 119677934
+      md5: a877d7e11cebc82287082b5b1317124a.dir
+      size: 114355941
       nfiles: 46
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1165,12 +800,13 @@ stages:
   merge_segcam_pixel:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel 
       --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
-      2026-08-30__pixel
+      2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon 
+      --exclude labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-07__box_pictures_all_classes
       hash: md5
       md5: 10ea00aaeff7c17c2890efba529dc1eb.dir
@@ -1186,12 +822,31 @@ stages:
       md5: 5a4634709f175c01e40ba78eb63348a0.dir
       size: 141615911
       nfiles: 94
+    - path: data/segcropped/2026-09-11__pixel
+      hash: md5
+      md5: 79cdc4b98d2ef9bbc545599a57f9c8d6.dir
+      size: 70287507
+      nfiles: 42
+    - path: data/segcropped/2026-09-24__pixel
+      hash: md5
+      md5: 4fafeb0e38ab73da65086477f42a772b.dir
+      size: 248514633
+      nfiles: 141
+    - path: data/segcropped/random_date_raccoon
+      hash: md5
+      md5: f754eb0c89cc1f947f61174ef26d3d53.dir
+      size: 45055275
+      nfiles: 38
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_pixel
       hash: md5
-      md5: 03d051f55073f1d6555e75c5d75985f4.dir
-      size: 809433889
-      nfiles: 813
+      md5: 7a94a94726d87750b62fb0da0265d72a.dir
+      size: 1146298422
+      nfiles: 1008
   segcrop@2026-08-27__oneplus_flash:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-27__oneplus_flash 
       --threads 4
@@ -1210,8 +865,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-27__oneplus_flash
       hash: md5
-      md5: ae2c8306a90f711b30a3314fbd35819c.dir
-      size: 265920872
+      md5: fcdda910730e48601746f04ee736d981.dir
+      size: 259489878
       nfiles: 90
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1262,8 +917,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-09__sony_cam
       hash: md5
-      md5: d9e73dda514dadd8597a74650fd93434.dir
-      size: 970211492
+      md5: 03dd299d675ba4e8df1e024cca60aa83.dir
+      size: 963076489
       nfiles: 180
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1314,8 +969,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-30__sony
       hash: md5
-      md5: 7f51b7c493faedf12e4faf58b29a67d0.dir
-      size: 145649324
+      md5: 2a050304b9b26e42f4f55841197ad1a8.dir
+      size: 144052401
       nfiles: 40
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1350,12 +1005,13 @@ stages:
       nfiles: 82
   merge_segcam_sony:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony 
-      --sessions 2026-08-09__sony_cam 2026-08-30__sony
+      --sessions 2026-08-09__sony_cam 2026-08-30__sony 2026-09-11__sony 
+      2026-09-24__sony --exclude labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-09__sony_cam
       hash: md5
       md5: 04fa561258cf0bed5b0cfe5e90a603e2.dir
@@ -1366,12 +1022,26 @@ stages:
       md5: 5e38773cee63fba71e342adf5a98e45e.dir
       size: 105913990
       nfiles: 82
+    - path: data/segcropped/2026-09-11__sony
+      hash: md5
+      md5: 45a40f61cc44491b7a9166b072cbd6f7.dir
+      size: 102153431
+      nfiles: 42
+    - path: data/segcropped/2026-09-24__sony
+      hash: md5
+      md5: 8ec253bafb9019ca75ede164c715ceaf.dir
+      size: 359818493
+      nfiles: 139
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_sony
       hash: md5
-      md5: 6de810005ab1d619ad60c0f3a974e1d2.dir
-      size: 818550272
-      nfiles: 441
+      md5: 1a33a3163436e9db3745f4627aef029f.dir
+      size: 1272133268
+      nfiles: 614
   segcrop@2026-08-25__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-25__oneplus 
       --threads 4
@@ -1390,8 +1060,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-25__oneplus
       hash: md5
-      md5: 44438c897ca8cf2369d7986728d4f9aa.dir
-      size: 164240910
+      md5: 8d4467752f17d73b1e4dac2e8a996e8f.dir
+      size: 158639735
       nfiles: 90
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1442,8 +1112,8 @@ stages:
       size: 18803
     - path: dataset/2026-08-25__iphone
       hash: md5
-      md5: 2868cad8b178baf567318c461ca54228.dir
-      size: 215516421
+      md5: 46ce0a0a4055be4ae693f014df7e5a9b.dir
+      size: 215360841
       nfiles: 92
     - path: models/seg/ft_s123.pt
       hash: md5
@@ -1482,8 +1152,8 @@ stages:
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-25__iphone
       hash: md5
       md5: 03d910755e8a84858b51fea9bb6ed342.dir
@@ -1498,12 +1168,13 @@ stages:
   merge_segcam_oneplus:
     cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus 
       --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 
-      2026-08-30__oneplus
+      2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus --exclude 
+      labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
-      md5: 1f1f3aa0f214a37df6f2cbd9a651550a
-      size: 5817
+      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
+      size: 8288
     - path: data/segcropped/2026-08-25__oneplus
       hash: md5
       md5: b1fd8e5c674be36dcdd0b7f31f7500df.dir
@@ -1519,9 +1190,502 @@ stages:
       md5: fd5a7f29b3c291d35ed905a373745ab4.dir
       size: 106361555
       nfiles: 82
+    - path: data/segcropped/2026-09-11__oneplus
+      hash: md5
+      md5: e784a7ecbcbe167cef90e596405dee94.dir
+      size: 57740953
+      nfiles: 42
+    - path: data/segcropped/2026-09-24__oneplus
+      hash: md5
+      md5: bb439abb851ca4c0d258b7eaa1f4ad7e.dir
+      size: 212542726
+      nfiles: 127
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
     outs:
     - path: data/segcropped/cam_oneplus
       hash: md5
-      md5: a8e4db1dc7c5de3129e56a214195d4e4.dir
-      size: 492361095
-      nfiles: 441
+      md5: 8acb3e40ce6449504d63c40cb87e2b37.dir
+      size: 742033998
+      nfiles: 595
+  segcrop@2026-09-11__oneplus:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-11__oneplus 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-11__oneplus
+      hash: md5
+      md5: a1c41dc659b6e977e0fe94ff70fd237e.dir
+      size: 46826878
+      nfiles: 20
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-11__oneplus
+      hash: md5
+      md5: e784a7ecbcbe167cef90e596405dee94.dir
+      size: 57740953
+      nfiles: 42
+  segcrop@2026-09-11__pixel:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-11__pixel 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-11__pixel
+      hash: md5
+      md5: a75bc663442f9962fe32275839a15abc.dir
+      size: 58087258
+      nfiles: 20
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-11__pixel
+      hash: md5
+      md5: 79cdc4b98d2ef9bbc545599a57f9c8d6.dir
+      size: 70287507
+      nfiles: 42
+  segcrop@2026-09-11__sony:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-11__sony --threads
+      4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-11__sony
+      hash: md5
+      md5: 445e5b546b8a45266de63a45d0526d4a.dir
+      size: 136903333
+      nfiles: 20
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-11__sony
+      hash: md5
+      md5: 45a40f61cc44491b7a9166b072cbd6f7.dir
+      size: 102153431
+      nfiles: 42
+  segcrop@2026-09-24__oneplus:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-24__oneplus 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-24__oneplus
+      hash: md5
+      md5: 3e7da4974252be64337b3a93a43465c2.dir
+      size: 176454711
+      nfiles: 70
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-24__oneplus
+      hash: md5
+      md5: bb439abb851ca4c0d258b7eaa1f4ad7e.dir
+      size: 212542726
+      nfiles: 127
+  segcrop@2026-09-24__pixel:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-24__pixel 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-24__pixel
+      hash: md5
+      md5: faeed6c2e62df12433cc037db7dbb799.dir
+      size: 206222248
+      nfiles: 70
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-24__pixel
+      hash: md5
+      md5: 4fafeb0e38ab73da65086477f42a772b.dir
+      size: 248514633
+      nfiles: 141
+  segcrop@2026-09-24__sony:
+    cmd: python -m coffeecv.segcrop_session --session 2026-09-24__sony --threads
+      4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/2026-09-24__sony
+      hash: md5
+      md5: 97ab527ad260f3f3a946173948e6b3e4.dir
+      size: 492153568
+      nfiles: 70
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/2026-09-24__sony
+      hash: md5
+      md5: 8ec253bafb9019ca75ede164c715ceaf.dir
+      size: 359818493
+      nfiles: 139
+  segcrop@random_date_raccoon:
+    cmd: python -m coffeecv.segcrop_session --session random_date_raccoon 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: dataset/random_date_raccoon
+      hash: md5
+      md5: d5491982ccab417a8b4ef3fdae161a62.dir
+      size: 43117011
+      nfiles: 18
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/ft_s123.pt
+        seg_decoder_sha256: 
+          c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.083
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
+        seg_weights_sha256: 
+          c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
+    outs:
+    - path: data/segcropped/random_date_raccoon
+      hash: md5
+      md5: f754eb0c89cc1f947f61174ef26d3d53.dir
+      size: 45055275
+      nfiles: 38
+  seg_predict_ml3_new:
+    cmd: python -m coffeecv.seg_predict_sessions ft_s123 --threads 4 --out 
+      ml3_new_ft_s123 --sessions 2026-09-11__oneplus 2026-09-11__pixel 
+      2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony 
+      random_date_raccoon
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: 214b4fa06b59cc38db19cb4e9648c72d
+      size: 2503
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 669358568222d2e5b213810ac3df9f69
+      size: 4913
+    - path: coffeecv/seg_predict_sessions.py
+      hash: md5
+      md5: f1b8625d91badf8e787a2780d87c78df
+      size: 5462
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 82f026920972255cc5bb55b83ea317a0
+      size: 18803
+    - path: data/segcropped/2026-09-11__oneplus
+      hash: md5
+      md5: e784a7ecbcbe167cef90e596405dee94.dir
+      size: 57740953
+      nfiles: 42
+    - path: data/segcropped/2026-09-11__pixel
+      hash: md5
+      md5: 79cdc4b98d2ef9bbc545599a57f9c8d6.dir
+      size: 70287507
+      nfiles: 42
+    - path: data/segcropped/2026-09-11__sony
+      hash: md5
+      md5: 45a40f61cc44491b7a9166b072cbd6f7.dir
+      size: 102153431
+      nfiles: 42
+    - path: data/segcropped/2026-09-24__oneplus
+      hash: md5
+      md5: bb439abb851ca4c0d258b7eaa1f4ad7e.dir
+      size: 212542726
+      nfiles: 127
+    - path: data/segcropped/2026-09-24__pixel
+      hash: md5
+      md5: 4fafeb0e38ab73da65086477f42a772b.dir
+      size: 248514633
+      nfiles: 141
+    - path: data/segcropped/2026-09-24__sony
+      hash: md5
+      md5: 8ec253bafb9019ca75ede164c715ceaf.dir
+      size: 359818493
+      nfiles: 139
+    - path: data/segcropped/random_date_raccoon
+      hash: md5
+      md5: f754eb0c89cc1f947f61174ef26d3d53.dir
+      size: 45055275
+      nfiles: 38
+    - path: dataset/2026-09-11__oneplus
+      hash: md5
+      md5: a1c41dc659b6e977e0fe94ff70fd237e.dir
+      size: 46826878
+      nfiles: 20
+    - path: dataset/2026-09-11__pixel
+      hash: md5
+      md5: a75bc663442f9962fe32275839a15abc.dir
+      size: 58087258
+      nfiles: 20
+    - path: dataset/2026-09-11__sony
+      hash: md5
+      md5: 445e5b546b8a45266de63a45d0526d4a.dir
+      size: 136903333
+      nfiles: 20
+    - path: dataset/2026-09-24__oneplus
+      hash: md5
+      md5: 3e7da4974252be64337b3a93a43465c2.dir
+      size: 176454711
+      nfiles: 70
+    - path: dataset/2026-09-24__pixel
+      hash: md5
+      md5: faeed6c2e62df12433cc037db7dbb799.dir
+      size: 206222248
+      nfiles: 70
+    - path: dataset/2026-09-24__sony
+      hash: md5
+      md5: 97ab527ad260f3f3a946173948e6b3e4.dir
+      size: 492153568
+      nfiles: 70
+    - path: dataset/random_date_raccoon
+      hash: md5
+      md5: d5491982ccab417a8b4ef3fdae161a62.dir
+      size: 43117011
+      nfiles: 18
+    - path: models/seg/ft_s123.pt
+      hash: md5
+      md5: 0ed3266101f153b086a0dc61cf31e52a
+      size: 16271759
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      hash: md5
+      md5: f4cb99bd8a564de2139b0ede145f5531
+      size: 139410184
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks/ml3_new_ft_s123
+      hash: md5
+      md5: 7c3c2a7b3946914620872330bc19a524.dir
+      size: 3330155
+      nfiles: 289

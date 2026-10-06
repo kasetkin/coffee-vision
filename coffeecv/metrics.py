@@ -129,10 +129,23 @@ def build_summary_json(metrics_json: dict) -> dict:
     return out
 
 
-def write_predictions_csv(path: Path, y_true: np.ndarray, y_pred: np.ndarray, class_ids: list[str]) -> None:
-    """Columns: true_label,pred_label — feeds DVC's built-in `confusion` plot template."""
+def write_predictions_csv(path: Path, y_true: np.ndarray, y_pred: np.ndarray, class_ids: list[str],
+                          meta: list | None = None, probs: np.ndarray | None = None) -> None:
+    """Columns: true_label,pred_label — feeds DVC's built-in `confusion` plot template, which reads only those two.
+
+    With `meta` (each patch's dataset.PatchMeta) and `probs` (its class probabilities, in `class_ids` order),
+    each row also carries where the patch came from -- capture, photo, folder_id -- and one p_<key> column per
+    class, so a report can score from the archive alone: by photo, by coffee, or over a subset of classes
+    (ticket ML-3)."""
+    if (meta is None) != (probs is None):
+        raise ValueError("meta and probs go together")
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["true_label", "pred_label"])
-        for t, p in zip(y_true, y_pred):
-            writer.writerow([class_ids[t], class_ids[p]])
+        extra = [] if meta is None else ["capture", "photo", "folder_id"] + [f"p_{k}" for k in class_ids]
+        writer.writerow(["true_label", "pred_label"] + extra)
+        for i, (t, p) in enumerate(zip(y_true, y_pred)):
+            row = [class_ids[t], class_ids[p]]
+            if meta is not None:
+                m = meta[i]
+                row += [m.capture, m.photo_name, m.folder_id] + [f"{v:.6g}" for v in probs[i]]
+            writer.writerow(row)

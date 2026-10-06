@@ -1,0 +1,115 @@
+DRY RUN: exiftool 13.25; 1300 photos checked, 1068 would be stripped, 30 failing
+
+dataset/2026-07-24__first_pictures: 61 photos, 52 with private tags, 29 failing a check
+  EXIF:GPS                        618 tag(s)
+  EXIF:IFD0                        29 tag(s)
+  EXIF:IFD1                       184 tag(s)
+  JUMBF                            69 tag(s)
+  JUMBF:CBOR                      598 tag(s)
+  XMP:XMP-GCamera                  23 tag(s)
+  XMP:XMP-xmpNote                  23 tag(s)
+  FAIL x29: deny-listed tag survived: EXIF:IFD0:PreviewImageStart
+  FAIL x29: deny-listed tag survived: EXIF:IFD0:PreviewImageLength
+
+dataset/2026-08-06__box_pictures: 52 photos, 10 with private tags, 0 failing a check
+  EXIF:GPS                        110 tag(s)
+  EXIF:IFD1                        80 tag(s)
+  JUMBF                            30 tag(s)
+  JUMBF:CBOR                      260 tag(s)
+  XMP:XMP-GCamera                  10 tag(s)
+  XMP:XMP-xmpNote                  10 tag(s)
+
+dataset/2026-08-07__box_pictures_all_classes: 180 photos, 180 with private tags, 0 failing a check
+  EXIF:GPS                       1980 tag(s)
+  EXIF:IFD1                      1440 tag(s)
+  JUMBF                           540 tag(s)
+  JUMBF:CBOR                     4680 tag(s)
+  XMP:XMP-GCamera                 180 tag(s)
+  XMP:XMP-xmpNote                 180 tag(s)
+
+dataset/2026-08-09__pixel_cam: 180 photos, 180 with private tags, 0 failing a check
+  EXIF:GPS                       1980 tag(s)
+  EXIF:IFD1                      1440 tag(s)
+  JUMBF                           540 tag(s)
+  JUMBF:CBOR                     4680 tag(s)
+  XMP:XMP-GCamera                 180 tag(s)
+  XMP:XMP-xmpNote                 180 tag(s)
+
+dataset/2026-08-09__sony_cam: 180 photos, 180 with private tags, 0 failing a check
+  EXIF:IFD1                      1440 tag(s)
+  MakerNotes:Sony                3960 tag(s)
+
+dataset/2026-08-25__iphone: 92 photos, 92 with private tags, 0 failing a check
+  MakerNotes:Apple               4915 tag(s)
+  NOTE x92: HEIF thumbnail image item stays (exiftool cannot remove it)
+
+dataset/2026-08-25__oneplus: 90 photos, 90 with private tags, 0 failing a check
+  EXIF:GPS                        990 tag(s)
+  EXIF:IFD1                       720 tag(s)
+  XMP:XMP-GCamera                  90 tag(s)
+  XMP:XMP-xmpNote                  90 tag(s)
+
+dataset/2026-08-27__oneplus_flash: 90 photos, 90 with private tags, 0 failing a check
+  EXIF:GPS                        990 tag(s)
+  EXIF:IFD1                       720 tag(s)
+  XMP:XMP-GCamera                  90 tag(s)
+  XMP:XMP-xmpNote                  90 tag(s)
+
+dataset/2026-08-30__oneplus: 40 photos, 40 with private tags, 0 failing a check
+  EXIF:GPS                        440 tag(s)
+  EXIF:IFD1                       320 tag(s)
+  XMP:XMP-GCamera                  40 tag(s)
+  XMP:XMP-xmpNote                  40 tag(s)
+
+dataset/2026-08-30__pixel: 46 photos, 46 with private tags, 0 failing a check
+  EXIF:GPS                        506 tag(s)
+  EXIF:IFD1                       368 tag(s)
+  JUMBF                           138 tag(s)
+  JUMBF:CBOR                     1196 tag(s)
+  XMP:XMP-GCamera                  46 tag(s)
+  XMP:XMP-xmpNote                  46 tag(s)
+
+dataset/2026-08-30__sony: 40 photos, 40 with private tags, 0 failing a check
+  EXIF:IFD1                       320 tag(s)
+  MakerNotes:Sony                 880 tag(s)
+
+dataset/classes_labels_only: 38 photos, 38 with private tags, 0 failing a check
+  EXIF:GPS                        287 tag(s)
+  EXIF:IFD1                       232 tag(s)
+  JUMBF                            39 tag(s)
+  JUMBF:CBOR                      338 tag(s)
+  MakerNotes:Apple                492 tag(s)
+  MakerNotes:Sony                  44 tag(s)
+  XMP:XMP-GCamera                  27 tag(s)
+  XMP:XMP-xmpNote                  27 tag(s)
+  NOTE x9: HEIF thumbnail image item stays (exiftool cannot remove it)
+
+dataset/ood_negatives: 142 photos, 57 with private tags, 1 failing a check
+  EXIF:GPS                          1 tag(s)
+  EXIF:IFD0                        18 tag(s)
+  EXIF:IFD1                        25 tag(s)
+  IPTC                              2 tag(s)
+  JUMBF                            45 tag(s)
+  JUMBF:CBOR                      390 tag(s)
+  MakerNotes:Olympus              131 tag(s)
+  MakerNotes:Sony                 208 tag(s)
+  XMP:XMP-GCamera                  28 tag(s)
+  XMP:XMP-aux                       1 tag(s)
+  XMP:XMP-dc                        2 tag(s)
+  XMP:XMP-xmpNote                  28 tag(s)
+  FAIL x1: deny-listed tag survived: XMP:XMP-aux:SerialNumber
+  FAIL x1: deny-listed tag survived: XMP:XMP-aux:OwnerName
+  FAIL x1: deny-listed tag survived: XMP:XMP-dc:Creator
+  FAIL x1: deny-listed tag survived: XMP:XMP-dc:Rights
+
+dataset/ood_positives: 57 photos, 3 with private tags, 0 failing a check
+  EXIF:GPS                         33 tag(s)
+  EXIF:IFD1                        24 tag(s)
+  JUMBF                             9 tag(s)
+  JUMBF:CBOR                       78 tag(s)
+  XMP:XMP-GCamera                   3 tag(s)
+  XMP:XMP-xmpNote                   3 tag(s)
+
+dataset/ood_positives_internet: 12 photos, 0 with private tags, 0 failing a check
+
+not photos, left alone: 36 (.csv, .dvc, .json, .md, .txt, .yaml)

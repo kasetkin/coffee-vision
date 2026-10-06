@@ -28,7 +28,8 @@ from PIL import Image
 from werkzeug.exceptions import HTTPException
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import RAW_EXTENSIONS, load_class_labels, load_rgb_image
+from coffeecv.class_list import load_classes
+from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
 from coffeecv.infer import (_sha, classify_one, config_for_checkpoint, crop_to_bean_region,
                             inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
                             reference_path_for, segment_bean_region, segmenter_for, sig12)
@@ -52,8 +53,10 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 cfg, cfg_source = config_for_checkpoint(CHECKPOINT, None)
 logger.info("loaded checkpoint config from %s", cfg_source)
-class_labels = load_class_labels(REPO_ROOT / cfg.classes_file)
-class_ids = sorted(class_labels)
+# The model's own frozen list (infer.classes_path_for): folder ids for a model fitted before ticket ML-3,
+# countries after it. class_ids is in output order.
+classes = load_classes(REPO_ROOT / cfg.classes_file)
+class_ids, class_labels = list(classes.keys), dict(classes.labels)
 model, head = load_model(CHECKPOINT, cfg.model_name, len(class_ids), cfg.dropout)
 # Dihedral TTA is a property of the model, read from its card (on for ResNet18; off for a frozen ViT,
 # where 8 views would cost ~46 s per photo -- docs/dinov3_integration_plan.md §6.2).

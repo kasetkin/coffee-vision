@@ -18,15 +18,18 @@ scoop of beans, and are never comparable to the fold-era cross-camera numbers.
 
     python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 252
     python -m coffeecv.fit_frozen_head --ship 252 --name allrigs_dino3b16_s42
+    python -m coffeecv.fit_frozen_head --ship 262 --name allrigs_dino3b16_seg_country_s123 --seed-exps 261 262 263
 
-`--pools segcropped` (ticket ML-2) fits on the segmenter's pools (dataset.SEG_CAPTURES) with crop_method
-"segment", so patches are placed by the D17 rule against each photo's mask and the checkpoint serves through
-the segmenter; params.yaml's seg_* fields name it. The default, `cropped`, is today's recipe.
+Every fit reads the segmenter's pools (dataset.CAPTURES) with crop_method "segment", so patches are placed
+by the D17 rule against each photo's mask and the checkpoint serves through the segmenter; params.yaml's seg_*
+fields name it. Until ticket ML-3 P2b this took `--pools cropped|segcropped` and defaulted to the tray
+heuristic's pools, which are retired (Q3).
 """
 from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import shutil
 import socket
@@ -40,9 +43,10 @@ import torch
 
 from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
 from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_backbone
+from coffeecv.class_list import folder_classes, load_classes
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import CAPTURES, SEG_CAPTURES, load_class_labels
+from coffeecv.dataset import CAPTURES
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
@@ -57,21 +61,18 @@ DEFAULT_C = 0.1
 DEFAULT_C_RULE = "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)"
 EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
-# --pools: the capture dirs a fit reads and the crop_method that made them (ticket ML-2, plan §7).
-POOLS = {"cropped": (CAPTURES, "tray_heuristic"), "segcropped": (SEG_CAPTURES, "segment")}
 
 
 def log(msg: str) -> None:
     print(f"[fit_frozen_head {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def allrigs_config(backbone: str, seed: int, smoke: bool, pools: str = "cropped") -> RunConfig:
-    """params.yaml's sampling geometry, every camera in training (`pools`' set of them), and the fields
+def allrigs_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
+    """params.yaml's sampling geometry, every camera in training (the segmenter's pools), and the fields
     that describe a frozen backbone with a convex head set to what actually runs (as the screen records its
     folds)."""
-    captures, crop_method = POOLS[pools]
-    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(captures),
-                  crop_method=crop_method,
+    cfg = replace(RunConfig.from_params_yaml(), seed=seed, train_capture_dirs=tuple(CAPTURES),
+                  crop_method="segment",
                   model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
                   color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
@@ -91,12 +92,12 @@ def embed(ds, bb: FrozenBackbone, readout: str) -> tuple[np.ndarray, np.ndarray,
 
 
 def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: str,
-                 out: Path, smoke: bool, pools: str = "cropped") -> Path:
-    cfg = allrigs_config(bb.name, seed, smoke, pools)
+                 out: Path, smoke: bool) -> Path:
+    cfg = allrigs_config(bb.name, seed, smoke)
     assert_input_size(bb, cfg.patch_resize)
     set_seed(seed)
     eval_tf = build_eval_transform(cfg.patch_resize)
-    X, y, sizes, ms, seg = {}, {}, {}, {}, {}
+    X, y, sizes, ms, seg, meta = {}, {}, {}, {}, {}, {}
     class_ids = class_labels = captures = None
     for split in ("train", "val", "test"):
         t = time.perf_counter()
@@ -105,6 +106,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         built = time.perf_counter() - t
         X[split], y[split], ms[split] = embed(ds, bb, readout)
         sizes[split] = len(ds)
+        meta[split] = list(ds._meta)
         class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
         log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
         if ds.bean_share_rule is not None:
@@ -122,10 +124,10 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     # Diagnostic only: what this run's own val split would have picked. Never used.
     grid = fit_head(X["train"], y["train"], X["val"], y["val"], class_ids, class_labels)
 
-    split_metrics, preds = {}, {}
+    split_metrics, preds, probs_by = {}, {}, {}
     for s in ("val", "test"):
         pred, probs, _ = predict(head, X[s])
-        preds[s] = pred
+        preds[s], probs_by[s] = pred, probs
         split_metrics[s] = compute_split_metrics(y[s], pred, cross_entropy(probs, y[s]), class_ids, class_labels)
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
@@ -139,7 +141,10 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     save_frozen_checkpoint(run_dir / "model.pt", bb, readout, head, class_ids, C)
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     (run_dir / "config.json").write_text(json.dumps({
-        **config_to_dict(cfg), "class_ids": class_ids, "env": build_env_block(),
+        **config_to_dict(cfg), "class_ids": class_ids,
+        # classes_file is a path; its digest tells a later reader whether the file still says what it said.
+        "classes_sha256": hashlib.sha256((REPO_ROOT / cfg.classes_file).read_bytes()).hexdigest(),
+        "env": build_env_block(),
         "dino": {
             "experiment": "docs/dinov3_integration_plan.md §9.1: all-cameras shipping fit of the selected cell",
             "backbone": bb.name, "readout": readout, "weights": bb.spec.weights,
@@ -156,18 +161,45 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         },
     }, indent=2))
     for s in ("val", "test"):
-        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], preds[s], class_ids)
+        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], preds[s], class_ids, meta[s], probs_by[s])
     log(f"s{seed}: C={C:g} ({'converged' if converged else 'NOT CONVERGED'}, {fit_s:.0f}s)  "
         f"val {split_metrics['val']['macro_f1']:.4f}  test {split_metrics['test']['macro_f1']:.4f}  "
         f"(val alone would pick C={grid.C:g})")
     return run_dir
 
 
-def ship(exp: int, name: str) -> None:
+def seed_summary(exp: int, seed_exps: list[int], config: dict) -> dict:
+    """The in-distribution numbers of every seed of one fit, with the mean and range: the shipped seed was picked
+    on val, so its own test number is selection-biased (ticket ML-3 P7)."""
+    if exp not in seed_exps or len(set(seed_exps)) != len(seed_exps):
+        raise SystemExit(f"--seed-exps {seed_exps} must list exp{exp} and each run once")
+    runs = {}
+    for e in seed_exps:
+        [d] = list(EXPERIMENTS_DIR.glob(f"exp{e}__*"))
+        c = json.loads((d / "config.json").read_text())
+        if c.get("classes_sha256") != config.get("classes_sha256") or c["class_ids"] != config["class_ids"]:
+            raise SystemExit(f"exp{e} was not fitted on exp{exp}'s class list")
+        runs[c["seed"]] = (d.name, json.loads((d / "metrics.json").read_text()))
+    if len(runs) != len(seed_exps):
+        raise SystemExit(f"--seed-exps {seed_exps} repeat a seed")
+    out = {"runs": {f"s{sd}": name for sd, (name, _) in runs.items()}}
+    for split in ("val", "test"):
+        v = {f"s{sd}": m["splits"][split]["macro_f1"] for sd, (_, m) in runs.items()}
+        out[f"{split}_macro_f1"] = {**v, "mean": float(np.mean(list(v.values()))),
+                                    "min": min(v.values()), "max": max(v.values())}
+    return out
+
+
+def ship(exp: int, name: str, seed_exps: list[int] | None = None) -> None:
     """experiments/exp<N> + its fitted head -> models/<name>.pt with card and frozen class list."""
     [exp_dir] = list(EXPERIMENTS_DIR.glob(f"exp{exp}__*"))
     config = json.loads((exp_dir / "config.json").read_text())
     metrics = json.loads((exp_dir / "metrics.json").read_text())
+    # A country list (ticket ML-3) has no fold-era numbers, so the card carries every seed's instead.
+    per_folder = list(folder_classes(REPO_ROOT / config["classes_file"]).keys) == config["class_ids"]
+    if not per_folder and not seed_exps:
+        raise SystemExit("a country-class head ships with --seed-exps, every seed of its fit (ticket ML-3 P8)")
+    seeds = seed_summary(exp, seed_exps, config) if seed_exps else None
     src = Path(config["dino"]["run_dir"]) / "model.pt"
     if not src.exists():
         raise SystemExit(f"{src} is gone -- refit exp{exp} (same seed gives the same head) before shipping")
@@ -178,7 +210,7 @@ def ship(exp: int, name: str) -> None:
     # The class list the head was fitted against, frozen beside it (infer.classes_path_for): classes.txt
     # may grow before the next fit, and this head's width must not follow it.
     live_classes = REPO_ROOT / config["classes_file"]
-    if sorted(load_class_labels(live_classes)) != config["class_ids"]:
+    if list(load_classes(live_classes).keys) != config["class_ids"]:
         raise SystemExit(f"{live_classes} no longer lists exp{exp}'s classes {config['class_ids']}")
     shutil.copy2(live_classes, classes_path_for(dst))
     training_config = {k: v for k, v in config.items() if k not in ("dino", "env")}
@@ -198,13 +230,23 @@ def ship(exp: int, name: str) -> None:
                     "Without it, model time is ~5.8 s per photo at 4 threads, parity with ResNet18 + TTA."),
         },
         "expected_performance": {
-            "cross_camera_from_selection_folds": ("exp240-251, 3 seeds x 4 camera folds: patch macro-F1 0.8873 "
-                                                  "(3 ten-class folds), photo-pooled 0.9489 over 40 patches, no TTA"),
+            **({"cross_camera_from_selection_folds": ("exp240-251, 3 seeds x 4 camera folds: patch macro-F1 "
+                                                      "0.8873 (3 ten-class folds), photo-pooled 0.9489 over 40 "
+                                                      "patches, no TTA")} if per_folder else {}),
             "this_run_in_distribution": {s: {k: metrics["splits"][s][k] for k in ("macro_f1", "mcc", "accuracy")}
                                          for s in ("val", "test")},
-            "note": "in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
-                    "never to a cross-camera number",
+            **({"all_seeds_in_distribution": seeds,
+                "headline": ("analysis/ml3/printout.txt: patch macro-F1 over the 8 pre-ML-3 countries on "
+                             "pre-ML-3 photos, with photo-level scores and bootstrap CIs, and the live model's "
+                             "remapped reference")} if seeds else {}),
+            "note": ("in-distribution only -- compare to the folds' test split and to allrigs_cam_s123's card, "
+                     "never to a cross-camera number" if per_folder else
+                     "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
+                     "fitted on per-folder classes"),
         },
+        **({"ood_guard": ("not freshly validated (ticket ML-3 D11): the probe is refitted on this head, but its "
+                          "holdout was spent before; --verify on it is a regression check only")}
+           if not per_folder else {}),
         "training_config": training_config,
         "dino": dino,
     }
@@ -221,19 +263,19 @@ def main() -> int:
     p.add_argument("--start-exp", type=int, help="first experiment id; one per seed, in --seeds order")
     p.add_argument("--C", type=float, default=DEFAULT_C,
                    help=f"the head's inverse regularisation strength (default {DEFAULT_C:g}, ML-1 D3)")
-    p.add_argument("--pools", choices=list(POOLS), default="cropped",
-                   help="the tray heuristic's pools (default) or the segmenter's (ticket ML-2)")
     p.add_argument("--out", default=str(DEFAULT_OUT))
     p.add_argument("--smoke", action="store_true", help="tiny patch budgets; nothing is archived")
     p.add_argument("--allow-dirty", action="store_true", help="skip the provenance checks (smoke only)")
     p.add_argument("--ship", type=int, metavar="EXP", help="ship an archived run to models/ and exit")
     p.add_argument("--name", help="with --ship: the models/<name>.pt to create")
+    p.add_argument("--seed-exps", type=int, nargs="+",
+                   help="with --ship: every seed's experiment of the shipped fit, for the card's mean and range")
     args = p.parse_args()
 
     if args.ship is not None:
         if not args.name:
             raise SystemExit("--ship needs --name")
-        ship(args.ship, args.name)
+        ship(args.ship, args.name, args.seed_exps)
         return 0
     if not args.smoke and args.start_exp is None:
         raise SystemExit("--start-exp is required for a real run (the ids must not collide with another machine's)")
@@ -241,7 +283,7 @@ def main() -> int:
         dirty = dirty_provenance_paths()
         if dirty:
             raise SystemExit("uncommitted source would make this run unreproducible:\n  " + "\n  ".join(dirty))
-        stale = stale_crop_stages(POOLS[args.pools][0])
+        stale = stale_crop_stages(CAPTURES)
         if stale:
             raise SystemExit(f"stale upstream data stages {stale}: the crops on disk are not the tracked ones")
     if args.start_exp is not None:
@@ -257,8 +299,7 @@ def main() -> int:
     out = Path(args.out)
     for i, seed in enumerate(args.seeds):
         t = time.perf_counter()
-        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke,
-                               args.pools)
+        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke)
         log(f"s{seed}: done in {(time.perf_counter() - t) / 60:.1f} min")
         if args.smoke:
             continue
@@ -267,13 +308,13 @@ def main() -> int:
         cfg = json.loads(cfg_path.read_text())
         cfg["dino"]["run_dir"] = str(run_dir.resolve().relative_to(REPO_ROOT))
         cfg_path.write_text(json.dumps(cfg, indent=2))
-        seg = args.pools == "segcropped"
         archive(str(exp), f"allrigs_{args.backbone.replace('dinov3_vit', 'dino3')}_frozen_"
-                          f"{args.readout.replace('_', '')}{'_segcrop' if seg else ''}_s{seed}",
+                          f"{args.readout.replace('_', '')}_segcrop_country_s{seed}",
                 f"plan §9.1 all-cameras shipping fit: frozen {args.backbone}, readout {args.readout}, "
                 f"L2 logistic-regression head at fixed C={C:g}, no TTA; "
-                + ("ML-2 segmenter pools (data/segcropped, crop_method segment); " if seg else "")
-                + "in-distribution metrics only", src_dir=run_dir)
+                "ML-2 segmenter pools (data/segcropped, crop_method segment); "
+                "country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; "
+                "in-distribution metrics only", src_dir=run_dir)
     return 0
 
 

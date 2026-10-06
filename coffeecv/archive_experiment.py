@@ -38,12 +38,9 @@ ARCHIVED_FILES = [
     # since ticket ML-1; runs archived before then keep theirs.
 ]
 
-# Crop settings live per session (dataset/<session>.crop.yaml) rather than in
-# params.yaml, which is right -- they describe a rig, not the model -- but it
-# means a run's config.json does not record them. Exp 47 exposed this: it changed
-# the crop and compare_experiments still reported "nothing changed". Copied in so
-# each archived run states the data it was actually trained on.
-CROP_CONFIGS = sorted((REPO_ROOT / "dataset").glob("*.crop.yaml"))
+# Until ticket ML-3 P2b each run also got a copy of every dataset/<session>.crop.yaml (the tray heuristic's
+# per-session crop settings, which config.json did not record; exp 47 exposed the gap). They were retired
+# with the crop stage; the segmenter's settings are params.yaml's seg_* fields, which config.json records.
 
 # Charts are *regenerated* from the archived metrics.json/history.json rather than
 # copied from outputs/plots/. Same output either way, but regenerating means a run
@@ -196,8 +193,6 @@ def archive(exp_id: str, slug: str, note: str, src_dir: Path = OUTPUTS_DIR) -> P
             shutil.copy2(src, exp_dir / name)
         else:
             print(f"WARNING: {src} missing, not archived")
-    for cfg_path in CROP_CONFIGS:
-        shutil.copy2(cfg_path, exp_dir / cfg_path.name)
 
     (exp_dir / "meta.json").write_text(
         json.dumps({"exp": exp_id, "slug": slug, "note": note}, indent=2) + "\n"

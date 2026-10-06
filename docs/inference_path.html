@@ -283,10 +283,10 @@
     everything from the decoded RGB array to the ranked class list is included.
   </p>
   <div class="scope">
-    <span>checkpoint: allrigs_dino3b16_seg_s7.pt</span>
+    <span>checkpoint: allrigs_dino3b16_seg_country_s123.pt</span>
     <span>backbone: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>40 patches &times; 1 view = 40 forward passes</span>
-    <span>as of 2026-10-03</span>
+    <span>as of 2026-10-06</span>
   </div>
 
   <div class="callout">
@@ -535,6 +535,14 @@ diag[<span class="s">"beans_across"</span>] = room / pitch   <span class="c"># l
       over 8 dihedral views is a property of the model, read from its card: on for the ResNet18 fallback
       (+0.0235 macro-F1 there), off for DINOv3, where 8 views would cost about 46 s a photo and the gain is
       unmeasured.</p>
+    <p>Since the country model (ticket ML-3, <code>allrigs_dino3b16_seg_country_s123</code>, released
+      2026-10-06), the classes are countries: the ten keys of <code>dataset/classes.txt</code>'s D15 lines
+      (<code>Brazil</code>, <code>CostaRica</code>, ...), read through <code>class_list.load_classes</code> from the
+      model's frozen <code>.classes.txt</code>. Several coffee folders train as one country. The request log's
+      <code>top1_class</code> (<code>webapp/app.py</code>) therefore holds a country key from that release on, where
+      earlier releases logged a folder id (<code>006</code>). A recalibration that joins logs across releases maps the
+      old ids to countries through the D15 file. The ResNet18 fallback and the previous release keep their own
+      folder-id lists, so a rollback shows folder classes again.</p>
     <pre>tta = inference_tta_for(checkpoint, cfg.model_name)   <span class="c"># card: inference_defaults.tta</span>
 probs, embeds = forward_with_embeddings(model, head, patches, tta=tta)
 mean = probs.mean(axis=0)              <span class="c"># the final "vote"</span>
@@ -551,8 +559,10 @@ ranked = sorted(zip(class_ids, mean), key=<span class="k">lambda</span> t: -t[1]
       indistinguishable from 0.997 on an in-distribution one), so the guard asks a different question: does
       each patch's embedding look like a bean patch? A logistic probe, fitted in this model's own 1536-d
       space on genuine photos against non-bean negatives, gives P(not beans) per patch; the mean over the
-      40 patches is the photo's score. It refuses above 0.5 (the owner's choice, kept for the segmenter model on 2026-10-03: on the
-      holdout 2/26 genuine photos refused and 56/56 negatives caught; the calibrated threshold is 0.5982) and warns between the 20%-false-refusal point
+      40 patches is the photo's score. It refuses above 0.5 (the owner's choice, kept for the segmenter model on 2026-10-03 and for the
+      country model on 2026-10-06: on the holdout 2/29 genuine photos refused and 56/56 negatives caught; the
+      calibrated threshold is 0.5957; the holdout was read before, so this is a regression check, not a fresh
+      validation, <code>analysis/ml3/README.md</code>) and warns between the 20%-false-refusal point
       and 0.5. A checkpoint without a probe file falls back to the older centroid distance, refusing above
       1.4. <code>docs/ood_guard_eval.md</code> has the ResNet18 guard's record;
       <code>docs/dinov3_integration_plan.md</code> §9.3 has this one's.</p>

@@ -3,23 +3,23 @@
 
 seed: 7
 
-# Training reads the cropped tree produced by the `crop` stage, not the raw
-# session. Crop *method* settings live per-session in
-# dataset/<session>.crop.yaml -- they describe a capture setup, not the model.
+# Training reads the cropped tree produced by the `segcrop` stage, not the raw
+# session. The segmenter it runs is the seg_* block below.
 #
 # train_capture_dirs: the photo pools training draws from -- the four cam_*
-# dirs, one per camera, each merged from that camera's sessions by a merge_cam_*
+# dirs, one per camera, each merged from that camera's sessions by a merge_segcam_*
 # stage (dataset.CAPTURES). Since ticket ML-1 (2026-09-29) all are equal: photos
 # are pooled across them and split train/val/test within each class only
 # (D1(b)); none is held out, and there is no cross-camera metric. The order
 # seeds patch boxes, so keep it. run_all_rigs.py rewrites this block to exactly
 # that list on every run, so what rests here is what a bare `dvc repro train`
-# reproduces.
+# reproduces. Until ticket ML-3 P2b these were the tray heuristic's
+# data/cropped pools, retired then (Q3).
 train_capture_dirs:
-  - data/cropped/cam_pixel
-  - data/cropped/cam_sony
-  - data/cropped/cam_oneplus
-  - data/cropped/cam_iphone
+  - data/segcropped/cam_pixel
+  - data/segcropped/cam_sony
+  - data/segcropped/cam_oneplus
+  - data/segcropped/cam_iphone
 classes_file: dataset/classes.txt
 
 # Patch geometry
@@ -151,12 +151,12 @@ seg_mask_select: multi3
 # pass, and would send every correct tray mask to the fallback.
 seg_min_area_frac: 0.083
 
-# Ticket ML-2 P3 (plan §6): where the bean region comes from. tray_heuristic = the
-# crop stage's data/cropped pools and infer.crop_to_bean_region (every shipped model);
-# segment = the segmenter below, at both ends (segcrop stage -> data/segcropped,
-# live segmentation in infer.py). fit_frozen_head --pools sets it per run; it rests
-# at tray_heuristic.
-crop_method: tray_heuristic
+# Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
+# below, at both ends (segcrop stage -> data/segcropped, live segmentation in
+# infer.py). tray_heuristic = infer.crop_to_bean_region, which tray-heuristic models
+# (allrigs_cam_s123 and older) still serve with; their data/cropped pools were retired
+# in ticket ML-3 P2b, so it rests at segment, matching train_capture_dirs above.
+crop_method: segment
 # The segmenter (P5, owner 2026-10-02): pretrained L0 + the seed-123 fine-tuned decoder.
 seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
 seg_weights_sha256: c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8

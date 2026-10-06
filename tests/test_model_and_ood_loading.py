@@ -33,7 +33,7 @@ class TestEmbeddingContract(unittest.TestCase):
     """A future arm cannot land without proving its head's pre-hook fires and captures
     embedding_dim_of(head) features -- the vector every OOD artifact is built in (plan §8.0)."""
 
-    @unittest.skipUnless(have_reference_data(), "real crops (data/cropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_pre_hook_captures_the_embedding(self):
         x, _, _, _ = reference_patches(per_class=1)
         for name in SUPPORTED_MODELS:
@@ -126,11 +126,78 @@ class TestLegacyTrainRigsAlias(unittest.TestCase):
         self.assertEqual(cfg.train_capture_dirs, ("data/cropped/cam_sony",))
         self.assertNotIn(LEGACY_CONFIG_NOTE, source)
 
-    def test_both_deployed_cards_resolve_to_the_four_capture_dirs(self):
-        for name in ("allrigs_dino3b16_s123", "allrigs_cam_s123"):
+    def test_shipped_cards_resolve_to_their_own_four_capture_dirs(self):
+        """The segmenter model reads today's pools; the two tray-heuristic models keep naming the pools they
+        were fitted on, retired in ticket ML-3 P2b (their split is rebuilt at their own commit)."""
+        tray = [f"data/cropped/{Path(c).name}" for c in CAPTURES]
+        for name, want in (("allrigs_dino3b16_seg_s7", CAPTURES), ("allrigs_dino3b16_s123", tray),
+                           ("allrigs_cam_s123", tray)):
             with self.subTest(name=name):
                 cfg, _ = config_for_checkpoint(REPO_ROOT / "models" / f"{name}.pt", None)
-                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], CAPTURES)
+                self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], want)
+
+
+class TestRecordedClassIds(unittest.TestCase):
+    """Ticket ML-3: a run records `classes_file` as a path, so after classes.txt changed format a pre-ML-3
+    run rebuilt at a later commit would read countries where it was fitted on folder ids. A config whose
+    recorded class_ids differ from what its class list now reads is refused, naming the commit."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.classes = self.tmp / "classes.txt"
+
+    def config(self, class_ids) -> str:
+        path = self.tmp / "config.json"
+        path.write_text(json.dumps({"classes_file": str(self.classes), "class_ids": class_ids,
+                                    "env": {"git_commit": "abc123"}}))
+        return str(path)
+
+    def test_same_classes_load(self):
+        self.classes.write_text("001;Ethiopia,Sidamo\n006;Brazil,Cerrado\n")
+        cfg, _ = config_for_checkpoint(self.tmp / "unused.pt", self.config(["001", "006"]))
+        self.assertEqual(cfg.classes_file, str(self.classes))
+
+    def test_folder_run_on_a_country_list_is_refused(self):
+        self.classes.write_text("001;Ethiopia,Sidamo;\n006;Brazil,Cerrado;\n007;Brazil,Cerrado;MonteCristo\n")
+        with self.assertRaisesRegex(ValueError, "rebuild it at abc123"):
+            config_for_checkpoint(self.tmp / "unused.pt", self.config(["001", "006", "007"]))
+
+    def test_shipped_cards_read_their_frozen_lists(self):
+        for card in sorted((REPO_ROOT / "models").glob("*.classes.txt")):
+            ckpt = card.with_name(card.name.replace(".classes.txt", ".pt"))
+            if ckpt.with_suffix(".json").exists():
+                with self.subTest(model=ckpt.name):
+                    cfg, _ = config_for_checkpoint(ckpt, None)
+                    self.assertEqual(Path(cfg.classes_file), card.resolve())
+
+
+class TestPredictionsProvenance(unittest.TestCase):
+    """metrics.write_predictions_csv (ticket ML-3): DVC's confusion template reads true_label, pred_label;
+    with meta and probabilities each row also says where the patch came from and what the head gave."""
+
+    def test_columns(self):
+        import csv
+
+        import numpy as np
+
+        from coffeecv.dataset import PatchMeta
+        from coffeecv.geometry import Region
+        from coffeecv.metrics import write_predictions_csv
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        keys = ["Ethiopia", "Brazil"]
+        meta = [PatchMeta("Brazil", "cam_pixel", "a__cropped.jpg", Region(0, 1, 0, 1), 0.0, 1, "013"),
+                PatchMeta("Ethiopia", "cam_sony", "b__cropped.jpg", Region(0, 1, 0, 1), 0.0, 1, "008")]
+        probs = np.array([[0.25, 0.75], [0.9, 0.1]], dtype=np.float32)
+        write_predictions_csv(tmp / "p.csv", np.array([1, 0]), np.array([1, 0]), keys, meta, probs)
+        rows = list(csv.DictReader((tmp / "p.csv").open()))
+        self.assertEqual(list(rows[0]), ["true_label", "pred_label", "capture", "photo", "folder_id",
+                                         "p_Ethiopia", "p_Brazil"])
+        self.assertEqual((rows[0]["true_label"], rows[0]["folder_id"], rows[0]["p_Brazil"]), ("Brazil", "013", "0.75"))
+        write_predictions_csv(tmp / "q.csv", np.array([1]), np.array([0]), keys)
+        self.assertEqual((tmp / "q.csv").read_text().splitlines(), ["true_label,pred_label", "Brazil,Ethiopia"])
 
 
 class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
@@ -144,7 +211,7 @@ class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
         with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
             load_model(DEPLOYED, "resnet18", 10, 0.2)
 
-    @unittest.skipUnless(have_reference_data(), "real crops (data/cropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_logits_bit_identical_to_imagenet_init(self):
         x, _, _, _ = reference_patches(per_class=2)
         new, _ = load_model(DEPLOYED, "resnet18", 10, 0.2)

@@ -1,5 +1,8 @@
 """Frozen-backbone leave-one-rig-out probe.
 
+Reads the tray heuristic's data/cropped pools, retired in ticket ML-3 P2b: a record of a finished experiment,
+run at its own commit (or after `git checkout dbb4e62 && dvc checkout`).
+
 Question: do features from a different backbone family transfer across CAMERAS
 better than the ImageNet ResNet18 this project fine-tunes today?
 

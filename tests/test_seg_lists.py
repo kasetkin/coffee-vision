@@ -5,7 +5,7 @@ checked out -- covering exactly today's pools. Plain unittest.
     python -m unittest discover -s tests -p 'test_seg_lists.py'
 
 The grouping, allocation and append-only rules run on synthetic rows. The committed-file checks need only
-git-tracked files; the coverage check skips without data/cropped.
+git-tracked files; the coverage check skips without ML-2's sessions' segmenter crops (data/segcropped).
 """
 from __future__ import annotations
 
@@ -165,6 +165,14 @@ class CommittedLists(unittest.TestCase):
         if shown.returncode != 0:
             self.skipTest("the lists are not committed yet")
         committed = yaml.safe_load(shown.stdout)["lists"]
+        # The one allowed content change: a photo's hash before -> after the ML-3 metadata strip (`seg_lists
+        # rekey`, from labels/ml3/strip_manifest.csv). Pixels are unchanged; any other hash change still fails.
+        from coffeecv.rekey_photos import MANIFEST, load_map
+        rekey, _ = load_map() if MANIFEST.exists() else ({}, set())
+        for entries in committed.values():
+            for e in entries:
+                if e.get("sha256") in rekey:
+                    e["sha256"] = rekey[e["sha256"]]
         seg_lists.merge_append_only(committed, self.lists)       # raises on a drop, move or content change
         for name, entries in committed.items():
             self.assertEqual(self.lists[name][:len(entries)], entries, f"{name}: committed entries rewritten")
@@ -175,7 +183,8 @@ class CommittedLists(unittest.TestCase):
         self.assertEqual(len(pos_bases), seg_lists.N_POS_BASE_CANDIDATES)
         self.assertTrue(all(e["path"] in pos_eval for e in pos_bases))
 
-    @unittest.skipUnless((seg_lists.CROPPED_ROOT / "cam_pixel").is_dir(), "needs the DVC-tracked pools")
+    @unittest.skipUnless(all((seg_lists.SEGCROPPED_ROOT / s).is_dir() for ss in seg_lists.ML2_SESSIONS.values()
+                             for s in ss), "needs ML-2's sessions' segmenter crops (DVC, from the VM)")
     def test_covers_exactly_todays_pools(self):
         fresh = seg_lists.build(RunConfig.from_params_yaml())
         for name in (*seg_lists.POSITIVE_LISTS, *seg_lists.NEGATIVE_LISTS, *seg_lists.OOD_POSITIVE_LISTS):

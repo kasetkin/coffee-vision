@@ -17,7 +17,8 @@ def plot_confusion_matrix(
     cm: list[list[int]], class_ids: list[str], class_labels: dict[str, str], out_path: Path, title: str
 ) -> None:
     cm = np.array(cm)
-    tick_labels = [f"{cid}\n{class_labels.get(cid, cid)}" for cid in class_ids]
+    # A country class's key is its label (ticket ML-3): print it once, not "Brazil\nBrazil".
+    tick_labels = [cid if class_labels.get(cid, cid) == cid else f"{cid}\n{class_labels[cid]}" for cid in class_ids]
 
     fig, ax = plt.subplots(figsize=(9, 8))
     im = ax.imshow(cm, cmap="Blues")

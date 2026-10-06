@@ -41,9 +41,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
-from coffeecv.dataset import (load_class_labels, pooled_class_photos, resolve_captures,
-                              split_photos_by_class)
+from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
 from coffeecv.infer import (OOD_THRESHOLD, _sha, config_for_checkpoint, energy_score,
                             forward_with_embeddings, inference_tta_for, knn_score, load_model, load_ood_reference, mahalanobis_scores,
                             ood_scores, patches_for_photo, reference_path_for, shared_precision)
@@ -193,8 +193,8 @@ def raw_photo_index() -> dict[str, Path]:
     """Filename stem -> raw photo, across every session in `dataset/`.
 
     An index rather than a path transform because the rigs a checkpoint trains on
-    are *merged* ones (`data/cropped/cam_pixel` is three sessions stitched together
-    by the merge_cam_* stages), so a cropped photo's directory no longer names the
+    are *merged* ones (`data/segcropped/cam_pixel` is three sessions stitched together
+    by the merge_segcam_* stages), so a cropped photo's directory no longer names the
     session its raw original lives in. The stems survive both the crop and the
     merge unchanged and are unique across the whole tree, which makes them the one
     thing that still joins the two sides.
@@ -214,7 +214,7 @@ def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
     return index[stem]
 
 
-def id_photos(cfg, class_ids: list[str], split: str) -> list[Path]:
+def id_photos(cfg, classes: ClassList, split: str) -> list[Path]:
     """The checkpoint's own `split` photos (val or test), as *raw* paths.
 
     Reuses the training pipeline's own pooled split (`pooled_class_photos` +
@@ -231,6 +231,10 @@ def id_photos(cfg, class_ids: list[str], split: str) -> list[Path]:
 
     There used to be a second list here, every photo of the checkpoint's held-out
     camera; with no camera held out since ML-1 there is none.
+
+    Each class pools its folders at its own class index, as MultiPhotoPatchDataset does. A class with
+    no photos in any pool raises (ticket ML-3): skipping it would drop that class from the probe's
+    positives without a word.
     """
     train_dirs, _ = cfg.resolve_paths()
     frac = {"train": cfg.train_photo_frac, "val": cfg.val_photo_frac, "test": cfg.test_photo_frac}
@@ -238,10 +242,11 @@ def id_photos(cfg, class_ids: list[str], split: str) -> list[Path]:
     captures = resolve_captures(train_dirs)
 
     train_photos: list[Path] = []
-    for class_idx, cid in enumerate(class_ids):
-        pool, _absent = pooled_class_photos(captures, cid)  # a dir need not carry every class
+    for class_idx, key in enumerate(classes.keys):
+        pool, _absent = pooled_class_photos(captures, classes.folders[key])  # a dir need not carry every class
         if not pool:
-            continue
+            raise ValueError(f"class {key} (folders {', '.join(classes.folders[key])}) has no photos in "
+                             f"{[c.name for c in captures]}")
         chosen = split_photos_by_class(pool, cfg.seed, class_idx, frac)[split]
         train_photos.extend(raw_photo_for(p.path, index) for p in chosen)
 
@@ -279,7 +284,8 @@ def negatives_from(batch_dirs: list[Path], split: str) -> list[dict]:
             # `batch` column (dataset/ood_positives since 2026-09-30); otherwise the
             # directory is the batch.
             rows.append({"path": path, "scenario_tag": row["scenario_tag"],
-                          "batch": row.get("batch") or batch.name, "notes": row.get("notes", "")})
+                          "batch": row.get("batch") or batch.name, "notes": row.get("notes", ""),
+                          "date": row.get("date", "")})
     return rows
 
 
@@ -503,9 +509,9 @@ def main() -> None:
     cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
-    class_ids = sorted(load_class_labels(classes_file))
+    classes = load_classes(classes_file)
 
-    model, head = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
     ref_path = reference_path_for(checkpoint)
     # The same checked loader infer.py and the webapp use: centroids only mean something in the
     # embedding space of the weights they were built from, and an eval that silently measures
@@ -518,7 +524,7 @@ def main() -> None:
     tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
     scorer = Scorer(ref, ref_path, methods, args.knn_k)
 
-    train_ids = id_photos(cfg, class_ids, args.id_split)
+    train_ids = id_photos(cfg, classes, args.id_split)
     if args.limit_id:
         train_ids = train_ids[:args.limit_id]
     negatives = negatives_from([Path(d) for d in args.negatives], args.split)

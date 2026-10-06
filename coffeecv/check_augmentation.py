@@ -30,6 +30,7 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 
 from coffeecv import transforms as new
+from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import (
     SPLIT_SEED_COMPONENT,
@@ -116,9 +117,10 @@ def check_rotation_jitter() -> None:
     cfg = RunConfig.from_params_yaml()
     capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs[:1])  # one capture dir is enough to test the sampler
+    # One class folder, as its own class (class_list.folder_classes): the box check below keys on its index 0.
+    classes = folder_classes(classes_file).select(discover_classes_multi(captures[0].cropped_dir)[:1])
     kwargs = dict(
-        captures=captures, classes_file=classes_file, split="train",
-        class_ids=discover_classes_multi(captures[0].cropped_dir)[:1], seed=42, crop_size=CROP_SIZE,
+        captures=captures, classes=classes, split="train", seed=42, crop_size=CROP_SIZE,
         resize=224, safety_margin=cfg.safety_margin,
         patches_per_class={"train": 14, "val": 4, "test": 4},
         photo_frac={"train": 0.70, "val": 0.15, "test": 0.15},  # -> 14/3/3 for a 20-photo class
@@ -138,7 +140,7 @@ def check_rotation_jitter() -> None:
     # RNG stream untouched, so enabling the knob is the only thing that moves a box.
     expected = []
     for photo_idx, meta in enumerate(ds_off._meta):
-        photo = find_class_dir(captures[0].cropped_dir, meta.class_id) / meta.photo_name
+        photo = find_class_dir(captures[0].cropped_dir, meta.folder_id) / meta.photo_name
         h, w = load_rgb_image(photo).shape[:2]
         photo_region = compute_valid_region_rect(h, w, cfg.safety_margin)
         rng = np.random.default_rng([42, 0, 0, photo_idx, SPLIT_SEED_COMPONENT["train"]])

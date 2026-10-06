@@ -1,0 +1,177 @@
+ML-3 D10 printout: country model exp261-263 (seeds 42, 123, 7) on dataset/classes.txt (D15)
+written by analysis/ml3/printout.py from the archived predictions
+
+1. HEADLINE: 8 old countries, old photos only (sessions before ML-3)
+   macro-F1 with a 95% CI (bootstrap over photos, 1000 draws, seed 20261006). 'as scored' takes the argmax over
+   all 10 countries, so a Peru/Rwanda prediction is an error; 'restricted' takes it over the 8 old ones.
+   Photo level pools each photo's eval patches by mean probability (pooled over the split's patches,
+   not serving's 40). The four columns of a row share one set of resamples.
+
+   seed split photos patches           patch, as scored          patch, restricted           photo, as scored          photo, restricted
+     42   val    143    1194    0.9700 [0.9457, 0.9863]    0.9700 [0.9457, 0.9863]    0.9930 [0.9766, 1.0000]    0.9930 [0.9766, 1.0000]
+     42  test    143    1189    0.9693 [0.9515, 0.9823]    0.9693 [0.9515, 0.9823]    1.0000 [1.0000, 1.0000]    1.0000 [1.0000, 1.0000]
+    123   val    143    1192    0.9789 [0.9602, 0.9907]    0.9789 [0.9602, 0.9907]    0.9840 [0.9564, 1.0000]    0.9840 [0.9564, 1.0000]
+    123  test    143    1188    0.9664 [0.9420, 0.9818]    0.9664 [0.9420, 0.9818]    1.0000 [1.0000, 1.0000]    1.0000 [1.0000, 1.0000]
+      7   val    142    1228    0.9727 [0.9560, 0.9873]    0.9727 [0.9560, 0.9873]    1.0000 [1.0000, 1.0000]    1.0000 [1.0000, 1.0000]
+      7  test    142    1146    0.9811 [0.9646, 0.9938]    0.9811 [0.9646, 0.9938]    1.0000 [1.0000, 1.0000]    1.0000 [1.0000, 1.0000]
+
+   Old patches predicted Peru or Rwanda: s42 val 0, s42 test 0, s123 val 0, s123 test 0, s7 val 0, s7 test 0. Where that is 0, 'restricted' equals 'as scored'.
+
+2. THE COUNTRY MODEL: patch macro-F1, all photos (old and new)
+                     s42     s123       s7     mean           range
+    val 10 countries  0.9731   0.9790   0.9700   0.9740  0.9700-0.9790
+    val 8 old         0.9685   0.9752   0.9692   0.9710  0.9685-0.9752
+   test 10 countries  0.9668   0.9683   0.9808   0.9719  0.9668-0.9808
+   test 8 old         0.9650   0.9634   0.9770   0.9685  0.9634-0.9770
+   (patches/photos: val s42 1440/183, val s123 1440/183, val s7 1480/183, test s42 1440/183, test s123 1440/183, test s7 1400/183)
+
+   per-country F1
+                 val s42   val s123     val s7   test s42  test s123    test s7
+   Ethiopia       0.9202     0.9461     0.9755     0.9385     0.9748     0.9721
+   Kenya          0.9664     0.9682     0.9600     0.9500     0.9381     0.9712
+   Colombia       0.9620     0.9448     0.9226     0.9467     0.9390     0.9720
+   CostaRica      1.0000     1.0000     0.9938     0.9938     0.9667     0.9938
+   Guatemala      0.9085     0.9460     0.9226     0.9235     0.9250     0.9310
+   Brazil         0.9907     0.9969     0.9875     0.9714     0.9753     0.9842
+   Vietnam        1.0000     1.0000     1.0000     1.0000     0.9969     1.0000
+   Indonesia      1.0000     1.0000     0.9917     0.9959     0.9917     0.9917
+   Peru           0.9877     0.9877     0.9672     0.9562     0.9917     0.9959
+   Rwanda         0.9959     1.0000     0.9793     0.9916     0.9833     0.9958
+
+   Note: Peru and Rwanda are one coffee each, and each camera's block of them was shot on one day:
+     Peru    2026-09-11__oneplus   20 frames in    4 min (file-name times)
+     Peru    2026-09-11__pixel     20 frames in    5 min (file-name times)
+     Peru    2026-09-11__sony      20 frames in    5 min (file-name times)
+     Peru    2026-09-24__oneplus   29 frames in   15 min (file-name times)
+     Peru    2026-09-24__pixel     29 frames in   15 min (file-name times)
+     Peru    2026-09-24__sony      30 frames in   18 min (file-name times)
+     Rwanda  2026-09-24__oneplus   34 frames in   25 min (file-name times)
+     Rwanda  2026-09-24__pixel     36 frames in  122 min (file-name times)
+     Rwanda  2026-09-24__sony      38 frames in   35 min (file-name times)
+   and the split spreads each block across train, val and test, so near-duplicate frames sit on both
+   sides of it. Their F1 is near 1.0 by construction;
+   it lifts the 10-country macro-F1 and is not evidence of generalization.
+
+3. REFERENCE (D10 b): the live model's runs exp258-260, remapped to countries
+   Each archived patch's true and predicted folder id mapped to its country by dataset/classes.txt,
+   macro-F1 recomputed over the 8 countries.
+
+   seed split patches folder F1 country F1  ticket errors in-country
+     42   val    1400    0.9597     0.9796  0.9796     59       49%
+     42  test    1480    0.9720     0.9785  0.9785     42       29%
+    123   val    1480    0.9706     0.9826  0.9826     46       46%
+    123  test    1440    0.9651     0.9759  0.9759     55       40%
+      7   val    1480    0.9736     0.9815  0.9815     42       40%
+      7  test    1440    0.9771     0.9835  0.9835     33       39%
+
+   D10's caveat: this reference is NOT PAIRED. It is on the old split's val/test photos, which differ from
+   the new split (D7) and hold no new photos; it covers 8 classes, not 10; it maps the top-1 class only,
+   since that archive keeps no probabilities. Both numbers are in-distribution near ceiling: a gap of
+   about 0.01 says little. It also favours the old model: it had no Peru or Rwanda to confuse with;
+   Indonesia, the one roasted class, now has two roasted neighbours (random_date_raccoon); Ethiopia and
+   Brazil had two coffees' val/test support and training budget (exp258 test: 280 and 320 patches,
+   against at most 160 per country now); and the new 8-country sets include the roasted
+   random_date_raccoon photos. 'in-country' is the share of the old errors that were confusions inside
+   one country, which the remap no longer counts.
+
+4. PER COFFEE (Q6 a): its val/test patches, the share predicted as its own country, top wrong countries
+   'not in this split': D7 split by country, and this coffee drew no photo in it.
+
+   seed 42 (exp261)
+     001 Ethiopia,Sidamo                          val:  82 patches/10 photos, 91.5% own (Kenya 4, Guatemala 2)    |  test:  96 patches/13 photos, 89.6% own (Colombia 5, Peru 3)
+     002 Kenya,Nyeri;AA                           val: 160 patches/14 photos, 98.8% own (Colombia 2)              |  test: 120 patches/14 photos, 95.0% own (Guatemala 3, Colombia 1)
+     003 Colombia,Huila;PinkBourbon               val: 154 patches/13 photos, 97.4% own (Guatemala 2, Kenya 2)    |  test: 152 patches/14 photos, 98.7% own (Kenya 1, Guatemala 1)
+     004 CostaRica,Tarrazu;LaPastora              val: 120 patches/14 photos, 100.0% own                          |  test: 160 patches/14 photos, 99.4% own (Guatemala 1)
+     005 Guatemala,Acatenango;TataNahual          val: 160 patches/14 photos, 86.9% own (Ethiopia 16, Brazil 2)   |  test: 160 patches/14 photos, 94.4% own (Kenya 3, Ethiopia 3)
+     006 Brazil,Cerrado                           val:  65 patches/12 photos, 100.0% own                          |  test:  79 patches/16 photos, 100.0% own
+     007 Brazil,Cerrado;MonteCristo               val:  95 patches/17 photos, 98.9% own (Kenya 1)                 |  test:  81 patches/13 photos, 91.4% own (Guatemala 5, CostaRica 1)
+     008 Ethiopia,Yirgacheffe,Kochere             val:  78 patches/16 photos, 96.2% own (Guatemala 3)             |  test:  64 patches/13 photos, 92.2% own (Guatemala 5)
+     009 Vietnam,DakLak;Robusta                   val: 160 patches/14 photos, 100.0% own                          |  test: 160 patches/14 photos, 100.0% own
+     010 Indonesia,Java                           val: 120 patches/19 photos, 100.0% own                          |  test: 120 patches/19 photos, 100.0% own
+     011 Peru,Junin,Satipo;Minca                  val: 120 patches/22 photos, 100.0% own                          |  test: 120 patches/22 photos, 100.0% own
+     012 Rwanda,Western,Rusizi;Gisuma             val: 120 patches/16 photos, 100.0% own                          |  test: 120 patches/16 photos, 98.3% own (Indonesia 1, Peru 1)
+     013 Brazil,SulDeMinas                        val: not in this split                                          |  test: not in this split
+     014 Colombia,Antioquia;Excelso               val:   6 patches/ 2 photos, 33.3% own (Peru 3, Rwanda 1)        |  test:   8 patches/ 1 photos, 12.5% own (Peru 7)
+
+   seed 123 (exp262)
+     001 Ethiopia,Sidamo                          val:  67 patches/13 photos, 95.5% own (Kenya 1, Guatemala 1)    |  test: 104 patches/15 photos, 99.0% own (Kenya 1)
+     002 Kenya,Nyeri;AA                           val: 160 patches/14 photos, 95.0% own (Colombia 4, Guatemala 3)  |  test: 160 patches/14 photos, 90.0% own (Colombia 9, Guatemala 5)
+     003 Colombia,Huila;PinkBourbon               val: 152 patches/13 photos, 100.0% own                          |  test: 148 patches/13 photos, 99.3% own (Guatemala 1)
+     004 CostaRica,Tarrazu;LaPastora              val: 160 patches/14 photos, 100.0% own                          |  test: 120 patches/14 photos, 96.7% own (Brazil 2, Colombia 1)
+     005 Guatemala,Acatenango;TataNahual          val: 160 patches/14 photos, 93.1% own (Colombia 7, Ethiopia 3)  |  test: 160 patches/14 photos, 92.5% own (Colombia 4, Ethiopia 3)
+     006 Brazil,Cerrado                           val:  84 patches/15 photos, 100.0% own                          |  test:  92 patches/17 photos, 100.0% own
+     007 Brazil,Cerrado;MonteCristo               val:  76 patches/14 photos, 100.0% own                          |  test:  68 patches/12 photos, 97.1% own (CostaRica 1, Guatemala 1)
+     008 Ethiopia,Yirgacheffe,Kochere             val:  53 patches/13 photos, 94.3% own (Guatemala 2, Brazil 1)   |  test:  56 patches/11 photos, 92.9% own (Guatemala 4)
+     009 Vietnam,DakLak;Robusta                   val: 160 patches/14 photos, 100.0% own                          |  test: 160 patches/14 photos, 99.4% own (CostaRica 1)
+     010 Indonesia,Java                           val: 120 patches/19 photos, 100.0% own                          |  test: 120 patches/19 photos, 100.0% own
+     011 Peru,Junin,Satipo;Minca                  val: 120 patches/22 photos, 100.0% own                          |  test: 120 patches/22 photos, 100.0% own
+     012 Rwanda,Western,Rusizi;Gisuma             val: 120 patches/16 photos, 100.0% own                          |  test: 120 patches/16 photos, 98.3% own (Brazil 1, Indonesia 1)
+     013 Brazil,SulDeMinas                        val: not in this split                                          |  test: not in this split
+     014 Colombia,Antioquia;Excelso               val:   8 patches/ 2 photos, 25.0% own (Peru 3, Ethiopia 3)      |  test:  12 patches/ 2 photos, 58.3% own (Peru 2, Rwanda 2)
+
+   seed 7 (exp263)
+     001 Ethiopia,Sidamo                          val: 118 patches/17 photos, 100.0% own                          |  test:  80 patches/ 9 photos, 100.0% own
+     002 Kenya,Nyeri;AA                           val: 160 patches/14 photos, 97.5% own (Colombia 2, Brazil 1)    |  test: 120 patches/14 photos, 98.3% own (Guatemala 1, Ethiopia 1)
+     003 Colombia,Huila;PinkBourbon               val: 150 patches/13 photos, 92.7% own (Kenya 5, Guatemala 5)    |  test: 148 patches/13 photos, 99.3% own (Ethiopia 1)
+     004 CostaRica,Tarrazu;LaPastora              val: 160 patches/14 photos, 100.0% own                          |  test: 160 patches/14 photos, 100.0% own
+     005 Guatemala,Acatenango;TataNahual          val: 160 patches/14 photos, 89.4% own (Ethiopia 6, Colombia 5)  |  test: 120 patches/14 photos, 90.0% own (Kenya 4, Ethiopia 3)
+     006 Brazil,Cerrado                           val:  73 patches/11 photos, 98.6% own (Kenya 1)                 |  test:  92 patches/16 photos, 100.0% own
+     007 Brazil,Cerrado;MonteCristo               val:  85 patches/17 photos, 100.0% own                          |  test:  66 patches/12 photos, 97.0% own (Guatemala 2)
+     008 Ethiopia,Yirgacheffe,Kochere             val:  42 patches/ 9 photos, 97.6% own (Guatemala 1)             |  test:  80 patches/17 photos, 96.2% own (Colombia 2, Guatemala 1)
+     009 Vietnam,DakLak;Robusta                   val: 160 patches/14 photos, 100.0% own                          |  test: 160 patches/14 photos, 100.0% own
+     010 Indonesia,Java                           val: 120 patches/19 photos, 100.0% own                          |  test: 120 patches/19 photos, 100.0% own
+     011 Peru,Junin,Satipo;Minca                  val: 120 patches/22 photos, 98.3% own (Rwanda 2)                |  test: 120 patches/22 photos, 100.0% own
+     012 Rwanda,Western,Rusizi;Gisuma             val: 120 patches/16 photos, 98.3% own (Indonesia 2)             |  test: 120 patches/16 photos, 99.2% own (Brazil 1)
+     013 Brazil,SulDeMinas                        val:   2 patches/ 1 photos, 50.0% own (Rwanda 1)                |  test:   2 patches/ 1 photos,  0.0% own (Indonesia 2)
+     014 Colombia,Antioquia;Excelso               val:  10 patches/ 2 photos, 40.0% own (Peru 6)                  |  test:  12 patches/ 2 photos, 75.0% own (Kenya 1, Ethiopia 1)
+
+5. THE ML-2 SEGMENTER-UNSEEN SUBSET (Q6 b, ML-2 D21)
+   Each seed's val/test photos in neither seg_train nor seg_val; every new photo is unseen. Patch
+   macro-F1 over the countries present, old and new photos apart.
+
+   The new photos' countries are mostly Peru and Rwanda plus a few patches of three new coffees of old
+   countries (random_date_raccoon: Sidamo, SulDeMinas, Excelso), so their macro-F1 swings on a handful of
+   patches; accuracy is beside it, and section 4 has the coffees.
+
+   seed split  subset     photos patches classes macro-F1 accuracy
+     42   val  full          183    1440      10   0.9731   0.9708
+     42   val  old unseen     42     356       8   0.9374   0.9382
+     42   val  new            40     246       3   0.8278   0.9837
+     42  test  full          183    1440      10   0.9668   0.9660
+     42  test  old unseen     48     380       8   0.9428   0.9605
+     42  test  new            40     251       4   0.5425   0.9522
+    123   val  full          183    1440      10   0.9790   0.9785
+    123   val  old unseen     38     320       8   0.9814   0.9719
+    123   val  new            40     248       3   0.7959   0.9758
+    123  test  full          183    1440      10   0.9683   0.9667
+    123  test  old unseen     44     314       8   0.9818   0.9841
+    123  test  new            40     252       3   0.9040   0.9722
+      7   val  full          183    1480      10   0.9700   0.9696
+      7   val  old unseen     41     326       8   0.9557   0.9540
+      7   val  new            41     252       4   0.7961   0.9563
+      7  test  full          183    1400      10   0.9808   0.9814
+      7  test  old unseen     36     324       8   0.9960   0.9969
+      7  test  new            41     254       4   0.7122   0.9764
+
+6. THE OWNER'S MASK ACCEPT RATE ON THE NEW PHOTOS (D8)
+   253 of 264 masks accepted (95.8%); 288 photos, all judged. The 24 photos
+   the segmenter found no mask for (D18 fallback) were judged apart. By the owner's decision (P5) the
+   pools leave out 19 photos: 11 mask declined, 8 D18 fallback with background; the other 16 fallbacks
+   fill the frame with beans and train whole.
+   D8: this is the owner's rate, not comparable with ML-2's 97.9% Opus pass rate (Opus was the
+   stricter judge: the two agreed on 337 of 343 masks).
+
+7. THE SEED RULE
+   Pick on val patch macro-F1 (10 countries, as the run scores it), as ML-1 and ML-2 did (exp260 was
+   val's best), and report test. Each seed draws its own split (dataset.py:381), so comparing seeds
+   partly compares val/test sets, and the picked seed's test number carries a selection bias: the card
+   carries the mean and range over all three (P8).
+
+   s42   exp261  val 0.9731  test 0.9668
+   s123  exp262  val 0.9790  test 0.9683  <-- the rule's pick
+   s7    exp263  val 0.9700  test 0.9808
+
+   The OOD probe is refitted on the shipped head in P8 and checked on the spent holdout as a regression
+   check only (D11): the guard is not freshly validated.
+
+   STOP: the owner picks the seed.

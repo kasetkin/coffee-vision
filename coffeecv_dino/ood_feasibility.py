@@ -52,7 +52,7 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, build_env_block  # noqa: E402
-from coffeecv.dataset import load_class_labels  # noqa: E402
+from coffeecv.class_list import ClassList, load_classes  # noqa: E402
 from coffeecv.infer import _sha, config_for_checkpoint, forward_with_embeddings, load_model, patches_for_photo  # noqa: E402
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, auroc, detection_at_fpr, id_photos,  # noqa: E402
                                linear_probe_scores, negatives_from)
@@ -79,9 +79,9 @@ def log(msg: str) -> None:
     print(f"[ood-feasibility {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def photo_rows(cfg, class_ids: list[str]) -> list[dict]:
+def photo_rows(cfg, classes: ClassList) -> list[dict]:
     """Every photo the comparison scores, with the fields ood_eval.main gives it."""
-    train_ids = id_photos(cfg, class_ids, "test")
+    train_ids = id_photos(cfg, classes, "test")
     rows = [{"condition": "id_split[test]", "path": p, "scenario_tag": "-", "batch": "id_split",
              "probe_label": 0.0} for p in train_ids]
     for r in negatives_from([REPO_ROOT / d for d in NEGATIVES], SPLIT):
@@ -191,13 +191,13 @@ def main() -> int:
     checkpoint = Path(args.checkpoint)
     cfg, cfg_source = config_for_checkpoint(checkpoint, None)
     _, classes_file = cfg.resolve_paths()
-    class_ids = sorted(load_class_labels(classes_file))
-    r18 = load_model(checkpoint, cfg.model_name, len(class_ids), cfg.dropout)
+    classes = load_classes(classes_file)
+    r18 = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
     dino = build_backbone(args.backbone).eval()
     assert_input_size(dino, cfg.patch_resize)
     if args.readout not in dino.readouts:
         raise SystemExit(f"{args.backbone} has readouts {dino.readouts}, not {args.readout!r}")
-    rows = photo_rows(cfg, class_ids)
+    rows = photo_rows(cfg, classes)
     if args.smoke:
         seen: dict[str, int] = {}
         rows = [r for r in rows if (seen := {**seen, r["batch"]: seen.get(r["batch"], 0) + 1})[r["batch"]] <= 6]
