@@ -10,7 +10,7 @@ Used for evaluating guard metrics (`coffeecv/ood_eval.py`). Since 2026-09-30 (ti
 
 ## Batches
 
-57 photos, one flat directory since 2026-09-30, all in the manifest. The
+58 photos, one flat directory since 2026-09-30, all in the manifest. The
 manifest's `batch` column records which
 collection each photo arrived in, because the conditions measured on them were defined per batch:
 
@@ -20,6 +20,7 @@ collection each photo arrived in, because the conditions measured on them were d
 | `ood_positives_2026-09-11` | 30 | same-rig positives shot on 2026-09-11 with the Sony, Pixel and OnePlus rigs, the positive side of the `2026-09-11__user_samerig` negatives; was its own directory (`dataset/ood_positives_2026-09-11/`, files under `user_beans_independent/`) until the merge |
 | `ood_positives_2026-09-30` | 10 | Pixel photos shot 2026-09-11..21, added at the merge |
 | `ood_positives_2026-10-05` | 3 | Pixel photos shot 2026-10-05, all holdout (below) |
+| `ood_positives_2026-10-06` | 1 | Pixel photo shot 2026-10-06, holdout (below) |
 
 ## Provenance and checks (2026-09-10)
 
@@ -35,7 +36,7 @@ collection each photo arrived in, because the conditions measured on them were d
 
 ## The two tags are not interchangeable
 
-- **`user_beans_independent`** (7 photos in the original set, 47 in all) — shot on days with no
+- **`user_beans_independent`** (7 photos in the original set, 51 in all) — shot on days with no
   training session at all (2026-08-23, -24, -29, -31, 2026-09-03; the later batches on
   2026-09-11..21). These are the trustworthy ones.
 - **`user_beans_same_day`** (7 photos) — six shot on 2026-08-09 *35–55 minutes before* the
@@ -84,6 +85,19 @@ with nothing load-bearing in it.
 - **Metadata** (ticket ML-3, D13): every photo here went through `coffeecv.strip_metadata`; the three new
   ones lost GPS, C2PA, the HDR+ maker note and the EXIF thumbnail, the 54 others were already clean. Rows in
   `labels/ml3/strip_manifest.csv`.
+
+## 2026-10-06: one new photo
+
+- **New photo** (`ood_positives_2026-10-06`): `PXL_20261006_053625750.jpg`, roasted beans in a grinder
+  hopper, top-down (the setting of the 2026-10-05 pair). Pixel 9 Pro, shot 2026-10-06 10:36 local. Four
+  training photos (`random_date_raccoon/class_005__Guatemala`) were shot about an hour later the same
+  morning, so the rule above would make it `user_beans_same_day`; it is **`user_beans_independent`** by
+  the owner's call (2026-10-06). **Holdout** (owner). Checked by SHA-256 and capture-timestamp stem against
+  all 1,583 other photos under `dataset/` and `dataset_new_ignored/` (zero matches) and by eye.
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS, C2PA, the HDR+ maker note,
+  the EXIF thumbnail); row in `labels/ml3/strip_manifest.csv`.
+- The `user_beans_independent` count above read 47 after the 2026-10-05 batch; the manifest had 50. It now
+  reads 51.
 
 ## Sibling batch
 
