@@ -5,7 +5,7 @@
   "method": "linear_probe",
   "score_is": "P(not beans), mean over patches; refuse when score > threshold",
   "embedding_dim": 1536,
-  "threshold": 0.5956985756057321,
+  "threshold": 0.5,
   "alpha": 0.034482758620689655,
   "alpha_floor": 0.034482758620689655,
   "thresholds_by_alpha": {
@@ -4796,5 +4796,13 @@
     0.038979059563656965,
     0.05255555682141924,
     -0.14396997811746742
-  ]
+  ],
+  "threshold_calibrated": 0.5956985756057321,
+  "threshold_override": {
+    "set": "2026-10-06 by the owner (ticket ML-3 P8)",
+    "value": 0.5,
+    "why": "The same policy as the live allrigs_dino3b16_s123 and allrigs_dino3b16_seg_s7 probes: serve at the probe's own decision boundary, P(not beans) > P(beans). Here the calibrated threshold (0.5957) is above 0.5, so the override is the stricter choice: it refuses more genuine photos, and the certified alpha <= 3.4% no longer bounds false refusals at 0.5.",
+    "evidence_at_0.5": "dev: 2/40 genuine refused, 84/84 negatives caught (all caught at 0.5957 already); holdout (read once in ML-3 P8 on this probe): 2/29 genuine refused, 56/56 negatives caught. At 0.5957 the holdout refused 1/29.",
+    "caveat": "The holdout was read at both thresholds before this choice, and before this ticket in ML-1 and ML-2, so it is not an unbiased estimate at 0.5 (ticket ML-3 D11: a regression check only)."
+  }
 }
