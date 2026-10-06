@@ -1,0 +1,74 @@
+=== launch Tue Oct  6 07:17:39 UTC 2026 ===
+[fit_frozen_head 07:17:42] shipped exp262__allrigs_dino3b16_frozen_clsmean_segcrop_country_s123 -> models/allrigs_dino3b16_seg_country_s123.pt (+ .json card, .classes.txt). Next: build_ood_reference and fit_ood_probe on it (plan §9.3), then fill in the card's why_this_one.
+config: models/allrigs_dino3b16_seg_country_s123.json (training_config)
+capture dirs: ['cam_pixel', 'cam_sony', 'cam_oneplus', 'cam_iphone']
+  WARNING: cam_iphone has no class Indonesia -- it contributes nothing to that class (train split)
+  WARNING: cam_iphone has no class Peru -- it contributes nothing to that class (train split)
+  WARNING: cam_iphone has no class Rwanda -- it contributes nothing to that class (train split)
+train patches: 5550
+  embedded 256/5550
+  embedded 512/5550
+  embedded 768/5550
+  embedded 1024/5550
+  embedded 1280/5550
+  embedded 1536/5550
+  embedded 1792/5550
+  embedded 2048/5550
+  embedded 2304/5550
+  embedded 2560/5550
+  embedded 2816/5550
+  embedded 3072/5550
+  embedded 3328/5550
+  embedded 3584/5550
+  embedded 3840/5550
+  embedded 4096/5550
+  embedded 4352/5550
+  embedded 4608/5550
+  embedded 4864/5550
+  embedded 5120/5550
+  embedded 5376/5550
+  embedded 5550/5550
+  Ethiopia Ethiopia                   n=600   spread=7.351
+  Kenya Kenya                      n=600   spread=6.793
+  Colombia Colombia                   n=600   spread=6.534
+  CostaRica CostaRica                  n=600   spread=7.125
+  Guatemala Guatemala                  n=600   spread=7.305
+  Brazil Brazil                     n=600   spread=7.155
+  Vietnam Vietnam                    n=600   spread=6.642
+  Indonesia Indonesia                  n=450   spread=6.330
+  Peru Peru                       n=450   spread=5.937
+  Rwanda Rwanda                     n=450   spread=6.263
+Wrote models/allrigs_dino3b16_seg_country_s123.ood_embeddings.npz  (5550 embeddings, 31.7 MB)
+per-patch  self-scores: mean 0.98  p95 1.32  max 2.35
+per-photo  self-scores: median 0.96  p95 1.27  max 1.99   (841 photos)
+Wrote models/allrigs_dino3b16_seg_country_s123.ood_reference.json
+config: models/allrigs_dino3b16_seg_country_s123.json (training_config)
+fitting on 183 bean photos (test split) + 84 clean dev negatives (2 dropped: ambiguous patch labels)
+  10680 patches (7320 bean / 3360 not-bean), 0 photos declined as unmeasurable
+calibrating on 28 unseen genuine photos (user_independent), 0 declined
+  scores: min 0.0000  median 0.0000  max 0.5957
+  alpha   20% -> threshold 0.1441
+  alpha   15% -> threshold 0.2068
+  alpha   10% -> threshold 0.2747
+  alpha    5% -> threshold 0.5957
+  alpha    2% -> not certifiable with n=28
+  alpha    1% -> not certifiable with n=28
+SHIPPING threshold 0.5957 at certified alpha 3.4%
+  beside it, the 9 user_independent dev positives shot off the training days (2026-09-11) alone would certify alpha 10.0% at threshold 0.0000 (reporting only)
+  dev negatives caught at that threshold: 84/84 (100%)
+Wrote models/allrigs_dino3b16_seg_country_s123.ood_probe.json  (122 KB)
+=== HOLDOUT (spent once; do not tune against this) ===
+positives n=29 (declined 0)  median 0.0251  max 0.6766
+negatives n=56 (declined 0)  median 1.0000  min 1.0000
+AUROC 1.0000
+at shipped threshold 0.5957: refused 1/29 genuine (3%, certified <= 3%), caught 56/56 negatives (100%)
+at the decision boundary 0.5 (the live override): refused 2/29 genuine, caught 56/56 negatives
+  user_independent genuine on a training day (2026-09-11): refused 0/12 at 0.5957, 1/12 at 0.5
+  user_independent genuine on other days (2026-09-11): refused 0/10 at 0.5957, 0/10 at 0.5
+  highest genuine: 0.6766  dataset/ood_positives_internet/internet_beans/internet_beans_017.jpg
+  highest genuine: 0.5897  dataset/ood_positives/PXL_20260911_111643055.jpg
+  highest genuine: 0.3893  dataset/ood_positives/PXL_20260911_061016718.jpg
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_029.jpg  [confusable_grain]
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_017.jpg  [confusable_grain]
+  lowest negative: 1.0000  dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_021.jpg  [other_nuts_seeds]
+=== exit=0 Tue Oct  6 08:25:00 UTC 2026 ===

@@ -23,7 +23,7 @@ sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import SEG_LIBRARY, SEG_VENDORED, all_files, manifest  # noqa: E402
 
 # allrigs_dino3b16_seg_s7: the ML-2 segmenter model (P6); skipped until it is shipped.
-MODELS = ("allrigs_dino3b16_s123", "allrigs_cam_s123", "allrigs_dino3b16_seg_s7")
+MODELS = ("allrigs_dino3b16_s123", "allrigs_cam_s123", "allrigs_dino3b16_seg_s7", "allrigs_dino3b16_seg_country_s123")
 # Shipped beside the code they describe, never opened by it.
 DOCS = {"third_party/efficientvit/LICENSE", "third_party/efficientvit/PATCHES.md"}
 # The deploy's smoke photo, from the same list the deploy uses.

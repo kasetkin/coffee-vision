@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P6 done; P7 printout written 2026-10-06, waiting for the owner's seed pick</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P7 done (owner picked seed 123); P8 shipped and probed 2026-10-06, waiting for the owner's threshold and why_this_one</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1108,6 +1108,29 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
         <li>The seed rule (val's best) points at s123, exp262 (val 0.9790, test 0.9683).</li>
       </ul>
       Stop: the owner picks the seed.</div>
+    <div><div class="when">2026-10-06</div>Owner picks seed 123 (exp262). P8 on the VM, after a code change
+      (6547ee3): <code>--ship</code> takes <code>--seed-exps</code>, and a country card carries every seed's
+      val/test macro-F1 with mean and range, a pointer to the printout, and an <code>ood_guard</code> line saying it is
+      not freshly validated. <code>fit_ood_probe --training-days</code> adds the per-day readouts. Run (log in
+      <code>analysis/ml3/ood_probe_country_s123.log</code>):
+      <ul>
+        <li><code>fit_frozen_head --ship 262 --name allrigs_dino3b16_seg_country_s123 --seed-exps 261 262 263</code>;
+          head <code>dvc add</code>ed (md5 2b611d5e&hellip;), copied here, the same file.</li>
+        <li><code>build_ood_reference --store-knn-embeddings</code>: 5,550 embeddings from 841 photos.</li>
+        <li><code>fit_ood_probe --training-days 2026-09-11 --verify</code>: fitted on 183 test-split photos and 84
+          clean dev negatives; calibrated on 28 <code>user_independent</code> dev positives: 0.5957 at &alpha; 3.4%
+          (live probe: 0.5982), dev negatives 84/84. The 9 dev positives from other days all score about 0
+          (&alpha; 10% at threshold 0.0000): the hardest positives are the 2026-09-11 ones, so same-day photos did
+          not flatter this probe. 2026-09-11 is the only training day among the <code>user_independent</code>
+          dates (08-09 and 08-30 are <code>same_day</code>-tagged).</li>
+        <li>Holdout, once: AUROC 1.0000; negatives 56/56; genuine refused 1/29 at 0.5957 and 2/29 at 0.5 (live:
+          56/56 and 2/26 at 0.5; the owner added three 2026-10-05 photos since). By day: 2026-09-11 0/12 and
+          1/12, other days 0/10 and 0/10. The highest genuine are the same two as in ML-2:
+          <code>internet_beans_017</code> (0.677) and <code>PXL_20260911_111643055</code> (0.590).</li>
+        <li><code>test_release_manifest</code> traces the new model clean; the shipped-lists test now expects
+          the D15 file for lists shipped since ML-3.</li>
+      </ul>
+      Stop: the owner sets the served threshold and writes <code>why_this_one</code>.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:

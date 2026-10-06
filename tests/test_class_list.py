@@ -100,8 +100,12 @@ class TestClassList(unittest.TestCase):
 
     def test_every_shipped_frozen_list_reads_as_before(self):
         frozen = sorted((REPO_ROOT / "models").glob("*.classes.txt"))
-        self.assertTrue(frozen)
-        for path in frozen:
+        old = [p for p in frozen if read_coffees(p)[0].country is None]
+        self.assertTrue(old)
+        for path in sorted(set(frozen) - set(old)):     # shipped since ML-3: exactly the D15 file
+            with self.subTest(path=path.name):
+                self.assertEqual(path.read_text(), D15)
+        for path in old:
             with self.subTest(path=path.name):
                 before = legacy_load_class_labels(path)
                 for classes in (load_classes(path), folder_classes(path)):

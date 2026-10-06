@@ -120,7 +120,8 @@ def main() -> None:
         centroid = e.mean(axis=0)
         spread = float(np.linalg.norm(e - centroid, axis=1).mean())
         classes[cid] = {"centroid": centroid.tolist(), "spread": spread, "n": int(len(e))}
-        print(f"  {cid} {class_labels[cid]:<26} n={len(e):<5} spread={spread:.3f}")
+        shown = cid if class_labels[cid] == cid else f"{cid} {class_labels[cid]}"     # a country key is its label
+        print(f"  {shown:<30} n={len(e):<5} spread={spread:.3f}")
 
     # Self-scores: what the guard reports on the data it was built from. These are
     # optimistic by construction (same patches), so they are recorded as context

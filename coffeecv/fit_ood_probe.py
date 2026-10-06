@@ -301,11 +301,12 @@ def main() -> None:
         print(f"at the decision boundary {DECISION_BOUNDARY:g} (the live override): refused {fr}/{len(ps)} "
               f"genuine, caught {ct}/{len(ns)} negatives")
         if training_days:
-            for name, on in (("on a training day", True), ("on other days", False)):
+            days = ", ".join(sorted(training_days))
+            for name, on in ((f"on a training day ({days})", True), (f"off the training days", False)):
                 g = [s for r, s in zip(hp, ps) if r["tag"] == "user_beans_independent" and (r["date"] in training_days) == on]
                 if g:
                     g = np.array(g)
-                    print(f"  user_independent genuine {name} ({', '.join(sorted(training_days))}): refused "
+                    print(f"  user_independent genuine {name}: refused "
                           f"{int((g > thr).sum())}/{len(g)} at {thr:.4f}, {int((g > DECISION_BOUNDARY).sum())}/{len(g)} "
                           f"at {DECISION_BOUNDARY:g}")
         for r, s in sorted(zip(hp, ps), key=lambda t: -t[1])[:3]:
