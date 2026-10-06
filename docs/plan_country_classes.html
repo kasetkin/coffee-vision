@@ -119,7 +119,7 @@
     changes a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1, P2, P2b, P3, P4 done 2026-10-05; P5 waits for the owner&rsquo;s mask review</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">P1&ndash;P4 done 2026-10-05; P5 reviewed 2026-10-06, the owner decides how declines are handled</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -1044,6 +1044,22 @@ read_coffees(path)    # [Coffee(folder_id, country, farm_region, misc)]: coverag
           labels/ml3/mask_review_items.csv --name ml3_new_ft_s123</code>, decisions to
           <code>labels/ml2/review/ml3_new_ft_s123.decisions.jsonl</code>.</li>
       </ul></div>
+    <div><div class="when">2026-10-06</div>P5: the owner judged all 288 (<code>ml3_new_ft_s123.decisions.jsonl</code>, 289
+      rows: one item accepted twice). <code>mask_review.py summary</code>:
+      <ul>
+        <li><b>Masks</b> (fallbacks apart): 253 of 264 accepted (95.8%). Per session: the three 2026-09-11 sessions
+          20/20 each; <code>2026-09-24__oneplus</code> 51/54, <code>_pixel</code> 64/68, <code>_sony</code> 65/66;
+          <code>random_date_raccoon</code> 13/16. Not comparable with ML-2's 97.9% (D8).</li>
+        <li><b>D18 fallbacks:</b> all 24 declined, the 16 whose beans fill the frame included.</li>
+        <li><b>The 11 mask declines</b> carry no reason. Measured against the 253 accepted: an accepted mask is one
+          solid region over nearly the whole frame (median area 0.997, 0.3% holes inside its box, one blob). Every
+          declined one is broken into bean-sized pieces (5&ndash;71% holes inside its box, 24 to 1,170 blobs):
+          "snapped to single beans". Three also have a third or more of the mask outside the main region. The three
+          Excelso declines are the glass-hopper photos, where the mask holds about 35&ndash;40% of the frame.</li>
+        <li><b>By coffee</b>, declined or fallback: Rwanda 27 of 120 (20 fallbacks, 7 masks), Peru 5 of 150,
+          Colombia Excelso 4 of 12, Ethiopia Sidamo 1 of 2 (the hopper ring). Nothing from 2026-09-11.</li>
+      </ul>
+      Stop (D8): the owner decides whether the declines call for a second fine-tune or another handling; P6 waits.</div>
   </div>
 
   <footer>Ticket: <a href="ticket_country_classes.html"><code>ticket_country_classes.html</code></a> (ML-3). Related:
