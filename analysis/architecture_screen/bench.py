@@ -1,10 +1,15 @@
-import time, torch, torch.nn as nn, torchvision.models as models
+import time
+import torch
+import torch.nn as nn
+import torchvision.models as models
 torch.set_num_threads(6)
 
 def timeit(fn, n=8, warmup=2):
-    for _ in range(warmup): fn()
+    for _ in range(warmup):
+        fn()
     t=time.perf_counter()
-    for _ in range(n): fn()
+    for _ in range(n):
+        fn()
     return (time.perf_counter()-t)/n
 
 def params(m): return sum(p.numel() for p in m.parameters())/1e6
@@ -25,11 +30,18 @@ class UNetR18(nn.Module):
         self.seg = nn.Conv2d(32, 1, 1)
         self.fc = nn.Linear(512, nc)
     def forward(self, x):
-        s0 = self.stem(x); x1 = self.l1(self.pool(s0)); x2 = self.l2(x1); x3 = self.l3(x2); x4 = self.l4(x3)
+        s0 = self.stem(x)
+        x1 = self.l1(self.pool(s0))
+        x2 = self.l2(x1)
+        x3 = self.l3(x2)
+        x4 = self.l4(x3)
         u = nn.functional.interpolate(x4, scale_factor=2, mode="nearest")
-        u = self.d4(torch.cat([u, x3], 1)); u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
-        u = self.d3(torch.cat([u, x2], 1)); u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
-        u = self.d2(torch.cat([u, x1], 1)); u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
+        u = self.d4(torch.cat([u, x3], 1))
+        u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
+        u = self.d3(torch.cat([u, x2], 1))
+        u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
+        u = self.d2(torch.cat([u, x1], 1))
+        u = nn.functional.interpolate(u, scale_factor=2, mode="nearest")
         u = self.d1(torch.cat([u, s0], 1))
         logits = self.fc(x4.mean((2,3)))
         return logits, self.seg(u)

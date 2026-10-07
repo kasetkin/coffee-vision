@@ -1,4 +1,7 @@
-import json, glob, os, re
+import json
+import glob
+import os
+import re
 import numpy as np
 EXP = "/workspace/experiments"
 def exp_dir(n):
@@ -28,7 +31,8 @@ def summarize(e):
     tl, vl, vf = arr(h, "train_loss"), arr(h, "val_loss"), arr(h, "val_macro_f1")
     lr = arr(h, "lr")
     n = len(h)
-    bf = int(np.argmax(vf)); bl = int(np.argmin(vl))
+    bf = int(np.argmax(vf))
+    bl = int(np.argmin(vl))
     return dict(n=n, best_f1_ep=bf+1, best_f1=vf.max(), minvl_ep=bl+1, minvl=vl.min(),
                 vl_end=vl[-1], tl_end=tl[-1], tl_min=tl.min(), tl0=tl[0], vl0=vl[0],
                 lr_at_bestf1=lr[bf], lr_at_minvl=lr[bl], lr_end=lr[-1],
