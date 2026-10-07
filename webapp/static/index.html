@@ -130,7 +130,7 @@
        use-detected-crop/use-full-photo toggle below. Needs: pointer-events
        auto + resize handles here (currently `none`, deliberately, since the
        box is display-only today); converting the user's edited on-screen
-       rect back to fractional image coordinates (invert positionCropOverlay's
+       rect back to fractional image coordinates (invert renderOverlay's
        contain-fit math); and a new field alongside the existing `skip_crop`
        form field on POST /classify (e.g. `crop_box`) for classify_one() to
        apply -- same trust boundary as today: the server decides what "apply
@@ -244,13 +244,17 @@ let lastMask = null;
 // photo the detector left untouched.
 let useFullPhoto = false;
 
+function hide(...elements) {
+  for (const el of elements) el.style.display = 'none';
+}
+
 function updateCropToggleBtn() {
   cropToggleBtn.textContent = useFullPhoto ? 'Use detected crop' : 'Use full photo instead';
 }
 cropToggleBtn.addEventListener('click', () => {
   useFullPhoto = !useFullPhoto;
   updateCropToggleBtn();
-  positionCropOverlay();
+  renderOverlay();
 });
 
 // The overlay is positioned in *displayed* pixels, but #preview uses
@@ -263,10 +267,9 @@ cropToggleBtn.addEventListener('click', () => {
 // photo pixels, never the letterbox margin around it. The one place that
 // draws: it runs on the preview's load, on the /crop answer and on resize,
 // and draws the bean region only once both the preview and the mask loaded.
-function positionCropOverlay() {
+function renderOverlay() {
   if (!lastCropBox || !preview.naturalWidth || useFullPhoto) {
-    imageClip.style.display = 'none';
-    outlineLabel.style.display = 'none';
+    hide(imageClip, outlineLabel);
     return;
   }
   const cw = previewWrap.clientWidth, ch = previewWrap.clientHeight;
@@ -290,22 +293,20 @@ function positionCropOverlay() {
   if (lastMask) {
     drawBeanRegion(dispW, dispH);
     tintCanvas.style.display = 'block';
-    showOutline();
+    applyOutlineToggle();
     outlineLabel.style.display = 'block';
   } else {
-    tintCanvas.style.display = 'none';
-    outlineCanvas.style.display = 'none';
-    outlineLabel.style.display = 'none';
+    hide(tintCanvas, outlineCanvas, outlineLabel);
   }
 }
-window.addEventListener('resize', positionCropOverlay);
+window.addEventListener('resize', renderOverlay);
 
 // "Show outline" (OPS-6 D9) shows or hides the outline's canvas only, with
 // no redraw; its state lasts across uploads in this page visit, not saved.
-function showOutline() {
+function applyOutlineToggle() {
   outlineCanvas.style.display = outlineToggle.checked ? 'block' : 'none';
 }
-outlineToggle.addEventListener('change', showOutline);
+outlineToggle.addEventListener('change', applyOutlineToggle);
 
 const OUTLINE_CSS_PX = 2;
 const OUTLINE_STEPS = 16;
@@ -365,14 +366,7 @@ fileInput.addEventListener('change', async () => {
   const isStale = () => upload !== currentUpload;
   const file = fileInput.files[0];
   resultEl.innerHTML = '';
-  previewWrap.style.display = 'none';
-  imageClip.style.display = 'none';
-  cropOverlay.style.display = 'none';
-  tintCanvas.style.display = 'none';
-  outlineCanvas.style.display = 'none';
-  outlineLabel.style.display = 'none';
-  cropNote.style.display = 'none';
-  cropToggleBtn.style.display = 'none';
+  hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
   classifyBtn.disabled = true;
   lastCropBox = null;
   lastMask = null;
@@ -408,7 +402,7 @@ fileInput.addEventListener('change', async () => {
     const blob = await res.blob();
     if (isStale()) return;
     previewUrl = URL.createObjectURL(blob);
-    preview.onload = positionCropOverlay;
+    preview.onload = renderOverlay;
     preview.src = previewUrl;
     previewWrap.style.display = 'block';
 
@@ -456,7 +450,7 @@ fileInput.addEventListener('change', async () => {
           updateCropToggleBtn();
           cropToggleBtn.style.display = 'block';
         }
-        positionCropOverlay();
+        renderOverlay();
         // The two notes cannot fire together: a segmenter model's
         // needs_review is always false (coffeecv/infer.py).
         if (data.seg_fallback) {
