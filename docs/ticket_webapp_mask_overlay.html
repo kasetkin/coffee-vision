@@ -14,7 +14,7 @@
     planned in <a href="plan_webapp_mask_overlay.html">plan_webapp_mask_overlay.html</a>, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: P1&ndash;P3 done, the overlay accepted by the owner; P4 (deploy) not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: deployed, release <code>20261007T1735Z-a41685a-allrigs_dino3b16_seg_country_s123</code> (merge <code>a41685a</code>), checked live; waits for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload preview</span></div>
@@ -283,7 +283,7 @@
       it shows the second photo's overlay; on the live site, where nginx refuses the second photo, the read error
       (D13, amended).</span></li>
     <li><span class="box done"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
-    <li><span class="box"></span><span>Deployed and checked on the live site (D12).</span></li>
+    <li><span class="box done"></span><span>Deployed and checked on the live site (D12).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -335,6 +335,14 @@
     <div><div class="when">2026-10-07</div>The owner looks at the overlay on the local dev server, on branch
       <code>ops6-mask-overlay</code>, and accepts it. P3 done; Scope ticked but for the deploy. P4 waits for the
       owner's go.</div>
+    <div><div class="when">2026-10-07</div>Deployed. <code>ops6-mask-overlay</code> merged into <code>main</code>
+      as <code>a41685a</code> (a merge commit, at the owner's request), pushed, and deployed as release
+      <code>20261007T1735Z-a41685a-allrigs_dino3b16_seg_country_s123</code>; <code>previous</code> is <code>7c1e087</code>. The deploy's smoke on the VM: <code>/crop</code>
+      mask IoU 1.000000 against the devcontainer's, box identical, <code>/classify</code> top-1 Colombia within 1.8e-07.
+      Live <code>/crop</code> on the 13 fixture photos: 12 masks (frame-filling photos 99.5&ndash;99.9% bean, the
+      smoke photo 41.3%), and one ML-2 D18 fallback (<code>PIC_20260924_150009.JPG</code>, which fell back before
+      this ticket too), so D5's note is reachable live. Rollback: <code>DOMAIN=coffee.kasetkin.com
+      scripts/deploy_webapp.sh --rollback</code>.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>

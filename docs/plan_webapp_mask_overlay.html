@@ -11,7 +11,7 @@
     server comes first because the other two consume its answer. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07, revised after two reviews the same day; P1&ndash;P3 done, P4 not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-07, revised after two reviews the same day; P1&ndash;P4 done 2026-10-07</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_webapp_mask_overlay.html"><code>ticket_webapp_mask_overlay.html</code></a> (OPS-6)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -211,7 +211,7 @@
 
   <h2>6. P4 &mdash; deploy and check live <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07, the owner's go given; merged to <code>main</code> and pushed, deploy not yet run</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, merge <code>a41685a</code>, release <code>20261007T1735Z-a41685a-allrigs_dino3b16_seg_country_s123</code>, checked live</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
   </div>
   <ol class="tasks">
@@ -342,8 +342,13 @@
       is replaced by the date of this pass.</div>
     <div><div class="when">2026-10-07</div>The owner gives the go for P4, asking for a merge commit into
       <code>main</code>, not a fast-forward. Claude merges this branch into <code>main</code> and pushes. The
-      deploy itself is not run from this session: its SSH access to the VM was refused by the session's
-      permission check, so the owner runs it.</div>
+      session's first SSH call to the VM was refused by its permission check; the owner then allowed SSH to the
+      VM, and Claude ran the deploy (next entry).</div>
+    <div><div class="when">2026-10-07</div>P4 done. <code>scripts/deploy_webapp.sh a41685a
+      allrigs_dino3b16_seg_country_s123</code> passed the full check, staged, smoked (<code>/crop</code> mask IoU
+      1.000000, 0 pixels differ), flipped and verified: release <code>20261007T1735Z-a41685a-allrigs_dino3b16_seg_country_s123</code>. Live <code>/crop</code> on the
+      13 fixture photos gave 12 masks and one ML-2 D18 fallback that predates this ticket; details in the ticket's
+      Activity. The live page's overlay is for the owner to see in a browser.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
