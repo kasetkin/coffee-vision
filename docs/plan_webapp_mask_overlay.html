@@ -82,7 +82,7 @@
 
   <h2>3. P1 &mdash; <code>/crop</code> returns the mask</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>9788325</code>, <code>2d89e75</code>, <code>02c2854</code> and the commit closing it</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>9788325</code>, <code>2d89e75</code>, <code>02c2854</code>, <code>8473092</code>; review fixes <code>78ab580</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p><code>/crop</code> gets the full photo's mask, scales it to long side &le; <code>PREVIEW_MAX_DIM</code>,
@@ -140,7 +140,7 @@
 
   <h2>4. P2 &mdash; the smoke check compares the mask</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58a6191</code> and the commit closing it; the rehearsal stopped at deploy 2 for disk space, see Activity</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58a6191</code>, <code>d6a504c</code>; review fixes <code>691e321</code>; the rehearsal stopped at deploy 2 for disk space, see Activity</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>compare_smoke</code> pops <code>mask</code> from the expected and the served <code>/crop</code> bodies,
@@ -313,6 +313,24 @@
       and side-loading them was refused. So there are no real screenshots; images simulated in numpy went to
       the owner instead. Left for the owner: the plan's hand checks on the dev server in a real browser,
       including Safari and Chrome on phones.</div>
+    <div><div class="when">2026-10-07</div>Code review of P1&ndash;P3 against <code>ece0d0e</code>, standards
+      and spec. It found two checks the ticket asks for missing from <code>tests/test_webapp_crop.py</code>
+      (the mask's long side &le; 1024 on the Orientation-tag photo, D10; palette index 1 opaque, D7), its
+      <code>MODEL</code> ignoring <code>COFFEE_CV_CHECKPOINT</code>, <code>MASK_IOU_MIN</code>'s comment not
+      saying what its calibration lacks, one <code>mask</code> variable holding two things in
+      <code>compare_smoke</code>, two page function names that undersell what they do, three repeated lists of
+      hidden elements, and P1's and P2's Status naming "the commit closing it" instead of its hash. Fixed:
+      <code>78ab580</code> (P1: both checks, each seen failing on a mutation of <code>_mask_png_b64</code>;
+      <code>MODEL</code> reads <code>COFFEE_CV_CHECKPOINT</code> with the app's default, the literal repeated
+      because importing <code>webapp.app</code> to read it loads the model), <code>691e321</code> (P2: the
+      comment says the margins were measured on the smoke photo's mask only, and a smaller or sparser mask moves
+      a one-pixel shift's IoU; <code>mask_summary</code>), <code>4d4be47</code> (P3:
+      <code>renderOverlay</code>, <code>applyOutlineToggle</code>, one <code>hide</code> helper; no change in
+      behaviour, the harness's 23 tests pass), and the two Status lines. Judged and left as they are:
+      <code>bean_region_preview</code>'s three-value return and <code>BeanCrop.photo_mask</code>, both as the
+      plan specifies; the PNG encode and decode repeated between <code>webapp/app.py</code>,
+      <code>release_probe.py</code> and the tests, since the tests are independent of the app on purpose and
+      <code>release_probe.py</code> runs apart from it. P3 still waits at the stop for the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
