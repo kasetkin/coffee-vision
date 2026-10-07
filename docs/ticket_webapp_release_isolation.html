@@ -288,6 +288,7 @@
     and the service was pointed at that checkout and venv to save setup work. Nothing afterwards separated them again.</p>
 
   <h2>Proposed fix</h2>
+  <p><a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>: the webapp serves immutable releases.</p>
   <p>Design approved by the owner on 2026-09-27, with two requirements: <strong>use uv</strong> to manage the Python
     environment, and <strong>copy only the minimal set of files</strong> the service needs. Revised the same day after review;
     The owner approved R12 on 2026-09-27; R15 still needs the owner's OK. The deploy to <code>/opt</code> does not wait for the running sweep: §6 says how it
@@ -326,6 +327,7 @@
     that default, not a literal in the deploy files.</p>
 
   <h3>1. Python environment with uv</h3>
+  <p><a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>: uv manages every Python environment.</p>
   <p>uv (by Astral) replaces pip and <code>requirements*.txt</code> for the webapp only. The training venv is not touched.</p>
   <ul>
     <li><code>webapp/pyproject.toml</code> lists what the 13 release modules import (R4), <em>including</em> <code>torch</code> and
@@ -565,6 +567,7 @@ ReadWritePaths=/var/log/coffee-cv</code></pre>
   </ul>
 
   <h3>7. Git history: bringing the VM's commits home</h3>
+  <p><a href="adr/0009-simple-merges-only.md">ADR 0009</a>: simple merges only.</p>
   <p>The sweep commits one experiment per fold into the VM's own <code>main</code>. A read-only fetch on 2026-09-27 found 3 commits the local repo
     does not have: exp232–234 (<code>c6aedc4</code>, <code>996eac6</code>, <code>2959468</code>), with exp235–239 still to come. They branch
     off <code>7cd4c7e</code>. Locally, <code>680e6a9</code> on <code>main</code> and the 7 <code>dino-integration</code> commits were made after
@@ -726,6 +729,7 @@ git branch -d tmp/from-local</code></pre>
     <div><div class="when">2026-09-28</div>Owner asks for the fixture photo list to live in a file, not argv: <code>webapp/deploy/fixtures.txt</code>.</div>
     <div><div class="when">2026-09-28</div>exp232–239 finished 15:44 UTC. Sweep commits merged through <code>tmp/*</code> branches (b224982), VM fast-forwarded;
       idle latency and restart invariance measured; <code>webapp/requirements*.txt</code> deleted. Ticket resolved.</div>
+    <div><div class="when">2026-10-07</div>OPS-2 P1: Proposed fix links ADR 0008, §1 links ADR 0007, §7 links ADR 0009. Nothing else changes.</div>
   </div>
 
   <footer>Related: <code>webapp/README.md</code>, <code>webapp/deploy/</code>, <code>scripts/remote_launch.sh</code>, <code>docs/dinov3_integration_plan.md</code> §9.</footer>

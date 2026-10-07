@@ -119,7 +119,7 @@
     skills config are done (see Activity); the migration itself is planned, not done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written and planned 2026-10-07 (<a href="plan_memory_to_repo.html">plan</a>); P1 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written and planned 2026-10-07 (<a href="plan_memory_to_repo.html">plan</a>); P1 done 2026-10-07 (ADRs); P2 next</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Docs: agent knowledge</span></div>
@@ -217,7 +217,7 @@
     <tbody>
       <tr><td class="id">D1</td><td>What may be published?</td>
         <td>(a) Nothing from infrastructure (b) Only what identifies or exposes a person or a system</td>
-        <td>(b), 2026-10-07. Private: public IP addresses, email addresses, credentials and logins, GPS and other identifying photo metadata. Fine to publish: SSH aliases, the DVC remote URL, the VM's user name and hostname, the live site's domain, Docker-internal addresses.</td></tr>
+        <td>(b), 2026-10-07. Private: public IP addresses, email addresses, credentials and logins, GPS and other identifying photo metadata. Fine to publish: SSH aliases, the DVC remote URL, the VM's user name and hostname, the live site's domain, Docker-internal addresses. <a href="adr/0014-public-repo-private-data.md">ADR 0014</a>.</td></tr>
       <tr><td class="id">D2</td><td>Which issue tracker do the skills use?</td>
         <td>(a) HTML tickets in <code>docs/</code> (b) GitHub Issues</td>
         <td>(a), 2026-10-07. Conventions in <code>docs/agents/issue-tracker.md</code>.</td></tr>
@@ -235,7 +235,7 @@
     <li><span class="box done"></span><span>The leak check runs on every commit (pre-commit), push (check.sh) and deploy.</span></li>
     <li><span class="box done"></span><span>The skills config exists: <code>CLAUDE.md</code>'s Agent skills block and <code>docs/agents/</code>.</span></li>
     <li><span class="box"></span><span>Every memory file is accounted for: moved (to a named file), kept private, or archived as stale.</span></li>
-    <li><span class="box"></span><span>Every ADR born in a ticket is linked from that ticket's D-entry, and names it.</span></li>
+    <li><span class="box done"></span><span>Every ADR born in a ticket is linked from that ticket's D-entry, and names it.</span></li>
     <li><span class="box"></span><span>A fresh session answers the plan's probe questions from repo files.</span></li>
     <li><span class="box"></span><span>No committed file fails the leak check.</span></li>
   </ul>
@@ -254,6 +254,7 @@
     <div><div class="when">2026-10-07</div>Guardrail committed (<code>57f72f9</code>): <code>coffeecv/leak_check.py</code> in <code>scripts/check.sh</code> and <code>.githooks/pre-commit</code>.</div>
     <div><div class="when">2026-10-07</div>Owner decides D2. Skills config committed (<code>6dc3ac5</code>); the owner re-runs <code>/setup-matt-pocock-skills</code> and adds the ticket and plan templates and the skill mapping (<code>fbdac63</code>, <code>6bded8b</code>).</div>
     <div><div class="when">2026-10-07</div>Owner decides D3 and D4. Ticket and <a href="plan_memory_to_repo.html">plan</a> written from the memory files and the repo at <code>6bded8b</code>. In progress; P1 next.</div>
+    <div><div class="when">2026-10-07</div>P1 done: <code>docs/adr/0001</code>&ndash;<code>0014</code>, linked both ways with ML-1, ML-2, ML-3, OPS-1 and this ticket's D1.</div>
   </div>
 
   <footer>Related: <a href="plan_memory_to_repo.html">OPS-2 plan</a>, <code>docs/agents/</code>, <code>CLAUDE.md</code>, <code>coffeecv/leak_check.py</code>, <code>mattpocock-skills/skills/</code>.</footer>

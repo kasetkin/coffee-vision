@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1 done 2026-10-07; Q1&ndash;Q2 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -204,7 +204,7 @@
 
   <h2>3. P1 &mdash; ADRs, linked from their tickets</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One file per decision in <code>docs/adr/NNNN-&lt;slug&gt;.md</code>, in <code>/domain-modeling</code>'s
@@ -212,11 +212,17 @@
     coming back. Each names its source: the ticket and D-number, or an Origin line (D3). Each decision is checked
     against the current code and docs before it is written.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>From tickets: all cameras are equal sources (ML-1); a bean-region segmentation stage, the same in training and serving, with Claude as mask judge (ML-2); no numeric acceptance gate, the owner reads a paired printout (ML-2 D24); the country is the label (ML-3); strip private metadata from every photo (ML-3 D13); the webapp serves fixed releases (OPS-1); uv for every environment (OPS-1, extended 2026-09-30); simple merges only (OPS-1 §7).</span></li>
-    <li><span class="box"></span><span>With an Origin line: camera first, sensors only as a fallback; frozen DINOv3 B/16 head; linear-probe OOD guard with independent-day calibration; adopt only on paired multi-seed evidence; keep the bean-pitch band floor; the deleted provenance commits stay deleted; the guardrail runs without private data.</span></li>
-    <li><span class="box"></span><span>In ML-1, ML-2, ML-3 and OPS-1: link each source D-entry (or OPS-1 §7) to its ADR, and nothing else.</span></li>
-    <li><span class="box"></span><span>Checks: every ADR names its source; every source links back; the leak check passes.</span></li>
+    <li><span class="box done"></span><span>From tickets: all cameras are equal sources (ML-1); a bean-region segmentation stage, the same in training and serving, with Claude as mask judge (ML-2); no numeric acceptance gate, the owner reads a paired printout (ML-2 D24); the country is the label (ML-3); strip private metadata from every photo (ML-3 D13); the webapp serves fixed releases (OPS-1); uv for every environment (OPS-1, extended 2026-09-30); simple merges only (OPS-1 §7). <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>With an Origin line: camera first, sensors only as a fallback; frozen DINOv3 B/16 head; linear-probe OOD guard with independent-day calibration; adopt only on paired multi-seed evidence; keep the bean-pitch band floor; the deleted provenance commits stay deleted; the guardrail runs without private data. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>In ML-1, ML-2, ML-3 and OPS-1: link each source D-entry (or OPS-1 §7) to its ADR, and nothing else. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>Checks: every ADR names its source; every source links back; the leak check passes. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
+  <p><b>As run (2026-10-07).</b> Fourteen ADRs, <code>docs/adr/0001</code>&ndash;<code>0014</code>, numbered by decision
+    date. Three differ from the task list: the evidence standard and ML-2 D24's "no numeric gate" are one ADR (0002),
+    since the second refines the first; the guardrail rule joined OPS-2 D1 in 0014 (the repo is public, its data is
+    not); and ML-1 D3 (C fixed at 0.1) links 0006. OPS-1 has no D-numbers, so its links are a line under Proposed fix,
+    §1 and §7. Checked against the repo, the unreachable provenance commits are exp116&ndash;129 and exp168&ndash;175
+    (22), not exp115&ndash;129 as the memory said. Each edited ticket has an Activity entry.</p>
 
   <h2>4. P2 &mdash; CODING_STANDARDS.md</h2>
   <div class="fields">
@@ -309,6 +315,7 @@
   <div class="log">
     <div><div class="when">2026-10-07</div>Claude reads ticket OPS-2, the 39 memory files and the repo at <code>6bded8b</code>
       and writes this plan. Four findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1 done: 14 ADRs and their links from ML-1, ML-2, ML-3, OPS-1 and OPS-2. P2 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
