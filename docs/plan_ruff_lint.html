@@ -14,7 +14,7 @@
     number: none of the 27 files with findings ships in a release.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); P1 done 2026-10-07</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_ruff_lint.html"><code>ticket_ruff_lint.html</code></a> (OPS-4)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -111,7 +111,7 @@
 
   <h2>3. P1 &mdash; the configuration</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>40f194e</code>, <code>22e2fc9</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>Ruff is configured in the root <code>pyproject.toml</code>, after the <code>[tool.uv]</code> tables, with each
@@ -133,9 +133,9 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     already sets it, and a second copy could drift from the first. The test guards what a comment cannot: that
     nothing shadows the root table (R5), and that the paths are the ones D4 named.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Add the two tables above to <code>pyproject.toml</code>. No <code>uv lock</code> is needed: tool tables do not enter the lock.</span></li>
-    <li><span class="box"></span><span><code>tests/test_ruff_config.py</code>: (1) no tracked <code>ruff.toml</code> or <code>.ruff.toml</code>, and no tracked <code>pyproject.toml</code> other than the root one with a <code>[tool.ruff]</code> table (read with <code>tomllib</code>). (2) <code>python -m ruff check --show-files</code> lists <code>webapp/app.py</code> and <code>tests/test_ruff_config.py</code>, and no path under <code>third_party/</code>.</span></li>
-    <li><span class="box"></span><span>Checks: <code>ruff check --statistics</code> reports exactly the 62 findings of the ticket's background (16 E702, 11 E741, 11 F401, 8 E402, 6 E401, 5 E701, 4 F541, 1 E731); <code>scripts/check.sh</code> passes (nothing runs Ruff yet).</span></li>
+    <li><span class="box done"></span><span>Add the two tables above to <code>pyproject.toml</code>. No <code>uv lock</code> is needed: tool tables do not enter the lock.</span></li>
+    <li><span class="box done"></span><span><code>tests/test_ruff_config.py</code>: (1) no tracked <code>ruff.toml</code> or <code>.ruff.toml</code>, and no tracked <code>pyproject.toml</code> other than the root one with a <code>[tool.ruff]</code> table (read with <code>tomllib</code>). (2) <code>python -m ruff check --show-files</code> lists <code>webapp/app.py</code> and <code>tests/test_ruff_config.py</code>, and no path under <code>third_party/</code>.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>ruff check --statistics</code> reports exactly the 62 findings of the ticket's background (16 E702, 11 E741, 11 F401, 8 E402, 6 E401, 5 E701, 4 F541, 1 E731); <code>scripts/check.sh</code> passes (nothing runs Ruff yet).</span></li>
   </ol>
 
   <h2>4. P2 &mdash; the provable fixes</h2>
@@ -247,7 +247,7 @@ exit $rc</code></pre>
 
   <h2>9. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: the 62 findings reproduce under the config; the config test passes.</span></li>
+    <li><span class="box done"></span><span>P1: the 62 findings reproduce under the config; the config test passes.</span></li>
     <li><span class="box"></span><span>P2: the AST script reports commits 1 and 3 identical; commit 2's diff is 11 imports and 4 prefixes.</span></li>
     <li><span class="box"></span><span>P3: <code>ruff check</code> exits 0 on the repo; the touched modules' tests pass.</span></li>
     <li><span class="box"></span><span>P4: a planted finding fails the fast tier, with the finding in the printed tail.</span></li>
@@ -274,6 +274,7 @@ exit $rc</code></pre>
     <div><div class="when">2026-10-07</div>Expected times in P5 corrected from measurements: about 85 ms per staged file, not 10 ms (a 30-file commit adds about 2.5 s, not 0.3 s), plus about 1.7 s for the module's start, which imports torch through <code>leak_check</code>. The owner accepts the cost; the design is unchanged. The hook's header gains the times. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P1's <code>select</code> comment corrected for D8: the prefixes take an upgrade's new stable rules, by the owner's choice, and no <code>required-version</code> is set. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P4 records D9: the step lints the whole working tree, untracked files included; Ruff's <code>respect-gitignore</code> default stays, since <code>.private_claude/</code> holds synced skill scripts with findings. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1 done (<code>40f194e</code>, <code>22e2fc9</code>): the two tables at the end of <code>pyproject.toml</code>, after the last <code>[tool.uv]</code> table, and <code>tests/test_ruff_config.py</code>, written first and seen failing. <code>ruff check --statistics</code> reports the 62 findings, by rule as the ticket counts them. A <code>third_party/</code> file named on the command line or passed with <code>--stdin-filename</code> passes. The fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree; the full tier runs in the main checkout before P2.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4 ticket</a>, <code>pyproject.toml</code>,
