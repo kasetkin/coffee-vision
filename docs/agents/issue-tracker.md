@@ -13,6 +13,7 @@ Tickets and their plans are HTML files in `docs/`, one file each. The ticket is 
 - **Status** row: `Open`, `In progress` or `Closed`, then a short dated line saying what is done (commits, release). The owner closes tickets.
 - **Comments and history**: dated entries appended to the Activity list, oldest first.
 - **Styles** live in `docs/tickets.css`, which every ticket, plan and template links; no inline `<style>`.
+- **Checked**: `python -m coffeecv.ticket_check` (in `scripts/check.sh`) enforces the mechanical rules above: no `[[...]]` or template comment left, well-formed HTML, links that resolve, unique IDs, a plan's ID matching its ticket's, an ADR's source ticket linking back, and Status, Triage and per-phase fields in tickets and plans written from the templates.
 
 ## When a skill says "publish to the issue tracker"
 
