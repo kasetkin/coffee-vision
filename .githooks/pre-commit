@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# Runs coffeecv.leak_check on the files staged for commit (~1 s; a few more when an image is staged, for
-# exiftool and the torch import). The repo is public and its history is not rewritten, so a leak has to be
-# stopped before it is committed: the pre-push check (scripts/check.sh) would only find it in history.
+# Runs two checks on the files staged for commit, both always, so one commit reports every failure:
+# - coffeecv.leak_check: no public IP, email, credential or photo GPS. The repo is public and its history is
+#   not rewritten, so a leak has to be stopped before it is committed: the pre-push check (scripts/check.sh)
+#   would only find it in history. It reads each staged file's working-tree copy, not the index, until OPS-5.
+# - coffeecv.ruff_staged: `ruff check` on the staged Python files as they stand in the index (OPS-4).
+# Each takes about 1.7 s to start (both import torch through coffeecv.config); Ruff adds about 85 ms per staged
+# Python file, and leak_check a few seconds when an image is staged (exiftool).
 # Bypass once with `git commit --no-verify`.
 set -uo pipefail
 
 root=$(git rev-parse --show-toplevel)
-cd "$root" && exec python -m coffeecv.leak_check --staged
+cd "$root" || exit 1
+rc=0
+python -m coffeecv.leak_check --staged || rc=1
+python -m coffeecv.ruff_staged || rc=1
+exit $rc
