@@ -422,6 +422,24 @@ def segmenter_for(cfg: RunConfig):
     return _segmenter(seg_params(cfg))
 
 
+def _segment(rgb: np.ndarray, cfg: RunConfig):
+    """`segment_and_crop` and its crop_info, shaped like `crop_to_bean_region`'s (None when the whole photo is
+    used): the one place `segment_bean_region` and `bean_region_preview` get their box from."""
+    from coffeecv.segment_beans import segment_and_crop
+    crop = segment_and_crop(rgb, segmenter_for(cfg))
+    i = crop.info
+    return crop, None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
+
+
+def bean_region_preview(rgb: np.ndarray, cfg: RunConfig):
+    """What the web app's /crop shows (ticket OPS-6 D7): (the whole photo's bool bean mask, or None on a D18
+    fallback; crop_info, as `segment_bean_region` gives it; whether the fallback fired). The same segmentation
+    as `segment_bean_region`, through the same helper, so the two cannot disagree on the box; display only."""
+    crop, crop_info = _segment(rgb, cfg)
+    fallback = crop.info["fallback"]
+    return (None if fallback else crop.photo_mask), crop_info, fallback
+
+
 def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False):
     """Ticket ML-2 §3 steps 2-3 live: `segment_and_crop`, the function the segcrop training stage runs.
     Returns (rgb to sample from, its bean mask or None, crop_info, diagnostics). crop_info is shaped like
@@ -433,14 +451,12 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
     if skip_crop:
         return rgb, None, None, {"mask_area_frac": None, "bean_frac_in_crop": None, "retained_frac": None,
                                  "seg_fallback": None}
-    from coffeecv.segment_beans import segment_and_crop
-    crop = segment_and_crop(rgb, segmenter_for(cfg))
+    crop, crop_info = _segment(rgb, cfg)
     i = crop.info
 
     def r4(x):
         return None if x is None else round(x, 4)
 
-    crop_info = None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
     return crop.rgb, crop.mask, crop_info, {
         "mask_area_frac": r4(i["mask_area_frac"]), "bean_frac_in_crop": r4(i["bean_frac_in_crop"]),
         "retained_frac": r4(i["retained_frac"]), "seg_fallback": i["fallback"]}

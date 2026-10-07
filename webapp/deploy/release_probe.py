@@ -19,6 +19,7 @@ Locally, two outputs are compared with:
 from __future__ import annotations
 
 import argparse
+import base64
 import io
 import json
 import os
@@ -26,6 +27,12 @@ import sys
 from pathlib import Path
 
 SCORE_TOL = 1e-4   # float32 results differ slightly between machines (docs/ops1_release_isolation_plan.html §4.8)
+# The /crop mask's least IoU with the local one (ticket OPS-6 D10, R2). Masks differ across CPUs in about 1e-6
+# of their pixels (ML-2 P0); on the smoke photo's mask a one-pixel shift gives 0.993-0.996, 97 flipped
+# boundary pixels 0.9997 (OPS-6 P1). Measured on the smoke photo's mask only (768 x 1024, 41% bean): a smaller
+# or sparser mask has more boundary per bean pixel, so a one-pixel shift costs it more IoU, and so do the same
+# few flipped pixels. A new smoke photo needs these margins measured again on its own mask.
+MASK_IOU_MIN = 0.999
 
 
 def _jsonable(x):
@@ -134,8 +141,37 @@ def _max_abs_diff(a, b, path="") -> tuple[float, list[str]]:
     return abs(float(a) - float(b)), []
 
 
+def _mask_pixels(b64: str):
+    """A /crop mask (base64 of a 1-bit palette PNG, ticket OPS-6 D7) as a bool array: bean is palette index 1."""
+    import numpy as np
+    from PIL import Image
+
+    return np.asarray(Image.open(io.BytesIO(base64.b64decode(b64)))) == 1
+
+
+def _compare_masks(expected, served) -> tuple[str, list[str]]:
+    """How the served /crop mask differs from the expected one: (for the summary line, failures)."""
+    import numpy as np
+
+    if expected is None and served is None:
+        return "mask null", []
+    if expected is None or served is None:
+        seen = "null" if served is None else "present"
+        return f"mask {seen}", [f"/crop mask is {seen}, expected {'present' if served is None else 'null'}"]
+    a, b = _mask_pixels(expected), _mask_pixels(served)
+    if a.shape != b.shape:
+        size = f"{b.shape[1]} x {b.shape[0]}, expected {a.shape[1]} x {a.shape[0]}"
+        return f"mask {size}", [f"/crop mask is {size}"]
+    union = np.count_nonzero(a | b)
+    iou = np.count_nonzero(a & b) / union if union else 1.0
+    failures = [f"/crop mask IoU {iou:.6f} < {MASK_IOU_MIN}"] if iou < MASK_IOU_MIN else []
+    return f"mask IoU {iou:.6f}, {np.count_nonzero(a ^ b)} pixels differ", failures
+
+
 def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
-    """The VM's smoke answers against the ones computed locally from the same staged tree."""
+    """The VM's smoke answers against the ones computed locally from the same staged tree. /crop's mask is
+    compared decoded, by IoU >= MASK_IOU_MIN, since the two machines' masks differ in a few pixels; the rest of
+    /crop's answer within 1e-3."""
     exp = _probe_line(expected_file.read_text())
     got = {}
     for line in smoke_file.read_text().splitlines():
@@ -166,11 +202,15 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
         failures.append(f"/crop answered {status or 'nothing'}")
     else:
         body, e = json.loads(body), exp["crop"]["body"]
+        mask_summary = ""
+        if "mask" in e and "mask" in body:   # else neither is from OPS-6 on, or _max_abs_diff names the one
+            summary, bad = _compare_masks(e.pop("mask"), body.pop("mask"))
+            mask_summary, failures = f", {summary}", failures + bad
         worst, bad = _max_abs_diff(e, body)
         failures += bad
         if worst > 1e-3:
             failures.append(f"/crop box differs by up to {worst:.2e}")
-        print(f"  /crop      cropped={body.get('cropped')}, max box diff vs local {worst:.1e}")
+        print(f"  /crop      cropped={body.get('cropped')}, max box diff vs local {worst:.1e}{mask_summary}")
 
     preview = got.get("SMOKE_PREVIEW", "").split()
     if preview[:2] != ["200", "image/jpeg"]:
