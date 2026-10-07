@@ -23,7 +23,7 @@
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the look, the deploy go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
     <div class="field"><span class="k">Production impact</span><span class="v">None until the plan's deploy phase (P4). After it, <code>/crop</code> answers with two more fields and the preview looks different. <code>/classify</code> and what it returns do not change.</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D12 answered 2026-10-07</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D14 answered 2026-10-07</span></span></div>
   </div>
 
   <div class="callout info">
@@ -40,14 +40,20 @@
       <code>segment_bean_region</code> returns the cropped mask, not the full photo's, and <code>load_rgb_image</code>
       ignores EXIF orientation. The owner amended D10: the orientation test is restated, and the smoke comparison
       takes IoU &ge; 0.999 instead of 0.98.</p>
+    <p><strong>Web review, 2026-10-07.</strong> A Python web developer's review found that an answer from an
+      earlier upload can land on the next photo (R7). The owner chose a token per upload, so a stale answer is
+      ignored (D13). The owner also amended D7: the mask covers the whole photo at the thumbnail's resolution, and the
+      page stretches it to the photo's displayed rect as it does the box, so it no longer has to match the
+      thumbnail's size to the pixel. Its non-bean pixels are transparent, so the page draws the tint and the outline
+      by compositing on canvases, without reading pixels back (D14).</p>
   </div>
 
   <h2>1. Summary</h2>
   <p>Today the preview after an upload shows the photo with everything outside the D4 crop box dimmed. After this
     ticket it shows the photo's bean region untouched, everything else under a 55% black tint, the crop box as a white
-    outline, and the bean region's edge as a thin magenta line that a checkbox can hide. The segmenter already runs
+    outline, and a thin magenta line just outside the bean region's edge that a checkbox can hide. The segmenter already runs
     for <code>/crop</code>; only the mask has to reach the browser. The work splits into: <code>/crop</code> returns
-    the mask at the thumbnail's size; the deploy's smoke check compares that mask with a tolerance; the page draws
+    the mask over the whole photo at the thumbnail's resolution; the deploy's smoke check compares that mask with a tolerance; the page draws
     the overlay; the deploy.</p>
 
   <h2>2. Background</h2>
@@ -102,10 +108,10 @@
     <div>
       <h3>After</h3>
       <ul>
-        <li><code>/crop</code> also answers <code>mask</code> (a 1-bit PNG at the thumbnail's size, base64, or
-          <code>null</code>) and <code>seg_fallback</code>.</li>
-        <li>The preview tints everything outside the photo's bean region, outlines the crop box in white, and the
-          bean region's edge in magenta behind a "Show outline" checkbox that starts ticked.</li>
+        <li><code>/crop</code> also answers <code>mask</code> (a 1-bit PNG of the whole photo, long side &le; 1024 px,
+          non-bean pixels transparent, base64, or <code>null</code>) and <code>seg_fallback</code>.</li>
+        <li>The preview tints everything outside the photo's bean region, outlines the crop box in white, and draws
+          a magenta line just outside the bean region's edge, behind a "Show outline" checkbox that starts ticked.</li>
         <li>A fallback shows no tint and a note that the whole photo will be classified.</li>
         <li>The smoke check also compares the mask, by IoU &ge; 0.999.</li>
       </ul>
@@ -141,10 +147,11 @@
           resized wrongly or empty) moves the IoU by about a percent or more, far below 0.999. P1 measures both
           margins on the smoke photo.</td></tr>
       <tr><td class="id">R3</td><td><strong>The mask is misaligned with the thumbnail.</strong></td>
-        <td>Both come from <code>load_rgb_image</code>'s stored pixels, but the mask must be resized to exactly the
-          thumbnail's size, with width and height in the right order. Covered by a non-square photo, and by a photo
-          with an Orientation tag that guards against a later change rotating one of the two and not the other
-          (D10).</td></tr>
+        <td>Both come from <code>load_rgb_image</code>'s stored pixels and share the decoded image's frame: the page
+          stretches the mask to the photo's displayed rect, as it places the box by fractions (D7), so a size that
+          differs from the thumbnail's by a pixel is under a pixel on screen. What can still go wrong is width and
+          height swapped, or one of the two rotated. Covered by a non-square photo, and by a photo with an Orientation
+          tag that guards against a later change rotating one of the two and not the other (D10).</td></tr>
       <tr><td class="id">R4</td><td><strong>A larger <code>/crop</code> answer on a phone.</strong></td>
         <td>A 1-bit PNG at &le; 1024 px is a few KB, plus a third for base64. Measured on the smoke photo in P1 and
           written in the plan.</td></tr>
@@ -155,6 +162,11 @@
       <tr><td class="id">R6</td><td><strong>A cached page meets a server without <code>mask</code>.</strong></td>
         <td>After a <code>--rollback</code> a browser can hold the new page while the server answers as before. The
           page treats a missing <code>mask</code> as "box only" (P3).</td></tr>
+      <tr><td class="id">R7</td><td><strong>An answer from an earlier upload lands on the next photo.</strong></td>
+        <td>The file input stays enabled while <code>/preview</code> and <code>/crop</code> run, and nothing ties an
+          answer to the upload that asked for it: a photo picked while the first one's <code>/crop</code> is in
+          flight gets the first photo's mask drawn over it. Today the same race draws a wrong box. Mitigated by
+          D13.</td></tr>
     </tbody>
   </table></div>
 
@@ -190,7 +202,12 @@
           thumbnail's size, base64. (b) A new <code>/mask</code> endpoint (a second segmenter pass). (c) Drawn into the
           <code>/preview</code> JPEG.</td>
         <td>(a), 2026-10-07. Advisory, like the box: <code>/classify</code> never takes it from the client.
-          <code>/crop</code> also answers <code>seg_fallback</code>, for D5.</td></tr>
+          <code>/crop</code> also answers <code>seg_fallback</code>, for D5. <strong>Amended 2026-10-07</strong>
+          after the web review: the mask covers the whole decoded photo, scaled to long side &le;
+          <code>PREVIEW_MAX_DIM</code> (1024 px) with its aspect kept, by <code>/crop</code>'s own rounding; it need not
+          equal the thumbnail's size, since the page stretches it to the photo's displayed rect (R3). It is a 1-bit
+          palette PNG, index 0 (not bean) transparent and index 1 (bean) opaque, for D14. <code>/preview</code> is not
+          touched.</td></tr>
       <tr><td class="id">D8</td><td>What if the release has no segmenter (<code>crop_method</code> not
           <code>segment</code>)?</td>
         <td>(a) <code>mask: null</code> and today's spotlight. (b) Not designed for.</td>
@@ -210,7 +227,10 @@
           Orientation tag checks that the mask has the thumbnail's size, both from the stored pixels, since
           <code>load_rgb_image</code> applies no rotation; the full-resolution agreement is checked independently of
           the resize helper, on a non-square photo; the smoke comparison takes IoU &ge; 0.999 (R2). The owner asked
-          about IoU = 1; kept at 0.999 because devcontainer and VM masks differ (R2).</td></tr>
+          about IoU = 1; kept at 0.999 because devcontainer and VM masks differ (R2).
+          <strong>Amended again 2026-10-07</strong>, with D7: "the thumbnail's size" becomes "long side &le; 1024 px
+          and the photo's aspect within one pixel", on both the tray photo and the photo with an Orientation
+          tag.</td></tr>
       <tr><td class="id">D11</td><td>What is out of scope?</td>
         <td>Editing the mask or box; a "model's view" switch; mask statistics in the <code>/crop</code> log; per-bean
           outlines.</td>
@@ -219,20 +239,43 @@
         <td>(a) Yes, a last phase that stops for the owner's go. (b) No.</td>
         <td>(a), 2026-10-07. The deploy follows <a href="agents/deploy.md">deploy.md</a>; "live" means checked on the
           live site with the smoke photo and one frame-filling photo.</td></tr>
+      <tr><td class="id">D13</td><td>What happens to an answer that arrives after the user has picked another
+          photo (R7)?</td>
+        <td>(a) A token per upload: each pick starts a new upload, and an answer for an earlier one is ignored.
+          (b) Nothing, as today.</td>
+        <td>(a), 2026-10-07. The token is checked after every wait in the upload's chain (the <code>/preview</code>
+          answer, the <code>/crop</code> answer, the mask's decode), so a stale answer neither replaces the preview
+          nor draws a box, tint, outline or note.</td></tr>
+      <tr><td class="id">D14</td><td>How does the page draw the tint and the outline from the mask?</td>
+        <td>(a) Read the decoded PNG's pixels back with <code>getImageData</code>, find and widen the edge in
+          JavaScript, and write one overlay image at the mask's resolution. (b) Composite: the mask's non-bean pixels
+          are transparent (D7), so the tint is a 55% black fill with the mask cut out
+          (<code>destination-out</code>), and the outline is the mask drawn at 16 offsets of radius 2 CSS px, minus
+          the mask, filled magenta; both on canvases sized to the photo's displayed rect in device pixels.</td>
+        <td>(b), 2026-10-07. No pixel readback, so the noise that Brave, Safari private browsing and Firefox private
+          windows add to it cannot reach the overlay; the line is a crisp 2 CSS px at any screen density, redrawn on
+          resize. The line lies just outside the bean region, over the tint, so no bean pixel is covered (D2); this
+          differs from the review tool's band centred on the edge. The part of the ring beyond the canvas is cut off,
+          so the photo's own border never gets a line. "Show outline" shows or hides the outline's canvas, with no
+          redraw.</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>/crop</code> answers <code>mask</code> (1-bit PNG, base64, the
-      <code>/preview</code> thumbnail's size, or <code>null</code>) and <code>seg_fallback</code> (D7).</span></li>
+    <li><span class="box"></span><span><code>/crop</code> answers <code>mask</code> (1-bit palette PNG of the
+      whole photo, long side &le; 1024 px, index 0 transparent, base64, or <code>null</code>) and
+      <code>seg_fallback</code> (D7).</span></li>
     <li><span class="box"></span><span>The D10 tests pass: tray photo, photo with an Orientation tag, fallback, and
       the smoke comparison on a near and a far mask.</span></li>
     <li><span class="box"></span><span><code>classify_one</code> is bit-identical on the fixtures before and after
       (R5).</span></li>
     <li><span class="box"></span><span>The page tints outside the bean region (D4), outlines the crop box (D3), draws
-      the magenta outline behind a ticked "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
+      the magenta line just outside the bean region by compositing, with no pixel readback (D14), behind a ticked
+      "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
       on "Use full photo instead" (D6).</span></li>
+    <li><span class="box"></span><span>An answer for an earlier upload is ignored: picking a second photo while the
+      first one's <code>/crop</code> is in flight shows only the second photo's overlay (D13).</span></li>
     <li><span class="box"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
     <li><span class="box"></span><span>Deployed and checked on the live site (D12).</span></li>
   </ul>
@@ -245,6 +288,9 @@
     <li>Logging mask statistics on <code>/crop</code>.</li>
     <li>Per-bean outlines; they need per-bean masks (ML-2 D2 (b)).</li>
     <li>Supporting a release without a segmenter (D8).</li>
+    <li>Sending each photo once instead of three times (<code>/preview</code>, <code>/crop</code>,
+      <code>/classify</code>), and what the backend and the page pass to each other: <a
+      href="ticket_photos_and_answers_optimization.html">OPS-7</a>, a stub.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -261,10 +307,19 @@
       (Background, R3); the cross-CPU mask difference is about 1e-6 of pixels (Background, R2). Added R6, the cached
       page. The owner amended D10: orientation test restated, IoU &ge; 0.999; asked about IoU = 1 and kept 0.999
       after R2's reasoning. Plan revised to match.</div>
+    <div><div class="when">2026-10-07</div>Review of the ticket and plan as a Python web developer, against
+      <code>214daa4</code>. Found that an answer from an earlier upload can land on the next photo (R7); the owner
+      chose a token per upload (D13). The plan's P3 does not carry it yet.</div>
+    <div><div class="when">2026-10-07</div>Owner amends D7 (the mask covers the whole photo and is stretched to the
+      photo's displayed rect; non-bean pixels transparent) and answers D14 (the page composites the tint and the
+      outline, with no pixel readback; the line lies just outside the bean region). R3, D10, Summary, Before and
+      after, and Scope updated. The plan's P1 and P3 now carry D7, D13 and D14. The three uploads per photo go to
+      <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>, a stub.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
     (the segmenter, D3, D4, D9, D18), <a href="ticket_webapp_release_isolation.html">OPS-1</a> (releases),
     <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>, <a href="agents/deploy.md">deploy.md</a>,
-    <code>webapp/README.md</code>.</footer>
+    <code>webapp/README.md</code>, <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (one upload per
+    photo, stub).</footer>
 </main>

@@ -11,7 +11,7 @@
     server comes first because the other two consume its answer. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07, revised after review the same day; no questions open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07, revised after two reviews the same day; no questions open; not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_webapp_mask_overlay.html"><code>ticket_webapp_mask_overlay.html</code></a> (OPS-6)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -29,7 +29,8 @@
         <code>compare_smoke</code> today; P2 adds the first.</li>
       <li><b>The mask must match the thumbnail's size to the pixel.</b> <code>/preview</code> sizes the thumbnail with
         PIL's <code>Image.thumbnail</code>, which rounds. P1 takes the size from one helper used by both endpoints,
-        instead of recomputing it in <code>/crop</code>.</li>
+        instead of recomputing it in <code>/crop</code>. <em>Superseded by finding 10: the mask no longer has to
+        match the thumbnail's size.</em></li>
       <li><b><code>/crop</code> cannot tell a fallback from "no crop" today.</b> <code>crop_info</code> is
         <code>None</code> both on a ML-2 D18 fallback and when there is nothing to crop; the segmenter's own
         <code>seg_fallback</code> diagnostic is dropped. P1 returns it.</li>
@@ -49,6 +50,15 @@
         1 (ticket R2, D10).</li>
       <li><b>A cached page can meet a server without <code>mask</code></b> after a rollback. P3 handles it (ticket
         R6).</li>
+    </ol>
+    <p>A review as a Python web developer, against <code>214daa4</code>, found two more; the owner answered both.</p>
+    <ol start="9">
+      <li><b>An answer from an earlier upload can land on the next photo.</b> The file input stays enabled while
+        <code>/preview</code> and <code>/crop</code> run. P3 adds a token per upload (ticket R7, D13).</li>
+      <li><b>The mask and the thumbnail need a shared frame, not a shared pixel grid.</b> The page stretches the mask
+        to the photo's displayed rect as it places the box by fractions, so <code>/crop</code> scales the mask by its
+        own rounding and <code>/preview</code> is not touched (ticket D7 amended, R3). The mask's non-bean pixels are
+        transparent, so P3 draws the tint and the outline by compositing, with no pixel readback (ticket D14).</li>
     </ol>
   </div>
 
@@ -75,8 +85,8 @@
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
-  <p><code>/crop</code> gets the full photo's mask, scales it to the thumbnail's size, and sends it as a 1-bit PNG,
-    base64 (ticket D7). On a fallback the mask is <code>null</code> and <code>seg_fallback</code> is
+  <p><code>/crop</code> gets the full photo's mask, scales it to long side &le; <code>PREVIEW_MAX_DIM</code>,
+    and sends it as a 1-bit palette PNG with its non-bean pixels transparent, base64 (ticket D7, amended). On a fallback the mask is <code>null</code> and <code>seg_fallback</code> is
     <code>true</code> (D5). The mask is the full photo's mask scaled down, not the cropped one: the bean region
     outside the D4 box is part of it (D3). Today only the cropped one reaches <code>/crop</code> (finding 5), so the
     first task exposes the full one.</p>
@@ -93,11 +103,13 @@
       <code>crop_info</code> shaping, so the two cannot disagree on the box. <code>segment_bean_region</code>'s
       return value and diagnostics stay as they are: diagnostics end up in <code>classify_one</code>'s entry
       (finding 5).</span></li>
-    <li><span class="box"></span><span>One helper gives the thumbnail size for a decoded photo's
-      <code>(w, h)</code>; <code>/preview</code> and <code>/crop</code> both use it (finding 2).</span></li>
-    <li><span class="box"></span><span><code>/crop</code>: scale the bool mask to that size (area average, then
-      &ge; 0.5), encode as a mode-<code>1</code> PNG, base64, in <code>mask</code>; add <code>seg_fallback</code>
-      (finding 3). <code>cropped</code>, <code>box</code> and <code>needs_review</code> keep their meaning. Update
+    <li><span class="box"></span><span><code>/crop</code>: scale the bool mask to long side &le;
+      <code>PREVIEW_MAX_DIM</code>, aspect kept, never up (area average, then &ge; 0.5); encode it as a 1-bit
+      palette PNG, palette black and white, index 0 (not bean) transparent:
+      <code>putpalette([0, 0, 0, 255, 255, 255])</code>, then <code>save(..., "PNG", bits=1, transparency=0,
+      optimize=True)</code> (checked on Pillow 12.3: bit depth 1, colour type 3, a <code>tRNS</code> chunk, an exact
+      round trip); base64, in <code>mask</code>; add <code>seg_fallback</code> (finding 3). <code>/preview</code> is
+      not touched (finding 10). <code>cropped</code>, <code>box</code> and <code>needs_review</code> keep their meaning. Update
       the docstring and <code>webapp/README.md</code>'s description of <code>/crop</code>.</span></li>
     <li><span class="box"></span><span>Tests, written first, in a new <code>tests/test_webapp_crop.py</code> under the
       <code>real_data</code> tier. <code>webapp.app</code> creates its log directory and loads the model at import,
@@ -105,17 +117,17 @@
       the model or the smoke photo is not pulled, as <code>tests/test_release_manifest.py</code> does. The cases
       (ticket D10):
       <ul>
-        <li>On the tray smoke photo, which is not square: the mask's size equals the <code>/preview</code> JPEG's,
-          it is not empty, and it agrees with the full-resolution mask by a path independent of the resize helper:
-          the full mask sampled at each thumbnail pixel's centre, IoU &ge; 0.99. A swapped width and height
-          fails.</li>
+        <li>On the tray smoke photo, which is not square: the mask's long side is &le; 1024 px and its aspect is the
+          photo's within one pixel, it decodes to indices 0 and 1 with index 0 transparent, it is not empty, and it
+          agrees with the full-resolution mask by a path independent of the resize code: the full mask sampled at
+          each mask pixel's centre, IoU &ge; 0.99. A swapped width and height fails.</li>
         <li>On a copy of the smoke photo written to a temporary file with an Orientation tag of 6 (no photo is
-          committed): the mask's size equals the thumbnail's, and both are the stored pixels' shape scaled down, not
-          rotated (finding 6).</li>
+          committed): the mask's aspect and the thumbnail's are both the stored pixels' within one pixel, not rotated
+          (finding 6).</li>
         <li>On a fallback, with <code>coffeecv.segment_beans.BeanSegmenter.predict_mask</code> patched to return an
           empty mask: <code>mask</code> is <code>null</code> and <code>seg_fallback</code> is <code>true</code>.</li>
       </ul></span></li>
-    <li><span class="box"></span><span>Measure the margins for P2's threshold on the smoke photo's thumbnail mask:
+    <li><span class="box"></span><span>Measure the margins for P2's threshold on the smoke photo's <code>/crop</code> mask:
       the IoU against itself shifted by one pixel, and against itself with its boundary pixels flipped at the rate
       ML-2 P0 measured. Write both in the Activity entry (ticket R2).</span></li>
     <li><span class="box"></span><span>Checks: the new tests pass and were seen failing first;
@@ -132,15 +144,15 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>compare_smoke</code> pops <code>mask</code> from the expected and the served <code>/crop</code> bodies,
-    compares the rest as today, and decodes the two masks: they must be the same size, both <code>null</code> or both
-    present, and their IoU &ge; 0.999 (ticket D10, R2). Its summary line prints the IoU and the count of differing
+    compares the rest as today, and decodes the two masks to bool by palette index: they must be the same size, both
+    <code>null</code> or both present, and their IoU &ge; 0.999 (ticket D10, R2). Its summary line prints the IoU and the count of differing
     pixels next to the box diff, so each deploy records how close the two machines' masks are.</p>
   <ol class="tasks">
     <li><span class="box"></span><span>Tests, written first, in a new <code>tests/test_release_probe.py</code> (fast
       tier: they build small masks and smoke files, no model): a mask with a few boundary pixels flipped passes; the
       same mask shifted by one pixel fails; a size mismatch fails; <code>null</code> against a mask fails; the box is
       still compared as before. The test masks are large enough (a few hundred pixels across) that a one-pixel shift
-      lands below 0.999, as on a real thumbnail.</span></li>
+      lands below 0.999, as on a real <code>/crop</code> mask.</span></li>
     <li><span class="box"></span><span>Change <code>compare_smoke</code>; leave the other subcommands alone.</span></li>
     <li><span class="box"></span><span>Checks: the new tests pass and were seen failing first;
       <code>scripts/rehearse_deploy_local.sh</code> passes end to end with the new <code>/crop</code> answer.</span></li>
@@ -152,23 +164,32 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>All in <code>webapp/static/index.html</code>, still one file with no build step. The mask is drawn on the photo's
-    own displayed rect, through the same contain-fit math the box uses today.</p>
+    own displayed rect, through the same contain-fit math the box uses today, and stretched to it (ticket D7). No
+    pixel is read back from a canvas (D14).</p>
   <ol class="tasks">
     <li><span class="box"></span><span>Rename <code>#image-mask</code> to <code>#image-clip</code> (finding 4).</span></li>
-    <li><span class="box"></span><span>How it is drawn: the PNG decodes opaque black and white, so it cannot be
-      used as a tint as is. Decode it into an off-screen canvas at its natural (thumbnail) size, read it with
-      <code>getImageData</code>, and write one overlay canvas of the same size: 55% black where the mask is 0, magenta
-      on edge pixels, clear elsewhere. The overlay canvas is placed and scaled into the photo's displayed rect by the
-      same contain-fit math as the box, so a resize repositions it without recomputing the tint.</span></li>
-    <li><span class="box"></span><span>The tint: everything outside the bean region under 55% black (ticket D4). The
-      box keeps its white outline and loses its <code>box-shadow</code> dimming (D3).</span></li>
-    <li><span class="box"></span><span>The outline: the bean region's edge as a magenta line (255, 0, 255) about
-      2 CSS px wide at the displayed scale. A one-pixel edge at the thumbnail's 1024 px is half a CSS pixel on a
-      phone, so the edge is widened by a radius taken from the display scale, and redrawn on resize only when that
-      radius changes. No outline along the photo's own border, unlike <code>seg_overlay.py</code>: it would frame
-      every frame-filling photo in magenta. The owner sees both choices at the stop. A "Show outline" checkbox below
-      the preview starts ticked, hides the outline only, and keeps its state across uploads in the page visit, not
-      saved (D9).</span></li>
+    <li><span class="box"></span><span>A token per upload (ticket D13): each pick of a photo starts a new upload,
+      and the handler checks its token after every wait (the <code>/preview</code> answer, the <code>/crop</code>
+      answer, the mask's <code>decode()</code>), dropping a stale answer before it touches the preview, the box,
+      the canvases or <code>#crop-note</code>.</span></li>
+    <li><span class="box"></span><span>How it is drawn (D14): the mask's data URL decodes into an
+      <code>Image</code> (<code>await img.decode()</code>); two canvases, tint and outline, sit in
+      <code>#image-clip</code> under the box, with CSS size the photo's displayed rect and backing size that rect
+      times <code>devicePixelRatio</code>. Each <code>drawImage</code> stretches the mask to the whole canvas.
+      <code>positionCropOverlay</code> stays the one place that draws: it runs on the preview's load, on the
+      <code>/crop</code> answer and on resize, and draws nothing until both the preview and the mask have loaded.
+      A resize redraws both canvases.</span></li>
+    <li><span class="box"></span><span>The tint: fill the tint canvas with <code>rgba(0, 0, 0, 0.55)</code>, then
+      draw the mask with <code>destination-out</code>, which clears the bean region (ticket D4). The box keeps its
+      white outline and loses its <code>box-shadow</code> dimming (D3).</span></li>
+    <li><span class="box"></span><span>The outline: on the outline canvas, draw the mask at 16 offsets on a circle of
+      radius 2 CSS px (times <code>devicePixelRatio</code>), then the mask once with <code>destination-out</code>,
+      then a magenta (255, 0, 255) fill with <code>source-in</code>: a 2 CSS px ring just outside the bean region,
+      over the tint, covering no bean pixel (D2, D14). The part of the ring beyond the canvas is cut off, so the
+      photo's own border never gets a line, unlike <code>seg_overlay.py</code>, which would frame every
+      frame-filling photo in magenta. A "Show outline" checkbox in a <code>&lt;label&gt;</code> below the preview
+      starts ticked, shows or hides the outline canvas only, with no redraw, and keeps its state across uploads in
+      the page visit, not saved (D9).</span></li>
     <li><span class="box"></span><span>The fallback: when <code>seg_fallback</code> is <code>true</code>, no tint, no
       outline, no checkbox, and a note in <code>#crop-note</code> saying no coffee beans were found and the whole
       photo will be classified (D5). The needs-review note shares <code>#crop-note</code> but cannot fire at the
@@ -179,9 +200,10 @@
     <li><span class="box"></span><span>"Use full photo instead" hides the tint, the box, the outline and the
       checkbox; "Use detected crop" shows them again without a new request (D6).</span></li>
     <li><span class="box"></span><span>Checks, by hand on the local dev server (<code>python -m webapp.app</code>) at
-      desktop and phone widths: the tray smoke photo, a frame-filling photo, a portrait photo stored sideways with an
-      Orientation tag, a HEIC photo, a negative that falls back, and a <code>/crop</code> answer with
-      <code>mask</code> removed. Screenshots go to the owner, with a note that the portrait photo shows sideways as it
+      desktop and phone widths, on a phone with Safari and one with Chrome: the tray smoke photo, a frame-filling photo, a portrait photo stored sideways with an
+      Orientation tag, a HEIC photo, a negative that falls back, a <code>/crop</code> answer with
+      <code>mask</code> removed, and a second photo picked while the first one's <code>/crop</code> is in flight
+      (D13). Screenshots go to the owner, with a note that the portrait photo shows sideways as it
       does today (finding 6), so it is not read as an overlay bug.</span></li>
     <li><span class="box"></span><span>Stop for the owner: look at the overlay on the dev server or the screenshots,
       and accept it or ask for changes.</span></li>
@@ -204,7 +226,7 @@
 
   <h2>7. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: <code>/crop</code>'s mask matches the thumbnail on a tray photo and a
+    <li><span class="box"></span><span>P1: <code>/crop</code>'s mask has the photo's frame (aspect within one pixel, not rotated) on a tray photo and a
       photo with an Orientation tag; the fallback answers <code>null</code> and <code>seg_fallback: true</code>;
       <code>classify_one</code> is bit-identical on the fixtures.</span></li>
     <li><span class="box"></span><span>P2: the smoke comparison passes a few flipped pixels and fails a one-pixel
@@ -229,6 +251,12 @@
       orientation test and the threshold margins; P2 moves to IoU &ge; 0.999 (owner, amending D10) with a one-pixel
       shift as the failing case; P3 gains the drawing method, the outline width, the missing-<code>mask</code> case
       and the sideways-portrait note; P4's go covers the push. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Review as a Python web developer against <code>214daa4</code>: findings
+      9 and 10. The owner answered ticket D13 (a token per upload), amended D7 (the mask covers the whole photo,
+      stretched to the displayed rect; non-bean pixels transparent) and answered D14 (compositing, no readback, the
+      line just outside the bean region). P1 drops the shared size helper and leaves <code>/preview</code> alone,
+      and encodes a palette PNG; P2 decodes by palette index; P3 gains the token and the compositing method, and
+      its hand checks gain phone browsers and the stale answer. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
