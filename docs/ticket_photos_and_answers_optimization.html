@@ -1,0 +1,64 @@
+<title>Photos and answers between the page and the backend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-7 · coffee-vision · webapp</div>
+  <h1>Stub: what the page and the backend pass to each other, and how often each photo is uploaded</h1>
+  <p class="lede">A placeholder, not a ticket yet. Today each photo is uploaded in full three times, once each for
+    <code>/preview</code>, <code>/crop</code> and <code>/classify</code>, and decoded three times. Split out of
+    <a href="ticket_webapp_mask_overlay.html">OPS-6</a>'s web review so that ticket stays about the overlay. To be
+    researched and written later; nothing here is decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; not researched, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>webapp/deploy/coffee-cv.nginx.conf.template</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">touches the same code as OPS-6; research can start any time</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-07.</strong> Create a stub for photos-and-answers optimization: a placeholder
+      to research and write later.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. The question is what the page and the backend should pass to each other for one photo, and how many
+    times the photo should travel. Nothing is proposed yet.</p>
+
+  <h2>2. Background</h2>
+  <p>Notes from OPS-6's web review, read at <code>214daa4</code>; to be checked when the ticket is written.</p>
+  <ul>
+    <li><b>Three uploads, three decodes.</b> The page sends the original file to <code>/preview</code>, then to
+      <code>/crop</code>, then to <code>/classify</code>. Each decodes it with <code>load_rgb_image</code>;
+      <code>/crop</code> and <code>/classify</code> each run the segmenter (<code>webapp/app.py</code>,
+      <code>webapp/static/index.html</code>).</li>
+    <li><b>Rough costs.</b> The segmenter takes about 1.7&ndash;2 s on one thread for a 12&ndash;19 MP photo
+      (<code>analysis/ml2_p0/timing_devcontainer_t1.json</code>). A <code>curl</code> from the devcontainer adds
+      about 7 s of upload to <code>/classify</code> (<a href="agents/deploy.md">deploy.md</a>). Phone upload times
+      are not measured.</li>
+    <li><b>Constraints.</b> The app keeps no state between requests (<code>webapp/app.py</code>'s docstring); the
+      request log keeps no image bytes (<code>docs/logging_plan.html</code>); nginx allows one request in flight
+      server-wide; a release ships its page and its backend together (<a
+      href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>).</li>
+    <li><b>Ideas raised, not assessed.</b> Merge <code>/preview</code> and <code>/crop</code> into one answer (one
+      upload fewer, but the photo shows only after the segmenter); hold the upload on the server for a short time
+      under a token (fewer uploads, but server-side state and a privacy question); send the EXIF orientation so
+      the page can show portrait photos upright.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Stub created at the owner's request during OPS-6's web review, which
+      moved the three-uploads question out of OPS-6's scope. Not researched, not written.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a>, <a href="agents/deploy.md">deploy.md</a>,
+    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>.</footer>
+</main>
