@@ -29,7 +29,9 @@ from pathlib import Path
 SCORE_TOL = 1e-4   # float32 results differ slightly between machines (docs/ops1_release_isolation_plan.html §4.8)
 # The /crop mask's least IoU with the local one (ticket OPS-6 D10, R2). Masks differ across CPUs in about 1e-6
 # of their pixels (ML-2 P0); on the smoke photo's mask a one-pixel shift gives 0.993-0.996, 97 flipped
-# boundary pixels 0.9997 (OPS-6 P1).
+# boundary pixels 0.9997 (OPS-6 P1). Measured on the smoke photo's mask only (768 x 1024, 41% bean): a smaller
+# or sparser mask has more boundary per bean pixel, so a one-pixel shift costs it more IoU, and so do the same
+# few flipped pixels. A new smoke photo needs these margins measured again on its own mask.
 MASK_IOU_MIN = 0.999
 
 
@@ -200,15 +202,15 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
         failures.append(f"/crop answered {status or 'nothing'}")
     else:
         body, e = json.loads(body), exp["crop"]["body"]
-        mask = ""
+        mask_summary = ""
         if "mask" in e and "mask" in body:   # else neither is from OPS-6 on, or _max_abs_diff names the one
-            mask, bad = _compare_masks(e.pop("mask"), body.pop("mask"))
-            mask, failures = f", {mask}", failures + bad
+            summary, bad = _compare_masks(e.pop("mask"), body.pop("mask"))
+            mask_summary, failures = f", {summary}", failures + bad
         worst, bad = _max_abs_diff(e, body)
         failures += bad
         if worst > 1e-3:
             failures.append(f"/crop box differs by up to {worst:.2e}")
-        print(f"  /crop      cropped={body.get('cropped')}, max box diff vs local {worst:.1e}{mask}")
+        print(f"  /crop      cropped={body.get('cropped')}, max box diff vs local {worst:.1e}{mask_summary}")
 
     preview = got.get("SMOKE_PREVIEW", "").split()
     if preview[:2] != ["200", "image/jpeg"]:
