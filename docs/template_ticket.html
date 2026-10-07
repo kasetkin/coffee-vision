@@ -1,0 +1,214 @@
+<title>[[Short title]]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+
+<!--
+  Ticket template. Copy to docs/ticket_<slug>.html, then:
+  - Replace every [[...]] placeholder; none may be left (grep -n '\[\[' the new file).
+  - ID: the next free ML-n (data, model, training, evaluation) or OPS-n (deploy, infrastructure):
+      grep -o 'Ticket [A-Z]*-[0-9]*' docs/ticket_*.html
+  - Delete these HTML comments, and any optional field or section you don't use.
+  - Conventions: docs/agents/issue-tracker.md. Terms: GLOSSARY.md.
+-->
+<main>
+  <div class="eyebrow">Ticket [[ML-n]] · coffee-vision · [[area, e.g. dataset and class list]]</div>
+  <h1>[[Title: what changes, in one sentence]]</h1>
+  <p class="lede">[[Two to four sentences: the request, why it matters, and where the ticket stands (written, planned,
+    implemented).]]</p>
+
+  <div class="fields">
+    <!-- Status: pill "open" for Open and In progress, "ok" for Closed. The tag says what is done, with dates, commits, release. -->
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">[[written YYYY-MM-DD; not planned, not implemented]]</span></span></div>
+    <!-- Triage: one category role and one state role from docs/agents/triage-labels.md. -->
+    <div class="field"><span class="k">Triage</span><span class="v mono">[[enhancement]], [[needs-triage]]</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">[[Medium]]</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">[[e.g. Data: new photos]]</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">[[files, modules, DVC stages, webapp, release]]</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">[[Alex Kasatkin]]</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">[[Claude (implementation), Alex (decisions)]]</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">[[YYYY-MM-DD]]</span></div>
+    <!-- Optional: only when the ticket changes what the live site serves. -->
+    <div class="field"><span class="k">Production impact</span><span class="v">[[None, or what changes and at which step]]</span></div>
+    <!-- Optional: wayfinder child tickets only. -->
+    <div class="field"><span class="k">Part of</span><span class="v">[[ML-n]]</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">[[or the IDs this waits on]]</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, [[YYYY-MM-DD]].</strong> [[The request, close to the owner's words.]]</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>[[What is true today, what will be true after, and the parts the work splits into.]]</p>
+
+  <h2>2. Background</h2>
+  <p>[[Facts read from the code, data and earlier tickets, with their sources.]]</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>[[...]]</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>[[...]]</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>[[Thing]].</strong> [[Why it stays as it is.]]</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>[[Risk in one line.]]</strong></td>
+        <td>[[Evidence, then mitigation, or who accepted it and in which decision.]]</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <!-- The owner decides. An open decision says "Open" in the last column; an answered one starts with the option and the date. -->
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>[[Question?]]</td>
+        <td>(a) [[...]] (b) [[...]]</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <!-- Tick an item when done: class="box done". -->
+  <ul class="checks">
+    <li><span class="box"></span><span>[[A checkable outcome.]]</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>[[...]]</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <!-- Dated entries, oldest first. Append; don't rewrite. -->
+  <div class="log">
+    <div><div class="when">[[YYYY-MM-DD]]</div>Ticket written from [[sources, commit]]. Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: [[files, tickets and outside sources]].</footer>
+</main>
