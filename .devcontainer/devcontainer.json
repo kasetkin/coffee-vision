@@ -41,8 +41,9 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
   // Training venv from pyproject.toml + uv.lock (UV_PROJECT_ENVIRONMENT is set in Dockerfile.cpu);
-  // then the committed git hooks (.githooks/pre-push runs scripts/check.sh before a push to origin).
-  "postCreateCommand": "uv sync --locked && git config core.hooksPath .githooks",
+  // then the committed git hooks (.githooks/pre-push runs scripts/check.sh before a push to origin);
+  // then ~/.ssh as a link to the gitignored .private_ssh/, so SSH keys and the VM's alias survive a rebuild.
+  "postCreateCommand": "uv sync --locked && git config core.hooksPath .githooks && .devcontainer/link-private-ssh.sh",
   "postStartCommand": "sudo /usr/local/bin/setup-opencl-device.sh",
   "waitFor": "postStartCommand"
 
