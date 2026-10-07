@@ -27,7 +27,9 @@ REPO = Path(__file__).resolve().parents[1]
 # The deploy's smoke photo, from the same list the deploy uses: a tray photo, 3000 x 4000, not square.
 PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.txt").read_text().splitlines()
                     if line.startswith("smoke "))
-MODEL = REPO / "models/allrigs_dino3b16_seg_country_s123.pt"
+# The model webapp.app will load: COFFEE_CV_CHECKPOINT, else the same default as its CHECKPOINT. The literal is
+# repeated because webapp.app cannot be imported to read it before this check: the import loads the model.
+MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_dino3b16_seg_country_s123.pt")
 
 
 def _post(client, endpoint: str, data: bytes):
@@ -97,6 +99,8 @@ class TestCropMask(unittest.TestCase):
         self.assertEqual(img.info.get("transparency"), 0)
         idx = np.asarray(img)
         self.assertLessEqual(set(np.unique(idx).tolist()), {0, 1})
+        alpha = np.asarray(img.convert("RGBA"))[..., 3]
+        self.assertTrue((alpha[idx == 1] == 255).all(), "bean pixels (index 1) are not opaque")
         mask = idx == 1
         self.assertTrue(mask.any(), "the mask is empty")
         full = self.app.segmenter.predict_mask(rgb)
@@ -120,7 +124,9 @@ class TestCropMask(unittest.TestCase):
                          "the copy's tag would rotate it, if anything honoured it")
         crop, preview = _post(self.client, "/crop", tagged), _post(self.client, "/preview", tagged)
         self.assertEqual((crop.status_code, preview.status_code), (200, 200))
-        for name, (iw, ih) in (("mask", _decode_mask(crop.get_json()["mask"]).size),
+        mask_size = _decode_mask(crop.get_json()["mask"]).size
+        self.assertLessEqual(max(mask_size), 1024, "the mask's long side (D7, D10)")
+        for name, (iw, ih) in (("mask", mask_size),
                                ("thumbnail", Image.open(io.BytesIO(preview.data)).size)):
             with self.subTest(name):
                 self.assertLessEqual(abs(iw - w * ih / h), 1, ((iw, ih), (w, h)))
