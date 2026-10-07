@@ -100,23 +100,30 @@
     object-fit: contain;
   }
   /* object-fit: contain can letterbox #preview inside #preview-wrap (when
-     the photo's aspect ratio doesn't match the wrapper's) -- #image-mask is
-     sized in JS to exactly the rendered photo's own rect, not the wrapper's,
-     so the dim below only ever covers actual photo pixels, never empty
-     letterbox space. */
-  #image-mask {
+     the photo's aspect ratio doesn't match the wrapper's) -- #image-clip is
+     a CSS clipping box sized in JS to exactly the rendered photo's own rect,
+     not the wrapper's, so the tint, the outline and the box only ever cover
+     actual photo pixels, never empty letterbox space. */
+  #image-clip {
     position: absolute;
     display: none;
     overflow: hidden;
     pointer-events: none;
   }
+  /* The photo's bean region (ticket OPS-6): #tint-canvas tints everything
+     outside it, #outline-canvas draws a thin magenta line just outside its
+     edge. Both are drawn by drawBeanRegion() and sit under the box. */
+  #tint-canvas, #outline-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: none;
+  }
   #crop-overlay {
     position: absolute;
     display: none;
-    /* Spotlight: a huge shadow spread dims everything in #image-mask outside
-       this box -- clipped to the mask (the photo's own bounds), not the
-       wrapper, so it never bleeds into the letterbox margin around it. */
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    /* The crop box as an outline only: #tint-canvas does the dimming, by
+       the bean region rather than by the box (OPS-6 D3). */
     outline: 2px solid rgba(255, 255, 255, 0.9);
     /* TODO(crop editing): planned feature -- let the user drag/resize this
        box after the detector shows it, instead of only the binary
@@ -129,6 +136,14 @@
        apply -- same trust boundary as today: the server decides what "apply
        this box" means, the client only ever supplies numbers, same as
        skip_crop is one bit today, not a box. */
+  }
+  #outline-label {
+    display: none;
+    width: fit-content;
+    margin: 0.5rem auto 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    cursor: pointer;
   }
   #crop-note {
     display: none;
@@ -187,10 +202,13 @@
            capture="environment">
     <div id="preview-wrap">
       <img id="preview" alt="Selected photo preview">
-      <div id="image-mask">
+      <div id="image-clip">
+        <canvas id="tint-canvas"></canvas>
+        <canvas id="outline-canvas"></canvas>
         <div id="crop-overlay"></div>
       </div>
     </div>
+    <label id="outline-label"><input id="outline-toggle" type="checkbox" checked> Show outline</label>
     <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
     <div id="status"></div>
@@ -203,7 +221,11 @@
 const fileInput = document.getElementById('photo-input');
 const preview = document.getElementById('preview');
 const previewWrap = document.getElementById('preview-wrap');
-const imageMask = document.getElementById('image-mask');
+const imageClip = document.getElementById('image-clip');
+const tintCanvas = document.getElementById('tint-canvas');
+const outlineCanvas = document.getElementById('outline-canvas');
+const outlineLabel = document.getElementById('outline-label');
+const outlineToggle = document.getElementById('outline-toggle');
 const cropOverlay = document.getElementById('crop-overlay');
 const cropNote = document.getElementById('crop-note');
 const cropToggleBtn = document.getElementById('crop-toggle-btn');
@@ -213,6 +235,10 @@ const resultEl = document.getElementById('result');
 
 let previewUrl = null;
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
+// The photo's bean region from /crop (ticket OPS-6 D7): the decoded mask
+// image, opaque on bean pixels and transparent elsewhere, covering the whole
+// photo; or null (no mask, or not decoded yet).
+let lastMask = null;
 // User override: the detector found a box, but they don't trust it. Only
 // meaningful when lastCropBox is set -- there's nothing to override on a
 // photo the detector left untouched.
@@ -232,12 +258,15 @@ cropToggleBtn.addEventListener('click', () => {
 // whenever the container's aspect ratio doesn't match the photo's. A plain
 // CSS-percentage overlay would misalign in that case, so this maps fractional
 // crop coordinates through the same contain-fit math the browser uses.
-// #image-mask is sized to exactly the rendered photo's own rect (not the
-// wrapper's) so the dim inside #crop-overlay's box-shadow only ever covers
-// actual photo pixels, never the letterbox margin around it.
+// #image-clip is sized to exactly the rendered photo's own rect (not the
+// wrapper's) so the tint, the outline and the box only ever cover actual
+// photo pixels, never the letterbox margin around it. The one place that
+// draws: it runs on the preview's load, on the /crop answer and on resize,
+// and draws the bean region only once both the preview and the mask loaded.
 function positionCropOverlay() {
   if (!lastCropBox || !preview.naturalWidth || useFullPhoto) {
-    imageMask.style.display = 'none';
+    imageClip.style.display = 'none';
+    outlineLabel.style.display = 'none';
     return;
   }
   const cw = previewWrap.clientWidth, ch = previewWrap.clientHeight;
@@ -245,11 +274,11 @@ function positionCropOverlay() {
   const scale = Math.min(cw / iw, ch / ih);
   const dispW = iw * scale, dispH = ih * scale;
   const offX = (cw - dispW) / 2, offY = (ch - dispH) / 2;
-  imageMask.style.left = `${offX}px`;
-  imageMask.style.top = `${offY}px`;
-  imageMask.style.width = `${dispW}px`;
-  imageMask.style.height = `${dispH}px`;
-  imageMask.style.display = 'block';
+  imageClip.style.left = `${offX}px`;
+  imageClip.style.top = `${offY}px`;
+  imageClip.style.width = `${dispW}px`;
+  imageClip.style.height = `${dispH}px`;
+  imageClip.style.display = 'block';
 
   const [x0, y0, x1, y1] = lastCropBox;
   cropOverlay.style.left = `${x0 * dispW}px`;
@@ -257,19 +286,96 @@ function positionCropOverlay() {
   cropOverlay.style.width = `${(x1 - x0) * dispW}px`;
   cropOverlay.style.height = `${(y1 - y0) * dispH}px`;
   cropOverlay.style.display = 'block';
+
+  if (lastMask) {
+    drawBeanRegion(dispW, dispH);
+    tintCanvas.style.display = 'block';
+    showOutline();
+    outlineLabel.style.display = 'block';
+  } else {
+    tintCanvas.style.display = 'none';
+    outlineCanvas.style.display = 'none';
+    outlineLabel.style.display = 'none';
+  }
 }
 window.addEventListener('resize', positionCropOverlay);
 
+// "Show outline" (OPS-6 D9) shows or hides the outline's canvas only, with
+// no redraw; its state lasts across uploads in this page visit, not saved.
+function showOutline() {
+  outlineCanvas.style.display = outlineToggle.checked ? 'block' : 'none';
+}
+outlineToggle.addEventListener('change', showOutline);
+
+const OUTLINE_CSS_PX = 2;
+const OUTLINE_STEPS = 16;
+
+// Ticket OPS-6 D14: composited from the mask, never read back pixel by
+// pixel (the noise some browsers add to readback cannot reach the overlay).
+// The canvas covers the photo's displayed rect at device pixels, and every
+// drawImage stretches the mask to the whole canvas, as the box's fractions
+// are stretched to the same rect (D7).
+function drawBeanRegion(dispW, dispH) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(dispW * dpr)), h = Math.max(1, Math.round(dispH * dpr));
+  for (const canvas of [tintCanvas, outlineCanvas]) {
+    canvas.width = w;   // setting the size also clears the canvas
+    canvas.height = h;
+    canvas.style.width = `${dispW}px`;
+    canvas.style.height = `${dispH}px`;
+  }
+
+  // The tint (D4): 55% black everywhere, then the bean region cut out.
+  const tint = tintCanvas.getContext('2d');
+  tint.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  tint.fillRect(0, 0, w, h);
+  tint.globalCompositeOperation = 'destination-out';
+  tint.drawImage(lastMask, 0, 0, w, h);
+  tint.globalCompositeOperation = 'source-over';
+
+  // The outline (D9, D14): the mask at 16 offsets on a circle of 2 CSS px is
+  // the bean region widened by 2 px; cutting the mask itself out leaves a
+  // ring just outside its edge, over the tint and covering no bean pixel
+  // (D2); source-in paints the ring magenta, as the review tool's
+  // (coffeecv/seg_overlay.py). What lies beyond the canvas is cut off, so the
+  // photo's own border never gets a line.
+  const outline = outlineCanvas.getContext('2d');
+  const r = OUTLINE_CSS_PX * dpr;
+  for (let i = 0; i < OUTLINE_STEPS; i++) {
+    const a = 2 * Math.PI * i / OUTLINE_STEPS;
+    outline.drawImage(lastMask, r * Math.cos(a), r * Math.sin(a), w, h);
+  }
+  outline.globalCompositeOperation = 'destination-out';
+  outline.drawImage(lastMask, 0, 0, w, h);
+  outline.globalCompositeOperation = 'source-in';
+  outline.fillStyle = 'rgb(255, 0, 255)';
+  outline.fillRect(0, 0, w, h);
+  outline.globalCompositeOperation = 'source-over';
+}
+
+// Ticket OPS-6 D13: each pick of a photo is a new upload. The file input
+// stays enabled while /preview and /crop run, so an answer can arrive after
+// the user picked another photo; the handler checks its upload is still the
+// current one after every wait and drops a stale answer before it touches
+// the preview, the box, the canvases, the note or the status.
+let currentUpload = 0;
+
 fileInput.addEventListener('change', async () => {
+  const upload = ++currentUpload;
+  const isStale = () => upload !== currentUpload;
   const file = fileInput.files[0];
   resultEl.innerHTML = '';
   previewWrap.style.display = 'none';
-  imageMask.style.display = 'none';
+  imageClip.style.display = 'none';
   cropOverlay.style.display = 'none';
+  tintCanvas.style.display = 'none';
+  outlineCanvas.style.display = 'none';
+  outlineLabel.style.display = 'none';
   cropNote.style.display = 'none';
   cropToggleBtn.style.display = 'none';
   classifyBtn.disabled = true;
   lastCropBox = null;
+  lastMask = null;
   useFullPhoto = false;
   if (previewUrl) {
     URL.revokeObjectURL(previewUrl);
@@ -291,13 +397,16 @@ fileInput.addEventListener('change', async () => {
     const previewData = new FormData();
     previewData.append('photo', file);
     const res = await fetch('/preview', { method: 'POST', body: previewData });
+    if (isStale()) return;
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      if (isStale()) return;
       statusEl.textContent = '';
       renderRefused(data.error || "Could not read this photo.");
       return;
     }
     const blob = await res.blob();
+    if (isStale()) return;
     previewUrl = URL.createObjectURL(blob);
     preview.onload = positionCropOverlay;
     preview.src = previewUrl;
@@ -321,25 +430,53 @@ fileInput.addEventListener('change', async () => {
       const cropData = new FormData();
       cropData.append('photo', file);
       const cropRes = await fetch('/crop', { method: 'POST', body: cropData });
+      if (isStale()) return;
       if (cropRes.ok) {
         const data = await cropRes.json();
+        if (isStale()) return;
+        // The mask decodes first, so the box and the bean region appear
+        // together. An answer with no mask field (a page cached from this
+        // release against a rolled-back server, OPS-6 R6) or a mask that
+        // fails to decode shows the box only.
+        let mask = null;
+        if (data.mask) {
+          const img = new Image();
+          img.src = `data:image/png;base64,${data.mask}`;
+          try {
+            await img.decode();
+            mask = img;
+          } catch (err) {
+            // box only
+          }
+          if (isStale()) return;
+        }
         lastCropBox = data.cropped ? data.box : null;
+        lastMask = mask;
         if (lastCropBox) {
           updateCropToggleBtn();
           cropToggleBtn.style.display = 'block';
         }
         positionCropOverlay();
-        if (data.needs_review) {
+        // The two notes cannot fire together: a segmenter model's
+        // needs_review is always false (coffeecv/infer.py).
+        if (data.seg_fallback) {
+          // ML-2 D18: no usable mask, so the whole photo is classified. A
+          // note, not a refusal (OPS-6 D5).
+          cropNote.textContent = 'No coffee beans found -- the whole photo will be classified.';
+          cropNote.style.display = 'block';
+        } else if (data.needs_review) {
           cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
           cropNote.style.display = 'block';
         }
       }
     } catch (err) {
+      if (isStale()) return;
       // no overlay, no warning -- Classify is unaffected either way
     }
     classifyBtn.disabled = false;
     statusEl.textContent = '';
   } catch (err) {
+    if (isStale()) return;
     statusEl.textContent = '';
     renderRefused('Could not reach the server -- check your connection and try again.');
   }
