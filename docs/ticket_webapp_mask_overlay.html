@@ -18,7 +18,7 @@
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload preview</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code> (<code>/crop</code>), <code>webapp/static/index.html</code>, <code>webapp/deploy/release_probe.py</code>, tests, release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code> (<code>/crop</code>), <code>coffeecv/infer.py</code> and <code>coffeecv/segment_beans.py</code> (the full-photo mask), <code>webapp/static/index.html</code>, <code>webapp/deploy/release_probe.py</code>, <code>webapp/README.md</code>, tests, release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the look, the deploy go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
@@ -36,6 +36,10 @@
       travels in <code>/crop</code>'s answer (D7). Old models are not designed for (D8). A magenta mask outline, as in
       the review tool, sits behind a checkbox that starts ticked (D9). Checks (D10), out of scope (D11), and a deploy
       phase that stops for the owner (D12) as recommended.</p>
+    <p><strong>Review, 2026-10-07.</strong> A review of the ticket and plan against the code corrected two premises:
+      <code>segment_bean_region</code> returns the cropped mask, not the full photo's, and <code>load_rgb_image</code>
+      ignores EXIF orientation. The owner amended D10: the orientation test is restated, and the smoke comparison
+      takes IoU &ge; 0.999 instead of 0.98.</p>
   </div>
 
   <h2>1. Summary</h2>
@@ -50,9 +54,14 @@
   <p>Read at <code>a290ce4</code>.</p>
   <ul>
     <li><b><code>/crop</code> already segments.</b> It calls <code>segment_bean_region</code> and answers
-      <code>cropped</code>, <code>box</code> (fractions of the full image) and <code>needs_review</code>; the mask it
-      gets back is dropped (<code>webapp/app.py</code>, <code>crop()</code>). It is advisory: <code>/classify</code>
-      segments again on its own and never takes a box from the client.</li>
+      <code>cropped</code>, <code>box</code> (fractions of the full image) and <code>needs_review</code>
+      (<code>webapp/app.py</code>, <code>crop()</code>). It is advisory: <code>/classify</code> segments again on its
+      own and never takes a box from the client.</li>
+    <li><b>The full photo's mask never leaves the segmenter.</b> <code>segment_and_crop</code> predicts it, and
+      <code>mask_and_crop</code> keeps only its cut to the D4 box (<code>None</code> on a fallback); that cut is the
+      mask <code>segment_bean_region</code> returns and <code>/crop</code> drops. The diagnostics it also returns go
+      into <code>classify_one</code>'s entry, which <code>release_probe classify</code> writes out, so they are no
+      place for a mask (<code>coffeecv/segment_beans.py</code>, <code>coffeecv/infer.py</code>).</li>
     <li><b>The page shows the box as a spotlight.</b> <code>#crop-overlay</code> dims everything outside the box with
       a 55% black <code>box-shadow</code>, clipped to the photo's rect by <code>#image-mask</code>, which is a CSS
       clipping box, not a segmentation mask. "Use full photo instead" sends <code>skip_crop=1</code>, and then the
@@ -62,13 +71,19 @@
       the bean region lies outside the box. An empty or tiny mask means the whole original photo, unfilled (ML-2
       D18); <code>/crop</code> then answers <code>cropped=false</code> and the page shows nothing.</li>
     <li><b>The thumbnail and the mask come from the same pixels.</b> <code>/preview</code> and the segmenter both
-      decode with <code>load_rgb_image</code>, so EXIF rotation is applied the same way. The thumbnail's long side is
-      at most 1024 px (<code>PREVIEW_MAX_DIM</code>).</li>
+      decode with <code>load_rgb_image</code>, which ignores EXIF orientation on purpose (the "Invariance over
+      normalization" rule in <code>CODING_STANDARDS.md</code>; <code>coffeecv/crop_tray.py</code>). Both work on the
+      stored pixels, so they line up, and a phone photo stored sideways with an Orientation tag shows sideways in the
+      preview today. The thumbnail's long side is at most 1024 px (<code>PREVIEW_MAX_DIM</code>).</li>
     <li><b>One request at a time.</b> One sync gunicorn worker, a server-wide cap of one request in flight in nginx,
       and a 30 s timeout. The page calls <code>/preview</code>, then <code>/crop</code>, in sequence.</li>
     <li><b>The deploy compares <code>/crop</code> exactly.</b> <code>release_probe.py compare-smoke</code> walks the
-      whole <code>/crop</code> body: numbers within 1e-3, strings equal. Masks differ by a few pixels across CPUs
-      (ML-2 P0), so a mask string would fail it.</li>
+      whole <code>/crop</code> body: numbers within 1e-3, strings equal. The expected answers are computed on the
+      devcontainer and the served ones on the VM, and their masks differ: AVX2 and AVX-512 give different mask hashes,
+      in about 1e-6 of the pixels (ML-2 P0, <code>analysis/ml2_p0/README.md</code>). A mask string would fail it.</li>
+    <li><b>The page is cacheable.</b> nginx sets no <code>Cache-Control</code> on <code>index.html</code>, so a
+      browser may keep a page from one release while the server runs another, after a deploy or a
+      <code>--rollback</code>.</li>
     <li><b>The review tool's outline.</b> <code>coffeecv/review_masks.py</code> draws the mask's edge as a thin
       magenta line, (255, 0, 255) in <code>coffeecv/seg_overlay.py</code>, and Space toggles it.</li>
   </ul>
@@ -92,7 +107,7 @@
         <li>The preview tints everything outside the photo's bean region, outlines the crop box in white, and the
           bean region's edge in magenta behind a "Show outline" checkbox that starts ticked.</li>
         <li>A fallback shows no tint and a note that the whole photo will be classified.</li>
-        <li>The smoke check also compares the mask, by IoU &ge; 0.98.</li>
+        <li>The smoke check also compares the mask, by IoU &ge; 0.999.</li>
       </ul>
     </div>
   </div>
@@ -100,7 +115,9 @@
   <h2>4. What does not change</h2>
   <ul>
     <li><strong><code>/classify</code>.</strong> Same input, same answer; the overlay is display only.</li>
-    <li><strong>The model and the segmenter.</strong> Same release model, same mask, same crop rule.</li>
+    <li><strong>The model and the segmenter.</strong> Same release model, same mask, same crop rule. The serving code
+      gains a way to hand <code>/crop</code> the full photo's mask it already computes; what
+      <code>classify_one</code> returns is bit-identical before and after.</li>
     <li><strong>The number of requests per upload.</strong> Still <code>/preview</code> then <code>/crop</code>; no
       extra segmenter pass.</li>
     <li><strong><code>/preview</code>.</strong> It still returns the plain JPEG thumbnail; the overlay is drawn in
@@ -117,14 +134,27 @@
         <td>The tint is translucent black, the model's fill is opaque gray (ML-2 D3). Accepted in D4: the contract is
           where the fill goes and where the crop cuts, not the colour.</td></tr>
       <tr><td class="id">R2</td><td><strong>The smoke check fails on a correct mask.</strong></td>
-        <td>Masks differ by a few pixels across CPUs (ML-2 P0). Mitigated by comparing the decoded mask by IoU
-          &ge; 0.98 instead of the string (D10), with tests for both a near and a far mask.</td></tr>
+        <td>Masks differ in about 1e-6 of their pixels across CPUs (ML-2 P0). Mitigated by comparing the decoded mask
+          by IoU &ge; 0.999 instead of the string (D10). Not IoU = 1: the deploy compares a devcontainer mask with a VM
+          mask, which ML-2 P0 found to differ, and one boundary pixel flipped by the thumbnail's area average and 0.5
+          cut would then fail a correct release. A real fault (the mask shifted by one thumbnail pixel, transposed,
+          resized wrongly or empty) moves the IoU by about a percent or more, far below 0.999. P1 measures both
+          margins on the smoke photo.</td></tr>
       <tr><td class="id">R3</td><td><strong>The mask is misaligned with the thumbnail.</strong></td>
-        <td>Both come from <code>load_rgb_image</code>, but the mask must be resized to exactly the thumbnail's
-          size. Covered by the EXIF-rotated test (D10).</td></tr>
+        <td>Both come from <code>load_rgb_image</code>'s stored pixels, but the mask must be resized to exactly the
+          thumbnail's size, with width and height in the right order. Covered by a non-square photo, and by a photo
+          with an Orientation tag that guards against a later change rotating one of the two and not the other
+          (D10).</td></tr>
       <tr><td class="id">R4</td><td><strong>A larger <code>/crop</code> answer on a phone.</strong></td>
         <td>A 1-bit PNG at &le; 1024 px is a few KB, plus a third for base64. Measured on the smoke photo in P1 and
           written in the plan.</td></tr>
+      <tr><td class="id">R5</td><td><strong>Exposing the full mask changes <code>/classify</code>.</strong></td>
+        <td>The change sits in <code>coffeecv/infer.py</code> and <code>coffeecv/segment_beans.py</code>, the code
+          training and serving share. Mitigated by keeping the mask out of the diagnostics and checking
+          <code>classify_one</code> bit-identical on the fixtures before and after (P1).</td></tr>
+      <tr><td class="id">R6</td><td><strong>A cached page meets a server without <code>mask</code>.</strong></td>
+        <td>After a <code>--rollback</code> a browser can hold the new page while the server answers as before. The
+          page treats a missing <code>mask</code> as "box only" (P3).</td></tr>
     </tbody>
   </table></div>
 
@@ -176,7 +206,11 @@
           with the full-resolution mask scaled down); an EXIF-rotated photo (mask and thumbnail line up); the
           fallback (<code>mask: null</code>, <code>seg_fallback: true</code>); <code>release_probe smoke</code>
           compares the mask by IoU &ge; 0.98.</td>
-        <td>As recommended, 2026-10-07.</td></tr>
+        <td>As recommended, 2026-10-07. <strong>Amended 2026-10-07</strong> after review: the photo with an
+          Orientation tag checks that the mask has the thumbnail's size, both from the stored pixels, since
+          <code>load_rgb_image</code> applies no rotation; the full-resolution agreement is checked independently of
+          the resize helper, on a non-square photo; the smoke comparison takes IoU &ge; 0.999 (R2). The owner asked
+          about IoU = 1; kept at 0.999 because devcontainer and VM masks differ (R2).</td></tr>
       <tr><td class="id">D11</td><td>What is out of scope?</td>
         <td>Editing the mask or box; a "model's view" switch; mask statistics in the <code>/crop</code> log; per-bean
           outlines.</td>
@@ -192,8 +226,10 @@
   <ul class="checks">
     <li><span class="box"></span><span><code>/crop</code> answers <code>mask</code> (1-bit PNG, base64, the
       <code>/preview</code> thumbnail's size, or <code>null</code>) and <code>seg_fallback</code> (D7).</span></li>
-    <li><span class="box"></span><span>The D10 tests pass: tray photo, EXIF-rotated photo, fallback, and the smoke
-      comparison on a near and a far mask.</span></li>
+    <li><span class="box"></span><span>The D10 tests pass: tray photo, photo with an Orientation tag, fallback, and
+      the smoke comparison on a near and a far mask.</span></li>
+    <li><span class="box"></span><span><code>classify_one</code> is bit-identical on the fixtures before and after
+      (R5).</span></li>
     <li><span class="box"></span><span>The page tints outside the bean region (D4), outlines the crop box (D3), draws
       the magenta outline behind a ticked "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
       on "Use full photo instead" (D6).</span></li>
@@ -219,6 +255,12 @@
       <code>coffeecv/review_masks.py</code> and <a href="ticket_segmentation_mask.html">ML-2</a> at
       <code>a290ce4</code>, answers D1&ndash;D12. No GLOSSARY.md change: "the photo's bean region" already names what
       stays untouched. No ADR: an overlay is cheap to reverse. Plan written. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Review of the ticket and plan against the code at <code>5a391dd</code>.
+      Corrected: <code>/crop</code> has only the cropped mask, so the full photo's must be exposed from
+      <code>coffeecv/</code> (Background, Component, R5); <code>load_rgb_image</code> ignores EXIF orientation
+      (Background, R3); the cross-CPU mask difference is about 1e-6 of pixels (Background, R2). Added R6, the cached
+      page. The owner amended D10: orientation test restated, IoU &ge; 0.999; asked about IoU = 1 and kept 0.999
+      after R2's reasoning. Plan revised to match.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
