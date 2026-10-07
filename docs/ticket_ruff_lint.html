@@ -12,10 +12,11 @@
     runs <code>ruff check</code> in <code>scripts/check.sh</code> and in <code>.githooks/pre-commit</code>, so a
     commit, a push or a deploy stops on a new finding. Written; the owner chose the core rule set, fixing every
     existing finding, and both places, and left the formatter for later (D1&ndash;D5). Planned
-    (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7); not implemented.</p>
+    (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7) and implemented; the Ruff
+    VS Code extension waits for the owner's check after a devcontainer rebuild.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions made; planned 2026-10-07 (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; planned 2026-10-07 (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7); P1&ndash;P5 done and P6's agent part done 2026-10-07, <code>40f194e</code>&ndash;<code>74fa4c0</code> on <code>ops4-ruff</code>; waits for the owner's editor check after a devcontainer rebuild, and the owner's close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: lint and guardrail</span></div>
@@ -23,7 +24,7 @@
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">None at merge. Fixes to <code>webapp/</code> code reach the live site with the next release (R3).</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None: no fix is in a file a release ships. The one <code>webapp/</code> fix is in <code>webapp/deploy/release_probe.py</code>, deploy tooling the next deploy runs, outside the release (plan finding 2; R3).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
@@ -101,7 +102,7 @@
       <h3>After</h3>
       <ul>
         <li><code>[tool.ruff]</code> in <code>pyproject.toml</code>: <code>select = ["E4", "E7", "E9", "F"]</code>,
-          <code>third_party/</code> excluded, target 3.12.</li>
+          <code>third_party/</code> excluded; the target, 3.12, comes from <code>requires-python</code>, not from the config.</li>
         <li><code>ruff check</code> passes on the repo with the findings fixed, not ignored.</li>
         <li>The pre-commit hook lints the staged Python files; <code>check.sh</code> lints the repo in both tiers.</li>
         <li><code>check.sh</code>'s header and <code>README.md</code> list the step.</li>
@@ -140,7 +141,9 @@
       <tr><td class="id">R3</td><td><strong>Fixes in <code>webapp/</code> reach the live site.</strong></td>
         <td>One core-set finding in <code>webapp/</code>. Its fix ships with the next
           release, after <code>deploy_webapp.sh</code>'s full check; keep them in their own commit so a release diff
-          shows them apart.</td></tr>
+          shows them apart. Corrected by the plan (finding 2): the finding is in
+          <code>webapp/deploy/release_probe.py</code>, deploy tooling outside the release, so nothing reaches the
+          live site; its fix is alone in <code>f6285d2</code>.</td></tr>
       <tr><td class="id">R4</td><td><strong>A wide fix commit conflicts with work on the VM.</strong></td>
         <td>Import sorting and formatting touch many files; the VM's sweep branches are joined by simple merges only
           (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Land the fixes when the VM has no unmerged commits
@@ -152,8 +155,10 @@
       <tr><td class="id">R6</td><td><strong>The pre-commit hook lints the working tree, not the commit.</strong></td>
         <td><code>ruff check &lt;files&gt;</code> reads files from disk, so a partly staged file is checked with its
           unstaged edits. Lint the staged blobs instead (<code>git show :&lt;path&gt; | ruff check --stdin-filename
-          &lt;path&gt; -</code>), as <code>leak_check --staged</code> reads the index; <code>check.sh</code> before a
-          push still checks the whole tree.</td></tr>
+          &lt;path&gt; -</code>); <code>check.sh</code> before a push still checks the whole tree. Corrected by the
+          plan (finding 1): <code>leak_check --staged</code> reads each staged file from disk, not from the index,
+          so it does not set this pattern; its staged read is <a href="ticket_leak_check_staged_read.html">OPS-5</a>
+          (D6).</td></tr>
     </tbody>
   </table></div>
 
@@ -186,7 +191,7 @@
         <td>(b), 2026-10-07: <code>check.sh</code> and the pre-commit hook at least; other places are not ruled out. Option (c) taken too, through the plan's Q2: see D7.</td></tr>
       <tr><td class="id">D6</td><td>The plan found that <code>leak_check --staged</code> reads each staged file from disk, not from the index (plan Q1). Fix it here?</td>
         <td>(a) In OPS-4, with the index reader P5 builds (b) its own ticket</td>
-        <td>(b), 2026-10-07: as the plan recommends. OPS-5, written at the plan's P6; until then the hook's comment says the leak check reads the disk.</td></tr>
+        <td>(b), 2026-10-07: as the plan recommends. <a href="ticket_leak_check_staged_read.html">OPS-5</a>, written at the plan's P6; until then the hook's comment says the leak check reads the disk.</td></tr>
       <tr><td class="id">D7</td><td>The Ruff VS Code extension in the devcontainer (D5 (c), plan Q2)?</td>
         <td>(a) No (b) yes, with its bundled Ruff (c) yes, pinned to the venv's Ruff with <code>ruff.path</code></td>
         <td>(c), 2026-10-07: as the plan recommends, so the editor reports what the gates report (R2). Added in the plan's P6.</td></tr>
@@ -201,12 +206,12 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>[tool.ruff]</code> in <code>pyproject.toml</code>: <code>select = ["E4", "E7", "E9", "F"]</code>, <code>third_party/</code> excluded, each choice commented.</span></li>
-    <li><span class="box"></span><span><code>ruff check</code> exits 0 on the repo with the 62 findings fixed; a <code>noqa</code> only where the code is deliberate (a late import), with its reason.</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh</code> runs a <code>ruff</code> step in both tiers through its <code>run</code> helper; a planted unused import makes the fast tier fail with the finding in the printed tail.</span></li>
-    <li><span class="box"></span><span><code>.githooks/pre-commit</code> runs Ruff on the staged Python files as staged (R6) beside <code>leak_check</code>; a staged unused import is refused, an unstaged one in the same file is not.</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh --full</code> passes before and after the fix commits.</span></li>
-    <li><span class="box"></span><span><code>check.sh</code>'s header comment and <code>README.md</code>'s guardrail paragraph name the step; any hook or editor wiring from D5 is in place.</span></li>
+    <li><span class="box done"></span><span><code>[tool.ruff]</code> in <code>pyproject.toml</code>: <code>select = ["E4", "E7", "E9", "F"]</code>, <code>third_party/</code> excluded, each choice commented. <span class="tag">P1, <code>22e2fc9</code></span></span></li>
+    <li><span class="box done"></span><span><code>ruff check</code> exits 0 on the repo with the 62 findings fixed; a <code>noqa</code> only where the code is deliberate (a late import), with its reason. <span class="tag">P2&ndash;P3, <code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code>, <code>ed10445</code>; no <code>noqa</code> was needed</span></span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh</code> runs a <code>ruff</code> step in both tiers through its <code>run</code> helper; a planted unused import makes the fast tier fail with the finding in the printed tail. <span class="tag">P4, <code>a6db13a</code></span></span></li>
+    <li><span class="box done"></span><span><code>.githooks/pre-commit</code> runs Ruff on the staged Python files as staged (R6) beside <code>leak_check</code>; a staged unused import is refused, an unstaged one in the same file is not. <span class="tag">P5, <code>af8454d</code>, <code>48bb0b3</code></span></span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes before and after the fix commits. <span class="tag">before on <code>8e54804</code>, after on <code>6bdb80a</code>, in the main checkout</span></span></li>
+    <li><span class="box done"></span><span><code>check.sh</code>'s header comment and <code>README.md</code>'s guardrail paragraph name the step; any hook or editor wiring from D5 is in place. <span class="tag"><code>a6db13a</code>, <code>48bb0b3</code>; the editor (D7) <code>822f0a3</code>, its check after a rebuild by the owner pending</span></span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -228,6 +233,7 @@
     <div><div class="when">2026-10-07</div>Expected times corrected from measurements: the repo-wide check takes about 0.1 s through <code>python -m ruff</code>, not 0.03 s; the pre-commit hook's Ruff step costs about 85 ms per staged file, not 10 ms; <code>leak_check --staged</code> takes about 1.7 s, not 1 s. The owner accepts about 2.5 s of Ruff for a large commit, so the plan's design stays. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner decision D8 (a): no <code>required-version</code> in the config; a Ruff upgrade brings the new stable rules of the selected prefixes. R2 corrected: the explicit <code>select</code> fixes the rule families, not every rule. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner decision D9 (a): <code>check.sh</code> lints the whole repository, uncommitted files included, not only tracked ones. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Implemented on <code>ops4-ruff</code>, P1&ndash;P5 done and P6's agent part done (<a href="plan_ruff_lint.html">plan</a>, <code>40f194e</code>&ndash;<code>74fa4c0</code>). P1 <code>[tool.ruff]</code> and <code>tests/test_ruff_config.py</code> (<code>22e2fc9</code>); P2&ndash;P3 the 62 findings fixed, none ignored (<code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code>, <code>ed10445</code>); P4 the <code>check.sh</code> step (<code>a6db13a</code>); P5 <code>coffeecv/ruff_staged.py</code>, its tests and the hook (<code>af8454d</code>, <code>48bb0b3</code>); P6 the Ruff VS Code extension pinned to <code>/home/vscode/.venv/bin/ruff</code> (<code>822f0a3</code>, D7) and <a href="ticket_leak_check_staged_read.html">OPS-5</a> for the leak check's staged read (<code>74fa4c0</code>, D6). <code>scripts/check.sh --full</code> passed on <code>8e54804</code> before the fixes and on <code>6bdb80a</code> after them, in the main checkout. Found by the plan and the work, beyond what this ticket had: no <code>noqa</code> was added (the 8 E402 hits cleared by reordering one assignment in the two xrig probes); the core set brings nine existing <code># noqa: E731</code> comments into use, and the one bare named lambda, in <code>coffeecv/ticket_check.py</code>, became a <code>def</code>; no F401 removal was a registration import (the Pillow plugin imports already carry <code>noqa</code>); none of the 34 B023 hits is a bug, and five <code>noqa: E402</code> comments are unused (both outside D1, for the later rule-set ticket); <code>force-exclude</code> is needed so the hook and the editor skip <code>third_party/</code>; <code>ruff_staged</code> also skips a staged symlink by its index mode, reports a Ruff error (exit 2) as a finding, and stops on a missing Ruff naming <code>uv sync --locked</code>. The VM, read only in P5: its clone has no <code>core.hooksPath</code>, so its commits run neither the leak check nor Ruff; its venv has no Ruff (<code>No module named ruff</code>), since it predates Ruff in the <code>dev</code> group, until its next <code>uv sync --locked</code> by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>. Corrected where the code contradicted this ticket: R6 (the leak check reads the disk, not the index: OPS-5), the Production impact row and R3 (no fix is in a file a release ships; the <code>webapp/</code> one is deploy tooling), and the After column's "target 3.12" (set by <code>requires-python</code>, not the config). Status stays In progress: the owner rebuilds the devcontainer, checks that a planted unused import is underlined and that <code>Ruff: Show logs</code> names 0.16.10, and closes the ticket.</div>
   </div>
 
   <footer>Related: <code>pyproject.toml</code>, <code>scripts/check.sh</code>, <code>.githooks/</code>, <code>README.md</code>,
