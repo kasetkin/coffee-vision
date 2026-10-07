@@ -23,7 +23,12 @@ Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
   decodes whatever format was uploaded and re-encodes it as a JPEG thumbnail --
   it exists so the browser never needs native decode support for HEIC/AVIF/JXL
   to show a picture; the frontend calls it on every file selection, before
-  `/classify` is ever hit.
+  `/classify` is ever hit. `/crop`, called right after it, runs the segmenter and
+  answers what the preview draws: `cropped`, `box` (the crop as fractions of the
+  decoded photo), `needs_review`, `mask` (the photo's bean region: a 1-bit palette
+  PNG of the whole photo, long side <= 1024 px, index 0 transparent, base64; null
+  on a fallback) and `seg_fallback` (no usable mask, so the whole photo will be
+  classified). All advisory: `/classify` segments again and takes nothing from it.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
 - `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
