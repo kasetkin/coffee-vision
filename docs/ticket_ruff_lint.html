@@ -11,11 +11,11 @@
     its findings pile up unseen. This ticket configures Ruff, clears or records the findings already in the code, and
     runs <code>ruff check</code> in <code>scripts/check.sh</code> and in <code>.githooks/pre-commit</code>, so a
     commit, a push or a deploy stops on a new finding. Written; the owner chose the core rule set, fixing every
-    existing finding, and both places, and left the formatter for later (D1&ndash;D5). Not planned, not
-    implemented.</p>
+    existing finding, and both places, and left the formatter for later (D1&ndash;D5). Planned
+    (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions made; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions made; planned 2026-10-07 (<a href="plan_ruff_lint.html">plan</a>, Q1&ndash;Q2 answered as D6&ndash;D7); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: lint and guardrail</span></div>
@@ -179,7 +179,13 @@
         <td>(a) Only <code>check.sh</code>, both tiers (pre-push and deploy) (b) also <code>.githooks/pre-commit</code>
           on staged <code>.py</code> files (c) also the Ruff VS Code extension in the devcontainer, for findings while
           editing</td>
-        <td>(b), 2026-10-07: <code>check.sh</code> and the pre-commit hook at least; other places are not ruled out.</td></tr>
+        <td>(b), 2026-10-07: <code>check.sh</code> and the pre-commit hook at least; other places are not ruled out. Option (c) taken too, through the plan's Q2: see D7.</td></tr>
+      <tr><td class="id">D6</td><td>The plan found that <code>leak_check --staged</code> reads each staged file from disk, not from the index (plan Q1). Fix it here?</td>
+        <td>(a) In OPS-4, with the index reader P5 builds (b) its own ticket</td>
+        <td>(b), 2026-10-07: as the plan recommends. OPS-5, written at the plan's P6; until then the hook's comment says the leak check reads the disk.</td></tr>
+      <tr><td class="id">D7</td><td>The Ruff VS Code extension in the devcontainer (D5 (c), plan Q2)?</td>
+        <td>(a) No (b) yes, with its bundled Ruff (c) yes, pinned to the venv's Ruff with <code>ruff.path</code></td>
+        <td>(c), 2026-10-07: as the plan recommends, so the editor reports what the gates report (R2). Added in the plan's P6.</td></tr>
     </tbody>
   </table></div>
 
@@ -207,6 +213,8 @@
     <div><div class="when">2026-10-07</div>Ticket written from <code>pyproject.toml</code>, <code>uv.lock</code>, <code>scripts/check.sh</code> and runs of ruff 0.16.10 on <code>d308595</code>. Decisions open. Not planned, not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner decisions: D1 (a) core set <code>E4,E7,E9,F</code>; D3 (a) fix every existing finding during the plan; D5 (b) Ruff in <code>check.sh</code> and in the pre-commit hook. D4 (a) recorded as following from D3. D2 (formatter) open.</div>
     <div><div class="when">2026-10-07</div>Owner decision: D2 (c) <code>ruff format --check</code> waits for its own ticket. All decisions made; Triage set to ready-for-agent.</div>
+    <div><div class="when">2026-10-07</div>Implementation plan written: <a href="plan_ruff_lint.html"><code>plan_ruff_lint.html</code></a>, six phases. Read from the code, it finds seven things this ticket does not cover. <code>leak_check --staged</code> reads the working tree, not the index (R6 says otherwise), so a leak in a staged line edited away on disk passes the hook. No file with a finding ships in a release: the one <code>webapp/</code> finding is in <code>release_probe.py</code>, deploy tooling outside the release. All 8 E402 hits clear by reordering one assignment, with no <code>noqa</code>. None of the 34 B023 hits is a bug. Exclusion needs <code>force-exclude</code> for the hook. Questions Q1 (the leak check's staged read) and Q2 (the editor extension) open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Owner answers the plan's Q1 and Q2 as recommended: D6 (b) the leak check's staged read becomes its own ticket, OPS-5; D7 (c) the Ruff VS Code extension, pinned to the venv's Ruff. Not implemented.</div>
   </div>
 
   <footer>Related: <code>pyproject.toml</code>, <code>scripts/check.sh</code>, <code>.githooks/</code>, <code>README.md</code>,
