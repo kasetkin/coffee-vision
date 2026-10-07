@@ -16,6 +16,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 from PIL import Image
@@ -103,6 +104,38 @@ class TestCropMask(unittest.TestCase):
         self.assertGreaterEqual(iou, 0.99)
         # The same check, transposed, must fail: it is what a swapped width and height would give.
         self.assertLess(_iou(mask.T, _sampled_at_centres(full, mask.T.shape)), 0.99)
+
+    def test_orientation_tag_is_ignored_by_mask_and_thumbnail_alike(self):
+        # load_rgb_image ignores EXIF orientation on purpose (CODING_STANDARDS.md, "Invariance over
+        # normalization"); the mask and /preview's thumbnail must both stay in the stored pixels' frame.
+        src = Image.open(PHOTO)
+        w, h = src.size
+        exif = src.getexif()
+        exif[0x0112] = 6                       # "rotate 90 CW to display": a sideways-stored portrait
+        buf = io.BytesIO()
+        src.save(buf, "JPEG", quality=95, exif=exif.tobytes())
+        tagged = buf.getvalue()
+        from PIL import ImageOps
+        self.assertEqual(ImageOps.exif_transpose(Image.open(io.BytesIO(tagged))).size, (h, w),
+                         "the copy's tag would rotate it, if anything honoured it")
+        crop, preview = _post(self.client, "/crop", tagged), _post(self.client, "/preview", tagged)
+        self.assertEqual((crop.status_code, preview.status_code), (200, 200))
+        for name, (iw, ih) in (("mask", _decode_mask(crop.get_json()["mask"]).size),
+                               ("thumbnail", Image.open(io.BytesIO(preview.data)).size)):
+            with self.subTest(name):
+                self.assertLessEqual(abs(iw - w * ih / h), 1, ((iw, ih), (w, h)))
+                self.assertLessEqual(abs(ih - h * iw / w), 1, ((iw, ih), (w, h)))
+
+    def test_empty_mask_falls_back_to_no_mask(self):
+        # ML-2 D18: an empty mask means the whole photo is classified, unfilled; /crop says so (OPS-6 D5).
+        def empty(_self, rgb):
+            return np.zeros(rgb.shape[:2], bool)
+
+        with mock.patch("coffeecv.segment_beans.BeanSegmenter.predict_mask", empty):
+            r = _post(self.client, "/crop", self.photo)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json(), {"cropped": False, "box": None, "needs_review": False,
+                                        "mask": None, "seg_fallback": True})
 
 
 if __name__ == "__main__":
