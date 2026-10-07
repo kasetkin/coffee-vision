@@ -31,10 +31,13 @@ from coffeecv.model import FROZEN_MODELS, build_model
 from coffeecv.transforms import build_eval_transform
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
+from tests._tiers import real_data
+
 NAME = "dinov3_vitb16"
 HAVE_WEIGHTS = (MODELS_PRETRAINED / SPECS[NAME].weights).exists()
 
 
+@real_data
 @unittest.skipUnless(HAVE_WEIGHTS and have_reference_data(), "ViT-B/16 weights or real crops not present")
 class TestFrozenCheckpoint(unittest.TestCase):
     @classmethod
@@ -106,6 +109,7 @@ class TestFrozenModelsStayOutOfTheSgdLoop(unittest.TestCase):
         self.assertFalse(is_frozen_model("resnet18"))
 
 
+@real_data
 @unittest.skipUnless(have_reference_data(), "real crops not present")
 class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
     """fit_frozen_head builds one split at a time to bound memory; that must not change a single box."""

@@ -22,6 +22,8 @@ from coffeecv import backbones
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.sam_loader import L0_WEIGHTS, build_sam_l0
 
+from tests._tiers import real_data
+
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "sam_l0_reference.npz"
 HAVE_L0 = (MODELS_PRETRAINED / L0_WEIGHTS).exists()
@@ -52,6 +54,7 @@ def reference_outputs(predictor) -> dict[str, np.ndarray]:
 
 
 class TestImportChain(unittest.TestCase):
+    @real_data
     def test_builds_without_triton_omegaconf_onnx(self):
         """In a fresh interpreter with the three patched-out modules blocked (PATCHES.md), so an
         upstream import creeping back fails here, not in the deploy."""

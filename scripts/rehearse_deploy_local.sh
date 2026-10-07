@@ -160,6 +160,9 @@ export UV_BIN="${UV_BIN:-$(command -v uv)}" PY_BIN="${PY_BIN:-$(command -v pytho
 export TRAIN_PY="${TRAIN_PY:-$(command -v python3)}" LOCAL_PY="${LOCAL_PY:-python3}"
 export STUB_PATH="$S" STUB_STATE="$R/state" DEPLOY_SCRATCH="$R/scratch"
 export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOKE_PORT=18001
+# The rehearsal tests the deploy machinery on a scratch clone without the data, not the code: skip the
+# deploy's full test suite (scripts/check.sh --full).
+export DEPLOY_SKIP_CHECK=1
 D="$C/scripts/deploy_webapp.sh"
 MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_seg_country_s123}
 SHA=$(git -C "$C" rev-parse origin/main)

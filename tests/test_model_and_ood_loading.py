@@ -26,6 +26,8 @@ from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding
 from coffeecv.model import SUPPORTED_MODELS, build_model
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
+from tests._tiers import real_data
+
 DEPLOYED = REPO_ROOT / "models" / "allrigs_dino3b16_seg_country_s123.pt"
 HAVE_DEPLOYED = (DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and probe_path_for(DEPLOYED).exists()
                  and (MODELS_PRETRAINED / SPECS["dinov3_vitb16"].weights).exists())
@@ -35,6 +37,7 @@ class TestEmbeddingContract(unittest.TestCase):
     """A future arm cannot land without proving its head's pre-hook fires and captures
     embedding_dim_of(head) features -- the vector every OOD artifact is built in (plan §8.0)."""
 
+    @real_data
     @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_pre_hook_captures_the_embedding(self):
         x, _, _, _ = reference_patches(per_class=1)
@@ -217,6 +220,7 @@ class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
         with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
             load_model(self.ckpt, "resnet18", 10, 0.2)
 
+    @real_data
     @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
     def test_logits_bit_identical_to_imagenet_init(self):
         x, _, _, _ = reference_patches(per_class=2)

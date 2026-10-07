@@ -24,6 +24,8 @@ from PIL import Image, ImageCms
 from coffeecv import strip_metadata as sm
 from coffeecv.config import REPO_ROOT
 
+from tests._tiers import real_data
+
 HAVE_EXIFTOOL = shutil.which("exiftool") is not None
 DNG = REPO_ROOT / "dataset/2026-07-24__first_pictures/dng/PXL_20260724_114105353.RAW-02.ORIGINAL.dng"
 PRIVATE = ["-GPSLatitude=48.1", "-GPSLatitudeRef=N", "-GPSLongitude=11.5", "-GPSLongitudeRef=E",
@@ -113,6 +115,7 @@ class TestStrip(unittest.TestCase):
         self.assertTrue(row["removed"])
         self.assertEqual(sm.sha256_file(path), sha)
 
+    @real_data
     @unittest.skipUnless(DNG.exists(), "the 2026-07-24 DNGs are not present (dvc pull)")
     def test_pixel_dng(self):
         """A Pixel DNG loses GPS and its artist with its sensor data and rendering unchanged. Its IFD0

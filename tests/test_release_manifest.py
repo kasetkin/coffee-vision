@@ -22,6 +22,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import SEG_LIBRARY, SEG_VENDORED, all_files, manifest  # noqa: E402
 
+from tests._tiers import real_data  # noqa: E402
+
 # The one model in models/: every older one was retired on 2026-10-06 (their release shape, tray heuristic
 # included, is still covered by TestSegmenterRelease's synthetic cards).
 MODELS = ("allrigs_dino3b16_seg_country_s123",)
@@ -74,6 +76,7 @@ def _have(model: str) -> str | None:
 
 
 class TestReleaseManifest(unittest.TestCase):
+    @real_data
     def test_every_opened_file_is_in_the_manifest(self):
         for model in MODELS:
             with self.subTest(model=model):
@@ -177,6 +180,7 @@ class TestSegmenterRelease(unittest.TestCase):
             self.assertFalse(any(p.startswith("third_party/") for p in m["git"]), name)
             self.assertNotIn(SEG_LIBRARY[0], m["git"], name)
 
+    @real_data
     def test_segmenter_opens_only_manifest_files(self):
         """The import trace behind SEG_VENDORED, rerun: building L0 and segmenting one photo opens no
         repo file the segmenter release lacks. Runs before any segmenter model is shipped."""

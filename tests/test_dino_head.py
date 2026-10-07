@@ -17,9 +17,12 @@ from coffeecv.backbones import MODELS_PRETRAINED, SPECS, build_backbone
 from coffeecv.linear_head import export_linear, fit_head, predict
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
+from tests._tiers import real_data
+
 HAVE = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_reference_data()
 
 
+@real_data
 @unittest.skipUnless(HAVE, "DINOv3 weights or the cam_iphone crops are missing")
 class TestHeadOnRealFeatures(unittest.TestCase):
     @classmethod

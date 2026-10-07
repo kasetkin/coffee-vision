@@ -12,6 +12,7 @@
 # a name under models/ (e.g. allrigs_dino3b16_seg_country_s123). Environment (defaults in brackets):
 #   HOST [powervpsssh]  APP_ROOT [/opt/coffee-cv]  APP_USER [alioth, the deploy user]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
+#   DEPLOY_SKIP_CHECK [unset; 1 skips the full test suite, as the local rehearsal does]
 #
 # Safe while a training sweep runs (plan §5): every step that runs code on the VM is a transient
 # systemd unit that can write only /opt/coffee-cv, capped at 1 CPU (smoke: 2) and 3 GB with no swap;
@@ -20,7 +21,7 @@
 # never runs apt, and starts the service only if it is already enabled.
 set -euo pipefail
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 # ---------------------------------------------------------------------------------------------- config
 HOST=${HOST:-powervpsssh}
@@ -160,6 +161,25 @@ postflight() {
   elif [[ -n "$pids_before" ]]; then
     note "sweep PIDs changed -- check the status line above (a sweep also moves to its next fold on its own)"
   fi
+}
+
+# --------------------------------------------------------------------------------------------- guard
+# The full test suite (scripts/check.sh --full) on the commit being deployed, before anything touches the
+# VM. It runs on the working tree, so that tree must be <git-ref>'s commit with no tracked file modified.
+# A pass is remembered per commit, so --stage-only and the deploy that follows run it once.
+guard() {
+  local ref=$1 sha stamp
+  if [[ "${DEPLOY_SKIP_CHECK:-}" == 1 ]]; then say "Full check SKIPPED (DEPLOY_SKIP_CHECK=1)"; return; fi
+  sha=$(git -C "$REPO" rev-parse --verify "$ref^{commit}") || die "cannot resolve $ref"
+  stamp="$SCRATCH/full-check-passed-$sha"
+  if [[ -f "$stamp" ]]; then say "Full check: passed earlier on ${sha:0:7}"; return; fi
+  say "Full check on ${sha:0:7} (local, ~4.5 min)"
+  [[ "$sha" == "$(git -C "$REPO" rev-parse HEAD)" ]] \
+    || die "the full check runs on the working tree: check out $ref (${sha:0:7}) first"
+  git -C "$REPO" diff --quiet HEAD -- \
+    || die "tracked files have uncommitted changes, so the full check would not test ${sha:0:7}"
+  "$REPO/scripts/check.sh" --full || die "scripts/check.sh --full failed on ${sha:0:7}"
+  touch "$stamp"
 }
 
 # --------------------------------------------------------------------------------------------- build
@@ -606,6 +626,7 @@ esac
 [[ $# -eq 2 ]] || usage
 REF=$1 MODEL=$2
 
+guard "$REF"
 preflight
 build "$REF" "$MODEL"
 stage

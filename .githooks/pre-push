@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Runs scripts/check.sh (the fast tier) before a push to origin: scripts/deploy_webapp.sh deploys only
+# commits on origin/main, and runs the full tier itself. Pushes to other remotes (the VM, powervpsssh) are
+# work-in-progress hand-offs and skip it.
+# Bypass once with `git push --no-verify`.
+#
+# The check runs on the working tree, so it only vouches for the pushed commit when that commit is HEAD
+# and no tracked file is modified; anything else is refused rather than checked against the wrong code.
+set -uo pipefail
+
+[ "$1" = origin ] || exit 0
+
+head=$(git rev-parse HEAD)
+while read -r local_ref local_sha _remote_ref _remote_sha; do
+  [[ $local_sha =~ ^0+$ ]] && continue   # a deletion pushes no code
+  if [ "$(git rev-parse "$local_sha^{commit}")" != "$head" ]; then
+    echo "pre-push: $local_ref is not HEAD, and the check runs on the working tree." >&2
+    echo "          Check out what you push, or bypass with --no-verify." >&2
+    exit 1
+  fi
+done
+
+if ! git diff --quiet HEAD --; then
+  echo "pre-push: tracked files have uncommitted changes, so the check would not test the pushed commit." >&2
+  echo "          Commit or stash them, or bypass with --no-verify." >&2
+  exit 1
+fi
+
+exec "$(git rev-parse --show-toplevel)/scripts/check.sh"

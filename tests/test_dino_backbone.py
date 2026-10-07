@@ -16,12 +16,15 @@ import torch
 from coffeecv.backbones import MODELS_PRETRAINED, SPECS, assert_input_size, build_backbone
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
+from tests._tiers import real_data
+
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "dinov3_vits16_reference.npz"
 HAVE_V3 = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_reference_data()
 SKIP_V3 = "DINOv3 weights or the cam_iphone crops are missing -- run models_pretrained/verify.py / dvc pull"
 
 
+@real_data
 @unittest.skipUnless(HAVE_V3, SKIP_V3)
 class TestDinov3Loader(unittest.TestCase):
     @classmethod

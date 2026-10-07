@@ -30,6 +30,8 @@ from coffeecv.merge_rig import merge_cmd_args, merge_rig, read_exclusions
 from coffeecv.repro_utils import CAPTURE_STAGE_OVERRIDES, _stage_key, stale_crop_stages
 from coffeecv.segcrop_session import crop_photo, write_crop
 
+from tests._tiers import real_data
+
 CFG = replace(RunConfig.from_params_yaml(), crop_method="segment")
 # A tray photo (iPhone, HEIC) from webapp/deploy/fixtures.txt: the mask is the pile, so fill and the D17
 # rule both matter.
@@ -53,6 +55,7 @@ def dataset_patches(cap_dir: Path, cfg: RunConfig) -> MultiPhotoPatchDataset:
         pitch_geometry=pitch_kwargs(cfg), bean_share_rule=bean_share_rule(cfg))
 
 
+@real_data
 @unittest.skipUnless(HAVE, SKIP)
 class TestSegmentParity(unittest.TestCase):
     @classmethod

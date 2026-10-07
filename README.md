@@ -23,6 +23,8 @@ Sample train patches, one row per class, cropped from the current dataset (`data
 
 Open in VS Code with the Dev Containers extension ("Reopen in Container"). It builds `Dockerfile.cpu`: Python 3.12, PyTorch (CPU wheels — no NVIDIA GPU on this machine), OpenCV, scikit-learn, DVC, etc. `--device=/dev/dri` passes through this machine's AMD iGPU for OpenCV's OpenCL path; as configured the devcontainer won't start on a host without that device (cloud VM, macOS, NVIDIA-only box) — there's no separate GPU/cloud variant. Long training sweeps run on a separate CPU VM (`scripts/remote_launch.sh`), the same box that serves the web app.
 
+`scripts/check.sh` is the guardrail: `coffeecv.coverage_report` plus the unittest suite, in two tiers. The fast tier (~25 s) skips the tests marked `@real_data` in `tests/_tiers.py` (real photos or real weights); `.githooks/pre-push` runs it before every push to origin, pushes to the VM skip it, and `git push --no-verify` bypasses it once. `scripts/check.sh --full` (~4.5 min) runs every test; `scripts/deploy_webapp.sh` runs it on the commit it deploys, before touching the VM. The devcontainer wires the hook (`git config core.hooksPath .githooks`); on a fresh clone outside it, run that command yourself.
+
 Persisted across rebuilds via named Docker volumes (not part of the repo — a `docker volume prune` or Docker reset would lose them): bash history, Claude Code's config/auth/chat history, and IPython/Jupyter history.
 
 ## Dataset & DVC

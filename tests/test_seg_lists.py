@@ -19,6 +19,8 @@ import yaml
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 
+from tests._tiers import real_data
+
 
 def neg(path: str, tag: str = "confusable_grain", batch: str = "b", camera: str = "sony",
         title: str = "", url: str = "") -> dict:
@@ -185,6 +187,7 @@ class CommittedLists(unittest.TestCase):
 
     @unittest.skipUnless(all((seg_lists.SEGCROPPED_ROOT / s).is_dir() for ss in seg_lists.ML2_SESSIONS.values()
                              for s in ss), "needs ML-2's sessions' segmenter crops (DVC, from the VM)")
+    @real_data
     def test_covers_exactly_todays_pools(self):
         fresh = seg_lists.build(RunConfig.from_params_yaml())
         for name in (*seg_lists.POSITIVE_LISTS, *seg_lists.NEGATIVE_LISTS, *seg_lists.OOD_POSITIVE_LISTS):
