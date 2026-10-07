@@ -245,7 +245,11 @@
           (b) Nothing, as today.</td>
         <td>(a), 2026-10-07. The token is checked after every wait in the upload's chain (the <code>/preview</code>
           answer, the <code>/crop</code> answer, the mask's decode), so a stale answer neither replaces the preview
-          nor draws a box, tint, outline or note.</td></tr>
+          nor draws a box, tint, outline or note. <em>Amended 2026-10-07</em> after the code review: on the live
+          site nginx's server-wide cap of one request in flight refuses a photo picked while the first one's
+          <code>/crop</code> runs (503), and the page shows "Could not read this photo." instead of the second
+          photo's overlay. The owner accepts this: no stale answer lands on the page, and the user picks the photo
+          again. The nginx settings stay as they are.</td></tr>
       <tr><td class="id">D14</td><td>How does the page draw the tint and the outline from the mask?</td>
         <td>(a) Read the decoded PNG's pixels back with <code>getImageData</code>, find and widen the edge in
           JavaScript, and write one overlay image at the mask's resolution. (b) Composite: the mask's non-bean pixels
@@ -275,7 +279,9 @@
       "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
       on "Use full photo instead" (D6).</span></li>
     <li><span class="box"></span><span>An answer for an earlier upload is ignored: picking a second photo while the
-      first one's <code>/crop</code> is in flight shows only the second photo's overlay (D13).</span></li>
+      first one's <code>/crop</code> is in flight never shows the first photo's overlay on it. On the dev server
+      it shows the second photo's overlay; on the live site, where nginx refuses the second photo, the read error
+      (D13, amended).</span></li>
     <li><span class="box"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
     <li><span class="box"></span><span>Deployed and checked on the live site (D12).</span></li>
   </ul>
@@ -324,6 +330,8 @@
       refuses a second photo's <code>/preview</code> with a 503 while the first one's <code>/crop</code> runs, so
       the page shows its read error instead of the second photo's overlay. The token still keeps the stale answer
       off the page; only the dev server, which has no cap, shows the case as written.</div>
+    <div><div class="when">2026-10-07</div>Owner amends D13: on the live site, the read error for a photo picked
+      while the first one's <code>/crop</code> runs is acceptable. Scope's D13 line restated to match.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
