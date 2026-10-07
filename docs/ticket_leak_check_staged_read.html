@@ -1,0 +1,164 @@
+<title>The Leak Check Reads the Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+
+<main>
+  <div class="eyebrow">Ticket OPS-5 · coffee-vision · tooling and guardrail</div>
+  <h1><code>leak_check --staged</code> checks each staged file as it is staged, from the index, not its copy on disk</h1>
+  <p class="lede">The pre-commit hook's leak check reads each staged file's working-tree copy. A leak in a staged line
+    that is edited away on disk passes the hook and is committed, and the repo's history is not rewritten. OPS-4's
+    plan found this (finding 1), and the owner split it into this ticket (OPS-4 D6). OPS-4's
+    <code>coffeecv.ruff_staged</code> already reads staged blobs, so the reader exists. Written; not planned, not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/leak_check.py</code>, <code>tests/test_leak_check.py</code>, <code>.githooks/pre-commit</code>, <code>coffeecv/ruff_staged.py</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><a href="ticket_ruff_lint.html">OPS-4</a> <span class="tag">its <code>ruff_staged</code> index reader and the hook this edits</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-07.</strong> The leak check's staged read becomes its own ticket, as the OPS-4
+      plan recommends (<a href="ticket_ruff_lint.html">OPS-4</a> D6, the plan's Q1).</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today <code>python -m coffeecv.leak_check --staged</code> takes the staged file list from the index but reads
+    each file's contents from disk, so it checks the working tree, not the commit. After this ticket it reads each
+    staged blob from the index, as <code>coffeecv.ruff_staged</code> does: a leak in the index is refused even when
+    fixed on disk, and a leak only on disk does not block the commit. The work splits into: the text check on staged
+    blobs, the image check on staged blobs (exiftool needs a file), tests on a temp repo for both directions, and the
+    comments that today say "until OPS-5".</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>The file list is the index's, the contents are the disk's.</b>
+      <code>published_files(root, staged=True)</code> runs <code>git diff --cached --name-only --diff-filter=ACMR</code>
+      (<code>coffeecv/leak_check.py</code>, <code>published_files</code>). <code>scan()</code> then reads
+      <code>root / rel</code> from disk, skipping symlinks and non-files by their disk state, and
+      <code>image_findings()</code> passes the disk paths to one exiftool call. The module docstring says so:
+      "--staged reads each staged file's working-tree copy". Read at <code>d4068d9</code>.</li>
+    <li><b>Both directions are wrong.</b> A line staged with an email address and edited away on disk passes the hook
+      and is committed (a leak). A leak added on disk but not staged refuses a commit that does not contain it (a
+      false refusal). <code>scripts/check.sh</code>'s full scan before a push reads the working tree on purpose,
+      since it checks what <code>git add -A</code> would publish, and it would not see the first case once the disk
+      is clean.</li>
+    <li><b>The test does not cover contents.</b> <code>tests/test_leak_check.py</code>'s
+      <code>test_staged_sees_only_the_index</code> checks which files are listed. In it the disk and the index hold
+      the same bytes, so it passes either way.</li>
+    <li><b>The reader exists.</b> OPS-4 P5's <code>coffeecv/ruff_staged.py</code> reads each blob with
+      <code>git show :&lt;path&gt;</code>, and skips symlinks and submodules by their index mode
+      (<code>git ls-files -s</code>: 120000, 160000). Its tests on a temp repo cover a file clean in the index and
+      dirty on disk, and the reverse.</li>
+    <li><b>Comments that name this ticket.</b> <code>.githooks/pre-commit</code> says the leak check "reads each
+      staged file's working-tree copy, not the index, until OPS-5"; <code>coffeecv/ruff_staged.py</code>'s docstring
+      says the same. <code>leak_check</code>'s own docstring describes the disk read as intended.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>--staged</code> lists the staged files and reads them from disk.</li>
+        <li>A staged leak fixed on disk is committed; an unstaged leak on disk refuses the commit.</li>
+        <li>Staged images are read by exiftool from disk.</li>
+        <li>The hook's comment says the two checks read different things.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li><code>--staged</code> reads each staged blob from the index; symlinks and submodules are skipped by index mode.</li>
+        <li>A staged leak is refused even when fixed on disk; a leak only on disk does not block the commit.</li>
+        <li>A staged image's blob is what exiftool checks, and a finding names the staged path.</li>
+        <li>The hook, <code>leak_check</code> and <code>ruff_staged</code> say both checks read the index.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The full scan.</strong> <code>leak_check</code> without <code>--staged</code>, as
+      <code>scripts/check.sh</code> runs it, keeps reading the working tree: it checks what
+      <code>git add -A</code> would publish, untracked files included.</li>
+    <li><strong>The rules.</strong> What counts as a leak (public IPs, emails, credentials, photo metadata, the owner's
+      private patterns) and the allow-lists stay as they are.</li>
+    <li><strong>The hook's shape.</strong> It still runs <code>leak_check --staged</code> and
+      <code>ruff_staged</code>, both always.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A staged image is checked under the wrong name or extension.</strong></td>
+        <td>exiftool reads files, and <code>image_findings()</code> maps its <code>SourceFile</code> back to a repo path
+          and passes the extension to <code>strip_metadata.accepted()</code>. A blob written to a temp file must keep
+          its extension, and the finding must name the staged path, not the temp one. A test with a staged GPS photo
+          whose disk copy is stripped covers it.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The hook gets slower.</strong></td>
+        <td>One <code>git show</code> per staged file adds a process start each, as in <code>ruff_staged</code>; the
+          leak check's own start (about 1.7 s, the torch import through <code>coffeecv.config</code>) dominates for a
+          small commit. Measure before and after on a commit of about 30 files; D1 (b) avoids the per-file cost.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A second index reader drifts from the first.</strong></td>
+        <td><code>ruff_staged</code> already reads blobs and filters index modes. A copy in <code>leak_check</code>
+          could diverge (a mode skipped in one, not the other); D2 decides where the reader lives.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How are the staged blobs read?</td>
+        <td>(a) One <code>git show :&lt;path&gt;</code> per file, as <code>ruff_staged</code> does (b) one
+          <code>git cat-file --batch</code> process for all staged files</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Where does the index reader live?</td>
+        <td>(a) In <code>leak_check</code> beside <code>published_files</code>, and <code>ruff_staged</code> uses it
+          (b) each module keeps its own (c) a third module both import, e.g. <code>coffeecv/git_index.py</code>.
+          Context from OPS-4's code review (2026-10-07): <code>ruff_staged.staged_python_files</code> reads index
+          modes itself, and <code>ruff_staged</code> already imports <code>leak_check</code>
+          (<code>published_files</code>), so a reader left in <code>ruff_staged</code> and imported by
+          <code>leak_check</code> would make a circular import. (a) and (c) avoid it; (b) keeps the drift of R3.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>leak_check --staged</code> reads each staged text file's blob from the index: an email staged and then removed on disk is refused; an email added on disk to a clean staged file is not.</span></li>
+    <li><span class="box"></span><span>A staged image is checked as staged: GPS in the staged blob is refused when the disk copy has none, and the finding names the staged path.</span></li>
+    <li><span class="box"></span><span>Staged symlinks and submodules are skipped by index mode; a staged deletion is not read.</span></li>
+    <li><span class="box"></span><span>The private-pattern check on file paths still runs on every staged path.</span></li>
+    <li><span class="box"></span><span><code>tests/test_leak_check.py</code> covers both directions on a temp repo, each case seen failing before the change.</span></li>
+    <li><span class="box"></span><span><code>leak_check</code>'s docstring, the hook's header comment and <code>ruff_staged</code>'s docstring say the leak check reads the index; no "until OPS-5" is left.</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh</code> passes, and the hook's added time on a 30-file commit is measured and written in its header.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The full scan's working-tree read (<code>scripts/check.sh</code>), which is right for what it checks.</li>
+    <li>New leak rules or allow-list entries.</li>
+    <li>Wiring the hooks on the VM, whose clone has no <code>core.hooksPath</code> (OPS-4 P5).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Ticket written from <a href="plan_ruff_lint.html">OPS-4's plan</a> (finding 1, Q1) and OPS-4 D6, and from <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>tests/test_leak_check.py</code> and <code>.githooks/pre-commit</code> at <code>d4068d9</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-07</div>OPS-4's <code>/code-review</code> of <code>8e54804..69644ea</code> notes that <code>ruff_staged</code> reads index modes itself and that sharing its reader risks a circular import with <code>leak_check</code>; added to D2's options as context, with an option (c), a module both import. D2 stays open for the owner. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
+    <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>coffeecv/strip_metadata.py</code>,
+    <code>.githooks/pre-commit</code>, <code>scripts/check.sh</code>.</footer>
+</main>

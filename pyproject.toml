@@ -67,3 +67,16 @@ torchvision = { index = "pytorch-cpu" }
 name = "timm"
 version = "1.0.30"
 requires-dist = ["torch", "torchvision", "pyyaml"]
+
+[tool.ruff]
+# OPS-4. The target version comes from requires-python (3.12). No line length: no selected rule reads it,
+# and the formatter is its own ticket (D2).
+# third_party/ is the vendored EfficientViT-SAM (ML-2), kept diffable against upstream (D4).
+extend-exclude = ["third_party"]
+# The exclusion holds for paths named explicitly too: the pre-commit hook and the editor pass them.
+force-exclude = true
+
+[tool.ruff.lint]
+# The pyflakes/pycodestyle core (D1), written out so that a Ruff upgrade adds no rule family (R2). New stable
+# rules inside these prefixes come with an upgrade (D8); the version is pinned by uv.lock only.
+select = ["E4", "E7", "E9", "F"]

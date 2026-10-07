@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 from collections import Counter, defaultdict
 
 import numpy as np

@@ -63,7 +63,7 @@ class TestStrip(unittest.TestCase):
             self.assertTrue(keys, tag)
             for k in keys:
                 self.assertEqual(after.get(k), before[k], k)
-        [row] = list(csv.DictReader(l for l in manifest.read_text().splitlines() if not l.startswith("#")))
+        [row] = list(csv.DictReader(line for line in manifest.read_text().splitlines() if not line.startswith("#")))
         self.assertEqual(row["sha256_after"], sm.sha256_file(path))
         self.assertNotEqual(row["sha256_before"], row["sha256_after"])
         self.assertIn("EXIF:GPS:GPSLatitude", row["removed"].split())

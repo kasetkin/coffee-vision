@@ -2,7 +2,6 @@
 
     python -m unittest tests.test_masked_sampler -v
 """
-import math
 import unittest
 
 import numpy as np

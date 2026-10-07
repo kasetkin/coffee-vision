@@ -61,7 +61,7 @@ def pick(n: int, rest: bool = False) -> None:
         have = {it["path"] for it in doc["items"]}
         new = [{"id": item_id(e), "path": e["path"], "sha256": e["sha256"], "roast": e.get("roast", "unknown"),
                 "include": [], "exclude": []} for e in cands if e["path"] not in have]
-        header = "".join(l for l in POINTS_FILE.read_text().splitlines(True) if l.startswith("#"))
+        header = "".join(line for line in POINTS_FILE.read_text().splitlines(True) if line.startswith("#"))
         POINTS_FILE.write_text(header + yaml.safe_dump({"items": doc["items"] + new}, sort_keys=False, width=200,
                                                        default_flow_style=None))
         print(f"appended {len(new)} items to {POINTS_FILE.relative_to(REPO_ROOT)}")

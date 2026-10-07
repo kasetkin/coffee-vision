@@ -14,7 +14,7 @@
     number: none of the 27 files with findings ships in a release.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); P1&ndash;P6 done 2026-10-07; ticket closed by the owner 2026-10-07</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_ruff_lint.html"><code>ticket_ruff_lint.html</code></a> (OPS-4)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -111,7 +111,7 @@
 
   <h2>3. P1 &mdash; the configuration</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>40f194e</code>, <code>22e2fc9</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>Ruff is configured in the root <code>pyproject.toml</code>, after the <code>[tool.uv]</code> tables, with each
@@ -125,21 +125,22 @@ extend-exclude = ["third_party"]
 force-exclude = true
 
 [tool.ruff.lint]
-# The pyflakes/pycodestyle core (D1), written out so that a Ruff upgrade adds no rule unasked (R2).
+# The pyflakes/pycodestyle core (D1), written out so that a Ruff upgrade adds no rule family (R2). New stable
+# rules inside these prefixes come with an upgrade (D8); the version is pinned by uv.lock only.
 select = ["E4", "E7", "E9", "F"]</code></pre>
   <p><code>extend-exclude</code>, not <code>exclude</code>, keeps Ruff's built-in exclusions (<code>.venv</code>,
     <code>.git</code>, caches). <code>target-version</code> is not set: <code>requires-python = "==3.12.*"</code>
     already sets it, and a second copy could drift from the first. The test guards what a comment cannot: that
     nothing shadows the root table (R5), and that the paths are the ones D4 named.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Add the two tables above to <code>pyproject.toml</code>. No <code>uv lock</code> is needed: tool tables do not enter the lock.</span></li>
-    <li><span class="box"></span><span><code>tests/test_ruff_config.py</code>: (1) no tracked <code>ruff.toml</code> or <code>.ruff.toml</code>, and no tracked <code>pyproject.toml</code> other than the root one with a <code>[tool.ruff]</code> table (read with <code>tomllib</code>). (2) <code>python -m ruff check --show-files</code> lists <code>webapp/app.py</code> and <code>tests/test_ruff_config.py</code>, and no path under <code>third_party/</code>.</span></li>
-    <li><span class="box"></span><span>Checks: <code>ruff check --statistics</code> reports exactly the 62 findings of the ticket's background (16 E702, 11 E741, 11 F401, 8 E402, 6 E401, 5 E701, 4 F541, 1 E731); <code>scripts/check.sh</code> passes (nothing runs Ruff yet).</span></li>
+    <li><span class="box done"></span><span>Add the two tables above to <code>pyproject.toml</code>. No <code>uv lock</code> is needed: tool tables do not enter the lock.</span></li>
+    <li><span class="box done"></span><span><code>tests/test_ruff_config.py</code>: (1) no tracked <code>ruff.toml</code> or <code>.ruff.toml</code>, and no tracked <code>pyproject.toml</code> other than the root one with a <code>[tool.ruff]</code> table (read with <code>tomllib</code>). (2) <code>python -m ruff check --show-files</code> lists <code>webapp/app.py</code> and <code>tests/test_ruff_config.py</code>, and no path under <code>third_party/</code>.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>ruff check --statistics</code> reports exactly the 62 findings of the ticket's background (16 E702, 11 E741, 11 F401, 8 E402, 6 E401, 5 E701, 4 F541, 1 E731); <code>scripts/check.sh</code> passes (nothing runs Ruff yet).</span></li>
   </ol>
 
   <h2>4. P2 &mdash; the provable fixes</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>b69764c</code>, <code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Three commits, so that each diff is proven or reviewed in one way. The AST check is a throwaway script in
@@ -147,16 +148,16 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <code>import a, b</code> node into one node per name. Then it compares the two <code>ast.dump()</code>
     outputs, which leave out line numbers by default. Equal means the commit only moved code between lines.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Before any fix (R4): <code>git fetch powervpsssh main:tmp/vm-sweep</code>, then <code>git diff --name-only main...tmp/vm-sweep</code> against the 27 files. On any overlap, merge the VM first by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>'s procedure (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Run <code>scripts/check.sh --full</code> as the baseline.</span></li>
-    <li><span class="box"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: the 5 E401 hits outside <code>webapp/</code> with <code>ruff check --fix --select E401 --extend-exclude webapp</code> (without the flag it also fixes commit 3's file), and the 21 E701/E702 splits by hand. All 5 E401 hits are in <code>analysis/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
-    <li><span class="box"></span><span>Commit 2, <code>OPS-4 P2: unused imports and placeholder-free f-strings</code>: <code>ruff check --fix --select F401,F541</code>, safe fixes only, outside <code>webapp/</code>. Read the diff: 11 removed names, 4 dropped <code>f</code> prefixes, nothing else.</span></li>
-    <li><span class="box"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), with <code>ruff check --fix --select E401 webapp/deploy/release_probe.py</code>, alone so a deploy-tooling diff shows it apart (R3). Check: the AST script.</span></li>
-    <li><span class="box"></span><span>Checks: <code>ruff check</code> reports only the P3 rules (11 E741, 8 E402, 1 E731); <code>scripts/check.sh</code> after each commit.</span></li>
+    <li><span class="box done"></span><span>Before any fix (R4): <code>git fetch powervpsssh main:tmp/vm-sweep</code>, then <code>git diff --name-only main...tmp/vm-sweep</code> against the 27 files. On any overlap, merge the VM first by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>'s procedure (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Run <code>scripts/check.sh --full</code> as the baseline.</span></li>
+    <li><span class="box done"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: the 5 E401 hits outside <code>webapp/</code> with <code>ruff check --fix --select E401 --extend-exclude webapp</code> (without the flag it also fixes commit 3's file), and the 21 E701/E702 splits by hand. All 5 E401 hits are in <code>analysis/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
+    <li><span class="box done"></span><span>Commit 2, <code>OPS-4 P2: unused imports and placeholder-free f-strings</code>: <code>ruff check --fix --select F401,F541</code>, safe fixes only, outside <code>webapp/</code>. Read the diff: 11 removed names, 4 dropped <code>f</code> prefixes, nothing else.</span></li>
+    <li><span class="box done"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), with <code>ruff check --fix --select E401 webapp/deploy/release_probe.py</code>, alone so a deploy-tooling diff shows it apart (R3). Check: the AST script.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>ruff check</code> reports only the P3 rules (11 E741, 8 E402, 1 E731); <code>scripts/check.sh</code> after each commit.</span></li>
   </ol>
 
   <h2>5. P3 &mdash; the hand fixes</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>f8fe580</code>, <code>ed10445</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <p>These change the AST, so each is read at its site. Each E741 rename gives <code>l</code> a name from what it
@@ -165,16 +166,16 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <code>ruff check</code> clean after the rename means none was missed, unless an outer <code>l</code> exists,
     which the same grep rules out.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>E741, 11 sites: <code>coffeecv/rekey_photos.py</code> (4), <code>coffeecv/seg_base_masks.py</code>, <code>coffeecv/seg_judge.py</code>, <code>coffeecv/seg_lists.py</code>, <code>analysis/lr_scheduler/stage1.py</code>, <code>analysis/ml3/printout.py</code>, <code>tests/test_review_masks.py</code>, <code>tests/test_strip_metadata.py</code>.</span></li>
-    <li><span class="box"></span><span>E402, 8 hits in <code>xrig_probe.py</code> and <code>xrig_probe2.py</code>: <code>sys.path.insert(0, str(Path(__file__).resolve().parents[2]))</code>, then <code>_REPO</code> assigned after the imports (finding 3). No import moves, no <code>noqa</code>.</span></li>
-    <li><span class="box"></span><span>E731: <code>coffeecv/ticket_check.py:162</code>, <code>rel = lambda f: ...</code> becomes a nested <code>def rel(f: Path) -&gt; str</code>.</span></li>
-    <li><span class="box"></span><span>One commit, <code>OPS-4 P3: ambiguous names, the late imports, a named lambda</code>.</span></li>
-    <li><span class="box"></span><span>Checks: <code>ruff check</code> exits 0 on the repo; <code>tests/test_rekey_photos.py</code>, <code>test_seg_lists.py</code>, <code>test_seg_judge_io.py</code>, <code>test_review_masks.py</code>, <code>test_strip_metadata.py</code> and <code>test_ticket_check.py</code> pass, with their <code>@real_data</code> cases; <code>scripts/check.sh --full</code> passes (the ticket's "after the fix commits").</span></li>
+    <li><span class="box done"></span><span>E741, 11 sites: <code>coffeecv/rekey_photos.py</code> (4), <code>coffeecv/seg_base_masks.py</code>, <code>coffeecv/seg_judge.py</code>, <code>coffeecv/seg_lists.py</code>, <code>analysis/lr_scheduler/stage1.py</code>, <code>analysis/ml3/printout.py</code>, <code>tests/test_review_masks.py</code>, <code>tests/test_strip_metadata.py</code>.</span></li>
+    <li><span class="box done"></span><span>E402, 8 hits in <code>xrig_probe.py</code> and <code>xrig_probe2.py</code>: <code>sys.path.insert(0, str(Path(__file__).resolve().parents[2]))</code>, then <code>_REPO</code> assigned after the imports (finding 3). No import moves, no <code>noqa</code>.</span></li>
+    <li><span class="box done"></span><span>E731: <code>coffeecv/ticket_check.py:162</code>, <code>rel = lambda f: ...</code> becomes a nested <code>def rel(f: Path) -&gt; str</code>.</span></li>
+    <li><span class="box done"></span><span>One commit, <code>OPS-4 P3: ambiguous names, the late imports, a named lambda</code>.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>ruff check</code> exits 0 on the repo; <code>tests/test_rekey_photos.py</code>, <code>test_seg_lists.py</code>, <code>test_seg_judge_io.py</code>, <code>test_review_masks.py</code>, <code>test_strip_metadata.py</code> and <code>test_ticket_check.py</code> pass, with their <code>@real_data</code> cases; <code>scripts/check.sh --full</code> passes (the ticket's "after the fix commits").</span></li>
   </ol>
 
   <h2>6. P4 &mdash; the <code>check.sh</code> step</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>6066a69</code>, <code>a6db13a</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
   </div>
   <p>The step is <code>run ruff python -m ruff check --output-format concise</code>, placed after
@@ -182,15 +183,19 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     interpreter that runs the other steps, the locked 0.16.10. <code>concise</code> prints one line per finding,
     so the 40-line tail <code>run</code> prints on failure holds about 40 findings instead of about 6 code frames. Exit 2 (a
     config error) fails the step like exit 1. Its cost is under a second, so both tiers run it.</p>
+  <p>The step lints the working tree, not only the commit its caller vouches for (D9): an untracked
+    <code>.py</code> with a finding fails the push or the deploy. Gitignored files are allowed too, but Ruff's default
+    <code>respect-gitignore</code> stays on: turned off, it adds 18 findings in the Claude skill scripts synced into
+    the gitignored <code>.private_claude/</code>, which are not the project's code.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Add the step. In the header comment, add <code>ruff check</code> (the lint rules in <code>pyproject.toml</code>'s <code>[tool.ruff]</code>, &lt;1 s) to the list of steps.</span></li>
-    <li><span class="box"></span><span><code>README.md</code> line 26: name the Ruff step in the guardrail's list.</span></li>
-    <li><span class="box"></span><span>Checks: plant <code>import os</code> in a tracked <code>coffeecv/</code> module. The fast tier fails with <code>FAIL  ruff</code> and the F401 line in the tail, and the other steps still run. Revert the plant; both tiers pass.</span></li>
+    <li><span class="box done"></span><span>Add the step. In the header comment, add <code>ruff check</code> (the lint rules in <code>pyproject.toml</code>'s <code>[tool.ruff]</code>, &lt;1 s) to the list of steps.</span></li>
+    <li><span class="box done"></span><span><code>README.md</code> line 26: name the Ruff step in the guardrail's list.</span></li>
+    <li><span class="box done"></span><span>Checks: plant <code>import os</code> in a tracked <code>coffeecv/</code> module. The fast tier fails with <code>FAIL  ruff</code> and the F401 line in the tail, and the other steps still run. Revert the plant; both tiers pass.</span></li>
   </ol>
 
   <h2>7. P5 &mdash; the pre-commit hook</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>0362145</code>, <code>af8454d</code>, <code>48bb0b3</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>The hook lints the commit, not the disk (R6), so it feeds Ruff each staged blob. The logic lives in a Python
@@ -204,8 +209,10 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <li>Per file: <code>git show :&lt;path&gt;</code> piped into
       <code>[sys.executable, "-m", "ruff", "check", "--output-format", "concise", "--stdin-filename", path, "-"]</code>
       from the repo root. The config, with <code>force-exclude</code>, resolves from <code>path</code>, so a staged
-      <code>third_party/</code> file passes. One process per file costs about 10 ms each, so a 30-file commit adds
-      about 0.3 s.</li>
+      <code>third_party/</code> file passes. Each file costs about 85 ms, most of it the Python start of
+      <code>python -m ruff</code>, so a 30-file commit adds about 2.5 s. The module's own start adds about 1.7 s, as
+      <code>leak_check</code>'s does: importing <code>leak_check</code> pulls in torch through
+      <code>coffeecv.config</code>. Measured 2026-10-07.</li>
     <li>It prints the findings and ends on one line, like <code>leak_check</code>: <code>ruff_staged: N staged
       Python files clean</code> or <code>ruff_staged: K finding(s) in N staged Python files</code>. It exits 1 on
       any nonzero Ruff exit. A missing Ruff (<code>No module named ruff</code>) fails loudly with "run <code>uv sync
@@ -218,33 +225,33 @@ python -m coffeecv.leak_check --staged || rc=1
 python -m coffeecv.ruff_staged || rc=1
 exit $rc</code></pre>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>coffeecv/ruff_staged.py</code> as above, with a module docstring in <code>leak_check</code>'s style.</span></li>
-    <li><span class="box"></span><span><code>tests/test_ruff_staged.py</code>, on a temp repo like <code>tests/test_leak_check.py</code>'s fixture, holding a <code>pyproject.toml</code> with the P1 tables. Cases: a staged unused import is reported. A file clean in the index but dirty on disk passes, and the reverse is reported. A staged file under <code>third_party/</code> passes. A staged deletion and a staged <code>.md</code> are not linted. With nothing staged, the module exits 0.</span></li>
-    <li><span class="box"></span><span><code>.githooks/pre-commit</code> as above. Its header comment names both checks and says Ruff reads the index while <code>leak_check</code> reads the disk, until Q1's follow-up.</span></li>
-    <li><span class="box"></span><span><code>README.md</code> line 26: "runs the leak check alone" becomes the leak check and Ruff on the staged files.</span></li>
-    <li><span class="box"></span><span>The VM: check <code>git -C ~/coffee-vision config core.hooksPath</code> and <code>~/coffee-vision-venv/bin/python -m ruff --version</code>. If the hooks are wired there, its next commit runs this hook, and Ruff must be in that venv (the <code>dev</code> group is synced by default). Write the result in the Activity entry.</span></li>
-    <li><span class="box"></span><span>Checks, by hand in this repo: stage an unused import and the commit is refused. Stage a clean version, then add the import on disk only, and the commit goes through. A file with a leak and a lint finding reports both. <code>scripts/check.sh</code> passes.</span></li>
+    <li><span class="box done"></span><span><code>coffeecv/ruff_staged.py</code> as above, with a module docstring in <code>leak_check</code>'s style.</span></li>
+    <li><span class="box done"></span><span><code>tests/test_ruff_staged.py</code>, on a temp repo like <code>tests/test_leak_check.py</code>'s fixture, holding a <code>pyproject.toml</code> with the P1 tables. Cases: a staged unused import is reported. A file clean in the index but dirty on disk passes, and the reverse is reported. A staged file under <code>third_party/</code> passes. A staged deletion and a staged <code>.md</code> are not linted. With nothing staged, the module exits 0.</span></li>
+    <li><span class="box done"></span><span><code>.githooks/pre-commit</code> as above. Its header comment names both checks with their cost (about 1.7 s each to start, plus about 85 ms per staged Python file for Ruff) and says Ruff reads the index while <code>leak_check</code> reads the disk, until Q1's follow-up.</span></li>
+    <li><span class="box done"></span><span><code>README.md</code> line 26: "runs the leak check alone" becomes the leak check and Ruff on the staged files.</span></li>
+    <li><span class="box done"></span><span>The VM: check <code>git -C ~/coffee-vision config core.hooksPath</code> and <code>~/coffee-vision-venv/bin/python -m ruff --version</code>. If the hooks are wired there, its next commit runs this hook, and Ruff must be in that venv (the <code>dev</code> group is synced by default). Write the result in the Activity entry.</span></li>
+    <li><span class="box done"></span><span>Checks, by hand in this repo: stage an unused import and the commit is refused. Stage a clean version, then add the import on disk only, and the commit goes through. A file with a leak and a lint finding reports both. <code>scripts/check.sh</code> passes.</span></li>
   </ol>
 
   <h2>8. P6 &mdash; editor wiring and close-out <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07: the agent's part done, <code>5ea46ab</code>, <code>822f0a3</code>, <code>74fa4c0</code>, <code>c001979</code>, code-review fixes <code>55b1bbf</code>; the owner closed the ticket 2026-10-07</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Q2 (D7): add <code>charliermarsh.ruff</code> to <code>.devcontainer/devcontainer.json</code>'s extensions, with <code>"settings": {"ruff.path": ["/home/vscode/.venv/bin/ruff"]}</code> under <code>customizations.vscode</code>, and a comment on why it is pinned (R2).</span></li>
-    <li><span class="box"></span><span>Ticket: tick the acceptance boxes with their commits, set the Status line, and add an Activity entry that names the findings above the ticket did not have. Correct the three places the code contradicts: R6 (finding 1: the leak check reads the disk), the Production impact row (finding 2: no fix ships in a release), and the "After" column's "target 3.12" (set by <code>requires-python</code>, not by the config, P1).</span></li>
-    <li><span class="box"></span><span>Write the leak check's staged-read ticket (D6) with the next free OPS ID by <a href="agents/issue-tracker.md">issue-tracker.md</a>'s grep. D6 calls it OPS-5; if another OPS ticket took that ID since, use the new one and correct D6 and this plan.</span></li>
+    <li><span class="box done"></span><span>Q2 (D7): add <code>charliermarsh.ruff</code> to <code>.devcontainer/devcontainer.json</code>'s extensions, with <code>"settings": {"ruff.path": ["/home/vscode/.venv/bin/ruff"]}</code> under <code>customizations.vscode</code>, and a comment on why it is pinned (R2).</span></li>
+    <li><span class="box done"></span><span>Ticket: tick the acceptance boxes with their commits, set the Status line, and add an Activity entry that names the findings above the ticket did not have. Correct the three places the code contradicts: R6 (finding 1: the leak check reads the disk), the Production impact row (finding 2: no fix ships in a release), and the "After" column's "target 3.12" (set by <code>requires-python</code>, not by the config, P1).</span></li>
+    <li><span class="box done"></span><span>Write the leak check's staged-read ticket (D6) with the next free OPS ID by <a href="agents/issue-tracker.md">issue-tracker.md</a>'s grep. D6 calls it OPS-5; if another OPS ticket took that ID since, use the new one and correct D6 and this plan.</span></li>
     <li><span class="box"></span><span>Stop for the owner: rebuild the devcontainer and confirm that a planted unused import is underlined and that <code>Ruff: Show logs</code> names 0.16.10. Then close the ticket.</span></li>
   </ol>
 
   <h2>9. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: the 62 findings reproduce under the config; the config test passes.</span></li>
-    <li><span class="box"></span><span>P2: the AST script reports commits 1 and 3 identical; commit 2's diff is 11 imports and 4 prefixes.</span></li>
-    <li><span class="box"></span><span>P3: <code>ruff check</code> exits 0 on the repo; the touched modules' tests pass.</span></li>
-    <li><span class="box"></span><span>P4: a planted finding fails the fast tier, with the finding in the printed tail.</span></li>
-    <li><span class="box"></span><span>P5: a staged finding is refused and an unstaged one is not; <code>tests/test_ruff_staged.py</code> passes.</span></li>
+    <li><span class="box done"></span><span>P1: the 62 findings reproduce under the config; the config test passes.</span></li>
+    <li><span class="box done"></span><span>P2: the AST script reports commits 1 and 3 identical; commit 2's diff is 11 imports and 4 prefixes.</span></li>
+    <li><span class="box done"></span><span>P3: <code>ruff check</code> exits 0 on the repo; the touched modules' tests pass.</span></li>
+    <li><span class="box done"></span><span>P4: a planted finding fails the fast tier, with the finding in the printed tail.</span></li>
+    <li><span class="box done"></span><span>P5: a staged finding is refused and an unstaged one is not; <code>tests/test_ruff_staged.py</code> passes.</span></li>
     <li><span class="box"></span><span>P6: <code>devcontainer.json</code> lists the extension with <code>ruff.path</code> pinned; after a rebuild, the owner sees a planted finding underlined and 0.16.10 in Ruff's log.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> passes before P2 and after P3; the fast tier at every other phase's last commit.</span></li>
   </ul>
@@ -253,7 +260,7 @@ exit $rc</code></pre>
   <ul>
     <li>Everything in the ticket's "Out of scope".</li>
     <li>The five unused <code>noqa: E402</code> comments and the 34 B023 hits: rules outside D1, for the later rule-set ticket (findings 4, 6).</li>
-    <li><code>leak_check --staged</code> reading the index: its own ticket, OPS-5 (Q1, D6).</li>
+    <li><code>leak_check --staged</code> reading the index: its own ticket, <a href="ticket_leak_check_staged_read.html">OPS-5</a> (Q1, D6).</li>
     <li>A CI service: the hooks and <code>deploy_webapp.sh</code> stay the only callers of <code>check.sh</code>.</li>
   </ul>
 
@@ -264,6 +271,20 @@ exit $rc</code></pre>
       reads the disk and that no fix ships in a release. Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner answers Q1 and Q2 as recommended: the leak check's staged read goes to its own ticket, OPS-5, written at P6; the Ruff VS Code extension is added in P6, pinned to the venv's binary. Recorded in the ticket as D6 and D7. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Revised after a <code>/code-review</code> of <code>85ebce9</code>. P2 commit 1's E401 fix now excludes <code>webapp/</code>, which it would otherwise have fixed ahead of commit 3 (R3), and commit 3 names its command. Findings 2 and 5 are corrected: the deploy also runs <code>release_probe.py</code> locally, and one F401 removal is <code>numpy</code>. P6 also corrects the ticket's "target 3.12" and checks the staged-read ticket's ID before writing it. Verification gains a P6 line. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Expected times in P5 corrected from measurements: about 85 ms per staged file, not 10 ms (a 30-file commit adds about 2.5 s, not 0.3 s), plus about 1.7 s for the module's start, which imports torch through <code>leak_check</code>. The owner accepts the cost; the design is unchanged. The hook's header gains the times. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1's <code>select</code> comment corrected for D8: the prefixes take an upgrade's new stable rules, by the owner's choice, and no <code>required-version</code> is set. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P4 records D9: the step lints the whole working tree, untracked files included; Ruff's <code>respect-gitignore</code> default stays, since <code>.private_claude/</code> holds synced skill scripts with findings. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1 done (<code>40f194e</code>, <code>22e2fc9</code>): the two tables at the end of <code>pyproject.toml</code>, after the last <code>[tool.uv]</code> table, and <code>tests/test_ruff_config.py</code>, written first and seen failing. <code>ruff check --statistics</code> reports the 62 findings, by rule as the ticket counts them. A <code>third_party/</code> file named on the command line or passed with <code>--stdin-filename</code> passes. The fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree; the full tier runs in the main checkout before P2.</div>
+    <div><div class="when">2026-10-07</div>P2 done (<code>b69764c</code>, <code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code>). Before it, the owner fetched <code>tmp/vm-sweep</code>, which has no commits ahead of <code>main</code>, so nothing overlaps the 27 files (R4), and ran <code>scripts/check.sh --full</code> on <code>8e54804</code> as the baseline: it passed, unittest full in 290 s. The AST script reports all 6 files of commit 1 and the one file of commit 3 identical; run on commit 2, it reports all 12 files different, so it can disagree. Commit 2's diff, read: 11 removed names and 4 dropped <code>f</code> prefixes, nothing else, and no removed name is reached elsewhere as a module attribute. <code>ruff check --statistics</code> now reports only P3's 20 findings (11 E741, 8 E402, 1 E731). The fast tier passes after each commit but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree.</div>
+    <div><div class="when">2026-10-07</div>P3 done (<code>f8fe580</code>, <code>ed10445</code>), in one fix commit as planned. E741: <code>l</code> becomes <code>line</code> in the 10 comprehensions over a file's lines (<code>rekey_photos</code> 4, <code>seg_base_masks</code>, <code>seg_judge</code>, <code>seg_lists</code>, <code>ml3/printout</code>, <code>test_review_masks</code>, <code>test_strip_metadata</code>), and <code>labels</code> for the legend labels in <code>lr_scheduler/stage1.py</code>. Before each rename, <code>grep -w</code> found no other <code>line</code> or <code>labels</code> name in the scope (only the attribute <code>d.line</code>, strings, and a separate function in <code>seg_judge</code>). E402: the xrig probes insert <code>parents[2]</code> into <code>sys.path</code> and assign <code>_REPO</code> after the imports, where <code>os.chdir(_REPO)</code> still reads it. E731: <code>ticket_check</code>'s <code>rel</code> is a nested <code>def</code>. <code>ruff check</code> exits 0 on the repo, with no F821, so no occurrence was missed. The six touched modules' tests pass before and after the commit (63 run, the same 2 skipped for data absent from the agent's worktree), and the fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>. The <code>@real_data</code> cases and <code>scripts/check.sh --full</code> are verified in the main checkout after the merge, so the Checks task and P3's verification line stay open until then.</div>
+    <div><div class="when">2026-10-07</div>P3 verified in the main checkout after the fast-forward merge to <code>6bdb80a</code>: <code>ruff check</code> exits 0, the six touched modules' tests pass with their <code>@real_data</code> cases (63 run, none skipped), and <code>scripts/check.sh --full</code> passes, unittest full in 270 s. The Checks task and P3's verification line are ticked.</div>
+    <div><div class="when">2026-10-07</div>P4 done (<code>6066a69</code>, <code>a6db13a</code>): <code>run ruff python -m ruff check --output-format concise</code> after <code>ticket_check</code>, a line for it in <code>check.sh</code>'s header, and <code>ruff check</code> named in <code>README.md</code>'s guardrail paragraph. Written test-first: with <code>import os</code> planted in <code>coffeecv/ticket_check.py</code> and no step yet, the fast tier reported nothing about it. With the step, it fails with <code>FAIL  ruff (0 s)</code> and the tail line <code>coffeecv/ticket_check.py:25:8: F401 [*] `os` imported but unused</code>, and <code>leak_check</code>, <code>ticket_check</code>, <code>coverage_report</code> and the fast unittest still run. The plant was reverted, never committed; then <code>ruff</code> is <code>ok</code> and the fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree. Both tiers' passing runs are verified in the main checkout (<code>/workspace</code>) after the merge, so the Checks task stays open until then.</div>
+    <div><div class="when">2026-10-07</div>P4 verified in the main checkout after the fast-forward merge to <code>0971c9d</code>: <code>scripts/check.sh</code> passes, with <code>ok    ruff (0 s)</code> and every step <code>ok</code> (leak_check 6 s, ticket_check 1 s, coverage_report 3 s, unittest fast 20 s), and <code>scripts/check.sh --full</code> passes, with <code>ok    ruff (0 s)</code> and unittest full in 245 s. The Checks task is ticked.</div>
+    <div><div class="when">2026-10-07</div>P5 done (<code>0362145</code>, <code>af8454d</code>, <code>48bb0b3</code>): <code>coffeecv/ruff_staged.py</code>, <code>tests/test_ruff_staged.py</code>, the hook and <code>README.md</code>'s guardrail paragraph. Written test-first on a temp repo with the P1 tables, each case seen failing first except the two index-versus-disk cases, which passed on arrival and were seen failing when <code>lint()</code> was made to read the disk. Beyond the plan's cases, a staged symlink is skipped by its index mode, and a Ruff error (exit 2, a bad <code>select</code>) is reported as one finding with Ruff's message. A Ruff missing from the interpreter, tried by hand with the base <code>/usr/local/bin/python3</code>, stops with <code>ruff_staged: no Ruff in /usr/local/bin/python3: run `uv sync --locked`</code> and exit 1. The VM, read only: <code>git -C ~/coffee-vision config core.hooksPath</code> prints nothing (exit 1), so the hooks are not wired there and its commits run neither check; <code>~/coffee-vision-venv/bin/python -m ruff --version</code> fails with <code>No module named ruff</code>, since the venv predates Ruff in the <code>dev</code> group; the next <code>uv sync --locked</code> by <a href="agents/remote-sweeps.md">remote-sweeps.md</a> adds it. Nothing changed on the VM. The hook checks, by hand in the agent's worktree, whose commits ran the edited hook (<code>git -c core.hooksPath=.githooks commit</code>: the shared <code>core.hooksPath</code> is the absolute <code>/workspace/.githooks</code>): a staged unused import is refused with <code>coffeecv/_hook_plant.py:2:8: F401 [*] `sys` imported but unused</code> and <code>ruff_staged: 1 finding(s) in 1 staged Python files</code>. A clean version staged with the import on disk only commits, with <code>ruff_staged: 1 staged Python files clean</code>. A made-up address at the reserved <code>.invalid</code> domain plus the unused import report both, <code>leak_check: 1 finding(s) in 1 staged files</code> and then Ruff's line and summary, and the commit is refused. A documentation-range IP would not have served: <code>ipaddress</code> counts 192.0.2.0/24 and its kin as not global, so <code>leak_check</code> passes them. The throwaway file, and the one commit that went through, were undone; nothing planted is on the branch. The fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree; the leak check ran without the owner's private patterns. Both are verified in the main checkout after the merge, so the Checks task stays open until then.</div>
+    <div><div class="when">2026-10-07</div>P5 verified in the main checkout after the fast-forward merge to <code>f91c670</code>: <code>scripts/check.sh</code> passes, with every step <code>ok</code> (leak_check 7 s, ticket_check 0 s, ruff 0 s, coverage_report 3 s, unittest fast 21 s), and <code>tests/test_ruff_staged.py</code> passes (8 tests). <code>.private_claude/leak_patterns.txt</code> is present here but holds no active pattern, so <code>leak_check</code> reports <code>(0 private patterns)</code>, as in the worktree. This commit is the first in the main checkout to run the new hook. The Checks task is ticked.</div>
+    <div><div class="when">2026-10-07</div>P6's agent part done (<code>5ea46ab</code>, <code>822f0a3</code>, <code>74fa4c0</code>, <code>c001979</code>); it waits at the stop for the owner, so its Status stays In progress. The devcontainer (<code>822f0a3</code>): <code>charliermarsh.ruff</code> in the extensions and <code>"ruff.path": ["/home/vscode/.venv/bin/ruff"]</code> under <code>customizations.vscode.settings</code>, with a comment on the pin (D7, R2). The file is JSONC, so it was checked by a throwaway reader that strips comments and trailing commas, seen failing before the edit (no extension) and passing after: it parses, lists the extension, pins the path, and the path is executable and reports <code>ruff 0.16.10</code>; <code>Dockerfile.cpu</code>'s <code>UV_PROJECT_ENVIRONMENT=/home/$USERNAME/.venv</code>, with <code>USERNAME=vscode</code>, is that venv. The staged-read ticket (<code>74fa4c0</code>): the plan's grep, run also on <code>main</code>, <code>origin/main</code> and the VM's <code>main</code>, finds OPS-1 to OPS-4 only, so it is <a href="ticket_leak_check_staged_read.html">OPS-5</a>, as D6 named it; <code>ticket_check</code> refused the copied template (45 findings) and passes the filled ticket. The ticket close-out (<code>c001979</code>): the six acceptance boxes ticked with their commits, the last noting the owner's editor check; Status In progress, waiting for that check and the owner's close; an Activity entry with the findings the ticket lacked and P5's VM result (no hooks wired, no Ruff in its venv until its next <code>uv sync --locked</code>); and the three corrections, R6, the Production impact row and the After column's "target 3.12". R3 repeated the Production impact row's claim, so it gets the same correction, one sentence more than the task named. <code>ticket_check</code> passes; the fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree. Left for the owner: rebuild the devcontainer, check a planted unused import is underlined and <code>Ruff: Show logs</code> names 0.16.10, then mark P6 Done and close the ticket.</div>
+    <div><div class="when">2026-10-07</div>Code review fixes inside P6 (<code>55b1bbf</code>), after a <code>/code-review</code> of <code>8e54804..69644ea</code>. It found: the tests' <code>pyproject.toml</code> hand-copied the root <code>[tool.ruff]</code> tables (S1); a missing Ruff was detected by matching stderr inside the per-file <code>lint()</code>, which exited the process (S3); the summary counted a Ruff error as a finding, through a variable named <code>what</code> (S4); P5's "it exits 1 on any nonzero Ruff exit" holds, but Ruff reads its config from the <code>pyproject.toml</code> on disk, not the index (an R6 edge); and the ticket's Status range missed the close-out commits. Fixed: the fixture is built from the root file (the <code>[tool.ruff]</code> tables and <code>requires-python</code>), with a test that the copy is whole; <code>main()</code> checks for Ruff once with <code>importlib.util.find_spec</code> before reading any file, same <code>uv sync --locked</code> failure, with a test; <code>lint()</code> returns findings and a Ruff error apart, and the <code>summary</code> line counts <code>Ruff error(s)</code> separately, P5's two forms unchanged for the normal cases. Each new or changed test was seen failing first. The argparse with no options stays, as in <code>ticket_check</code>. The R6 edge is recorded as a known limit in the module's docstring and the ticket's R6, not fixed; the Status line now covers the whole branch. S2, the shared index reader and a possible circular import between <code>leak_check</code> and <code>ruff_staged</code>, went to <a href="ticket_leak_check_staged_read.html">OPS-5</a>'s open D2; no code moved. P6 stays In progress at the owner's stop.</div>
+    <div><div class="when">2026-10-07</div>Ticket OPS-4 closed by the owner; plan done. P6's owner step (the editor check after a devcontainer rebuild) is not recorded as done.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4 ticket</a>, <code>pyproject.toml</code>,

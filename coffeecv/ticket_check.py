@@ -159,7 +159,10 @@ def check(root: Path = REPO_ROOT) -> list[Finding]:
     plans = sorted(docs.glob("plan_*.html"))
     files = tickets + plans + sorted(docs.glob("template_*.html"))
     texts = {f: f.read_text() for f in files}
-    rel = lambda f: str(f.relative_to(root))
+
+    def rel(f: Path) -> str:
+        return str(f.relative_to(root))
+
     out = [x for f in files for x in check_file(rel(f), texts[f], docs, category, state)]
 
     ids: dict[str, Path] = {}

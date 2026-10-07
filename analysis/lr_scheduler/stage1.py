@@ -4,7 +4,8 @@ Prints the four pre-declared acceptance checks (plan section 4), the paired delt
 closely the two arms track each other epoch by epoch; writes stage1_a3_vs_a0.png next to this file.
 Run from anywhere: python analysis/lr_scheduler/stage1.py
 """
-import os, sys
+import os
+import sys
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -90,18 +91,24 @@ for j, r in enumerate(rows):
     ep = np.arange(1, max(r["s0"]["epochs"], r["s3"]["epochs"]) + 1)
     bot.plot(ep, np.full(len(ep), 1e-5), color=MUTED, lw=1.0, zorder=1)
     bot.text(3, 1.35e-5, "backbone LR 1e-5, both arms", color=INK2, fontsize=8)
-    top.set_ylim(lo, hi); top.grid(True, color=GRID, lw=0.6); top.set_axisbelow(True)
-    bot.set_yscale("log"); bot.set_ylim(5e-6, 2e-3); bot.grid(True, color=GRID, lw=0.6); bot.set_axisbelow(True)
+    top.set_ylim(lo, hi)
+    top.grid(True, color=GRID, lw=0.6)
+    top.set_axisbelow(True)
+    bot.set_yscale("log")
+    bot.set_ylim(5e-6, 2e-3)
+    bot.grid(True, color=GRID, lw=0.6)
+    bot.set_axisbelow(True)
     bot.set_xlabel("epoch")
     top.set_title(f"held out {r['rig']}\n", fontsize=10, color=INK, loc="left", fontweight="bold")
     top.text(0, 1.015, f"Δ val-peak {r['peak']:+.3f}   Δ last-10 {r['last10']:+.3f}   move corr {r['move_corr']:.2f}",
              transform=top.transAxes, fontsize=8, color=INK2)
     if j == 0:
-        top.set_ylabel("cross-rig macro-F1 (per epoch)"); bot.set_ylabel("head LR")
-h, l = axes[0, 0].get_legend_handles_labels()
+        top.set_ylabel("cross-rig macro-F1 (per epoch)")
+        bot.set_ylabel("head LR")
+h, labels = axes[0, 0].get_legend_handles_labels()
 h.append(plt.Line2D([], [], marker="o", ls="", color=INK2, markeredgecolor=SURFACE, markersize=7))
-l.append("checkpoint the val-peak rule picks")
-fig.legend(h, l, loc="upper right", ncol=3, frameon=False, fontsize=9, bbox_to_anchor=(0.99, 0.985))
+labels.append("checkpoint the val-peak rule picks")
+fig.legend(h, labels, loc="upper right", ncol=3, frameon=False, fontsize=9, bbox_to_anchor=(0.99, 0.985))
 fig.suptitle("LR scheduler Stage 1, seed 42: plateau (A3, exp210-213) vs cosine (A0, exp200-203)",
              x=0.01, y=0.985, ha="left", fontsize=12, fontweight="bold")
 fig.text(0.01, 0.935, "Same seed, so same init, batches and augmentation; only the head's LR path and the stop rule differ. "

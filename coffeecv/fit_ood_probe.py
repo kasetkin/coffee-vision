@@ -302,7 +302,7 @@ def main() -> None:
               f"genuine, caught {ct}/{len(ns)} negatives")
         if training_days:
             days = ", ".join(sorted(training_days))
-            for name, on in ((f"on a training day ({days})", True), (f"off the training days", False)):
+            for name, on in ((f"on a training day ({days})", True), ("off the training days", False)):
                 g = [s for r, s in zip(hp, ps) if r["tag"] == "user_beans_independent" and (r["date"] in training_days) == on]
                 if g:
                     g = np.array(g)

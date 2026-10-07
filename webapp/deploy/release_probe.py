@@ -78,7 +78,8 @@ def classify(photos: list[Path]) -> None:
                                  n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe)
         entry.pop("timing_ms", None)   # wall-clock, the one field that legitimately differs
         entries[photo.name] = entry
-    import numpy, torch
+    import numpy
+    import torch
     _emit({"build": app.BUILD, "entries": entries, "python": sys.version.split()[0],
            "numpy": numpy.__version__, "torch": torch.__version__, "torch_threads": torch.get_num_threads()})
 

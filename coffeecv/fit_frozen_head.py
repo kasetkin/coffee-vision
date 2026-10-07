@@ -35,7 +35,7 @@ import shutil
 import socket
 import time
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -49,7 +49,7 @@ from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
 from coffeecv.dataset import CAPTURES
 from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import classes_path_for
-from coffeecv.linear_head import C_GRID, cross_entropy, fit_head, fit_head_at, predict
+from coffeecv.linear_head import cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
 from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
 from coffeecv.transforms import build_eval_transform

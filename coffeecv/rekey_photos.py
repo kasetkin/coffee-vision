@@ -32,19 +32,19 @@ _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 def _csv_column(column: str):
     def read(path: Path) -> list[str]:
-        rows = csv.DictReader(l for l in path.read_text().splitlines() if not l.startswith("#"))
+        rows = csv.DictReader(line for line in path.read_text().splitlines() if not line.startswith("#"))
         return [r[column] for r in rows if r.get(column)]
     return read
 
 
 def _jsonl_key(key: str):
     def read(path: Path) -> list[str]:
-        return [json.loads(l)[key] for l in path.read_text().splitlines() if l.strip()]
+        return [json.loads(line)[key] for line in path.read_text().splitlines() if line.strip()]
     return read
 
 
 def _fixtures(path: Path) -> list[str]:
-    return [l.split()[1] for l in path.read_text().splitlines() if l.strip() and not l.startswith("#")]
+    return [line.split()[1] for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
 
 
 def _base_points(path: Path) -> list[str]:
@@ -69,7 +69,7 @@ TARGETS = [
 
 def load_map(manifest: Path = MANIFEST) -> tuple[dict[str, str], set[str]]:
     """(before -> after for every photo the strip changed, every after hash)."""
-    rows = list(csv.DictReader(l for l in manifest.read_text().splitlines() if not l.startswith("#")))
+    rows = list(csv.DictReader(line for line in manifest.read_text().splitlines() if not line.startswith("#")))
     before_after = {r["sha256_before"]: r["sha256_after"] for r in rows}
     return {b: a for b, a in before_after.items() if b != a}, set(before_after.values())
 

@@ -10,7 +10,8 @@ comparable to the FFT "period" already recorded. Crop side is a fixed fraction o
 the photo's short side so every rig yields a similar, countable bean count
 regardless of its magnification.
 """
-import json, random
+import json
+import random
 from pathlib import Path
 from PIL import Image, ImageDraw
 
