@@ -18,8 +18,15 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-toolsai.jupyter",
-        "lakeFS.lakefs-dvc"
-      ]
+        "lakeFS.lakefs-dvc",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        // The Ruff extension runs the venv's Ruff, the version uv.lock pins, not the binary it bundles:
+        // a different Ruff can report different rules, so the editor would disagree with the pre-commit
+        // hook and scripts/check.sh (OPS-4 D7, R2). The rules are pyproject.toml's [tool.ruff].
+        "ruff.path": ["/home/vscode/.venv/bin/ruff"]
+      }
     }
   },
   "remoteUser": "vscode",
