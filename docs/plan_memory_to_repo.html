@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 done 2026-10-07; P3 next; Q1&ndash;Q2 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 done, P3 in part (Q2) 2026-10-07; P4 next; Q1&ndash;Q2 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -226,7 +226,7 @@
 
   <h2>4. P2 &mdash; CODING_STANDARDS.md</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>6bfb4f1</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>The judgement rules <code>/code-review</code> applies to a diff. A rule a tool could check is noted as a
@@ -240,16 +240,17 @@
 
   <h2>5. P3 &mdash; Out-of-scope record and deferred work</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: part done, see tasks</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q2</span></div>
   </div>
   <p>One file per closed idea in <code>.out-of-scope/&lt;concept&gt;.md</code>, in the triage skill's format: what
     was decided, why, and where (ticket, D-number or experiments).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Fold and cross-camera evaluation (ML-1's do-not-re-propose list); the ResNet18 recipe levers (mixup, freezing, AdaBN, photometric and multiscale TTA, LR schedulers, brightness); a CPU-priority scheme for sweeps.</span></li>
+    <li><span class="box done"></span><span>Fold and cross-camera evaluation (ML-1's do-not-re-propose list); the ResNet18 recipe levers (mixup, freezing, AdaBN, photometric and multiscale TTA, LR schedulers, brightness); a CPU-priority scheme for sweeps. <span class="result">Done 2026-10-07.</span></span></li>
     <li><span class="box"></span><span>The deferred-work tickets, as Q2 decides.</span></li>
-    <li><span class="box"></span><span>Checks: each file names its source; the leak check passes.</span></li>
+    <li><span class="box done"></span><span>Checks: each file names its source; the leak check passes. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
+  <p><b>As run (2026-10-07).</b> Four files in <code>.out-of-scope/</code>: cross-camera evaluation (with ML-1&rsquo;s two deferred measurements marked as deferrals, not rejections), the ResNet18 recipe levers, CPU priority between sweeps and the site, and containers on the server (from OPS-1 plan §10 and the Umami design; not in the plan&rsquo;s list). The memory&rsquo;s "no synthetic tests" rule for DINOv3 is not in <code>docs/dinov3_integration_plan.md</code> and many tests use synthetic fixtures, so it is not recorded; it goes to the owner at P6. The deferred-work tickets wait on Q2.</p>
 
   <h2>6. P4 &mdash; Agent runbooks</h2>
   <div class="fields">
@@ -318,6 +319,7 @@
       and writes this plan. Four findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P1 done: 14 ADRs and their links from ML-1, ML-2, ML-3, OPS-1 and OPS-2. P2 next.</div>
     <div><div class="when">2026-10-07</div>P2 done: <code>CODING_STANDARDS.md</code>. P3 next.</div>
+    <div><div class="when">2026-10-07</div>P3 in part: <code>.out-of-scope/</code>, four files. The deferred-work tickets wait on Q2. P4 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
