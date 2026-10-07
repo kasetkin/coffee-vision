@@ -1,6 +1,8 @@
 /.claude/settings.local.json
 # Claude Code user config bind-mounted by .devcontainer (holds credentials) -- never commit
 /.private_claude/
+# SSH keys for this devcontainer: in the workspace bind mount so they survive a rebuild -- never commit
+/.private_ssh/
 __pycache__/
 # Must be `/outputs/*`, not `/outputs/` — git cannot re-include a file whose
 # parent *directory* is excluded, so the negation below is silently dead against
