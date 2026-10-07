@@ -125,7 +125,11 @@
         <td>Open.</td></tr>
       <tr><td class="id">D2</td><td>Where does the index reader live?</td>
         <td>(a) In <code>leak_check</code> beside <code>published_files</code>, and <code>ruff_staged</code> uses it
-          (b) each module keeps its own</td>
+          (b) each module keeps its own (c) a third module both import, e.g. <code>coffeecv/git_index.py</code>.
+          Context from OPS-4's code review (2026-10-07): <code>ruff_staged.staged_python_files</code> reads index
+          modes itself, and <code>ruff_staged</code> already imports <code>leak_check</code>
+          (<code>published_files</code>), so a reader left in <code>ruff_staged</code> and imported by
+          <code>leak_check</code> would make a circular import. (a) and (c) avoid it; (b) keeps the drift of R3.</td>
         <td>Open.</td></tr>
     </tbody>
   </table></div>
@@ -151,6 +155,7 @@
   <h2>Activity</h2>
   <div class="log">
     <div><div class="when">2026-10-07</div>Ticket written from <a href="plan_ruff_lint.html">OPS-4's plan</a> (finding 1, Q1) and OPS-4 D6, and from <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>tests/test_leak_check.py</code> and <code>.githooks/pre-commit</code> at <code>d4068d9</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-07</div>OPS-4's <code>/code-review</code> of <code>8e54804..69644ea</code> notes that <code>ruff_staged</code> reads index modes itself and that sharing its reader risks a circular import with <code>leak_check</code>; added to D2's options as context, with an option (c), a module both import. D2 stays open for the owner. Not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
