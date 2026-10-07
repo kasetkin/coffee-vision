@@ -24,8 +24,8 @@
 
   <div class="callout info">
     <p>Built from a read of the code at <code>69230de</code> and runs of ruff 0.16.10, not from the ticket alone.
-      Seven things the ticket does not cover turned up. They are folded in below, and the one that needs a decision
-      is Q1 (§2); Q2 is D5's open option (c).</p>
+      Seven things the ticket does not cover turned up. They are folded in below; the two that needed a decision,
+      Q1 and Q2 (§2), are answered as the ticket's D6 and D7.</p>
     <ol>
       <li><b><code>leak_check --staged</code> reads the working tree, not the index.</b> Its docstring says so
         (<code>coffeecv/leak_check.py</code> lines 7&ndash;8), and <code>scan()</code> reads
@@ -35,8 +35,9 @@
       <li><b>No fix reaches the live site.</b> The release ships <code>webapp/app.py</code>, the
         <code>coffeecv</code> modules in <code>release_manifest.LIBRARY</code> and <code>SEG_LIBRARY</code>, and
         none of the 27 files with findings. The one <code>webapp/</code> finding is in
-        <code>webapp/deploy/release_probe.py</code>. That is deploy tooling, outside the release: the deploy copies
-        it to the VM and runs it there (<code>deploy_webapp.sh</code> lines 238&ndash;566). The ticket's Production
+        <code>webapp/deploy/release_probe.py</code>. That is deploy tooling, outside the release: the deploy runs it
+        locally with <code>$LOCAL_PY</code> (<code>deploy_webapp.sh</code> lines 238, 373, 566) and copies it to
+        the VM's fixtures to run there (lines 261, 557). The ticket's Production
         impact row overstates it. The fix still gets its own commit (R3), since the next deploy runs it.</li>
       <li><b>All 8 E402 hits come from one pattern, and no <code>noqa</code> is needed.</b>
         <code>analysis/architecture_screen/xrig_probe.py</code> and <code>xrig_probe2.py</code> assign
@@ -52,12 +53,14 @@
         <code>noqa: E402</code> comments are already unused, which RUF100 would flag; RUF100 is not in D1's set,
         so they are left alone.</li>
       <li><b>No F401 removal is a registration import.</b> The two imports that exist only to register a Pillow
-        plugin (<code>coffeecv/dataset.py</code> lines 9 and 11) already carry <code>noqa: F401</code>. The 11 hits
-        are stdlib modules or names from modules that remain imported, so removing them cannot change decoding or any
+        plugin (<code>coffeecv/dataset.py</code> lines 9 and 11) already carry <code>noqa: F401</code>. Of the 11
+        hits, 10 are stdlib modules or names from modules that remain imported. The eleventh,
+        <code>import numpy as np</code> in <code>analysis/bean_scale/benchmark.py</code>, drops a third-party
+        module, which <code>import cv2</code> on the line above loads anyway. So no removal changes decoding or any
         import side effect.</li>
       <li><b>None of the 34 B023 hits is a bug.</b> At every site, in <code>seg_base_masks</code>,
-        <code>seg_overlay</code>, <code>split_report</code>, <code>render_template</code>, the test, and
-        <code>bench.py</code> and <code>printout.py</code>, the closure is called inside the iteration that defines
+        <code>seg_overlay</code>, <code>split_report</code>, <code>webapp/deploy/render_template.py</code>,
+        <code>tests/test_model_and_ood_loading.py</code>, and <code>bench.py</code> and <code>printout.py</code>, the closure is called inside the iteration that defines
         it. B023 is outside D1, so nothing is fixed; this is recorded here so the later rule-set ticket does not redo
         the reading.</li>
       <li><b>Exclusion needs <code>force-exclude</code>.</b> Without it, Ruff lints a <code>third_party/</code>
@@ -145,9 +148,9 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     outputs, which leave out line numbers by default. Equal means the commit only moved code between lines.</p>
   <ol class="tasks">
     <li><span class="box"></span><span>Before any fix (R4): <code>git fetch powervpsssh main:tmp/vm-sweep</code>, then <code>git diff --name-only main...tmp/vm-sweep</code> against the 27 files. On any overlap, merge the VM first by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>'s procedure (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Run <code>scripts/check.sh --full</code> as the baseline.</span></li>
-    <li><span class="box"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: E401 with <code>ruff check --fix --select E401</code>, and the 21 E701/E702 splits by hand, all outside <code>webapp/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
+    <li><span class="box"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: the 5 E401 hits outside <code>webapp/</code> with <code>ruff check --fix --select E401 --extend-exclude webapp</code> (without the flag it also fixes commit 3's file), and the 21 E701/E702 splits by hand. All 5 E401 hits are in <code>analysis/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
     <li><span class="box"></span><span>Commit 2, <code>OPS-4 P2: unused imports and placeholder-free f-strings</code>: <code>ruff check --fix --select F401,F541</code>, safe fixes only, outside <code>webapp/</code>. Read the diff: 11 removed names, 4 dropped <code>f</code> prefixes, nothing else.</span></li>
-    <li><span class="box"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), alone so a release diff shows it apart (R3). Check: the AST script.</span></li>
+    <li><span class="box"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), with <code>ruff check --fix --select E401 webapp/deploy/release_probe.py</code>, alone so a deploy-tooling diff shows it apart (R3). Check: the AST script.</span></li>
     <li><span class="box"></span><span>Checks: <code>ruff check</code> reports only the P3 rules (11 E741, 8 E402, 1 E731); <code>scripts/check.sh</code> after each commit.</span></li>
   </ol>
 
@@ -162,7 +165,7 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <code>ruff check</code> clean after the rename means none was missed, unless an outer <code>l</code> exists,
     which the same grep rules out.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>E741, 11 sites: <code>coffeecv/rekey_photos.py</code> (4), <code>seg_base_masks.py</code>, <code>seg_judge.py</code>, <code>seg_lists.py</code>, <code>analysis/lr_scheduler/stage1.py</code>, <code>analysis/ml3/printout.py</code>, <code>tests/test_review_masks.py</code>, <code>tests/test_strip_metadata.py</code>.</span></li>
+    <li><span class="box"></span><span>E741, 11 sites: <code>coffeecv/rekey_photos.py</code> (4), <code>coffeecv/seg_base_masks.py</code>, <code>coffeecv/seg_judge.py</code>, <code>coffeecv/seg_lists.py</code>, <code>analysis/lr_scheduler/stage1.py</code>, <code>analysis/ml3/printout.py</code>, <code>tests/test_review_masks.py</code>, <code>tests/test_strip_metadata.py</code>.</span></li>
     <li><span class="box"></span><span>E402, 8 hits in <code>xrig_probe.py</code> and <code>xrig_probe2.py</code>: <code>sys.path.insert(0, str(Path(__file__).resolve().parents[2]))</code>, then <code>_REPO</code> assigned after the imports (finding 3). No import moves, no <code>noqa</code>.</span></li>
     <li><span class="box"></span><span>E731: <code>coffeecv/ticket_check.py:162</code>, <code>rel = lambda f: ...</code> becomes a nested <code>def rel(f: Path) -&gt; str</code>.</span></li>
     <li><span class="box"></span><span>One commit, <code>OPS-4 P3: ambiguous names, the late imports, a named lambda</code>.</span></li>
@@ -230,7 +233,8 @@ exit $rc</code></pre>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Q2 (D7): add <code>charliermarsh.ruff</code> to <code>.devcontainer/devcontainer.json</code>'s extensions, with <code>"settings": {"ruff.path": ["/home/vscode/.venv/bin/ruff"]}</code> under <code>customizations.vscode</code>, and a comment on why it is pinned (R2).</span></li>
-    <li><span class="box"></span><span>Ticket: tick the acceptance boxes with their commits, set the Status line, and add an Activity entry that names the findings above the ticket did not have (1&ndash;2 correct R6 and the Production impact row). Write OPS-5 for the leak check's staged read (D6).</span></li>
+    <li><span class="box"></span><span>Ticket: tick the acceptance boxes with their commits, set the Status line, and add an Activity entry that names the findings above the ticket did not have. Correct the three places the code contradicts: R6 (finding 1: the leak check reads the disk), the Production impact row (finding 2: no fix ships in a release), and the "After" column's "target 3.12" (set by <code>requires-python</code>, not by the config, P1).</span></li>
+    <li><span class="box"></span><span>Write the leak check's staged-read ticket (D6) with the next free OPS ID by <a href="agents/issue-tracker.md">issue-tracker.md</a>'s grep. D6 calls it OPS-5; if another OPS ticket took that ID since, use the new one and correct D6 and this plan.</span></li>
     <li><span class="box"></span><span>Stop for the owner: rebuild the devcontainer and confirm that a planted unused import is underlined and that <code>Ruff: Show logs</code> names 0.16.10. Then close the ticket.</span></li>
   </ol>
 
@@ -241,6 +245,7 @@ exit $rc</code></pre>
     <li><span class="box"></span><span>P3: <code>ruff check</code> exits 0 on the repo; the touched modules' tests pass.</span></li>
     <li><span class="box"></span><span>P4: a planted finding fails the fast tier, with the finding in the printed tail.</span></li>
     <li><span class="box"></span><span>P5: a staged finding is refused and an unstaged one is not; <code>tests/test_ruff_staged.py</code> passes.</span></li>
+    <li><span class="box"></span><span>P6: <code>devcontainer.json</code> lists the extension with <code>ruff.path</code> pinned; after a rebuild, the owner sees a planted finding underlined and 0.16.10 in Ruff's log.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> passes before P2 and after P3; the fast tier at every other phase's last commit.</span></li>
   </ul>
 
@@ -258,6 +263,7 @@ exit $rc</code></pre>
       runs of ruff 0.16.10. Seven findings are not in the ticket, among them that <code>leak_check --staged</code>
       reads the disk and that no fix ships in a release. Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner answers Q1 and Q2 as recommended: the leak check's staged read goes to its own ticket, OPS-5, written at P6; the Ruff VS Code extension is added in P6, pinned to the venv's binary. Recorded in the ticket as D6 and D7. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Revised after a <code>/code-review</code> of <code>85ebce9</code>. P2 commit 1's E401 fix now excludes <code>webapp/</code>, which it would otherwise have fixed ahead of commit 3 (R3), and commit 3 names its command. Findings 2 and 5 are corrected: the deploy also runs <code>release_probe.py</code> locally, and one F401 removal is <code>numpy</code>. P6 also corrects the ticket's "target 3.12" and checks the staged-read ticket's ID before writing it. Verification gains a P6 line. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4 ticket</a>, <code>pyproject.toml</code>,
