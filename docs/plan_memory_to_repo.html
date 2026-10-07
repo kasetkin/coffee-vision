@@ -1,0 +1,315 @@
+<title>Implementation plan: project knowledge from private memory into the repo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+<main>
+  <div class="eyebrow">Plan · OPS-2 · coffee-vision · implementation</div>
+  <h1>Implementation plan: project knowledge from private memory into the repo</h1>
+  <p class="lede">The order of work for <a href="ticket_memory_to_repo.html">ticket OPS-2</a>. Four strands write new
+    repo files from the memory files (ADRs, coding standards, the out-of-scope record, agent runbooks); then
+    <code>CLAUDE.md</code> points at them, private memory is slimmed, and a fresh session proves an agent finds the
+    knowledge without the old memories. Nothing here changes code or a number.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of all 39 memory files and the repo at <code>6bded8b</code>, not from the ticket alone. Four
+      things the ticket does not cover turned up. They are folded in below, and the ones that need a decision are
+      Q1&ndash;Q2 (§2).</p>
+    <ol>
+      <li><b>Two memories are deferred work, not knowledge.</b> The Umami analytics plan (on hold, with two known
+        blockers) and the open capture work (iPhone top-up, fresh-scoop validation) belong in tickets. Q2.</li>
+      <li><b>The ML-2 and ML-3 memories repeat their tickets.</b> Every decision in them is a D-number in the ticket,
+        so they move nowhere: their ADR-worthy decisions are written in P1, and the rest is dropped in P6.</li>
+      <li><b>Memory is not versioned.</b> Deleting a memory file is final. Q1.</li>
+      <li><b>Some lessons name Claude Code tools</b> (background runs, scheduled checks). They are about how the owner
+        wants Claude to work, not about the project, so they stay private.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>ADRs first: the standards, out-of-scope files and runbooks link to them. <code>CLAUDE.md</code> comes after the
+    files it points at exist. Memory is slimmed only once everything it holds has a home, and the probe runs last,
+    against the slimmed memory, because that is the setup every later session has.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>ADRs, and their links from ticket D-entries</td><td>local</td><td>no: docs only</td></tr>
+      <tr><td class="id">P2</td><td><code>CODING_STANDARDS.md</code></td><td>local</td><td>no: docs only</td></tr>
+      <tr><td class="id">P3</td><td><code>.out-of-scope/</code>, and tickets for deferred work</td><td>local</td><td>no: docs only</td></tr>
+      <tr><td class="id">P4</td><td>Agent runbooks in <code>docs/agents/</code></td><td>local</td><td>no: docs only</td></tr>
+      <tr><td class="id">P5</td><td>Pointers in <code>CLAUDE.md</code></td><td>local</td><td>no: docs only</td></tr>
+      <tr><td class="id">P6</td><td>Slim private memory <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
+      <tr><td class="id">P7</td><td>Fresh-session probe</td><td>local</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Where each memory file goes</h3>
+  <p>The P6 checklist: every file ends in one of these places. "Private" files stay in memory; "archive" follows Q1.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Memory file</th><th>Destination</th></tr></thead>
+    <tbody>
+      <tr><td><code>project_coffee_cv_overview</code></td><td>ADR: camera first, sensors only as a fallback (Origin 2026-07-30)</td></tr>
+      <tr><td><code>project_crossrig_removal_ticket</code></td><td>ADR from ML-1; <code>.out-of-scope/</code>: fold and cross-camera evaluation</td></tr>
+      <tr><td><code>project_dinov3_integration_plan</code></td><td>ADR: frozen DINOv3 B/16 head (Origin <code>docs/dinov3_integration_plan.md</code>); live-model facts stay in the model card</td></tr>
+      <tr><td><code>project_ood_guard_linear_probe</code></td><td>ADR: linear-probe OOD guard, independent-day calibration (Origin <code>docs/ood_guard_eval.md</code>)</td></tr>
+      <tr><td><code>project_ml2_segmentation_stage</code></td><td>ADRs from ML-2 (segmentation stage; Claude as judge; no numeric gate); rest is in the ticket: archive</td></tr>
+      <tr><td><code>project_ml3_country_classes</code></td><td>ADRs from ML-3 (country is the label; strip private photo metadata); rest is in the ticket: archive</td></tr>
+      <tr><td><code>project_ood_positives_merge</code></td><td>The ML-3 D13 ADR; the strip method is in <code>coffeecv/strip_metadata.py</code>: archive</td></tr>
+      <tr><td><code>project_bean_pitch_band_floor</code></td><td>ADR: keep the band floor (Origin <code>analysis/bean_scale/README.md</code>)</td></tr>
+      <tr><td><code>project_resnet18_recipe_history</code></td><td><code>.out-of-scope/</code>: ResNet18 recipe levers</td></tr>
+      <tr><td><code>project_experiment_record_gaps</code></td><td>ADR: the deleted provenance commits stay deleted; checks for runs exp168&ndash;175 in <code>docs/agents/experiments.md</code></td></tr>
+      <tr><td><code>project_logging_plan_todo</code></td><td>Q2 (Umami)</td></tr>
+      <tr><td><code>project_iphone_photo_shortfall</code></td><td>Q2 (capture work)</td></tr>
+      <tr><td><code>project_dvc_remote</code></td><td><code>docs/agents/dvc.md</code></td></tr>
+      <tr><td><code>project_remote_compute</code></td><td><code>docs/agents/remote-sweeps.md</code>; superseded recipes dropped</td></tr>
+      <tr><td><code>project_webapp_production</code></td><td><code>docs/agents/deploy.md</code>; <code>.out-of-scope/</code>: CPU priority for sweeps</td></tr>
+      <tr><td><code>feedback_use_uv</code></td><td>ADR from OPS-1 (extended 2026-09-30)</td></tr>
+      <tr><td><code>feedback_git_simple_merges</code>, <code>feedback_git_reset_hard_scope</code></td><td>ADR from OPS-1 §7; the reset trap in <code>docs/agents/remote-sweeps.md</code></td></tr>
+      <tr><td><code>feedback_experiment_evidence_standard</code></td><td>ADR: adopt only on paired multi-seed evidence; how-to in <code>docs/agents/experiments.md</code></td></tr>
+      <tr><td><code>feedback_experiment_provenance</code>, <code>feedback_dvc_training_workflow</code></td><td><code>docs/agents/experiments.md</code>, <code>docs/agents/dvc.md</code></td></tr>
+      <tr><td><code>feedback_check_without_private_data</code></td><td>ADR (Origin 2026-10-07)</td></tr>
+      <tr><td><code>feedback_train_inference_parity</code>, <code>feedback_no_per_rig_rescaling</code>, <code>feedback_cli_defaults_overwrite_config</code>, <code>feedback_lists_in_files_not_argv</code>, <code>feedback_portable_deploy_username</code>, <code>feedback_test_the_fix</code>, <code>feedback_cv_pipeline_qa</code>, <code>feedback_validate_against_real_distribution</code></td><td><code>CODING_STANDARDS.md</code></td></tr>
+      <tr><td><code>feedback_background_run_tracking</code>, <code>feedback_stream_background_output</code>, <code>feedback_cron_periodic_checks_unreliable</code>, <code>feedback_proactive_progress_detail</code>, <code>feedback_recognize_stale_pasted_instructions</code>, <code>feedback_ask_owner_for_dataset_facts</code>, <code>feedback_ground_technical_advice_in_research</code></td><td>Private (how the owner wants Claude to work); project facts inside them (the remote-run pattern) go to <code>docs/agents/remote-sweeps.md</code></td></tr>
+      <tr><td><code>user_profile</code></td><td>Private, slimmed: no guessed location, no email</td></tr>
+      <tr><td><code>MEMORY.md</code></td><td>Rewritten in P6 as a short index of what stays, plus a current-focus line pointing at a ticket</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the memory files, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Memory is not versioned. Are migrated memory files deleted, or archived?</td>
+        <td><span class="pill sm open">Open</span> Archive: move them to <code>.private_claude/memory-archive/2026-10-07/</code>, outside the directory Claude loads, so nothing is lost and nothing stale is read.</td><td>P6</td></tr>
+      <tr><td class="id">Q2</td><td>Two memories are deferred work: Umami analytics (on hold until the owner asks, two blockers known) and the open capture work (iPhone top-up, class_008 missing there; fresh-scoop validation never done). Where do they go?</td>
+        <td><span class="pill sm open">Open</span> One ticket each from the template, Triage <code>needs-triage</code>, Status Open: OPS-3 (Umami, with both blockers) and ML-4 (capture). Nothing is planned or started.</td><td>P3</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; ADRs, linked from their tickets</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>One file per decision in <code>docs/adr/NNNN-&lt;slug&gt;.md</code>, in <code>/domain-modeling</code>'s
+    ADR-FORMAT: a title and one to three sentences, plus Considered Options only where a rejected option keeps
+    coming back. Each names its source: the ticket and D-number, or an Origin line (D3). Each decision is checked
+    against the current code and docs before it is written.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>From tickets: all cameras are equal sources (ML-1); a bean-region segmentation stage, the same in training and serving, with Claude as mask judge (ML-2); no numeric acceptance gate, the owner reads a paired printout (ML-2 D24); the country is the label (ML-3); strip private metadata from every photo (ML-3 D13); the webapp serves fixed releases (OPS-1); uv for every environment (OPS-1, extended 2026-09-30); simple merges only (OPS-1 §7).</span></li>
+    <li><span class="box"></span><span>With an Origin line: camera first, sensors only as a fallback; frozen DINOv3 B/16 head; linear-probe OOD guard with independent-day calibration; adopt only on paired multi-seed evidence; keep the bean-pitch band floor; the deleted provenance commits stay deleted; the guardrail runs without private data.</span></li>
+    <li><span class="box"></span><span>In ML-1, ML-2, ML-3 and OPS-1: link each source D-entry (or OPS-1 §7) to its ADR, and nothing else.</span></li>
+    <li><span class="box"></span><span>Checks: every ADR names its source; every source links back; the leak check passes.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; CODING_STANDARDS.md</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>The judgement rules <code>/code-review</code> applies to a diff. A rule a tool could check is noted as a
+    candidate check instead of being written as prose. Each rule is a line or two, with the incident behind it in a
+    clause.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Rules: train/inference parity (and a stale entry point is worse than a missing one); invariance over normalization; an omitted CLI flag inherits; input lists in one committed file; deploy files templated; run the real entry point at toy scale before a long run; assert a string replacement applied; new resource access checked against the service sandbox; a generalized invariant tested on the old cases too; CV output checked at full resolution; a heuristic's validation set checked for the variation it lacks.</span></li>
+    <li><span class="box"></span><span>Checks: the leak check passes; no rule repeats an ADR (it links to it).</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; Out-of-scope record and deferred work</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q2</span></div>
+  </div>
+  <p>One file per closed idea in <code>.out-of-scope/&lt;concept&gt;.md</code>, in the triage skill's format: what
+    was decided, why, and where (ticket, D-number or experiments).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Fold and cross-camera evaluation (ML-1's do-not-re-propose list); the ResNet18 recipe levers (mixup, freezing, AdaBN, photometric and multiscale TTA, LR schedulers, brightness); a CPU-priority scheme for sweeps.</span></li>
+    <li><span class="box"></span><span>The deferred-work tickets, as Q2 decides.</span></li>
+    <li><span class="box"></span><span>Checks: each file names its source; the leak check passes.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Agent runbooks</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>Procedures and traps an agent needs mid-task, each checked against the scripts and README as it is written.
+    A runbook keeps what no file or <code>--help</code> says and points at the rest.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>docs/agents/dvc.md</code>: move data with push and pull only; the three DVC traps and the object check that works; mismatched <code>.dir</code> hashes; a detached HEAD after <code>dvc exp</code>; outs that must stay gitignored; train through <code>dvc repro</code>.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/remote-sweeps.md</code>: the VM's size and limits; the launch, watch and wait scripts and the path-argument trap; detach on the VM, block on a sentinel locally; resync by merge before a sweep; thread counts; wall-clock budgets; <code>reset --hard</code> scope.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/experiments.md</code>: commit code before a sweep; diff the config against the runs it is compared with; read <code>metrics.json</code>'s <code>class_ids</code> for runs exp168&ndash;175; report ranges; name a best epoch only from the archived record.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/deploy.md</code>: what "deployed" means (verified on the live site); server-side latency versus end-to-end; the owner pushes.</span></li>
+    <li><span class="box"></span><span>Checks: every command in the runbooks exists in the repo or the tools; the leak check passes.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Pointers in CLAUDE.md</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3, P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>One line per new file, written as a trigger: when to read it. Run <code>/writing-for-agents</code> over the result.</span></li>
+    <li><span class="box"></span><span>Checks: <code>CLAUDE.md</code> holds pointers and the publishing rule only.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Slim private memory <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Show the owner the table in §1 with each file's final place, and the new <code>MEMORY.md</code>.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: approve what stays private and what is archived.</span></li>
+    <li><span class="box"></span><span>Archive or delete as Q1 decides; slim <code>user_profile</code>; rewrite <code>MEMORY.md</code>; remove links to deleted memories.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; Fresh-session probe</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
+  </div>
+  <p>Headless <code>claude -p</code> sessions, one question each, on the owner's plan. A pass names the right repo
+    file and gives its answer.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Questions: should we try a cross-camera screen? Can we widen the bean-pitch band? How do I copy data to the VM? Is the model deployed after a restart? Should this CLI flag default to 0? What may I publish? Where do I write a new ticket?</span></li>
+    <li><span class="box"></span><span>Checks: every question passes, or the pointer that failed is sharpened and asked again.</span></li>
+  </ol>
+
+  <h2>10. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>Every memory file in §1 has its final place.</span></li>
+    <li><span class="box"></span><span>Every ticket-born ADR is linked both ways.</span></li>
+    <li><span class="box"></span><span>P7: every probe question answered from repo files.</span></li>
+    <li><span class="box"></span><span>The leak check passes on the whole tree, and the fast check at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". New automated checks that P2 lists as candidates are noted, not built.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Claude reads ticket OPS-2, the 39 memory files and the repo at <code>6bded8b</code>
+      and writes this plan. Four findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
+</main>
