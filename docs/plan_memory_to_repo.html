@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 done, P3 in part (Q2) 2026-10-07; P4 next; Q1&ndash;Q2 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 and P4 done, P3 in part (Q2) 2026-10-07; P5 next; Q1&ndash;Q2 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -240,7 +240,7 @@
 
   <h2>5. P3 &mdash; Out-of-scope record and deferred work</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: part done, see tasks</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: <code>.out-of-scope/</code> done (<code>095f314</code>); tickets wait on Q2</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q2</span></div>
   </div>
   <p>One file per closed idea in <code>.out-of-scope/&lt;concept&gt;.md</code>, in the triage skill's format: what
@@ -254,18 +254,19 @@
 
   <h2>6. P4 &mdash; Agent runbooks</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Procedures and traps an agent needs mid-task, each checked against the scripts and README as it is written.
     A runbook keeps what no file or <code>--help</code> says and points at the rest.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>docs/agents/dvc.md</code>: move data with push and pull only; the three DVC traps and the object check that works; mismatched <code>.dir</code> hashes; a detached HEAD after <code>dvc exp</code>; outs that must stay gitignored; train through <code>dvc repro</code>.</span></li>
-    <li><span class="box"></span><span><code>docs/agents/remote-sweeps.md</code>: the VM's size and limits; the launch, watch and wait scripts and the path-argument trap; detach on the VM, block on a sentinel locally; resync by merge before a sweep; thread counts; wall-clock budgets; <code>reset --hard</code> scope.</span></li>
-    <li><span class="box"></span><span><code>docs/agents/experiments.md</code>: commit code before a sweep; diff the config against the runs it is compared with; read <code>metrics.json</code>'s <code>class_ids</code> for runs exp168&ndash;175; report ranges; name a best epoch only from the archived record.</span></li>
-    <li><span class="box"></span><span><code>docs/agents/deploy.md</code>: what "deployed" means (verified on the live site); server-side latency versus end-to-end; the owner pushes.</span></li>
-    <li><span class="box"></span><span>Checks: every command in the runbooks exists in the repo or the tools; the leak check passes.</span></li>
+    <li><span class="box done"></span><span><code>docs/agents/dvc.md</code>: move data with push and pull only; the three DVC traps and the object check that works; mismatched <code>.dir</code> hashes; a detached HEAD after <code>dvc exp</code>; outs that must stay gitignored; train through <code>dvc repro</code>. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span><code>docs/agents/remote-sweeps.md</code>: the VM's size and limits; the launch, watch and wait scripts and the path-argument trap; detach on the VM, block on a sentinel locally; resync by merge before a sweep; thread counts; wall-clock budgets; <code>reset --hard</code> scope. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span><code>docs/agents/experiments.md</code>: commit code before a sweep; diff the config against the runs it is compared with; read <code>metrics.json</code>'s <code>class_ids</code> for runs exp168&ndash;175; report ranges; name a best epoch only from the archived record. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span><code>docs/agents/deploy.md</code>: what "deployed" means (verified on the live site); server-side latency versus end-to-end; the owner pushes. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>Checks: every command in the runbooks exists in the repo or the tools; the leak check passes. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
+  <p><b>As run (2026-10-07).</b> Four runbooks, each pointing at the scripts and README for usage and keeping only traps, reasons and checks. Dropped as stale: the ResNet fold wall-clock budgets (no fold runs since ML-1), the pip venv and rsync data recipes, the reset-based VM sync. Checked against the repo: <code>experiments/index.csv</code> no longer has duplicate rows and exp174 is already marked VOID, so the memory&rsquo;s "record gaps" reduce to ADR 0004 and the <code>class_ids</code> check.</p>
 
   <h2>7. P5 &mdash; Pointers in CLAUDE.md</h2>
   <div class="fields">
@@ -320,6 +321,7 @@
     <div><div class="when">2026-10-07</div>P1 done: 14 ADRs and their links from ML-1, ML-2, ML-3, OPS-1 and OPS-2. P2 next.</div>
     <div><div class="when">2026-10-07</div>P2 done: <code>CODING_STANDARDS.md</code>. P3 next.</div>
     <div><div class="when">2026-10-07</div>P3 in part: <code>.out-of-scope/</code>, four files. The deferred-work tickets wait on Q2. P4 next.</div>
+    <div><div class="when">2026-10-07</div>P4 done: <code>docs/agents/dvc.md</code>, <code>remote-sweeps.md</code>, <code>experiments.md</code>, <code>deploy.md</code>. P5 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
