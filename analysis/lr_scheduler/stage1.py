@@ -105,10 +105,10 @@ for j, r in enumerate(rows):
     if j == 0:
         top.set_ylabel("cross-rig macro-F1 (per epoch)")
         bot.set_ylabel("head LR")
-h, l = axes[0, 0].get_legend_handles_labels()
+h, labels = axes[0, 0].get_legend_handles_labels()
 h.append(plt.Line2D([], [], marker="o", ls="", color=INK2, markeredgecolor=SURFACE, markersize=7))
-l.append("checkpoint the val-peak rule picks")
-fig.legend(h, l, loc="upper right", ncol=3, frameon=False, fontsize=9, bbox_to_anchor=(0.99, 0.985))
+labels.append("checkpoint the val-peak rule picks")
+fig.legend(h, labels, loc="upper right", ncol=3, frameon=False, fontsize=9, bbox_to_anchor=(0.99, 0.985))
 fig.suptitle("LR scheduler Stage 1, seed 42: plateau (A3, exp210-213) vs cosine (A0, exp200-203)",
              x=0.01, y=0.985, ha="left", fontsize=12, fontweight="bold")
 fig.text(0.01, 0.935, "Same seed, so same init, batches and augmentation; only the head's LR path and the stop rule differ. "

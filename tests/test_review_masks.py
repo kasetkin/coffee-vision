@@ -50,7 +50,7 @@ class Review(unittest.TestCase):
         c = self.client()
         r = self.decide(c, 0, "decline", "beans missed")
         self.assertEqual((r["reviewed"], r["decline"], r["next"]), (1, 1, 1))
-        rows = [json.loads(l) for l in self.decisions.read_text().splitlines()]
+        rows = [json.loads(line) for line in self.decisions.read_text().splitlines()]
         self.assertEqual(len(rows), 1)
         self.assertEqual({k: rows[0][k] for k in ("item", "decision", "reason", "mask_sha256")},
                          {"item": "it0", "decision": "decline", "reason": "beans missed",

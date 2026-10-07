@@ -541,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
         meta, lists = load_lists()
         if "base_dev" in lists or "base_heldout" in lists:
             raise ValueError("base_dev / base_heldout are already assigned; the lists are append-only (D20)")
-        decisions = [json.loads(l) for l in DECISIONS_FILE.read_text().splitlines() if l.strip()]
+        decisions = [json.loads(line) for line in DECISIONS_FILE.read_text().splitlines() if line.strip()]
         index = {r["path"]: r["mask_sha256"] for r in csv.DictReader(BASE_MASK_INDEX.read_text().splitlines())}
         accepted = accepted_bases(lists["base_candidates"], decisions, index)
         if len(accepted) < 2 * N_BASE_EACH:

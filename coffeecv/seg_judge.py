@@ -180,8 +180,8 @@ def call_cli(prompt: str, prep: dict, model: str, claude_bin: str) -> dict:
         res = subprocess.run(cmd, cwd=tmp, input=json.dumps(msg) + "\n", capture_output=True, text=True,
                              timeout=900)
         wall = time.perf_counter() - t0
-    out = next((json.loads(l) for l in reversed(res.stdout.splitlines())
-                if l.strip().startswith("{") and json.loads(l).get("type") == "result"), None)
+    out = next((json.loads(line) for line in reversed(res.stdout.splitlines())
+                if line.strip().startswith("{") and json.loads(line).get("type") == "result"), None)
     if res.returncode != 0:
         why = (out or {}).get("result") or res.stderr.strip() or res.stdout.strip()[-500:]
         raise RuntimeError(f"claude -p exited {res.returncode}: {str(why)[:500]}")

@@ -80,7 +80,7 @@ def session_pools() -> dict[str, str]:
 
 def new_photo_rows() -> list[dict]:
     """labels/ml3/new_photos.csv less P5's pool exclusions: the new photos that are in some split."""
-    rows = list(csv.DictReader(l for l in NEW_PHOTOS.read_text().splitlines() if not l.startswith("#")))
+    rows = list(csv.DictReader(line for line in NEW_PHOTOS.read_text().splitlines() if not line.startswith("#")))
     excluded = read_exclusions(POOL_EXCLUDE)
     return [r for r in rows if (r["session"], r["class_folder"], r["file"]) not in excluded]
 

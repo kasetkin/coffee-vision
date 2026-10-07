@@ -31,12 +31,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, matthews_corrcoef
 from sklearn.preprocessing import StandardScaler
 
-_REPO = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.config import RunConfig
 from coffeecv.dataset import MultiPhotoPatchDataset, discover_classes_multi, resolve_rigs
 from coffeecv.transforms import build_eval_transform
+
+_REPO = Path(__file__).resolve().parents[2]
 
 torch.set_num_threads(6)
 
