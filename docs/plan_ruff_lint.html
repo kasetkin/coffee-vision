@@ -14,7 +14,7 @@
     number: none of the 27 files with findings ships in a release.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); P1 done 2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; Q1&ndash;Q2 answered (ticket D6, D7); P1, P2 done 2026-10-07</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_ruff_lint.html"><code>ticket_ruff_lint.html</code></a> (OPS-4)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -140,7 +140,7 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
 
   <h2>4. P2 &mdash; the provable fixes</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>b69764c</code>, <code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Three commits, so that each diff is proven or reviewed in one way. The AST check is a throwaway script in
@@ -148,11 +148,11 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <code>import a, b</code> node into one node per name. Then it compares the two <code>ast.dump()</code>
     outputs, which leave out line numbers by default. Equal means the commit only moved code between lines.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Before any fix (R4): <code>git fetch powervpsssh main:tmp/vm-sweep</code>, then <code>git diff --name-only main...tmp/vm-sweep</code> against the 27 files. On any overlap, merge the VM first by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>'s procedure (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Run <code>scripts/check.sh --full</code> as the baseline.</span></li>
-    <li><span class="box"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: the 5 E401 hits outside <code>webapp/</code> with <code>ruff check --fix --select E401 --extend-exclude webapp</code> (without the flag it also fixes commit 3's file), and the 21 E701/E702 splits by hand. All 5 E401 hits are in <code>analysis/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
-    <li><span class="box"></span><span>Commit 2, <code>OPS-4 P2: unused imports and placeholder-free f-strings</code>: <code>ruff check --fix --select F401,F541</code>, safe fixes only, outside <code>webapp/</code>. Read the diff: 11 removed names, 4 dropped <code>f</code> prefixes, nothing else.</span></li>
-    <li><span class="box"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), with <code>ruff check --fix --select E401 webapp/deploy/release_probe.py</code>, alone so a deploy-tooling diff shows it apart (R3). Check: the AST script.</span></li>
-    <li><span class="box"></span><span>Checks: <code>ruff check</code> reports only the P3 rules (11 E741, 8 E402, 1 E731); <code>scripts/check.sh</code> after each commit.</span></li>
+    <li><span class="box done"></span><span>Before any fix (R4): <code>git fetch powervpsssh main:tmp/vm-sweep</code>, then <code>git diff --name-only main...tmp/vm-sweep</code> against the 27 files. On any overlap, merge the VM first by <a href="agents/remote-sweeps.md">remote-sweeps.md</a>'s procedure (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Run <code>scripts/check.sh --full</code> as the baseline.</span></li>
+    <li><span class="box done"></span><span>Commit 1, <code>OPS-4 P2: one statement per line</code>: the 5 E401 hits outside <code>webapp/</code> with <code>ruff check --fix --select E401 --extend-exclude webapp</code> (without the flag it also fixes commit 3's file), and the 21 E701/E702 splits by hand. All 5 E401 hits are in <code>analysis/</code>. All 21 are in <code>analysis/architecture_screen/bench.py</code> and <code>analysis/lr_scheduler/</code>. Check: the AST script reports every changed file identical.</span></li>
+    <li><span class="box done"></span><span>Commit 2, <code>OPS-4 P2: unused imports and placeholder-free f-strings</code>: <code>ruff check --fix --select F401,F541</code>, safe fixes only, outside <code>webapp/</code>. Read the diff: 11 removed names, 4 dropped <code>f</code> prefixes, nothing else.</span></li>
+    <li><span class="box done"></span><span>Commit 3, <code>OPS-4 P2: webapp/deploy/release_probe.py</code>: its one E401 (<code>import numpy, torch</code> inside the function, kept late), with <code>ruff check --fix --select E401 webapp/deploy/release_probe.py</code>, alone so a deploy-tooling diff shows it apart (R3). Check: the AST script.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>ruff check</code> reports only the P3 rules (11 E741, 8 E402, 1 E731); <code>scripts/check.sh</code> after each commit.</span></li>
   </ol>
 
   <h2>5. P3 &mdash; the hand fixes</h2>
@@ -248,7 +248,7 @@ exit $rc</code></pre>
   <h2>9. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: the 62 findings reproduce under the config; the config test passes.</span></li>
-    <li><span class="box"></span><span>P2: the AST script reports commits 1 and 3 identical; commit 2's diff is 11 imports and 4 prefixes.</span></li>
+    <li><span class="box done"></span><span>P2: the AST script reports commits 1 and 3 identical; commit 2's diff is 11 imports and 4 prefixes.</span></li>
     <li><span class="box"></span><span>P3: <code>ruff check</code> exits 0 on the repo; the touched modules' tests pass.</span></li>
     <li><span class="box"></span><span>P4: a planted finding fails the fast tier, with the finding in the printed tail.</span></li>
     <li><span class="box"></span><span>P5: a staged finding is refused and an unstaged one is not; <code>tests/test_ruff_staged.py</code> passes.</span></li>
@@ -275,6 +275,7 @@ exit $rc</code></pre>
     <div><div class="when">2026-10-07</div>P1's <code>select</code> comment corrected for D8: the prefixes take an upgrade's new stable rules, by the owner's choice, and no <code>required-version</code> is set. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P4 records D9: the step lints the whole working tree, untracked files included; Ruff's <code>respect-gitignore</code> default stays, since <code>.private_claude/</code> holds synced skill scripts with findings. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P1 done (<code>40f194e</code>, <code>22e2fc9</code>): the two tables at the end of <code>pyproject.toml</code>, after the last <code>[tool.uv]</code> table, and <code>tests/test_ruff_config.py</code>, written first and seen failing. <code>ruff check --statistics</code> reports the 62 findings, by rule as the ticket counts them. A <code>third_party/</code> file named on the command line or passed with <code>--stdin-filename</code> passes. The fast tier passes but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree; the full tier runs in the main checkout before P2.</div>
+    <div><div class="when">2026-10-07</div>P2 done (<code>b69764c</code>, <code>a704d18</code>, <code>ef6cf3d</code>, <code>f6285d2</code>). Before it, the owner fetched <code>tmp/vm-sweep</code>, which has no commits ahead of <code>main</code>, so nothing overlaps the 27 files (R4), and ran <code>scripts/check.sh --full</code> on <code>8e54804</code> as the baseline: it passed, unittest full in 290 s. The AST script reports all 6 files of commit 1 and the one file of commit 3 identical; run on commit 2, it reports all 12 files different, so it can disagree. Commit 2's diff, read: 11 removed names and 4 dropped <code>f</code> prefixes, nothing else, and no removed name is reached elsewhere as a module attribute. <code>ruff check --statistics</code> now reports only P3's 20 findings (11 E741, 8 E402, 1 E731). The fast tier passes after each commit but for <code>coverage_report</code>, which needs <code>dataset/</code>, absent from the agent's worktree.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4 ticket</a>, <code>pyproject.toml</code>,
