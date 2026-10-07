@@ -1,0 +1,237 @@
+<title>Visitor Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#ECE8DE; --surface:#FBF9F3; --surface-2:#F3EFE4;
+    --ink:#211C15; --muted:#6C6252;
+    --border:rgba(33,28,21,0.14); --border-strong:rgba(33,28,21,0.28);
+    --accent:#A8722E; --accent-ink:#5C3E17;
+    --ok:#3D6B5C; --ok-ink:#1F3A31; --ok-bg:#E4EEE9;
+    --bad:#9B3E36; --bad-ink:#5C231E; --bad-bg:#F6E1DE;
+    --warn-bg:#F3E7D2;
+    --code-bg:#20241f0d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+      --ink:#EEE7D8; --muted:#A79A85;
+      --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+      --accent:#DDA25A; --accent-ink:#F1C68B;
+      --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+      --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+      --warn-bg:rgba(221,162,90,0.14);
+      --code-bg:#00000030;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#161310; --surface:#1F1B15; --surface-2:#25201A;
+    --ink:#EEE7D8; --muted:#A79A85;
+    --border:rgba(238,231,216,0.14); --border-strong:rgba(238,231,216,0.30);
+    --accent:#DDA25A; --accent-ink:#F1C68B;
+    --ok:#7FB09E; --ok-ink:#A9D2C2; --ok-bg:rgba(127,176,158,0.14);
+    --bad:#D98A80; --bad-ink:#EBB2AA; --bad-bg:rgba(217,138,128,0.14);
+    --warn-bg:rgba(221,162,90,0.14);
+    --code-bg:#00000030;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  main{max-width:960px; margin:0 auto; padding-block:48px 90px; padding-inline:20px;}
+
+  .eyebrow{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:12px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .eyebrow::before{content:""; width:8px; height:8px; background:var(--accent); display:inline-block; border-radius:1px;}
+  h1{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight:700; font-size:clamp(28px,5vw,40px);
+    line-height:1.12; margin:0 0 14px; text-wrap:balance;}
+  h2{font-family:"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-size:22px; margin:44px 0 12px;
+    padding-top:18px; border-top:1px solid var(--border-strong); text-wrap:balance;}
+  h3{font-size:16px; margin:24px 0 8px;}
+  p, li{max-width:70ch;}
+  p{margin:0 0 12px;}
+  .lede{font-size:17px; color:var(--muted); margin-bottom:26px;}
+  code, pre, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.88em;}
+  code{background:var(--code-bg); padding:1px 5px; border-radius:3px;}
+  pre{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;
+    overflow-x:auto; line-height:1.5; margin:0 0 14px;}
+  pre code{background:none; padding:0;}
+  a{color:var(--accent-ink);}
+
+  /* ticket header fields */
+  .fields{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:10px;}
+  .field{background:var(--surface); padding:10px 14px; display:flex; flex-direction:column; gap:3px;}
+  .field .k{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+  .field .v{font-weight:500;}
+  .pill{display:inline-block; font-family:"IBM Plex Mono", monospace; font-size:12px; font-weight:600;
+    padding:2px 8px; border-radius:999px; border:1px solid currentColor; width:fit-content;}
+  .pill.open{color:var(--accent-ink); background:var(--warn-bg);}
+  .pill.high{color:var(--bad-ink); background:var(--bad-bg);}
+  .pill.blocked{color:var(--muted);}
+  .pill.ok{color:var(--ok-ink); background:var(--ok-bg);}
+  .pill.sm{font-size:11px; padding:1px 7px; white-space:nowrap;}
+  td.id{font-family:"IBM Plex Mono", monospace; color:var(--muted); white-space:nowrap;}
+
+  .callout{border-left:3px solid var(--bad); background:var(--bad-bg); padding:12px 16px; border-radius:0 6px 6px 0; margin:0 0 16px;}
+  .callout.info{border-left-color:var(--accent); background:var(--warn-bg);}
+  .callout.good{border-left-color:var(--ok); background:var(--ok-bg);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .table-wrap{overflow-x:auto; margin:0 0 16px; border:1px solid var(--border); border-radius:6px; background:var(--surface);}
+  table{border-collapse:collapse; width:100%; font-size:14px;}
+  th, td{text-align:left; vertical-align:top; padding:8px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:"IBM Plex Mono", monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; background:var(--surface-2);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums; text-align:right;}
+
+  .compare{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; margin-bottom:16px;}
+  .compare > div{background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px;}
+  .compare h3{margin-top:0;}
+  .compare pre{margin:0; border:none; padding:0; background:none;}
+
+  ol.tasks, ul.checks{padding-left:0; list-style:none; margin:0 0 16px; display:grid; gap:8px;}
+  ol.tasks li, ul.checks li{display:grid; grid-template-columns:22px 1fr; gap:8px; max-width:none;}
+  .box{width:14px; height:14px; border:1.5px solid var(--border-strong); border-radius:3px; margin-top:4px;}
+  .box.done{background:var(--ok); border-color:var(--ok);}
+  .result{display:block; color:var(--muted); font-size:14px; margin-top:4px;}
+  .tag{font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .log{border-left:1px solid var(--border-strong); margin-left:6px; padding-left:18px; display:grid; gap:12px;}
+  .log div{position:relative;}
+  .log div::before{content:""; position:absolute; left:-23px; top:7px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+  .log .when{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  footer{margin-top:48px; font-size:13px; color:var(--muted);}
+</style>
+
+
+<main>
+  <div class="eyebrow">Ticket OPS-3 · coffee-vision · webapp and VM</div>
+  <h1>Visitor analytics for the live site with a self-hosted Umami</h1>
+  <p class="lede">Count visits to the live site with Umami, self-hosted on the VM, without client IPs and without
+    third parties. A design was written and reviewed on 2026-08-31 and put on hold by the owner, who wanted
+    analytics decided separately from operational logging. This ticket keeps that design and its two known blockers
+    so it can resume; nothing is planned or implemented, and it waits for the owner to ask.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; on hold until the owner asks; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: a new service</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/deploy/</code> (nginx template), the VM (Node.js, PostgreSQL, Umami)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">When implemented: a tracking script on the live page and a new service on the VM</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">on hold by the owner's choice (D1)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-08-31.</strong> After the server logging shipped: visitor analytics with Umami, as
+      its own decision, not bundled with the logging rollout. Put on hold the same day, after a full plan and review.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the site has no analytics or tracking script at all; the only record of use is the structured server log
+    (<code>docs/logging_plan.html</code>, no client IPs). After this ticket, Umami counts page views, served from the
+    same VM under the site's own domain, with its dashboard reachable only through an SSH tunnel. The work is an
+    install on the VM, nginx routes, the tracker in the page, and retention.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>Logging shipped on 2026-08-31</b> (<code>3f08b4b</code>, <code>1e6f42e</code>, <code>7c73fab</code>,
+      <code>2b5e718</code>): JSON request logs joined to nginx's access log by <code>request_id</code>, one-year
+      rotation, no client IP. The app log stays the record of each classification; analytics adds no per-classify
+      events.</li>
+    <li><b>The 2026-08-31 design</b> was a Claude Code plan file, not a repo file, and is lost. What it settled:
+      native install, no Docker (<code>.out-of-scope/containerised-serving.md</code>), Node.js through pnpm; Umami pinned
+      at v3.3.1; path-based routing under <code>/stats/</code>, not a subdomain; nginx exposes exactly
+      <code>/stats/script.js</code> and <code>/stats/api/send</code> as exact-match locations and nothing else;
+      90-day retention by a cron SQL job (Umami v3 has no retention setting); deploy files templated
+      (<code>CODING_STANDARDS.md</code>).</li>
+    <li><b>The design predates OPS-1.</b> The site now runs from immutable releases under its own user
+      (<a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>), so where Umami lives and how its nginx
+      routes are deployed must be re-checked against <code>scripts/deploy_webapp.sh</code> and
+      <code>webapp/deploy/</code>.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>No analytics; visits are visible only in the server log.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Umami counts page views under <code>/stats/</code>; dashboard over an SSH tunnel only; 90 days kept.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The server log.</strong> It stays the one record of classifications and keeps no client IP.</li>
+    <li><strong>The release layout.</strong> Umami is a separate service; the webapp's releases do not carry it.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Every page-view beacon 404s silently.</strong></td>
+        <td>Umami's tracker bakes its collection endpoint in at build time (<code>COLLECT_API_ENDPOINT</code> /
+          <code>COLLECT_API_HOST</code>), defaulting to <code>/api/send</code>, not a path next to the script. Under
+          <code>/stats/</code> routing, build with <code>COLLECT_API_ENDPOINT=/stats/api/send</code>, or the beacon
+          falls through to the page's <code>try_files</code>. Found in the 2026-08-31 review.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The first migration fails on PostgreSQL 16.</strong></td>
+        <td>Since PostgreSQL 15 a non-owner role cannot create in the <code>public</code> schema, so
+          <code>prisma migrate deploy</code> fails with "permission denied for schema public". Create the database as
+          <code>CREATE DATABASE umami OWNER umami;</code>. Found in the 2026-08-31 review.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A default admin login on the dashboard.</strong></td>
+        <td>Umami installs with a documented default login; change it at install, before the tunnel is first used.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>When does this resume?</td>
+        <td>(a) When the owner asks (b) Now</td>
+        <td>(a), 2026-08-31: on hold; no tracking script or analytics dependency until the owner asks.</td></tr>
+      <tr><td class="id">D2</td><td>Does the 2026-08-31 design stand after OPS-1?</td>
+        <td>(a) Keep it, re-checked against the release layout (b) Redesign</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>A page view on the live site appears in the dashboard, and <code>/stats/api/send</code> returns success (R1).</span></li>
+    <li><span class="box"></span><span>Only <code>/stats/script.js</code> and <code>/stats/api/send</code> are reachable from outside; the dashboard only through the tunnel.</span></li>
+    <li><span class="box"></span><span>Rows older than 90 days are deleted by the retention job.</span></li>
+    <li><span class="box"></span><span>No client IP is stored by the site's own logs.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Per-classification analytics events (the server log covers them).</li>
+    <li>Docker (<code>.out-of-scope/containerised-serving.md</code>) and third-party analytics.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-08-31</div>Owner asks for Umami after the logging rollout. Claude writes and reviews a design (not in the repo); the review finds R1 and R2. Owner puts it on hold (D1).</div>
+    <div><div class="when">2026-10-07</div>Ticket written from private memory during OPS-2 (plan Q2), so the design and its blockers survive. Open, on hold; not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <code>docs/logging_plan.html</code>, <a href="ticket_webapp_release_isolation.html">OPS-1</a>, <a href="ticket_memory_to_repo.html">OPS-2</a>, <code>webapp/deploy/</code>.</footer>
+</main>

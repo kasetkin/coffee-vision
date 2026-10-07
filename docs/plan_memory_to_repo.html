@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 and P4&ndash;P5 done, P3 in part (Q2) 2026-10-07; P6 next, stops for the owner; Q1&ndash;Q2 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P5 done 2026-10-07; Q1&ndash;Q2 answered; P6 next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -196,9 +196,9 @@
     <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
     <tbody>
       <tr><td class="id">Q1</td><td>Memory is not versioned. Are migrated memory files deleted, or archived?</td>
-        <td><span class="pill sm open">Open</span> Archive: move them to <code>.private_claude/memory-archive/2026-10-07/</code>, outside the directory Claude loads, so nothing is lost and nothing stale is read.</td><td>P6</td></tr>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-07: archive, in the project root (<code>memory-archive-2026-10-07/</code>), never committed; the owner moves it out of the repo. Kept out of git by a local exclude (<code>.git/info/exclude</code>), not <code>.gitignore</code>. Ticket D5.</td><td>P6</td></tr>
       <tr><td class="id">Q2</td><td>Two memories are deferred work: Umami analytics (on hold until the owner asks, two blockers known) and the open capture work (iPhone top-up, class_008 missing there; fresh-scoop validation never done). Where do they go?</td>
-        <td><span class="pill sm open">Open</span> One ticket each from the template, Triage <code>needs-triage</code>, Status Open: OPS-3 (Umami, with both blockers) and ML-4 (capture). Nothing is planned or started.</td><td>P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-07: "yes, create open tickets". Ticket D6.</td><td>P3</td></tr>
     </tbody>
   </table></div>
 
@@ -240,14 +240,14 @@
 
   <h2>5. P3 &mdash; Out-of-scope record and deferred work</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: <code>.out-of-scope/</code> done (<code>095f314</code>); tickets wait on Q2</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>095f314</code> and the commit adding OPS-3 and ML-4</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q2</span></div>
   </div>
   <p>One file per closed idea in <code>.out-of-scope/&lt;concept&gt;.md</code>, in the triage skill's format: what
     was decided, why, and where (ticket, D-number or experiments).</p>
   <ol class="tasks">
     <li><span class="box done"></span><span>Fold and cross-camera evaluation (ML-1's do-not-re-propose list); the ResNet18 recipe levers (mixup, freezing, AdaBN, photometric and multiscale TTA, LR schedulers, brightness); a CPU-priority scheme for sweeps. <span class="result">Done 2026-10-07.</span></span></li>
-    <li><span class="box"></span><span>The deferred-work tickets, as Q2 decides.</span></li>
+    <li><span class="box done"></span><span>The deferred-work tickets, as Q2 decides. <span class="result">Done 2026-10-07: <a href="ticket_visitor_analytics.html">OPS-3</a> (Umami) and <a href="ticket_capture_gaps.html">ML-4</a> (capture gaps), both Open, <code>needs-triage</code>. ML-4 restates the capture work for country classes with today&rsquo;s counts: the iPhone pool lacks 4 coffees (3 countries), and two farm regions have under 15 photos.</span></span></li>
     <li><span class="box done"></span><span>Checks: each file names its source; the leak check passes. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
   <p><b>As run (2026-10-07).</b> Four files in <code>.out-of-scope/</code>: cross-camera evaluation (with ML-1&rsquo;s two deferred measurements marked as deferrals, not rejections), the ResNet18 recipe levers, CPU priority between sweeps and the site, and containers on the server (from OPS-1 plan §10 and the Umami design; not in the plan&rsquo;s list). The memory&rsquo;s "no synthetic tests" rule for DINOv3 is not in <code>docs/dinov3_integration_plan.md</code> and many tests use synthetic fixtures, so it is not recorded; it goes to the owner at P6. The deferred-work tickets wait on Q2.</p>
@@ -270,14 +270,14 @@
 
   <h2>7. P5 &mdash; Pointers in CLAUDE.md</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>18f7d95</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3, P4</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box done"></span><span>One line per new file, written as a trigger: when to read it. Run <code>/writing-for-agents</code> over the result. <span class="result">Done 2026-10-07.</span></span></li>
     <li><span class="box done"></span><span>Checks: <code>CLAUDE.md</code> holds pointers and the publishing rule only. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
-  <p><b>As run (2026-10-07).</b> Four pointer lines under "Where project knowledge lives", each led by what the file is and when to read it; the runbook line names one trigger per runbook. Reviewed against <code>/writing-for-agents</code>: pointers only, no rule restated from the files they point at. <code>CLAUDE.md</code> is 27 lines.</p>
+  <p><b>As run (2026-10-07).</b> Four pointer lines under "Where project knowledge lives", each led by what the file is and when to read it; the runbook line names one trigger per runbook. Reviewed against <code>/writing-for-agents</code>: pointers only, no rule restated from the files they point at. <code>CLAUDE.md</code> is 26 lines.</p>
 
   <h2>8. P6 &mdash; Slim private memory <span class="pill sm open">stop</span></h2>
   <div class="fields">
@@ -324,6 +324,7 @@
     <div><div class="when">2026-10-07</div>P3 in part: <code>.out-of-scope/</code>, four files. The deferred-work tickets wait on Q2. P4 next.</div>
     <div><div class="when">2026-10-07</div>P4 done: <code>docs/agents/dvc.md</code>, <code>remote-sweeps.md</code>, <code>experiments.md</code>, <code>deploy.md</code>. P5 next.</div>
     <div><div class="when">2026-10-07</div>P5 done: <code>CLAUDE.md</code> points at the ADRs, the out-of-scope record, the standards and the runbooks. P6 next: stops for the owner.</div>
+    <div><div class="when">2026-10-07</div>Owner answers Q1 (archive in the project root, uncommitted) and Q2 (open tickets). P3 done: OPS-3 and ML-4 written. Owner also drops two memory rules: DINOv3&rsquo;s "no synthetic tests" (its intent is unknown) and the scheduled-checks lesson (its tools are disabled in <code>.claude/settings.json</code>).</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
