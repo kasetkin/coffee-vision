@@ -82,7 +82,7 @@
 
   <h2>3. P1 &mdash; <code>/crop</code> returns the mask</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>9788325</code>, <code>2d89e75</code>, <code>02c2854</code> and the commit closing it</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p><code>/crop</code> gets the full photo's mask, scales it to long side &le; <code>PREVIEW_MAX_DIM</code>,
@@ -257,6 +257,24 @@
       line just outside the bean region). P1 drops the shared size helper and leaves <code>/preview</code> alone,
       and encodes a palette PNG; P2 decodes by palette index; P3 gains the token and the compositing method, and
       its hand checks gain phone browsers and the stale answer. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1 done (<code>9788325</code>, <code>2d89e75</code>,
+      <code>02c2854</code>). <code>/crop</code> answers <code>mask</code> and <code>seg_fallback</code> as the
+      plan says; a tray-heuristic model answers <code>mask: null</code>, <code>seg_fallback: false</code>.
+      <code>tests/test_webapp_crop.py</code> (<code>real_data</code>): the tray photo's mask agrees with the
+      full-resolution mask sampled at its pixel centres, the Orientation-tag and fallback cases; each seen failing
+      first, the last two by a mutation (a rotated mask or thumbnail, an empty mask encoded instead of null).
+      Measured on the smoke photo (3000 &times; 4000), on the devcontainer:
+      <b>parity</b>: <code>release_probe.py compare-classify</code> of the 12 compare photos against the
+      baseline recorded at <code>be4e817</code>, <code>--tol 0</code>: BIT-IDENTICAL; the smoke
+      <code>/crop</code> box, <code>/classify</code> answer and <code>tests/test_release_manifest.py</code>'s
+      opened files unchanged.
+      <b>Bytes</b> (ticket R4): the mask is 768 &times; 1024, 41% bean, a 1,823-byte PNG, 2,432 characters in
+      base64; the whole <code>/crop</code> body is 2,550 bytes.
+      <b>IoU margins</b> (ticket R2), the mask against itself: shifted one pixel, 0.9954 (vertical), 0.9958
+      (horizontal), 0.9931 (diagonal), all below 0.999; its boundary pixels flipped at ML-2 P0's worst rate
+      (15 of 12.2 M, so 1 pixel), 0.999997; at 100 times that rate (97 pixels), 0.9997, still a pass; at 1000
+      times (967 pixels), 0.9970. The mask at 1 thread and at 6 is identical. So 0.999 sits about 0.004 above a
+      one-pixel shift and about 0.001 below a few hundred flipped pixels.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
