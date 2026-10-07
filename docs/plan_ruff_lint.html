@@ -125,7 +125,8 @@ extend-exclude = ["third_party"]
 force-exclude = true
 
 [tool.ruff.lint]
-# The pyflakes/pycodestyle core (D1), written out so that a Ruff upgrade adds no rule unasked (R2).
+# The pyflakes/pycodestyle core (D1), written out so that a Ruff upgrade adds no rule family (R2). New stable
+# rules inside these prefixes come with an upgrade (D8); the version is pinned by uv.lock only.
 select = ["E4", "E7", "E9", "F"]</code></pre>
   <p><code>extend-exclude</code>, not <code>exclude</code>, keeps Ruff's built-in exclusions (<code>.venv</code>,
     <code>.git</code>, caches). <code>target-version</code> is not set: <code>requires-python = "==3.12.*"</code>
@@ -182,6 +183,10 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     interpreter that runs the other steps, the locked 0.16.10. <code>concise</code> prints one line per finding,
     so the 40-line tail <code>run</code> prints on failure holds about 40 findings instead of about 6 code frames. Exit 2 (a
     config error) fails the step like exit 1. Its cost is under a second, so both tiers run it.</p>
+  <p>The step lints the working tree, not only the commit its caller vouches for (D9): an untracked
+    <code>.py</code> with a finding fails the push or the deploy. Gitignored files are allowed too, but Ruff's default
+    <code>respect-gitignore</code> stays on: turned off, it adds 18 findings in the Claude skill scripts synced into
+    the gitignored <code>.private_claude/</code>, which are not the project's code.</p>
   <ol class="tasks">
     <li><span class="box"></span><span>Add the step. In the header comment, add <code>ruff check</code> (the lint rules in <code>pyproject.toml</code>'s <code>[tool.ruff]</code>, &lt;1 s) to the list of steps.</span></li>
     <li><span class="box"></span><span><code>README.md</code> line 26: name the Ruff step in the guardrail's list.</span></li>
@@ -204,8 +209,10 @@ select = ["E4", "E7", "E9", "F"]</code></pre>
     <li>Per file: <code>git show :&lt;path&gt;</code> piped into
       <code>[sys.executable, "-m", "ruff", "check", "--output-format", "concise", "--stdin-filename", path, "-"]</code>
       from the repo root. The config, with <code>force-exclude</code>, resolves from <code>path</code>, so a staged
-      <code>third_party/</code> file passes. One process per file costs about 10 ms each, so a 30-file commit adds
-      about 0.3 s.</li>
+      <code>third_party/</code> file passes. Each file costs about 85 ms, most of it the Python start of
+      <code>python -m ruff</code>, so a 30-file commit adds about 2.5 s. The module's own start adds about 1.7 s, as
+      <code>leak_check</code>'s does: importing <code>leak_check</code> pulls in torch through
+      <code>coffeecv.config</code>. Measured 2026-10-07.</li>
     <li>It prints the findings and ends on one line, like <code>leak_check</code>: <code>ruff_staged: N staged
       Python files clean</code> or <code>ruff_staged: K finding(s) in N staged Python files</code>. It exits 1 on
       any nonzero Ruff exit. A missing Ruff (<code>No module named ruff</code>) fails loudly with "run <code>uv sync
@@ -220,7 +227,7 @@ exit $rc</code></pre>
   <ol class="tasks">
     <li><span class="box"></span><span><code>coffeecv/ruff_staged.py</code> as above, with a module docstring in <code>leak_check</code>'s style.</span></li>
     <li><span class="box"></span><span><code>tests/test_ruff_staged.py</code>, on a temp repo like <code>tests/test_leak_check.py</code>'s fixture, holding a <code>pyproject.toml</code> with the P1 tables. Cases: a staged unused import is reported. A file clean in the index but dirty on disk passes, and the reverse is reported. A staged file under <code>third_party/</code> passes. A staged deletion and a staged <code>.md</code> are not linted. With nothing staged, the module exits 0.</span></li>
-    <li><span class="box"></span><span><code>.githooks/pre-commit</code> as above. Its header comment names both checks and says Ruff reads the index while <code>leak_check</code> reads the disk, until Q1's follow-up.</span></li>
+    <li><span class="box"></span><span><code>.githooks/pre-commit</code> as above. Its header comment names both checks with their cost (about 1.7 s each to start, plus about 85 ms per staged Python file for Ruff) and says Ruff reads the index while <code>leak_check</code> reads the disk, until Q1's follow-up.</span></li>
     <li><span class="box"></span><span><code>README.md</code> line 26: "runs the leak check alone" becomes the leak check and Ruff on the staged files.</span></li>
     <li><span class="box"></span><span>The VM: check <code>git -C ~/coffee-vision config core.hooksPath</code> and <code>~/coffee-vision-venv/bin/python -m ruff --version</code>. If the hooks are wired there, its next commit runs this hook, and Ruff must be in that venv (the <code>dev</code> group is synced by default). Write the result in the Activity entry.</span></li>
     <li><span class="box"></span><span>Checks, by hand in this repo: stage an unused import and the commit is refused. Stage a clean version, then add the import on disk only, and the commit goes through. A file with a leak and a lint finding reports both. <code>scripts/check.sh</code> passes.</span></li>
@@ -264,6 +271,9 @@ exit $rc</code></pre>
       reads the disk and that no fix ships in a release. Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner answers Q1 and Q2 as recommended: the leak check's staged read goes to its own ticket, OPS-5, written at P6; the Ruff VS Code extension is added in P6, pinned to the venv's binary. Recorded in the ticket as D6 and D7. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Revised after a <code>/code-review</code> of <code>85ebce9</code>. P2 commit 1's E401 fix now excludes <code>webapp/</code>, which it would otherwise have fixed ahead of commit 3 (R3), and commit 3 names its command. Findings 2 and 5 are corrected: the deploy also runs <code>release_probe.py</code> locally, and one F401 removal is <code>numpy</code>. P6 also corrects the ticket's "target 3.12" and checks the staged-read ticket's ID before writing it. Verification gains a P6 line. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Expected times in P5 corrected from measurements: about 85 ms per staged file, not 10 ms (a 30-file commit adds about 2.5 s, not 0.3 s), plus about 1.7 s for the module's start, which imports torch through <code>leak_check</code>. The owner accepts the cost; the design is unchanged. The hook's header gains the times. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P1's <code>select</code> comment corrected for D8: the prefixes take an upgrade's new stable rules, by the owner's choice, and no <code>required-version</code> is set. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>P4 records D9: the step lints the whole working tree, untracked files included; Ruff's <code>respect-gitignore</code> default stays, since <code>.private_claude/</code> holds synced skill scripts with findings. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_ruff_lint.html">OPS-4 ticket</a>, <code>pyproject.toml</code>,

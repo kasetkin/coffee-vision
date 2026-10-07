@@ -64,14 +64,15 @@
           line, E741 ambiguous names, F401, E402. No undefined names outside <code>third_party/</code>.</li>
         <li><code>ruff format --check</code>: 109 of 268 files would be reformatted.</li>
       </ul></li>
-    <li><b>Speed.</b> A cold <code>ruff check</code> of the repo outside <code>third_party/</code> takes about 0.03 s,
-      so it fits the fast tier and could run in pre-commit.</li>
+    <li><b>Speed.</b> A cold <code>python -m ruff check</code> of the repo outside <code>third_party/</code> takes
+      about 0.1 s (Ruff itself 0.03 s, the rest a Python start), so it fits the fast tier. In pre-commit, linting
+      each staged file from the index costs about 85 ms per file: about 2.5 s for a 30-file commit (plan P5).</li>
     <li><b>Core-set findings by directory</b> (<code>E4,E7,E9,F</code>, the set D1 chose): <code>analysis/</code> 40,
       <code>coffeecv/</code> 16, <code>tests/</code> 3, <code>models_pretrained/</code> 2, <code>webapp/</code> 1.
       21 are auto-fixable (F401, E401, F541); the rest (E702/E701 split onto lines, E741 renames, E402, E731) are
       by hand.</li>
     <li><b>The hooks.</b> <code>.githooks/pre-commit</code> runs <code>python -m coffeecv.leak_check --staged</code>
-      (about 1 s) before every commit. <code>.githooks/pre-push</code> runs <code>scripts/check.sh</code>'s fast tier
+      (about 1.7 s, most of it the torch import through <code>coffeecv.config</code>) before every commit. <code>.githooks/pre-push</code> runs <code>scripts/check.sh</code>'s fast tier
       before a push to origin, and <code>scripts/deploy_webapp.sh</code> runs <code>--full</code> before a deploy.
       The pre-commit hook and <code>check.sh</code> are separate: Ruff goes into each (D5).</li>
     <li><b>The check script.</b> <code>scripts/check.sh</code> runs <code>leak_check</code>,
@@ -131,8 +132,11 @@
           keep a late import that is deliberate with a <code>noqa</code> and its reason, and run
           <code>scripts/check.sh --full</code> before and after each fix commit.</td></tr>
       <tr><td class="id">R2</td><td><strong>A Ruff upgrade changes the rules and fails the check with no code change.</strong></td>
-        <td>The current findings come from 0.16.10's defaults, which change between releases. Select rules explicitly
-          in <code>[tool.ruff.lint]</code>, so an upgrade adds rules only when the config says so.</td></tr>
+        <td>The current findings come from 0.16.10's defaults, which change between releases. Select the rule families
+          explicitly in <code>[tool.ruff.lint]</code>, so an upgrade does not change which families run. A new stable rule
+          inside a selected prefix (<code>E4</code>, <code>E7</code>, <code>E9</code>, <code>F</code>) does arrive with
+          the upgrade, by the owner's choice (D8); the upgrade itself is an owner-approved <code>uv lock</code>
+          (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>), and its new findings are fixed in it.</td></tr>
       <tr><td class="id">R3</td><td><strong>Fixes in <code>webapp/</code> reach the live site.</strong></td>
         <td>One core-set finding in <code>webapp/</code>. Its fix ships with the next
           release, after <code>deploy_webapp.sh</code>'s full check; keep them in their own commit so a release diff
@@ -186,6 +190,12 @@
       <tr><td class="id">D7</td><td>The Ruff VS Code extension in the devcontainer (D5 (c), plan Q2)?</td>
         <td>(a) No (b) yes, with its bundled Ruff (c) yes, pinned to the venv's Ruff with <code>ruff.path</code></td>
         <td>(c), 2026-10-07: as the plan recommends, so the editor reports what the gates report (R2). Added in the plan's P6.</td></tr>
+      <tr><td class="id">D8</td><td>Should the config pin Ruff's version (<code>required-version</code>), so that a different Ruff fails instead of reporting new rules? (Raised in a review of the plan.)</td>
+        <td>(a) No: the selected prefixes take the new stable rules of whichever Ruff is installed (b) yes, <code>required-version = "==0.16.10"</code>, kept equal to <code>uv.lock</code></td>
+        <td>(a), 2026-10-07: an owner who upgrades Ruff takes its new stable rules with it. The lock (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>) is the only pin.</td></tr>
+      <tr><td class="id">D9</td><td>Which files does <code>check.sh</code>'s step lint? Its callers (pre-push, the deploy) vouch for one commit, but <code>ruff check .</code> reads the working tree. (Raised in a review of the plan.)</td>
+        <td>(a) The whole repository as <code>ruff check .</code> finds it, uncommitted files included (b) tracked files only (<code>git ls-files</code>)</td>
+        <td>(a), 2026-10-07: it is fine to lint the whole repository, even uncommitted or ignored files. An untracked script with a finding fails a push or a deploy until it is fixed or removed.</td></tr>
     </tbody>
   </table></div>
 
@@ -215,6 +225,9 @@
     <div><div class="when">2026-10-07</div>Owner decision: D2 (c) <code>ruff format --check</code> waits for its own ticket. All decisions made; Triage set to ready-for-agent.</div>
     <div><div class="when">2026-10-07</div>Implementation plan written: <a href="plan_ruff_lint.html"><code>plan_ruff_lint.html</code></a>, six phases. Read from the code, it finds seven things this ticket does not cover. <code>leak_check --staged</code> reads the working tree, not the index (R6 says otherwise), so a leak in a staged line edited away on disk passes the hook. No file with a finding ships in a release: the one <code>webapp/</code> finding is in <code>release_probe.py</code>, deploy tooling outside the release. All 8 E402 hits clear by reordering one assignment, with no <code>noqa</code>. None of the 34 B023 hits is a bug. Exclusion needs <code>force-exclude</code> for the hook. Questions Q1 (the leak check's staged read) and Q2 (the editor extension) open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>Owner answers the plan's Q1 and Q2 as recommended: D6 (b) the leak check's staged read becomes its own ticket, OPS-5; D7 (c) the Ruff VS Code extension, pinned to the venv's Ruff. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Expected times corrected from measurements: the repo-wide check takes about 0.1 s through <code>python -m ruff</code>, not 0.03 s; the pre-commit hook's Ruff step costs about 85 ms per staged file, not 10 ms; <code>leak_check --staged</code> takes about 1.7 s, not 1 s. The owner accepts about 2.5 s of Ruff for a large commit, so the plan's design stays. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Owner decision D8 (a): no <code>required-version</code> in the config; a Ruff upgrade brings the new stable rules of the selected prefixes. R2 corrected: the explicit <code>select</code> fixes the rule families, not every rule. Not implemented.</div>
+    <div><div class="when">2026-10-07</div>Owner decision D9 (a): <code>check.sh</code> lints the whole repository, uncommitted files included, not only tracked ones. Not implemented.</div>
   </div>
 
   <footer>Related: <code>pyproject.toml</code>, <code>scripts/check.sh</code>, <code>.githooks/</code>, <code>README.md</code>,
