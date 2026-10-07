@@ -10,6 +10,7 @@ life of the process, not once per request.
 """
 from __future__ import annotations
 
+import base64
 import io
 import json
 import logging
@@ -23,6 +24,7 @@ from datetime import datetime, timezone
 from logging.handlers import WatchedFileHandler
 from pathlib import Path
 
+import numpy as np
 from flask import Flask, Response, g, jsonify, request
 from PIL import Image
 from werkzeug.exceptions import HTTPException
@@ -30,9 +32,9 @@ from werkzeug.exceptions import HTTPException
 from coffeecv.config import REPO_ROOT
 from coffeecv.class_list import load_classes
 from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
-from coffeecv.infer import (_sha, classify_one, config_for_checkpoint, crop_to_bean_region,
+from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint, crop_to_bean_region,
                             inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
-                            reference_path_for, segment_bean_region, segmenter_for, sig12)
+                            reference_path_for, segmenter_for, sig12)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -441,6 +443,11 @@ def crop():
     own crop server-side from the uploaded bytes via patches_for_photo, so
     nothing returned here is ever trusted back -- a client could send any box
     it wants and it would change nothing about what actually gets classified.
+
+    Ticket OPS-6 D7: a segmenter model also answers the photo's bean region,
+    `mask` (`_mask_png_b64`; null on a fallback) and `seg_fallback` (the ML-2
+    D18 whole-photo fallback fired, so the whole photo will be classified). A
+    tray-heuristic model has no mask: `mask` null, `seg_fallback` false.
     """
     upload = request.files.get("photo")
     if upload is None or upload.filename == "":
@@ -455,13 +462,15 @@ def crop():
 
     h, w = rgb.shape[:2]
     g.decoded_w, g.decoded_h = w, h
+    mask, seg_fallback = None, False
     if segmenter is not None:
         # The same segmentation /classify runs, so a preview costs a second segmenter pass per upload.
-        _, _, crop_info, _ = segment_bean_region(rgb, cfg)
+        mask, crop_info, seg_fallback = bean_region_preview(rgb, cfg)
     else:
         _, crop_info = crop_to_bean_region(rgb)
+    mask_b64 = None if mask is None else _mask_png_b64(mask)
     if crop_info is None:
-        return jsonify(cropped=False, box=None, needs_review=False)
+        return jsonify(cropped=False, box=None, needs_review=False, mask=mask_b64, seg_fallback=seg_fallback)
 
     x, y, bw, bh = crop_info["box"]
     return jsonify(
@@ -471,7 +480,27 @@ def crop():
         # the frontend can scale it against whatever it's actually displaying.
         box=[x / w, y / h, (x + bw) / w, (y + bh) / h],
         needs_review=crop_info["needs_review"],
+        mask=mask_b64,
+        seg_fallback=seg_fallback,
     )
+
+
+def _mask_png_b64(mask: np.ndarray) -> str:
+    """The whole photo's bool mask as /crop sends it (ticket OPS-6 D7): scaled to long side <= PREVIEW_MAX_DIM,
+    aspect kept, never up (area average, then >= 0.5), as a 1-bit palette PNG, index 0 (not bean) transparent
+    and index 1 (bean) white, base64. The page stretches it to the photo's displayed rect, as it does the
+    box's fractions, so its size need not equal /preview's thumbnail to the pixel."""
+    h, w = mask.shape
+    scale = min(1.0, PREVIEW_MAX_DIM / max(h, w))
+    size = (max(1, round(w * scale)), max(1, round(h * scale)))
+    frac = Image.fromarray(mask.astype(np.float32))   # mode "F": BOX averages the 0/1 values exactly
+    if frac.size != size:
+        frac = frac.resize(size, Image.Resampling.BOX)
+    img = Image.fromarray((np.asarray(frac) >= 0.5).astype(np.uint8))
+    img.putpalette([0, 0, 0, 255, 255, 255])
+    buf = io.BytesIO()
+    img.save(buf, "PNG", bits=1, transparency=0, optimize=True)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 @app.post("/preview")

@@ -65,6 +65,9 @@ class BeanCrop:
     rgb: np.ndarray                    # filled crop, or the whole original photo on fallback
     mask: np.ndarray | None            # bool, aligned with rgb; None = fallback (accept every patch)
     info: dict = field(default_factory=dict)
+    # The whole photo's bool mask as predicted, before the fill and the crop, on both branches. Only the web
+    # app's /crop preview reads it (ticket OPS-6 D7); it stays out of `info`, which reaches classify_one's entry.
+    photo_mask: np.ndarray | None = None
 
 
 def mask_sha256(mask: np.ndarray) -> str:
@@ -105,7 +108,7 @@ def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
     info = {"mask_area_frac": area, "mask_sha256": mask_sha256(mask)}
     if n == 0 or area < p.min_area_frac:
         return BeanCrop(rgb, None, {**info, "fallback": True, "box": None,
-                                    "bean_frac_in_crop": None, "retained_frac": None})
+                                    "bean_frac_in_crop": None, "retained_frac": None}, photo_mask=mask)
     x0, y0, bw, bh = d4_box(mask, p.keep_frac)
     x1, y1 = x0 + bw - 1, y0 + bh - 1
     m = mask[y0:y1 + 1, x0:x1 + 1]
@@ -113,7 +116,7 @@ def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
     out[~m] = p.fill_rgb
     kept = int(np.count_nonzero(m))
     return BeanCrop(out, m, {**info, "fallback": False, "box": [x0, y0, x1 - x0 + 1, y1 - y0 + 1],
-                             "bean_frac_in_crop": kept / m.size, "retained_frac": kept / n})
+                             "bean_frac_in_crop": kept / m.size, "retained_frac": kept / n}, photo_mask=mask)
 
 
 def load_decoder(model, path: str, base_sha256: str) -> str:
