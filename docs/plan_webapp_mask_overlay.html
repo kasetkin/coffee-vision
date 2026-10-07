@@ -160,7 +160,7 @@
 
   <h2>5. P3 &mdash; the overlay on the page <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07, started on branch <code>ops6-p3</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07, built (<code>e0fad2d</code>); waits at the stop for the owner's look at the overlay</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>All in <code>webapp/static/index.html</code>, still one file with no build step. The mask is drawn on the photo's
@@ -275,6 +275,25 @@
       (15 of 12.2 M, so 1 pixel), 0.999997; at 100 times that rate (97 pixels), 0.9997, still a pass; at 1000
       times (967 pixels), 0.9970. The mask at 1 thread and at 6 is identical. So 0.999 sits about 0.004 above a
       one-pixel shift and about 0.001 below a few hundred flipped pixels.</div>
+    <div><div class="when">2026-10-07</div>P3 built (<code>e0fad2d</code>), waiting at the stop for the
+      owner's look; Status stays In progress. <code>webapp/static/index.html</code> as the plan says:
+      <code>#image-clip</code>; tint and outline canvases drawn by compositing, with no pixel readback; "Show
+      outline"; the fallback note; the box only when an answer has no <code>mask</code> or the mask does not
+      decode; "Use full photo" hides it all; a token per upload. One choice the plan left open: the box waits
+      for the mask's decode, so the box, the tint and the outline appear together.
+      <b>Tests</b>: the repo has no seam for the page's script, and none was added, since a test would need a
+      JS engine as a new dependency. A harness outside the repo runs the page's own script in V8 (mini-racer,
+      in a throwaway venv) against a fake DOM that records canvas calls and settles each fetch and decode by
+      hand. 23 tests, each new behaviour seen failing first. Dropping each stale check in turn is caught,
+      except the check right after the <code>/preview</code> fetch, which is redundant. The same harness
+      replayed real <code>/crop</code> answers from the local dev server at a desktop width and a phone
+      width, as served and with <code>mask</code> removed: the tray smoke photo, a frame-filling photo, a
+      HEIC, a portrait stored sideways with Orientation 6 (its preview and mask are both 1024 &times; 768, so
+      it shows sideways, as today), and six negatives, all of which fall back.
+      <b>Not run</b>: no browser on this machine. Headless Chromium downloaded but lacks system libraries,
+      and side-loading them was refused. So there are no real screenshots; images simulated in numpy went to
+      the owner instead. Left for the owner: the plan's hand checks on the dev server in a real browser,
+      including Safari and Chrome on phones.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
