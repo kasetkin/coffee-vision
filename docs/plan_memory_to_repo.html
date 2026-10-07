@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1 done 2026-10-07; Q1&ndash;Q2 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 done 2026-10-07; P3 next; Q1&ndash;Q2 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -204,7 +204,7 @@
 
   <h2>3. P1 &mdash; ADRs, linked from their tickets</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58845c4</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One file per decision in <code>docs/adr/NNNN-&lt;slug&gt;.md</code>, in <code>/domain-modeling</code>'s
@@ -226,16 +226,17 @@
 
   <h2>4. P2 &mdash; CODING_STANDARDS.md</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>The judgement rules <code>/code-review</code> applies to a diff. A rule a tool could check is noted as a
     candidate check instead of being written as prose. Each rule is a line or two, with the incident behind it in a
     clause.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Rules: train/inference parity (and a stale entry point is worse than a missing one); invariance over normalization; an omitted CLI flag inherits; input lists in one committed file; deploy files templated; run the real entry point at toy scale before a long run; assert a string replacement applied; new resource access checked against the service sandbox; a generalized invariant tested on the old cases too; CV output checked at full resolution; a heuristic's validation set checked for the variation it lacks.</span></li>
-    <li><span class="box"></span><span>Checks: the leak check passes; no rule repeats an ADR (it links to it).</span></li>
+    <li><span class="box done"></span><span>Rules: train/inference parity (and a stale entry point is worse than a missing one); invariance over normalization; an omitted CLI flag inherits; input lists in one committed file; deploy files templated; run the real entry point at toy scale before a long run; assert a string replacement applied; new resource access checked against the service sandbox; a generalized invariant tested on the old cases too; CV output checked at full resolution; a heuristic's validation set checked for the variation it lacks. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>Checks: the leak check passes; no rule repeats an ADR (it links to it). <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
+  <p><b>As run (2026-10-07).</b> Eleven rules in four groups, plus two candidates for automated checks. One rule was added from the same memory: a rewrite is checked against the original. Checked against the repo: deploy templates are now rendered by <code>webapp/deploy/render_template.py</code>, not <code>envsubst</code> as the memory said.</p>
 
   <h2>5. P3 &mdash; Out-of-scope record and deferred work</h2>
   <div class="fields">
@@ -316,6 +317,7 @@
     <div><div class="when">2026-10-07</div>Claude reads ticket OPS-2, the 39 memory files and the repo at <code>6bded8b</code>
       and writes this plan. Four findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-07</div>P1 done: 14 ADRs and their links from ML-1, ML-2, ML-3, OPS-1 and OPS-2. P2 next.</div>
+    <div><div class="when">2026-10-07</div>P2 done: <code>CODING_STANDARDS.md</code>. P3 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
