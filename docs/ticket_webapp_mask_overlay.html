@@ -14,7 +14,7 @@
     planned in <a href="plan_webapp_mask_overlay.html">plan_webapp_mask_overlay.html</a>, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written and planned 2026-10-07; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: P1 and P2 done; P3 built, waits for the owner's look; P4 (deploy) not started</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload preview</span></div>
@@ -315,6 +315,15 @@
       outline, with no pixel readback; the line lies just outside the bean region). R3, D10, Summary, Before and
       after, and Scope updated. The plan's P1 and P3 now carry D7, D13 and D14. The three uploads per photo go to
       <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>, a stub.</div>
+    <div><div class="when">2026-10-07</div>Claude implements P1&ndash;P3 on branch <code>ops6-mask-overlay</code>
+      (<code>be4e817</code>&ndash;<code>ebf6d55</code>), with a code review and its fixes; details in the plan's
+      Activity. <code>classify_one</code> is bit-identical on the fixtures (R5). The page has not been seen in a real
+      browser. Two points for the owner. The local deploy rehearsal stopped at deploy 2 for lack of disk space, so
+      deploy 2, <code>--compare</code> and the rollbacks are still to run before P4. The review found that
+      D13's acceptance line cannot hold on the live site: nginx's server-wide cap of one request in flight
+      refuses a second photo's <code>/preview</code> with a 503 while the first one's <code>/crop</code> runs, so
+      the page shows its read error instead of the second photo's overlay. The token still keeps the stale answer
+      off the page; only the dev server, which has no cap, shows the case as written.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
