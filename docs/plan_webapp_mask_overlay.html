@@ -140,7 +140,7 @@
 
   <h2>4. P2 &mdash; the smoke check compares the mask</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58a6191</code>, <code>d6a504c</code>; review fixes <code>691e321</code>; the rehearsal stopped at deploy 2 for disk space, see Activity</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58a6191</code>, <code>d6a504c</code>; review fixes <code>691e321</code>; rehearsal passed end to end on a second run, see Activity</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>compare_smoke</code> pops <code>mask</code> from the expected and the served <code>/crop</code> bodies,
@@ -334,6 +334,12 @@
     <div><div class="when">2026-10-07</div>The owner looks at the overlay on the local dev server and accepts it;
       P3 done. Which of the plan's hand checks (phones, Safari, Chrome) the look covered was not
       recorded. P4 waits for the owner's go to push and deploy.</div>
+    <div><div class="when">2026-10-07</div>P2's check finished: with disk space freed, <code>scripts/rehearse_deploy_local.sh</code>
+      passed end to end from a scratch clone whose <code>main</code> was this branch at <code>8430c54</code>.
+      Deploy 1 (<code>ebf6d55</code>) and deploy 2 (<code>8430c54</code>) each smoked <code>/crop</code> with
+      &ldquo;mask IoU 1.000000, 0 pixels differ&rdquo;; <code>--compare</code> was bit-identical; the rollback to
+      deploy 1 and back, and the three refusals, passed. The script's &ldquo;NOT YET RUN in this form&rdquo; note
+      is replaced by the date of this pass.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
