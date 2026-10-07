@@ -140,7 +140,7 @@
 
   <h2>4. P2 &mdash; the smoke check compares the mask</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>58a6191</code> and the commit closing it; the rehearsal stopped at deploy 2 for disk space, see Activity</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>compare_smoke</code> pops <code>mask</code> from the expected and the served <code>/crop</code> bodies,
@@ -275,6 +275,25 @@
       (15 of 12.2 M, so 1 pixel), 0.999997; at 100 times that rate (97 pixels), 0.9997, still a pass; at 1000
       times (967 pixels), 0.9970. The mask at 1 thread and at 6 is identical. So 0.999 sits about 0.004 above a
       one-pixel shift and about 0.001 below a few hundred flipped pixels.</div>
+    <div><div class="when">2026-10-07</div>P2 done (<code>58a6191</code>). <code>compare_smoke</code> takes
+      <code>mask</code> out of both <code>/crop</code> bodies when both carry it, decodes them by palette index and
+      fails on a size mismatch, <code>null</code> against a mask, or IoU &lt; 0.999 (<code>MASK_IOU_MIN</code>);
+      a field on one side only fails as before, as "present on one side only", and a pre-OPS-6 pair with no
+      <code>mask</code> on either side is compared as before. The <code>/crop</code> line now ends
+      "mask IoU 1.000000, 0 pixels differ". <code>tests/test_release_probe.py</code> (fast tier, 8 tests on a
+      300 &times; 400 ellipse at about 40% fill): 5 flipped boundary pixels pass, a one-pixel shift fails (0.992 and
+      0.988), a mask one row short or transposed fails, <code>null</code> against a mask fails both ways, both
+      <code>null</code> passes, a field on one side fails, none on either passes, a box moved by 0.002 fails; each
+      seen failing first, the box test by a mutation (its tolerance raised to 1). On P1's real smoke answer the
+      command gives IoU 1.000000 against itself and fails at 0.995418 with the mask shifted one row.
+      <b>Rehearsal</b>: <code>scripts/rehearse_deploy_local.sh</code>, run from a scratch clone whose
+      <code>main</code> is this branch, passed bootstrap, both refusals, deploy 1 (at <code>0a7794b</code>,
+      which has P1's mask) with its smoke, <code>--verify</code> and the nginx refusal (which stages and smokes
+      <code>58a6191</code>); both smokes printed "mask IoU 1.000000, 0 pixels differ". It stopped at deploy 2's
+      preflight, "only 4 GB free; need 5 GB": one release takes 3.4 GB plus 1.1 GB of uv cache, and the
+      devcontainer's disk, shared with <code>/workspace</code>, had 9 GB free. Deploy 2, <code>--compare</code>
+      and the rollbacks did not run; they are owed before P4, on a machine with about 10 GB free.
+      <code>scripts/check.sh --full</code> passes.</div>
     <div><div class="when">2026-10-07</div>P3 built (<code>e0fad2d</code>), waiting at the stop for the
       owner's look; Status stays In progress. <code>webapp/static/index.html</code> as the plan says:
       <code>#image-clip</code>; tint and outline canvases drawn by compositing, with no pixel readback; "Show
