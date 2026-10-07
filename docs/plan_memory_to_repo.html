@@ -117,7 +117,7 @@
     knowledge without the old memories. Nothing here changes code or a number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 and P4 done, P3 in part (Q2) 2026-10-07; P5 next; Q1&ndash;Q2 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07; P1&ndash;P2 and P4&ndash;P5 done, P3 in part (Q2) 2026-10-07; P6 next, stops for the owner; Q1&ndash;Q2 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_memory_to_repo.html"><code>ticket_memory_to_repo.html</code></a> (OPS-2)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -254,7 +254,7 @@
 
   <h2>6. P4 &mdash; Agent runbooks</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>fb7fc71</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Procedures and traps an agent needs mid-task, each checked against the scripts and README as it is written.
@@ -270,13 +270,14 @@
 
   <h2>7. P5 &mdash; Pointers in CLAUDE.md</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3, P4</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>One line per new file, written as a trigger: when to read it. Run <code>/writing-for-agents</code> over the result.</span></li>
-    <li><span class="box"></span><span>Checks: <code>CLAUDE.md</code> holds pointers and the publishing rule only.</span></li>
+    <li><span class="box done"></span><span>One line per new file, written as a trigger: when to read it. Run <code>/writing-for-agents</code> over the result. <span class="result">Done 2026-10-07.</span></span></li>
+    <li><span class="box done"></span><span>Checks: <code>CLAUDE.md</code> holds pointers and the publishing rule only. <span class="result">Done 2026-10-07.</span></span></li>
   </ol>
+  <p><b>As run (2026-10-07).</b> Four pointer lines under "Where project knowledge lives", each led by what the file is and when to read it; the runbook line names one trigger per runbook. Reviewed against <code>/writing-for-agents</code>: pointers only, no rule restated from the files they point at. <code>CLAUDE.md</code> is 27 lines.</p>
 
   <h2>8. P6 &mdash; Slim private memory <span class="pill sm open">stop</span></h2>
   <div class="fields">
@@ -322,6 +323,7 @@
     <div><div class="when">2026-10-07</div>P2 done: <code>CODING_STANDARDS.md</code>. P3 next.</div>
     <div><div class="when">2026-10-07</div>P3 in part: <code>.out-of-scope/</code>, four files. The deferred-work tickets wait on Q2. P4 next.</div>
     <div><div class="when">2026-10-07</div>P4 done: <code>docs/agents/dvc.md</code>, <code>remote-sweeps.md</code>, <code>experiments.md</code>, <code>deploy.md</code>. P5 next.</div>
+    <div><div class="when">2026-10-07</div>P5 done: <code>CLAUDE.md</code> points at the ADRs, the out-of-scope record, the standards and the runbooks. P6 next: stops for the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_memory_to_repo.html">OPS-2 ticket</a>, <code>docs/agents/issue-tracker.md</code>, <code>mattpocock-skills/skills/engineering/domain-modeling/ADR-FORMAT.md</code>, <code>mattpocock-skills/skills/engineering/triage/OUT-OF-SCOPE.md</code>.</footer>
