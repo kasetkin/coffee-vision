@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Runs coffeecv.leak_check on the files staged for commit (~1 s; a few more when an image is staged, for
+# exiftool and the torch import). The repo is public and its history is not rewritten, so a leak has to be
+# stopped before it is committed: the pre-push check (scripts/check.sh) would only find it in history.
+# Bypass once with `git commit --no-verify`.
+set -uo pipefail
+
+root=$(git rev-parse --show-toplevel)
+cd "$root" && exec python -m coffeecv.leak_check --staged

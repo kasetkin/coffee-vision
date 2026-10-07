@@ -4,9 +4,10 @@
 #   scripts/check.sh          fast tier (~25 s): .githooks/pre-push runs it before a push to origin
 #   scripts/check.sh --full   every test (~4.5 min): scripts/deploy_webapp.sh runs it before a deploy
 #
-# Runs coffeecv.coverage_report (dataset/ vs classes.txt vs dvc.yaml, ~5 s) and the unittest suite. The
+# Runs coffeecv.leak_check (no public IPs, emails, credentials or photo GPS in what git would publish, ~6 s),
+# coffeecv.coverage_report (dataset/ vs classes.txt vs dvc.yaml, ~5 s) and the unittest suite. The
 # fast tier sets COFFEECV_FAST_TESTS=1, which skips the tests marked @real_data (tests/_tiers.py: real
-# photos or real weights, seconds each). Both steps always run, so one report shows every failure. Full
+# photos or real weights, seconds each). Every step always runs, so one report shows every failure. Full
 # output goes to a log; on failure the tail is printed with the log's path. The hook is wired by
 # `git config core.hooksPath .githooks`, which the devcontainer's postCreateCommand runs.
 set -uo pipefail
@@ -34,6 +35,7 @@ run() {  # run <name> <command...>
   fi
 }
 
+run leak_check python -m coffeecv.leak_check
 run coverage_report python -m coffeecv.coverage_report
 run "unittest ($TIER)" python -m unittest discover -s tests
 
