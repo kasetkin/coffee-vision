@@ -11,7 +11,7 @@
     server comes first because the other two consume its answer. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07, revised after two reviews the same day; P1 and P2 done, P3 waits for the owner's look, P4 not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07, revised after two reviews the same day; P1&ndash;P3 done, P4 not started</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_webapp_mask_overlay.html"><code>ticket_webapp_mask_overlay.html</code></a> (OPS-6)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -160,7 +160,7 @@
 
   <h2>5. P3 &mdash; the overlay on the page <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07, built (<code>e0fad2d</code>); waits at the stop for the owner's look at the overlay</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-07, <code>e0fad2d</code>, <code>a13895b</code>; review fixes <code>4d4be47</code>; the owner accepted the overlay on the local dev server</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>All in <code>webapp/static/index.html</code>, still one file with no build step. The mask is drawn on the photo's
@@ -331,6 +331,9 @@
       plan specifies; the PNG encode and decode repeated between <code>webapp/app.py</code>,
       <code>release_probe.py</code> and the tests, since the tests are independent of the app on purpose and
       <code>release_probe.py</code> runs apart from it. P3 still waits at the stop for the owner.</div>
+    <div><div class="when">2026-10-07</div>The owner looks at the overlay on the local dev server and accepts it;
+      P3 done. The look was on a desktop browser; the plan's phone checks were not reported. P4 waits for the owner's
+      go to push and deploy.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,

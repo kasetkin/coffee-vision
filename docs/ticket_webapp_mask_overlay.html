@@ -14,7 +14,7 @@
     planned in <a href="plan_webapp_mask_overlay.html">plan_webapp_mask_overlay.html</a>, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: P1 and P2 done; P3 built, waits for the owner's look; P4 (deploy) not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-07: P1&ndash;P3 done, the overlay accepted by the owner; P4 (deploy) not started</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload preview</span></div>
@@ -267,22 +267,22 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>/crop</code> answers <code>mask</code> (1-bit palette PNG of the
+    <li><span class="box done"></span><span><code>/crop</code> answers <code>mask</code> (1-bit palette PNG of the
       whole photo, long side &le; 1024 px, index 0 transparent, base64, or <code>null</code>) and
       <code>seg_fallback</code> (D7).</span></li>
-    <li><span class="box"></span><span>The D10 tests pass: tray photo, photo with an Orientation tag, fallback, and
+    <li><span class="box done"></span><span>The D10 tests pass: tray photo, photo with an Orientation tag, fallback, and
       the smoke comparison on a near and a far mask.</span></li>
-    <li><span class="box"></span><span><code>classify_one</code> is bit-identical on the fixtures before and after
+    <li><span class="box done"></span><span><code>classify_one</code> is bit-identical on the fixtures before and after
       (R5).</span></li>
-    <li><span class="box"></span><span>The page tints outside the bean region (D4), outlines the crop box (D3), draws
+    <li><span class="box done"></span><span>The page tints outside the bean region (D4), outlines the crop box (D3), draws
       the magenta line just outside the bean region by compositing, with no pixel readback (D14), behind a ticked
       "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
       on "Use full photo instead" (D6).</span></li>
-    <li><span class="box"></span><span>An answer for an earlier upload is ignored: picking a second photo while the
+    <li><span class="box done"></span><span>An answer for an earlier upload is ignored: picking a second photo while the
       first one's <code>/crop</code> is in flight never shows the first photo's overlay on it. On the dev server
       it shows the second photo's overlay; on the live site, where nginx refuses the second photo, the read error
       (D13, amended).</span></li>
-    <li><span class="box"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
+    <li><span class="box done"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
     <li><span class="box"></span><span>Deployed and checked on the live site (D12).</span></li>
   </ul>
 
@@ -332,6 +332,9 @@
       off the page; only the dev server, which has no cap, shows the case as written.</div>
     <div><div class="when">2026-10-07</div>Owner amends D13: on the live site, the read error for a photo picked
       while the first one's <code>/crop</code> runs is acceptable. Scope's D13 line restated to match.</div>
+    <div><div class="when">2026-10-07</div>The owner looks at the overlay on the local dev server, on branch
+      <code>ops6-mask-overlay</code>, and accepts it. P3 done; Scope ticked but for the deploy. P4 waits for the
+      owner's go.</div>
   </div>
 
   <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
