@@ -1,0 +1,216 @@
+<title>Ruff in the Guardrail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+
+<main>
+  <div class="eyebrow">Ticket OPS-4 · coffee-vision · tooling and guardrail</div>
+  <h1>Lint the repo's Python with Ruff, configured in <code>pyproject.toml</code> and run by <code>scripts/check.sh</code></h1>
+  <p class="lede">Ruff is installed in every training environment but has no configuration, and nothing runs it, so
+    its findings pile up unseen. This ticket configures Ruff, clears or records the findings already in the code, and
+    runs <code>ruff check</code> in <code>scripts/check.sh</code> and in <code>.githooks/pre-commit</code>, so a
+    commit, a push or a deploy stops on a new finding. Written; the owner chose the core rule set, fixing every
+    existing finding, and both places, and left the formatter for later (D1&ndash;D5). Not planned, not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions made; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Tooling: lint and guardrail</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>pyproject.toml</code> (<code>[tool.ruff]</code>), <code>scripts/check.sh</code>, <code>coffeecv/</code>, <code>coffeecv_dino/</code>, <code>analysis/</code>, <code>scripts/</code>, <code>tests/</code>, <code>webapp/</code>, <code>README.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None at merge. Fixes to <code>webapp/</code> code reach the live site with the next release (R3).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-07.</strong> Create a ticket for integrating the Ruff linter into the project,
+      for better Python code. It should also be used in the check script.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today Ruff is a dev dependency with no configuration and no caller: whoever runs it gets ruff 0.16.10's built-in
+    defaults and 231 findings outside the vendored code, and no check fails on them. After this ticket the rule set,
+    target version and excluded paths are written in <code>pyproject.toml</code>, the code passes it, and
+    <code>.githooks/pre-commit</code> runs <code>ruff check</code> on the staged Python files, and
+    <code>scripts/check.sh</code> runs it on the repo in both tiers, so <code>.githooks/pre-push</code> and
+    <code>scripts/deploy_webapp.sh</code> stop on a finding a commit let through. The work splits into: the
+    configuration (D1, D4), fixing the 62 existing findings (D3), the <code>check.sh</code> step and the pre-commit
+    hook (D5), and the docs that describe the guardrail. The formatter is a later ticket (D2).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>Ruff is already installed.</b> <code>pyproject.toml</code> lists it in the <code>dev</code> dependency
+      group ("ruff: the linter"), <code>uv.lock</code> pins 0.16.10, and the devcontainer's venv has it at
+      <code>/home/vscode/.venv/bin/ruff</code>. Its version moves only through <code>uv lock</code>, as an
+      owner-approved upgrade (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>).
+      <code>webapp/pyproject.toml</code> does not list it; the release environment does not need it.</li>
+    <li><b>No configuration.</b> There is no <code>[tool.ruff]</code> table, <code>ruff.toml</code> or user-level
+      config; <code>ruff check --show-settings</code> reports the built-in defaults (line length 88, target 3.12 from
+      <code>requires-python</code>, a broad default rule set).</li>
+    <li><b>Findings today</b> (ruff 0.16.10, 2026-10-07, defaults):
+      <ul>
+        <li>Whole repo: 737, of which 506 are in <code>third_party/efficientvit/</code>, the vendored EfficientViT-SAM (ML-2).</li>
+        <li>Outside <code>third_party/</code>: 231, 121 auto-fixable. By directory: <code>coffeecv/</code> 120,
+          <code>analysis/</code> 60, <code>tests/</code> 36, <code>webapp/</code> 10, <code>scripts/</code> 3,
+          <code>models_pretrained/</code> 2. Largest rules: I001 unsorted imports 43, B023 function uses loop
+          variable 34, RUF100 unused <code>noqa</code> 20, C408 14, PLR0402 12, FURB167 12, PLW1510
+          <code>subprocess.run</code> without <code>check</code> 11, F401 unused import 11, SIM115 10.</li>
+        <li>With only the pyflakes/pycodestyle core (<code>E4,E7,E9,F</code>): 62, mostly E702/E701 statements on one
+          line, E741 ambiguous names, F401, E402. No undefined names outside <code>third_party/</code>.</li>
+        <li><code>ruff format --check</code>: 109 of 268 files would be reformatted.</li>
+      </ul></li>
+    <li><b>Speed.</b> A cold <code>ruff check</code> of the repo outside <code>third_party/</code> takes about 0.03 s,
+      so it fits the fast tier and could run in pre-commit.</li>
+    <li><b>Core-set findings by directory</b> (<code>E4,E7,E9,F</code>, the set D1 chose): <code>analysis/</code> 40,
+      <code>coffeecv/</code> 16, <code>tests/</code> 3, <code>models_pretrained/</code> 2, <code>webapp/</code> 1.
+      21 are auto-fixable (F401, E401, F541); the rest (E702/E701 split onto lines, E741 renames, E402, E731) are
+      by hand.</li>
+    <li><b>The hooks.</b> <code>.githooks/pre-commit</code> runs <code>python -m coffeecv.leak_check --staged</code>
+      (about 1 s) before every commit. <code>.githooks/pre-push</code> runs <code>scripts/check.sh</code>'s fast tier
+      before a push to origin, and <code>scripts/deploy_webapp.sh</code> runs <code>--full</code> before a deploy.
+      The pre-commit hook and <code>check.sh</code> are separate: Ruff goes into each (D5).</li>
+    <li><b>The check script.</b> <code>scripts/check.sh</code> runs <code>leak_check</code>,
+      <code>ticket_check</code>, <code>coverage_report</code> and the unittest suite through its <code>run</code>
+      helper; every step always runs and a failure prints the log's tail. Its header comment and
+      <code>README.md</code> line 26 list the steps, so both name the new one.</li>
+    <li><b>B023 may be real bugs.</b> Function uses loop variable: a closure defined in a loop sees the variable's last
+      value. The 34 hits are in <code>coffeecv/seg_base_masks.py</code> (8), <code>coffeecv/seg_overlay.py</code>
+      (8), <code>analysis/ml3/printout.py</code> (9), <code>analysis/architecture_screen/bench.py</code> (6) and one
+      each in <code>coffeecv/split_report.py</code>, <code>tests/test_model_and_ood_loading.py</code> and
+      <code>webapp/deploy/render_template.py</code>. Each is read, not auto-fixed.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Ruff installed, unconfigured, run by nobody.</li>
+        <li>231 findings outside <code>third_party/</code> under the defaults, 62 under the core set.</li>
+        <li>The rule set is whatever the installed Ruff's defaults are.</li>
+        <li>Neither <code>check.sh</code> nor the pre-commit hook lints; review is the only gate.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li><code>[tool.ruff]</code> in <code>pyproject.toml</code>: <code>select = ["E4", "E7", "E9", "F"]</code>,
+          <code>third_party/</code> excluded, target 3.12.</li>
+        <li><code>ruff check</code> passes on the repo with the findings fixed, not ignored.</li>
+        <li>The pre-commit hook lints the staged Python files; <code>check.sh</code> lints the repo in both tiers.</li>
+        <li><code>check.sh</code>'s header and <code>README.md</code> list the step.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Ruff's version.</strong> Stays at the locked 0.16.10; an upgrade is a separate owner-approved step
+      (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>).</li>
+    <li><strong>The vendored EfficientViT-SAM.</strong> <code>third_party/</code> is upstream code; it is excluded, not
+      fixed, so it stays diffable against upstream.</li>
+    <li><strong>The webapp's environment.</strong> <code>webapp/pyproject.toml</code> and its lock are untouched;
+      <code>check.sh</code> lints <code>webapp/</code> from the training environment.</li>
+    <li><strong>Behaviour.</strong> Lint fixes are refactors: no change to training, inference or what the site
+      returns. A B023 hit that turns out to be a real bug is fixed in its own commit and named in Activity.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A fix changes behaviour.</strong></td>
+        <td>Under the core set, 21 fixes are automatic and 41 by hand: splitting <code>a; b</code> lines, renaming
+          <code>l</code>/<code>I</code>/<code>O</code>, moving late imports (E402, where an import may be late on
+          purpose, e.g. after a <code>sys.path</code> edit or a Pillow plugin registration). Apply safe fixes only,
+          keep a late import that is deliberate with a <code>noqa</code> and its reason, and run
+          <code>scripts/check.sh --full</code> before and after each fix commit.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A Ruff upgrade changes the rules and fails the check with no code change.</strong></td>
+        <td>The current findings come from 0.16.10's defaults, which change between releases. Select rules explicitly
+          in <code>[tool.ruff.lint]</code>, so an upgrade adds rules only when the config says so.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Fixes in <code>webapp/</code> reach the live site.</strong></td>
+        <td>One core-set finding in <code>webapp/</code>. Its fix ships with the next
+          release, after <code>deploy_webapp.sh</code>'s full check; keep them in their own commit so a release diff
+          shows them apart.</td></tr>
+      <tr><td class="id">R4</td><td><strong>A wide fix commit conflicts with work on the VM.</strong></td>
+        <td>Import sorting and formatting touch many files; the VM's sweep branches are joined by simple merges only
+          (<a href="adr/0009-simple-merges-only.md">ADR 0009</a>). Land the fixes when the VM has no unmerged commits
+          in the touched files, and merge the VM first.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A nested config shadows the root one.</strong></td>
+        <td>Ruff uses the closest <code>pyproject.toml</code> with a <code>[tool.ruff]</code> table.
+          <code>webapp/pyproject.toml</code> has none today, so the root config applies; a test or a comment there
+          keeps it that way.</td></tr>
+      <tr><td class="id">R6</td><td><strong>The pre-commit hook lints the working tree, not the commit.</strong></td>
+        <td><code>ruff check &lt;files&gt;</code> reads files from disk, so a partly staged file is checked with its
+          unstaged edits. Lint the staged blobs instead (<code>git show :&lt;path&gt; | ruff check --stdin-filename
+          &lt;path&gt; -</code>), as <code>leak_check --staged</code> reads the index; <code>check.sh</code> before a
+          push still checks the whole tree.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which rules?</td>
+        <td>(a) The core only, <code>E4,E7,E9,F</code> (62 findings) (b) the core plus a chosen set, e.g.
+          <code>I</code>, <code>B</code>, <code>UP</code>, <code>SIM</code>, <code>RUF</code> (c) 0.16.10's whole
+          default set, written out explicitly (231 findings)</td>
+        <td>(a), 2026-10-07: start with the core set. Wider sets are later tickets.</td></tr>
+      <tr><td class="id">D2</td><td>Does <code>ruff format</code> become part of the check?</td>
+        <td>(a) No, lint only (b) yes: one reformat commit (109 files), then <code>ruff format --check</code> in
+          <code>check.sh</code>, with the commit listed in <code>.git-blame-ignore-revs</code> (c) later, in its own ticket</td>
+        <td>(c), 2026-10-07: later, in its own ticket.</td></tr>
+      <tr><td class="id">D3</td><td>What happens to the findings already in the code?</td>
+        <td>(a) Fix them all before the step goes into <code>check.sh</code> (b) fix <code>coffeecv/</code>,
+          <code>webapp/</code>, <code>tests/</code>, <code>scripts/</code>; <code>per-file-ignores</code> for the rest,
+          to shrink later (c) baseline them with <code>ruff check --add-noqa</code> and fix as files are touched</td>
+        <td>(a), 2026-10-07: fix them all while implementing the plan.</td></tr>
+      <tr><td class="id">D4</td><td>Which paths are linted?</td>
+        <td>(a) Everything but <code>third_party/</code> (b) also exclude <code>analysis/</code> (one-off research
+          scripts, 40 core-set findings)</td>
+        <td>(a), 2026-10-07: follows from D3's "fix them all"; the owner may still exclude <code>analysis/</code>.</td></tr>
+      <tr><td class="id">D5</td><td>Where does Ruff run besides <code>check.sh</code>?</td>
+        <td>(a) Only <code>check.sh</code>, both tiers (pre-push and deploy) (b) also <code>.githooks/pre-commit</code>
+          on staged <code>.py</code> files (c) also the Ruff VS Code extension in the devcontainer, for findings while
+          editing</td>
+        <td>(b), 2026-10-07: <code>check.sh</code> and the pre-commit hook at least; other places are not ruled out.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>[tool.ruff]</code> in <code>pyproject.toml</code>: <code>select = ["E4", "E7", "E9", "F"]</code>, <code>third_party/</code> excluded, each choice commented.</span></li>
+    <li><span class="box"></span><span><code>ruff check</code> exits 0 on the repo with the 62 findings fixed; a <code>noqa</code> only where the code is deliberate (a late import), with its reason.</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh</code> runs a <code>ruff</code> step in both tiers through its <code>run</code> helper; a planted unused import makes the fast tier fail with the finding in the printed tail.</span></li>
+    <li><span class="box"></span><span><code>.githooks/pre-commit</code> runs Ruff on the staged Python files as staged (R6) beside <code>leak_check</code>; a staged unused import is refused, an unstaged one in the same file is not.</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh --full</code> passes before and after the fix commits.</span></li>
+    <li><span class="box"></span><span><code>check.sh</code>'s header comment and <code>README.md</code>'s guardrail paragraph name the step; any hook or editor wiring from D5 is in place.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li><code>ruff format</code> and a <code>ruff format --check</code> step (D2): a later ticket.</li>
+    <li>A type checker (mypy, pyright).</li>
+    <li>Upgrading Ruff past 0.16.10.</li>
+    <li>Changes to <code>third_party/</code>.</li>
+    <li>The checks listed under "Candidates for automated checks" in <code>CODING_STANDARDS.md</code>; Ruff has no rule for either.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Ticket written from <code>pyproject.toml</code>, <code>uv.lock</code>, <code>scripts/check.sh</code> and runs of ruff 0.16.10 on <code>d308595</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-07</div>Owner decisions: D1 (a) core set <code>E4,E7,E9,F</code>; D3 (a) fix every existing finding during the plan; D5 (b) Ruff in <code>check.sh</code> and in the pre-commit hook. D4 (a) recorded as following from D3. D2 (formatter) open.</div>
+    <div><div class="when">2026-10-07</div>Owner decision: D2 (c) <code>ruff format --check</code> waits for its own ticket. All decisions made; Triage set to ready-for-agent.</div>
+  </div>
+
+  <footer>Related: <code>pyproject.toml</code>, <code>scripts/check.sh</code>, <code>.githooks/</code>, <code>README.md</code>,
+    <a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>, <a href="adr/0009-simple-merges-only.md">ADR 0009</a>,
+    <a href="ticket_segmentation_mask.html">ML-2</a> (the vendored EfficientViT-SAM),
+    <a href="https://docs.astral.sh/ruff/">Ruff documentation</a>.</footer>
+</main>
