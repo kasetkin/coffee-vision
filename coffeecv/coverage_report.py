@@ -35,7 +35,6 @@ Exit status is non-zero only for 1-3. Imbalance is information, not an error.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path

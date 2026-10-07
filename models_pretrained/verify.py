@@ -62,8 +62,8 @@ def main() -> int:
             # An entry with a pinned "source" says where the right file comes from; the others
             # are the DINO/torch.hub weights, where the usual mistake is the HF safetensors.
             hint = (f"    Download it again from {e['source']}" if e.get("source") else
-                    f"    Most likely the Hugging Face safetensors were downloaded instead of the\n"
-                    f"    Meta .pth -- they are different files. See plan §2.5.")
+                    "    Most likely the Hugging Face safetensors were downloaded instead of the\n"
+                    "    Meta .pth -- they are different files. See plan §2.5.")
             failures.append(
                 f"{label}: SHA256 {digest[:16]}... != expected {e['sha256'][:16]}...\n{hint}")
             continue

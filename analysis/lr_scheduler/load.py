@@ -1,7 +1,6 @@
 import json
 import glob
 import os
-import re
 import numpy as np
 EXP = "/workspace/experiments"
 def exp_dir(n):

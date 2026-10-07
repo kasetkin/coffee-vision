@@ -330,7 +330,7 @@ def accept_rate():
     excl = Counter(r["reason"] for r in csv.DictReader(POOL_EXCLUDE.read_text().splitlines()))
     print("6. THE OWNER'S MASK ACCEPT RATE ON THE NEW PHOTOS (D8)")
     print(f"   {acc} of {judged} masks accepted ({acc / judged:.1%}); {len(its)} photos, all judged. The {len(fb)} photos")
-    print(f"   the segmenter found no mask for (D18 fallback) were judged apart. By the owner's decision (P5) the")
+    print("   the segmenter found no mask for (D18 fallback) were judged apart. By the owner's decision (P5) the")
     print(f"   pools leave out {sum(excl.values())} photos: " + ", ".join(f"{n} {r}" for r, n in excl.most_common())
           + f"; the other {len(fb) - excl['D18 fallback with background']} fallbacks")
     print("   fill the frame with beans and train whole.")

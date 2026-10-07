@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
+from coffeecv.config import CHECKPOINTS_DIR
 from coffeecv.bean_scale import pitch_kwargs
 from coffeecv.class_list import load_classes
 from coffeecv.dataset import MultiPhotoPatchDataset, bean_share_rule, resolve_captures

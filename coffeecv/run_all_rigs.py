@@ -32,7 +32,6 @@ import argparse
 import re
 import subprocess
 import time
-from pathlib import Path
 
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 from coffeecv.lr_schedules import SCHEDULERS
