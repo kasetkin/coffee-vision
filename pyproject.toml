@@ -43,8 +43,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-# tests/test_release_manifest.py imports webapp.app. Synced by default (uv's `dev` group).
-dev = ["flask"]
+# Synced by default (uv's `dev` group). flask: tests/test_release_manifest.py imports webapp.app.
+# ruff: the linter.
+dev = ["flask", "ruff"]
 
 [tool.uv]
 package = false
