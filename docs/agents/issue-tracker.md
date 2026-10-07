@@ -12,6 +12,7 @@ Tickets and their plans are HTML files in `docs/`, one file each. The ticket is 
 - **Commits** start with the ticket and phase: `ML-3 P4: ...`. This is how `/code-review` finds the spec.
 - **Status** row: `Open`, `In progress` or `Closed`, then a short dated line saying what is done (commits, release). The owner closes tickets.
 - **Comments and history**: dated entries appended to the Activity list, oldest first.
+- **Styles** live in `docs/tickets.css`, which every ticket, plan and template links; no inline `<style>`.
 
 ## When a skill says "publish to the issue tracker"
 
@@ -19,7 +20,7 @@ Create `docs/ticket_<slug>.html` with the next free ID, Status `Open`, the Triag
 
 ## When a skill says "fetch the relevant ticket"
 
-Find the file by ID (`grep -l 'Ticket ML-3' docs/ticket_*.html`) and read it with its plan, if one exists. Each file opens with a long stylesheet: the content starts at the first `<h1>`.
+Find the file by ID (`grep -l 'Ticket ML-3' docs/ticket_*.html`) and read it with its plan, if one exists.
 
 ## How the engineering skills map onto tickets and plans
 
