@@ -1,0 +1,171 @@
+<title>Implementation plan: the mask overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-6 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the mask overlay</h1>
+  <p class="lede">The order of work for <a href="ticket_webapp_mask_overlay.html">ticket OPS-6</a>. Three strands: the
+    server sends the mask, the deploy's smoke check learns to compare it, and the page draws it; then the deploy. The
+    server comes first because the other two consume its answer. No phase changes a classification number.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; no questions open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_webapp_mask_overlay.html"><code>ticket_webapp_mask_overlay.html</code></a> (OPS-6)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>a290ce4</code>, not from the ticket alone. Four things the ticket does
+      not spell out turned up. All are folded in below; none needs a decision.</p>
+    <ol>
+      <li><b>The smoke comparison would fail on any mask string.</b> <code>compare_smoke</code> passes the whole
+        <code>/crop</code> body to <code>_max_abs_diff</code>, which requires strings to be equal. P2 takes
+        <code>mask</code> out of both bodies before that and compares it decoded, by IoU. No test covers
+        <code>compare_smoke</code> today; P2 adds the first.</li>
+      <li><b>The mask must match the thumbnail's size to the pixel.</b> <code>/preview</code> sizes the thumbnail with
+        PIL's <code>Image.thumbnail</code>, which rounds. P1 takes the size from one helper used by both endpoints,
+        instead of recomputing it in <code>/crop</code>.</li>
+      <li><b><code>/crop</code> cannot tell a fallback from "no crop" today.</b> <code>crop_info</code> is
+        <code>None</code> both on a ML-2 D18 fallback and when there is nothing to crop; the segmenter's own
+        <code>seg_fallback</code> diagnostic is dropped. P1 returns it.</li>
+      <li><b><code>#image-mask</code> in <code>index.html</code> is a CSS clipping box, not a mask.</b> Next to a
+        segmentation mask the name misleads. P3 renames it <code>#image-clip</code>.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 fixes the shape of <code>/crop</code>'s answer, which P2 and P3 both read; they can run in either order after
+    it. P3 stops for the owner to look at the overlay before anything ships; P4 stops for the owner's go to deploy.
+    <code>/classify</code> is not touched in any phase.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td><code>/crop</code> returns the mask and <code>seg_fallback</code></td><td>local</td><td>no: <code>/crop</code>'s box and <code>/classify</code> unchanged</td></tr>
+      <tr><td class="id">P2</td><td>The smoke check compares the mask</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>The overlay on the page <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>Deploy and check live <span class="pill sm open">stop</span></td><td>VM, owner</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None. The grilling session answered every question the code raised (ticket D1&ndash;D12).</p>
+
+  <h2>3. P1 &mdash; <code>/crop</code> returns the mask</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p><code>crop()</code> keeps the mask <code>segment_bean_region</code> already returns, scales it to the thumbnail's
+    size, and sends it as a 1-bit PNG, base64 (ticket D7). On a fallback the mask is <code>null</code> and
+    <code>seg_fallback</code> is <code>true</code> (D5). The mask is the full photo's mask scaled down, not the
+    cropped one: the bean region outside the D4 box is part of it (D3).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>One helper gives the thumbnail size for a decoded photo's
+      <code>(w, h)</code>; <code>/preview</code> and <code>/crop</code> both use it (finding 2).</span></li>
+    <li><span class="box"></span><span><code>/crop</code>: scale the bool mask to that size (area average, then
+      &ge; 0.5), encode as a mode-<code>1</code> PNG, base64, in <code>mask</code>; add <code>seg_fallback</code>
+      from the segmenter's diagnostics (finding 3). <code>cropped</code>, <code>box</code> and
+      <code>needs_review</code> keep their meaning. Update the docstring and <code>webapp/README.md</code>'s
+      description of <code>/crop</code>.</span></li>
+    <li><span class="box"></span><span>Tests, written first, in a new <code>tests/test_webapp_crop.py</code> under the
+      <code>real_data</code> tier (importing <code>webapp.app</code> loads the model): on the tray smoke photo, the
+      mask's size equals the <code>/preview</code> JPEG's, it is not empty, and it agrees with the full-resolution
+      mask scaled down; on an EXIF-rotated photo, the mask's size equals the thumbnail's, not the stored pixels'; on a
+      fallback (the segmenter stubbed to an empty mask, so it stays fast), <code>mask</code> is <code>null</code> and
+      <code>seg_fallback</code> is <code>true</code> (ticket D10).</span></li>
+    <li><span class="box"></span><span>Checks: the new tests pass and were seen failing first;
+      <code>tests/test_release_manifest.py</code> still passes (no new file opened); <code>/crop</code>'s
+      <code>box</code> on the smoke photo is unchanged; the mask's size in bytes on the smoke photo is written in the
+      Activity entry (ticket R4); <code>scripts/check.sh --full</code> passes.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; the smoke check compares the mask</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p><code>compare_smoke</code> pops <code>mask</code> from the expected and the served <code>/crop</code> bodies,
+    compares the rest as today, and decodes the two masks: they must be the same size, both <code>null</code> or both
+    present, and their IoU &ge; 0.98 (ticket D10). Its summary line prints the IoU next to the box diff.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Tests, written first, in a new <code>tests/test_release_probe.py</code> (fast
+      tier: they build small masks and smoke files, no model): a mask a few pixels off passes; a mask with IoU below
+      0.98 fails; a size mismatch fails; <code>null</code> against a mask fails; the box is still compared as before.</span></li>
+    <li><span class="box"></span><span>Change <code>compare_smoke</code>; leave the other subcommands alone.</span></li>
+    <li><span class="box"></span><span>Checks: the new tests pass and were seen failing first;
+      <code>scripts/rehearse_deploy_local.sh</code> passes end to end with the new <code>/crop</code> answer.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; the overlay on the page <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>All in <code>webapp/static/index.html</code>, still one file with no build step. The mask is drawn on the photo's
+    own displayed rect, through the same contain-fit math the box uses today.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Rename <code>#image-mask</code> to <code>#image-clip</code> (finding 4).</span></li>
+    <li><span class="box"></span><span>The tint: everything outside the bean region under 55% black (ticket D4). The
+      box keeps its white outline and loses its <code>box-shadow</code> dimming (D3).</span></li>
+    <li><span class="box"></span><span>The outline: the bean region's edge as a thin magenta line (255, 0, 255), and a
+      "Show outline" checkbox below the preview that starts ticked, hides the outline only, and keeps its state
+      across uploads in the page visit, not saved (D9).</span></li>
+    <li><span class="box"></span><span>The fallback: when <code>seg_fallback</code> is <code>true</code>, no tint, no
+      outline, no checkbox, and a note in <code>#crop-note</code> saying no coffee beans were found and the whole
+      photo will be classified (D5).</span></li>
+    <li><span class="box"></span><span>"Use full photo instead" hides the tint, the box, the outline and the
+      checkbox; "Use detected crop" shows them again without a new request (D6). The overlay is redrawn on
+      window resize, as the box is today.</span></li>
+    <li><span class="box"></span><span>Checks, by hand on the local dev server (<code>python -m webapp.app</code>) at
+      desktop and phone widths: the tray smoke photo, a frame-filling photo, a portrait EXIF-rotated photo, a HEIC
+      photo, and a negative that falls back. Screenshots go to the owner.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: look at the overlay on the dev server or the screenshots,
+      and accept it or ask for changes.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; deploy and check live <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the go to deploy.</span></li>
+    <li><span class="box"></span><span>Deploy by <a href="agents/deploy.md">deploy.md</a>; the smoke check now
+      includes the mask comparison (P2).</span></li>
+    <li><span class="box"></span><span>Checks, on the live site (D12): the smoke photo and one frame-filling photo
+      from <code>webapp/deploy/fixtures.txt</code> show the overlay, and Classify still answers as before. Write the
+      release name in the ticket's Status and Activity; the owner closes the ticket.</span></li>
+  </ol>
+
+  <h2>7. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: <code>/crop</code>'s mask matches the thumbnail on a tray photo and an
+      EXIF-rotated photo; the fallback answers <code>null</code> and <code>seg_fallback: true</code>.</span></li>
+    <li><span class="box"></span><span>P2: the smoke comparison passes a near mask and fails a far one; the local
+      deploy rehearsal passes.</span></li>
+    <li><span class="box"></span><span>P3: the owner has accepted the overlay.</span></li>
+    <li><span class="box"></span><span>P4: checked on the live site.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Also any change to <code>/classify</code>, <code>/preview</code>'s
+      output, the request log, or the nginx and gunicorn settings.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Claude reads ticket OPS-6 at <code>a290ce4</code> and writes this plan. Four
+      findings not in the ticket, none needing a decision; no questions open. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6 ticket</a>,
+    <a href="ticket_segmentation_mask.html">ML-2</a>, <a href="ops1_release_isolation_plan.html">OPS-1 plan</a>
+    (the smoke check), <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>

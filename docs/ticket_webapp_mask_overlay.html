@@ -1,0 +1,228 @@
+<title>The Mask Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+
+<main>
+  <div class="eyebrow">Ticket OPS-6 · coffee-vision · webapp</div>
+  <h1>The upload preview shows the photo's bean region: everything else tinted, with the crop box and a mask outline on top</h1>
+  <p class="lede">When a user picks a photo, the web page shows the segmenter's mask on it. The photo's bean region
+    stays as it is, and everything else gets a translucent tint. The point is that the user sees what the classifier
+    will look at, and can switch to the full photo if the mask is wrong. Today the page dims only what lies outside
+    the crop box, and the mask itself is thrown away. Written after a grilling session with the owner (D1&ndash;D12);
+    planned in <a href="plan_webapp_mask_overlay.html">plan_webapp_mask_overlay.html</a>, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written and planned 2026-10-07; not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: upload preview</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code> (<code>/crop</code>), <code>webapp/static/index.html</code>, <code>webapp/deploy/release_probe.py</code>, tests, release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the look, the deploy go)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until the plan's deploy phase (P4). After it, <code>/crop</code> answers with two more fields and the preview looks different. <code>/classify</code> and what it returns do not change.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D12 answered 2026-10-07</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-07.</strong> Show the segmentation mask in the web app when the user loads a
+      photo. Keep the coffee beans as they are and put a fill over everything else.</p>
+    <p><strong>Owner decisions, 2026-10-07 (D1&ndash;D12).</strong> The main reason is to show what the classifier
+      looks at; drawn on the original photo, it is also nicer to look at (D1). What stays untouched is the photo's
+      bean region, the segmenter's mask as is (D2). The fill and the crop box are both shown (D3), and the fill is a
+      translucent tint (D4). An empty or tiny mask gets a note (D5). "Use full photo" hides it all (D6). The mask
+      travels in <code>/crop</code>'s answer (D7). Old models are not designed for (D8). A magenta mask outline, as in
+      the review tool, sits behind a checkbox that starts ticked (D9). Checks (D10), out of scope (D11), and a deploy
+      phase that stops for the owner (D12) as recommended.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the preview after an upload shows the photo with everything outside the D4 crop box dimmed. After this
+    ticket it shows the photo's bean region untouched, everything else under a 55% black tint, the crop box as a white
+    outline, and the bean region's edge as a thin magenta line that a checkbox can hide. The segmenter already runs
+    for <code>/crop</code>; only the mask has to reach the browser. The work splits into: <code>/crop</code> returns
+    the mask at the thumbnail's size; the deploy's smoke check compares that mask with a tolerance; the page draws
+    the overlay; the deploy.</p>
+
+  <h2>2. Background</h2>
+  <p>Read at <code>a290ce4</code>.</p>
+  <ul>
+    <li><b><code>/crop</code> already segments.</b> It calls <code>segment_bean_region</code> and answers
+      <code>cropped</code>, <code>box</code> (fractions of the full image) and <code>needs_review</code>; the mask it
+      gets back is dropped (<code>webapp/app.py</code>, <code>crop()</code>). It is advisory: <code>/classify</code>
+      segments again on its own and never takes a box from the client.</li>
+    <li><b>The page shows the box as a spotlight.</b> <code>#crop-overlay</code> dims everything outside the box with
+      a 55% black <code>box-shadow</code>, clipped to the photo's rect by <code>#image-mask</code>, which is a CSS
+      clipping box, not a segmentation mask. "Use full photo instead" sends <code>skip_crop=1</code>, and then the
+      segmenter does not run at all (<code>webapp/static/index.html</code>).</li>
+    <li><b>The classifier sees the mask, the fill and the crop.</b> Non-bean pixels inside the crop are filled with
+      ImageNet mean gray (124, 116, 104) (ML-2 D3), and the crop keeps 95% of bean pixels (ML-2 D4), so up to 5% of
+      the bean region lies outside the box. An empty or tiny mask means the whole original photo, unfilled (ML-2
+      D18); <code>/crop</code> then answers <code>cropped=false</code> and the page shows nothing.</li>
+    <li><b>The thumbnail and the mask come from the same pixels.</b> <code>/preview</code> and the segmenter both
+      decode with <code>load_rgb_image</code>, so EXIF rotation is applied the same way. The thumbnail's long side is
+      at most 1024 px (<code>PREVIEW_MAX_DIM</code>).</li>
+    <li><b>One request at a time.</b> One sync gunicorn worker, a server-wide cap of one request in flight in nginx,
+      and a 30 s timeout. The page calls <code>/preview</code>, then <code>/crop</code>, in sequence.</li>
+    <li><b>The deploy compares <code>/crop</code> exactly.</b> <code>release_probe.py compare-smoke</code> walks the
+      whole <code>/crop</code> body: numbers within 1e-3, strings equal. Masks differ by a few pixels across CPUs
+      (ML-2 P0), so a mask string would fail it.</li>
+    <li><b>The review tool's outline.</b> <code>coffeecv/review_masks.py</code> draws the mask's edge as a thin
+      magenta line, (255, 0, 255) in <code>coffeecv/seg_overlay.py</code>, and Space toggles it.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>/crop</code> answers <code>cropped</code>, <code>box</code>, <code>needs_review</code>.</li>
+        <li>The preview dims everything outside the crop box.</li>
+        <li>A mask that falls back (ML-2 D18) shows nothing, with no word to the user.</li>
+        <li>The smoke check compares the <code>/crop</code> box.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li><code>/crop</code> also answers <code>mask</code> (a 1-bit PNG at the thumbnail's size, base64, or
+          <code>null</code>) and <code>seg_fallback</code>.</li>
+        <li>The preview tints everything outside the photo's bean region, outlines the crop box in white, and the
+          bean region's edge in magenta behind a "Show outline" checkbox that starts ticked.</li>
+        <li>A fallback shows no tint and a note that the whole photo will be classified.</li>
+        <li>The smoke check also compares the mask, by IoU &ge; 0.98.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong><code>/classify</code>.</strong> Same input, same answer; the overlay is display only.</li>
+    <li><strong>The model and the segmenter.</strong> Same release model, same mask, same crop rule.</li>
+    <li><strong>The number of requests per upload.</strong> Still <code>/preview</code> then <code>/crop</code>; no
+      extra segmenter pass.</li>
+    <li><strong><code>/preview</code>.</strong> It still returns the plain JPEG thumbnail; the overlay is drawn in
+      the browser.</li>
+    <li><strong>The request log.</strong> No new fields; <code>/classify</code> already logs
+      <code>mask_area_frac</code> and <code>seg_fallback</code>.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The preview is not pixel for pixel what the model gets.</strong></td>
+        <td>The tint is translucent black, the model's fill is opaque gray (ML-2 D3). Accepted in D4: the contract is
+          where the fill goes and where the crop cuts, not the colour.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The smoke check fails on a correct mask.</strong></td>
+        <td>Masks differ by a few pixels across CPUs (ML-2 P0). Mitigated by comparing the decoded mask by IoU
+          &ge; 0.98 instead of the string (D10), with tests for both a near and a far mask.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The mask is misaligned with the thumbnail.</strong></td>
+        <td>Both come from <code>load_rgb_image</code>, but the mask must be resized to exactly the thumbnail's
+          size. Covered by the EXIF-rotated test (D10).</td></tr>
+      <tr><td class="id">R4</td><td><strong>A larger <code>/crop</code> answer on a phone.</strong></td>
+        <td>A 1-bit PNG at &le; 1024 px is a few KB, plus a third for base64. Measured on the smoke photo in P1 and
+          written in the plan.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What is the overlay for?</td>
+        <td>(a) Show what the classifier looks at. (b) A nicer picture, loosely tied to the model's input.</td>
+        <td>(a), 2026-10-07. Drawn on the original photo it is also nicer to look at, so (b) comes with it.</td></tr>
+      <tr><td class="id">D2</td><td>What stays untouched?</td>
+        <td>(a) The photo's bean region, the segmenter's mask as is (gaps and shadows between beans included).
+          (b) Single beans only, which needs per-bean masks.</td>
+        <td>(a), 2026-10-07: the mask from the segmenter, unchanged.</td></tr>
+      <tr><td class="id">D3</td><td>What happens to the crop box?</td>
+        <td>(a) Replaced by the mask. (b) Both: the tint for the mask, the box as an outline. (c) A switch between
+          the two.</td>
+        <td>(b), 2026-10-07. The box keeps its white outline and loses its dimming shadow; the tint replaces it.
+          Bean region outside the box stays untinted.</td></tr>
+      <tr><td class="id">D4</td><td>What does the fill look like?</td>
+        <td>(a) Opaque ML-2 D3 gray. (b) A translucent tint. (c) Opaque gray with a switch.</td>
+        <td>(b), 2026-10-07: 55% black, as the spotlight today.</td></tr>
+      <tr><td class="id">D5</td><td>What if the mask is empty or tiny (ML-2 D18)?</td>
+        <td>(a) Nothing, as today. (b) No tint, and a note. (c) Draw the tiny mask anyway.</td>
+        <td>(b), 2026-10-07. The note says no coffee beans were found and the whole photo will be classified. It is
+          not a refusal (ML-2 D9).</td></tr>
+      <tr><td class="id">D6</td><td>What does "Use full photo instead" do to the overlay?</td>
+        <td>(a) Hide the tint, the box and the outline; switching back shows them, with no new request. (b) Leave
+          them.</td>
+        <td>(a), 2026-10-07. The overlay always shows what Classify will send. The button's label is unchanged.</td></tr>
+      <tr><td class="id">D7</td><td>How does the mask reach the browser?</td>
+        <td>(a) A <code>mask</code> field in <code>/crop</code>'s answer: a 1-bit PNG at the <code>/preview</code>
+          thumbnail's size, base64. (b) A new <code>/mask</code> endpoint (a second segmenter pass). (c) Drawn into the
+          <code>/preview</code> JPEG.</td>
+        <td>(a), 2026-10-07. Advisory, like the box: <code>/classify</code> never takes it from the client.
+          <code>/crop</code> also answers <code>seg_fallback</code>, for D5.</td></tr>
+      <tr><td class="id">D8</td><td>What if the release has no segmenter (<code>crop_method</code> not
+          <code>segment</code>)?</td>
+        <td>(a) <code>mask: null</code> and today's spotlight. (b) Not designed for.</td>
+        <td>(b), 2026-10-07: an old model is served with its own old web app; a release ships its page and its model
+          together (ADR 0008).</td></tr>
+      <tr><td class="id">D9</td><td>Does the bean region's edge get an outline?</td>
+        <td>(a) No. (b) Yes. (c) Yes, behind a checkbox.</td>
+        <td>(c), 2026-10-07: "let's try it". A thin magenta line, as in the review tool (<code>seg_overlay.py</code>,
+          (255, 0, 255)), behind a "Show outline" checkbox that starts ticked. It hides the outline only, not the
+          tint; it keeps its state across uploads within one page visit and is not saved.</td></tr>
+      <tr><td class="id">D10</td><td>How is it checked?</td>
+        <td>As recommended: an app test on a tray photo (the mask has the thumbnail's size, is not empty, and agrees
+          with the full-resolution mask scaled down); an EXIF-rotated photo (mask and thumbnail line up); the
+          fallback (<code>mask: null</code>, <code>seg_fallback: true</code>); <code>release_probe smoke</code>
+          compares the mask by IoU &ge; 0.98.</td>
+        <td>As recommended, 2026-10-07.</td></tr>
+      <tr><td class="id">D11</td><td>What is out of scope?</td>
+        <td>Editing the mask or box; a "model's view" switch; mask statistics in the <code>/crop</code> log; per-bean
+          outlines.</td>
+        <td>All four, 2026-10-07. See Out of scope.</td></tr>
+      <tr><td class="id">D12</td><td>Is the deploy part of the ticket?</td>
+        <td>(a) Yes, a last phase that stops for the owner's go. (b) No.</td>
+        <td>(a), 2026-10-07. The deploy follows <a href="agents/deploy.md">deploy.md</a>; "live" means checked on the
+          live site with the smoke photo and one frame-filling photo.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>/crop</code> answers <code>mask</code> (1-bit PNG, base64, the
+      <code>/preview</code> thumbnail's size, or <code>null</code>) and <code>seg_fallback</code> (D7).</span></li>
+    <li><span class="box"></span><span>The D10 tests pass: tray photo, EXIF-rotated photo, fallback, and the smoke
+      comparison on a near and a far mask.</span></li>
+    <li><span class="box"></span><span>The page tints outside the bean region (D4), outlines the crop box (D3), draws
+      the magenta outline behind a ticked "Show outline" checkbox (D9), shows the fallback note (D5), and hides it all
+      on "Use full photo instead" (D6).</span></li>
+    <li><span class="box"></span><span>The owner has looked at the overlay on the local dev server and accepted it.</span></li>
+    <li><span class="box"></span><span>Deployed and checked on the live site (D12).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Letting the user edit the mask or the crop box. The <code>TODO(crop editing)</code> in
+      <code>index.html</code> stays.</li>
+    <li>A switch to the opaque gray "model's view" (D4 (c)).</li>
+    <li>Logging mask statistics on <code>/crop</code>.</li>
+    <li>Per-bean outlines; they need per-bean masks (ML-2 D2 (b)).</li>
+    <li>Supporting a release without a segmenter (D8).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-07</div>Owner asks for the segmentation mask on the upload preview. A grilling
+      session with the owner, against <code>webapp/app.py</code>, <code>webapp/static/index.html</code>,
+      <code>webapp/deploy/release_probe.py</code>, <code>coffeecv/segment_beans.py</code>,
+      <code>coffeecv/review_masks.py</code> and <a href="ticket_segmentation_mask.html">ML-2</a> at
+      <code>a290ce4</code>, answers D1&ndash;D12. No GLOSSARY.md change: "the photo's bean region" already names what
+      stays untouched. No ADR: an overlay is cheap to reverse. Plan written. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="plan_webapp_mask_overlay.html">plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
+    (the segmenter, D3, D4, D9, D18), <a href="ticket_webapp_release_isolation.html">OPS-1</a> (releases),
+    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>, <a href="agents/deploy.md">deploy.md</a>,
+    <code>webapp/README.md</code>.</footer>
+</main>
