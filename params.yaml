@@ -193,3 +193,15 @@ seg_ft:
   focal_alpha: 0.25
   neg_share: 0.5
   neg_select_frac: 0.2
+
+# Ticket ML-5 P5 (D11-D13, D16): the segmenter dataset (coffeecv/seg_dataset.py ->
+# labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is
+# the train/validation/test share within each source, and within each (batch, tag) for negatives
+# (D13, D16). The file records both, and a rebuild refuses other values: it is append-only (D11).
+# 511 is none of the head seeds (42/123/7) and not ML-2's seg_split_seed (239).
+seg_dataset:
+  seed: 511
+  split:
+    train: 0.60
+    validation: 0.15
+    test: 0.25
