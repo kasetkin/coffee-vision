@@ -15,7 +15,8 @@ This document records what the guard was measured to do once it was put in front
 had never been tested against, because the answer changed twice under measurement and the
 reasoning is worth keeping.
 
-Harness: `coffeecv/ood_eval.py`. Data: `dataset/ood_negatives/`, `dataset/ood_positives/`,
+Harness: `coffeecv/ood_eval.py`. Data: `dataset/ood_negatives/`, `dataset/ood_positives/` (renamed
+`dataset/segmenter_positives/` by ticket ML-5 on 2026-10-08, its split dropped),
 `dataset/ood_positives_internet/` — photo directories are DVC-tracked, while each one's
 `<name>.manifest.csv` and README stay in git beside it, the same split the `<session>.crop.yaml`
 files already use. Splits, provenance and per-photo baseline verdicts live in those manifests.

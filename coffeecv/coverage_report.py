@@ -72,9 +72,10 @@ EXCLUDED = {
     "2026-08-06__box_pictures",     # superseded by 2026-08-07__box_pictures_all_classes
     "classes_labels_only",          # label reference photos, not training data
     # The OOD sets (ticket ML-3 P4): read by the OOD tools from their manifests, never segcropped. Their
-    # check-2 FAILs dated from ticket ML-1.
+    # check-2 FAILs dated from ticket ML-1. segmenter_positives (ticket ML-5, D1) is segmenter data, read
+    # from its manifest, never segcropped.
     "ood_negatives",
-    "ood_positives",
+    "segmenter_positives",
     "ood_positives_internet",
 }
 
