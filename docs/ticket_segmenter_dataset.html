@@ -152,7 +152,7 @@
         <td>(b), 2026-10-08. Renamed to <code>dataset/segmenter_positives</code>, with the 2026-10-08 additions.</td></tr>
       <tr><td class="id">D2</td><td>What happens to ADR 0005 and the guard's calibration?</td>
         <td>(a) Keep it on another photo set. (b) Supersede it.</td>
-        <td>(b), 2026-10-08. What replaces it is D9 and D16.</td></tr>
+        <td>(b), 2026-10-08. What replaces it is D9 and D16. <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>.</td></tr>
       <tr><td class="id">D3</td><td>What does the segmenter's dataset contain?</td>
         <td>(a) ML-2's lists plus the new folder. (b) Rebuilt from scratch.</td>
         <td>(b), 2026-10-08: all of <code>segmenter_positives</code>, an equal number of random pool photos, all
@@ -178,7 +178,7 @@
         <td>(a) The probe at 0.5 on every photo. (b) The probe only when the segmenter fails. (c) The segmenter's empty mask alone.</td>
         <td>(a), 2026-10-08: the linear probe at a fixed 0.5 runs after every classification, on the crop or, when
           the segmenter fails (empty or tiny mask) or is switched off, on the whole frame. The segmenter's empty-mask
-          rate on test negatives is reported beside it.</td></tr>
+          rate on test negatives is reported beside it. <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>.</td></tr>
       <tr><td class="id">D10</td><td>Where does a "segmentation off" checkbox in the webapp go?</td>
         <td>(a) This ticket. (b) Its own ticket.</td>
         <td>Neither, 2026-10-08: the "Use full photo instead" button already classifies the whole photo with the
@@ -199,26 +199,26 @@
           owner places points: hold <kbd>g</kbd> and left-click for an include point, <kbd>r</kbd> for an exclude
           point; the mask is redrawn and judged again, up to 3 rounds; still declined means dropped, reason logged.
           Negatives get empty labels. No Claude recheck and no planted-defect test of the judge; a Claude recheck
-          only if the metrics are bad, on the owner's call.</td></tr>
+          only if the metrics are bad, on the owner's call. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</td></tr>
       <tr><td class="id">D15</td><td>The fine-tune recipe?</td>
         <td>&mdash;</td>
         <td>2026-10-08: ML-2's decoder-only recipe, one seed (123; ML-2's three seeds were indistinguishable). Plus
           point prompts in training: some batches add 1&ndash;3 points sampled from the error region of the box-only
           prediction, the box always kept (SAM's method). Serving and checkpoint selection stay box-only. Which output
-          trains on box-plus-points batches: D23.</td></tr>
+          trains on box-plus-points batches: D23. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</td></tr>
       <tr><td class="id">D16</td><td>Do all negatives and internet positives join, and how is the guard measured?</td>
         <td>&mdash;</td>
         <td>2026-10-08: all 142 negatives and 12 internet positives, split per D13 within each (batch, tag); the old
           dev/holdout labels retire. The probe is fitted on training and validation negatives and measured on test
-          negatives and positives.</td></tr>
+          negatives and positives. <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>.</td></tr>
       <tr><td class="id">D17</td><td>How are the changed decisions recorded?</td>
         <td>&mdash;</td>
         <td>2026-10-08: two new ADRs, one superseding ADR 0011 (XL0 without a comparison, owner-judged labels, and
-          why), one superseding ADR 0005 (D9, D16).</td></tr>
+          why), one superseding ADR 0005 (D9, D16). Written 2026-10-08: <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a> and <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>.</td></tr>
       <tr><td class="id">D18</td><td>Which EfficientViT-SAM?</td>
         <td>&mdash;</td>
         <td>XL0 at 1024 px, the owner's decision, 2026-10-08, without a comparison against L0. No latency limit
-          (ML-2 D8 stands); its time per photo on the VM is measured before labelling.</td></tr>
+          (ML-2 D8 stands); its time per photo on the VM is measured before labelling. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</td></tr>
       <tr><td class="id">D19</td><td>How are the labels made?</td>
         <td>&mdash;</td>
         <td>2026-10-08, two passes. <strong>Pass 1</strong>: <code>ft_s123</code> proposes round 1; a declined photo
@@ -248,7 +248,7 @@
           takes the output as an argument and reports both. Why (§2): the hypothesis that <code>ft_s123</code> ignored
           points only through its untrained <code>single</code> output did not hold, so D19's pass 1 stands, but
           <code>multi3</code> follows simulated clicks better on pretrained L0 and degrades less on
-          <code>ft_s123</code>, and ML-2 left the redraw output unrecorded as a decision.</td></tr>
+          <code>ft_s123</code>, and ML-2 left the redraw output unrecorded as a decision. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</td></tr>
       <tr><td class="id">D22</td><td>How are XL0-v1 and XL0-v2 judged on test, and compared?</td>
         <td>(a) Each judged after its own fine-tune, pass rates per source compared. (b) Both judged together after
           XL0-v2, blind, and compared paired.</td>
