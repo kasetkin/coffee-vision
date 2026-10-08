@@ -1,0 +1,98 @@
+<title>Webapp Segmentation Toggle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+
+<main>
+  <div class="eyebrow">Ticket OPS-8 · coffee-vision · webapp</div>
+  <h1>A visitor can switch segmentation off and have the whole photo classified, with the OOD guard still applied</h1>
+  <p class="lede">The owner asked for a webapp checkbox that disables segmentation, so the whole photo is classified
+    and the OOD probe at 0.5 still decides. Reading the code found this behaviour already live as a button, "Use full
+    photo instead". What is left is whether the button becomes a checkbox, and anything ML-5 changes. Written; not
+    planned, not started.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; not planned, not started</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: user control</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/app.py</code> (<code>/classify</code>, <code>skip_crop</code>), <code>coffeecv/infer.py</code> (<code>segment_bean_region</code>, <code>classify_one</code>)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">A UI change at the next release, if D1 is (b); none otherwise.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-08</strong> (<a href="ticket_segmenter_dataset.html">ML-5</a> D10). If the
+      segmenter fails, or the user disables it in the web app with a checkbox, classify the photo and use the
+      constant 0.5 as the OOD guard. Create an OPS ticket; it will be done later.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The behaviour exists today. After a photo is previewed, a button under it reads "Use full photo instead"; it
+    sends <code>skip_crop=1</code> with <code>/classify</code>, the whole photo is classified, and the probe scores it
+    like any other photo. This ticket decides whether to keep that button or replace it with a checkbox, and checks
+    the path still holds after ML-5 changes the guard and the segmenter.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The control.</strong> <code>webapp/static/index.html</code>: <code>#crop-toggle-btn</code>, labelled
+      "Use full photo instead" / "Use detected crop", toggles <code>useFullPhoto</code>; the only checkbox on the page
+      is "Show outline" (OPS-6), which only hides the mask outline.</li>
+    <li><strong>The server side.</strong> <code>webapp/app.py</code> <code>/classify</code> reads the one bit
+      <code>skip_crop</code>, never a box from the client. <code>infer.segment_bean_region</code> treats it as the ML-2
+      D18 whole-photo fallback chosen by hand.</li>
+    <li><strong>The guard on that path.</strong> <code>infer.classify_one</code> scores every photo with the probe,
+      <code>skip_crop</code> or not, against the threshold in the probe file (0.5 in the shipped probe).</li>
+  </ul>
+
+  <h3>Before and after</h3>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A "Use full photo instead" button after the preview; the probe applies.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The control the owner picks in D1; the probe applies as ML-5's guard ADR says.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>3. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which control?</td>
+        <td>(a) Keep the "Use full photo instead" button. (b) A checkbox ("Segment beans", on by default) in its place.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>4. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The control is the one D1 picks, and a whole-photo classification still gets a probe score and a refusal above the threshold (a test).</span></li>
+    <li><span class="box"></span><span>After ML-5 ships, the path is rechecked against its guard ADR.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The guard's definition and threshold (<a href="ticket_segmenter_dataset.html">ML-5</a>).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-08</div>Ticket written from ML-5 D10. Claude first told the owner no such control
+      existed; reading <code>index.html</code>, <code>app.py</code> and <code>infer.py</code> found the "Use full photo
+      instead" button already does it, with the probe applied. D1 open.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5</a>, <a href="ticket_webapp_mask_overlay.html">OPS-6</a>
+    (the outline checkbox), <code>webapp/static/index.html</code>, <code>coffeecv/infer.py</code>.</footer>
+</main>

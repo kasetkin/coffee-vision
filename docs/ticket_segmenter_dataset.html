@@ -6,23 +6,23 @@
 
 <main>
   <div class="eyebrow">Ticket ML-5 · coffee-vision · segmenter data and OOD guard</div>
-  <h1>Rebuild the segmenter's dataset from scratch around <code>segmenter_positives</code>, and redefine the OOD guard</h1>
+  <h1>Rebuild the segmenter on XL0 from an owner-judged dataset around <code>segmenter_positives</code>, and redefine the OOD guard</h1>
   <p class="lede"><code>dataset/ood_positives</code> becomes <code>dataset/segmenter_positives</code>: a curated
-    selection of varied bean photos, mostly not frame-filling, used to train and test the segmenter rather than to
-    calibrate the OOD guard. The segmenter's dataset is rebuilt from it, an equal number of random photos from the
-    main dataset, the OOD negatives and the internet positives, with a new train/cal/test split. Then the segmenter
-    and the classifier are retrained. ADR 0005 is superseded. Written and planned; not implemented.</p>
+    selection of varied bean photos, mostly not frame-filling. The segmenter's dataset is rebuilt from it, an equal
+    number of random pool photos, the OOD negatives and the internet positives, split train/validation/test from
+    scratch. The owner judges every label. The segmenter moves to EfficientViT-SAM-XL0 and is fine-tuned in two
+    passes, then the classifier is retrained. ADRs 0005 and 0011 are superseded. Decided and planned; P1 done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); P1 done 2026-10-08 (<code>62a4d3e</code>)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08; D1&ndash;D21 decided 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); P1 done 2026-10-08 (<code>62a4d3e</code>)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
-    <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset, retraining</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/ood_positives</code> (renamed), <code>coffeecv/seg_lists.py</code>, <code>coffeecv/seg_labels.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/ood_eval.py</code>, <code>coffeecv/coverage_report.py</code>, <code>dvc.yaml</code> (<code>seg_*</code>, <code>segcrop</code>, <code>train</code>), <code>docs/adr/0005</code></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset, segmenter, classifier retraining</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/ood_positives</code> (renamed), <code>coffeecv/seg_lists.py</code>, <code>coffeecv/seg_labels.py</code>, <code>coffeecv/review_masks.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/sam_loader.py</code>, <code>coffeecv/segment_beans.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/ood_eval.py</code>, <code>coffeecv/coverage_report.py</code>, <code>dvc.yaml</code> (<code>seg_*</code>, <code>segcrop</code>, <code>train</code>), <code>docs/adr/0005</code>, <code>docs/adr/0011</code>, <code>GLOSSARY.md</code></span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
-    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, mask verdicts)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-08</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">None until a release: the retrained segmenter and classifier ship only through a later deploy, on the owner's call.</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until a release: the new segmenter and classifier ship only through a later deploy, on the owner's call.</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
@@ -32,41 +32,42 @@
       calibrated threshold, and the release uses 0.5 regardless. It now holds a good selection of different photos,
       mostly not frame-filling, for segmenter fine-tuning. Rework the whole segmentation dataset and how photos are
       taken for it: take all of this folder, an equal number of random photos from the main dataset, the OOD
-      negatives and <code>ood_positives_internet</code>, and recreate the segmenter's train/cal/test sets. Rewrite how
-      OOD is defined and measured. Then train a new segmenter and a new classifier.</p>
+      negatives and <code>ood_positives_internet</code>, and recreate the segmenter's train/validation/test sets.
+      Rewrite how OOD is defined and measured. Switch from <code>efficientvit_sam_l0</code> to
+      <code>efficientvit_sam_xl0</code>. Then train a new segmenter and a new classifier.</p>
   </div>
 
   <h2>1. Summary</h2>
-  <p>Today the segmenter trains on ML-2's lists (<code>labels/ml2/photo_lists.yaml</code>): 554 main-dataset photos
-    in <code>seg_train</code>, 15 OOD dev positives and 56 OOD dev negatives, with append-only eval lists. After this
-    ticket it trains on a new dataset built from four sources, split from scratch, with test photos (positive or
-    negative) never used for training. The work splits into: committing the 2026-10-08 data; the rename; a new ADR
-    for the OOD guard; building and splitting the new dataset; labelling it with the ML-2 judge; fine-tuning the
-    segmenter; re-cropping and retraining the classifier.</p>
+  <p>Today the segmenter is fine-tuned L0 (<code>ft_s123</code>), trained on ML-2's lists
+    (<code>labels/ml2/photo_lists.yaml</code>) with labels the Claude judge accepted. After this ticket it is
+    fine-tuned XL0, trained on a new ~410-photo dataset whose labels the owner judged, in two passes: XL0-v1 from
+    labels made with today's models, XL0-v2 from labels made with XL0-v1. The OOD guard is the linear probe at a fixed
+    0.5 after every classification. The classifier is retrained on the new segmenter's crops.</p>
 
   <h2>2. Background</h2>
   <ul>
     <li><strong>The folder after the owner's 2026-10-08 additions</strong> holds 128 photos: the 58 in its manifest
-      plus 70 new ones. All 70 are byte-identical copies of photos elsewhere in <code>dataset/</code> (22 from
+      plus 70 new ones, all byte-identical copies of photos elsewhere in <code>dataset/</code> (22 from
       <code>random_date_raccoon</code>, 17 from <code>2026-07-24__first_pictures</code>, 31 from the dated capture
-      sessions), so they are photos the classifier trained on. All 89 photos added on 2026-10-08 (these 70, 18 in
-      <code>random_date_raccoon</code>, 1 in <code>classes_labels_only</code>) went through
-      <code>coffeecv.strip_metadata</code> the same day: 31 had private tags, 0 failed a check
-      (<code>labels/ml3/strip_manifest.csv</code>).</li>
-    <li><strong>The guard's threshold is not calibrated in practice.</strong> The shipped probe
-      (<code>models/allrigs_dino3b16_seg_country_s123.ood_probe.json</code>) holds 0.5; its conformal calibration on 28
-      dev positives gave 0.5982, and the owner set 0.5 (<a href="plan_segmentation_mask.html">ML-2 plan</a>,
-      2026-10-03). The folder's other use is the only false-refusal measurement on unseen photos (2/26 genuine
-      refused at 0.5 on the 2026-10-02 holdout).</li>
-    <li><strong>ML-2's lists overlap the new folder</strong>: 18 of the 70 copies are in them (13
-      <code>seg_train</code>, 2 <code>seg_val</code>, 3 <code>seg_eval</code>, one of those also in
-      <code>audit_sample</code>), and 40 of the original 58 are in <code>pos_seg_train</code> /
-      <code>pos_seg_eval</code>. Rebuilding from scratch (D3) retires those lists, so the overlap stops mattering.</li>
-    <li><strong>Sources.</strong> Main dataset: 1,248 photos in <code>dataset/*/class_*</code> across 16 folders.
-      OOD negatives: 142 in three batches (86 dev, 56 holdout). Internet positives: 12 (7 dev, 5 holdout).</li>
-    <li><strong>Labels.</strong> ML-2's judge loop (<code>coffeecv/seg_labels.py</code>, <a href="adr/0011-learned-bean-segmentation-stage.md">ADR 0011</a>)
-      makes the training masks with no hand annotation. Verdicts in <code>labels/ml2/verdicts.jsonl</code> are keyed
-      by the mask's hash, so an existing verdict is reusable only for an identical mask.</li>
+      sessions). All 89 photos added that day went through <code>coffeecv.strip_metadata</code>: 31 had private
+      tags, 0 failed a check (<code>labels/ml3/strip_manifest.csv</code>).</li>
+    <li><strong>The guard's threshold is not calibrated in practice.</strong> The shipped probe holds 0.5; its
+      conformal calibration gave 0.5982 and the owner set 0.5 (<a href="plan_segmentation_mask.html">ML-2 plan</a>,
+      2026-10-03). On the 2026-10-02 holdout it caught 56/56 negatives and refused 2/26 genuine photos at 0.5.</li>
+    <li><strong>Today's segmenter misses the segmenter positives.</strong> <code>ft_s123</code> returns an empty mask
+      on 6 of the 25 in ML-2's <code>pos_seg_eval</code>, and 8 of 25 fall below the tiny-mask threshold
+      (<code>seg_min_area_frac</code> 0.083, ML-2 D18), against a 97.9% judge pass rate on pool photos.</li>
+    <li><strong>The box-only fine-tune broke point prompts</strong> (measured 2026-10-08, 63 accepted ML-2 masks drawn
+      by pretrained L0 from a box plus stored points). Replaying the same points on <code>ft_s123</code> reproduces
+      the mask (IoU &ge; 0.9) on 17&ndash;35% and returns an empty mask on 35&ndash;48%; simulated corrective clicks
+      make its masks worse, not better. Pretrained L0 reproduces 100% and improves with each click, but its box alone
+      selects the tray. SAM keeps point-following by training with points sampled from the error region (SAM paper,
+      appendix A); ML-2's fine-tune trained the box only.</li>
+    <li><strong>Sources for the new dataset.</strong> Pools: 1,248 photos in 16 session folders. OOD negatives: 142
+      in three batches. Internet positives: 12.</li>
+    <li><strong>EfficientViT-SAM's own recipe</strong> (arXiv 2402.05008): focal and dice at 20:1, AdamW with cosine
+      decay, horizontal flips, box or points at random, 512 px for L and 1024 px for XL. ML-2's fine-tune matches
+      it apart from the prompts.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -74,34 +75,33 @@
     <div>
       <h3>Now</h3>
       <ul>
-        <li><code>dataset/ood_positives</code>: "photos the shipped model has never seen", for guard calibration and
-          evaluation; its dev split also feeds the segmenter (ML-2 D26).</li>
+        <li><code>dataset/ood_positives</code>: "photos the shipped model has never seen", for guard calibration; its dev split also feeds the segmenter (ML-2 D26).</li>
         <li>Guard threshold calibrated by split-conformal on independent-day photos (ADR 0005), then overridden to 0.5.</li>
-        <li>Segmenter lists from ML-2: main-dataset split at seed 239, plus OOD dev positives and negatives; holdouts never listed.</li>
+        <li>Segmenter: L0, decoder fine-tuned on the box prompt only, labels judged by Claude (ADR 0011).</li>
+        <li>Segmenter lists from ML-2: pool split at seed 239, OOD dev positives and negatives.</li>
       </ul>
     </div>
     <div>
       <h3>After</h3>
       <ul>
         <li><code>dataset/segmenter_positives</code>: a curated selection for the segmenter; no "never seen" claim.</li>
-        <li>A new ADR supersedes 0005: what the guard is, its fixed threshold, and how it is measured.</li>
-        <li>A new segmenter dataset: all of <code>segmenter_positives</code>, an equal number of random main-dataset
-          photos, the OOD negatives and the internet positives, split train/cal/test from scratch.</li>
-        <li>A segmenter fine-tuned on it, the pools re-cropped with it, and a classifier retrained on the new crops.</li>
+        <li>The probe at a fixed 0.5 after every classification, fitted on training and validation negatives, measured on test (new ADR).</li>
+        <li>Segmenter: XL0 at 1024 px, decoder fine-tuned on box and point prompts, labels judged by the owner (new ADR).</li>
+        <li>One append-only segmenter dataset file: segmenter positives, as many pool photos, all negatives and internet positives, split 60/15/25.</li>
       </ul>
     </div>
   </div>
 
   <h2>4. What does not change</h2>
   <ul>
-    <li><strong>What a mask is and when it is accepted.</strong> ML-2 D2, D10 and D13 stay: the bean region, coffee
-      beans only, the same acceptance rule in the judge's prompt.</li>
-    <li><strong>The segmentation stage itself</strong> (<a href="adr/0011-learned-bean-segmentation-stage.md">ADR 0011</a>):
-      EfficientViT-SAM-L0, the fixed whole-image box prompt, the crop rule, the same at training and serving.</li>
+    <li><strong>What a mask is and when it is accepted.</strong> ML-2 D2, D10 and D13: the bean region, coffee
+      beans only, the same acceptance rule (<code>labels/ml2/accept_rule.md</code>), now applied by the owner.</li>
+    <li><strong>The segmentation stage's shape</strong>: the fixed whole-image box prompt at serving, the crop rule
+      (ML-2 D4), the same segmenter at training and serving, decoder-only fine-tuning (ML-2 D7).</li>
     <li><strong>Metadata stripping</strong> (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>): every
       photo in the new dataset is already stripped.</li>
     <li><strong>The classifier's recipe</strong> (<a href="adr/0006-frozen-dinov3-b16-head.md">ADR 0006</a>): only its crops change.</li>
-    <li><strong>ML-2's history.</strong> <code>labels/ml2/</code> and its verdicts stay in git as the record; nothing is rewritten.</li>
+    <li><strong>ML-2's record.</strong> <code>labels/ml2/</code>, its verdicts, base masks and planted-defect results stay in git; nothing is rewritten.</li>
   </ul>
 
   <h2>5. Risks</h2>
@@ -109,68 +109,148 @@
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>A photo lands on both sides of the split.</strong></td>
-        <td>70 photos in <code>segmenter_positives</code> are byte copies of main-dataset photos, and bursts are shot
-          seconds apart. The split groups byte-identical files and near-duplicate shots and keeps each group on one
-          side; the random main-dataset draw skips photos already in <code>segmenter_positives</code>.</td></tr>
+        <td>70 segmenter positives are byte copies of pool photos, and bursts are shot seconds apart. Byte-identical
+          files and shots within 120 s form one group (D13); the pool draw skips photos already in
+          <code>segmenter_positives</code> (D12). Tested in P5.</td></tr>
       <tr><td class="id">R2</td><td><strong>No comparison with today's segmenter.</strong></td>
-        <td>The new test split is new, and the owner deferred scoring <code>ft_s123</code> on ML-2's lists (D5). A
-          regression on ordinary tray photos could show only in the classifier's numbers. Mitigation: the test split
-          includes main-dataset photos (D3), so the new segmenter is measured on that population.</td></tr>
-      <tr><td class="id">R3</td><td><strong>The guard loses its unseen-photo measurement.</strong></td>
-        <td>Accepted by the owner (D2). The new ADR says what replaces it.</td></tr>
-      <tr><td class="id">R4</td><td><strong>Fewer positive training photos than ML-2.</strong></td>
-        <td>About 256 positives instead of ML-2's 554 + 15, before the split. The owner's choice (D3): coverage of
-          setups over volume. Fine-tune results on cal and test show whether it is enough.</td></tr>
-      <tr><td class="id">R5</td><td><strong>Segmenter-trained photos are in the classifier's test split.</strong></td>
-        <td>Not new: ML-2's segmenter trained on photos from the classifier's test split too (seed 239 is no head
-          seed). Crops on those photos may be slightly better than on new photos.</td></tr>
+        <td>Accepted (D6). The test split holds pool photos as well as segmenter positives, so a regression on
+          ordinary tray photos shows in the per-source pass rates.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The guard loses its unseen-photo calibration.</strong></td>
+        <td>Accepted (D2). The new ADR measures it on the segmenter test split instead (D16).</td></tr>
+      <tr><td class="id">R4</td><td><strong>Point corrections on pretrained L0 cost many clicks.</strong></td>
+        <td>Its box alone selects the tray, so a declined photo starts from the tray mask; ML-2's point-placed masks
+          needed a median of 6&ndash;13 points. Accepted (D19): <code>ft_s123</code> still proposes round 1, so only
+          declined photos need points.</td></tr>
+      <tr><td class="id">R5</td><td><strong>XL0-v1 may not follow points either.</strong></td>
+        <td>Point prompts in its training (D15) are SAM's own remedy. The point probe (D19) checks it before pass 2;
+          if it fails, pass 2 corrections use pretrained XL0.</td></tr>
+      <tr><td class="id">R6</td><td><strong>XL0 is slower on the VM's CPU.</strong></td>
+        <td>3.4&times; L0's compute per the paper (185 vs 35 GMACs, 117 M vs 35 M parameters). No limit (D18);
+          measured in P4, before labelling.</td></tr>
+      <tr><td class="id">R7</td><td><strong>Segmenter-trained photos are in the classifier's test split.</strong></td>
+        <td>Not new: ML-2's segmenter did the same. Crops on those photos may be slightly better than on new photos.</td></tr>
     </tbody>
   </table></div>
 
   <h2>6. Decisions</h2>
+  <p>D7&ndash;D21 come from the owner's design session of 2026-10-08, after the plan's first draft; they answer the
+    plan's Q1&ndash;Q7 and the questions that followed from them.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
     <tbody>
       <tr><td class="id">D1</td><td>What is <code>dataset/ood_positives</code> for now?</td>
         <td>(a) Guard calibration, as today. (b) Segmenter data, renamed.</td>
-        <td>(b), 2026-10-08. Renamed to <code>dataset/segmenter_positives</code>, with the 2026-10-08 additions: a
-          curated selection of varied, mostly not frame-filling photos for the segmenter.</td></tr>
+        <td>(b), 2026-10-08. Renamed to <code>dataset/segmenter_positives</code>, with the 2026-10-08 additions.</td></tr>
       <tr><td class="id">D2</td><td>What happens to ADR 0005 and the guard's calibration?</td>
-        <td>(a) Keep it on another photo set. (b) Supersede it and rewrite how OOD is defined and measured.</td>
-        <td>(b), 2026-10-08. The served threshold is 0.5 regardless of calibration. The new definition and measurement
-          are plan Q5, recorded in a new ADR.</td></tr>
+        <td>(a) Keep it on another photo set. (b) Supersede it.</td>
+        <td>(b), 2026-10-08. What replaces it is D9 and D16.</td></tr>
       <tr><td class="id">D3</td><td>What does the segmenter's dataset contain?</td>
         <td>(a) ML-2's lists plus the new folder. (b) Rebuilt from scratch.</td>
-        <td>(b), 2026-10-08: all of <code>segmenter_positives</code>, an equal number of random photos from the main
-          dataset, <code>ood_negatives</code> and <code>ood_positives_internet</code>, split into new train / cal /
-          test sets. ML-2's lists are retired.</td></tr>
+        <td>(b), 2026-10-08: all of <code>segmenter_positives</code>, an equal number of random pool photos, all
+          <code>ood_negatives</code> and all <code>ood_positives_internet</code>. ML-2's lists are retired.</td></tr>
       <tr><td class="id">D4</td><td>Can a test photo be used for training?</td>
         <td>(a) No, for every source, negatives included. (b) Negatives may be pooled.</td>
-        <td>(a), 2026-10-08. Applies to the new split from scratch.</td></tr>
+        <td>(a), 2026-10-08.</td></tr>
       <tr><td class="id">D5</td><td>Is the new segmenter compared with <code>ft_s123</code> on ML-2's eval lists (ADR 0002)?</td>
         <td>(a) Yes, paired. (b) Not for now.</td>
         <td>(b), 2026-10-08: deferred; the whole segmentation dataset is reworked.</td></tr>
       <tr><td class="id">D6</td><td>What comes after the new dataset?</td>
         <td>&mdash;</td>
-        <td>2026-10-08: train a new segmenter, then a new classifier on its crops.</td></tr>
+        <td>2026-10-08: a new segmenter, then a new classifier on its crops.</td></tr>
+      <tr><td class="id">D7</td><td>What are the photo kinds called?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: <strong>positive</strong>, <strong>pool photo</strong> (not "main dataset"),
+          <strong>segmenter positive</strong> (not "OOD positive"); <strong>judge</strong> now means the owner or a
+          Claude model. In <code>GLOSSARY.md</code>.</td></tr>
+      <tr><td class="id">D8</td><td>What are the splits called?</td>
+        <td>(a) train/cal/test. (b) train/validation/test.</td>
+        <td>(b), 2026-10-08, written out in full ("validation", not "val"). Validation only chooses the fine-tune checkpoint.</td></tr>
+      <tr><td class="id">D9</td><td>What is the OOD guard?</td>
+        <td>(a) The probe at 0.5 on every photo. (b) The probe only when the segmenter fails. (c) The segmenter's empty mask alone.</td>
+        <td>(a), 2026-10-08: the linear probe at a fixed 0.5 runs after every classification, on the crop or, when
+          the segmenter fails (empty or tiny mask) or is switched off, on the whole frame. The segmenter's empty-mask
+          rate on test negatives is reported beside it.</td></tr>
+      <tr><td class="id">D10</td><td>Where does a "segmentation off" checkbox in the webapp go?</td>
+        <td>(a) This ticket. (b) Its own ticket.</td>
+        <td>(b), 2026-10-08: <a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>, later. Found while
+          writing it: the "Use full photo instead" button already classifies the whole photo with the probe applied;
+          OPS-8 decides whether it becomes a checkbox.</td></tr>
+      <tr><td class="id">D11</td><td>What happens when photos are added later?</td>
+        <td>(a) Frozen assignments, new photos assigned on arrival. (b) Re-split everything.</td>
+        <td>(a), 2026-10-08: append-only. The pool draw tops up by the same count, also assigned on arrival.</td></tr>
+      <tr><td class="id">D12</td><td>How are the pool photos drawn?</td>
+        <td>(a) Proportional to folder size. (b) Equal per folder. (c) Equal per camera.</td>
+        <td>(a), 2026-10-08: as many as <code>segmenter_positives</code> holds (128), skipping photos already in it.</td></tr>
+      <tr><td class="id">D13</td><td>Split ratios?</td>
+        <td>70/15/15 or 60/15/25.</td>
+        <td>60/15/25 train/validation/test within each source, 2026-10-08. Byte-identical files and shots within 120 s form one group and never straddle two splits.</td></tr>
+      <tr><td class="id">D14</td><td>Who judges the masks?</td>
+        <td>(a) The Claude judge, as ML-2. (b) The owner.</td>
+        <td>(b), 2026-10-08: the owner accepts or declines every training and validation label and every test mask
+          (about 750 verdicts). Opus costs too much of the session limit and Sonnet is too sloppy. On a decline the
+          owner places points: hold <kbd>g</kbd> and left-click for an include point, <kbd>r</kbd> for an exclude
+          point; the mask is redrawn and judged again, up to 3 rounds; still declined means dropped, reason logged.
+          Negatives get empty labels. No Claude recheck and no planted-defect test of the judge; a Claude recheck
+          only if the metrics are bad, on the owner's call.</td></tr>
+      <tr><td class="id">D15</td><td>The fine-tune recipe?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: ML-2's decoder-only recipe, one seed (123; ML-2's three seeds were indistinguishable). Plus
+          point prompts in training: some batches add 1&ndash;3 points sampled from the error region of the box-only
+          prediction, the box always kept (SAM's method). Serving and checkpoint selection stay box-only.</td></tr>
+      <tr><td class="id">D16</td><td>Do all negatives and internet positives join, and how is the guard measured?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: all 142 negatives and 12 internet positives, split per D13 within each (batch, tag); the old
+          dev/holdout labels retire. The probe is fitted on training and validation negatives and measured on test
+          negatives and positives.</td></tr>
+      <tr><td class="id">D17</td><td>How are the changed decisions recorded?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: two new ADRs, one superseding ADR 0011 (XL0 without a comparison, owner-judged labels, and
+          why), one superseding ADR 0005 (D9, D16).</td></tr>
+      <tr><td class="id">D18</td><td>Which EfficientViT-SAM?</td>
+        <td>&mdash;</td>
+        <td>XL0 at 1024 px, the owner's decision, 2026-10-08, without a comparison against L0. No latency limit
+          (ML-2 D8 stands); its time per photo on the VM is measured before labelling.</td></tr>
+      <tr><td class="id">D19</td><td>How are the labels made?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08, two passes. <strong>Pass 1</strong>: <code>ft_s123</code> proposes round 1; a declined photo
+          is redrawn by pretrained L0 from the box plus the owner's points (ML-2 D25's path; <code>ft_s123</code> does
+          not follow points, §2). XL0 fine-tuned on these labels is XL0-v1; the owner judges its test masks.
+          <strong>Pass 2</strong>: XL0-v1 proposes; a point probe (replayed and simulated clicks against pass-1
+          accepts) decides whether XL0-v1 or pretrained XL0 redraws on a decline. The owner reviews every training
+          and validation photo again, dropped ones included; a pass-2 verdict replaces the pass-1 label. XL0 fine-tuned
+          again is XL0-v2; the owner judges its test masks. The review page encodes each photo once before a session,
+          so a click reruns only the decoder.</td></tr>
+      <tr><td class="id">D20</td><td>Which segmenter goes on, and what does the classifier report show?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: XL0-v2 by default; the owner picks after seeing v1 against v2 (test pass rate per source,
+          empty-or-tiny rate on test negatives). The classifier is retrained with seeds 42/123/7 and reported as ML-2
+          D24 printed it against the shipped model (per seed validation and test patch macro-F1, paired differences,
+          per-class F1), plus the D16 probe numbers. No numeric gate; the owner decides whether to ship.</td></tr>
+      <tr><td class="id">D21</td><td>The tiny-mask threshold?</td>
+        <td>&mdash;</td>
+        <td>2026-10-08: re-derived as ML-2 D18 did (half the smallest bean region on a genuine test photo), on the new
+          test split with the chosen segmenter's accepted masks; positives below the old and new values reported.</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The 2026-10-08 data is committed to DVC, pushed by explicit target, and every object verified on the remote.</span></li>
-    <li><span class="box"></span><span><code>dataset/segmenter_positives</code> exists with a manifest row for every photo and a README for its new role; nothing in code or docs still reads <code>dataset/ood_positives</code>, apart from history.</span></li>
-    <li><span class="box"></span><span>A new ADR supersedes ADR 0005, and the guard code follows it.</span></li>
-    <li><span class="box"></span><span>The new segmenter dataset is one committed file: every photo, its source, its split; no group straddles two splits; no test photo is in train or cal.</span></li>
-    <li><span class="box"></span><span>Every train and cal positive has a judge label or a logged drop reason; negatives have empty labels.</span></li>
-    <li><span class="box"></span><span>A segmenter fine-tuned on the new train split, checkpoint chosen on cal, scored on test.</span></li>
-    <li><span class="box"></span><span>The pools re-cropped with it and the classifier retrained; results reported to the owner, who decides whether to ship.</span></li>
+    <li><span class="box done"></span><span>The 2026-10-08 data is committed to DVC, pushed by explicit target, and every object verified on the remote.</span></li>
+    <li><span class="box"></span><span><code>dataset/segmenter_positives</code> exists with a manifest row for every photo and a README for its new role; nothing live still reads <code>dataset/ood_positives</code>.</span></li>
+    <li><span class="box"></span><span>Two ADRs supersede 0005 and 0011, and the guard code follows the new one.</span></li>
+    <li><span class="box"></span><span>The segmenter runs XL0 at 1024 px at training and serving; its time per photo on the VM is reported.</span></li>
+    <li><span class="box"></span><span>The segmenter dataset is one committed, append-only file: every photo, its source, split and group; no group straddles two splits.</span></li>
+    <li><span class="box"></span><span>The review page takes <kbd>g</kbd>/<kbd>r</kbd> point clicks and redraws the mask.</span></li>
+    <li><span class="box"></span><span>XL0-v1 and XL0-v2 fine-tuned, their test masks judged by the owner, and one chosen.</span></li>
+    <li><span class="box"></span><span>The tiny-mask threshold re-derived; the pools re-cropped; the classifier retrained and reported; the owner decides whether to ship.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
     <li>Deploying the new models: a release goes through <code>docs/agents/deploy.md</code> as its own step, on the owner's call.</li>
+    <li>The webapp's "segmentation off" checkbox (<a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>).</li>
     <li>Comparing the new segmenter with <code>ft_s123</code> on ML-2's lists (D5).</li>
+    <li>A Claude judge or recheck of the owner's verdicts, and planted-defect tests (D14).</li>
     <li>New photos for the pools (<a href="ticket_capture_gaps.html">ML-4</a>).</li>
   </ul>
 
@@ -181,10 +261,17 @@
       photos. The owner repurposes the folder. Ticket written from that conversation, ADRs 0002, 0005 and 0011, ML-2's
       lists and decisions, and the shipped probe, at <code>9619ec9</code>. D1&ndash;D6 decided by the owner; plan
       written with Q1&ndash;Q7 open. Not implemented.</div>
+    <div><div class="when">2026-10-08</div>P1 done (<code>62a4d3e</code>): the three folders committed to DVC, pushed
+      by target, 188 of 188 objects verified on the remote.</div>
+    <div><div class="when">2026-10-08</div>Design session with the owner: D7&ndash;D21 decided, answering the plan's
+      Q1&ndash;Q7. Claude checks the plan against EfficientViT-SAM's and SAM's published training recipes and measures
+      point-following on 63 accepted ML-2 masks: <code>ft_s123</code> does not follow points, which shapes D15 and
+      D19. Glossary updated (D7). OPS-8 written for the checkbox (D10). Plan rewritten: P1&ndash;P11.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
     (the segmenter, its lists and judge), <a href="ticket_country_classes.html">ML-3</a> (metadata stripping),
-    <a href="adr/0005-linear-probe-ood-guard.md">ADR 0005</a>, <a href="adr/0011-learned-bean-segmentation-stage.md">ADR 0011</a>,
-    <code>dataset/ood_positives.README.md</code>.</footer>
+    <a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>, <a href="adr/0005-linear-probe-ood-guard.md">ADR 0005</a>,
+    <a href="adr/0011-learned-bean-segmentation-stage.md">ADR 0011</a>, EfficientViT-SAM (arXiv 2402.05008), Segment
+    Anything (arXiv 2304.02643).</footer>
 </main>

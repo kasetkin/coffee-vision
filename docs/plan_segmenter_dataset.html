@@ -6,87 +6,78 @@
 <main>
   <div class="eyebrow">Plan · ML-5 · coffee-vision · implementation</div>
   <h1>Implementation plan: segmenter dataset from scratch</h1>
-  <p class="lede">The order of work for <a href="ticket_segmenter_dataset.html">ticket ML-5</a>. Three strands: the data
-    (commit, rename), the OOD guard's new ADR, and the segmenter-then-classifier rebuild. The data comes first because
-    everything reads it; the ADR can run beside the dataset work. The first step that changes a number is P6, the
-    fine-tune.</p>
+  <p class="lede">The order of work for <a href="ticket_segmenter_dataset.html">ticket ML-5</a>. Four strands: the
+    data (commit, rename), the two ADRs and the guard, the XL0 code and the review page, then two labelling and
+    fine-tune passes followed by the classifier. Code that the owner's labelling sessions need comes before them;
+    the first step that changes a number is P8, XL0-v1.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; P1 done; Q1&ndash;Q7 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); P1 done</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-08</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 and P2 can start; later phases wait on Q1&ndash;Q7</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
   <div class="callout info">
-    <p>Built from a read of the code at <code>9619ec9</code>, not from the ticket alone. Three things the ticket does
-      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q7 (§2).</p>
+    <p>Built from a read of the code at <code>9619ec9</code> and a measurement on 2026-10-08, not from the ticket
+      alone. Five things the ticket's first draft did not cover turned up; all are folded in below.</p>
     <ol>
       <li><b>ML-2's lists pin <code>dataset/ood_positives/...</code> paths and are append-only.</b>
-        <code>seg_lists build</code> refuses to move an entry, so after the rename it can no longer run on them. The
-        new dataset gets its own file under <code>labels/ml5/</code>; ML-2's file stays as history (P2, P4).</li>
-      <li><b>The <code>seg_*</code> DVC stages read ML-2's lists.</b> <code>seg_embed_cache</code>,
-        <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> are repointed at the new file in
-        P4&ndash;P6; the ML-2-only stages (<code>seg_predict_ml3_new</code>, the base-mask lists) are retired.</li>
-      <li><b>The guard code takes positives by path.</b> <code>fit_ood_probe --positives</code> and
-        <code>ood_eval --positives</code> are documented with <code>dataset/ood_positives</code>; they follow the new
-        ADR in P3, not the rename.</li>
+        <code>seg_lists build</code> refuses to move an entry, so it cannot run after the rename. The new dataset gets
+        its own file under <code>labels/ml5/</code>; ML-2's file stays as history (P2, P5).</li>
+      <li><b>The <code>seg_*</code> DVC stages read ML-2's lists</b>; they are repointed in P8, and the ML-2-only
+        stages (<code>seg_predict_ml3_new</code>, the base-mask lists) retired.</li>
+      <li><b>The guard code takes positives by path</b> and calibrates a threshold; P3 removes the calibration (D9).</li>
+      <li><b>L0 is wired in.</b> <code>seg_finetune.py</code> hard-codes the 512 frame (<code>FRAME</code>) and
+        <code>build_sam_l0</code>; <code>sam_loader</code> already lists <code>xl0</code> with its 1024 px input (P4).</li>
+      <li><b><code>ft_s123</code> does not follow point prompts</b> (ticket §2: 17&ndash;35% of accepted masks
+        reproduced from their own points, 35&ndash;48% empty). Hence pretrained L0 for pass-1 corrections and point
+        prompts in the XL0 fine-tune (D15, D19). The probe that measured it becomes a committed check (P6).</li>
     </ol>
   </div>
 
   <h2>1. Phase order and why</h2>
-  <p>P1 and P2 move and rename data without changing any model output. P3 is a decision written down. P4 and P5
-    build the dataset and its labels; nothing is trained until P6. P7 changes what the classifier sees.</p>
+  <p>P1&ndash;P3 move data and write decisions down without changing a model output. P4&ndash;P6 build what the
+    labelling sessions need; P5's dataset file is the first input to labels. P7&ndash;P10 are the two passes, each a
+    labelling session and a fine-tune. P11 changes what the classifier sees.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
     <tbody>
       <tr><td class="id">P1</td><td>Commit the 2026-10-08 data to DVC, push, verify</td><td>local</td><td>no</td></tr>
-      <tr><td class="id">P2</td><td>Rename <code>ood_positives</code> &rarr; <code>segmenter_positives</code>, manifest and README for the new role</td><td>local</td><td>no</td></tr>
-      <tr><td class="id">P3</td><td>New ADR superseding 0005; guard code follows it <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
-      <tr><td class="id">P4</td><td>Build the new segmenter dataset file: random draw and split</td><td>local</td><td>no: a list of photos</td></tr>
-      <tr><td class="id">P5</td><td>Judge labels for the new dataset <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels</td></tr>
-      <tr><td class="id">P6</td><td>Fine-tune the segmenter, choose on cal, score on test <span class="pill sm open">stop</span></td><td>VM</td><td>yes: the segmenter</td></tr>
-      <tr><td class="id">P7</td><td>Re-crop the pools, retrain the classifier, refit the probe, report <span class="pill sm open">stop</span></td><td>VM</td><td>yes: the classifier</td></tr>
+      <tr><td class="id">P2</td><td>Rename <code>ood_positives</code> &rarr; <code>segmenter_positives</code></td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>Two ADRs superseding 0005 and 0011; the guard code follows <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>XL0 at 1024 px in the segmenter code; its time per photo on the VM</td><td>local, VM</td><td>no: L0 outputs byte-identical</td></tr>
+      <tr><td class="id">P5</td><td>The segmenter dataset file: pool draw and split</td><td>local</td><td>no: a list of photos</td></tr>
+      <tr><td class="id">P6</td><td>Review page: <kbd>g</kbd>/<kbd>r</kbd> points, redraw, pre-encoding; the point probe</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P7</td><td>Pass 1 labels <span class="pill sm open">stop</span></td><td>owner</td><td>no: labels</td></tr>
+      <tr><td class="id">P8</td><td>XL0-v1: fine-tune with point prompts; test masks; point probe <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the segmenter</td></tr>
+      <tr><td class="id">P9</td><td>Pass 2 labels <span class="pill sm open">stop</span></td><td>owner</td><td>no: labels</td></tr>
+      <tr><td class="id">P10</td><td>XL0-v2; test masks; v1 against v2; tiny-mask threshold <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the segmenter</td></tr>
+      <tr><td class="id">P11</td><td>Re-crop the pools, retrain the classifier, fit the probe, report <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the classifier</td></tr>
     </tbody>
   </table></div>
 
   <h2>2. Questions for the owner</h2>
-  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
-    assumes until it is answered.</p>
+  <p>All answered in the design session of 2026-10-08; each answer is a D-number in the ticket.</p>
   <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <thead><tr><th>ID</th><th>Question</th><th>Answer</th><th>Blocks</th></tr></thead>
     <tbody>
-      <tr><td class="id">Q1</td><td>How are the random main-dataset photos drawn? The 1,248 photos are uneven across
-          folders (20 to 180 each) and cameras.</td>
-        <td><span class="pill sm open">Open</span> As many as <code>segmenter_positives</code> holds (128), stratified
-          by folder in proportion to its size, at a new seed, skipping any photo already in
-          <code>segmenter_positives</code>. Proportional keeps the classifier's own mix; skipping copies keeps the
-          count honest.</td><td>P4</td></tr>
-      <tr><td class="id">Q2</td><td>The split ratios, and what "cal" does.</td>
-        <td><span class="pill sm open">Open</span> 70/15/15 train/cal/test within each source, at a new
-          <code>seg_split_seed</code>. Cal only chooses the fine-tune checkpoint (as ML-2's <code>seg_val</code>).
-          Byte-identical files and shots within 120 s of each other form one group and move together.</td><td>P4</td></tr>
-      <tr><td class="id">Q3</td><td>Do all 142 OOD negatives join, holdout included, and all 12 internet positives?
-          Their dev/holdout split existed for the guard.</td>
-        <td><span class="pill sm open">Open</span> Yes, all, re-split by Q2 within each (batch, tag). The guard
-          holdout's role ends with ADR 0005; Q5 says what measures the guard instead.</td><td>P4, P3</td></tr>
+      <tr><td class="id">Q1</td><td>How are the random pool photos drawn?</td>
+        <td><span class="pill sm ok">Answered</span> Proportional to folder size, 128, skipping photos already in <code>segmenter_positives</code> (D12).</td><td>P5</td></tr>
+      <tr><td class="id">Q2</td><td>The split ratios, and what the middle split does.</td>
+        <td><span class="pill sm ok">Answered</span> 60/15/25 train/validation/test within each source; validation only chooses the checkpoint (D8, D13).</td><td>P5</td></tr>
+      <tr><td class="id">Q3</td><td>Do all OOD negatives and internet positives join?</td>
+        <td><span class="pill sm ok">Answered</span> Yes, all, holdouts included (D16).</td><td>P3, P5</td></tr>
       <tr><td class="id">Q4</td><td>How is the segmenter's test split scored?</td>
-        <td><span class="pill sm open">Open</span> As ML-2 did: the judge's verdict on each test mask under the D13
-          rule (pass rate), plus the share of test negatives whose mask is empty or tiny. Test masks are judged, never
-          used to train.</td><td>P5, P6</td></tr>
-      <tr><td class="id">Q5</td><td>How is OOD defined and measured in the new ADR?</td>
-        <td><span class="pill sm open">Open</span> The guard stays a linear probe with a fixed 0.5 threshold, set by
-          the owner, not calibrated. Fitted on classifier-train bean patches against the train-split negatives;
-          measured, not gated, on the segmenter test split: negatives caught, and positives refused, reported
-          separately for photos the classifier trained on and photos it did not.</td><td>P3, P7</td></tr>
+        <td><span class="pill sm ok">Answered</span> The owner judges every test mask; plus the empty-or-tiny rate on test negatives (D14).</td><td>P8, P10</td></tr>
+      <tr><td class="id">Q5</td><td>How is OOD defined and measured?</td>
+        <td><span class="pill sm ok">Answered</span> The probe at a fixed 0.5 after every classification; fitted on training and validation negatives, measured on test (D9, D16).</td><td>P3, P11</td></tr>
       <tr><td class="id">Q6</td><td>Does the fine-tune recipe change?</td>
-        <td><span class="pill sm open">Open</span> No: ML-2's decoder-only fine-tune (D7), seeds 42/123/7, so only the
-          data differs.</td><td>P6</td></tr>
-      <tr><td class="id">Q7</td><td>What does the classifier report show before a ship decision?</td>
-        <td><span class="pill sm open">Open</span> ML-2 D24's printout against the shipped model: per seed, val and
-          test patch macro-F1, the paired differences and per-class F1; plus the Q5 guard numbers. No numeric gate.</td><td>P7</td></tr>
+        <td><span class="pill sm ok">Answered</span> ML-2's recipe, seed 123 only, XL0, plus point prompts in training (D15, D18).</td><td>P8</td></tr>
+      <tr><td class="id">Q7</td><td>What does the classifier report show?</td>
+        <td><span class="pill sm ok">Answered</span> ML-2 D24's printout, seeds 42/123/7, plus the probe numbers; no gate (D20).</td><td>P11</td></tr>
     </tbody>
   </table></div>
 
@@ -110,80 +101,140 @@
   <p>The folder's content hash does not change, so nothing is re-uploaded.</p>
   <ol class="tasks">
     <li><span class="box"></span><span><code>dvc mv dataset/ood_positives dataset/segmenter_positives</code>; rename the manifest and README beside it.</span></li>
-    <li><span class="box"></span><span>Manifest: a row for each of the 128 photos, with a column naming the source of each copy (the photo it duplicates), and the dev/holdout and scenario columns dropped as meaningless.</span></li>
+    <li><span class="box"></span><span>Manifest: a row for each of the 128 photos, with a column naming the photo each copy duplicates; the dev/holdout and scenario columns dropped.</span></li>
     <li><span class="box"></span><span>README rewritten for the new role (D1); the old provenance sections kept as history.</span></li>
-    <li><span class="box"></span><span>References: <code>coffeecv/seg_lists.py</code> (<code>POSITIVE_DIRS</code>), <code>coffeecv/coverage_report.py</code>, <code>README.md</code>, <code>GLOSSARY.md</code> if it names the folder. ML-2's <code>photo_lists.yaml</code> stays unchanged; <code>seg_lists check</code> is retired from <code>scripts/check.sh</code> with ML-2's lists.</span></li>
-    <li><span class="box"></span><span>Checks: <code>grep -rn ood_positives</code> outside history (tickets, plans, ADRs, ML-2 labels, shipped probe files) finds nothing; <code>scripts/check.sh</code> passes.</span></li>
+    <li><span class="box"></span><span>References: <code>coffeecv/seg_lists.py</code> (<code>POSITIVE_DIRS</code>), <code>coffeecv/coverage_report.py</code>, <code>README.md</code>. ML-2's <code>photo_lists.yaml</code> stays unchanged; <code>seg_lists check</code> is retired from <code>scripts/check.sh</code> with ML-2's lists.</span></li>
+    <li><span class="box"></span><span>Checks: <code>grep -rn ood_positives</code> outside history (tickets, plans, ADRs, <code>labels/ml2/</code>, shipped probe files) finds nothing; the <code>.dir</code> hash is unchanged by the move; <code>scripts/check.sh</code> passes.</span></li>
   </ol>
 
-  <h2>5. P3 &mdash; ADR superseding ADR 0005 <span class="pill sm open">stop</span></h2>
+  <h2>5. P3 &mdash; Two ADRs; the guard follows <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">Q3, Q5</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Write <code>docs/adr/0015-*.md</code> from the Q5 answer, naming ML-5 D2; mark ADR 0005 superseded and link the new one.</span></li>
-    <li><span class="box"></span><span><code>fit_ood_probe</code>: the threshold is fixed, not calibrated; <code>--positives</code> and the conformal path go. <code>ood_eval</code>: measures as the ADR says.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: approve the ADR text.</span></li>
+    <li><span class="box"></span><span>ADR superseding 0011 (D17): the stage with XL0 at 1024 px, adopted without a comparison (D18); labels judged by the owner, and why (D14); fine-tuned on box and point prompts (D15). ADR 0011 marked superseded.</span></li>
+    <li><span class="box"></span><span>ADR superseding 0005 (D17): the probe at a fixed 0.5 after every classification, crop or whole frame (D9); fitted on training and validation negatives, measured on the segmenter test split (D16). ADR 0005 marked superseded.</span></li>
+    <li><span class="box"></span><span><code>fit_ood_probe</code>: the threshold is the fixed 0.5; the conformal path and <code>--positives</code> calibration go. <code>ood_eval</code>: reports negatives caught and positives refused on the test split, split by whether the classifier trained on the photo.</span></li>
+    <li><span class="box"></span><span>Checks: the serving path runs the probe on the fallback whole frame as well as on the crop (a test); <code>python -m coffeecv.ticket_check</code> passes.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: approve both ADR texts.</span></li>
   </ol>
 
-  <h2>6. P4 &mdash; Build the new segmenter dataset</h2>
+  <h2>6. P4 &mdash; XL0 at 1024 px</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1, Q2, Q3</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>A builder writes <code>labels/ml5/seg_dataset.yaml</code>: every photo's path, sha256, source (<code>segmenter_positives</code>, main dataset, negative batch, internet), split and group. Seeds and ratios in <code>params.yaml</code>.</span></li>
-    <li><span class="box"></span><span>The random main-dataset draw per Q1; the split per Q2 within each source; groups per Q2.</span></li>
-    <li><span class="box"></span><span>Checks, as tests: no group in two splits; no test sha256 in train or cal; every photo exists and is stripped; per-source counts printed for the owner.</span></li>
+    <li><span class="box"></span><span><code>sam_loader</code>, <code>segment_beans</code>: build any variant from <code>seg_weights</code> and its <code>variant</code>; no L0-only builder in the callers.</span></li>
+    <li><span class="box"></span><span><code>seg_finetune</code>: the frame follows the variant (512 for L, 1024 for XL); labels cached in that frame.</span></li>
+    <li><span class="box"></span><span>On the VM at the pinned 4 threads: XL0's encoder and decoder time per photo, and the cache's size and build time for ~410 photos &times; 4 views. Reported, no limit (D18).</span></li>
+    <li><span class="box"></span><span>Checks: with L0 configured, <code>seg_predict</code> masks and crops are byte-identical to before.</span></li>
   </ol>
 
-  <h2>7. P5 &mdash; Judge labels <span class="pill sm open">stop</span></h2>
+  <h2>7. P5 &mdash; Build the segmenter dataset</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q4</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>seg_labels</code> reads the new file: train and cal positives through the three-round judge loop, negatives get empty labels, test masks judged per Q4. Verdicts to <code>labels/ml5/verdicts.jsonl</code>; ML-2 verdicts reused where the mask hash matches.</span></li>
-    <li><span class="box"></span><span>Report yield by round and drop reasons, per source.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: audit a sample of verdicts (ADR 0011).</span></li>
+    <li><span class="box"></span><span>A builder writes <code>labels/ml5/seg_dataset.yaml</code>: every photo's path, sha256, source (segmenter positive, pool photo, negative batch and tag, internet positive), split and group. Seeds and ratios in <code>params.yaml</code>.</span></li>
+    <li><span class="box"></span><span>The pool draw per D12; the split per D13 within each source; groups of byte-identical files and shots within 120 s.</span></li>
+    <li><span class="box"></span><span>Append-only (D11): a rebuild refuses to move or drop an entry; new photos are assigned on arrival, and the pool draw tops up by the same count.</span></li>
+    <li><span class="box"></span><span>Checks, as tests: no group in two splits; no test sha256 in training or validation; every photo exists; per-source and per-split counts printed.</span></li>
   </ol>
 
-  <h2>8. P6 &mdash; Fine-tune the segmenter <span class="pill sm open">stop</span></h2>
+  <h2>8. P6 &mdash; Review page with points; the point probe</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q6</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P5</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Repoint <code>seg_embed_cache</code>, <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> at the new file; retire the ML-2-only stages.</span></li>
-    <li><span class="box"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune per Q6, choose each seed's checkpoint on cal, score test per Q4.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: pick the seed to carry into P7.</span></li>
+    <li><span class="box"></span><span><code>review_masks</code>: hold <kbd>g</kbd> + left-click adds an include point (green), <kbd>r</kbd> + left-click an exclude point (red); a plain click still opens the spot at full resolution. Undo the last point; redraw on demand.</span></li>
+    <li><span class="box"></span><span>Labelling mode over the dataset file: round 1 shows the proposer's mask; a decline asks for points; the redraw model draws from the box plus all points so far; up to 3 rounds; still declined means dropped, reason logged. Proposer and redraw model are arguments (pass 1: <code>ft_s123</code> and pretrained L0, D19). Negatives are never shown; their labels are empty.</span></li>
+    <li><span class="box"></span><span>Each photo's embedding is computed once before the session for the redraw model, so a click reruns only the decoder.</span></li>
+    <li><span class="box"></span><span>Verdicts, points and masks stored as ML-2 D16 stored them: verdicts and points in git (<code>labels/ml5/</code>), masks DVC-tracked.</span></li>
+    <li><span class="box"></span><span>The point probe as <code>coffeecv/seg_point_probe.py</code>: for a model and a set of accepted masks with their points, replay the points and simulate 3 corrective clicks at the largest error; print IoU &ge; 0.9 and empty shares per click. Reproduces the 2026-10-08 <code>ft_s123</code> numbers on ML-2's masks.</span></li>
+    <li><span class="box"></span><span>Checks: a smoke run of the page on 3 photos, points included; the probe's numbers on <code>ft_s123</code> match the ticket's.</span></li>
   </ol>
 
-  <h2>9. P7 &mdash; Re-crop and retrain the classifier <span class="pill sm open">stop</span></h2>
+  <h2>9. P7 &mdash; Pass 1 labels <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6, Q7</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Point <code>seg_weights</code> at the chosen segmenter; re-run every <code>segcrop</code> and <code>merge_segcam_*</code> stage on the VM.</span></li>
-    <li><span class="box"></span><span>Retrain the classifier (seeds 42/123/7) as a recorded run (<code>docs/agents/experiments.md</code>); fit its probe per the new ADR.</span></li>
-    <li><span class="box"></span><span>Report per Q7.</span></li>
+    <li><span class="box"></span><span>Proposals from <code>ft_s123</code> for every training and validation positive; redraws by pretrained L0 (D19).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge every training and validation positive, with points on declines.</span></li>
+    <li><span class="box"></span><span>Report: accepted by round, dropped and why, per source.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; XL0-v1 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Repoint <code>seg_embed_cache</code>, <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> at the dataset file; retire the ML-2-only stages.</span></li>
+    <li><span class="box"></span><span>Point prompts in training (D15): some batches add 1&ndash;3 points sampled from the error region of the box-only prediction, the box kept; the share is a param. Checkpoint selection stays box-only.</span></li>
+    <li><span class="box"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune XL0, seed 123, checkpoint on validation; predict the test split.</span></li>
+    <li><span class="box"></span><span>Point probe on XL0-v1 against the pass-1 accepts with points: decides the pass-2 redraw model (D19).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge every XL0-v1 test mask. Report the pass rate per source and the empty-or-tiny rate on test negatives.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; Pass 2 labels <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Proposals from XL0-v1; redraws by XL0-v1 if the P8 probe shows it follows points, else pretrained XL0.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: review every training and validation positive again, pass-1 drops included; a pass-2 verdict replaces the pass-1 label.</span></li>
+    <li><span class="box"></span><span>Report as P7, plus how many labels changed from pass 1.</span></li>
+  </ol>
+
+  <h2>12. P10 &mdash; XL0-v2 and the choice <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P9</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Fine-tune XL0 again on the pass-2 labels, as P8; predict the test split.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge every XL0-v2 test mask, then pick v1 or v2 (default v2) from the side-by-side report (D20).</span></li>
+    <li><span class="box"></span><span>Re-derive <code>seg_min_area_frac</code> from the chosen model's accepted test masks (D21); report the test positives below the old and new values.</span></li>
+  </ol>
+
+  <h2>13. P11 &mdash; Re-crop and retrain the classifier <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P10</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Point <code>seg_weights</code>, <code>seg_decoder</code> and <code>seg_min_area_frac</code> at the chosen segmenter; re-run every <code>segcrop</code> and <code>merge_segcam_*</code> stage on the VM.</span></li>
+    <li><span class="box"></span><span>Retrain the classifier, seeds 42/123/7, as a recorded run (<code>docs/agents/experiments.md</code>); fit its probe per the new ADR.</span></li>
+    <li><span class="box"></span><span>Report per D20.</span></li>
     <li><span class="box"></span><span>Stop for the owner: ship or not. A release is a separate deploy step.</span></li>
   </ol>
 
-  <h2>10. Verification</h2>
+  <h2>14. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: every object of the three new listings is on the remote.</span></li>
     <li><span class="box"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
-    <li><span class="box"></span><span>P4: the split tests pass.</span></li>
-    <li><span class="box"></span><span>P6, P7: <code>outputs/config.json</code> holds the intended values after each run (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>P4: L0 outputs byte-identical after the variant change.</span></li>
+    <li><span class="box"></span><span>P5: the split tests pass.</span></li>
+    <li><span class="box"></span><span>P6: the point probe reproduces the 2026-10-08 <code>ft_s123</code> numbers.</span></li>
+    <li><span class="box"></span><span>P8, P10, P11: <code>outputs/config.json</code> holds the intended values after each run (<code>docs/agents/dvc.md</code>).</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
   <ul>
-    <li>Everything in the ticket's "Out of scope". Changes to the judge's prompt or acceptance rule.</li>
+    <li>Everything in the ticket's "Out of scope". Changes to the acceptance rule.</li>
+    <li>Minor points from the 2026-10-08 recipe check, left out on purpose: feeding the previous mask's logits back on
+      a redraw (tested: not clearly better than plain pretrained L0); training the lowest-loss output as SAM does
+      (ours trains the output serving keeps); a learning rate below 1e-4 (try 1e-5 first if XL0's validation curve is
+      noisy); colour augmentation (cached embeddings allow flips only); IoU against reference masks on test (the owner's
+      verdicts are pass/fail); encoder adapters (ML-2 D7's fallback).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -192,8 +243,12 @@
       plan. Three findings not in the ticket; Q1&ndash;Q7 open for the owner. Not implemented.</div>
     <div><div class="when">2026-10-08</div>P1 done (<code>62a4d3e</code>): the three folders committed to DVC,
       pushed by target, 188 of 188 objects verified on the remote.</div>
+    <div><div class="when">2026-10-08</div>Rewritten after the owner's design session: Q1&ndash;Q7 answered (ticket
+      D7&ndash;D21); XL0, owner-judged labels in two passes, and the point probe added; P3&ndash;P11 replace the first
+      draft's P3&ndash;P7. Two more findings (L0 wired in; <code>ft_s123</code> ignores points).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
-    <code>coffeecv/seg_lists.py</code>, <code>coffeecv/seg_labels.py</code>, <code>coffeecv/fit_ood_probe.py</code>.</footer>
+    <a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>, <code>coffeecv/seg_finetune.py</code>,
+    <code>coffeecv/review_masks.py</code>, <code>coffeecv/fit_ood_probe.py</code>.</footer>
 </main>

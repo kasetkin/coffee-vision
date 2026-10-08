@@ -27,10 +27,21 @@ _Avoid_: Lot
 A photo with no bean region in it. A **pile-like negative** shows a pile of something bean-like that is not coffee beans (other seeds, grains, legumes, ground coffee, coffee cherries).
 _Avoid_: Background photo, junk photo
 
+**Positive**:
+A photo with at least one bean region in it; the counterpart of a negative.
+
+**Pool photo**:
+A photo in one of the classifier's training pools, labelled with its country.
+_Avoid_: Main dataset
+
+**Segmenter positive**:
+A positive the owner chose for the segmenter because its setup differs from the pools (framing, container, distance).
+_Avoid_: OOD positive
+
 ## Mask quality
 
 **Judge**:
-The Claude model that looks at a proposed bean-region mask and gives a verdict, pass or fail, plus corrective points on a fail.
+Whoever gives a verdict, pass or fail, on a proposed bean-region mask: the owner, or a Claude model.
 _Avoid_: Reviewer, grader
 
 **Base mask**:
