@@ -212,6 +212,9 @@ class RunConfig:
     # Ticket ML-5 P5 (D11-D13): the segmenter dataset's pool-draw and split seed and its split shares, a
     # block read and checked only by coffeecv/seg_dataset.py (Params). No training run reads it.
     seg_dataset: dict = field(default_factory=dict)
+    # Ticket ML-5 P6/P10 (D22): the seed that draws, per photo, which side of the blind paired review shows which
+    # model's mask (coffeecv/seg_review.py paired). No training run reads it.
+    seg_paired_seed: int = 0
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":

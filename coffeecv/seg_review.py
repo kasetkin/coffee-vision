@@ -1,0 +1,929 @@
+"""The owner's ML-5 review page (ticket ML-5 P6; D14, D19, D22, D23): labelling sessions over the segmenter
+dataset with g/r point corrections, and the blind paired mode for P10.
+
+Labelling (P7, P9):
+
+    python -m coffeecv.seg_review label --session pass1 --proposer ft_s123 --redraw pretrained_l0
+    python -m coffeecv.seg_review status --session pass1      # labels.csv and the report: by round, drops, per source
+
+then open http://localhost:8765 (VS Code forwards the port; else --host 0.0.0.0 and the container's IP, as
+review_masks says). `label` first prepares what the session needs, resumably: the proposer's round-1 mask of
+every training and validation positive (whole-image box, params.yaml seg_mask_select), the empty label of
+every training and validation negative (never shown, D14), and each positive's encoding by the redraw model,
+stored once, so that a redraw reruns only the decoder (D19). The proposer and the redraw model are arguments
+(pass 1: ft_s123 and pretrained L0, D19), recorded in the session file; a resume with other models is refused.
+
+On the page: A accepts the mask; D (or 1-5, with a reason) declines it. After a decline, hold g and left-click
+for an include point (green), r and left-click for an exclude point (red); U or Backspace undoes the last
+point; Enter redraws: the redraw model draws the whole-image box plus every point so far through the multi3
+output (D23), and that mask is the next round's, judged again. Until it is judged, more points and another
+Enter replace it. A plain click opens the spot at full resolution; Space toggles the outline. A photo still
+declined in round 3 is dropped, the reason logged (D14).
+
+Blind paired (P10, D22):
+
+    python -m coffeecv.seg_review paired --session p10_test --masks data/seg_masks/<v1> data/seg_masks/<v2>
+
+Each test positive's two masks side by side, left and right drawn at random per photo from params.yaml
+seg_paired_seed (or --seed), the model names hidden until every mask is judged; identical masks are judged
+once. A/D judge the left mask, J/L the right one.
+
+Storage, as ML-2 D16: verdicts and their points in git, masks DVC-tracked (`dvc add data/ml5_labels/<session>`
+when the session is done).
+    labels/ml5/<session>.session.json        the session's models and outputs
+    labels/ml5/<session>.verdicts.jsonl      one row per click: round, mask sha256, the points that drew it
+    data/ml5_labels/<session>/r<k>/<id>.png  round k's masks (1-bit) + index.csv with their points and models
+    data/ml5_labels/<session>/neg/<id>.png   the empty labels of the negatives
+    data/ml5_labels/<session>/labels.csv     one row per photo (`status`): accepted, dropped or pending
+    labels/ml5/<session>.paired.jsonl        the paired mode's verdicts, side and model per mask
+    outputs/ml5_embeddings/                  the stored encodings (not tracked; recomputable)
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import html
+import json
+import threading
+import time
+import zlib
+from collections import Counter, OrderedDict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, NamedTuple
+
+import numpy as np
+import torch
+from flask import Flask, abort, jsonify, redirect, request, send_file
+from PIL import Image
+
+from coffeecv.config import REPO_ROOT, RunConfig
+from coffeecv.dataset import load_rgb_image
+from coffeecv.review_masks import REASONS, RULE_FILE, jpeg, view_image, zoom_tile
+from coffeecv.seg_dataset import load_seg_dataset, sha256_file
+from coffeecv.segment_beans import BeanSegmenter, mask_sha256, named_params
+
+LABELS_DIR = REPO_ROOT / "labels" / "ml5"
+MASK_ROOT = REPO_ROOT / "data" / "ml5_labels"
+EMBED_ROOT = REPO_ROOT / "outputs" / "ml5_embeddings"
+ROUNDS = (1, 2, 3)
+REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of seg_labels.CORRECTION_OUTPUT's single
+LABEL_SPLITS = ("train", "validation")
+THREADS = 4                  # pinned, like seg_labels: the thread count changes mask bits
+INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
+                "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
+LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
+                "include", "exclude", "reason"]
+
+
+def item_id(path: str) -> str:
+    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix."""
+    parts = Path(path).with_suffix("").parts
+    if "dataset" in parts:
+        parts = parts[len(parts) - parts[::-1].index("dataset"):]
+    return "__".join(parts)
+
+
+def _rel(path: Path) -> str:
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+
+
+def _append_jsonl(path: Path, row: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def _save_mask(mask: np.ndarray, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(mask).convert("1").save(path)
+
+
+# ---------------------------------------------------------------- the loop (pure)
+
+class State(NamedTuple):
+    status: str            # pending | judge | points | accepted | dropped
+    round: int             # the round whose mask the page shows (0 = none yet)
+    reason: str | None
+
+
+def progress(masks: dict[int, str], verdicts: dict[int, dict]) -> State:
+    """Where a photo is in the loop (D14). `masks` {round: mask sha256}; `verdicts` {round: the last verdict on
+    that round's current mask}.
+
+    judge k     round k's mask waits for a verdict
+    points k    round k was declined: place points and redraw round k + 1
+    accepted k  round k's mask is the label
+    dropped 3   declined in round 3
+    pending 0   no round-1 mask yet (not prepared)
+    """
+    if 1 not in masks:
+        return State("pending", 0, None)
+    for k in ROUNDS:
+        if k not in masks:
+            prev = verdicts[k - 1]
+            return State("points", k - 1, prev.get("reason"))
+        vk = verdicts.get(k)
+        if vk is None:
+            return State("judge", k, None)
+        if vk["decision"] == "accept":
+            return State("accepted", k, None)
+    why = verdicts[ROUNDS[-1]].get("reason")
+    return State("dropped", ROUNDS[-1], f"declined in round {ROUNDS[-1]}" + (f": {why}" if why else ""))
+
+
+# ---------------------------------------------------------------- the models at the session's boundary
+
+class SegDrawer:
+    """A segmenter as the session uses it: `propose` (round 1, the serving prompt), and for the redraw model
+    `prepare` (encode once and store) and `redraw` (the stored encoding, the box plus points, multi3: D23)."""
+
+    def __init__(self, name: str, embed_root: Path = EMBED_ROOT, mask_select: str | None = None):
+        self.name = name
+        self.seg = BeanSegmenter(named_params(name, mask_select or RunConfig.from_params_yaml().seg_mask_select))
+        self.embed_dir = embed_root / self.seg.weights_sha256[:16]
+        self._loaded: OrderedDict[str, dict] = OrderedDict()
+
+    @property
+    def propose_output(self) -> str:
+        return self.seg.p.mask_select
+
+    def info(self) -> dict:
+        return {"model": self.name, "weights_sha256": self.seg.weights_sha256,
+                "decoder_sha256": self.seg.decoder_sha256 or ""}
+
+    def propose(self, rgb: np.ndarray) -> tuple[np.ndarray, float]:
+        return self.seg.predict_mask(rgb), self.seg.pred_iou
+
+    def _file(self, item: dict) -> Path:
+        return self.embed_dir / f"{item['sha256']}.pt"
+
+    def prepare(self, item: dict, rgb: np.ndarray) -> None:
+        """Encode the photo once and store it; a write cut short leaves no file under the final name."""
+        f = self._file(item)
+        if not f.exists():
+            self.embed_dir.mkdir(parents=True, exist_ok=True)
+            torch.save(self.seg.encode(rgb), f.with_suffix(".part"))
+            f.with_suffix(".part").rename(f)
+
+    def needs(self, item: dict) -> bool:
+        return not self._file(item).exists()
+
+    def redraw(self, item: dict, include: list, exclude: list) -> tuple[np.ndarray, float]:
+        sha = item["sha256"]
+        if sha not in self._loaded:
+            self._loaded[sha] = torch.load(self._file(item), weights_only=True)
+            while len(self._loaded) > 3:
+                self._loaded.popitem(last=False)
+        self.seg.set_encoding(self._loaded[sha])
+        return self.seg.decode_points(include, exclude, REDRAW_OUTPUT)
+
+
+# ---------------------------------------------------------------- a labelling session's files
+
+class LabelSession:
+    """A labelling session's photos, masks and verdicts. `entries` are the dataset file's photos; the session
+    covers its training and validation ones. `models` ({"proposer": name, "redraw": name}) is written to the
+    session file on first use and must match it after."""
+
+    def __init__(self, name: str, entries: list[dict], models: dict | None, labels_dir: Path = LABELS_DIR,
+                 mask_root: Path = MASK_ROOT):
+        """`models` None reads them from the session file (a session already started)."""
+        self.name = name
+        mine = [{**e, "id": item_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
+        self.items = [e for e in mine if e["source"] != "negative"]
+        self.negatives = [e for e in mine if e["source"] == "negative"]
+        self.meta_path = labels_dir / f"{name}.session.json"
+        self.verdicts_path = labels_dir / f"{name}.verdicts.jsonl"
+        self.mask_dir = mask_root / name
+        if models is None:
+            if not self.meta_path.exists():
+                raise ValueError(f"no session {name}: {_rel(self.meta_path)} does not exist")
+            models = json.loads(self.meta_path.read_text())
+        meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
+                "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS)}
+        if self.meta_path.exists():
+            old = json.loads(self.meta_path.read_text())
+            diff = [k for k in meta if old.get(k) != meta[k]]
+            if diff:
+                raise ValueError(f"session {name} was started with " +
+                                 ", ".join(f"{k} {old.get(k)!r}" for k in diff) + f", not {models}")
+        else:
+            labels_dir.mkdir(parents=True, exist_ok=True)
+            self.meta_path.write_text(json.dumps({**meta, "created": _now()}, indent=2) + "\n")
+        self._cache: dict[int, tuple] = {}
+
+    # masks per round
+    def mask_path(self, item: dict, k: int) -> Path:
+        return self.mask_dir / f"r{k}" / f"{item['id']}.png"
+
+    def _idx(self, k: int) -> dict[str, dict]:
+        """Round k's index.csv, re-read when the file changes (several servers or sessions may share it)."""
+        f = self.mask_dir / f"r{k}" / "index.csv"
+        stamp = (f.stat().st_mtime_ns, f.stat().st_size) if f.exists() else None
+        if k not in self._cache or self._cache[k][0] != stamp:
+            rows = {r["id"]: r for r in csv.DictReader(f.read_text().splitlines())} if stamp else {}
+            self._cache[k] = (stamp, rows)
+        return self._cache[k][1]
+
+    def _put(self, k: int, item: dict, mask: np.ndarray, iou: float, inc: list, exc: list, info: dict,
+             output: str) -> None:
+        _save_mask(mask, self.mask_path(item, k))
+        index = dict(self._idx(k))
+        index[item["id"]] = {
+            "id": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "mask_sha256": mask_sha256(mask),
+            "height": mask.shape[0], "width": mask.shape[1], "area_frac": f"{mask.mean():.4f}",
+            "pred_iou": f"{iou:.4f}", "include": json.dumps(inc), "exclude": json.dumps(exc), "model": info["model"],
+            "output": output, "threads": torch.get_num_threads(), "weights_sha256": info["weights_sha256"],
+            "decoder_sha256": info["decoder_sha256"]}
+        f = self.mask_dir / f"r{k}" / "index.csv"
+        with open(f, "w", newline="") as out:
+            wr = csv.DictWriter(out, fieldnames=INDEX_FIELDS)
+            wr.writeheader()
+            wr.writerows(index[i] for i in sorted(index))
+        self._cache[k] = ((f.stat().st_mtime_ns, f.stat().st_size), index)
+
+    def row(self, item: dict, k: int) -> dict | None:
+        return self._idx(k).get(item["id"])
+
+    def points(self, item: dict, k: int) -> dict:
+        r = self.row(item, k)
+        return {"include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])} if r else \
+            {"include": [], "exclude": []}
+
+    # verdicts
+    def verdicts(self) -> dict[tuple[str, int], dict]:
+        """{(item, round): the last verdict on that round's current mask}."""
+        out = {}
+        for r in _read_jsonl(self.verdicts_path):
+            cur = self._idx(r["round"]).get(r["item"])
+            if cur and cur["mask_sha256"] == r["mask_sha256"]:
+                out[(r["item"], r["round"])] = r
+        return out
+
+    def state(self, item: dict, verdicts: dict | None = None) -> State:
+        verdicts = self.verdicts() if verdicts is None else verdicts
+        masks = {k: self._idx(k)[item["id"]]["mask_sha256"] for k in ROUNDS if item["id"] in self._idx(k)}
+        return progress(masks, {k: verdicts[(item["id"], k)] for k in ROUNDS if (item["id"], k) in verdicts})
+
+    def decide(self, item: dict, decision: str, reason: str | None, reviewer: str) -> State:
+        st = self.state(item)
+        if st.status == "pending":
+            raise _Refused(409, "no mask to judge yet")
+        cur = self.row(item, st.round)
+        _append_jsonl(self.verdicts_path, {
+            "item": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "source": item["source"],
+            "split": item["split"], "round": st.round, "mask_sha256": cur["mask_sha256"], "model": cur["model"],
+            "output": cur["output"], **self.points(item, st.round), "decision": decision,
+            "reason": None if decision == "accept" else reason, "reviewer": reviewer, "via": "seg_review",
+            "ts": _now()})
+        return self.state(item)
+
+    def redraw(self, item: dict, include: list, exclude: list, drawer) -> State:
+        """The next round's mask from the box plus `include`/`exclude` (every point so far), after a decline;
+        or a replacement of that mask while it is not judged."""
+        st = self.state(item)
+        if st.status == "points":
+            k, base = st.round + 1, st.round
+        elif st.status == "judge" and st.round > 1:
+            k, base = st.round, st.round
+        else:
+            raise _Refused(409, f"{st.status} in round {st.round}: decline the mask before redrawing")
+        if not include and not exclude:
+            raise _Refused(400, "no point")
+        if {"include": include, "exclude": exclude} == self.points(item, base):
+            raise _Refused(400, "no new point since this mask was drawn")
+        mask, iou = drawer.redraw(item, include, exclude)
+        self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT)
+        return self.state(item)
+
+    # before the session
+    def prepare(self, proposer, redrawer, log: Callable[[str], None] = lambda s: None) -> None:
+        """Round-1 masks by `proposer`, encodings by `redrawer`, the negatives' empty labels; resumable."""
+        out_neg = self.mask_dir / "neg"
+        todo = [it for it in self.items if it["id"] not in self._idx(1) or redrawer.needs(it)]
+        negs = [e for e in self.negatives if not (out_neg / f"{e['id']}.png").exists()]
+        t0 = time.perf_counter()
+        for n, it in enumerate(todo, 1):
+            rgb = self._photo(it)
+            if it["id"] not in self._idx(1):
+                mask, iou = proposer.propose(rgb)
+                self._put(1, it, mask, iou, [], [], proposer.info(), proposer.propose_output)
+            redrawer.prepare(it, rgb)
+            if n % 10 == 0 or n == len(todo):
+                log(f"  prepared {n}/{len(todo)} positives, {time.perf_counter() - t0:.0f} s")
+        for e in negs:
+            _save_mask(np.zeros(self._photo(e).shape[:2], bool), out_neg / f"{e['id']}.png")
+        if negs:
+            log(f"  {len(negs)} empty negative labels")
+
+    def _photo(self, e: dict) -> np.ndarray:
+        path = REPO_ROOT / e["path"]
+        if sha256_file(path) != e["sha256"]:
+            raise ValueError(f"{e['path']}: sha256 differs from the dataset file")
+        return load_rgb_image(path)
+
+    # after
+    def labels(self) -> list[dict]:
+        """One row per photo (LABEL_FIELDS): accepted (its round's mask), dropped, pending, or negative."""
+        verdicts = self.verdicts()
+        out = []
+        for it in self.items:
+            st = self.state(it, verdicts)
+            row = self.row(it, st.round) if st.round else None
+            acc = st.status == "accepted"
+            out.append({"id": it["id"], "path": it["path"], "photo_sha256": it["sha256"], "source": it["source"],
+                        "split": it["split"], "status": st.status if st.status in ("accepted", "dropped") else
+                        "pending", "round": st.round if acc or st.status == "dropped" else "",
+                        "mask": _rel(self.mask_path(it, st.round)) if acc else "",
+                        "mask_sha256": row["mask_sha256"] if acc else "",
+                        "include": row["include"] if acc else "", "exclude": row["exclude"] if acc else "",
+                        "reason": st.reason or ""})
+        for e in self.negatives:
+            f = self.mask_dir / "neg" / f"{e['id']}.png"
+            out.append({"id": e["id"], "path": e["path"], "photo_sha256": e["sha256"], "source": e["source"],
+                        "split": e["split"], "status": "negative", "round": "", "mask": _rel(f),
+                        "mask_sha256": mask_sha256(np.array(Image.open(f)) > 0) if f.exists() else "",
+                        "include": "", "exclude": "", "reason": "D14: negative, empty label"})
+        return out
+
+    def write_labels(self) -> list[dict]:
+        rows = self.labels()
+        self.mask_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.mask_dir / "labels.csv", "w", newline="") as f:
+            wr = csv.DictWriter(f, fieldnames=LABEL_FIELDS)
+            wr.writeheader()
+            wr.writerows(rows)
+        return rows
+
+
+class _Refused(Exception):
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+# ---------------------------------------------------------------- the pages' shared parts
+
+class _Photos:
+    """The last few decoded photos (a 50 MP photo takes a second or two) and masks."""
+
+    def __init__(self, n: int = 3):
+        self.n, self.rgb, self.masks = n, OrderedDict(), OrderedDict()
+
+    def _lru(self, d: OrderedDict, key, load):
+        if key not in d:
+            d[key] = load()
+            while len(d) > self.n * 2:
+                d.popitem(last=False)
+        d.move_to_end(key)
+        return d[key]
+
+    def photo(self, path: str) -> np.ndarray:
+        return self._lru(self.rgb, path, lambda: load_rgb_image(REPO_ROOT / path))
+
+    def mask(self, path: Path, sha: str) -> np.ndarray:
+        return self._lru(self.masks, (str(path), sha), lambda: np.array(Image.open(path)) > 0)
+
+
+def _points(body: dict, key: str) -> list[list[float]]:
+    pts = body.get(key, [])
+    ok = isinstance(pts, list) and all(isinstance(p, list) and len(p) == 2 and
+                                       all(isinstance(c, (int, float)) and 0 <= c <= 1 for c in p) for p in pts)
+    if not ok:
+        raise _Refused(400, f"{key}: a list of [x, y] fractions of the photo")
+    return [[float(c) for c in p] for p in pts]
+
+
+def _decision(body: dict) -> tuple[str, str | None]:
+    decision, reason = body.get("decision"), body.get("reason")
+    if decision not in ("accept", "decline") or (reason is not None and reason not in REASONS):
+        raise _Refused(400, "decision: accept or decline, reason: one of REASONS or none")
+    return decision, None if decision == "accept" else reason
+
+
+def _app() -> Flask:
+    app = Flask(__name__)
+
+    @app.errorhandler(_Refused)
+    def refused(e: _Refused):
+        return jsonify({"error": str(e)}), e.code
+
+    return app
+
+
+def _image(arr: np.ndarray):
+    return send_file(jpeg(arr), mimetype="image/jpeg")
+
+
+# ---------------------------------------------------------------- labelling mode
+
+def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str = "owner") -> Flask:
+    """The labelling page over `session`'s positives; `redrawer` draws every redraw (SegDrawer in use)."""
+    app = _app()
+    photos = _Photos()
+    lock = threading.Lock()
+    items = session.items
+
+    def get(i: int) -> dict:
+        if not 0 <= i < len(items):
+            abort(404)
+        return items[i]
+
+    def todo(st: State) -> bool:
+        return st.status in ("judge", "points", "pending")
+
+    def next_todo(after: int, verdicts: dict) -> int | None:
+        return next((j for j in range(after + 1, len(items)) if todo(session.state(items[j], verdicts))), None)
+
+    @app.get("/")
+    def home():
+        verdicts = session.verdicts()
+        first = next((j for j, it in enumerate(items) if todo(session.state(it, verdicts))), 0)
+        return redirect(f"/item/{first}")
+
+    @app.get("/item/<int:i>")
+    def page(i: int):
+        it = get(i)
+        verdicts = session.verdicts()
+        st = session.state(it, verdicts)
+        counts = Counter(session.state(x, verdicts).status for x in items)
+        row = session.row(it, st.round) if st.round else None
+        mine = verdicts.get((it["id"], st.round))
+        info = {"i": i, "n": len(items), "item": it["id"], "source": it["source"], "split": it["split"],
+                "status": st.status, "round": st.round, "rounds": len(ROUNDS), "reason": st.reason,
+                "model": row["model"] if row else None, "mask_sha256": row["mask_sha256"] if row else "",
+                "points": session.points(it, st.round) if st.round else {"include": [], "exclude": []},
+                "decision": mine["decision"] if mine else None, "accepted": counts["accepted"],
+                "dropped": counts["dropped"], "todo": counts["judge"] + counts["points"] + counts["pending"],
+                "reasons": REASONS, "session": session.name}
+        return LABEL_PAGE.replace("__INFO__", json.dumps(info)).replace("__RULE__", html.escape(rule))
+
+    def shown(i: int) -> tuple[np.ndarray, np.ndarray]:
+        it = get(i)
+        st = session.state(it)
+        if not st.round:
+            abort(404)
+        return photos.photo(it["path"]), photos.mask(session.mask_path(it, st.round),
+                                                     session.row(it, st.round)["mask_sha256"])
+
+    @app.get("/img/<int:i>/view.jpg")
+    def view(i: int):
+        rgb, mask = shown(i)
+        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
+
+    @app.get("/img/<int:i>/zoom.jpg")
+    def zoom(i: int):
+        rgb, mask = shown(i)
+        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
+                                request.args.get("outline", "1") == "1"))
+
+    def reply(i: int, st: State):
+        return jsonify({"status": st.status, "round": st.round, "reason": st.reason,
+                        "next": next_todo(i, session.verdicts())})
+
+    @app.post("/decide/<int:i>")
+    def decide(i: int):
+        it = get(i)
+        decision, reason = _decision(request.get_json(force=True))
+        with lock:
+            return reply(i, session.decide(it, decision, reason, reviewer))
+
+    @app.post("/redraw/<int:i>")
+    def redraw(i: int):
+        it = get(i)
+        body = request.get_json(force=True)
+        include, exclude = _points(body, "include"), _points(body, "exclude")
+        with lock:
+            return reply(i, session.redraw(it, include, exclude, redrawer))
+
+    return app
+
+
+_STYLE = """<style>
+body{font-family:sans-serif;margin:0;background:#222;color:#eee;display:flex;height:100vh}
+#left{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;gap:8px}
+.wrap{position:relative;display:inline-block;line-height:0}
+.wrap img{max-height:100vh;cursor:crosshair}
+.pt{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);
+    pointer-events:none}
+.pt.include{background:#1db31d}.pt.exclude{background:#e01b1b}
+#right{width:560px;padding:12px;overflow:auto;background:#2b2b2b}
+.zoom{width:512px;height:512px;background:#111;display:block;margin:8px 0}
+button{font-size:15px;margin:3px;padding:6px 10px}
+.acc{background:#2e7d32;color:#fff}.dec{background:#c62828;color:#fff}
+.rule{font-size:13px;line-height:1.4;background:#333;padding:8px;border-radius:4px}
+.state{font-size:18px;margin:8px 0}.msg{background:#444;padding:6px;margin-top:6px;min-height:1em}
+.keys{font-size:12px;color:#aaa}
+</style>"""
+
+LABEL_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>ML-5 labels</title>""" + _STYLE + """
+</head><body>
+<div id="left"><div class="wrap" id="wrap"><img id="photo" style="max-width:calc(100vw - 600px)"></div></div>
+<div id="right">
+ <div id="head"></div>
+ <div class="state" id="state"></div>
+ <button class="acc" onclick="decide('accept')">Accept (A)</button>
+ <button class="dec" onclick="decide('decline')">Decline (D)</button>
+ <button onclick="redraw()">Redraw (Enter)</button> <button onclick="undo()">Undo point (U)</button><br>
+ <div id="reasons"></div>
+ <div class="msg" id="msg"></div>
+ <button onclick="go(info.i-1)">&larr; prev</button><button onclick="go(info.i+1)">next &rarr;</button>
+ <button onclick="location='/'">next to do (N)</button>
+ <div class="keys">hold g + click: include point (green) &middot; hold r + click: exclude point (red) &middot;
+   U / Backspace: undo the last point &middot; Enter: redraw &middot; Space: toggle outline &middot;
+   plain click: full resolution</div>
+ <img id="zoom" class="zoom">
+ <div class="rule"><b>Accept rule (D13)</b><br>__RULE__</div>
+</div>
+<script>
+const info = __INFO__;
+let outline = 1, last = null, held = null;
+// Every point so far, in the order placed (those that drew the shown mask first: includes, then excludes).
+let points = [...info.points.include.map(p => ({x: p[0], y: p[1], kind: 'include'})),
+              ...info.points.exclude.map(p => ({x: p[0], y: p[1], kind: 'exclude'}))];
+const photo = document.getElementById('photo'), zoom = document.getElementById('zoom');
+const wrap = document.getElementById('wrap'), msgBox = document.getElementById('msg');
+function msg(t){ msgBox.textContent = t; }
+function canPoint(){ return info.status === 'points' || (info.status === 'judge' && info.round > 1); }
+function src(){ const v = `outline=${outline}&m=${info.mask_sha256.slice(0, 12)}`;
+  photo.src = `/img/${info.i}/view.jpg?${v}`;
+  if(last) zoom.src = `/img/${info.i}/zoom.jpg?x=${last[0]}&y=${last[1]}&${v}`; }
+function drawPoints(){
+  wrap.querySelectorAll('.pt').forEach(d => d.remove());
+  for(const p of points){ const d = document.createElement('div'); d.className = 'pt ' + p.kind;
+    d.style.left = (p.x * 100) + '%'; d.style.top = (p.y * 100) + '%'; wrap.appendChild(d); }
+}
+function render(){
+  document.getElementById('head').textContent =
+    `${info.i+1} / ${info.n}  ${info.item}  (${info.source}, ${info.split})`;
+  const what = {judge: 'judge this mask', points: `declined${info.reason ? ' ('+info.reason+')' : ''}: place points, then Enter`,
+                accepted: '<b>accepted</b>', dropped: `<b>dropped</b>: ${info.reason}`, pending: 'not prepared'}[info.status];
+  document.getElementById('state').innerHTML =
+    `session ${info.session}: accepted ${info.accepted}, dropped ${info.dropped}, to do ${info.todo}<br>` +
+    `round ${info.round} / ${info.rounds}, drawn by ${info.model}: ${what}`;
+  document.getElementById('reasons').innerHTML = info.reasons.map((r,k)=>
+    `<button class="dec" onclick="decide('decline', '${r}')">${k+1}: ${r}</button>`).join('');
+  drawPoints();
+}
+function go(i){ if(i>=0 && i<info.n) location = `/item/${i}`; }
+async function post(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if(!r.ok){ msg(j.error || ('error ' + r.status)); return null; }
+  return j;
+}
+async function decide(decision, reason=null){
+  const r = await post(`/decide/${info.i}`, {decision, reason});
+  if(!r) return;
+  if((r.status === 'accepted' || r.status === 'dropped') && r.next !== null) go(r.next); else location.reload();
+}
+async function redraw(){
+  if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
+  const pick = k => points.filter(p => p.kind === k).map(p => [p.x, p.y]);
+  msg('redrawing...');
+  const r = await post(`/redraw/${info.i}`, {include: pick('include'), exclude: pick('exclude')});
+  if(r) location.reload();
+}
+function undo(){ if(points.length){ points.pop(); drawPoints(); msg(`${points.length} points; Enter redraws`); } }
+const r4 = v => Math.round(Math.min(Math.max(v, 0), 1) * 1e4) / 1e4;
+photo.onclick = e => {
+  const b = photo.getBoundingClientRect(), x = (e.clientX-b.left)/b.width, y = (e.clientY-b.top)/b.height;
+  if(held){
+    if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
+    points.push({x: r4(x), y: r4(y), kind: held === 'g' ? 'include' : 'exclude'});
+    drawPoints(); msg(`${points.length} points; Enter redraws`); return;
+  }
+  last = [x, y]; src();
+};
+function holdKey(k){ return k === 'g' || k === 'G' ? 'g' : k === 'r' || k === 'R' ? 'r' : null; }
+document.onkeydown = e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const h = holdKey(e.key);
+  if(h){ held = h; photo.style.cursor = 'cell'; e.preventDefault(); return; }
+  if(e.key===' '){ outline = 1-outline; src(); e.preventDefault(); }
+  else if(e.key==='a'||e.key==='A') decide('accept');
+  else if(e.key==='d'||e.key==='D') decide('decline');
+  else if(e.key>='1' && e.key<='5') decide('decline', info.reasons[+e.key-1]);
+  else if(e.key==='u'||e.key==='U'||e.key==='Backspace'){ undo(); e.preventDefault(); }
+  else if(e.key==='Enter'){ redraw(); e.preventDefault(); }
+  else if(e.key==='ArrowLeft') go(info.i-1);
+  else if(e.key==='ArrowRight') go(info.i+1);
+  else if(e.key==='n'||e.key==='N') location='/';
+};
+document.onkeyup = e => { if(holdKey(e.key) === held){ held = null; photo.style.cursor = ''; } };
+window.onblur = () => { held = null; photo.style.cursor = ''; };
+render(); src();
+</script></body></html>"""
+
+
+# ---------------------------------------------------------------- blind paired mode (D22)
+
+def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
+    """Every test positive with its mask from each of the two `mask_dirs` (seg_predict's layout: index.csv with
+    id, path, photo_sha256, mask_sha256, and <id>.png). A model is named by its directory."""
+    if len(mask_dirs) != 2:
+        raise ValueError("the paired mode compares two mask sets")
+    names = [d.name for d in mask_dirs]
+    if names[0] == names[1]:
+        raise ValueError(f"two mask sets named {names[0]}")
+    indexes = [{r["photo_sha256"]: r for r in csv.DictReader((d / "index.csv").read_text().splitlines())}
+               for d in mask_dirs]
+    out, missing = [], []
+    for e in entries:
+        if e["split"] != "test" or e["source"] == "negative":
+            continue
+        masks = []
+        for d, name, index in zip(mask_dirs, names, indexes):
+            r = index.get(e["sha256"])
+            if r is None:
+                missing.append(f"{name}: {e['path']}")
+                continue
+            masks.append({"mask": d / f"{r['id']}.png", "mask_sha256": r["mask_sha256"]})
+        if len(masks) == 2:
+            out.append({"item": item_id(e["path"]), "path": e["path"], "photo_sha256": e["sha256"],
+                        "source": e["source"], "names": names, "masks": masks,
+                        "identical": masks[0]["mask_sha256"] == masks[1]["mask_sha256"]})
+    if missing:
+        raise ValueError(f"{len(missing)} test positives have no mask in " + "; ".join(missing[:5]))
+    return out
+
+
+def paired_sides(photo_sha256: str, seed: int) -> tuple[int, int]:
+    """(left, right) as indexes into the two mask sets, drawn per photo from `seed` (D22)."""
+    flip = np.random.default_rng([seed, zlib.crc32(photo_sha256.encode())]).random() < 0.5
+    return (1, 0) if flip else (0, 1)
+
+
+def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: str,
+                      reviewer: str = "owner") -> Flask:
+    app = _app()
+    photos = _Photos()
+    lock = threading.Lock()
+
+    def get(i: int) -> dict:
+        if not 0 <= i < len(items):
+            abort(404)
+        return items[i]
+
+    def sides(it: dict) -> dict[str, list[int]]:
+        """{side: the mask sets it shows}: left and right, or both when the masks are identical."""
+        if it["identical"]:
+            return {"both": [0, 1]}
+        left, right = paired_sides(it["photo_sha256"], seed)
+        return {"left": [left], "right": [right]}
+
+    def current() -> dict[tuple[str, str], dict]:
+        by_item = {it["item"]: it for it in items}
+        out = {}
+        for r in _read_jsonl(decisions_path):
+            it = by_item.get(r["item"])
+            if it and r["side"] in sides(it) and it["masks"][sides(it)[r["side"]][0]]["mask_sha256"] == r["mask_sha256"]:
+                out[(r["item"], r["side"])] = r
+        return out
+
+    def judged(dec: dict) -> tuple[int, int]:
+        total = sum(len(sides(it)) for it in items)
+        return sum(1 for it in items for s in sides(it) if (it["item"], s) in dec), total
+
+    def complete(dec: dict) -> bool:
+        done, total = judged(dec)
+        return done == total
+
+    def reveal_table() -> dict:
+        dec = current()
+        return {"models": items[0]["names"] if items else [],
+                "sides": {it["item"]: {s: [it["names"][k] for k in ks] for s, ks in sides(it).items()} for it in items},
+                "verdicts": {it["item"]: {it["names"][k]: dec[(it["item"], s)]["decision"]
+                                          for s, ks in sides(it).items() for k in ks} for it in items}}
+
+    @app.get("/")
+    def home():
+        dec = current()
+        first = next((j for j, it in enumerate(items) if any((it["item"], s) not in dec for s in sides(it))), 0)
+        return redirect(f"/item/{first}")
+
+    @app.get("/item/<int:i>")
+    def page(i: int):
+        it = get(i)
+        dec = current()
+        done, total = judged(dec)
+        info = {"i": i, "n": len(items), "item": it["item"], "source": it["source"], "identical": it["identical"],
+                "sides": list(sides(it)), "decisions": {s: (dec[(it["item"], s)]["decision"]
+                                                            if (it["item"], s) in dec else None) for s in sides(it)},
+                "judged": done, "total": total, "complete": done == total, "reasons": REASONS,
+                "revealed": ({s: [it["names"][k] for k in ks] for s, ks in sides(it).items()}
+                             if done == total else None)}
+        return PAIRED_PAGE.replace("__INFO__", json.dumps(info)).replace("__RULE__", html.escape(rule))
+
+    def shown(i: int, side: str) -> tuple[np.ndarray, np.ndarray]:
+        it = get(i)
+        if side not in sides(it):
+            abort(404)
+        m = it["masks"][sides(it)[side][0]]
+        return photos.photo(it["path"]), photos.mask(m["mask"], m["mask_sha256"])
+
+    @app.get("/img/<int:i>/<side>.jpg")
+    def view(i: int, side: str):
+        rgb, mask = shown(i, side)
+        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
+
+    @app.get("/img/<int:i>/<side>/zoom.jpg")
+    def zoom(i: int, side: str):
+        rgb, mask = shown(i, side)
+        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
+                                request.args.get("outline", "1") == "1"))
+
+    @app.post("/decide/<int:i>")
+    def decide(i: int):
+        it = get(i)
+        body = request.get_json(force=True)
+        decision, reason = _decision(body)
+        side = body.get("side")
+        if side not in sides(it):
+            raise _Refused(400, f"side: one of {list(sides(it))} for this photo")
+        ks = sides(it)[side]
+        with lock:
+            _append_jsonl(decisions_path, {
+                "item": it["item"], "path": it["path"], "photo_sha256": it["photo_sha256"], "source": it["source"],
+                "side": side, "models": [it["names"][k] for k in ks], "mask_sha256": it["masks"][ks[0]]["mask_sha256"],
+                "decision": decision, "reason": reason, "seed": seed, "reviewer": reviewer, "via": "seg_review",
+                "ts": _now()})
+            dec = current()
+        nxt = next((j for j in range(i + 1, len(items))
+                    if any((items[j]["item"], s) not in dec for s in sides(items[j]))), None)
+        this_done = all((it["item"], s) in dec for s in sides(it))
+        return jsonify({"ok": True, "next": nxt, "photo_done": this_done, "complete": complete(dec)})
+
+    @app.get("/reveal")
+    def reveal():
+        if not complete(current()):
+            raise _Refused(403, "the model names are shown once every mask is judged")
+        return jsonify(reveal_table())
+
+    return app
+
+
+PAIRED_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>ML-5 paired review</title>""" + _STYLE + """
+</head><body>
+<div id="left"></div>
+<div id="right">
+ <div id="head"></div>
+ <div class="state" id="state"></div>
+ <div id="buttons"></div>
+ <div class="msg" id="msg"></div>
+ <button onclick="go(info.i-1)">&larr; prev</button><button onclick="go(info.i+1)">next &rarr;</button>
+ <button onclick="location='/'">next unjudged (N)</button>
+ <div class="keys">A / D: accept / decline the left mask (the only one when both are identical) &middot;
+   J / L: accept / decline the right mask &middot; Space: toggle outlines &middot; click a photo: both masks at
+   full resolution there</div>
+ <div id="zooms"></div>
+ <div class="rule"><b>Accept rule (D13)</b><br>__RULE__</div>
+</div>
+<script>
+const info = __INFO__;
+let outline = 1, last = null;
+const left = document.getElementById('left'), zooms = document.getElementById('zooms');
+const label = {left: 'left', right: 'right', both: 'both masks (identical)'};
+const width = info.sides.length === 2 ? 'calc((100vw - 620px) / 2)' : 'calc(100vw - 600px)';
+left.innerHTML = info.sides.map(s => `<div class="wrap"><img id="img_${s}" style="max-width:${width}"></div>`).join('');
+zooms.innerHTML = info.sides.map(s => `<div>${label[s]}</div><img id="zoom_${s}" class="zoom">`).join('');
+function src(){ for(const s of info.sides){
+  document.getElementById('img_' + s).src = `/img/${info.i}/${s}.jpg?outline=${outline}`;
+  if(last) document.getElementById('zoom_' + s).src =
+    `/img/${info.i}/${s}/zoom.jpg?x=${last[0]}&y=${last[1]}&outline=${outline}`; } }
+function render(){
+  document.getElementById('head').textContent = `${info.i+1} / ${info.n}  ${info.item}  (${info.source})`;
+  document.getElementById('state').innerHTML = `judged ${info.judged} / ${info.total} masks` +
+    info.sides.map(s => `<br>${label[s]}: ` + (info.decisions[s] ? `<b>${info.decisions[s]}</b>` : '<i>unjudged</i>') +
+      (info.revealed ? ` (${info.revealed[s].join(' = ')})` : '')).join('') +
+    (info.complete ? '<br>session complete: <a href="/reveal" style="color:#9cf">models and verdicts</a>' : '');
+  document.getElementById('buttons').innerHTML = info.sides.map(s =>
+    `<div>${label[s]}: <button class="acc" onclick="decide('${s}', 'accept')">Accept</button>` +
+    `<button class="dec" onclick="decide('${s}', 'decline')">Decline</button>` +
+    info.reasons.map(r => `<button class="dec" onclick="decide('${s}', 'decline', '${r}')">${r}</button>`).join('') +
+    '</div>').join('');
+}
+function go(i){ if(i>=0 && i<info.n) location = `/item/${i}`; }
+async function decide(side, decision, reason=null){
+  const r = await fetch(`/decide/${info.i}`, {method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({side, decision, reason})});
+  const j = await r.json();
+  if(!r.ok){ document.getElementById('msg').textContent = j.error || ('error ' + r.status); return; }
+  if(j.photo_done && j.next !== null) go(j.next); else location.reload();
+}
+const leftSide = () => info.sides.includes('both') ? 'both' : 'left';
+left.onclick = e => { if(e.target.tagName !== 'IMG') return; const b = e.target.getBoundingClientRect();
+  last = [(e.clientX-b.left)/b.width, (e.clientY-b.top)/b.height]; src(); };
+document.onkeydown = e => {
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.key===' '){ outline = 1-outline; src(); e.preventDefault(); }
+  else if(e.key==='a'||e.key==='A') decide(leftSide(), 'accept');
+  else if(e.key==='d'||e.key==='D') decide(leftSide(), 'decline');
+  else if((e.key==='j'||e.key==='J') && info.sides.includes('right')) decide('right', 'accept');
+  else if((e.key==='l'||e.key==='L') && info.sides.includes('right')) decide('right', 'decline');
+  else if(e.key==='ArrowLeft') go(info.i-1);
+  else if(e.key==='ArrowRight') go(info.i+1);
+  else if(e.key==='n'||e.key==='N') location='/';
+};
+render(); src();
+</script></body></html>"""
+
+
+# ---------------------------------------------------------------- after a session
+
+def report(rows: list[dict]) -> dict:
+    """P7's report: accepted by round, dropped and why, per source."""
+    pos = [r for r in rows if r["status"] != "negative"]
+    by_round = Counter(int(r["round"]) for r in pos if r["status"] == "accepted")
+    by_source: dict[str, Counter] = {}
+    for r in pos:
+        by_source.setdefault(r["source"], Counter())[
+            f"accepted_r{r['round']}" if r["status"] == "accepted" else r["status"]] += 1
+    return {"photos": len(pos), "negatives": len(rows) - len(pos),
+            "status": dict(Counter(r["status"] for r in pos)),
+            "accepted_by_round": {f"r{k}": by_round.get(k, 0) for k in ROUNDS},
+            "by_source": {s: dict(sorted(c.items())) for s, c in sorted(by_source.items())},
+            "dropped": [{"path": r["path"], "source": r["source"], "reason": r["reason"]}
+                        for r in pos if r["status"] == "dropped"]}
+
+
+def print_report(rep: dict) -> None:
+    print(f"{rep['photos']} positives + {rep['negatives']} negatives (empty labels)")
+    print(f"  status: {rep['status']}")
+    print(f"  accepted by round: {rep['accepted_by_round']}")
+    for s, c in rep["by_source"].items():
+        print(f"    {s:20s} {c}")
+    for d in rep["dropped"]:
+        print(f"  dropped: {d['path']} ({d['source']}): {d['reason']}")
+
+
+def accepted_labels(session: str, mask_root: Path = MASK_ROOT) -> list[dict]:
+    """The accepted labels of a session's labels.csv (written by `status`): path, round, mask, points."""
+    f = mask_root / session / "labels.csv"
+    if not f.exists():
+        raise ValueError(f"{_rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
+    return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])}
+            for r in csv.DictReader(f.read_text().splitlines()) if r["status"] == "accepted"]
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="command", required=True)
+    lab = sub.add_parser("label", help="prepare and serve a labelling session")
+    lab.add_argument("--proposer", required=True, help="round 1's segmenter (pass 1: ft_s123, D19)")
+    lab.add_argument("--redraw", required=True, help="the segmenter that redraws from points (pass 1: pretrained_l0)")
+    lab.add_argument("--prepare-only", action="store_true", help="prepare, then exit without serving")
+    st = sub.add_parser("status", help="write the session's labels.csv and print the report")
+    st.add_argument("--out", type=Path, help="also write the report as JSON")
+    par = sub.add_parser("paired", help="the blind paired review of two mask sets on the test positives (D22)")
+    par.add_argument("--masks", nargs=2, type=Path, required=True, metavar="DIR",
+                     help="two mask directories (index.csv + <id>.png), each named by its model")
+    par.add_argument("--seed", type=int, default=None, help="side draw (default: params.yaml seg_paired_seed)")
+    for p in (lab, st, par):
+        p.add_argument("--session", required=True, help="the session's name, e.g. pass1")
+    for p in (lab, par):
+        p.add_argument("--reviewer", default="owner")
+        p.add_argument("--port", type=int, default=8765)
+        p.add_argument("--host", default="127.0.0.1", help="0.0.0.0 if VS Code does not forward localhost")
+    args = ap.parse_args(argv)
+    entries = load_seg_dataset()
+    rule = RULE_FILE.read_text().strip()
+    if args.command == "status":
+        rep = report(LabelSession(args.session, entries, None).write_labels())
+        print_report(rep)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(rep, indent=2) + "\n")
+        return
+    if args.command == "paired":
+        seed = RunConfig.from_params_yaml().seg_paired_seed if args.seed is None else args.seed
+        items = paired_items(entries, [d if d.is_absolute() else REPO_ROOT / d for d in args.masks])
+        path = LABELS_DIR / f"{args.session}.paired.jsonl"
+        print(f"{len(items)} test positives, {sum(it['identical'] for it in items)} with identical masks; "
+              f"seed {seed}; verdicts -> {_rel(path)}")
+        create_paired_app(items, path, seed, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
+        return
+    torch.set_num_threads(THREADS)
+    session = LabelSession(args.session, entries, {"proposer": args.proposer, "redraw": args.redraw})
+    redrawer = SegDrawer(args.redraw)
+    proposer = redrawer if args.proposer == args.redraw else SegDrawer(args.proposer)
+    print(f"session {args.session}: {len(session.items)} positives, {len(session.negatives)} negatives; "
+          f"proposer {args.proposer}, redraw {args.redraw} ({REDRAW_OUTPUT})", flush=True)
+    session.prepare(proposer, redrawer, log=lambda s: print(s, flush=True))
+    if args.prepare_only:
+        return
+    print(f"verdicts -> {_rel(session.verdicts_path)}; masks -> {_rel(session.mask_dir)}", flush=True)
+    create_label_app(session, redrawer, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
+
+
+if __name__ == "__main__":
+    main()

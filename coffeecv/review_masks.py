@@ -90,11 +90,39 @@ class _Cache:
         return self.d[k]
 
 
-def _jpeg(arr: np.ndarray) -> io.BytesIO:
+def jpeg(arr: np.ndarray) -> io.BytesIO:
     buf = io.BytesIO()
     Image.fromarray(arr).save(buf, format="JPEG", quality=90)
     buf.seek(0)
     return buf
+
+
+def view_image(rgb: np.ndarray, mask: np.ndarray, outline: bool = True) -> np.ndarray:
+    """The photo at VIEW_LONG_SIDE with a thin magenta outline of the mask and the D4 crop box dashed."""
+    h, w = mask.shape
+    s = min(1.0, VIEW_LONG_SIDE / max(h, w))
+    size = (round(w * s), round(h * s))
+    small = cv2.resize(rgb, size, interpolation=cv2.INTER_AREA)
+    if outline:
+        small = seg_overlay.outline(small, cv2.resize(mask.astype(np.uint8), size,
+                                                      interpolation=cv2.INTER_NEAREST) > 0, 1)
+        if mask.any():
+            im = Image.fromarray(small)
+            x0, y0, bw, bh = d4_box(mask)
+            seg_overlay._dashed_rect(ImageDraw.Draw(im), x0 * s, y0 * s, (x0 + bw) * s, (y0 + bh) * s)
+            small = np.asarray(im)
+    return small
+
+
+def zoom_tile(rgb: np.ndarray, mask: np.ndarray, x: float, y: float, outline: bool = True) -> np.ndarray:
+    """Full resolution around (x, y), given as fractions of the photo."""
+    h, w = mask.shape
+    zw, zh = min(ZOOM, w), min(ZOOM, h)
+    x0 = int(np.clip(x * w - zw / 2, 0, w - zw))
+    y0 = int(np.clip(y * h - zh / 2, 0, h - zh))
+    if outline:
+        return seg_overlay.outline(rgb, mask, 1, (x0, y0, zw, zh))
+    return rgb[y0:y0 + zh, x0:x0 + zw]
 
 
 def create_app(items: list[dict], decisions_path: Path, rule: str, verdicts: dict[str, dict] | None = None,
@@ -141,34 +169,14 @@ def create_app(items: list[dict], decisions_path: Path, rule: str, verdicts: dic
     @app.get("/img/<int:i>/view.jpg")
     def view(i: int):
         rgb, mask = cache.get(get(i))
-        h, w = mask.shape
-        s = min(1.0, VIEW_LONG_SIDE / max(h, w))
-        size = (round(w * s), round(h * s))
-        small = cv2.resize(rgb, size, interpolation=cv2.INTER_AREA)
-        if request.args.get("outline", "1") == "1":
-            small = seg_overlay.outline(small, cv2.resize(mask.astype(np.uint8), size,
-                                                          interpolation=cv2.INTER_NEAREST) > 0, 1)
-            if mask.any():
-                im = Image.fromarray(small)
-                x0, y0, bw, bh = d4_box(mask)
-                seg_overlay._dashed_rect(ImageDraw.Draw(im), x0 * s, y0 * s, (x0 + bw) * s, (y0 + bh) * s)
-                small = np.asarray(im)
-        return send_file(_jpeg(small), mimetype="image/jpeg")
+        return send_file(jpeg(view_image(rgb, mask, request.args.get("outline", "1") == "1")), mimetype="image/jpeg")
 
     @app.get("/img/<int:i>/zoom.jpg")
     def zoom(i: int):
-        """Full resolution around (x, y), given as fractions of the photo."""
         rgb, mask = cache.get(get(i))
-        h, w = mask.shape
-        x, y = float(request.args["x"]), float(request.args["y"])
-        zw, zh = min(ZOOM, w), min(ZOOM, h)
-        x0 = int(np.clip(x * w - zw / 2, 0, w - zw))
-        y0 = int(np.clip(y * h - zh / 2, 0, h - zh))
-        if request.args.get("outline", "1") == "1":
-            tile = seg_overlay.outline(rgb, mask, 1, (x0, y0, zw, zh))
-        else:
-            tile = rgb[y0:y0 + zh, x0:x0 + zw]
-        return send_file(_jpeg(tile), mimetype="image/jpeg")
+        tile = zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
+                         request.args.get("outline", "1") == "1")
+        return send_file(jpeg(tile), mimetype="image/jpeg")
 
     @app.post("/decide/<int:i>")
     def decide(i: int):

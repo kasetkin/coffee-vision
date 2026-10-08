@@ -208,3 +208,7 @@ seg_dataset:
     train: 0.60
     validation: 0.15
     test: 0.25
+
+# Ticket ML-5 P6/P10 (D22): in the blind paired review of XL0-v1 and XL0-v2 test masks, which model's mask is on
+# the left is drawn per photo from this seed (coffeecv/seg_review.py paired). 2210 is no other seed here.
+seg_paired_seed: 2210
