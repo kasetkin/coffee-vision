@@ -52,6 +52,7 @@ from PIL import Image
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
+from coffeecv.repo_files import sha256_file
 from coffeecv.sam_loader import L0_WEIGHTS, build_sam, variant_of
 from coffeecv.seg_labels import LABELS_CSV
 
@@ -178,7 +179,7 @@ def build_cache(cfg: RunConfig, p: FtParams) -> None:
                      np.lib.format.open_memmap(d / "label.npy", "w+", np.uint8, (n, frame, frame)), [])
     for i, r in enumerate(rows):
         photo = REPO_ROOT / r["path"]
-        if seg_lists.sha256_file(photo) != r["photo_sha256"]:
+        if sha256_file(photo) != r["photo_sha256"]:
             raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
         rgb = load_rgb_image(photo)
         mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0

@@ -41,7 +41,8 @@ from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos
 from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, forward_with_embeddings,
                             inference_tta_for, load_model, load_ood_probe, patches_for_photo, probe_path_for,
                             probe_score)
-from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset, sha256_file
+from coffeecv.repo_files import sha256_file
+from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset
 from coffeecv.transforms import build_eval_transform
 
 # Tags whose every patch is unambiguously not-beans, so a patch-level probe can

@@ -46,7 +46,6 @@ import html
 import json
 import threading
 import time
-import zlib
 from collections import Counter, OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,8 +59,9 @@ from PIL import Image
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.review_masks import REASONS, RULE_FILE, jpeg, view_image, zoom_tile
-from coffeecv.seg_dataset import load_seg_dataset, sha256_file
-from coffeecv.segment_beans import BeanSegmenter, mask_sha256, named_params
+from coffeecv.repo_files import read_csv, rel, sha256_file
+from coffeecv.seg_dataset import load_seg_dataset, seeded_rng
+from coffeecv.segment_beans import THREADS, BeanSegmenter, mask_sha256, named_params
 
 LABELS_DIR = REPO_ROOT / "labels" / "ml5"
 MASK_ROOT = REPO_ROOT / "data" / "ml5_labels"
@@ -69,23 +69,19 @@ EMBED_ROOT = REPO_ROOT / "outputs" / "ml5_embeddings"
 ROUNDS = (1, 2, 3)
 REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of seg_labels.CORRECTION_OUTPUT's single
 LABEL_SPLITS = ("train", "validation")
-THREADS = 4                  # pinned, like seg_labels: the thread count changes mask bits
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
                 "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
 LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
                 "include", "exclude", "reason"]
 
 
-def item_id(path: str) -> str:
-    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix."""
+def photo_id(path: str) -> str:
+    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix. (Not
+    seg_base_masks.item_id, which names ML-2's list entries.)"""
     parts = Path(path).with_suffix("").parts
     if "dataset" in parts:
         parts = parts[len(parts) - parts[::-1].index("dataset"):]
     return "__".join(parts)
-
-
-def _rel(path: Path) -> str:
-    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
 
 
 def _now() -> str:
@@ -105,6 +101,22 @@ def _append_jsonl(path: Path, row: dict) -> None:
 def _save_mask(mask: np.ndarray, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(mask).convert("1").save(path)
+
+
+class _LRU:
+    """The last `n` values loaded, by key: decoded photos and masks (a 50 MP photo takes a second or two) and
+    the redraw model's stored encodings."""
+
+    def __init__(self, n: int):
+        self.n, self.d = n, OrderedDict()
+
+    def get(self, key, load: Callable[[], object]):
+        if key not in self.d:
+            self.d[key] = load()
+            while len(self.d) > self.n:
+                self.d.popitem(last=False)
+        self.d.move_to_end(key)
+        return self.d[key]
 
 
 # ---------------------------------------------------------------- the loop (pure)
@@ -150,7 +162,7 @@ class SegDrawer:
         self.name = name
         self.seg = BeanSegmenter(named_params(name, mask_select or RunConfig.from_params_yaml().seg_mask_select))
         self.embed_dir = embed_root / self.seg.weights_sha256[:16]
-        self._loaded: OrderedDict[str, dict] = OrderedDict()
+        self._loaded = _LRU(3)
 
     @property
     def propose_output(self) -> str:
@@ -178,12 +190,7 @@ class SegDrawer:
         return not self._file(item).exists()
 
     def redraw(self, item: dict, include: list, exclude: list) -> tuple[np.ndarray, float]:
-        sha = item["sha256"]
-        if sha not in self._loaded:
-            self._loaded[sha] = torch.load(self._file(item), weights_only=True)
-            while len(self._loaded) > 3:
-                self._loaded.popitem(last=False)
-        self.seg.set_encoding(self._loaded[sha])
+        self.seg.set_encoding(self._loaded.get(item["sha256"], lambda: torch.load(self._file(item), weights_only=True)))
         return self.seg.decode_points(include, exclude, REDRAW_OUTPUT)
 
 
@@ -198,7 +205,7 @@ class LabelSession:
                  mask_root: Path = MASK_ROOT):
         """`models` None reads them from the session file (a session already started)."""
         self.name = name
-        mine = [{**e, "id": item_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
+        mine = [{**e, "id": photo_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
         self.items = [e for e in mine if e["source"] != "negative"]
         self.negatives = [e for e in mine if e["source"] == "negative"]
         self.meta_path = labels_dir / f"{name}.session.json"
@@ -206,7 +213,7 @@ class LabelSession:
         self.mask_dir = mask_root / name
         if models is None:
             if not self.meta_path.exists():
-                raise ValueError(f"no session {name}: {_rel(self.meta_path)} does not exist")
+                raise ValueError(f"no session {name}: {rel(self.meta_path)} does not exist")
             models = json.loads(self.meta_path.read_text())
         meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
                 "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS)}
@@ -230,7 +237,7 @@ class LabelSession:
         f = self.mask_dir / f"r{k}" / "index.csv"
         stamp = (f.stat().st_mtime_ns, f.stat().st_size) if f.exists() else None
         if k not in self._cache or self._cache[k][0] != stamp:
-            rows = {r["id"]: r for r in csv.DictReader(f.read_text().splitlines())} if stamp else {}
+            rows = {r["id"]: r for r in read_csv(f)} if stamp else {}
             self._cache[k] = (stamp, rows)
         return self._cache[k][1]
 
@@ -343,14 +350,14 @@ class LabelSession:
             out.append({"id": it["id"], "path": it["path"], "photo_sha256": it["sha256"], "source": it["source"],
                         "split": it["split"], "status": st.status if st.status in ("accepted", "dropped") else
                         "pending", "round": st.round if acc or st.status == "dropped" else "",
-                        "mask": _rel(self.mask_path(it, st.round)) if acc else "",
+                        "mask": rel(self.mask_path(it, st.round)) if acc else "",
                         "mask_sha256": row["mask_sha256"] if acc else "",
                         "include": row["include"] if acc else "", "exclude": row["exclude"] if acc else "",
                         "reason": st.reason or ""})
         for e in self.negatives:
             f = self.mask_dir / "neg" / f"{e['id']}.png"
             out.append({"id": e["id"], "path": e["path"], "photo_sha256": e["sha256"], "source": e["source"],
-                        "split": e["split"], "status": "negative", "round": "", "mask": _rel(f),
+                        "split": e["split"], "status": "negative", "round": "", "mask": rel(f),
                         "mask_sha256": mask_sha256(np.array(Image.open(f)) > 0) if f.exists() else "",
                         "include": "", "exclude": "", "reason": "D14: negative, empty label"})
         return out
@@ -374,24 +381,16 @@ class _Refused(Exception):
 # ---------------------------------------------------------------- the pages' shared parts
 
 class _Photos:
-    """The last few decoded photos (a 50 MP photo takes a second or two) and masks."""
+    """The last few decoded photos and masks (two masks a photo in the paired mode)."""
 
     def __init__(self, n: int = 3):
-        self.n, self.rgb, self.masks = n, OrderedDict(), OrderedDict()
-
-    def _lru(self, d: OrderedDict, key, load):
-        if key not in d:
-            d[key] = load()
-            while len(d) > self.n * 2:
-                d.popitem(last=False)
-        d.move_to_end(key)
-        return d[key]
+        self.rgb, self.masks = _LRU(n), _LRU(2 * n)
 
     def photo(self, path: str) -> np.ndarray:
-        return self._lru(self.rgb, path, lambda: load_rgb_image(REPO_ROOT / path))
+        return self.rgb.get(path, lambda: load_rgb_image(REPO_ROOT / path))
 
     def mask(self, path: Path, sha: str) -> np.ndarray:
-        return self._lru(self.masks, (str(path), sha), lambda: np.array(Image.open(path)) > 0)
+        return self.masks.get((str(path), sha), lambda: np.array(Image.open(path)) > 0)
 
 
 def _points(body: dict, key: str) -> list[list[float]]:
@@ -420,8 +419,21 @@ def _app() -> Flask:
     return app
 
 
-def _image(arr: np.ndarray):
-    return send_file(jpeg(arr), mimetype="image/jpeg")
+def _image_routes(app: Flask, shown: Callable[..., tuple[np.ndarray, np.ndarray]], view_rule: str,
+                  zoom_rule: str) -> None:
+    """The photo with its mask outlined (`view_rule`) and a full-resolution tile around ?x=&y= (`zoom_rule`),
+    ?outline=0 without the outline; `shown(**the rule's arguments)` gives the (photo, mask)."""
+    def outline() -> bool:
+        return request.args.get("outline", "1") == "1"
+
+    @app.get(view_rule, endpoint="view")
+    def view(**where):
+        return send_file(jpeg(view_image(*shown(**where), outline())), mimetype="image/jpeg")
+
+    @app.get(zoom_rule, endpoint="zoom")
+    def zoom(**where):
+        x, y = float(request.args["x"]), float(request.args["y"])
+        return send_file(jpeg(zoom_tile(*shown(**where), x, y, outline())), mimetype="image/jpeg")
 
 
 # ---------------------------------------------------------------- labelling mode
@@ -475,16 +487,7 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
         return photos.photo(it["path"]), photos.mask(session.mask_path(it, st.round),
                                                      session.row(it, st.round)["mask_sha256"])
 
-    @app.get("/img/<int:i>/view.jpg")
-    def view(i: int):
-        rgb, mask = shown(i)
-        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
-
-    @app.get("/img/<int:i>/zoom.jpg")
-    def zoom(i: int):
-        rgb, mask = shown(i)
-        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
-                                request.args.get("outline", "1") == "1"))
+    _image_routes(app, shown, "/img/<int:i>/view.jpg", "/img/<int:i>/zoom.jpg")
 
     def reply(i: int, st: State):
         return jsonify({"status": st.status, "round": st.round, "reason": st.reason,
@@ -635,8 +638,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
     names = [d.name for d in mask_dirs]
     if names[0] == names[1]:
         raise ValueError(f"two mask sets named {names[0]}")
-    indexes = [{r["photo_sha256"]: r for r in csv.DictReader((d / "index.csv").read_text().splitlines())}
-               for d in mask_dirs]
+    indexes = [{r["photo_sha256"]: r for r in read_csv(d / "index.csv")} for d in mask_dirs]
     out, missing = [], []
     for e in entries:
         if e["split"] != "test" or e["source"] == "negative":
@@ -649,7 +651,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
                 continue
             masks.append({"mask": d / f"{r['id']}.png", "mask_sha256": r["mask_sha256"]})
         if len(masks) == 2:
-            out.append({"item": item_id(e["path"]), "path": e["path"], "photo_sha256": e["sha256"],
+            out.append({"item": photo_id(e["path"]), "path": e["path"], "photo_sha256": e["sha256"],
                         "source": e["source"], "names": names, "masks": masks,
                         "identical": masks[0]["mask_sha256"] == masks[1]["mask_sha256"]})
     if missing:
@@ -659,7 +661,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
 
 def paired_sides(photo_sha256: str, seed: int) -> tuple[int, int]:
     """(left, right) as indexes into the two mask sets, drawn per photo from `seed` (D22)."""
-    flip = np.random.default_rng([seed, zlib.crc32(photo_sha256.encode())]).random() < 0.5
+    flip = seeded_rng(seed, photo_sha256).random() < 0.5
     return (1, 0) if flip else (0, 1)
 
 
@@ -731,16 +733,7 @@ def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: 
         m = it["masks"][sides(it)[side][0]]
         return photos.photo(it["path"]), photos.mask(m["mask"], m["mask_sha256"])
 
-    @app.get("/img/<int:i>/<side>.jpg")
-    def view(i: int, side: str):
-        rgb, mask = shown(i, side)
-        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
-
-    @app.get("/img/<int:i>/<side>/zoom.jpg")
-    def zoom(i: int, side: str):
-        rgb, mask = shown(i, side)
-        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
-                                request.args.get("outline", "1") == "1"))
+    _image_routes(app, shown, "/img/<int:i>/<side>.jpg", "/img/<int:i>/<side>/zoom.jpg")
 
     @app.post("/decide/<int:i>")
     def decide(i: int):
@@ -870,9 +863,9 @@ def accepted_labels(session: str, mask_root: Path = MASK_ROOT) -> list[dict]:
     """The accepted labels of a session's labels.csv (written by `status`): path, round, mask, points."""
     f = mask_root / session / "labels.csv"
     if not f.exists():
-        raise ValueError(f"{_rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
+        raise ValueError(f"{rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
     return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])}
-            for r in csv.DictReader(f.read_text().splitlines()) if r["status"] == "accepted"]
+            for r in read_csv(f) if r["status"] == "accepted"]
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -909,7 +902,7 @@ def main(argv: list[str] | None = None) -> None:
         items = paired_items(entries, [d if d.is_absolute() else REPO_ROOT / d for d in args.masks])
         path = LABELS_DIR / f"{args.session}.paired.jsonl"
         print(f"{len(items)} test positives, {sum(it['identical'] for it in items)} with identical masks; "
-              f"seed {seed}; verdicts -> {_rel(path)}")
+              f"seed {seed}; verdicts -> {rel(path)}")
         create_paired_app(items, path, seed, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
         return
     torch.set_num_threads(THREADS)
@@ -921,7 +914,7 @@ def main(argv: list[str] | None = None) -> None:
     session.prepare(proposer, redrawer, log=lambda s: print(s, flush=True))
     if args.prepare_only:
         return
-    print(f"verdicts -> {_rel(session.verdicts_path)}; masks -> {_rel(session.mask_dir)}", flush=True)
+    print(f"verdicts -> {rel(session.verdicts_path)}; masks -> {rel(session.mask_dir)}", flush=True)
     create_label_app(session, redrawer, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
 
 

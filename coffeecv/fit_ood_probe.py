@@ -30,7 +30,8 @@ from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, inference_tta_for, load_model,
                             probe_path_for, probe_score)
 from coffeecv.ood_eval import CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, embed_photo, id_photos
-from coffeecv.seg_dataset import SEG_DATASET_FILE, load_seg_dataset, sha256_file
+from coffeecv.repo_files import sha256_file
+from coffeecv.seg_dataset import SEG_DATASET_FILE, load_seg_dataset
 
 FIT_SPLITS = ("train", "validation")
 

@@ -27,6 +27,7 @@ from PIL import Image
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
+from coffeecv.repo_files import read_csv, sha256_file
 from coffeecv.sam_loader import L0_WEIGHTS
 from coffeecv.seg_base_masks import item_id
 from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_sha256
@@ -62,7 +63,7 @@ def mask_items(model: str) -> list[dict]:
     """The stage's index.csv as judge/review items: {item, list, path, photo_sha256, mask, mask_sha256, ...},
     `mask` repo-relative. Read by seg_judge --masks, seg_eval and review_masks."""
     out_dir = MASK_ROOT / model
-    rows = list(csv.DictReader((out_dir / "index.csv").read_text().splitlines()))
+    rows = read_csv(out_dir / "index.csv")
     return [{"item": r["id"], "mask": str((out_dir / f"{r['id']}.png").relative_to(REPO_ROOT)), **r} for r in rows]
 
 
@@ -79,7 +80,7 @@ def run(model: str) -> None:
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
         path = REPO_ROOT / e["path"]
-        if seg_lists.sha256_file(path) != e["sha256"]:
+        if sha256_file(path) != e["sha256"]:
             raise ValueError(f"{e['path']}: sha256 differs from photo_lists.yaml")
         mask = seg.predict_mask(load_rgb_image(path))
         Image.fromarray(mask).convert("1").save(out_dir / f"{e['id']}.png", optimize=True)

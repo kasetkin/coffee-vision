@@ -29,6 +29,10 @@ import torch
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam, variant_of, weights_for
 
+# The torch thread count every stored-mask tool pins (seg_predict through dvc.yaml's --threads 4, seg_labels,
+# seg_review, seg_point_probe): mask bits differ by a few pixels across thread counts (ticket ML-2 P0).
+THREADS = 4
+
 # SAM's box prompt yields either the single-mask token (multimask_output=False) or three multimask
 # tokens. "best_iou" picks the multimask output with the highest predicted IoU.
 MASK_SELECT = ("single", "multi1", "multi2", "multi3", "best_iou")

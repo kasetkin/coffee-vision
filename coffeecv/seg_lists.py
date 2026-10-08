@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import re
 import sys
@@ -50,6 +49,7 @@ import yaml
 from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import Capture, pooled_class_photos, split_photos_by_class
+from coffeecv.repo_files import rel, sha256_file
 
 LISTS_FILE = REPO_ROOT / "labels" / "ml2" / "photo_lists.yaml"
 SEGCROPPED_ROOT = REPO_ROOT / "data" / "segcropped"
@@ -96,18 +96,6 @@ BASE_MASK_INDEX = REPO_ROOT / "data" / "seg_masks" / "base_points" / "index.csv"
 _STREAM = {"seg_val": 1, "base_candidates": 2, "audit_sample": 3, "negatives": 4, "positives": 6,
            "pos_base_candidates": 7, "base_split": 8}      # 5 is seg_base_masks' pick
 _TIMESTAMP_RE = re.compile(r"(\d{8})_(\d{6})")
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def rel(path: Path) -> str:
-    return str(path.relative_to(REPO_ROOT))
 
 
 # --- positives -------------------------------------------------------------------------------------

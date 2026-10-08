@@ -43,7 +43,7 @@ from coffeecv import seg_judge, seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.seg_base_masks import item_id
-from coffeecv.segment_beans import BeanSegmenter, SegParams, mask_sha256
+from coffeecv.segment_beans import THREADS, BeanSegmenter, SegParams, mask_sha256
 
 LABEL_ROOT = REPO_ROOT / "data" / "seg_labels"
 LABELS_CSV = LABEL_ROOT / "labels.csv"
@@ -51,7 +51,6 @@ POSITIVE_LISTS = ("seg_train", "seg_val", "pos_seg_train")
 NEGATIVE_LISTS = ("neg_seg_train",)
 ROUNDS = (1, 2, 3)
 CORRECTION_OUTPUT = "single"          # decoder output for box + points, as for the D25 base masks
-THREADS = 4                           # pinned, like seg_predict: the thread count changes mask bits (P0)
 INDEX_FIELDS = ["id", "list", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
                 "include", "exclude", "output", "threads", "weights_sha256"]
 LABEL_FIELDS = ["id", "list", "path", "photo_sha256", "status", "round", "mask", "mask_sha256", "area_frac",
