@@ -12,7 +12,7 @@
     fine-tune.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; Q1&ndash;Q7 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; P1 done; Q1&ndash;Q7 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -92,14 +92,14 @@
 
   <h2>3. P1 &mdash; Commit the 2026-10-08 data</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-08, <code>62a4d3e</code>; pushed and verified</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The 89 photos added on 2026-10-08 (stripped the same day) go into DVC as they are, before the rename.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>dvc add</code> <code>dataset/classes_labels_only</code>, <code>dataset/ood_positives</code>, <code>dataset/random_date_raccoon</code>; commit the three <code>.dvc</code> files and <code>labels/ml3/strip_manifest.csv</code>.</span></li>
-    <li><span class="box"></span><span><code>dvc push</code> the three targets by name; check every object of the three <code>.dir</code> listings exists on the remote (<code>docs/agents/dvc.md</code>).</span></li>
-    <li><span class="box"></span><span>Checks: <code>git status</code> shows no photo staged; the listings differ from <code>9619ec9</code>'s only by the 89 added files.</span></li>
+    <li><span class="box done"></span><span><code>dvc add</code> <code>dataset/classes_labels_only</code>, <code>dataset/ood_positives</code>, <code>dataset/random_date_raccoon</code>; commit the three <code>.dvc</code> files and <code>labels/ml3/strip_manifest.csv</code>. <span class="result">Done 2026-10-08, <code>62a4d3e</code>: 39, 128 and 40 files.</span></span></li>
+    <li><span class="box done"></span><span><code>dvc push</code> the three targets by name; check every object of the three <code>.dir</code> listings exists on the remote (<code>docs/agents/dvc.md</code>). <span class="result">Done 2026-10-08: 22 objects pushed (the 70 copies were already there); 188 of 188 listed objects present, 0 missing.</span></span></li>
+    <li><span class="box done"></span><span>Checks: <code>git status</code> shows no photo staged; the listings differ from <code>9619ec9</code>'s only by the 89 added files. <span class="result">Done 2026-10-08.</span></span></li>
   </ol>
 
   <h2>4. P2 &mdash; Rename to <code>segmenter_positives</code></h2>
@@ -174,7 +174,7 @@
 
   <h2>10. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: every object of the three new listings is on the remote.</span></li>
+    <li><span class="box done"></span><span>P1: every object of the three new listings is on the remote.</span></li>
     <li><span class="box"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
     <li><span class="box"></span><span>P4: the split tests pass.</span></li>
     <li><span class="box"></span><span>P6, P7: <code>outputs/config.json</code> holds the intended values after each run (<code>docs/agents/dvc.md</code>).</span></li>
@@ -190,6 +190,8 @@
   <div class="log">
     <div><div class="when">2026-10-08</div>Claude reads ticket ML-5 at <code>9619ec9</code> and writes this
       plan. Three findings not in the ticket; Q1&ndash;Q7 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-08</div>P1 done (<code>62a4d3e</code>): the three folders committed to DVC,
+      pushed by target, 188 of 188 objects verified on the remote.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
