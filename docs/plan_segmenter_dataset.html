@@ -1,0 +1,197 @@
+<title>Implementation plan: segmenter dataset from scratch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-5 · coffee-vision · implementation</div>
+  <h1>Implementation plan: segmenter dataset from scratch</h1>
+  <p class="lede">The order of work for <a href="ticket_segmenter_dataset.html">ticket ML-5</a>. Three strands: the data
+    (commit, rename), the OOD guard's new ADR, and the segmenter-then-classifier rebuild. The data comes first because
+    everything reads it; the ADR can run beside the dataset work. The first step that changes a number is P6, the
+    fine-tune.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-08; Q1&ndash;Q7 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-08</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 and P2 can start; later phases wait on Q1&ndash;Q7</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>9619ec9</code>, not from the ticket alone. Three things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q7 (§2).</p>
+    <ol>
+      <li><b>ML-2's lists pin <code>dataset/ood_positives/...</code> paths and are append-only.</b>
+        <code>seg_lists build</code> refuses to move an entry, so after the rename it can no longer run on them. The
+        new dataset gets its own file under <code>labels/ml5/</code>; ML-2's file stays as history (P2, P4).</li>
+      <li><b>The <code>seg_*</code> DVC stages read ML-2's lists.</b> <code>seg_embed_cache</code>,
+        <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> are repointed at the new file in
+        P4&ndash;P6; the ML-2-only stages (<code>seg_predict_ml3_new</code>, the base-mask lists) are retired.</li>
+      <li><b>The guard code takes positives by path.</b> <code>fit_ood_probe --positives</code> and
+        <code>ood_eval --positives</code> are documented with <code>dataset/ood_positives</code>; they follow the new
+        ADR in P3, not the rename.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 and P2 move and rename data without changing any model output. P3 is a decision written down. P4 and P5
+    build the dataset and its labels; nothing is trained until P6. P7 changes what the classifier sees.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Commit the 2026-10-08 data to DVC, push, verify</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>Rename <code>ood_positives</code> &rarr; <code>segmenter_positives</code>, manifest and README for the new role</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>New ADR superseding 0005; guard code follows it <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>Build the new segmenter dataset file: random draw and split</td><td>local</td><td>no: a list of photos</td></tr>
+      <tr><td class="id">P5</td><td>Judge labels for the new dataset <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels</td></tr>
+      <tr><td class="id">P6</td><td>Fine-tune the segmenter, choose on cal, score on test <span class="pill sm open">stop</span></td><td>VM</td><td>yes: the segmenter</td></tr>
+      <tr><td class="id">P7</td><td>Re-crop the pools, retrain the classifier, refit the probe, report <span class="pill sm open">stop</span></td><td>VM</td><td>yes: the classifier</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>How are the random main-dataset photos drawn? The 1,248 photos are uneven across
+          folders (20 to 180 each) and cameras.</td>
+        <td><span class="pill sm open">Open</span> As many as <code>segmenter_positives</code> holds (128), stratified
+          by folder in proportion to its size, at a new seed, skipping any photo already in
+          <code>segmenter_positives</code>. Proportional keeps the classifier's own mix; skipping copies keeps the
+          count honest.</td><td>P4</td></tr>
+      <tr><td class="id">Q2</td><td>The split ratios, and what "cal" does.</td>
+        <td><span class="pill sm open">Open</span> 70/15/15 train/cal/test within each source, at a new
+          <code>seg_split_seed</code>. Cal only chooses the fine-tune checkpoint (as ML-2's <code>seg_val</code>).
+          Byte-identical files and shots within 120 s of each other form one group and move together.</td><td>P4</td></tr>
+      <tr><td class="id">Q3</td><td>Do all 142 OOD negatives join, holdout included, and all 12 internet positives?
+          Their dev/holdout split existed for the guard.</td>
+        <td><span class="pill sm open">Open</span> Yes, all, re-split by Q2 within each (batch, tag). The guard
+          holdout's role ends with ADR 0005; Q5 says what measures the guard instead.</td><td>P4, P3</td></tr>
+      <tr><td class="id">Q4</td><td>How is the segmenter's test split scored?</td>
+        <td><span class="pill sm open">Open</span> As ML-2 did: the judge's verdict on each test mask under the D13
+          rule (pass rate), plus the share of test negatives whose mask is empty or tiny. Test masks are judged, never
+          used to train.</td><td>P5, P6</td></tr>
+      <tr><td class="id">Q5</td><td>How is OOD defined and measured in the new ADR?</td>
+        <td><span class="pill sm open">Open</span> The guard stays a linear probe with a fixed 0.5 threshold, set by
+          the owner, not calibrated. Fitted on classifier-train bean patches against the train-split negatives;
+          measured, not gated, on the segmenter test split: negatives caught, and positives refused, reported
+          separately for photos the classifier trained on and photos it did not.</td><td>P3, P7</td></tr>
+      <tr><td class="id">Q6</td><td>Does the fine-tune recipe change?</td>
+        <td><span class="pill sm open">Open</span> No: ML-2's decoder-only fine-tune (D7), seeds 42/123/7, so only the
+          data differs.</td><td>P6</td></tr>
+      <tr><td class="id">Q7</td><td>What does the classifier report show before a ship decision?</td>
+        <td><span class="pill sm open">Open</span> ML-2 D24's printout against the shipped model: per seed, val and
+          test patch macro-F1, the paired differences and per-class F1; plus the Q5 guard numbers. No numeric gate.</td><td>P7</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; Commit the 2026-10-08 data</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>The 89 photos added on 2026-10-08 (stripped the same day) go into DVC as they are, before the rename.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc add</code> <code>dataset/classes_labels_only</code>, <code>dataset/ood_positives</code>, <code>dataset/random_date_raccoon</code>; commit the three <code>.dvc</code> files and <code>labels/ml3/strip_manifest.csv</code>.</span></li>
+    <li><span class="box"></span><span><code>dvc push</code> the three targets by name; check every object of the three <code>.dir</code> listings exists on the remote (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>Checks: <code>git status</code> shows no photo staged; the listings differ from <code>9619ec9</code>'s only by the 89 added files.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; Rename to <code>segmenter_positives</code></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>The folder's content hash does not change, so nothing is re-uploaded.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc mv dataset/ood_positives dataset/segmenter_positives</code>; rename the manifest and README beside it.</span></li>
+    <li><span class="box"></span><span>Manifest: a row for each of the 128 photos, with a column naming the source of each copy (the photo it duplicates), and the dev/holdout and scenario columns dropped as meaningless.</span></li>
+    <li><span class="box"></span><span>README rewritten for the new role (D1); the old provenance sections kept as history.</span></li>
+    <li><span class="box"></span><span>References: <code>coffeecv/seg_lists.py</code> (<code>POSITIVE_DIRS</code>), <code>coffeecv/coverage_report.py</code>, <code>README.md</code>, <code>GLOSSARY.md</code> if it names the folder. ML-2's <code>photo_lists.yaml</code> stays unchanged; <code>seg_lists check</code> is retired from <code>scripts/check.sh</code> with ML-2's lists.</span></li>
+    <li><span class="box"></span><span>Checks: <code>grep -rn ood_positives</code> outside history (tickets, plans, ADRs, ML-2 labels, shipped probe files) finds nothing; <code>scripts/check.sh</code> passes.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; ADR superseding ADR 0005 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">Q3, Q5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Write <code>docs/adr/0015-*.md</code> from the Q5 answer, naming ML-5 D2; mark ADR 0005 superseded and link the new one.</span></li>
+    <li><span class="box"></span><span><code>fit_ood_probe</code>: the threshold is fixed, not calibrated; <code>--positives</code> and the conformal path go. <code>ood_eval</code>: measures as the ADR says.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: approve the ADR text.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Build the new segmenter dataset</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1, Q2, Q3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A builder writes <code>labels/ml5/seg_dataset.yaml</code>: every photo's path, sha256, source (<code>segmenter_positives</code>, main dataset, negative batch, internet), split and group. Seeds and ratios in <code>params.yaml</code>.</span></li>
+    <li><span class="box"></span><span>The random main-dataset draw per Q1; the split per Q2 within each source; groups per Q2.</span></li>
+    <li><span class="box"></span><span>Checks, as tests: no group in two splits; no test sha256 in train or cal; every photo exists and is stripped; per-source counts printed for the owner.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Judge labels <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_labels</code> reads the new file: train and cal positives through the three-round judge loop, negatives get empty labels, test masks judged per Q4. Verdicts to <code>labels/ml5/verdicts.jsonl</code>; ML-2 verdicts reused where the mask hash matches.</span></li>
+    <li><span class="box"></span><span>Report yield by round and drop reasons, per source.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: audit a sample of verdicts (ADR 0011).</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Fine-tune the segmenter <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Repoint <code>seg_embed_cache</code>, <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> at the new file; retire the ML-2-only stages.</span></li>
+    <li><span class="box"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune per Q6, choose each seed's checkpoint on cal, score test per Q4.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: pick the seed to carry into P7.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; Re-crop and retrain the classifier <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6, Q7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Point <code>seg_weights</code> at the chosen segmenter; re-run every <code>segcrop</code> and <code>merge_segcam_*</code> stage on the VM.</span></li>
+    <li><span class="box"></span><span>Retrain the classifier (seeds 42/123/7) as a recorded run (<code>docs/agents/experiments.md</code>); fit its probe per the new ADR.</span></li>
+    <li><span class="box"></span><span>Report per Q7.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: ship or not. A release is a separate deploy step.</span></li>
+  </ol>
+
+  <h2>10. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: every object of the three new listings is on the remote.</span></li>
+    <li><span class="box"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
+    <li><span class="box"></span><span>P4: the split tests pass.</span></li>
+    <li><span class="box"></span><span>P6, P7: <code>outputs/config.json</code> holds the intended values after each run (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Changes to the judge's prompt or acceptance rule.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-08</div>Claude reads ticket ML-5 at <code>9619ec9</code> and writes this
+      plan. Three findings not in the ticket; Q1&ndash;Q7 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
+    <code>coffeecv/seg_lists.py</code>, <code>coffeecv/seg_labels.py</code>, <code>coffeecv/fit_ood_probe.py</code>.</footer>
+</main>
