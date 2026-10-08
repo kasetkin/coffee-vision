@@ -173,24 +173,22 @@ stages:
   # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's
   # sha256 is in photo_lists.yaml and checked before use. `ft` joins at P5.
   seg_predict:
-    foreach:
-      pretrained:
-        weights: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+    foreach: [pretrained]       # the fine-tune's base, seg_ft.weights (seg_predict.model_params)
     do:
-      cmd: python -m coffeecv.seg_predict ${key} --threads 4
+      cmd: python -m coffeecv.seg_predict ${item} --threads 4
       deps:
         - coffeecv/seg_predict.py
         - coffeecv/segment_beans.py
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - labels/ml2/photo_lists.yaml
-        - ${item.weights}
+        - models_pretrained/${seg_ft.weights}
       params:
         - params.yaml:
             - seg_prompt
             - seg_mask_select
       outs:
-        - data/seg_masks/${key}
+        - data/seg_masks/${item}
 
   # Ticket ML-2 P5: encoder embeddings (fp16) of every label photo in each seg_ft view, with its label in the
   # same frame (coffeecv/seg_finetune.py; 512 for L0, 1024 for XL0, by seg_ft.weights' variant, ticket ML-5 P4).
@@ -257,7 +255,7 @@ stages:
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - labels/ml2/photo_lists.yaml
-        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+        - models_pretrained/${seg_ft.weights}      # the base seg_finetune trains the decoders over
         - models/seg/ft_s${item}.pt
       params:
         - params.yaml:

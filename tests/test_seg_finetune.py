@@ -65,7 +65,7 @@ class Geometry(unittest.TestCase):
 
 
 class Loss(unittest.TestCase):
-    P = ft.FtParams()
+    P = ft.FtParams(weights=L0_WEIGHTS)
 
     def test_empty_label_and_empty_prediction_have_iou_one(self):
         self.assertEqual(float(ft.hard_iou(torch.zeros(5, dtype=bool), torch.zeros(5, dtype=bool))), 1.0)
@@ -93,8 +93,9 @@ class Params(unittest.TestCase):
         with self.assertRaises(ValueError):
             ft.FtParams.from_config(RunConfig(seg_ft={"views": ["hflip", "id"]}))
 
-    def test_base_weights_default_to_l0_and_name_a_variant(self):
-        self.assertEqual(ft.FtParams.from_config(RunConfig(seg_ft={})).weights, L0_WEIGHTS)
+    def test_base_weights_are_params_yamls_and_name_a_variant(self):
+        with self.assertRaisesRegex(ValueError, "seg_ft.weights"):
+            ft.FtParams.from_config(RunConfig(seg_ft={}))
         self.assertEqual(ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS})).weights, XL0_WEIGHTS)
         with self.assertRaisesRegex(ValueError, "variant"):
             ft.FtParams.from_config(RunConfig(seg_ft={"weights": "efficientvit_sam/other.pt"}))
@@ -157,18 +158,22 @@ class ServingParityXL0(ServingParity):
 
 class DvcStagesReadTheBaseWeights(unittest.TestCase):
     """dvc.yaml's seg_embed_cache and seg_finetune@<seed> depend on models_pretrained/${seg_ft.weights}, the file
-    seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4)."""
+    seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4); so do seg_predict@pretrained and
+    seg_predict_ft@<seed>, whose models are that base and decoders fine-tuned over it (seg_predict.model_params),
+    so that moving the fine-tune to XL0 is one edit of params.yaml."""
 
     def test_the_interpolated_dependency_is_the_file_seg_finetune_builds_from(self):
         from dvc.repo import Repo
         weights = ft.FtParams.from_config(RunConfig.from_params_yaml()).weights
         with Repo(str(REPO_ROOT)) as repo:
-            for name in ("seg_embed_cache", "seg_finetune@42", "seg_finetune@123", "seg_finetune@7"):
+            for name in ("seg_embed_cache", "seg_finetune@42", "seg_finetune@123", "seg_finetune@7",
+                         "seg_predict@pretrained", "seg_predict_ft@42", "seg_predict_ft@123", "seg_predict_ft@7"):
                 with self.subTest(name):
                     stage = repo.stage.collect(name)[0]
                     pretrained = [d.def_path for d in stage.deps if d.def_path.startswith("models_pretrained/")]
                     self.assertEqual(pretrained, [f"models_pretrained/{weights}"])
-                    self.assertTrue(stage.cmd.startswith("python -m coffeecv.seg_finetune "))
+                    module = "seg_predict" if name.startswith("seg_predict") else "seg_finetune"
+                    self.assertTrue(stage.cmd.startswith(f"python -m coffeecv.{module} "))
 
 
 class EntryPointAtToyScale:

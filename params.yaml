@@ -180,6 +180,8 @@ patch_max_attempts_factor: 20
 # selection, never trained on. weights: the pretrained base under models_pretrained/; its variant sets the
 # cache's and the loss's frame (ticket ML-5 P4: 512 for L0, 1024 for XL0). It is the fine-tune's own, not
 # seg_weights, which names the classifier's segmenter and moves only when the classifier is re-cropped.
+# The one place the fine-tune's base is written: seg_predict's "pretrained" is it, and each decoder runs over
+# the base its card (models/seg/<name>.json) records (segment_beans.decoder_base).
 seg_ft:
   weights: efficientvit_sam/efficientvit_sam_l0.pt
   views: [id, hflip, vflip, rot180]

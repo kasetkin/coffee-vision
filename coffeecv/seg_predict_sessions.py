@@ -25,8 +25,8 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.crop_tray import _find_images
 from coffeecv.dataset import load_rgb_image
 from coffeecv.seg_base_masks import item_id
-from coffeecv.seg_predict import MASK_ROOT, MODELS
-from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_sha256
+from coffeecv.seg_predict import MASK_ROOT, MODELS, model_params
+from coffeecv.segment_beans import BeanSegmenter, d4_box, mask_sha256
 
 SEGCROPPED_ROOT = REPO_ROOT / "data" / "segcropped"
 
@@ -59,9 +59,7 @@ def run(model: str, sessions: list[str], out: str) -> None:
     entries = session_entries(sessions)
     out_dir = MASK_ROOT / out
     out_dir.mkdir(parents=True, exist_ok=True)
-    m = MODELS[model]
-    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=m.weights,
-                                  decoder=m.decoder))
+    seg = BeanSegmenter(model_params(model, cfg))
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
