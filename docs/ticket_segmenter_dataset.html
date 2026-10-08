@@ -172,9 +172,8 @@
           rate on test negatives is reported beside it.</td></tr>
       <tr><td class="id">D10</td><td>Where does a "segmentation off" checkbox in the webapp go?</td>
         <td>(a) This ticket. (b) Its own ticket.</td>
-        <td>(b), 2026-10-08: <a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>, later. Found while
-          writing it: the "Use full photo instead" button already classifies the whole photo with the probe applied;
-          OPS-8 decides whether it becomes a checkbox.</td></tr>
+        <td>Neither, 2026-10-08: the "Use full photo instead" button already classifies the whole photo with the
+          probe applied, so no ticket is needed. (OPS-8 was written for it and deleted the same day as redundant.)</td></tr>
       <tr><td class="id">D11</td><td>What happens when photos are added later?</td>
         <td>(a) Frozen assignments, new photos assigned on arrival. (b) Re-split everything.</td>
         <td>(a), 2026-10-08: append-only. The pool draw tops up by the same count, also assigned on arrival.</td></tr>
@@ -248,7 +247,6 @@
   <h2>Out of scope</h2>
   <ul>
     <li>Deploying the new models: a release goes through <code>docs/agents/deploy.md</code> as its own step, on the owner's call.</li>
-    <li>The webapp's "segmentation off" checkbox (<a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>).</li>
     <li>Comparing the new segmenter with <code>ft_s123</code> on ML-2's lists (D5).</li>
     <li>A Claude judge or recheck of the owner's verdicts, and planted-defect tests (D14).</li>
     <li>New photos for the pools (<a href="ticket_capture_gaps.html">ML-4</a>).</li>
@@ -266,12 +264,12 @@
     <div><div class="when">2026-10-08</div>Design session with the owner: D7&ndash;D21 decided, answering the plan's
       Q1&ndash;Q7. Claude checks the plan against EfficientViT-SAM's and SAM's published training recipes and measures
       point-following on 63 accepted ML-2 masks: <code>ft_s123</code> does not follow points, which shapes D15 and
-      D19. Glossary updated (D7). OPS-8 written for the checkbox (D10). Plan rewritten: P1&ndash;P11.</div>
+      D19. Glossary updated (D7). OPS-8 written for the checkbox (D10), then deleted as redundant: the "Use full photo instead" button already does it. Plan rewritten: P1&ndash;P11.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>
     (the segmenter, its lists and judge), <a href="ticket_country_classes.html">ML-3</a> (metadata stripping),
-    <a href="ticket_webapp_segmentation_toggle.html">OPS-8</a>, <a href="adr/0005-linear-probe-ood-guard.md">ADR 0005</a>,
+    <a href="adr/0005-linear-probe-ood-guard.md">ADR 0005</a>,
     <a href="adr/0011-learned-bean-segmentation-stage.md">ADR 0011</a>, EfficientViT-SAM (arXiv 2402.05008), Segment
     Anything (arXiv 2304.02643).</footer>
 </main>
