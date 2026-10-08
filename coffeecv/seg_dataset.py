@@ -313,7 +313,7 @@ def write_seg_dataset(params: Params, entries: list[dict], path: Path = SEG_DATA
 
 # --- the data -------------------------------------------------------------------------------------
 
-def _require_checked_out(folder: Path) -> None:
+def _require_full_checkout(folder: Path) -> None:
     """Refuse a folder whose files are not all in the working tree: a photo missing from a partial
     checkout would read as a photo gone from the data."""
     dvc = folder.parent / f"{folder.name}.dvc"
@@ -335,11 +335,19 @@ def exif_dates(paths: list[Path]) -> dict[str, dict]:
     return {rel(Path(r["SourceFile"])): r for r in json.loads(out.stdout)}
 
 
-def scan() -> list[dict]:
+def scan(only: set[str] | None = None) -> list[dict]:
     """Every photo that may be in the dataset, as `assign`'s candidate records: path, sha256, source,
     batch and tag (negatives), folder (pool), url (internet photos' manifest source_url, which also
-    stands in for a shot time) and time (`shot_time`)."""
+    stands in for a shot time) and time (`shot_time`).
+
+    `only` (repo-relative paths) describes just those photos, the same way, without the checks that every
+    folder is checked out in full; a path that is none of the sources' photos is refused. fit_ood_probe
+    uses it to keep its bean photos out of the groups of the test split (D4)."""
     from coffeecv.strip_metadata import PHOTO_EXTENSIONS
+
+    def _require_checked_out(folder: Path) -> None:
+        if only is None:
+            _require_full_checkout(folder)
 
     def photos(folder: Path) -> list[Path]:
         return sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in PHOTO_EXTENSIONS)
@@ -354,7 +362,7 @@ def scan() -> list[dict]:
         _require_checked_out(batch)
         rows = read_csv(manifest)
         unlisted = sorted(set(map(rel, photos(batch))) - {rel(batch / r["filename"]) for r in rows})
-        if unlisted:
+        if unlisted and only is None:
             raise ValueError(f"{rel(manifest)} does not list {unlisted}")
         for r in rows:
             recs.append(({"path": rel(batch / r["filename"]), "source": "negative", "batch": batch.name,
@@ -369,6 +377,11 @@ def scan() -> list[dict]:
         for p in photos(session):
             if p.relative_to(session).parts[0].startswith("class_"):
                 recs.append(({"path": rel(p), "source": "pool", "folder": session.name, "url": ""}, "", p.name))
+    if only is not None:
+        recs = [x for x in recs if x[0]["path"] in only]
+        unknown = sorted(set(only) - {r["path"] for r, _, _ in recs})
+        if unknown:
+            raise ValueError(f"not a photo of the segmenter dataset's sources: {unknown}")
     missing = [r["path"] for r, _, _ in recs if not (REPO_ROOT / r["path"]).is_file()]
     if missing:
         raise FileNotFoundError(f"listed in a manifest but not on disk: {missing}")
