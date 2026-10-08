@@ -231,15 +231,41 @@ class BeanSegmenter:
         self.timing_ms.update(decoder=(t1 - t0) * 1e3, upsample=(t2 - t1) * 1e3)
         return mask
 
+    def encode(self, rgb: np.ndarray) -> dict:
+        """Encode `rgb` and return the encoding, to store and later hand to `set_encoding` (ML-5 P6: the review
+        page encodes each photo once, so a click reruns only the decoder). The encoder is frozen in every
+        fine-tune (ML-2 D7), so any segmenter on the same weights can decode it."""
+        self._encode(rgb)
+        pr = self.predictor
+        return {"features": pr.features, "original_size": list(pr.original_size),
+                "input_size": list(pr.input_size), "weights_sha256": self.weights_sha256}
+
+    def set_encoding(self, enc: dict) -> None:
+        """Make `enc` (from `encode`, on these weights) the encoded image that the next decode reads."""
+        if enc["weights_sha256"] != self.weights_sha256:
+            raise ValueError(f"encoding made with weights {enc['weights_sha256'][:12]}, not the "
+                             f"{self.weights_sha256[:12]} loaded")
+        pr = self.predictor
+        pr.reset_image()
+        pr.original_size, pr.input_size = tuple(enc["original_size"]), tuple(enc["input_size"])
+        pr.features = enc["features"]
+        pr.is_image_set = True
+
     @torch.inference_mode()
     def predict_with_points(self, rgb: np.ndarray, include: list[tuple[float, float]],
                             exclude: list[tuple[float, float]], output: str = "single") -> tuple[np.ndarray, float]:
         """Whole-image box plus include/exclude points (the D6 correction prompt; no points = the box alone).
         Points are (x, y) fractions of the photo's width/height. `output` is the decoder output, as in
         mask_select: "single" or "multi1".."multi3". Returns (full-resolution mask, pred IoU)."""
-        h, w = rgb.shape[:2]
         self._encode(rgb)
+        return self.decode_points(include, exclude, output)
+
+    @torch.inference_mode()
+    def decode_points(self, include: list[tuple[float, float]], exclude: list[tuple[float, float]],
+                      output: str = "single") -> tuple[np.ndarray, float]:
+        """`predict_with_points` on the image already encoded (by `encode`, `set_encoding` or a predict call)."""
         pr = self.predictor
+        h, w = pr.original_size
         xy = [[fx * (w - 1), fy * (h - 1)] for fx, fy in [*include, *exclude]]
         labels = [1] * len(include) + [0] * len(exclude)
         box = pr.apply_boxes_torch(torch.tensor([[0, 0, w - 1, h - 1]], dtype=torch.float))
@@ -272,6 +298,27 @@ def seg_params(cfg: RunConfig) -> SegParams:
                      keep_frac=cfg.seg_keep_frac, min_area_frac=cfg.seg_min_area_frac,
                      decoder=cfg.seg_decoder or None, weights_sha256=cfg.seg_weights_sha256,
                      decoder_sha256=cfg.seg_decoder_sha256)
+
+
+# ML-5 P6: the segmenters the review page and the point probe take by name (D19: ft_s123 proposes, pretrained L0
+# redraws in pass 1). A pass-2 model is passed as WEIGHTS:DECODER until it is named here.
+NAMED_SEGMENTERS = {"pretrained_l0": (L0_WEIGHTS, None), "pretrained_xl0": (weights_for("xl0"), None),
+                    "ft_s123": (L0_WEIGHTS, "models/seg/ft_s123.pt")}
+
+
+def named_params(name: str, mask_select: str = "multi3") -> SegParams:
+    """SegParams for a name in NAMED_SEGMENTERS, or for WEIGHTS[:DECODER]: pretrained weights under
+    models_pretrained/ and optionally a fine-tuned decoder over them (repo-relative). The box prompt."""
+    if name in NAMED_SEGMENTERS:
+        weights, decoder = NAMED_SEGMENTERS[name]
+    else:
+        weights, _, decoder = name.partition(":")
+        try:
+            variant_of(weights)
+        except ValueError:
+            raise ValueError(f"segmenter {name!r}: not one of {sorted(NAMED_SEGMENTERS)} and not "
+                             f"WEIGHTS[:DECODER]") from None
+    return SegParams(mask_select=mask_select, weights=weights, decoder=decoder or None)
 
 
 def segment_and_crop(rgb: np.ndarray, seg: BeanSegmenter) -> BeanCrop:

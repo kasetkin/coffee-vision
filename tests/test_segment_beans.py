@@ -4,6 +4,7 @@
 
 The tests that build L0 skip on a clone without its weights (models_pretrained/verify.py, dvc pull).
 """
+import io
 import unittest
 from dataclasses import replace
 
@@ -13,7 +14,7 @@ import torch
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, weights_for
-from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_and_crop, seg_params
+from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_and_crop, named_params, seg_params
 
 from tests._tiers import real_data
 
@@ -109,6 +110,21 @@ class TestSegParams(unittest.TestCase):
             seg_params(replace(cfg, seg_decoder_sha256=""))
 
 
+class TestNamedSegmenters(unittest.TestCase):
+    """ML-5 P6: the review page and the point probe take a segmenter by name (D19's ft_s123, pretrained L0)."""
+
+    def test_names_and_weights_with_a_decoder(self):
+        self.assertEqual((named_params("ft_s123").weights, named_params("ft_s123").decoder),
+                         ("efficientvit_sam/efficientvit_sam_l0.pt", "models/seg/ft_s123.pt"))
+        self.assertEqual(named_params("pretrained_l0").decoder, None)
+        self.assertEqual(named_params("pretrained_xl0").variant, "xl0")
+        p = named_params("efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v1.pt")
+        self.assertEqual((p.variant, p.decoder, p.mask_select), ("xl0", "models/seg/xl0_v1.pt", "multi3"))
+        self.assertIsNone(named_params("efficientvit_sam/efficientvit_sam_xl0.pt").decoder)
+        with self.assertRaisesRegex(ValueError, "no_such_model"):
+            named_params("no_such_model")
+
+
 @unittest.skipUnless(HAVE_L0, SKIP_L0)
 class TestSegmenter(unittest.TestCase):
     @classmethod
@@ -150,6 +166,30 @@ class TestXL0FromConfig(unittest.TestCase):
         self.assertEqual(tuple(seg.model.image_size), (1024, 1024))
         rgb = (np.random.default_rng(0).random((300, 400, 3)) * 255).astype(np.uint8)
         self.assertEqual(seg.predict_mask(rgb).shape, (300, 400))
+
+@real_data
+@unittest.skipUnless(HAVE_L0 and (REPO_ROOT / "models/seg/ft_s123.pt").exists(), SKIP_L0 + " (or ft_s123)")
+class TestEncodeOnce(unittest.TestCase):
+    """ML-5 P6: the review page encodes a photo once, stores the encoding, and a click reruns only the decoder.
+    A stored encoding, moved to another segmenter on the same encoder, must give the mask a full run gives."""
+
+    def test_a_stored_encoding_redraws_the_mask_a_full_run_draws(self):
+        yy, xx = np.mgrid[:300, :400]
+        rgb = np.full((300, 400, 3), 60, np.uint8)
+        rgb[(yy - 150) ** 2 + (xx - 220) ** 2 < 90 ** 2] = (200, 160, 90)
+        inc, exc = [(0.55, 0.5)], [(0.1, 0.1), (0.9, 0.9)]
+        ft = BeanSegmenter(replace(P, decoder="models/seg/ft_s123.pt"))
+        want_mask, want_iou = ft.predict_with_points(rgb, inc, exc, "multi3")
+
+        buf = io.BytesIO()
+        torch.save(BeanSegmenter(P).encode(rgb), buf)        # encoded by another segmenter on the same weights
+        buf.seek(0)
+        ft.set_encoding(torch.load(buf, weights_only=True))
+        mask, iou = ft.decode_points(inc, exc, "multi3")
+        self.assertTrue(np.array_equal(mask, want_mask))
+        self.assertEqual(iou, want_iou)
+        self.assertEqual(mask.shape, (300, 400))
+
 
 if __name__ == "__main__":
     unittest.main()
