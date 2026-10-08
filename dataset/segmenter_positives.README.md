@@ -1,4 +1,53 @@
-# OOD positives
+# Segmenter positives
+
+Positives the owner chose for the segmenter because their setup differs from the pools: framing,
+container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
+on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
+**There is no "never seen" claim any more**: 70 of the 128 photos are byte copies of photos in other
+`dataset/` folders, 50 of them pool photos.
+
+Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
+train/validation/test within this source (D13), a copy in one group with its original. Nothing here trains
+the classifier; a copy of a pool photo reaches it only as the original. The OOD guard no longer calibrates on
+these photos (D2; the guard's code follows in ML-5 P3).
+
+## Manifest
+
+`segmenter_positives.manifest.csv`, one row per photo, sorted by file name:
+
+| column | what |
+|---|---|
+| `filename` | the file in this folder |
+| `camera` | `pixel`, `sony`, `oneplus` and `iphone` are the rigs; `iphone_15_pro_max` and `oneplus_kb2005` are other phones (EXIF make and model) |
+| `date` | capture date (EXIF, local time) |
+| `batch` | the date the photo arrived here; the older batch names are in the history below |
+| `duplicate_of` | for a copy, the repo path of the photo it is a byte copy of (equal SHA-256); empty otherwise |
+| `notes` | what the photo shows, where it is unusual |
+
+The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by ML-5 P2: the segmenter dataset
+assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
+stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
+`labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-08: 70 copies, the rename
+
+- **New photos** (batch `2026-10-08`): 70 photos the owner copied in from the pools and from
+  `2026-07-24__first_pictures` and `2026-08-06__box_pictures`. Each is a
+  byte copy of the photo its `duplicate_of` names (checked by SHA-256 against every DVC listing under
+  `dataset/`; each matches exactly one photo). Per source folder: 22 `random_date_raccoon`, 17
+  `2026-07-24__first_pictures`, 6 `2026-09-24__sony`, 4 each `2026-08-09__pixel_cam`, `2026-08-25__iphone` and
+  `2026-09-24__oneplus`, 3 each `2026-08-06__box_pictures`, `2026-08-30__oneplus` and `2026-08-30__sony`, 2 each
+  `2026-08-09__sony_cam` and `2026-08-27__oneplus_flash`.
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
+- **Committed** to DVC in ML-5 P1 (`62a4d3e`), then renamed with `dvc mv` in P2; the folder's `.dir` hash did
+  not change.
+- **Batch names** renamed to arrival dates: `ood_positives` became `2026-09-10`, `ood_positives_2026-09-11`
+  became `2026-09-11`, and so on for 09-30, 10-05 and 10-06.
+
+# History: the folder as the OOD guard's positives (to 2026-10-08)
+
+The sections below are the README as it stood before ML-5, kept as the record of where the first 58 photos
+came from. Paths and batch names in them are the old ones.
 
 Genuine coffee-bean photos the shipped model has **never seen**. These are the population a
 content guard must *not* refuse, and they exist because the checkpoint's own held-out split

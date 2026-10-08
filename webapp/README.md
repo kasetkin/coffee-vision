@@ -85,8 +85,9 @@ deploy. `load_ood_probe` refuses a probe whose `checkpoint_sha` does not
 match the weights, so a stale one fails loudly at startup instead of scoring in
 the wrong embedding space.
 
-Rebuild it with `python -m coffeecv.fit_ood_probe` (see
-`docs/ood_guard_eval.md` for what it is calibrated against and why). It is
+Rebuild it with `python -m coffeecv.fit_ood_probe` and measure it with
+`python -m coffeecv.ood_eval` (ADR 0016: a fixed 0.5, fitted on the segmenter
+dataset's training and validation negatives, measured on its test split). It is
 small, deterministic, and git-tracked beside the reference -- unlike the
 `.ood_embeddings.npz` sidecar, which this service does not need at all.
 
