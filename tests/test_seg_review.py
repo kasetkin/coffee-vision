@@ -9,6 +9,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +21,7 @@ from PIL import Image
 
 from coffeecv import seg_review
 from coffeecv.backbones import MODELS_PRETRAINED
+from coffeecv.config import REPO_ROOT
 from coffeecv.sam_loader import L0_WEIGHTS
 from coffeecv.segment_beans import BeanSegmenter, mask_sha256, named_params
 
@@ -237,6 +240,41 @@ class LabelSession(unittest.TestCase):
     def test_a_resume_with_other_models_is_refused(self):
         with self.assertRaisesRegex(ValueError, "redraw"):
             self.open(redraw="pretrained_xl0")
+
+
+class SessionMasksStayOutOfGit(unittest.TestCase):
+    """docs/agents/dvc.md, "Keeping git and DVC apart": a session's masks are gitignored from its first click,
+    not only once `dvc add data/ml5_labels/<session>` writes its own .gitignore, and that `dvc add` still works
+    with the rule in place (DVC refuses to write a .dvc file that git ignores). Run in a scratch repo carrying
+    this repo's .gitignore."""
+
+    SESSION = seg_review.MASK_ROOT.relative_to(REPO_ROOT) / "pass1"
+
+    def git(self, root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=check)
+
+    def ignored(self, root: Path, path: Path) -> bool:
+        return self.git(root, "check-ignore", "-q", "--no-index", str(path), check=False).returncode == 0
+
+    def test_masks_are_ignored_before_and_after_dvc_add_and_only_the_dvc_file_shows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.git(root, "init", "-q")
+            (root / ".gitignore").write_text((REPO_ROOT / ".gitignore").read_text())
+            mask = self.SESSION / "r1" / "dataset__x.png"
+            for f in (mask, self.SESSION / "labels.csv"):
+                (root / f).parent.mkdir(parents=True, exist_ok=True)
+                (root / f).write_bytes(b"x")
+                self.assertTrue(self.ignored(root, f), f)
+            subprocess.run([sys.executable, "-m", "dvc", "init", "-q"], cwd=root, check=True)
+            add = subprocess.run([sys.executable, "-m", "dvc", "add", "-q", str(self.SESSION)], cwd=root,
+                                 capture_output=True, text=True)
+            self.assertEqual(add.returncode, 0, add.stderr)
+            self.assertTrue(self.ignored(root, mask))
+            self.assertFalse(self.ignored(root, self.SESSION.with_suffix(".dvc")))
+            untracked = self.git(root, "status", "--porcelain", "-uall").stdout.split("\n")
+            self.assertEqual([x[3:] for x in untracked if x.startswith("??") and x[3:].startswith("data/")],
+                             [self.SESSION.with_suffix(".dvc").as_posix()])
 
 
 @real_data

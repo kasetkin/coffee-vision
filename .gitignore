@@ -31,3 +31,9 @@ __pycache__/
 /models_pretrained/**/*.pt
 /models_pretrained/**/*.safetensors
 /webapp/BUILD_INFO.json
+# ML-5 labelling sessions (coffeecv/seg_review.py): every mask under data/ml5_labels/<session>/ is ignored from
+# the session's first click, not only once `dvc add data/ml5_labels/<session>` writes a .gitignore of its own,
+# so a `git add -A` mid-session stages no mask (docs/agents/dvc.md, "Keeping git and DVC apart"). The children,
+# not the directory: DVC refuses to write a .dvc file git ignores, so <session>.dvc is re-included.
+/data/ml5_labels/*
+!/data/ml5_labels/*.dvc

@@ -29,7 +29,7 @@ seg_paired_seed (or --seed), the model names hidden until every mask is judged; 
 once. A/D judge the left mask, J/L the right one.
 
 Storage, as ML-2 D16: verdicts and their points in git, masks DVC-tracked (`dvc add data/ml5_labels/<session>`
-when the session is done).
+when the session is done; .gitignore keeps them out of git from the first click).
     labels/ml5/<session>.session.json        the session's models and outputs
     labels/ml5/<session>.verdicts.jsonl      one row per click: round, mask sha256, the points that drew it
     data/ml5_labels/<session>/r<k>/<id>.png  round k's masks (1-bit) + index.csv with their points and models
