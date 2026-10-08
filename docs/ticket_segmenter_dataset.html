@@ -14,7 +14,7 @@
     passes, then the classifier is retrained. ADRs 0005 and 0011 are superseded. Decided and planned; P1 done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08; D1&ndash;D21 decided 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); P1 done 2026-10-08 (<code>62a4d3e</code>)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08; D1&ndash;D23 decided 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); P1 done 2026-10-08 (<code>62a4d3e</code>)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset, segmenter, classifier retraining</span></div>
@@ -63,6 +63,15 @@
       make its masks worse, not better. Pretrained L0 reproduces 100% and improves with each click, but its box alone
       selects the tray. SAM keeps point-following by training with points sampled from the error region (SAM paper,
       appendix A); ML-2's fine-tune trained the box only.</li>
+    <li><strong>Not an artefact of the decoder output</strong> (re-measured 2026-10-08,
+      <code>analysis/ml5_point_probe/</code>). Corrections use the <code>single</code> output, which ML-2's fine-tune
+      never trained (it trained <code>multi3</code>), so the probe was rerun through both outputs on 253 accepted ML-2
+      masks: 38 base-point masks and 215 round-2/3 labels. Through <code>multi3</code>, <code>ft_s123</code> reproduces
+      21% and 39% of them and returns 45% and 26% empty, no better than through <code>single</code> (18% and 34%; 45%
+      and 13%). Simulated clicks still never help, but <code>multi3</code> degrades gently (IoU &ge; 0.9 from 100% on
+      the box alone to 70% after three clicks, round-2/3 set) where <code>single</code> collapses (99% to 27%).
+      Pretrained L0 follows simulated clicks better through <code>multi3</code> than through <code>single</code> (73%
+      against 42% at IoU &ge; 0.9 after three clicks).</li>
     <li><strong>Sources for the new dataset.</strong> Pools: 1,248 photos in 16 session folders. OOD negatives: 142
       in three batches. Internet positives: 12.</li>
     <li><strong>EfficientViT-SAM's own recipe</strong> (arXiv 2402.05008): focal and dice at 20:1, AdamW with cosine
@@ -195,7 +204,8 @@
         <td>&mdash;</td>
         <td>2026-10-08: ML-2's decoder-only recipe, one seed (123; ML-2's three seeds were indistinguishable). Plus
           point prompts in training: some batches add 1&ndash;3 points sampled from the error region of the box-only
-          prediction, the box always kept (SAM's method). Serving and checkpoint selection stay box-only.</td></tr>
+          prediction, the box always kept (SAM's method). Serving and checkpoint selection stay box-only. Which output
+          trains on box-plus-points batches: D23.</td></tr>
       <tr><td class="id">D16</td><td>Do all negatives and internet positives join, and how is the guard measured?</td>
         <td>&mdash;</td>
         <td>2026-10-08: all 142 negatives and 12 internet positives, split per D13 within each (batch, tag); the old
@@ -213,22 +223,44 @@
         <td>&mdash;</td>
         <td>2026-10-08, two passes. <strong>Pass 1</strong>: <code>ft_s123</code> proposes round 1; a declined photo
           is redrawn by pretrained L0 from the box plus the owner's points (ML-2 D25's path; <code>ft_s123</code> does
-          not follow points, §2). XL0 fine-tuned on these labels is XL0-v1; the owner judges its test masks.
+          not follow points, §2). XL0 fine-tuned on these labels is XL0-v1; its test masks are judged with XL0-v2's (D22).
           <strong>Pass 2</strong>: XL0-v1 proposes; a point probe (replayed and simulated clicks against pass-1
           accepts) decides whether XL0-v1 or pretrained XL0 redraws on a decline. The owner reviews every training
           and validation photo again, dropped ones included; a pass-2 verdict replaces the pass-1 label. XL0 fine-tuned
-          again is XL0-v2; the owner judges its test masks. The review page encodes each photo once before a session,
+          again is XL0-v2; the owner judges both models' test masks in one blind session (D22). The review page encodes each photo once before a session,
           so a click reruns only the decoder.</td></tr>
       <tr><td class="id">D20</td><td>Which segmenter goes on, and what does the classifier report show?</td>
         <td>&mdash;</td>
-        <td>2026-10-08: XL0-v2 by default; the owner picks after seeing v1 against v2 (test pass rate per source,
-          empty-or-tiny rate on test negatives). The classifier is retrained with seeds 42/123/7 and reported as ML-2
+        <td>2026-10-08: XL0-v2 by default; the owner picks after seeing v1 against v2 (paired test verdicts and the
+          empty-or-tiny rate on test negatives, as D22 amends this). The classifier is retrained with seeds 42/123/7 and reported as ML-2
           D24 printed it against the shipped model (per seed validation and test patch macro-F1, paired differences,
           per-class F1), plus the D16 probe numbers. No numeric gate; the owner decides whether to ship.</td></tr>
       <tr><td class="id">D21</td><td>The tiny-mask threshold?</td>
         <td>&mdash;</td>
         <td>2026-10-08: re-derived as ML-2 D18 did (half the smallest bean region on a genuine test photo), on the new
           test split with the chosen segmenter's accepted masks; positives below the old and new values reported.</td></tr>
+      <tr><td class="id">D23</td><td>Which decoder output answers a box plus points, in training and on a redraw?</td>
+        <td>(a) <code>single</code>, SAM's convention for several prompts and ML-2's (<code>CORRECTION_OUTPUT</code>).
+          (b) <code>multi3</code>, the serving output.</td>
+        <td>(b), 2026-10-08, from Claude's review of the plan. Box-plus-points batches in the fine-tune train
+          <code>multi3</code>, the output box-only batches and serving use, so one output does everything; every
+          redraw (pass 1 by pretrained L0, pass 2 by XL0-v1 or pretrained XL0) uses <code>multi3</code>; the point probe
+          takes the output as an argument and reports both. Why (§2): the hypothesis that <code>ft_s123</code> ignored
+          points only through its untrained <code>single</code> output did not hold, so D19's pass 1 stands, but
+          <code>multi3</code> follows simulated clicks better on pretrained L0 and degrades less on
+          <code>ft_s123</code>, and ML-2 left the redraw output unrecorded as a decision.</td></tr>
+      <tr><td class="id">D22</td><td>How are XL0-v1 and XL0-v2 judged on test, and compared?</td>
+        <td>(a) Each judged after its own fine-tune, pass rates per source compared. (b) Both judged together after
+          XL0-v2, blind, and compared paired.</td>
+        <td>(b), 2026-10-08, from Claude's review of the plan. After XL0-v2 is trained, one session shows each test
+          positive's two masks side by side, left and right drawn at random per photo, the model hidden; the owner
+          accepts or declines each mask under the acceptance rule (identical masks are judged once). Reported per
+          source and overall: both pass, v1 only, v2 only, both fail, with an exact McNemar test on the discordant
+          pairs; internet positives count with the segmenter positives (about 3 test photos, no rate of their own); the
+          empty-or-tiny rate on test negatives for both, shown at the same time. Why: test holds about 32 photos per
+          source, too few for unpaired rates to show a 10-point difference, and judging v1 weeks before v2, with v2
+          known as the default, invites a biased verdict. Replaces the separate test judging in D19 and the
+          per-source rates in D20; the default (v2) and the owner's pick stand.</td></tr>
     </tbody>
   </table></div>
 
@@ -240,7 +272,7 @@
     <li><span class="box"></span><span>The segmenter runs XL0 at 1024 px at training and serving; its time per photo on the VM is reported.</span></li>
     <li><span class="box"></span><span>The segmenter dataset is one committed, append-only file: every photo, its source, split and group; no group straddles two splits.</span></li>
     <li><span class="box"></span><span>The review page takes <kbd>g</kbd>/<kbd>r</kbd> point clicks and redraws the mask.</span></li>
-    <li><span class="box"></span><span>XL0-v1 and XL0-v2 fine-tuned, their test masks judged by the owner, and one chosen.</span></li>
+    <li><span class="box"></span><span>XL0-v1 and XL0-v2 fine-tuned, their test masks judged together and blind by the owner, compared paired (D22), and one chosen.</span></li>
     <li><span class="box"></span><span>The tiny-mask threshold re-derived; the pools re-cropped; the classifier retrained and reported; the owner decides whether to ship.</span></li>
   </ul>
 
@@ -265,6 +297,11 @@
       Q1&ndash;Q7. Claude checks the plan against EfficientViT-SAM's and SAM's published training recipes and measures
       point-following on 63 accepted ML-2 masks: <code>ft_s123</code> does not follow points, which shapes D15 and
       D19. Glossary updated (D7). OPS-8 written for the checkbox (D10), then deleted as redundant: the "Use full photo instead" button already does it. Plan rewritten: P1&ndash;P11.</div>
+    <div><div class="when">2026-10-08</div>Claude reviews the ticket and plan as a CV engineer. Two findings
+      adopted by the owner. The point-following measurement is rerun through both decoder outputs on 253 accepted
+      ML-2 masks (<code>analysis/ml5_point_probe/</code>): <code>ft_s123</code> fails through <code>multi3</code> as
+      well, so D19 stands, and D23 fixes <code>multi3</code> as the output for box plus points. D22: v1 and v2 test
+      masks judged together, blind, and compared paired.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>

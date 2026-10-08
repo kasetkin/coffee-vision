@@ -33,8 +33,10 @@
       <li><b>L0 is wired in.</b> <code>seg_finetune.py</code> hard-codes the 512 frame (<code>FRAME</code>) and
         <code>build_sam_l0</code>; <code>sam_loader</code> already lists <code>xl0</code> with its 1024 px input (P4).</li>
       <li><b><code>ft_s123</code> does not follow point prompts</b> (ticket §2: 17&ndash;35% of accepted masks
-        reproduced from their own points, 35&ndash;48% empty). Hence pretrained L0 for pass-1 corrections and point
-        prompts in the XL0 fine-tune (D15, D19). The probe that measured it becomes a committed check (P6).</li>
+        reproduced from their own points, 35&ndash;48% empty), through <code>multi3</code> as well as
+        <code>single</code> (re-measured on 253 masks, <code>analysis/ml5_point_probe/</code>). Hence pretrained L0 for
+        pass-1 corrections and point prompts in the XL0 fine-tune (D15, D19), all through <code>multi3</code> (D23). The
+        probe that measured it becomes a committed check (P6).</li>
     </ol>
   </div>
 
@@ -52,9 +54,9 @@
       <tr><td class="id">P5</td><td>The segmenter dataset file: pool draw and split</td><td>local</td><td>no: a list of photos</td></tr>
       <tr><td class="id">P6</td><td>Review page: <kbd>g</kbd>/<kbd>r</kbd> points, redraw, pre-encoding; the point probe</td><td>local</td><td>no</td></tr>
       <tr><td class="id">P7</td><td>Pass 1 labels <span class="pill sm open">stop</span></td><td>owner</td><td>no: labels</td></tr>
-      <tr><td class="id">P8</td><td>XL0-v1: fine-tune with point prompts; test masks; point probe <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the segmenter</td></tr>
+      <tr><td class="id">P8</td><td>XL0-v1: fine-tune with point prompts; test predictions; point probe</td><td>VM, owner</td><td>yes: the segmenter</td></tr>
       <tr><td class="id">P9</td><td>Pass 2 labels <span class="pill sm open">stop</span></td><td>owner</td><td>no: labels</td></tr>
-      <tr><td class="id">P10</td><td>XL0-v2; test masks; v1 against v2; tiny-mask threshold <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the segmenter</td></tr>
+      <tr><td class="id">P10</td><td>XL0-v2; v1 and v2 test masks judged blind, paired; tiny-mask threshold <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the segmenter</td></tr>
       <tr><td class="id">P11</td><td>Re-crop the pools, retrain the classifier, fit the probe, report <span class="pill sm open">stop</span></td><td>VM, owner</td><td>yes: the classifier</td></tr>
     </tbody>
   </table></div>
@@ -71,7 +73,7 @@
       <tr><td class="id">Q3</td><td>Do all OOD negatives and internet positives join?</td>
         <td><span class="pill sm ok">Answered</span> Yes, all, holdouts included (D16).</td><td>P3, P5</td></tr>
       <tr><td class="id">Q4</td><td>How is the segmenter's test split scored?</td>
-        <td><span class="pill sm ok">Answered</span> The owner judges every test mask; plus the empty-or-tiny rate on test negatives (D14).</td><td>P8, P10</td></tr>
+        <td><span class="pill sm ok">Answered</span> The owner judges every test mask; plus the empty-or-tiny rate on test negatives (D14); v1 and v2 together, blind and paired (D22).</td><td>P10</td></tr>
       <tr><td class="id">Q5</td><td>How is OOD defined and measured?</td>
         <td><span class="pill sm ok">Answered</span> The probe at a fixed 0.5 after every classification; fitted on training and validation negatives, measured on test (D9, D16).</td><td>P3, P11</td></tr>
       <tr><td class="id">Q6</td><td>Does the fine-tune recipe change?</td>
@@ -151,11 +153,12 @@
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>review_masks</code>: hold <kbd>g</kbd> + left-click adds an include point (green), <kbd>r</kbd> + left-click an exclude point (red); a plain click still opens the spot at full resolution. Undo the last point; redraw on demand.</span></li>
-    <li><span class="box"></span><span>Labelling mode over the dataset file: round 1 shows the proposer's mask; a decline asks for points; the redraw model draws from the box plus all points so far; up to 3 rounds; still declined means dropped, reason logged. Proposer and redraw model are arguments (pass 1: <code>ft_s123</code> and pretrained L0, D19). Negatives are never shown; their labels are empty.</span></li>
+    <li><span class="box"></span><span>Labelling mode over the dataset file: round 1 shows the proposer's mask; a decline asks for points; the redraw model draws from the box plus all points so far; up to 3 rounds; still declined means dropped, reason logged. Proposer and redraw model are arguments (pass 1: <code>ft_s123</code> and pretrained L0, D19); every redraw uses the <code>multi3</code> output (D23), replacing <code>seg_labels.CORRECTION_OUTPUT</code>&rsquo;s <code>single</code>. Negatives are never shown; their labels are empty.</span></li>
     <li><span class="box"></span><span>Each photo's embedding is computed once before the session for the redraw model, so a click reruns only the decoder.</span></li>
+    <li><span class="box"></span><span>Blind paired mode for P10 (D22): two models' masks of one photo side by side, sides randomised and recorded, model names hidden until the session ends; a verdict per mask.</span></li>
     <li><span class="box"></span><span>Verdicts, points and masks stored as ML-2 D16 stored them: verdicts and points in git (<code>labels/ml5/</code>), masks DVC-tracked.</span></li>
-    <li><span class="box"></span><span>The point probe as <code>coffeecv/seg_point_probe.py</code>: for a model and a set of accepted masks with their points, replay the points and simulate 3 corrective clicks at the largest error; print IoU &ge; 0.9 and empty shares per click. Reproduces the 2026-10-08 <code>ft_s123</code> numbers on ML-2's masks.</span></li>
-    <li><span class="box"></span><span>Checks: a smoke run of the page on 3 photos, points included; the probe's numbers on <code>ft_s123</code> match the ticket's.</span></li>
+    <li><span class="box"></span><span>The point probe as <code>coffeecv/seg_point_probe.py</code>: for a model and a set of accepted masks with their points, replay the points and simulate 3 corrective clicks, each at the distance-transform maximum of the largest error region; the decoder output is an argument (D23); print IoU &ge; 0.9 and empty shares per click. Built from <code>analysis/ml5_point_probe/point_probe.py</code> and reproduces its <code>summary.txt</code>.</span></li>
+    <li><span class="box"></span><span>Checks: a smoke run of the page on 3 photos, points and the blind paired mode included; the probe's numbers match <code>analysis/ml5_point_probe/summary.txt</code>.</span></li>
   </ol>
 
   <h2>9. P7 &mdash; Pass 1 labels <span class="pill sm open">stop</span></h2>
@@ -169,17 +172,17 @@
     <li><span class="box"></span><span>Report: accepted by round, dropped and why, per source.</span></li>
   </ol>
 
-  <h2>10. P8 &mdash; XL0-v1 <span class="pill sm open">stop</span></h2>
+  <h2>10. P8 &mdash; XL0-v1</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Repoint <code>seg_embed_cache</code>, <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> at the dataset file; retire the ML-2-only stages.</span></li>
-    <li><span class="box"></span><span>Point prompts in training (D15): some batches add 1&ndash;3 points sampled from the error region of the box-only prediction, the box kept; the share is a param. Checkpoint selection stays box-only.</span></li>
+    <li><span class="box"></span><span>Point prompts in training (D15): some batches add 1&ndash;3 points sampled from the error region of the box-only prediction, the box kept; the share is a param. Those batches train the <code>multi3</code> output, as box-only batches do (D23). Checkpoint selection stays box-only.</span></li>
     <li><span class="box"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune XL0, seed 123, checkpoint on validation; predict the test split.</span></li>
-    <li><span class="box"></span><span>Point probe on XL0-v1 against the pass-1 accepts with points: decides the pass-2 redraw model (D19).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: judge every XL0-v1 test mask. Report the pass rate per source and the empty-or-tiny rate on test negatives.</span></li>
+    <li><span class="box"></span><span>Point probe on XL0-v1 against the pass-1 accepts with points, through <code>multi3</code> (D23): decides the pass-2 redraw model (D19).</span></li>
+    <li><span class="box"></span><span>No test verdicts or test numbers here: XL0-v1's test predictions are stored and judged with XL0-v2's in P10 (D22).</span></li>
   </ol>
 
   <h2>11. P9 &mdash; Pass 2 labels <span class="pill sm open">stop</span></h2>
@@ -200,7 +203,8 @@
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Fine-tune XL0 again on the pass-2 labels, as P8; predict the test split.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: judge every XL0-v2 test mask, then pick v1 or v2 (default v2) from the side-by-side report (D20).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge v1's and v2's test masks in one blind session (D22): each test positive's two masks side by side, sides drawn at random per photo from a seed in <code>params.yaml</code>, the model hidden, identical masks judged once.</span></li>
+    <li><span class="box"></span><span>Report, per source and overall: both pass, v1 only, v2 only, both fail, and an exact McNemar p-value on the discordant pairs; internet positives counted with the segmenter positives; the empty-or-tiny rate on test negatives for both. The owner picks v1 or v2 (default v2, D20).</span></li>
     <li><span class="box"></span><span>Re-derive <code>seg_min_area_frac</code> from the chosen model's accepted test masks (D21); report the test positives below the old and new values.</span></li>
   </ol>
 
@@ -222,7 +226,7 @@
     <li><span class="box"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
     <li><span class="box"></span><span>P4: L0 outputs byte-identical after the variant change.</span></li>
     <li><span class="box"></span><span>P5: the split tests pass.</span></li>
-    <li><span class="box"></span><span>P6: the point probe reproduces the 2026-10-08 <code>ft_s123</code> numbers.</span></li>
+    <li><span class="box"></span><span>P6: the point probe reproduces <code>analysis/ml5_point_probe/summary.txt</code>.</span></li>
     <li><span class="box"></span><span>P8, P10, P11: <code>outputs/config.json</code> holds the intended values after each run (<code>docs/agents/dvc.md</code>).</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
@@ -246,6 +250,13 @@
     <div><div class="when">2026-10-08</div>Rewritten after the owner's design session: Q1&ndash;Q7 answered (ticket
       D7&ndash;D21); XL0, owner-judged labels in two passes, and the point probe added; P3&ndash;P11 replace the first
       draft's P3&ndash;P7. Two more findings (L0 wired in; <code>ft_s123</code> ignores points).</div>
+    <div><div class="when">2026-10-08</div>After Claude's review, the owner adopts blind paired judging of v1 and v2
+      (ticket D22): P8 loses its stop and its test verdicts, P10 judges both models' test masks in one session and
+      reports paired counts with an exact McNemar test, P6 adds the blind paired mode.</div>
+    <div><div class="when">2026-10-08</div>Point probe rerun through both decoder outputs
+      (<code>analysis/ml5_point_probe/</code>): <code>ft_s123</code> ignores points through <code>multi3</code> too, so
+      pass 1 is unchanged. Ticket D23: box plus points trains and redraws through <code>multi3</code>; P6, P8 and the
+      probe follow.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
