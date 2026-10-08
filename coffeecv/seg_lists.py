@@ -1,8 +1,11 @@
 """Ticket ML-2 P1: the segmenter's photo lists, one committed file (plan §4.1).
 
-    python -m coffeecv.seg_lists build     # writes labels/ml2/photo_lists.yaml (refuses to move or drop entries)
-    python -m coffeecv.seg_lists check     # structural checks + coverage against today's pools
     python -m coffeecv.seg_lists rekey     # photo hashes before -> after the ML-3 metadata strip (its manifest)
+
+Retired by ticket ML-5 (D3): the lists are frozen as ML-2 left them, and `build` and `check` refuse. Both
+read today's data, and ML-5 renamed the segmenter positives' folder to dataset/segmenter_positives and
+dropped its dev/holdout split (D1), so a rebuild could only move entries. build() stays as the recipe the
+lists were drawn with; the seg_* stages still read the file until ML-5 P8 repoints them.
 
 Every list names raw photos, because the segmenter sees whole photos, never crops:
 
@@ -60,7 +63,9 @@ ML2_SESSIONS = {
     "cam_iphone": ("2026-08-25__iphone",),
 }
 NEGATIVES_ROOT = REPO_ROOT / "dataset" / "ood_negatives"
-POSITIVE_DIRS = (REPO_ROOT / "dataset" / "ood_positives", REPO_ROOT / "dataset" / "ood_positives_internet")
+# The positives' folders that still have a dev/holdout split. ML-2's pos_seg_* lists also drew from the folder
+# ML-5 renamed dataset/segmenter_positives (D1); its holdout was checked while it had one.
+POSITIVE_DIRS = (REPO_ROOT / "dataset" / "ood_positives_internet",)
 
 POSITIVE_LISTS = ("seg_train", "seg_val", "seg_eval")
 NEGATIVE_LISTS = ("neg_seg_train", "neg_seg_eval")
@@ -571,42 +576,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"re-keyed {sum(1 for v in values if v in todo)} of {len(values)} listed photo hashes")
         return 0
 
-    if args.command == "build":
-        capture_dirs, frac = split_basis(cfg)
-        new = build(cfg)
-        if LISTS_FILE.exists():
-            meta, old = load_lists()
-            if meta["seg_split_seed"] != cfg.seg_split_seed:
-                raise ValueError(f"{rel(LISTS_FILE)} was built at seg_split_seed {meta['seg_split_seed']}, "
-                                 f"params.yaml says {cfg.seg_split_seed}; the lists are append-only (D20)")
-            # base_dev / base_heldout come from the owner's mask decisions (`bases`), not from the data, so a
-            # rebuild carries them as they are; without this `build` refused once they existed (ticket ML-3).
-            new = merge_append_only(old, {**{k: old[k] for k in BASE_LISTS if k in old}, **new})
-        meta = {"seg_split_seed": cfg.seg_split_seed,
-                "photo_frac": [frac["train"], frac["val"], frac["test"]],
-                "capture_dirs": capture_dirs, "seg_val_frac": SEG_VAL_FRAC,
-                "neg_eval_frac": round(NEG_EVAL_FRAC, 4), "near_dup_seconds": NEAR_DUP_SECONDS}
-        problems = structural_problems(new)
-        if problems:
-            raise ValueError("refusing to write inconsistent lists:\n  " + "\n  ".join(problems))
-        write_lists(meta, new)
-        print(f"wrote {rel(LISTS_FILE)}\n{summary(new)}")
-        return 0
-
-    meta, lists = load_lists()
-    problems = structural_problems(lists)
-    fresh = build(cfg)
-    for name in (*POSITIVE_LISTS, *NEGATIVE_LISTS, *OOD_POSITIVE_LISTS):
-        have, want = {e["path"] for e in lists.get(name, [])}, {e["path"] for e in fresh[name]}
-        if have != want:
-            problems.append(f"{name}: {len(want - have)} photos in today's pools are unlisted, "
-                            f"{len(have - want)} listed photos are not where today's split puts them")
-    print(summary(lists))
-    if problems:
-        print("FAIL\n  " + "\n  ".join(problems))
-        return 1
-    print("OK")
-    return 0
+    if args.command in ("build", "check"):
+        raise SystemExit(f"seg_lists {args.command} is retired with ML-2's lists (ticket ML-5, D3); "
+                         f"{rel(LISTS_FILE)} is frozen")
 
 
 if __name__ == "__main__":
