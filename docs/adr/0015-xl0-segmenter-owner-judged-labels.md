@@ -1,0 +1,9 @@
+# The segmenter is EfficientViT-SAM-XL0 at 1024 px, fine-tuned on box and point prompts from owner-judged labels
+
+The learned segmentation stage of [ADR 0011](0011-learned-bean-segmentation-stage.md) stays as it was built: it masks the photo's bean region and the photo is cropped to it before classification, by the same code in training and serving, from a fixed whole-image box prompt at serving, with only the mask decoder fine-tuned. Three things change.
+
+- **XL0 at 1024 px**, the owner's choice, adopted without a comparison against L0 (ML-5 D18). XL0 costs about 3.4 times L0's compute; there is no latency limit, and its time per photo on the VM is measured before labelling.
+- **The owner judges every label** (D14): every training and validation label and every test mask, under ML-2's acceptance rule. On a decline the owner places include and exclude points, the mask is redrawn and judged again, up to three rounds; still declined means dropped, with the reason logged. Negatives get empty labels. Why not a Claude judge, as ADR 0011 had: Opus costs too much of the session limit and Sonnet is too sloppy, so there is no Claude recheck and no planted-defect test of a judge.
+- **Fine-tuned on box and point prompts** (D15, D23): some batches add 1–3 points sampled from the error region of the box-only prediction, the box always kept, as SAM trains; those batches train the `multi3` output that box-only batches and serving use, and every redraw uses `multi3` too. Why: ML-2's box-only fine-tune stopped following points (it reproduced 17–35% of accepted masks from their own points and returned 35–48% empty, and did no better through `multi3`), and the labelling corrections depend on points. Serving and checkpoint selection stay box-only.
+
+Source: [ML-5](../ticket_segmenter_dataset.html) D14, D15, D17, D18, D23; supersedes [ADR 0011](0011-learned-bean-segmentation-stage.md) (ML-2 D1, D6, D15).

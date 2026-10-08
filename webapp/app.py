@@ -33,7 +33,7 @@ from coffeecv.config import REPO_ROOT
 from coffeecv.class_list import load_classes
 from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
 from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint, crop_to_bean_region,
-                            inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
+                            PROBE_THRESHOLD, inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
                             reference_path_for, segmenter_for, sig12)
 
 logging.basicConfig(level=logging.INFO)
@@ -80,8 +80,8 @@ probe = load_ood_probe(CHECKPOINT, head=head)
 if probe is None:
     logger.info("OOD guard: centroid metric (no probe beside %s)", CHECKPOINT.name)
 else:
-    logger.info("OOD guard: linear_probe from %s, threshold %.4f, certified alpha %.1f%%",
-                probe["_path"], probe["threshold"], 100 * probe["alpha"])
+    logger.info("OOD guard: linear_probe from %s, refusing above a fixed %.1f (ADR 0016)",
+                probe["_path"], PROBE_THRESHOLD)
 
 # Ticket ML-2: a crop_method "segment" model finds the bean region with the segmenter it was trained with,
 # loaded here at import so missing or mismatched segmenter weights fail the boot, not the first request.
@@ -135,7 +135,7 @@ BUILD = {
     "backbone_sha": (model.backbone.weights_sha256[:16] if hasattr(model, "backbone") else None),
     "ood_reference_sha": _file_sha(ref_path),
     "ood_probe_sha": _file_sha(probe_path_for(CHECKPOINT)) if probe is not None else None,
-    "ood_threshold": probe["threshold"] if probe is not None else None,
+    "ood_threshold": PROBE_THRESHOLD if probe is not None else None,
     "tta": TTA,
     "crop_method": cfg.crop_method,
     **({"segmenter_sha": segmenter.weights_sha256[:16],

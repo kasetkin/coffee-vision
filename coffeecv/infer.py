@@ -84,6 +84,9 @@ LEGACY_CONFIG_NOTE = (" [pre-ML-1 config: `train_rigs` read as `train_capture_di
 # rather than a tuned constant -- one positive example is thin evidence, so the
 # margin is reported alongside every verdict.
 OOD_THRESHOLD = 1.4
+# The linear probe refuses above its own decision boundary, P(not beans) > P(beans), fixed (ADR 0016,
+# ticket ML-5 D9): not read from the probe file, whose `threshold` field only records it.
+PROBE_THRESHOLD = 0.5
 
 
 def grayscale_like_training(rgb: np.ndarray) -> np.ndarray:
@@ -684,10 +687,9 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
 
     if probe is not None and ood_method in ("auto", "linear_probe"):
         method, score = "linear_probe", entry["ood"]["probe"]
-        threshold = float(probe["threshold"])
-        # Warn band = the threshold a 20% false-refusal rate would have used.
-        # Between the two, a photo is one the probe finds unusual but not
-        # unusual enough to refuse at the rate this deployment promised.
+        threshold = PROBE_THRESHOLD
+        # Warn band = the 20% conformal threshold of a probe fitted under ADR 0005, while one ships.
+        # A probe fitted under ADR 0016 carries no conformal thresholds, so it has no band.
         w20 = (probe.get("thresholds_by_alpha") or {}).get("0.20")
         warn_at = float(w20) if w20 is not None and float(w20) < threshold else None
         warn_note = (
@@ -709,11 +711,6 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
             "would be false precision.")
     entry["ood"].update({"method": method, "score": score, "threshold": threshold,
                          "warn_above": warn_at})
-    if method == "linear_probe":
-        # Only when the probe decides: alpha describes *this* threshold's
-        # certificate, and stamping it on a centroid verdict would attach a
-        # guarantee to a number it was never computed for.
-        entry["ood"]["alpha"] = probe.get("alpha")
 
     # Message text lives here, once, rather than in the CLI printer or the web
     # response separately -- both callers show the exact same words for the exact
@@ -827,7 +824,7 @@ def main() -> None:
                                Path(args.ood_probe) if args.ood_probe else None, head)
     if probe is not None:
         print(f"OOD guard: linear_probe from {probe['_path']} "
-              f"(threshold {probe['threshold']:.4f}, certified alpha {probe['alpha']:.1%})")
+              f"(refusing above a fixed {PROBE_THRESHOLD}, ADR 0016)")
     elif ref is not None:
         print(f"OOD guard: centroid, threshold {OOD_THRESHOLD}")
 
