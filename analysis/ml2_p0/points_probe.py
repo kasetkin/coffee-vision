@@ -43,7 +43,7 @@ def main() -> None:
     v = ap.parse_args().variant
     out = OUT if v == "l0" else OUT.with_name(f"{OUT.name}_{v}")
     out.mkdir(parents=True, exist_ok=True)
-    seg = BeanSegmenter(SegParams(mask_select="single", prompt="box", variant=v, weights=weights_for(v)))
+    seg = BeanSegmenter(SegParams(mask_select="single", prompt="box", weights=weights_for(v)))
     pr = seg.predictor
     for rel, pts in PHOTOS.items():
         rgb = load_rgb_image(REPO_ROOT / rel)

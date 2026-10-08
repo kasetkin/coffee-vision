@@ -24,7 +24,6 @@ from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.crop_tray import _find_images
 from coffeecv.dataset import load_rgb_image
-from coffeecv.sam_loader import L0_WEIGHTS
 from coffeecv.seg_base_masks import item_id
 from coffeecv.seg_predict import MASK_ROOT, MODELS
 from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_sha256
@@ -60,8 +59,9 @@ def run(model: str, sessions: list[str], out: str) -> None:
     entries = session_entries(sessions)
     out_dir = MASK_ROOT / out
     out_dir.mkdir(parents=True, exist_ok=True)
-    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=L0_WEIGHTS,
-                                  decoder=MODELS[model]))
+    m = MODELS[model]
+    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=m.weights,
+                                  decoder=m.decoder))
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
@@ -89,7 +89,7 @@ def run(model: str, sessions: list[str], out: str) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("model", choices=[m for m in MODELS if MODELS[m]])
+    ap.add_argument("model", choices=[m for m in MODELS if MODELS[m].decoder])
     ap.add_argument("--threads", type=int, required=True,
                     help="torch.set_num_threads; pinned in dvc.yaml, because it changes mask bits")
     ap.add_argument("--sessions", nargs="+", required=True, help="dataset/ session folders")

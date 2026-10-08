@@ -192,9 +192,10 @@ stages:
       outs:
         - data/seg_masks/${key}
 
-  # Ticket ML-2 P5: L0 encoder embeddings (fp16) of every label photo in each seg_ft view, with its label in the
-  # same 512 frame (coffeecv/seg_finetune.py). Labels: data/seg_labels (seg_labels.py, the judge loop; dvc add,
-  # built outside repro, D16). Several GB and rebuildable, so never pushed (plan §2.3).
+  # Ticket ML-2 P5: encoder embeddings (fp16) of every label photo in each seg_ft view, with its label in the
+  # same frame (coffeecv/seg_finetune.py; 512 for L0, 1024 for XL0, by seg_ft.weights' variant, ticket ML-5 P4).
+  # Labels: data/seg_labels (seg_labels.py, the judge loop; dvc add, built outside repro, D16). Several GB and
+  # rebuildable, so never pushed (plan §2.3).
   # Ticket ML-3 P3 (Q2, Q2a): the metadata strip changed every photo's sha256 (never its pixels), and the
   # re-keyed photo_lists.yaml and data/seg_labels were recorded here with `dvc commit`, not re-run. So
   # data/seg_cache/{index.csv, cache.json} and the label-set hash in models/seg/ft_s*.json keep values
@@ -208,10 +209,11 @@ stages:
       - third_party/efficientvit/efficientvit
       - labels/ml2/photo_lists.yaml
       - data/seg_labels
-      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+      - models_pretrained/${seg_ft.weights}
     params:
       - params.yaml:
           - seg_split_seed
+          - seg_ft.weights
           - seg_ft.views
           - seg_ft.neg_select_frac
     outs:
@@ -231,7 +233,7 @@ stages:
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - data/seg_cache
-        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
+        - models_pretrained/${seg_ft.weights}
       params:
         - params.yaml:
             - seg_ft

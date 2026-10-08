@@ -177,8 +177,11 @@ patch_max_attempts_factor: 20
 # dice_weight x soft dice + iou_weight x MSE on the IoU head (SAM's weighting). views: dihedral views
 # cached per photo (each ~2 MB per photo in fp16). neg_share: share of each batch drawn from the seg-train
 # negatives (D10/D11). neg_select_frac: share of negative near-duplicate groups held out for checkpoint
-# selection, never trained on.
+# selection, never trained on. weights: the pretrained base under models_pretrained/; its variant sets the
+# cache's and the loss's frame (ticket ML-5 P4: 512 for L0, 1024 for XL0). It is the fine-tune's own, not
+# seg_weights, which names the classifier's segmenter and moves only when the classifier is re-cropped.
 seg_ft:
+  weights: efficientvit_sam/efficientvit_sam_l0.pt
   views: [id, hflip, vflip, rot180]
   epochs: 40
   patience: 8

@@ -20,13 +20,15 @@ import torch
 
 from coffeecv import backbones
 from coffeecv.backbones import MODELS_PRETRAINED
-from coffeecv.sam_loader import L0_WEIGHTS, build_sam_l0
+from coffeecv.sam_loader import L0_WEIGHTS, build_sam, variant_of, weights_for
 
 from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "sam_l0_reference.npz"
 HAVE_L0 = (MODELS_PRETRAINED / L0_WEIGHTS).exists()
+XL0_WEIGHTS = weights_for("xl0")
+HAVE_XL0 = (MODELS_PRETRAINED / XL0_WEIGHTS).exists()
 SKIP_L0 = "EfficientViT-SAM-L0 weights missing -- run models_pretrained/verify.py / dvc pull"
 
 
@@ -72,7 +74,7 @@ class TestImportChain(unittest.TestCase):
 class TestWeightsRefusal(unittest.TestCase):
     def test_refuses_a_file_not_in_the_manifest(self):
         with self.assertRaisesRegex(ValueError, "not in models_pretrained/manifest.json"):
-            build_sam_l0("efficientvit_sam/not_listed.pt")
+            build_sam("efficientvit_sam/not_listed.pt")
 
     def test_refuses_a_sha256_mismatch(self):
         with tempfile.TemporaryDirectory() as d:
@@ -82,14 +84,39 @@ class TestWeightsRefusal(unittest.TestCase):
             (d / "manifest.json").write_text(json.dumps([{"path": L0_WEIGHTS, "sha256": "0" * 64}]))
             with mock.patch.object(backbones, "MODELS_PRETRAINED", d):
                 with self.assertRaisesRegex(ValueError, "does not match the manifest"):
-                    build_sam_l0()
+                    build_sam(L0_WEIGHTS)
+
+
+class TestVariant(unittest.TestCase):
+    def test_variant_is_read_from_the_weights_file(self):
+        self.assertEqual([variant_of(weights_for(v)) for v in ("l0", "xl0", "xl1")], ["l0", "xl0", "xl1"])
+
+    def test_an_unknown_variant_is_refused(self):
+        for bad in ("efficientvit_sam/efficientvit_sam_xl9.pt", "efficientvit_sam/l0.pt", "sam_vit_h.pt"):
+            with self.assertRaisesRegex(ValueError, "variant"):
+                variant_of(bad)
+
+
+@real_data
+@unittest.skipUnless(HAVE_L0 and HAVE_XL0, "EfficientViT-SAM L0 or XL0 weights missing -- dvc pull")
+class TestBuildsTheWeightsVariant(unittest.TestCase):
+    def test_l0_encodes_at_512_and_xl0_at_1024(self):
+        """The encoder input follows the weights (L*: 512 px, XL*: 1024 px; the EfficientViT-SAM paper); the
+        prompt frame is SAM's 1024 for both, and both give a 256 x 64 x 64 embedding."""
+        for weights, size in ((L0_WEIGHTS, (1024, 512)), (XL0_WEIGHTS, (1024, 1024))):
+            predictor, _ = build_sam(weights)
+            m = predictor.model
+            self.assertEqual(tuple(m.image_size), size, weights)
+            with torch.no_grad():
+                emb = m.image_encoder(m.transform(reference_input()).unsqueeze(0))
+            self.assertEqual(tuple(emb.shape), (1, 256, 64, 64), weights)
 
 
 @unittest.skipUnless(HAVE_L0, SKIP_L0)
 class TestL0Weights(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.predictor, cls.sha = build_sam_l0()
+        cls.predictor, cls.sha = build_sam(L0_WEIGHTS)
 
     def test_sha256_is_the_manifests(self):
         manifest = {e["path"]: e for e in json.loads((MODELS_PRETRAINED / "manifest.json").read_text())}
@@ -113,7 +140,7 @@ class TestL0Weights(unittest.TestCase):
 
 if __name__ == "__main__":
     if "--regen" in sys.argv:
-        predictor, _ = build_sam_l0()
+        predictor, _ = build_sam(L0_WEIGHTS)
         with torch.no_grad():
             np.savez_compressed(FIXTURE, **reference_outputs(predictor))
         print(f"wrote {FIXTURE}")

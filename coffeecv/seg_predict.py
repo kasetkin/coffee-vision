@@ -5,6 +5,8 @@ Verdicts, overlays and the review tool read these stored masks and never recompu
     python -m coffeecv.seg_predict pretrained --threads 4
     python -m coffeecv.seg_predict ft_s42 --threads 4      # P5: L0 with the seed-42 fine-tuned decoder
 
+A model is its pretrained weights (any variant, ticket ML-5 P4) and optionally a fine-tuned decoder over them.
+
 Lists: seg_eval + neg_seg_eval + pos_seg_eval. The plan names the first two; pos_seg_eval joined with D26, and
 it holds the 10 OOD-positive base candidates, so with it every base candidate has a stored mask.
 Prompt and output come from params.yaml (seg_prompt, seg_mask_select; D5).
@@ -17,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import time
+from typing import NamedTuple
 
 import torch
 from PIL import Image
@@ -31,8 +34,15 @@ from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_sha256
 MASK_ROOT = REPO_ROOT / "data" / "seg_masks"
 LISTS = ("seg_eval", "neg_seg_eval", "pos_seg_eval")
 FT_SEEDS = (42, 123, 7)
-# Model name -> the fine-tuned mask decoder loaded over the pretrained L0 (seg_finetune.py), or None.
-MODELS = {"pretrained": None, **{f"ft_s{s}": f"models/seg/ft_s{s}.pt" for s in FT_SEEDS}}
+
+
+class Model(NamedTuple):
+    weights: str                  # pretrained, under models_pretrained/; names the variant
+    decoder: str | None = None    # a fine-tuned mask decoder over `weights` (seg_finetune.py), or None
+
+
+MODELS = {"pretrained": Model(L0_WEIGHTS),
+          **{f"ft_s{s}": Model(L0_WEIGHTS, f"models/seg/ft_s{s}.pt") for s in FT_SEEDS}}
 
 
 def photo_entries(lists: dict[str, list[dict]]) -> list[dict]:
@@ -62,8 +72,9 @@ def run(model: str) -> None:
     entries = photo_entries(lists)
     out_dir = MASK_ROOT / model
     out_dir.mkdir(parents=True, exist_ok=True)
-    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=L0_WEIGHTS,
-                                  decoder=MODELS[model]))
+    m = MODELS[model]
+    seg = BeanSegmenter(SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=m.weights,
+                                  decoder=m.decoder))
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):

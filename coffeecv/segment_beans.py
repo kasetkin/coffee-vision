@@ -5,7 +5,8 @@ One implementation behind both ends, per the train/inference parity rule: the tr
 (segcrop_session.py) and infer.patches_for_photo call the same `segment_and_crop`, with the segmenter
 `seg_params` builds from the run config (plan §2.2).
 
-    BeanSegmenter.predict_mask   full-resolution bool mask from L0 with a whole-image box prompt (D5)
+    BeanSegmenter.predict_mask   full-resolution bool mask from the segmenter (L0 or XL0, by its weights) with a
+                                 whole-image box prompt (D5)
     mask_and_crop                pure numpy: D3 fill, D4 quantile crop, D18 fallback, diagnostics
 
 `python -m coffeecv.segment_beans --list FILE --time` is the P0/P6 latency report (D8: measured and
@@ -26,7 +27,7 @@ import numpy as np
 import torch
 
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam_l0, weights_for
+from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam, variant_of, weights_for
 
 # SAM's box prompt yields either the single-mask token (multimask_output=False) or three multimask
 # tokens. "best_iou" picks the multimask output with the highest predicted IoU.
@@ -42,8 +43,7 @@ PROMPTS = ("box", "grid3", "box+grid3", "center_box", "center_point", "center_gr
 @dataclass(frozen=True)
 class SegParams:
     mask_select: str
-    weights: str = L0_WEIGHTS          # under models_pretrained/, sha256-checked at load
-    variant: str = "l0"                # EfficientViT-SAM size; must match `weights`
+    weights: str = L0_WEIGHTS          # under models_pretrained/, sha256-checked at load; names the variant
     prompt: str = "box"                # D5 (a): one fixed whole-image box
     keep_frac: float = 0.95            # D4: cut (1 - keep_frac) / 4 of the bean pixels per side
     fill_rgb: tuple[int, int, int] = (124, 116, 104)   # D3: ImageNet mean, rounded to uint8
@@ -58,6 +58,12 @@ class SegParams:
             raise ValueError(f"mask_select {self.mask_select!r} not in {MASK_SELECT}")
         if self.prompt not in PROMPTS:
             raise ValueError(f"prompt {self.prompt!r} not in {PROMPTS}")
+        variant_of(self.weights)
+
+    @property
+    def variant(self) -> str:
+        """The EfficientViT-SAM size `weights` holds (ML-5 P4: L0 at 512 px, XL0 at 1024 px)."""
+        return variant_of(self.weights)
 
 
 @dataclass
@@ -135,11 +141,11 @@ def load_decoder(model, path: str, base_sha256: str) -> str:
 
 
 class BeanSegmenter:
-    """L0 loaded once; one photo in, one full-resolution bool mask out."""
+    """The segmenter (any variant, by its weights) loaded once; one photo in, one full-resolution bool mask out."""
 
     def __init__(self, p: SegParams):
         self.p = p
-        self.predictor, self.weights_sha256 = build_sam_l0(p.weights, p.variant)
+        self.predictor, self.weights_sha256 = build_sam(p.weights)
         if p.weights_sha256 and p.weights_sha256 != self.weights_sha256:
             raise ValueError(f"models_pretrained/{p.weights} is {self.weights_sha256[:12]}, "
                              f"not the {p.weights_sha256[:12]} expected")
@@ -345,8 +351,7 @@ def main() -> None:
         torch.set_num_threads(args.threads)
     photos = [REPO_ROOT / s for line in args.list.read_text().splitlines()
               if (s := line.split("#", 1)[0].strip())]
-    p = SegParams(mask_select=args.mask_select, prompt=args.prompt, variant=args.variant,
-                  weights=weights_for(args.variant))
+    p = SegParams(mask_select=args.mask_select, prompt=args.prompt, weights=weights_for(args.variant))
     if args.candidates:
         _write_candidates(photos, p, args.candidates)
         return
