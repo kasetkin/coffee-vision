@@ -23,16 +23,13 @@ docs/ood_guard_eval.md) chose the probe and retired with the calibrated threshol
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 
 from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
@@ -40,12 +37,8 @@ from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos
 from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, forward_with_embeddings,
                             inference_tta_for, load_model, load_ood_probe, patches_for_photo, probe_path_for,
                             probe_score)
+from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset, sha256_file
 from coffeecv.transforms import build_eval_transform
-
-# The segmenter dataset (ticket ML-5 P5 builds it). Schema: `load_seg_dataset`.
-SEG_DATASET_FILE = REPO_ROOT / "labels" / "ml5" / "seg_dataset.yaml"
-SOURCES = ("segmenter_positive", "pool", "negative", "internet_positive")
-SPLITS = ("train", "validation", "test")
 
 # Tags whose every patch is unambiguously not-beans, so a patch-level probe can
 # be trained from the photo-level tag. An empty tray has no bean patches; a
@@ -54,49 +47,6 @@ SPLITS = ("train", "validation", "test")
 CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grain",
                                   "other_nuts_seeds", "non_food_objects",
                                   "real_world_negatives", "green_legume"})
-
-_SHA256 = re.compile(r"[0-9a-f]{64}")
-
-
-def load_seg_dataset(path: Path = SEG_DATASET_FILE) -> list[dict]:
-    """The `photos` list of the segmenter dataset file, checked. Each entry has `path` (repo-relative,
-    unique), `sha256` (64 lower-case hex of the file), `source` (one of SOURCES), `split` (one of SPLITS)
-    and `group`; a negative also has `batch` (its folder under dataset/ood_negatives/) and `tag` (that
-    batch manifest's scenario_tag). Other keys are kept and ignored. Raises ValueError on the first entry
-    that breaks a rule; the photos themselves need not be present (they are DVC-tracked)."""
-    photos = (yaml.safe_load(Path(path).read_text()) or {}).get("photos")
-    if not isinstance(photos, list) or not photos:
-        raise ValueError(f"{path}: no `photos` list")
-    seen: set[str] = set()
-    for i, e in enumerate(photos):
-        where = f"{path}: photos[{i}] ({e.get('path') if isinstance(e, dict) else e!r})"
-        if not isinstance(e, dict):
-            raise ValueError(f"{where}: not a mapping")
-        missing = [k for k in ("path", "sha256", "source", "split", "group") if k not in e]
-        if e.get("source") == "negative":
-            missing += [k for k in ("batch", "tag") if k not in e]
-        if missing:
-            raise ValueError(f"{where}: missing {', '.join(missing)}")
-        if e["source"] not in SOURCES:
-            raise ValueError(f"{where}: source {e['source']!r} is not one of {', '.join(SOURCES)}")
-        if e["split"] not in SPLITS:
-            raise ValueError(f"{where}: split {e['split']!r} is not one of {', '.join(SPLITS)}")
-        if not _SHA256.fullmatch(str(e["sha256"])):
-            raise ValueError(f"{where}: sha256 {e['sha256']!r} is not 64 lower-case hex digits")
-        if e["path"] in seen:
-            raise ValueError(f"{where}: path listed twice")
-        seen.add(e["path"])
-    return photos
-
-
-def file_sha256(path: Path) -> str:
-    """Full sha256 of a file's bytes, as the dataset file stores it (`infer._sha` keeps a 16-hex prefix)."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
 
 def _counts(rows: list[dict], key: str) -> dict:
     return {"n": len(rows), key: sum(r["over"] for r in rows), "unmeasurable": sum(r["score"] is None for r in rows)}
@@ -336,7 +286,7 @@ def main() -> None:
     tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
 
     # The classifier's train split, by content: a segmenter positive copied from a pool photo was trained on.
-    trained = {file_sha256(q) for q in id_photos(cfg, classes, "train")}
+    trained = {sha256_file(q) for q in id_photos(cfg, classes, "train")}
 
     def score(path: str) -> float | None:
         try:

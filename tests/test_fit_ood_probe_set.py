@@ -9,7 +9,7 @@ import hashlib
 import unittest
 from pathlib import Path
 
-from coffeecv import fit_ood_probe, ood_eval
+from coffeecv import fit_ood_probe, seg_dataset
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ml5_seg_dataset.yaml"
 POOL = "dataset/2026-09-11__pixel/class_001__Ethiopia_Sidamo/PXL_20260911_10"
@@ -23,7 +23,7 @@ def fixture_sha(path: Path) -> str:
 class TestProbeFitSet(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.photos = ood_eval.load_seg_dataset(FIXTURE)
+        cls.photos = seg_dataset.load_seg_dataset(FIXTURE)
 
     def test_negatives_are_training_and_validation_ones_with_a_clean_tag(self):
         self.assertEqual(
