@@ -1,6 +1,6 @@
 """Ticket ML-2 P5: decoder-only fine-tuning of the segmenter (D7 (a), plan §8). Two DVC stages:
 
-    python -m coffeecv.seg_finetune cache --threads 4        # seg_embed_cache: L0 encoder embeddings + labels
+    python -m coffeecv.seg_finetune cache --threads 4        # seg_embed_cache: encoder embeddings + labels
     python -m coffeecv.seg_finetune train --seed 42 --threads 4   # seg_finetune@<seed>: models/seg/ft_s<seed>.pt
 
 Labels come from data/seg_labels/labels.csv (seg_labels.py, the judge loop): every accepted positive and every
@@ -15,20 +15,22 @@ The eval lists and the judge are never used here.
 
 Cache: for each view in seg_ft.views (dihedral: id, hflip, vflip, rot180, rot90, rot270, transpose,
 antitranspose), the photo and its label are transformed at full resolution, the photo goes through the frozen
-encoder exactly as at serving (resize to 512 on the long side, normalise, pad), and the embedding is stored in
-fp16 with the label resized into the same 512 frame (255 = padding, ignored). data/seg_cache/<view>/emb.npy
-(N, 256, 64, 64) and label.npy (N, 512, 512) are memory-mapped; index.csv holds the rows and roles.
+encoder of seg_ft.weights exactly as at serving (resize to the encoder's frame on the long side, normalise, pad),
+and the embedding is stored in fp16 with the label resized into the same frame (255 = padding, ignored). The frame
+follows the weights' variant (ticket ML-5 P4): 512 for L0, 1024 for XL0. data/seg_cache/<view>/emb.npy
+(N, 256, 64, 64) and label.npy (N, frame, frame) are memory-mapped; index.csv holds the rows and roles.
 
 Training (seg_ft in params.yaml): the image encoder and prompt encoder are frozen, the mask decoder trains. The
 prompt is the serving prompt, one whole-image box, and the loss is on the output serving keeps (seg_mask_select,
-multi3), upsampled to the 512 frame: focal_weight x focal + dice_weight x soft dice (smooth 1) + iou_weight x MSE
+multi3), upsampled to the encoder's frame: focal_weight x focal + dice_weight x soft dice (smooth 1) + iou_weight x MSE
 of the IoU head against the IoU it achieves. Each epoch shows every train positive once, in a random view; each
 batch holds neg_share negatives, drawn with replacement. AdamW with cosine decay to lr_min; the epoch with the
 best selection score is kept: (mean val IoU + neg_select empty-or-tiny share) / 2. Stops after `patience`
 epochs without a better score.
 
 Out: models/seg/ft_s<seed>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params, label-set hash,
-history, the chosen epoch). segment_beans.SegParams(decoder=...) loads it over the pretrained L0.
+history, the chosen epoch). segment_beans.SegParams(weights=seg_ft.weights, decoder=...) loads it over the
+pretrained weights it was fine-tuned from.
 """
 from __future__ import annotations
 
@@ -50,12 +52,11 @@ from PIL import Image
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.sam_loader import L0_WEIGHTS, build_sam_l0
+from coffeecv.sam_loader import L0_WEIGHTS, build_sam, variant_of
 from coffeecv.seg_labels import LABELS_CSV
 
 CACHE_ROOT = REPO_ROOT / "data" / "seg_cache"
 MODEL_DIR = REPO_ROOT / "models" / "seg"
-FRAME = 512                       # L0's encoder input; the loss is computed in this padded frame
 LOW = 256                         # the decoder's low-res logits
 PROMPT_FRAME = 1024               # SAM's prompt coordinates (model.image_size[0])
 IGNORE = 255
@@ -75,6 +76,7 @@ VIEWS = {
 
 @dataclass(frozen=True)
 class FtParams:
+    weights: str = L0_WEIGHTS     # the pretrained base under models_pretrained/; its variant sets the frame
     views: tuple[str, ...] = ("id", "hflip", "vflip", "rot180")
     epochs: int = 40
     patience: int = 8
@@ -101,6 +103,7 @@ class FtParams:
             raise ValueError(f"seg_ft.views: unknown {bad}; known {list(VIEWS)}")
         if p.views[0] != "id":
             raise ValueError("seg_ft.views must start with id (selection reads the identity view)")
+        variant_of(p.weights)
         return p
 
 
@@ -112,12 +115,18 @@ def frame_size(h: int, w: int, long_side: int) -> tuple[int, int]:
     return int(h * s + 0.5), int(w * s + 0.5)
 
 
-def label_in_frame(mask: np.ndarray) -> np.ndarray:
-    """A full-resolution bool mask -> uint8 FRAME x FRAME: 1 bean, 0 not, IGNORE on the padding (bottom/right,
+def encoder_frame(model) -> int:
+    """The side of the padded square the encoder sees, and the frame labels and the loss live in: 512 for L*,
+    1024 for XL* (SamResize/SamPad at model.image_size[1])."""
+    return int(model.image_size[1])
+
+
+def label_in_frame(mask: np.ndarray, frame: int) -> np.ndarray:
+    """A full-resolution bool mask -> uint8 frame x frame: 1 bean, 0 not, IGNORE on the padding (bottom/right,
     as SamPad pads the image)."""
-    fh, fw = frame_size(*mask.shape, FRAME)
+    fh, fw = frame_size(*mask.shape, frame)
     small = cv2.resize(mask.astype(np.float32), (fw, fh), interpolation=cv2.INTER_AREA) >= 0.5
-    out = np.full((FRAME, FRAME), IGNORE, np.uint8)
+    out = np.full((frame, frame), IGNORE, np.uint8)
     out[:fh, :fw] = small
     return out
 
@@ -156,8 +165,9 @@ def label_set_sha256(rows: list[dict]) -> str:
 @torch.inference_mode()
 def build_cache(cfg: RunConfig, p: FtParams) -> None:
     rows = label_rows(cfg, p)
-    predictor, wsha = build_sam_l0(L0_WEIGHTS)
+    predictor, wsha = build_sam(p.weights)
     model = predictor.model
+    frame = encoder_frame(model)
     n = len(rows)
     t0 = time.perf_counter()
     arrays = {}
@@ -165,7 +175,7 @@ def build_cache(cfg: RunConfig, p: FtParams) -> None:
         d = CACHE_ROOT / v
         d.mkdir(parents=True, exist_ok=True)
         arrays[v] = (np.lib.format.open_memmap(d / "emb.npy", "w+", np.float16, (n, *EMB_SHAPE)),
-                     np.lib.format.open_memmap(d / "label.npy", "w+", np.uint8, (n, FRAME, FRAME)), [])
+                     np.lib.format.open_memmap(d / "label.npy", "w+", np.uint8, (n, frame, frame)), [])
     for i, r in enumerate(rows):
         photo = REPO_ROOT / r["path"]
         if seg_lists.sha256_file(photo) != r["photo_sha256"]:
@@ -179,7 +189,7 @@ def build_cache(cfg: RunConfig, p: FtParams) -> None:
             m = np.ascontiguousarray(VIEWS[v](mask))
             emb, lab, meta = arrays[v]
             emb[i] = model.image_encoder(model.transform(im).unsqueeze(0))[0].numpy().astype(np.float16)
-            lab[i] = label_in_frame(m)
+            lab[i] = label_in_frame(m, frame)
             meta.append({"h": m.shape[0], "w": m.shape[1]})
         if (i + 1) % 25 == 0 or i + 1 == n:
             print(f"  {i + 1}/{n}  {time.perf_counter() - t0:.0f}s", flush=True)
@@ -193,7 +203,8 @@ def build_cache(cfg: RunConfig, p: FtParams) -> None:
         for i, r in enumerate(rows):
             wr.writerow({"i": i, **{k: r[k] for k in ("id", "list", "role", "path", "photo_sha256", "mask_sha256")}})
     (CACHE_ROOT / "cache.json").write_text(json.dumps({
-        "views": list(p.views), "n": n, "weights_sha256": wsha, "label_set_sha256": label_set_sha256(rows),
+        "views": list(p.views), "n": n, "weights": p.weights, "weights_sha256": wsha, "frame": frame,
+        "label_set_sha256": label_set_sha256(rows),
         "roles": {k: sum(r["role"] == k for r in rows) for k in ("train", "val", "neg_train", "neg_select")},
         "threads": torch.get_num_threads()}, indent=2) + "\n")
 
@@ -207,12 +218,13 @@ class Cache:
         self.emb = {v: np.load(CACHE_ROOT / v / "emb.npy", mmap_mode="r") for v in self.views}
         self.label = {v: np.load(CACHE_ROOT / v / "label.npy", mmap_mode="r") for v in self.views}
         self.meta = {v: json.loads((CACHE_ROOT / v / "meta.json").read_text()) for v in self.views}
+        self.frame = int(self.label["id"].shape[-1])
 
     def role(self, name: str) -> list[int]:
         return [int(r["i"]) for r in self.rows if r["role"] == name]
 
     def sample(self, i: int, view: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """(embedding 1x256x64x64 float32, label FRAME x FRAME uint8, box 1x4 in the prompt frame)."""
+        """(embedding 1x256x64x64 float32, label frame x frame uint8, box 1x4 in the prompt frame)."""
         m = self.meta[view][i]
         return (torch.from_numpy(np.asarray(self.emb[view][i], np.float32))[None],
                 torch.from_numpy(np.array(self.label[view][i])),
@@ -222,13 +234,14 @@ class Cache:
 # ---------------------------------------------------------------- the decoder pass and the loss
 
 def decode(model, emb: torch.Tensor, box: torch.Tensor, k: int) -> tuple[torch.Tensor, torch.Tensor]:
-    """Output k's logits in the padded FRAME (FRAME x FRAME) and its predicted IoU (scalar), for one image."""
+    """Output k's logits in the encoder's padded frame (encoder_frame) and its predicted IoU (scalar), for one image."""
     sparse, dense = model.prompt_encoder(points=None, boxes=box, masks=None)
     low, iou = model.mask_decoder(image_embeddings=emb, image_pe=model.prompt_encoder.get_dense_pe(),
                                   sparse_prompt_embeddings=sparse, dense_prompt_embeddings=dense,
                                   multimask_output=k > 0)
     j = k - 1 if k > 0 else 0
-    up = F.interpolate(low[:, j:j + 1], (FRAME, FRAME), mode="bilinear", align_corners=False)
+    frame = encoder_frame(model)
+    up = F.interpolate(low[:, j:j + 1], (frame, frame), mode="bilinear", align_corners=False)
     return up[0, 0], iou[0, j]
 
 
@@ -288,7 +301,7 @@ def train(seed: int, cfg: RunConfig, p: FtParams) -> dict:
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     cache = Cache()
-    predictor, wsha = build_sam_l0(L0_WEIGHTS)
+    predictor, wsha = build_sam(p.weights)
     if wsha != cache.info["weights_sha256"]:
         raise ValueError("the cache was built from other encoder weights")
     model = predictor.model
@@ -345,7 +358,7 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, cache: Cache) -> Path:
     out = MODEL_DIR / f"ft_s{res['seed']}.pt"
     torch.save({"mask_decoder": res["state"], "base_weights_sha256": res["weights_sha256"],
                 "output": cfg.seg_mask_select, "prompt": cfg.seg_prompt}, out)
-    card = {"seed": res["seed"], "base_weights": L0_WEIGHTS, "base_weights_sha256": res["weights_sha256"],
+    card = {"seed": res["seed"], "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
             "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select,
             "seg_min_area_frac": cfg.seg_min_area_frac, "cache": cache.info,

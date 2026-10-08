@@ -12,8 +12,10 @@ import torch
 
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.sam_loader import L0_WEIGHTS
+from coffeecv.sam_loader import L0_WEIGHTS, weights_for
 from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_and_crop, seg_params
+
+from tests._tiers import real_data
 
 HAVE_L0 = (MODELS_PRETRAINED / L0_WEIGHTS).exists()
 SKIP_L0 = "EfficientViT-SAM-L0 weights missing -- run models_pretrained/verify.py / dvc pull"
@@ -93,6 +95,13 @@ class TestSegParams(unittest.TestCase):
                           cfg.seg_min_area_frac))
         self.assertEqual((p.weights_sha256, p.decoder_sha256), (cfg.seg_weights_sha256, cfg.seg_decoder_sha256))
 
+    def test_variant_follows_the_weights(self):
+        cfg = RunConfig.from_params_yaml()
+        self.assertEqual(seg_params(cfg).variant, "l0")
+        self.assertEqual(seg_params(replace(cfg, seg_weights=weights_for("xl0"))).variant, "xl0")
+        with self.assertRaisesRegex(ValueError, "variant"):
+            SegParams(mask_select="multi3", weights="efficientvit_sam/some_other_model.pt")
+
     def test_pretrained_decoder_and_unpinned_decoder(self):
         cfg = RunConfig.from_params_yaml()
         self.assertIsNone(seg_params(replace(cfg, seg_decoder="", seg_decoder_sha256="")).decoder)
@@ -129,6 +138,18 @@ class TestSegmenter(unittest.TestCase):
         self.assertTrue(m[:, :318].all() and not m[:, 322:].any(), cols.max())
         self.assertTrue(m[-1, :318].all())                     # the last photo row is still the photo's
 
+
+
+@real_data
+@unittest.skipUnless((MODELS_PRETRAINED / weights_for("xl0")).exists(), "EfficientViT-SAM-XL0 weights missing")
+class TestXL0FromConfig(unittest.TestCase):
+    def test_seg_weights_naming_xl0_builds_xl0_and_masks_at_full_resolution(self):
+        cfg = replace(RunConfig.from_params_yaml(), seg_weights=weights_for("xl0"), seg_weights_sha256="",
+                      seg_decoder="", seg_decoder_sha256="")
+        seg = BeanSegmenter(seg_params(cfg))
+        self.assertEqual(tuple(seg.model.image_size), (1024, 1024))
+        rgb = (np.random.default_rng(0).random((300, 400, 3)) * 255).astype(np.uint8)
+        self.assertEqual(seg.predict_mask(rgb).shape, (300, 400))
 
 if __name__ == "__main__":
     unittest.main()

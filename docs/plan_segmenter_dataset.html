@@ -124,14 +124,14 @@
 
   <h2>6. P4 &mdash; XL0 at 1024 px</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">code done (<code>d53a156</code>, <code>2fda431</code>); VM timing pending the owner's OK</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>sam_loader</code>, <code>segment_beans</code>: build any variant from <code>seg_weights</code> and its <code>variant</code>; no L0-only builder in the callers.</span></li>
-    <li><span class="box"></span><span><code>seg_finetune</code>: the frame follows the variant (512 for L, 1024 for XL); labels cached in that frame.</span></li>
-    <li><span class="box"></span><span>On the VM at the pinned 4 threads: XL0's encoder and decoder time per photo, and the cache's size and build time for ~410 photos &times; 4 views. Reported, no limit (D18).</span></li>
-    <li><span class="box"></span><span>Checks: with L0 configured, <code>seg_predict</code> masks and crops are byte-identical to before.</span></li>
+    <li><span class="box done"></span><span><code>sam_loader</code>, <code>segment_beans</code>: build any variant from <code>seg_weights</code> and its <code>variant</code>; no L0-only builder in the callers. <span class="result">Done 2026-10-08, <code>d53a156</code>: <code>build_sam(weights)</code> replaces <code>build_sam_l0</code>, the variant read from the weights' name (<code>variant_of</code>); <code>SegParams.variant</code> is derived; <code>seg_predict</code>'s models name their weights.</span></span></li>
+    <li><span class="box done"></span><span><code>seg_finetune</code>: the frame follows the variant (512 for L, 1024 for XL); labels cached in that frame. <span class="result">Done 2026-10-08, <code>d53a156</code>: the base is the new <code>seg_ft.weights</code> (resting at L0), not <code>seg_weights</code>, which stays the classifier's segmenter until P11; <code>cache.json</code> records weights and frame. Tested on a toy XL0 cache and one epoch.</span></span></li>
+    <li><span class="box"></span><span>On the VM at the pinned 4 threads: XL0's encoder and decoder time per photo, and the cache's size and build time for ~410 photos &times; 4 views. Reported, no limit (D18). <span class="result">Script <code>analysis/ml5_xl0_timing/xl0_timing.py</code> (<code>2fda431</code>). Devcontainer, 4 threads, indicative: encoder ~2.3 s, decoder 130&ndash;160 ms per photo; cache 4.8 GiB, ~71 min to build (L0: ~0.45 s, 3.6 GiB, ~22 min). VM run pending the owner's OK.</span></span></li>
+    <li><span class="box done"></span><span>Checks: with L0 configured, <code>seg_predict</code> masks and crops are byte-identical to before. <span class="result">Done 2026-10-08: <code>seg_predict</code> pretrained and <code>ft_s123</code> over the 343 eval-list photos, 344 of 344 files byte-identical each (masks and <code>index.csv</code>); <code>segment_and_crop</code> with <code>seg_params(params.yaml)</code>, 343 of 343 crops, crop masks, photo masks and boxes identical (36 fallbacks), against the integration branch's code at <code>de195eb</code>.</span></span></li>
   </ol>
 
   <h2>7. P5 &mdash; Build the segmenter dataset</h2>
@@ -271,6 +271,9 @@
       <code>coffeecv/seg_dataset.py</code>, whose reader <code>ood_eval</code> and <code>fit_ood_probe</code> now import.
       Finding: the same-rig <code>green_legume</code> negatives are one 120 s group, so none is in test and the
       probe's test numbers have no <code>green_legume</code> line.</div>
+    <div><div class="when">2026-10-08</div>P4 code done (<code>d53a156</code>, <code>2fda431</code>): any variant
+      built from its weights, <code>seg_finetune</code>'s frame from <code>seg_ft.weights</code>; L0 outputs byte-identical
+      on 343 photos. XL0 timing script committed, devcontainer numbers in; the VM run waits for the owner's OK.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
