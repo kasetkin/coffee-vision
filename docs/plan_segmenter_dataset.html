@@ -12,7 +12,7 @@
     the first step that changes a number is P8, XL0-v1.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); P1 done</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1, P2, P5 and P6 done; P3 awaits the owner's approval of ADRs 0015 and 0016; P4's code done, its VM timing awaits the owner's OK</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -279,6 +279,21 @@
       and the blind paired mode, and <code>coffeecv/seg_point_probe.py</code>, which reproduces every row of the
       analysis. Pass 1 starts with <code>python -m coffeecv.seg_review label --session pass1 --proposer ft_s123
       --redraw pretrained_l0</code>; its masks go under <code>data/ml5_labels/pass1/</code> for <code>dvc add</code> at the end.</div>
+    <div><div class="when">2026-10-08</div>Fixes from the code review of P2&ndash;P6, one commit each. P6:
+      <code>data/ml5_labels/</code> gitignored from a session's start, <code>&lt;session&gt;.dvc</code> re-included so
+      <code>dvc add</code> works (<code>2f2cd12</code>); one home for the duplicated helpers
+      (<code>coffeecv/repo_files.py</code>, <code>segment_beans.THREADS</code>, <code>seg_dataset.seeded_rng</code>),
+      <code>seg_review.item_id</code> renamed <code>photo_id</code>, and <code>seg_dataset</code>'s header derived from
+      params (<code>c88735e</code>); the pages' HTML and JS in <code>coffeecv/seg_review_pages.py</code>
+      (<code>445d05e</code>). P3: <code>ood_eval</code> reports the segmenter's empty and empty-or-tiny rate on test
+      negatives (D9, D22; <code>a913b0b</code>); <code>fit_ood_probe</code> drops bean photos in a test photo's D13
+      group, not only its byte copies (D4; <code>064b9cf</code>: on the shipped checkpoint 67 of its 183 test-split
+      photos go, against 8 by bytes alone); both refuse a checkpoint trained before ML-1 (<code>7c0e759</code>); the
+      ticket records that &sect;2's 0.5982 is ML-2's probe, the shipped one's 0.5957 as ADR 0016 says
+      (<code>259692e</code>). P4: <code>dvc.yaml</code>'s <code>models_pretrained/${seg_ft.weights}</code> resolved by
+      DVC in a test and <code>seg_finetune main()</code> run at toy scale on L0 and XL0 (<code>3654c4e</code>); the
+      fine-tune's base written once, in <code>seg_ft.weights</code>, with each decoder's base read from its card
+      (<code>72a84d6</code>).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
