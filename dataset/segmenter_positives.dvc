@@ -3,4 +3,4 @@ outs:
   size: 430347427
   nfiles: 128
   hash: md5
-  path: ood_positives
+  path: segmenter_positives

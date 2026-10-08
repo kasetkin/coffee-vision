@@ -1,11 +1,11 @@
 """The segmenter's photo lists (ticket ML-2 P1, plan §4.1): disjoint, holdout never listed, near-duplicate
-groups on one side, append-only against the committed version (D20), and -- where the DVC data is
-checked out -- covering exactly today's pools. Plain unittest.
+groups on one side, append-only against the committed version (D20). Retired by ticket ML-5 (D3): the file
+is frozen, and the coverage check against today's pools went with `seg_lists check`. Plain unittest.
 
     python -m unittest discover -s tests -p 'test_seg_lists.py'
 
 The grouping, allocation and append-only rules run on synthetic rows. The committed-file checks need only
-git-tracked files; the coverage check skips without ML-2's sessions' segmenter crops (data/segcropped).
+git-tracked files.
 """
 from __future__ import annotations
 
@@ -18,8 +18,6 @@ import yaml
 
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
-
-from tests._tiers import real_data
 
 
 def neg(path: str, tag: str = "confusable_grain", batch: str = "b", camera: str = "sony",
@@ -143,6 +141,18 @@ class AppendOnly(unittest.TestCase):
             seg_lists.merge_append_only(self.OLD, new)
 
 
+class RetiredCommands(unittest.TestCase):
+    """ML-5 D3 retires ML-2's lists: a rebuild or a coverage check against today's data would read folders
+    and manifests ML-5 changed (D1), so both refuse, and the committed file is left untouched."""
+
+    def test_build_and_check_refuse_and_leave_the_file(self):
+        before = seg_lists.LISTS_FILE.read_bytes()
+        for command in ("build", "check"):
+            with self.subTest(command=command), self.assertRaisesRegex(SystemExit, "ML-5"):
+                seg_lists.main([command])
+        self.assertEqual(seg_lists.LISTS_FILE.read_bytes(), before)
+
+
 @unittest.skipUnless(seg_lists.LISTS_FILE.exists(), "labels/ml2/photo_lists.yaml not built yet")
 class CommittedLists(unittest.TestCase):
     @classmethod
@@ -181,17 +191,10 @@ class CommittedLists(unittest.TestCase):
 
     def test_ood_positive_bases_come_from_their_eval_side(self):
         pos_eval = {e["path"] for e in self.lists["pos_seg_eval"]}
-        pos_bases = [e for e in self.lists["base_candidates"] if e["path"].startswith("dataset/ood_positives")]
+        seg_eval = {e["path"] for e in self.lists["seg_eval"]}
+        pos_bases = [e for e in self.lists["base_candidates"] if e["path"] not in seg_eval]
         self.assertEqual(len(pos_bases), seg_lists.N_POS_BASE_CANDIDATES)
         self.assertTrue(all(e["path"] in pos_eval for e in pos_bases))
-
-    @unittest.skipUnless(all((seg_lists.SEGCROPPED_ROOT / s).is_dir() for ss in seg_lists.ML2_SESSIONS.values()
-                             for s in ss), "needs ML-2's sessions' segmenter crops (DVC, from the VM)")
-    @real_data
-    def test_covers_exactly_todays_pools(self):
-        fresh = seg_lists.build(RunConfig.from_params_yaml())
-        for name in (*seg_lists.POSITIVE_LISTS, *seg_lists.NEGATIVE_LISTS, *seg_lists.OOD_POSITIVE_LISTS):
-            self.assertEqual({e["path"] for e in self.lists[name]}, {e["path"] for e in fresh[name]}, name)
 
 
 if __name__ == "__main__":
