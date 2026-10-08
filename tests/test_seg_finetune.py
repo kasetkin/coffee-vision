@@ -10,6 +10,7 @@ The tests that need L0 weights skip on a clone without them (models_pretrained/v
 """
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,11 +18,13 @@ from unittest import mock
 
 import numpy as np
 import torch
+import yaml
 from PIL import Image
 
 from coffeecv import seg_finetune as ft
 from coffeecv.backbones import MODELS_PRETRAINED
-from coffeecv.config import REPO_ROOT, RunConfig
+from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
+from coffeecv.repo_files import sha256_file
 from coffeecv.sam_loader import L0_WEIGHTS, weights_for
 
 from tests._tiers import real_data
@@ -62,7 +65,7 @@ class Geometry(unittest.TestCase):
 
 
 class Loss(unittest.TestCase):
-    P = ft.FtParams()
+    P = ft.FtParams(weights=L0_WEIGHTS)
 
     def test_empty_label_and_empty_prediction_have_iou_one(self):
         self.assertEqual(float(ft.hard_iou(torch.zeros(5, dtype=bool), torch.zeros(5, dtype=bool))), 1.0)
@@ -90,8 +93,9 @@ class Params(unittest.TestCase):
         with self.assertRaises(ValueError):
             ft.FtParams.from_config(RunConfig(seg_ft={"views": ["hflip", "id"]}))
 
-    def test_base_weights_default_to_l0_and_name_a_variant(self):
-        self.assertEqual(ft.FtParams.from_config(RunConfig(seg_ft={})).weights, L0_WEIGHTS)
+    def test_base_weights_are_params_yamls_and_name_a_variant(self):
+        with self.assertRaisesRegex(ValueError, "seg_ft.weights"):
+            ft.FtParams.from_config(RunConfig(seg_ft={}))
         self.assertEqual(ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS})).weights, XL0_WEIGHTS)
         with self.assertRaisesRegex(ValueError, "variant"):
             ft.FtParams.from_config(RunConfig(seg_ft={"weights": "efficientvit_sam/other.pt"}))
@@ -152,18 +156,42 @@ class ServingParityXL0(ServingParity):
         self.assertEqual(ft.encoder_frame(self.seg.model), 1024)
 
 
-@real_data
-@unittest.skipUnless(HAVE_XL0, SKIP_XL0)
-class CacheAndTrainFollowTheVariant(unittest.TestCase):
-    """build_cache and train, the two DVC stages' entry points, on a toy label set of three synthetic photos with
-    XL0 as the base: labels are cached in its 1024 frame, one epoch trains, and the card names XL0."""
+class DvcStagesReadTheBaseWeights(unittest.TestCase):
+    """dvc.yaml's seg_embed_cache and seg_finetune@<seed> depend on models_pretrained/${seg_ft.weights}, the file
+    seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4); so do seg_predict@pretrained and
+    seg_predict_ft@<seed>, whose models are that base and decoders fine-tuned over it (seg_predict.model_params),
+    so that moving the fine-tune to XL0 is one edit of params.yaml."""
 
-    def test_xl0_cache_and_one_epoch(self):
-        from coffeecv.seg_lists import sha256_file
-        p = ft.FtParams(weights=XL0_WEIGHTS, views=("id", "hflip"), epochs=1, batch_size=2, neg_share=0.5)
-        cfg = RunConfig(seg_mask_select="multi3", seg_prompt="box", seg_min_area_frac=0.083)
+    def test_the_interpolated_dependency_is_the_file_seg_finetune_builds_from(self):
+        from dvc.repo import Repo
+        weights = ft.FtParams.from_config(RunConfig.from_params_yaml()).weights
+        with Repo(str(REPO_ROOT)) as repo:
+            for name in ("seg_embed_cache", "seg_finetune@42", "seg_finetune@123", "seg_finetune@7",
+                         "seg_predict@pretrained", "seg_predict_ft@42", "seg_predict_ft@123", "seg_predict_ft@7"):
+                with self.subTest(name):
+                    stage = repo.stage.collect(name)[0]
+                    pretrained = [d.def_path for d in stage.deps if d.def_path.startswith("models_pretrained/")]
+                    self.assertEqual(pretrained, [f"models_pretrained/{weights}"])
+                    module = "seg_predict" if name.startswith("seg_predict") else "seg_finetune"
+                    self.assertTrue(stage.cmd.startswith(f"python -m coffeecv.{module} "))
+
+
+class EntryPointAtToyScale:
+    """`python -m coffeecv.seg_finetune cache` then `train --seed 42`, the two DVC stages' commands, through
+    main() and a params.yaml that is the repo's with seg_ft at toy scale and its base weights set to WEIGHTS
+    (CODING_STANDARDS "Run the real entry point"). The label set is three synthetic photos: labels are cached in
+    the variant's frame, one epoch trains, and the card names the base weights."""
+
+    WEIGHTS = FRAME = None
+
+    def test_cache_then_train_through_main(self):
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as tmp:
             tmp = Path(tmp)
+            raw = yaml.safe_load(PARAMS_FILE.read_text())
+            raw["seg_ft"] = {**raw["seg_ft"], "weights": self.WEIGHTS, "views": ["id", "hflip"], "epochs": 1,
+                             "batch_size": 2}
+            params = tmp / "params.yaml"
+            params.write_text(yaml.safe_dump(raw, sort_keys=False))
             rows = []
             for i, (role, h, w) in enumerate((("train", 600, 900), ("val", 450, 300), ("neg_train", 500, 400))):
                 rgb = pile_photo(h, w)
@@ -174,18 +202,30 @@ class CacheAndTrainFollowTheVariant(unittest.TestCase):
                              "path": str((tmp / f"{i}.png").relative_to(REPO_ROOT)),
                              "photo_sha256": sha256_file(tmp / f"{i}.png"),
                              "mask": str((tmp / f"{i}_mask.png").relative_to(REPO_ROOT)), "mask_sha256": "toy"})
-            with (mock.patch.object(ft, "CACHE_ROOT", tmp / "cache"),
+            read = RunConfig.from_params_yaml
+            with (mock.patch.object(RunConfig, "from_params_yaml", lambda: read(params)),
+                  mock.patch.object(ft, "CACHE_ROOT", tmp / "cache"), mock.patch.object(ft, "MODEL_DIR", tmp / "m"),
                   mock.patch.object(ft, "label_rows", lambda c, q: rows)):
-                ft.build_cache(cfg, p)
+                ft.main(["cache", "--threads", "4"])
+                ft.main(["train", "--seed", "42", "--threads", "4"])
                 cache = ft.Cache()
-                self.assertEqual(cache.frame, 1024)
-                self.assertEqual(cache.label["hflip"].shape, (3, 1024, 1024))
-                self.assertEqual(cache.info["weights"], XL0_WEIGHTS)
-                res = ft.train(42, cfg, p)
-                self.assertEqual(len(res["history"]), 2)
-                with mock.patch.object(ft, "MODEL_DIR", tmp / "models"):
-                    card = ft.write_model(res, cfg, p, cache).with_suffix(".json").read_text()
-                self.assertIn(XL0_WEIGHTS, card)
+            self.assertEqual((cache.info["weights"], cache.frame), (self.WEIGHTS, self.FRAME))
+            self.assertEqual(cache.label["hflip"].shape, (3, self.FRAME, self.FRAME))
+            card = json.loads((tmp / "m" / "ft_s42.json").read_text())
+            self.assertEqual((card["base_weights"], card["seg_ft"]["epochs"], len(card["history"])),
+                             (self.WEIGHTS, 1, 2))
+
+
+@real_data
+@unittest.skipUnless(HAVE_L0, SKIP_L0)
+class EntryPointL0(EntryPointAtToyScale, unittest.TestCase):
+    WEIGHTS, FRAME = L0_WEIGHTS, 512
+
+
+@real_data
+@unittest.skipUnless(HAVE_XL0, SKIP_XL0)
+class EntryPointXL0(EntryPointAtToyScale, unittest.TestCase):
+    WEIGHTS, FRAME = XL0_WEIGHTS, 1024
 
 
 if __name__ == "__main__":

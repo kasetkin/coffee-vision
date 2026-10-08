@@ -85,6 +85,18 @@ class TestProbeRunsOnCropAndWholeFrame(unittest.TestCase):
         self.assertTrue(self.classify(EMPTY, probe_scoring(0.01))["seg_fallback"])
         self.assertIsNone(self.classify(PILE, probe_scoring(0.01), skip_crop=True)["seg_fallback"])
 
+    def test_an_empty_mask_is_told_from_a_tiny_one(self):
+        """ood_eval reports the empty-mask rate beside the probe (D9): one pixel rounds mask_area_frac to 0
+        but is not an empty mask."""
+        speck = EMPTY.copy()
+        speck[450, 600] = True
+        got = {name: self.classify(m, probe_scoring(0.01)) for name, m in (("pile", PILE), ("speck", speck),
+                                                                           ("empty", EMPTY))}
+        self.assertEqual({k: (e["seg_mask_empty"], e["seg_fallback"]) for k, e in got.items()},
+                         {"pile": (False, False), "speck": (False, True), "empty": (True, True)})
+        self.assertEqual(got["speck"]["mask_area_frac"], 0.0)
+        self.assertIsNone(self.classify(PILE, probe_scoring(0.01), skip_crop=True)["seg_mask_empty"])
+
     def test_probe_refuses_a_not_beans_score_on_every_branch(self):
         for name, (mask, skip) in self.CASES.items():
             with self.subTest(name):

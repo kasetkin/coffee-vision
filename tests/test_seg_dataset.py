@@ -14,6 +14,7 @@ import unittest
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -254,8 +255,19 @@ class Reader(unittest.TestCase):
         self.path.write_text(yaml.safe_dump({"meta": {}, "photos": photos}, sort_keys=False))
 
     def test_reads_back_what_was_written(self):
-        sd.write_seg_dataset({"seed": 5}, self.entries, self.path)
+        sd.write_seg_dataset(PARAMS, self.entries, self.path)
         self.assertEqual(sd.load_seg_dataset(self.path), self.entries)
+
+    def test_the_header_and_meta_state_the_shares_and_seconds_it_was_built_with(self):
+        params = sd.Params(seed=5, split={"train": 0.7, "validation": 0.1, "test": 0.2})
+        with mock.patch.object(sd, "GROUP_SECONDS", 90):
+            sd.write_seg_dataset(params, self.entries, self.path)
+        text = self.path.read_text()
+        self.assertIn("70/10/20 within each source", text)
+        self.assertIn("shots within 90 s", text)
+        meta, _ = sd.read_seg_dataset(self.path)
+        self.assertEqual(meta, {"seed": 5, "split": {"train": 0.7, "validation": 0.1, "test": 0.2},
+                                "group_seconds": 90})
 
     def test_refuses_a_negative_without_its_tag(self):
         bad = [dict(e) for e in self.entries]
@@ -310,6 +322,10 @@ class CommittedFile(unittest.TestCase):
     def test_built_with_params_yaml_seed_and_shares(self):
         block = RunConfig.from_params_yaml().seg_dataset
         self.assertEqual((self.meta["seed"], self.meta["split"]), (block["seed"], block["split"]))
+
+    def test_its_header_is_the_one_params_yaml_writes(self):
+        params = sd.Params.from_config(RunConfig.from_params_yaml().seg_dataset)
+        self.assertTrue(sd.SEG_DATASET_FILE.read_text().startswith(sd.header(params)))
 
     def test_counts_table_totals_every_photo(self):
         table = sd.counts_table(self.photos)

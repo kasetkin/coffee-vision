@@ -42,10 +42,10 @@ from PIL import Image
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import load_rgb_image
-from coffeecv.segment_beans import BeanSegmenter, named_params
+from coffeecv.repo_files import read_csv
+from coffeecv.segment_beans import THREADS, BeanSegmenter, named_params
 
 SMALL = 1024                      # long side for error regions and IoU
-THREADS = 4                       # pinned, like seg_labels: the thread count changes mask bits
 OUTPUTS = ("single", "multi1", "multi2", "multi3")
 CLICKS = 3
 CUT = 0.9
@@ -103,25 +103,21 @@ def next_click(pred: np.ndarray, ref: np.ndarray) -> tuple[str, list[float]] | N
 
 # ---------------------------------------------------------------- reference sets
 
-def _csv(path: Path) -> list[dict]:
-    return list(csv.DictReader(path.read_text().splitlines()))
-
-
 def _ml2_base_points() -> list[Ref]:
     points = yaml.safe_load((REPO_ROOT / "labels/ml2/base_points.yaml").read_text())["items"]
     by_sha = {e["sha256"]: e for e in points}
     base = REPO_ROOT / "data/seg_masks/base_points"
     return [Ref("ml2_base_points", resolve(r["path"]), base / f"{r['id']}.png", by_sha[r["photo_sha256"]]["include"],
                 by_sha[r["photo_sha256"]]["exclude"])
-            for r in _csv(base / "index.csv") if r["output"] == "single"]   # frame-filling: the box alone
+            for r in read_csv(base / "index.csv") if r["output"] == "single"]   # frame-filling: the box alone
 
 
 def _ml2_labels() -> list[Ref]:
     root = REPO_ROOT / "data/seg_labels"
-    labels = {r["id"]: r for r in _csv(root / "labels.csv")}
+    labels = {r["id"]: r for r in read_csv(root / "labels.csv")}
     out = []
     for k in (2, 3):
-        for r in _csv(root / f"r{k}" / "index.csv"):
+        for r in read_csv(root / f"r{k}" / "index.csv"):
             lab = labels.get(r["id"])
             if lab and lab["status"] == "accepted" and lab["round"] == str(k) and lab["mask_sha256"] == r["mask_sha256"]:
                 out.append(Ref("ml2_labels", resolve(r["path"]), root / f"r{k}" / f"{r['id']}.png",

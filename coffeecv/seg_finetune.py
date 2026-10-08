@@ -29,8 +29,8 @@ best selection score is kept: (mean val IoU + neg_select empty-or-tiny share) / 
 epochs without a better score.
 
 Out: models/seg/ft_s<seed>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params, label-set hash,
-history, the chosen epoch). segment_beans.SegParams(weights=seg_ft.weights, decoder=...) loads it over the
-pretrained weights it was fine-tuned from.
+history, the chosen epoch). segment_beans.SegParams(weights=..., decoder=...) loads it over the pretrained
+weights it was fine-tuned from, which the card's base_weights names (segment_beans.decoder_base).
 """
 from __future__ import annotations
 
@@ -52,7 +52,8 @@ from PIL import Image
 from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.sam_loader import L0_WEIGHTS, build_sam, variant_of
+from coffeecv.repo_files import sha256_file
+from coffeecv.sam_loader import build_sam, variant_of
 from coffeecv.seg_labels import LABELS_CSV
 
 CACHE_ROOT = REPO_ROOT / "data" / "seg_cache"
@@ -76,7 +77,7 @@ VIEWS = {
 
 @dataclass(frozen=True)
 class FtParams:
-    weights: str = L0_WEIGHTS     # the pretrained base under models_pretrained/; its variant sets the frame
+    weights: str                  # the pretrained base under models_pretrained/ (params.yaml); its variant sets the frame
     views: tuple[str, ...] = ("id", "hflip", "vflip", "rot180")
     epochs: int = 40
     patience: int = 8
@@ -98,6 +99,9 @@ class FtParams:
         unknown = sorted(set(cfg.seg_ft) - known)
         if unknown:
             raise ValueError(f"params.yaml seg_ft sets keys seg_finetune does not define: {', '.join(unknown)}")
+        if "weights" not in cfg.seg_ft:
+            raise ValueError("params.yaml seg_ft.weights must name the pretrained base (no default: it is the one "
+                             "place the fine-tune's base is written)")
         p = cls(**{k: tuple(v) if isinstance(v, list) else v for k, v in cfg.seg_ft.items()})
         if bad := [v for v in p.views if v not in VIEWS]:
             raise ValueError(f"seg_ft.views: unknown {bad}; known {list(VIEWS)}")
@@ -178,7 +182,7 @@ def build_cache(cfg: RunConfig, p: FtParams) -> None:
                      np.lib.format.open_memmap(d / "label.npy", "w+", np.uint8, (n, frame, frame)), [])
     for i, r in enumerate(rows):
         photo = REPO_ROOT / r["path"]
-        if seg_lists.sha256_file(photo) != r["photo_sha256"]:
+        if sha256_file(photo) != r["photo_sha256"]:
             raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
         rgb = load_rgb_image(photo)
         mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0

@@ -453,7 +453,7 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
     the segmenter does not run then, so its diagnostics are None."""
     if skip_crop:
         return rgb, None, None, {"mask_area_frac": None, "bean_frac_in_crop": None, "retained_frac": None,
-                                 "seg_fallback": None}
+                                 "seg_fallback": None, "seg_mask_empty": None}
     crop, crop_info = _segment(rgb, cfg)
     i = crop.info
 
@@ -462,7 +462,8 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
 
     return crop.rgb, crop.mask, crop_info, {
         "mask_area_frac": r4(i["mask_area_frac"]), "bean_frac_in_crop": r4(i["bean_frac_in_crop"]),
-        "retained_frac": r4(i["retained_frac"]), "seg_fallback": i["fallback"]}
+        "retained_frac": r4(i["retained_frac"]), "seg_fallback": i["fallback"],
+        "seg_mask_empty": i["mask_area_frac"] == 0}      # unrounded: ood_eval's empty-mask rate (ML-5 D9)
 
 
 def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],

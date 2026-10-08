@@ -29,6 +29,10 @@ import torch
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam, variant_of, weights_for
 
+# The torch thread count every stored-mask tool pins (seg_predict through dvc.yaml's --threads 4, seg_labels,
+# seg_review, seg_point_probe): mask bits differ by a few pixels across thread counts (ticket ML-2 P0).
+THREADS = 4
+
 # SAM's box prompt yields either the single-mask token (multimask_output=False) or three multimask
 # tokens. "best_iou" picks the multimask output with the highest predicted IoU.
 MASK_SELECT = ("single", "multi1", "multi2", "multi3", "best_iou")
@@ -300,10 +304,20 @@ def seg_params(cfg: RunConfig) -> SegParams:
                      decoder_sha256=cfg.seg_decoder_sha256)
 
 
+def decoder_base(decoder: str) -> str:
+    """The pretrained weights (under models_pretrained/) a seg_finetune decoder was fine-tuned from, as the card
+    beside it (<decoder>.json, versioned in git) records them: the one place a decoder's base is written."""
+    card = (REPO_ROOT / decoder).with_suffix(".json")
+    if not card.exists():
+        raise FileNotFoundError(f"{card.relative_to(REPO_ROOT)}: no card beside {decoder} to name its base weights")
+    return json.loads(card.read_text())["base_weights"]
+
+
 # ML-5 P6: the segmenters the review page and the point probe take by name (D19: ft_s123 proposes, pretrained L0
-# redraws in pass 1). A pass-2 model is passed as WEIGHTS:DECODER until it is named here.
-NAMED_SEGMENTERS = {"pretrained_l0": (L0_WEIGHTS, None), "pretrained_xl0": (weights_for("xl0"), None),
-                    "ft_s123": (L0_WEIGHTS, "models/seg/ft_s123.pt")}
+# redraws in pass 1): pretrained weights, or a fine-tuned decoder over the base its card names (decoder_base).
+# A pass-2 model is passed as WEIGHTS:DECODER until it is named here.
+NAMED_SEGMENTERS = {"pretrained_l0": (weights_for("l0"), None), "pretrained_xl0": (weights_for("xl0"), None),
+                    "ft_s123": (None, "models/seg/ft_s123.pt")}
 
 
 def named_params(name: str, mask_select: str = "multi3") -> SegParams:
@@ -311,6 +325,7 @@ def named_params(name: str, mask_select: str = "multi3") -> SegParams:
     models_pretrained/ and optionally a fine-tuned decoder over them (repo-relative). The box prompt."""
     if name in NAMED_SEGMENTERS:
         weights, decoder = NAMED_SEGMENTERS[name]
+        weights = weights or decoder_base(decoder)
     else:
         weights, _, decoder = name.partition(":")
         try:

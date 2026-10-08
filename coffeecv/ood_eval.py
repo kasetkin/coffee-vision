@@ -8,7 +8,10 @@ reports:
 - negatives caught: probe score above the threshold, overall and per scenario tag;
 - positives refused (segmenter positives, pool photos, internet positives), per source and apart by whether
   the classifier trained on the photo: its train split holds a file with the same sha256. Segmenter
-  positives are often byte copies of pool photos, so the bytes decide, not the path.
+  positives are often byte copies of pool photos, so the bytes decide, not the path;
+- beside the probe (D9, D22): the segmenter's empty-mask rate on the test negatives, and its empty-or-tiny
+  rate (a mask under the checkpoint's seg_min_area_frac, the D18 fallback serving takes), overall and per tag.
+  Not a guard: the probe refuses, these say how often the segmenter alone would have.
 
 A photo `classify_one` cannot measure (no bean pitch) counts as caught or refused, because that is what the
 user gets, and is counted apart. Training and validation photos are never scored here; `fit_ood_probe`
@@ -27,17 +30,19 @@ import json
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import torch
 
 from coffeecv.class_list import ClassList, load_classes
-from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
+from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
-from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, forward_with_embeddings,
-                            inference_tta_for, load_model, load_ood_probe, patches_for_photo, probe_path_for,
-                            probe_score)
-from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset, sha256_file
+from coffeecv.infer import (LEGACY_CONFIG_NOTE, PROBE_THRESHOLD, _sha, config_for_checkpoint,
+                            forward_with_embeddings, inference_tta_for, load_model, load_ood_probe,
+                            patches_for_photo, probe_path_for, probe_score)
+from coffeecv.repo_files import sha256_file
+from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset
 from coffeecv.transforms import build_eval_transform
 
 # Tags whose every patch is unambiguously not-beans, so a patch-level probe can
@@ -48,24 +53,41 @@ CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grai
                                   "other_nuts_seeds", "non_food_objects",
                                   "real_world_negatives", "green_legume"})
 
+class Measured(NamedTuple):
+    """One photo through the serving path: the probe's score (None: unmeasurable, which classify_one refuses)
+    and what the segmenter gave (None: not known, as on an unmeasurable photo or a checkpoint without one)."""
+    score: float | None
+    empty: bool | None = None               # the segmenter's mask is empty
+    empty_or_tiny: bool | None = None       # empty or under seg_min_area_frac: serving's D18 fallback
+
+
 def _counts(rows: list[dict], key: str) -> dict:
     return {"n": len(rows), key: sum(r["over"] for r in rows), "unmeasurable": sum(r["score"] is None for r in rows)}
 
 
-def guard_report(photos: list[dict], score: Callable[[str], float | None], trained_sha256: set[str],
-                 threshold: float = PROBE_THRESHOLD) -> dict:
+def _seg_counts(rows: list[dict]) -> dict:
+    return {"n": len(rows), "empty": sum(r["empty"] is True for r in rows),
+            "empty_or_tiny": sum(r["empty_or_tiny"] is True for r in rows),
+            "unknown": sum(r["empty_or_tiny"] is None for r in rows)}
+
+
+def guard_report(photos: list[dict], measure: Callable[[str], Measured], trained_sha256: set[str],
+                 threshold: float = PROBE_THRESHOLD, min_area_frac: float | None = None) -> dict:
     """Score the test split of `photos` (from `load_seg_dataset`) and count, at `threshold`, negatives
-    caught and positives refused. `score(path)` is the probe's score for one photo, None when the photo is
-    unmeasurable (counted as over the threshold, as classify_one refuses it). `trained_sha256` holds the
-    sha256 of every photo the classifier trained on."""
+    caught and positives refused, and the segmenter's empty and empty-or-tiny masks on the negatives.
+    `measure(path)` is one photo's `Measured`; an unmeasurable photo counts as over the threshold, as
+    classify_one refuses it. `trained_sha256` holds the sha256 of every photo the classifier trained on.
+    `min_area_frac` is the tiny-mask threshold behind `empty_or_tiny`, recorded for the printout."""
     rows = []
     for e in photos:
         if e["split"] != "test":
             continue
-        s = score(e["path"])
-        rows.append({"path": e["path"], "source": e["source"], "tag": e.get("tag"), "score": s,
-                     "over": s is None or s > threshold, "trained": e["sha256"] in trained_sha256})
+        m = measure(e["path"])
+        rows.append({"path": e["path"], "source": e["source"], "tag": e.get("tag"), "score": m.score,
+                     "over": m.score is None or m.score > threshold, "trained": e["sha256"] in trained_sha256,
+                     "empty": m.empty, "empty_or_tiny": m.empty_or_tiny})
     neg = [r for r in rows if r["source"] == "negative"]
+    tags = sorted({r["tag"] for r in neg})
     pos = [r for r in rows if r["source"] != "negative"]
 
     def by_training(group: list[dict]) -> dict:
@@ -74,9 +96,11 @@ def guard_report(photos: list[dict], score: Callable[[str], float | None], train
 
     return {
         "threshold": threshold,
+        "min_area_frac": min_area_frac,
         "negatives": {"all": _counts(neg, "caught"),
-                      "by_tag": {t: _counts([r for r in neg if r["tag"] == t], "caught")
-                                 for t in sorted({r["tag"] for r in neg})}},
+                      "by_tag": {t: _counts([r for r in neg if r["tag"] == t], "caught") for t in tags},
+                      "segmenter": {"all": _seg_counts(neg),
+                                    "by_tag": {t: _seg_counts([r for r in neg if r["tag"] == t]) for t in tags}}},
         "positives": {**{s: by_training([r for r in pos if r["source"] == s])
                          for s in SOURCES if s != "negative"},
                       "all": by_training(pos)},
@@ -98,6 +122,13 @@ def format_report(report: dict) -> str:
     out = [f"test split, probe threshold {thr} (fixed, ADR 0016)",
            line(f"negatives caught at {thr}", neg["all"], "caught").strip()]
     out += [line(f"  {tag}", c, "caught") for tag, c in neg["by_tag"].items()]
+    tiny = f"area < {report['min_area_frac']:g}" if report.get("min_area_frac") is not None else "tiny"
+    seg = neg["segmenter"]
+    out.append("segmenter on the test negatives (beside the probe, not a guard; D9, D22):")
+    for label, c in (("all", seg["all"]), *((f"  {t}", c) for t, c in seg["by_tag"].items())):
+        un = f"; {c['unknown']} unknown (unmeasurable or no segmenter)" if c["unknown"] else ""
+        out.append(f"  {label}: empty mask: {c['empty']}/{c['n']}, empty or tiny ({tiny}): "
+                   f"{c['empty_or_tiny']}/{c['n']}{un}")
     out.append(f"positives refused at {thr}:")
     for source, c in report["positives"].items():
         out.append(line(f"{source}, trained on", c["trained"], "refused"))
@@ -146,6 +177,17 @@ def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
     return index[stem]
 
 
+def split_config(checkpoint: Path, explicit: str | None) -> tuple[RunConfig, str]:
+    """`infer.config_for_checkpoint`, for a caller of `id_photos`: a checkpoint trained before ticket ML-1
+    (its card or config says `train_rigs`) is refused, because the pooled split id_photos recomputes is not
+    the per-camera split it trained on, so its "train" and "test" photos would be the wrong ones."""
+    cfg, source = config_for_checkpoint(checkpoint, explicit)
+    if LEGACY_CONFIG_NOTE in source:
+        raise ValueError(f"{checkpoint} was trained before ticket ML-1 ({source}): id_photos cannot recompute "
+                         "its photo split, so which photos it trained on is unknown here")
+    return cfg, source
+
+
 def id_photos(cfg, classes: ClassList, split: str) -> list[Path]:
     """The checkpoint's own `split` photos (train, val or test), as *raw* paths.
 
@@ -153,8 +195,8 @@ def id_photos(cfg, classes: ClassList, split: str) -> list[Path]:
     `split_photos_by_class`) with this checkpoint's seed, so for a checkpoint trained
     by the current code the photos returned are the ones it actually held out.
 
-    NOT for a checkpoint trained before ticket ML-1 (2026-09-29) -- both deployed
-    models included. Those were split per camera and class with a camera-position
+    NOT for a checkpoint trained before ticket ML-1 (2026-09-29); `split_config`
+    refuses one. Those were split per camera and class with a camera-position
     seed; the pooled split recomputed here is a different partition, so part of
     what it returns as "held out" was in that checkpoint's training set and scores
     optimistically in-distribution. Such a card still carries the legacy
@@ -208,9 +250,9 @@ def embed_photo(path: Path, cfg, model, head, n_patches: int, tta: bool,
     """
     key = None
     if cache_dir is not None:
-        # v2 in the key because entries written before logits were captured cannot
-        # serve a request that needs them, and a stale hit would be silent.
-        key = cache_dir / f"v2_{ckpt_sha[:12]}_{n_patches}_{int(tta)}_{path.stem}.npz"
+        # v3 in the key because entries written before logits (v2) or the segmenter's empty-mask flag
+        # (v3, ML-5 D9) were captured cannot serve a request that needs them, and a stale hit would be silent.
+        key = cache_dir / f"v3_{ckpt_sha[:12]}_{n_patches}_{int(tta)}_{path.stem}.npz"
         if key.exists():
             z = np.load(key, allow_pickle=True)
             diag = json.loads(str(z["diag"]))
@@ -273,7 +315,10 @@ def main() -> None:
 
     photos = load_seg_dataset(Path(args.dataset))
     checkpoint = Path(args.checkpoint)
-    cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
+    try:
+        cfg, cfg_source = split_config(checkpoint, args.config)
+    except ValueError as e:
+        sys.exit(f"refusing: {e}")
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
     classes = load_classes(classes_file)
@@ -288,18 +333,19 @@ def main() -> None:
     # The classifier's train split, by content: a segmenter positive copied from a pool photo was trained on.
     trained = {sha256_file(q) for q in id_photos(cfg, classes, "train")}
 
-    def score(path: str) -> float | None:
+    def measure(path: str) -> Measured:
         try:
-            _, embeds, _, _ = embed_photo(REPO_ROOT / path, cfg, model, head, args.n_patches, tta,
-                                          cache_dir, ckpt_sha)
+            _, embeds, _, diag = embed_photo(REPO_ROOT / path, cfg, model, head, args.n_patches, tta,
+                                             cache_dir, ckpt_sha)
         except Unmeasurable:
-            return None
-        return probe_score(embeds, probe)
+            return Measured(None)
+        return Measured(probe_score(embeds, probe), diag.get("seg_mask_empty"), diag.get("seg_fallback"))
 
     n_test = sum(e["split"] == "test" for e in photos)
     print(f"scoring {n_test} test photos of {args.dataset} with {'TTA' if tta else 'no TTA'}, "
           f"{args.n_patches} patches; the classifier's train split holds {len(trained)} photos\n")
-    report = guard_report(photos, score, trained)
+    report = guard_report(photos, measure, trained,
+                          min_area_frac=cfg.seg_min_area_frac if cfg.crop_method == "segment" else None)
     print(format_report(report))
     if args.out:
         Path(args.out).write_text(json.dumps({

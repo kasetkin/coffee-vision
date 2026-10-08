@@ -1,7 +1,8 @@
 """The guard's measurement of ADR 0016 (ticket ML-5 D16): `ood_eval` reads the segmenter dataset file
 (labels/ml5/seg_dataset.yaml, schema in `seg_dataset.load_seg_dataset`) and reports, on its test split only,
 negatives caught and positives refused at the fixed 0.5, the positives by source and by whether the
-classifier's train split holds the same bytes. Plain unittest, on tests/fixtures/ml5_seg_dataset.yaml with
+classifier's train split holds the same bytes, and beside them the segmenter's empty and empty-or-tiny mask
+rate on the test negatives (D9, D22). Plain unittest, on tests/fixtures/ml5_seg_dataset.yaml with
 hand-set scores; no model.
 
     python -m unittest tests.test_ood_guard_eval -v
@@ -18,6 +19,9 @@ NEG = "dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_00"
 POOL = "dataset/2026-09-11__pixel/class_001__Ethiopia_Sidamo/PXL_20260911_10"
 # Probe scores of the fixture's test photos; None = unmeasurable (classify_one refuses it). Train and
 # validation photos are absent, so scoring one raises KeyError.
+M = ood_eval.Measured
+SEG = {NEG + "1.jpg": M(0.99, empty=True, empty_or_tiny=True),      # the segmenter found nothing
+       NEG + "2.jpg": M(0.5, empty=False, empty_or_tiny=True)}      # a mask under seg_min_area_frac
 SCORES = {
     NEG + "1.jpg": 0.99,
     NEG + "2.jpg": 0.5,                    # on the boundary: not caught, the probe refuses above 0.5
@@ -36,7 +40,8 @@ class TestTestSplitReport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         photos = seg_dataset.load_seg_dataset(FIXTURE)
-        cls.report = ood_eval.guard_report(photos, lambda path: SCORES[path], TRAINED)
+        cls.report = ood_eval.guard_report(photos, lambda path: SEG.get(path, M(SCORES[path])), TRAINED,
+                                           min_area_frac=0.083)
 
     def test_negatives_caught(self):
         self.assertEqual(self.report["threshold"], 0.5)
@@ -44,6 +49,18 @@ class TestTestSplitReport(unittest.TestCase):
         self.assertEqual(self.report["negatives"]["by_tag"],
                          {"empty_tray": {"n": 2, "caught": 1, "unmeasurable": 0},
                           "real_world_negatives": {"n": 1, "caught": 1, "unmeasurable": 1}})
+
+    def test_the_segmenters_empty_and_empty_or_tiny_rate_on_test_negatives(self):
+        seg = self.report["negatives"]["segmenter"]
+        self.assertEqual(seg["all"], {"n": 3, "empty": 1, "empty_or_tiny": 2, "unknown": 1})
+        self.assertEqual(seg["by_tag"], {"empty_tray": {"n": 2, "empty": 1, "empty_or_tiny": 2, "unknown": 0},
+                                         "real_world_negatives": {"n": 1, "empty": 0, "empty_or_tiny": 0,
+                                                                  "unknown": 1}})
+        self.assertEqual(self.report["min_area_frac"], 0.083)
+        text = ood_eval.format_report(self.report)
+        self.assertIn("segmenter on the test negatives", text)
+        self.assertIn("empty mask: 1/3", text)
+        self.assertIn("empty or tiny (area < 0.083): 2/3", text)
 
     def test_positives_refused_by_source_and_by_whether_the_classifier_trained_on_them(self):
         pos = self.report["positives"]

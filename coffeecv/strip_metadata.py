@@ -50,6 +50,7 @@ from PIL import Image
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
+from coffeecv.repo_files import sha256_file
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"} | RAW_EXTENSIONS
 HEIF_EXTENSIONS = {".heic", ".heif"}
@@ -138,14 +139,6 @@ def is_compared(key: str) -> bool:
     fam0, fam1, tag = _parts(key)
     return (fam0 not in VOLATILE_GROUPS and fam1 not in VOLATILE_GROUPS and tag not in LAYOUT_TAGS
             and not is_denied(key))
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _digest(h, arr: np.ndarray) -> None:

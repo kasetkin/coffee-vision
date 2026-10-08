@@ -5,8 +5,11 @@
 The tests that build L0 skip on a clone without its weights (models_pretrained/verify.py, dvc pull).
 """
 import io
+import json
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -14,7 +17,9 @@ import torch
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, weights_for
-from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, mask_and_crop, named_params, seg_params
+from coffeecv.repo_files import rel
+from coffeecv.segment_beans import (BeanSegmenter, SegParams, d4_box, decoder_base, mask_and_crop, named_params,
+                                    seg_params)
 
 from tests._tiers import real_data
 
@@ -123,6 +128,14 @@ class TestNamedSegmenters(unittest.TestCase):
         self.assertIsNone(named_params("efficientvit_sam/efficientvit_sam_xl0.pt").decoder)
         with self.assertRaisesRegex(ValueError, "no_such_model"):
             named_params("no_such_model")
+
+    def test_a_decoders_base_weights_are_its_cards(self):
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as tmp:
+            card = Path(tmp) / "xl0_v1.json"
+            card.write_text(json.dumps({"base_weights": weights_for("xl0")}))
+            self.assertEqual(decoder_base(rel(card.with_suffix(".pt"))), weights_for("xl0"))
+        with self.assertRaisesRegex(FileNotFoundError, "no_such.json"):
+            decoder_base("models/seg/no_such.pt")
 
 
 @unittest.skipUnless(HAVE_L0, SKIP_L0)

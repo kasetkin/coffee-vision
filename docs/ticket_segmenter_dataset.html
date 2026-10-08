@@ -14,7 +14,7 @@
     passes, then the classifier is retrained. ADRs 0005 and 0011 are superseded. Decided and planned; P1 done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08; D1&ndash;D23 decided 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); P1 done 2026-10-08 (<code>62a4d3e</code>)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08; D1&ndash;D23 decided 2026-10-08; planned (<a href="plan_segmenter_dataset.html">plan</a>); as of 2026-10-08: P1, P2, P5 and P6 done; P3 awaits the owner's approval of ADRs 0015 and 0016; P4's code done, its VM timing awaits the owner's OK</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset, segmenter, classifier retraining</span></div>
@@ -302,6 +302,14 @@
       ML-2 masks (<code>analysis/ml5_point_probe/</code>): <code>ft_s123</code> fails through <code>multi3</code> as
       well, so D19 stands, and D23 fixes <code>multi3</code> as the output for box plus points. D22: v1 and v2 test
       masks judged together, blind, and compared paired.</div>
+    <div><div class="when">2026-10-08</div>Correction to &sect;2, from the code review of P2&ndash;P6: its 0.5982
+      and "2/26 genuine photos refused at 0.5" are ML-2's probe (<code>allrigs_dino3b16_seg_s7</code>, <a
+      href="plan_segmentation_mask.html">ML-2 plan</a>, 2026-10-03), which shipped until 2026-10-06. The shipped probe
+      is ML-3's, <code>models/allrigs_dino3b16_seg_country_s123.ood_probe.json</code>: calibrated 0.5957
+      (<code>threshold_calibrated</code>), served at 0.5 by the owner's override of 2026-10-06; on its holdout,
+      56/56 negatives caught and 2/29 genuine photos refused at 0.5 (1/29 at 0.5957). <a
+      href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>'s 0.5957 is right and stands; &sect;2 is left as
+      written.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>

@@ -9,7 +9,9 @@ from __future__ import annotations
 import unittest
 
 from coffeecv import seg_lists
-from coffeecv.seg_predict import LISTS, photo_entries
+from coffeecv.config import RunConfig
+from coffeecv.sam_loader import weights_for
+from coffeecv.seg_predict import LISTS, model_params, photo_entries
 
 
 class PhotoEntries(unittest.TestCase):
@@ -30,6 +32,24 @@ class PhotoEntries(unittest.TestCase):
         lists = {"seg_eval": [row], "neg_seg_eval": [], "pos_seg_eval": [dict(row)]}
         with self.assertRaises(ValueError):
             photo_entries(lists)
+
+
+
+class Models(unittest.TestCase):
+    """ML-5 P4: "pretrained" is the fine-tune's base, params.yaml seg_ft.weights; a fine-tuned decoder runs over
+    the base its card records, so moving the fine-tune to XL0 is one edit and ML-2's decoders stay on L0."""
+
+    def cfg(self, variant: str) -> RunConfig:
+        return RunConfig(seg_ft={"weights": weights_for(variant)}, seg_mask_select="multi3", seg_prompt="box")
+
+    def test_pretrained_is_the_fine_tunes_base(self):
+        for v in ("l0", "xl0"):
+            p = model_params("pretrained", self.cfg(v))
+            self.assertEqual((p.weights, p.decoder, p.mask_select, p.prompt), (weights_for(v), None, "multi3", "box"))
+
+    def test_a_decoder_runs_over_the_base_its_card_records(self):
+        p = model_params("ft_s123", self.cfg("xl0"))
+        self.assertEqual((p.weights, p.decoder), ("efficientvit_sam/efficientvit_sam_l0.pt", "models/seg/ft_s123.pt"))
 
 
 if __name__ == "__main__":

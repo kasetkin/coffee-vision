@@ -29,7 +29,7 @@ seg_paired_seed (or --seed), the model names hidden until every mask is judged; 
 once. A/D judge the left mask, J/L the right one.
 
 Storage, as ML-2 D16: verdicts and their points in git, masks DVC-tracked (`dvc add data/ml5_labels/<session>`
-when the session is done).
+when the session is done; .gitignore keeps them out of git from the first click).
     labels/ml5/<session>.session.json        the session's models and outputs
     labels/ml5/<session>.verdicts.jsonl      one row per click: round, mask sha256, the points that drew it
     data/ml5_labels/<session>/r<k>/<id>.png  round k's masks (1-bit) + index.csv with their points and models
@@ -46,7 +46,6 @@ import html
 import json
 import threading
 import time
-import zlib
 from collections import Counter, OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,8 +59,10 @@ from PIL import Image
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.review_masks import REASONS, RULE_FILE, jpeg, view_image, zoom_tile
-from coffeecv.seg_dataset import load_seg_dataset, sha256_file
-from coffeecv.segment_beans import BeanSegmenter, mask_sha256, named_params
+from coffeecv.repo_files import read_csv, rel, sha256_file
+from coffeecv.seg_dataset import load_seg_dataset, seeded_rng
+from coffeecv.seg_review_pages import LABEL_PAGE, PAIRED_PAGE
+from coffeecv.segment_beans import THREADS, BeanSegmenter, mask_sha256, named_params
 
 LABELS_DIR = REPO_ROOT / "labels" / "ml5"
 MASK_ROOT = REPO_ROOT / "data" / "ml5_labels"
@@ -69,23 +70,19 @@ EMBED_ROOT = REPO_ROOT / "outputs" / "ml5_embeddings"
 ROUNDS = (1, 2, 3)
 REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of seg_labels.CORRECTION_OUTPUT's single
 LABEL_SPLITS = ("train", "validation")
-THREADS = 4                  # pinned, like seg_labels: the thread count changes mask bits
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
                 "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
 LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
                 "include", "exclude", "reason"]
 
 
-def item_id(path: str) -> str:
-    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix."""
+def photo_id(path: str) -> str:
+    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix. (Not
+    seg_base_masks.item_id, which names ML-2's list entries.)"""
     parts = Path(path).with_suffix("").parts
     if "dataset" in parts:
         parts = parts[len(parts) - parts[::-1].index("dataset"):]
     return "__".join(parts)
-
-
-def _rel(path: Path) -> str:
-    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
 
 
 def _now() -> str:
@@ -105,6 +102,22 @@ def _append_jsonl(path: Path, row: dict) -> None:
 def _save_mask(mask: np.ndarray, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(mask).convert("1").save(path)
+
+
+class _LRU:
+    """The last `n` values loaded, by key: decoded photos and masks (a 50 MP photo takes a second or two) and
+    the redraw model's stored encodings."""
+
+    def __init__(self, n: int):
+        self.n, self.d = n, OrderedDict()
+
+    def get(self, key, load: Callable[[], object]):
+        if key not in self.d:
+            self.d[key] = load()
+            while len(self.d) > self.n:
+                self.d.popitem(last=False)
+        self.d.move_to_end(key)
+        return self.d[key]
 
 
 # ---------------------------------------------------------------- the loop (pure)
@@ -150,7 +163,7 @@ class SegDrawer:
         self.name = name
         self.seg = BeanSegmenter(named_params(name, mask_select or RunConfig.from_params_yaml().seg_mask_select))
         self.embed_dir = embed_root / self.seg.weights_sha256[:16]
-        self._loaded: OrderedDict[str, dict] = OrderedDict()
+        self._loaded = _LRU(3)
 
     @property
     def propose_output(self) -> str:
@@ -178,12 +191,7 @@ class SegDrawer:
         return not self._file(item).exists()
 
     def redraw(self, item: dict, include: list, exclude: list) -> tuple[np.ndarray, float]:
-        sha = item["sha256"]
-        if sha not in self._loaded:
-            self._loaded[sha] = torch.load(self._file(item), weights_only=True)
-            while len(self._loaded) > 3:
-                self._loaded.popitem(last=False)
-        self.seg.set_encoding(self._loaded[sha])
+        self.seg.set_encoding(self._loaded.get(item["sha256"], lambda: torch.load(self._file(item), weights_only=True)))
         return self.seg.decode_points(include, exclude, REDRAW_OUTPUT)
 
 
@@ -198,7 +206,7 @@ class LabelSession:
                  mask_root: Path = MASK_ROOT):
         """`models` None reads them from the session file (a session already started)."""
         self.name = name
-        mine = [{**e, "id": item_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
+        mine = [{**e, "id": photo_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
         self.items = [e for e in mine if e["source"] != "negative"]
         self.negatives = [e for e in mine if e["source"] == "negative"]
         self.meta_path = labels_dir / f"{name}.session.json"
@@ -206,7 +214,7 @@ class LabelSession:
         self.mask_dir = mask_root / name
         if models is None:
             if not self.meta_path.exists():
-                raise ValueError(f"no session {name}: {_rel(self.meta_path)} does not exist")
+                raise ValueError(f"no session {name}: {rel(self.meta_path)} does not exist")
             models = json.loads(self.meta_path.read_text())
         meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
                 "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS)}
@@ -230,7 +238,7 @@ class LabelSession:
         f = self.mask_dir / f"r{k}" / "index.csv"
         stamp = (f.stat().st_mtime_ns, f.stat().st_size) if f.exists() else None
         if k not in self._cache or self._cache[k][0] != stamp:
-            rows = {r["id"]: r for r in csv.DictReader(f.read_text().splitlines())} if stamp else {}
+            rows = {r["id"]: r for r in read_csv(f)} if stamp else {}
             self._cache[k] = (stamp, rows)
         return self._cache[k][1]
 
@@ -343,14 +351,14 @@ class LabelSession:
             out.append({"id": it["id"], "path": it["path"], "photo_sha256": it["sha256"], "source": it["source"],
                         "split": it["split"], "status": st.status if st.status in ("accepted", "dropped") else
                         "pending", "round": st.round if acc or st.status == "dropped" else "",
-                        "mask": _rel(self.mask_path(it, st.round)) if acc else "",
+                        "mask": rel(self.mask_path(it, st.round)) if acc else "",
                         "mask_sha256": row["mask_sha256"] if acc else "",
                         "include": row["include"] if acc else "", "exclude": row["exclude"] if acc else "",
                         "reason": st.reason or ""})
         for e in self.negatives:
             f = self.mask_dir / "neg" / f"{e['id']}.png"
             out.append({"id": e["id"], "path": e["path"], "photo_sha256": e["sha256"], "source": e["source"],
-                        "split": e["split"], "status": "negative", "round": "", "mask": _rel(f),
+                        "split": e["split"], "status": "negative", "round": "", "mask": rel(f),
                         "mask_sha256": mask_sha256(np.array(Image.open(f)) > 0) if f.exists() else "",
                         "include": "", "exclude": "", "reason": "D14: negative, empty label"})
         return out
@@ -374,24 +382,16 @@ class _Refused(Exception):
 # ---------------------------------------------------------------- the pages' shared parts
 
 class _Photos:
-    """The last few decoded photos (a 50 MP photo takes a second or two) and masks."""
+    """The last few decoded photos and masks (two masks a photo in the paired mode)."""
 
     def __init__(self, n: int = 3):
-        self.n, self.rgb, self.masks = n, OrderedDict(), OrderedDict()
-
-    def _lru(self, d: OrderedDict, key, load):
-        if key not in d:
-            d[key] = load()
-            while len(d) > self.n * 2:
-                d.popitem(last=False)
-        d.move_to_end(key)
-        return d[key]
+        self.rgb, self.masks = _LRU(n), _LRU(2 * n)
 
     def photo(self, path: str) -> np.ndarray:
-        return self._lru(self.rgb, path, lambda: load_rgb_image(REPO_ROOT / path))
+        return self.rgb.get(path, lambda: load_rgb_image(REPO_ROOT / path))
 
     def mask(self, path: Path, sha: str) -> np.ndarray:
-        return self._lru(self.masks, (str(path), sha), lambda: np.array(Image.open(path)) > 0)
+        return self.masks.get((str(path), sha), lambda: np.array(Image.open(path)) > 0)
 
 
 def _points(body: dict, key: str) -> list[list[float]]:
@@ -420,8 +420,21 @@ def _app() -> Flask:
     return app
 
 
-def _image(arr: np.ndarray):
-    return send_file(jpeg(arr), mimetype="image/jpeg")
+def _image_routes(app: Flask, shown: Callable[..., tuple[np.ndarray, np.ndarray]], view_rule: str,
+                  zoom_rule: str) -> None:
+    """The photo with its mask outlined (`view_rule`) and a full-resolution tile around ?x=&y= (`zoom_rule`),
+    ?outline=0 without the outline; `shown(**the rule's arguments)` gives the (photo, mask)."""
+    def outline() -> bool:
+        return request.args.get("outline", "1") == "1"
+
+    @app.get(view_rule, endpoint="view")
+    def view(**where):
+        return send_file(jpeg(view_image(*shown(**where), outline())), mimetype="image/jpeg")
+
+    @app.get(zoom_rule, endpoint="zoom")
+    def zoom(**where):
+        x, y = float(request.args["x"]), float(request.args["y"])
+        return send_file(jpeg(zoom_tile(*shown(**where), x, y, outline())), mimetype="image/jpeg")
 
 
 # ---------------------------------------------------------------- labelling mode
@@ -475,16 +488,7 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
         return photos.photo(it["path"]), photos.mask(session.mask_path(it, st.round),
                                                      session.row(it, st.round)["mask_sha256"])
 
-    @app.get("/img/<int:i>/view.jpg")
-    def view(i: int):
-        rgb, mask = shown(i)
-        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
-
-    @app.get("/img/<int:i>/zoom.jpg")
-    def zoom(i: int):
-        rgb, mask = shown(i)
-        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
-                                request.args.get("outline", "1") == "1"))
+    _image_routes(app, shown, "/img/<int:i>/view.jpg", "/img/<int:i>/zoom.jpg")
 
     def reply(i: int, st: State):
         return jsonify({"status": st.status, "round": st.round, "reason": st.reason,
@@ -508,123 +512,6 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
     return app
 
 
-_STYLE = """<style>
-body{font-family:sans-serif;margin:0;background:#222;color:#eee;display:flex;height:100vh}
-#left{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;gap:8px}
-.wrap{position:relative;display:inline-block;line-height:0}
-.wrap img{max-height:100vh;cursor:crosshair}
-.pt{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);
-    pointer-events:none}
-.pt.include{background:#1db31d}.pt.exclude{background:#e01b1b}
-#right{width:560px;padding:12px;overflow:auto;background:#2b2b2b}
-.zoom{width:512px;height:512px;background:#111;display:block;margin:8px 0}
-button{font-size:15px;margin:3px;padding:6px 10px}
-.acc{background:#2e7d32;color:#fff}.dec{background:#c62828;color:#fff}
-.rule{font-size:13px;line-height:1.4;background:#333;padding:8px;border-radius:4px}
-.state{font-size:18px;margin:8px 0}.msg{background:#444;padding:6px;margin-top:6px;min-height:1em}
-.keys{font-size:12px;color:#aaa}
-</style>"""
-
-LABEL_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>ML-5 labels</title>""" + _STYLE + """
-</head><body>
-<div id="left"><div class="wrap" id="wrap"><img id="photo" style="max-width:calc(100vw - 600px)"></div></div>
-<div id="right">
- <div id="head"></div>
- <div class="state" id="state"></div>
- <button class="acc" onclick="decide('accept')">Accept (A)</button>
- <button class="dec" onclick="decide('decline')">Decline (D)</button>
- <button onclick="redraw()">Redraw (Enter)</button> <button onclick="undo()">Undo point (U)</button><br>
- <div id="reasons"></div>
- <div class="msg" id="msg"></div>
- <button onclick="go(info.i-1)">&larr; prev</button><button onclick="go(info.i+1)">next &rarr;</button>
- <button onclick="location='/'">next to do (N)</button>
- <div class="keys">hold g + click: include point (green) &middot; hold r + click: exclude point (red) &middot;
-   U / Backspace: undo the last point &middot; Enter: redraw &middot; Space: toggle outline &middot;
-   plain click: full resolution</div>
- <img id="zoom" class="zoom">
- <div class="rule"><b>Accept rule (D13)</b><br>__RULE__</div>
-</div>
-<script>
-const info = __INFO__;
-let outline = 1, last = null, held = null;
-// Every point so far, in the order placed (those that drew the shown mask first: includes, then excludes).
-let points = [...info.points.include.map(p => ({x: p[0], y: p[1], kind: 'include'})),
-              ...info.points.exclude.map(p => ({x: p[0], y: p[1], kind: 'exclude'}))];
-const photo = document.getElementById('photo'), zoom = document.getElementById('zoom');
-const wrap = document.getElementById('wrap'), msgBox = document.getElementById('msg');
-function msg(t){ msgBox.textContent = t; }
-function canPoint(){ return info.status === 'points' || (info.status === 'judge' && info.round > 1); }
-function src(){ const v = `outline=${outline}&m=${info.mask_sha256.slice(0, 12)}`;
-  photo.src = `/img/${info.i}/view.jpg?${v}`;
-  if(last) zoom.src = `/img/${info.i}/zoom.jpg?x=${last[0]}&y=${last[1]}&${v}`; }
-function drawPoints(){
-  wrap.querySelectorAll('.pt').forEach(d => d.remove());
-  for(const p of points){ const d = document.createElement('div'); d.className = 'pt ' + p.kind;
-    d.style.left = (p.x * 100) + '%'; d.style.top = (p.y * 100) + '%'; wrap.appendChild(d); }
-}
-function render(){
-  document.getElementById('head').textContent =
-    `${info.i+1} / ${info.n}  ${info.item}  (${info.source}, ${info.split})`;
-  const what = {judge: 'judge this mask', points: `declined${info.reason ? ' ('+info.reason+')' : ''}: place points, then Enter`,
-                accepted: '<b>accepted</b>', dropped: `<b>dropped</b>: ${info.reason}`, pending: 'not prepared'}[info.status];
-  document.getElementById('state').innerHTML =
-    `session ${info.session}: accepted ${info.accepted}, dropped ${info.dropped}, to do ${info.todo}<br>` +
-    `round ${info.round} / ${info.rounds}, drawn by ${info.model}: ${what}`;
-  document.getElementById('reasons').innerHTML = info.reasons.map((r,k)=>
-    `<button class="dec" onclick="decide('decline', '${r}')">${k+1}: ${r}</button>`).join('');
-  drawPoints();
-}
-function go(i){ if(i>=0 && i<info.n) location = `/item/${i}`; }
-async function post(url, body){
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  const j = await r.json();
-  if(!r.ok){ msg(j.error || ('error ' + r.status)); return null; }
-  return j;
-}
-async function decide(decision, reason=null){
-  const r = await post(`/decide/${info.i}`, {decision, reason});
-  if(!r) return;
-  if((r.status === 'accepted' || r.status === 'dropped') && r.next !== null) go(r.next); else location.reload();
-}
-async function redraw(){
-  if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
-  const pick = k => points.filter(p => p.kind === k).map(p => [p.x, p.y]);
-  msg('redrawing...');
-  const r = await post(`/redraw/${info.i}`, {include: pick('include'), exclude: pick('exclude')});
-  if(r) location.reload();
-}
-function undo(){ if(points.length){ points.pop(); drawPoints(); msg(`${points.length} points; Enter redraws`); } }
-const r4 = v => Math.round(Math.min(Math.max(v, 0), 1) * 1e4) / 1e4;
-photo.onclick = e => {
-  const b = photo.getBoundingClientRect(), x = (e.clientX-b.left)/b.width, y = (e.clientY-b.top)/b.height;
-  if(held){
-    if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
-    points.push({x: r4(x), y: r4(y), kind: held === 'g' ? 'include' : 'exclude'});
-    drawPoints(); msg(`${points.length} points; Enter redraws`); return;
-  }
-  last = [x, y]; src();
-};
-function holdKey(k){ return k === 'g' || k === 'G' ? 'g' : k === 'r' || k === 'R' ? 'r' : null; }
-document.onkeydown = e => {
-  if(e.ctrlKey || e.metaKey || e.altKey) return;
-  const h = holdKey(e.key);
-  if(h){ held = h; photo.style.cursor = 'cell'; e.preventDefault(); return; }
-  if(e.key===' '){ outline = 1-outline; src(); e.preventDefault(); }
-  else if(e.key==='a'||e.key==='A') decide('accept');
-  else if(e.key==='d'||e.key==='D') decide('decline');
-  else if(e.key>='1' && e.key<='5') decide('decline', info.reasons[+e.key-1]);
-  else if(e.key==='u'||e.key==='U'||e.key==='Backspace'){ undo(); e.preventDefault(); }
-  else if(e.key==='Enter'){ redraw(); e.preventDefault(); }
-  else if(e.key==='ArrowLeft') go(info.i-1);
-  else if(e.key==='ArrowRight') go(info.i+1);
-  else if(e.key==='n'||e.key==='N') location='/';
-};
-document.onkeyup = e => { if(holdKey(e.key) === held){ held = null; photo.style.cursor = ''; } };
-window.onblur = () => { held = null; photo.style.cursor = ''; };
-render(); src();
-</script></body></html>"""
-
-
 # ---------------------------------------------------------------- blind paired mode (D22)
 
 def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
@@ -635,8 +522,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
     names = [d.name for d in mask_dirs]
     if names[0] == names[1]:
         raise ValueError(f"two mask sets named {names[0]}")
-    indexes = [{r["photo_sha256"]: r for r in csv.DictReader((d / "index.csv").read_text().splitlines())}
-               for d in mask_dirs]
+    indexes = [{r["photo_sha256"]: r for r in read_csv(d / "index.csv")} for d in mask_dirs]
     out, missing = [], []
     for e in entries:
         if e["split"] != "test" or e["source"] == "negative":
@@ -649,7 +535,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
                 continue
             masks.append({"mask": d / f"{r['id']}.png", "mask_sha256": r["mask_sha256"]})
         if len(masks) == 2:
-            out.append({"item": item_id(e["path"]), "path": e["path"], "photo_sha256": e["sha256"],
+            out.append({"item": photo_id(e["path"]), "path": e["path"], "photo_sha256": e["sha256"],
                         "source": e["source"], "names": names, "masks": masks,
                         "identical": masks[0]["mask_sha256"] == masks[1]["mask_sha256"]})
     if missing:
@@ -659,7 +545,7 @@ def paired_items(entries: list[dict], mask_dirs: list[Path]) -> list[dict]:
 
 def paired_sides(photo_sha256: str, seed: int) -> tuple[int, int]:
     """(left, right) as indexes into the two mask sets, drawn per photo from `seed` (D22)."""
-    flip = np.random.default_rng([seed, zlib.crc32(photo_sha256.encode())]).random() < 0.5
+    flip = seeded_rng(seed, photo_sha256).random() < 0.5
     return (1, 0) if flip else (0, 1)
 
 
@@ -731,16 +617,7 @@ def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: 
         m = it["masks"][sides(it)[side][0]]
         return photos.photo(it["path"]), photos.mask(m["mask"], m["mask_sha256"])
 
-    @app.get("/img/<int:i>/<side>.jpg")
-    def view(i: int, side: str):
-        rgb, mask = shown(i, side)
-        return _image(view_image(rgb, mask, request.args.get("outline", "1") == "1"))
-
-    @app.get("/img/<int:i>/<side>/zoom.jpg")
-    def zoom(i: int, side: str):
-        rgb, mask = shown(i, side)
-        return _image(zoom_tile(rgb, mask, float(request.args["x"]), float(request.args["y"]),
-                                request.args.get("outline", "1") == "1"))
+    _image_routes(app, shown, "/img/<int:i>/<side>.jpg", "/img/<int:i>/<side>/zoom.jpg")
 
     @app.post("/decide/<int:i>")
     def decide(i: int):
@@ -770,72 +647,6 @@ def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: 
         return jsonify(reveal_table())
 
     return app
-
-
-PAIRED_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>ML-5 paired review</title>""" + _STYLE + """
-</head><body>
-<div id="left"></div>
-<div id="right">
- <div id="head"></div>
- <div class="state" id="state"></div>
- <div id="buttons"></div>
- <div class="msg" id="msg"></div>
- <button onclick="go(info.i-1)">&larr; prev</button><button onclick="go(info.i+1)">next &rarr;</button>
- <button onclick="location='/'">next unjudged (N)</button>
- <div class="keys">A / D: accept / decline the left mask (the only one when both are identical) &middot;
-   J / L: accept / decline the right mask &middot; Space: toggle outlines &middot; click a photo: both masks at
-   full resolution there</div>
- <div id="zooms"></div>
- <div class="rule"><b>Accept rule (D13)</b><br>__RULE__</div>
-</div>
-<script>
-const info = __INFO__;
-let outline = 1, last = null;
-const left = document.getElementById('left'), zooms = document.getElementById('zooms');
-const label = {left: 'left', right: 'right', both: 'both masks (identical)'};
-const width = info.sides.length === 2 ? 'calc((100vw - 620px) / 2)' : 'calc(100vw - 600px)';
-left.innerHTML = info.sides.map(s => `<div class="wrap"><img id="img_${s}" style="max-width:${width}"></div>`).join('');
-zooms.innerHTML = info.sides.map(s => `<div>${label[s]}</div><img id="zoom_${s}" class="zoom">`).join('');
-function src(){ for(const s of info.sides){
-  document.getElementById('img_' + s).src = `/img/${info.i}/${s}.jpg?outline=${outline}`;
-  if(last) document.getElementById('zoom_' + s).src =
-    `/img/${info.i}/${s}/zoom.jpg?x=${last[0]}&y=${last[1]}&outline=${outline}`; } }
-function render(){
-  document.getElementById('head').textContent = `${info.i+1} / ${info.n}  ${info.item}  (${info.source})`;
-  document.getElementById('state').innerHTML = `judged ${info.judged} / ${info.total} masks` +
-    info.sides.map(s => `<br>${label[s]}: ` + (info.decisions[s] ? `<b>${info.decisions[s]}</b>` : '<i>unjudged</i>') +
-      (info.revealed ? ` (${info.revealed[s].join(' = ')})` : '')).join('') +
-    (info.complete ? '<br>session complete: <a href="/reveal" style="color:#9cf">models and verdicts</a>' : '');
-  document.getElementById('buttons').innerHTML = info.sides.map(s =>
-    `<div>${label[s]}: <button class="acc" onclick="decide('${s}', 'accept')">Accept</button>` +
-    `<button class="dec" onclick="decide('${s}', 'decline')">Decline</button>` +
-    info.reasons.map(r => `<button class="dec" onclick="decide('${s}', 'decline', '${r}')">${r}</button>`).join('') +
-    '</div>').join('');
-}
-function go(i){ if(i>=0 && i<info.n) location = `/item/${i}`; }
-async function decide(side, decision, reason=null){
-  const r = await fetch(`/decide/${info.i}`, {method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({side, decision, reason})});
-  const j = await r.json();
-  if(!r.ok){ document.getElementById('msg').textContent = j.error || ('error ' + r.status); return; }
-  if(j.photo_done && j.next !== null) go(j.next); else location.reload();
-}
-const leftSide = () => info.sides.includes('both') ? 'both' : 'left';
-left.onclick = e => { if(e.target.tagName !== 'IMG') return; const b = e.target.getBoundingClientRect();
-  last = [(e.clientX-b.left)/b.width, (e.clientY-b.top)/b.height]; src(); };
-document.onkeydown = e => {
-  if(e.ctrlKey || e.metaKey || e.altKey) return;
-  if(e.key===' '){ outline = 1-outline; src(); e.preventDefault(); }
-  else if(e.key==='a'||e.key==='A') decide(leftSide(), 'accept');
-  else if(e.key==='d'||e.key==='D') decide(leftSide(), 'decline');
-  else if((e.key==='j'||e.key==='J') && info.sides.includes('right')) decide('right', 'accept');
-  else if((e.key==='l'||e.key==='L') && info.sides.includes('right')) decide('right', 'decline');
-  else if(e.key==='ArrowLeft') go(info.i-1);
-  else if(e.key==='ArrowRight') go(info.i+1);
-  else if(e.key==='n'||e.key==='N') location='/';
-};
-render(); src();
-</script></body></html>"""
 
 
 # ---------------------------------------------------------------- after a session
@@ -870,9 +681,9 @@ def accepted_labels(session: str, mask_root: Path = MASK_ROOT) -> list[dict]:
     """The accepted labels of a session's labels.csv (written by `status`): path, round, mask, points."""
     f = mask_root / session / "labels.csv"
     if not f.exists():
-        raise ValueError(f"{_rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
+        raise ValueError(f"{rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
     return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])}
-            for r in csv.DictReader(f.read_text().splitlines()) if r["status"] == "accepted"]
+            for r in read_csv(f) if r["status"] == "accepted"]
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -909,7 +720,7 @@ def main(argv: list[str] | None = None) -> None:
         items = paired_items(entries, [d if d.is_absolute() else REPO_ROOT / d for d in args.masks])
         path = LABELS_DIR / f"{args.session}.paired.jsonl"
         print(f"{len(items)} test positives, {sum(it['identical'] for it in items)} with identical masks; "
-              f"seed {seed}; verdicts -> {_rel(path)}")
+              f"seed {seed}; verdicts -> {rel(path)}")
         create_paired_app(items, path, seed, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
         return
     torch.set_num_threads(THREADS)
@@ -921,7 +732,7 @@ def main(argv: list[str] | None = None) -> None:
     session.prepare(proposer, redrawer, log=lambda s: print(s, flush=True))
     if args.prepare_only:
         return
-    print(f"verdicts -> {_rel(session.verdicts_path)}; masks -> {_rel(session.mask_dir)}", flush=True)
+    print(f"verdicts -> {rel(session.verdicts_path)}; masks -> {rel(session.mask_dir)}", flush=True)
     create_label_app(session, redrawer, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
 
 

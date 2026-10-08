@@ -10,17 +10,16 @@ and all internet positives. Its schema is `load_seg_dataset`'s, the reader every
   pool draw (D12)   as many pool photos as segmenter positives, skipping any byte-identical to one, over the
                     session folders in proportion to their eligible photos, at random within each folder
   groups (D13)      byte-identical files, photos from one source URL, and shots of one subject chained while
-                    each is within 120 s of the last (`groups`, `shot_time`); a group never straddles splits
-  split (D13, D16)  60/15/25 train/validation/test (params.yaml seg_dataset) within each source, and within
-                    each (batch, tag) for negatives, whole groups at a time
+                    each is within GROUP_SECONDS of the last (`groups`, `shot_time`); a group never straddles
+                    splits
+  split (D13, D16)  params.yaml seg_dataset.split's train/validation/test shares within each source, and
+                    within each (batch, tag) for negatives, whole groups at a time
   append-only (D11) a rebuild keeps every listed entry as it is and refuses a listed photo gone or changed;
                     photos new to the data are split on arrival, and the pool draw tops up to the new count
 """
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
 import json
 import re
 import subprocess
@@ -35,6 +34,7 @@ import numpy as np
 import yaml
 
 from coffeecv.config import REPO_ROOT, RunConfig
+from coffeecv.repo_files import read_csv, rel, sha256_file
 
 SEG_DATASET_FILE = REPO_ROOT / "labels" / "ml5" / "seg_dataset.yaml"
 DATASET = REPO_ROOT / "dataset"
@@ -69,9 +69,10 @@ class Params:
         return {"seed": self.seed, "split": dict(self.split)}
 
 
-def _rng(params: Params, *stream) -> np.random.Generator:
-    """An RNG stream under params.seed, named by `stream`, so one draw never shifts another."""
-    return np.random.default_rng([params.seed, *(zlib.crc32(str(s).encode()) for s in stream)])
+def seeded_rng(seed: int, *stream) -> np.random.Generator:
+    """An RNG stream under `seed`, named by `stream` (crc32 of each part's str), so one draw never shifts
+    another. The pool draw and the split here; seg_review's paired sides (D22)."""
+    return np.random.default_rng([seed, *(zlib.crc32(str(s).encode()) for s in stream)])
 
 
 def largest_remainder(sizes: dict, total: int) -> dict:
@@ -126,7 +127,7 @@ def assign(candidates: list[dict], existing: list[dict], params: Params) -> list
                 and c["sha256"] not in positive_sha]
     n_pool = sum(e["source"] == "pool" for e in entries)
     need = sum(e["source"] == "segmenter_positive" for e in entries) - n_pool
-    entries += draw_pool(eligible, max(need, 0), _rng(params, "pool", n_pool))
+    entries += draw_pool(eligible, max(need, 0), seeded_rng(params.seed, "pool", n_pool))
     entries = sorted(entries, key=lambda e: e["path"])
 
     component = groups(entries)
@@ -241,7 +242,7 @@ def split_groups(entries: list[dict], group_of: dict[str, str], params: Params,
             else:
                 size[g] += 1
         new = sorted(size)
-        for i in _rng(params, "split", *key).permutation(len(new)):
+        for i in seeded_rng(params.seed, "split", *key).permutation(len(new)):
             g = new[i]
             s = max(SPLITS, key=lambda s: (target[s] - count[s], -SPLITS.index(s)))
             group_split[g] = s
@@ -251,12 +252,15 @@ def split_groups(entries: list[dict], group_of: dict[str, str], params: Params,
 
 # --- the file -------------------------------------------------------------------------------------
 
-HEADER = """\
+def header(params: Params) -> str:
+    """The comment the file opens with, stating the shares and GROUP_SECONDS it was built with."""
+    shares = "/".join(f"{round(100 * params.split[s])}" for s in SPLITS)
+    return f"""\
 # The segmenter dataset (ticket ML-5, D3, D11-D13, D16), written by `python -m coffeecv.seg_dataset build`.
 # Append-only (D11): a rebuild adds photos new to the data and never moves or drops a listed one. Read it
 # with coffeecv.seg_dataset.load_seg_dataset. source: segmenter_positive | pool | negative | internet_positive;
-# split: train | validation | test, 60/15/25 within each source (each batch and tag for negatives); group:
-# byte-identical files, one source URL, and shots within 120 s, named by their first path, never in two
+# split: train | validation | test, {shares} within each source (each batch and tag for negatives); group:
+# byte-identical files, one source URL, and shots within {GROUP_SECONDS} s, named by their first path, never in two
 # splits. meta records the seed and shares the file was built with.
 """
 
@@ -299,38 +303,24 @@ def read_seg_dataset(path: Path = SEG_DATASET_FILE) -> tuple[dict, list[dict]]:
     return raw.get("meta") or {}, photos
 
 
-def write_seg_dataset(meta: dict, entries: list[dict], path: Path = SEG_DATASET_FILE) -> None:
+def write_seg_dataset(params: Params, entries: list[dict], path: Path = SEG_DATASET_FILE) -> None:
+    """The file: `header`, then meta (params and GROUP_SECONDS) and the photos' FIELDS."""
     photos = [{k: e[k] for k in FIELDS if k in e} for e in entries]
+    meta = {**params.as_meta(), "group_seconds": GROUP_SECONDS}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(HEADER + yaml.safe_dump({"meta": meta, "photos": photos}, sort_keys=False, width=120))
+    path.write_text(header(params) + yaml.safe_dump({"meta": meta, "photos": photos}, sort_keys=False, width=120))
 
 
 # --- the data -------------------------------------------------------------------------------------
 
-def _rel(path: Path) -> str:
-    return path.relative_to(REPO_ROOT).as_posix()
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _manifest(path: Path) -> list[dict]:
-    return list(csv.DictReader(path.read_text().splitlines()))
-
-
-def _require_checked_out(folder: Path) -> None:
+def _require_full_checkout(folder: Path) -> None:
     """Refuse a folder whose files are not all in the working tree: a photo missing from a partial
     checkout would read as a photo gone from the data."""
     dvc = folder.parent / f"{folder.name}.dvc"
     want = yaml.safe_load(dvc.read_text())["outs"][0]["nfiles"]
     have = sum(1 for p in folder.rglob("*") if p.is_file())
     if have != want:
-        raise FileNotFoundError(f"{_rel(folder)} holds {have} of {want} files: `dvc checkout {_rel(dvc)}`")
+        raise FileNotFoundError(f"{rel(folder)} holds {have} of {want} files: `dvc checkout {rel(dvc)}`")
 
 
 def exif_dates(paths: list[Path]) -> dict[str, dict]:
@@ -342,43 +332,56 @@ def exif_dates(paths: list[Path]) -> dict[str, dict]:
                          text=True, check=False)
     if out.returncode not in (0, 1) or not out.stdout.strip():           # 1: some file had none of the tags
         raise RuntimeError(f"exiftool failed: {out.stderr.strip()}")
-    return {_rel(Path(r["SourceFile"])): r for r in json.loads(out.stdout)}
+    return {rel(Path(r["SourceFile"])): r for r in json.loads(out.stdout)}
 
 
-def scan() -> list[dict]:
+def scan(only: set[str] | None = None) -> list[dict]:
     """Every photo that may be in the dataset, as `assign`'s candidate records: path, sha256, source,
     batch and tag (negatives), folder (pool), url (internet photos' manifest source_url, which also
-    stands in for a shot time) and time (`shot_time`)."""
+    stands in for a shot time) and time (`shot_time`).
+
+    `only` (repo-relative paths) describes just those photos, the same way, without the checks that every
+    folder is checked out in full; a path that is none of the sources' photos is refused. fit_ood_probe
+    uses it to keep its bean photos out of the groups of the test split (D4)."""
     from coffeecv.strip_metadata import PHOTO_EXTENSIONS
+
+    def _require_checked_out(folder: Path) -> None:
+        if only is None:
+            _require_full_checkout(folder)
 
     def photos(folder: Path) -> list[Path]:
         return sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in PHOTO_EXTENSIONS)
 
     recs: list[tuple[dict, str, str]] = []          # (record, camera, name for the file-name time)
     _require_checked_out(SEGMENTER_POSITIVES)
-    camera = {r["filename"]: r["camera"] for r in _manifest(DATASET / "segmenter_positives.manifest.csv")}
+    camera = {r["filename"]: r["camera"] for r in read_csv(DATASET / "segmenter_positives.manifest.csv")}
     for p in photos(SEGMENTER_POSITIVES):
-        recs.append(({"path": _rel(p), "source": "segmenter_positive", "url": ""}, camera[p.name], p.name))
+        recs.append(({"path": rel(p), "source": "segmenter_positive", "url": ""}, camera[p.name], p.name))
     for manifest in sorted(NEGATIVES.glob("*.manifest.csv")):
         batch = NEGATIVES / manifest.name.removesuffix(".manifest.csv")
         _require_checked_out(batch)
-        rows = _manifest(manifest)
-        unlisted = sorted(set(map(_rel, photos(batch))) - {_rel(batch / r["filename"]) for r in rows})
-        if unlisted:
-            raise ValueError(f"{_rel(manifest)} does not list {unlisted}")
+        rows = read_csv(manifest)
+        unlisted = sorted(set(map(rel, photos(batch))) - {rel(batch / r["filename"]) for r in rows})
+        if unlisted and only is None:
+            raise ValueError(f"{rel(manifest)} does not list {unlisted}")
         for r in rows:
-            recs.append(({"path": _rel(batch / r["filename"]), "source": "negative", "batch": batch.name,
+            recs.append(({"path": rel(batch / r["filename"]), "source": "negative", "batch": batch.name,
                           "tag": r["scenario_tag"], "url": r["source_url"]}, r["camera"],
                          "" if r["source_url"] else f"{r['source_title']} {Path(r['filename']).name}"))
     _require_checked_out(INTERNET_POSITIVES)
-    for r in _manifest(DATASET / "ood_positives_internet.manifest.csv"):
-        recs.append(({"path": _rel(INTERNET_POSITIVES / r["filename"]), "source": "internet_positive",
+    for r in read_csv(DATASET / "ood_positives_internet.manifest.csv"):
+        recs.append(({"path": rel(INTERNET_POSITIVES / r["filename"]), "source": "internet_positive",
                       "url": r["source_url"]}, r["camera"], ""))
     for session in sorted(d for d in DATASET.iterdir() if d.is_dir() and any(d.glob("class_*"))):
         _require_checked_out(session)
         for p in photos(session):
             if p.relative_to(session).parts[0].startswith("class_"):
-                recs.append(({"path": _rel(p), "source": "pool", "folder": session.name, "url": ""}, "", p.name))
+                recs.append(({"path": rel(p), "source": "pool", "folder": session.name, "url": ""}, "", p.name))
+    if only is not None:
+        recs = [x for x in recs if x[0]["path"] in only]
+        unknown = sorted(set(only) - {r["path"] for r, _, _ in recs})
+        if unknown:
+            raise ValueError(f"not a photo of the segmenter dataset's sources: {unknown}")
     missing = [r["path"] for r, _, _ in recs if not (REPO_ROOT / r["path"]).is_file()]
     if missing:
         raise FileNotFoundError(f"listed in a manifest but not on disk: {missing}")
@@ -425,8 +428,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     entries = assign(scan(), existing, params)
     added = len(entries) - len(existing)
-    write_seg_dataset({**params.as_meta(), "group_seconds": GROUP_SECONDS}, entries)
-    print(f"{_rel(SEG_DATASET_FILE)}: {len(entries)} photos, {added} added\n{counts_table(entries)}")
+    write_seg_dataset(params, entries)
+    print(f"{rel(SEG_DATASET_FILE)}: {len(entries)} photos, {added} added\n{counts_table(entries)}")
     return 0
 
 
