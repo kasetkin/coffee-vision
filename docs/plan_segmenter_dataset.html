@@ -111,14 +111,14 @@
 
   <h2>5. P3 &mdash; Two ADRs; the guard follows <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-08: ADRs and code done (<code>7ca7e9c</code>, <code>7cb4611</code>); the owner's approval of both ADR texts pending</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>ADR superseding 0011 (D17): the stage with XL0 at 1024 px, adopted without a comparison (D18); labels judged by the owner, and why (D14); fine-tuned on box and point prompts (D15). ADR 0011 marked superseded.</span></li>
-    <li><span class="box"></span><span>ADR superseding 0005 (D17): the probe at a fixed 0.5 after every classification, crop or whole frame (D9); fitted on training and validation negatives, measured on the segmenter test split (D16). ADR 0005 marked superseded.</span></li>
-    <li><span class="box"></span><span><code>fit_ood_probe</code>: the threshold is the fixed 0.5; the conformal path and <code>--positives</code> calibration go. <code>ood_eval</code>: reports negatives caught and positives refused on the test split, split by whether the classifier trained on the photo.</span></li>
-    <li><span class="box"></span><span>Checks: the serving path runs the probe on the fallback whole frame as well as on the crop (a test); <code>python -m coffeecv.ticket_check</code> passes.</span></li>
+    <li><span class="box done"></span><span>ADR superseding 0011 (D17): the stage with XL0 at 1024 px, adopted without a comparison (D18); labels judged by the owner, and why (D14); fine-tuned on box and point prompts (D15). ADR 0011 marked superseded. <span class="result">Done 2026-10-08, <code>7ca7e9c</code>: <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>, with D23's <code>multi3</code>.</span></span></li>
+    <li><span class="box done"></span><span>ADR superseding 0005 (D17): the probe at a fixed 0.5 after every classification, crop or whole frame (D9); fitted on training and validation negatives, measured on the segmenter test split (D16). ADR 0005 marked superseded. <span class="result">Done 2026-10-08, <code>7ca7e9c</code>: <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>.</span></span></li>
+    <li><span class="box done"></span><span><code>fit_ood_probe</code>: the threshold is the fixed 0.5; the conformal path and <code>--positives</code> calibration go. <code>ood_eval</code>: reports negatives caught and positives refused on the test split, split by whether the classifier trained on the photo. <span class="result">Done 2026-10-08, <code>7cb4611</code>: serving refuses at <code>infer.PROBE_THRESHOLD</code>, not the file's value; <code>fit_ood_probe</code> fits on the dataset file's training and validation negatives and drops bean photos whose bytes are in its test split; <code>ood_eval</code> reads the test split of <code>labels/ml5/seg_dataset.yaml</code> (schema in <code>ood_eval.load_seg_dataset</code>, which P5 writes to); the old method comparison retires. Toy-scale runs of both entry points on real photos; the full measurement waits for P5's file and P11's classifier.</span></span></li>
+    <li><span class="box done"></span><span>Checks: the serving path runs the probe on the fallback whole frame as well as on the crop (a test); <code>python -m coffeecv.ticket_check</code> passes. <span class="result">Done 2026-10-08: <code>tests/test_ood_guard_serving.py</code> (crop, D18 fallback, full-photo override); <code>scripts/check.sh</code> passes.</span></span></li>
     <li><span class="box"></span><span>Stop for the owner: approve both ADR texts.</span></li>
   </ol>
 
@@ -257,6 +257,11 @@
       (<code>analysis/ml5_point_probe/</code>): <code>ft_s123</code> ignores points through <code>multi3</code> too, so
       pass 1 is unchanged. Ticket D23: box plus points trains and redraws through <code>multi3</code>; P6, P8 and the
       probe follow.</div>
+    <div><div class="when">2026-10-08</div>P3: <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a> and <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a> written, 0011 and 0005 marked
+      superseded, the D-entries link them (<code>7ca7e9c</code>). The guard follows (<code>7cb4611</code>): a fixed 0.5
+      in serving, the calibration removed from <code>fit_ood_probe</code>, <code>ood_eval</code> measuring on the
+      segmenter test split, a test that the probe runs on the crop and on the whole frame. Waiting for the owner to
+      approve both ADR texts.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
