@@ -136,14 +136,14 @@
 
   <h2>7. P5 &mdash; Build the segmenter dataset</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-08, <code>5ffd32a</code>, <code>5f9f38c</code>; 410 photos</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>A builder writes <code>labels/ml5/seg_dataset.yaml</code>: every photo's path, sha256, source (segmenter positive, pool photo, negative batch and tag, internet positive), split and group. Seeds and ratios in <code>params.yaml</code>.</span></li>
-    <li><span class="box"></span><span>The pool draw per D12; the split per D13 within each source; groups of byte-identical files and shots within 120 s.</span></li>
-    <li><span class="box"></span><span>Append-only (D11): a rebuild refuses to move or drop an entry; new photos are assigned on arrival, and the pool draw tops up by the same count.</span></li>
-    <li><span class="box"></span><span>Checks, as tests: no group in two splits; no test sha256 in training or validation; every photo exists; per-source and per-split counts printed.</span></li>
+    <li><span class="box done"></span><span>A builder writes <code>labels/ml5/seg_dataset.yaml</code>: every photo's path, sha256, source (segmenter positive, pool photo, negative batch and tag, internet positive), split and group. Seeds and ratios in <code>params.yaml</code>. <span class="result">Done 2026-10-08, <code>5ffd32a</code>: <code>python -m coffeecv.seg_dataset build</code>; <code>params.yaml</code> <code>seg_dataset</code> (seed 511, 0.60/0.15/0.25), recorded in the file's <code>meta</code>. The reader <code>seg_dataset.load_seg_dataset</code> is the one P3's <code>ood_eval</code> and <code>fit_ood_probe</code> import (<code>5f9f38c</code>).</span></span></li>
+    <li><span class="box done"></span><span>The pool draw per D12; the split per D13 within each source; groups of byte-identical files and shots within 120 s. <span class="result">Done 2026-10-08: 128 pool photos from the 17 session folders with <code>class_*</code> dirs (1,248 photos, <code>random_date_raccoon</code> included), byte copies of segmenter positives skipped. Shot time: EXIF <code>DateTimeOriginal</code> with <code>OffsetTimeOriginal</code> as UTC (every pool photo has both; the ML-3 strip keeps them); without an offset, that camera's own clock; without EXIF (8 segmenter positives), the file name's time, UTC for a Pixel (0 s off on all 622 Pixel photos), local otherwise; internet photos group by source URL instead. Times are compared on one clock and within one subject: all bean photos together, each negative (batch, tag) apart. Groups chain across cameras: the 2026-09-11 same-rig negatives were shot by three cameras in turn, so <code>green_legume</code> (11) is one group and all in train, and that batch's <code>confusable_grain</code> is two groups of 15 (train and test).</span></span></li>
+    <li><span class="box done"></span><span>Append-only (D11): a rebuild refuses to move or drop an entry; new photos are assigned on arrival, and the pool draw tops up by the same count. <span class="result">Done 2026-10-08: listed entries come back unchanged; a listed photo gone or with other bytes, source, batch, tag or folder is refused, as is a new photo that would join groups in two splits, and a rebuild with other <code>params.yaml</code> values. Tested in <code>tests/test_seg_dataset.py</code>.</span></span></li>
+    <li><span class="box done"></span><span>Checks, as tests: no group in two splits; no test sha256 in training or validation; every photo exists; per-source and per-split counts printed. <span class="result">Done 2026-10-08: on the committed file (fast tier) and against the photos (<code>@real_data</code>: every photo's bytes, and a rebuild from the data changes nothing). Train/validation/test: segmenter positives 77/20/31, pool 77/19/32, negatives 87/14/41, internet positives 7/2/3; 248/55/107 of 410 (<code>python -m coffeecv.seg_dataset counts</code>).</span></span></li>
   </ol>
 
   <h2>8. P6 &mdash; Review page with points; the point probe</h2>
@@ -266,6 +266,11 @@
       in serving, the calibration removed from <code>fit_ood_probe</code>, <code>ood_eval</code> measuring on the
       segmenter test split, a test that the probe runs on the crop and on the whole frame. Waiting for the owner to
       approve both ADR texts.</div>
+    <div><div class="when">2026-10-08</div>P5 done (<code>5ffd32a</code>, <code>5f9f38c</code>): <code>labels/ml5/seg_dataset.yaml</code>, 410 photos
+      (128 segmenter positives, 128 pool photos, 142 negatives, 12 internet positives), split 248/55/107, built by
+      <code>coffeecv/seg_dataset.py</code>, whose reader <code>ood_eval</code> and <code>fit_ood_probe</code> now import.
+      Finding: the same-rig <code>green_legume</code> negatives are one 120 s group, so none is in test and the
+      probe's test numbers have no <code>green_legume</code> line.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
