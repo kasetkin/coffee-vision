@@ -1,0 +1,60 @@
+{
+  "variant": "xl0",
+  "frame": 1024,
+  "threads": 4,
+  "runs": 3,
+  "weights_sha256": "9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8",
+  "photos": {
+    "dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132424922.jpg": {
+      "shape": [
+        3072,
+        4080
+      ],
+      "serving_median_ms": {
+        "decode": 149.1,
+        "resize": 78.7,
+        "encoder": 2336.3,
+        "decoder": 129.0,
+        "upsample": 15.8
+      },
+      "cache_per_view_median_ms": {
+        "id": 2399.5,
+        "hflip": 2550.8,
+        "vflip": 2476.3,
+        "rot180": 2606.5
+      }
+    },
+    "dataset/2026-08-09__sony_cam/class_002__Kenya_AA/PIC_20260809_202124.JPG": {
+      "shape": [
+        3792,
+        5056
+      ],
+      "serving_median_ms": {
+        "decode": 252.9,
+        "resize": 126.2,
+        "encoder": 2252.1,
+        "decoder": 156.1,
+        "upsample": 27.6
+      },
+      "cache_per_view_median_ms": {
+        "id": 2458.8,
+        "hflip": 2608.6,
+        "vflip": 2478.7,
+        "rot180": 2688.5
+      }
+    }
+  },
+  "cache_estimate": {
+    "photos": 410,
+    "views": [
+      "id",
+      "hflip",
+      "vflip",
+      "rot180"
+    ],
+    "bytes": 5158993920,
+    "gib": 4.8,
+    "build_seconds_per_photo": 10.33,
+    "build_minutes": 70.6
+  }
+}
