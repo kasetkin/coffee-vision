@@ -29,8 +29,8 @@ from coffeecv.class_list import load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, inference_tta_for, load_model,
                             probe_path_for, probe_score)
-from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, SEG_DATASET_FILE, Unmeasurable, _fit_logistic, embed_photo,
-                               file_sha256, id_photos, load_seg_dataset)
+from coffeecv.ood_eval import CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, embed_photo, id_photos
+from coffeecv.seg_dataset import SEG_DATASET_FILE, load_seg_dataset, sha256_file
 
 FIT_SPLITS = ("train", "validation")
 
@@ -42,7 +42,7 @@ def probe_negatives(photos: list[dict]) -> list[dict]:
 
 
 def probe_beans(beans: list[Path], photos: list[dict],
-                sha256: Callable[[Path], str] = file_sha256) -> tuple[list[Path], int]:
+                sha256: Callable[[Path], str] = sha256_file) -> tuple[list[Path], int]:
     """(`beans` without any photo whose sha256 is in the dataset's test split, how many were dropped)."""
     test = {e["sha256"] for e in photos if e["split"] == "test"}
     kept = [q for q in beans if sha256(q) not in test]

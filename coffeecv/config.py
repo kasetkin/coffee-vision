@@ -209,6 +209,9 @@ class RunConfig:
     # Ticket ML-2 P5 (D7 (a), plan §8): the decoder-only fine-tuning recipe, a block read and checked key by
     # key only by coffeecv/seg_finetune.py (FtParams). Empty = FtParams' defaults.
     seg_ft: dict = field(default_factory=dict)
+    # Ticket ML-5 P5 (D11-D13): the segmenter dataset's pool-draw and split seed and its split shares, a
+    # block read and checked only by coffeecv/seg_dataset.py (Params). No training run reads it.
+    seg_dataset: dict = field(default_factory=dict)
 
     @classmethod
     def from_params_yaml(cls, path: Path = PARAMS_FILE) -> "RunConfig":

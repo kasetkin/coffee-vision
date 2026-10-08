@@ -1,5 +1,5 @@
 """The guard's measurement of ADR 0016 (ticket ML-5 D16): `ood_eval` reads the segmenter dataset file
-(labels/ml5/seg_dataset.yaml, schema in `ood_eval.load_seg_dataset`) and reports, on its test split only,
+(labels/ml5/seg_dataset.yaml, schema in `seg_dataset.load_seg_dataset`) and reports, on its test split only,
 negatives caught and positives refused at the fixed 0.5, the positives by source and by whether the
 classifier's train split holds the same bytes. Plain unittest, on tests/fixtures/ml5_seg_dataset.yaml with
 hand-set scores; no model.
@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from coffeecv import ood_eval
+from coffeecv import ood_eval, seg_dataset
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ml5_seg_dataset.yaml"
 NEG = "dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_00"
@@ -35,7 +35,7 @@ TRAINED = {hashlib.sha256((POOL + s).encode()).hexdigest() for s in ("0000000.jp
 class TestTestSplitReport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        photos = ood_eval.load_seg_dataset(FIXTURE)
+        photos = seg_dataset.load_seg_dataset(FIXTURE)
         cls.report = ood_eval.guard_report(photos, lambda path: SCORES[path], TRAINED)
 
     def test_negatives_caught(self):
@@ -75,10 +75,10 @@ class TestLoadSegDataset(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "seg_dataset.yaml"
             f.write_text(body)
-            return ood_eval.load_seg_dataset(f)
+            return seg_dataset.load_seg_dataset(f)
 
     def test_reads_the_fixture(self):
-        photos = ood_eval.load_seg_dataset(FIXTURE)
+        photos = seg_dataset.load_seg_dataset(FIXTURE)
         self.assertEqual(len(photos), 15)
         self.assertEqual({p["source"] for p in photos},
                          {"negative", "pool", "segmenter_positive", "internet_positive"})
