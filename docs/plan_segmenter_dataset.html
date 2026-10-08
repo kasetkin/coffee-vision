@@ -97,16 +97,16 @@
 
   <h2>4. P2 &mdash; Rename to <code>segmenter_positives</code></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-08, <code>b534ff4</code>; <code>.dir</code> hash unchanged, nothing to push</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>The folder's content hash does not change, so nothing is re-uploaded.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>dvc mv dataset/ood_positives dataset/segmenter_positives</code>; rename the manifest and README beside it.</span></li>
-    <li><span class="box"></span><span>Manifest: a row for each of the 128 photos, with a column naming the photo each copy duplicates; the dev/holdout and scenario columns dropped.</span></li>
-    <li><span class="box"></span><span>README rewritten for the new role (D1); the old provenance sections kept as history.</span></li>
-    <li><span class="box"></span><span>References: <code>coffeecv/seg_lists.py</code> (<code>POSITIVE_DIRS</code>), <code>coffeecv/coverage_report.py</code>, <code>README.md</code>. ML-2's <code>photo_lists.yaml</code> stays unchanged; <code>seg_lists check</code> is retired from <code>scripts/check.sh</code> with ML-2's lists.</span></li>
-    <li><span class="box"></span><span>Checks: <code>grep -rn ood_positives</code> outside history (tickets, plans, ADRs, <code>labels/ml2/</code>, shipped probe files) finds nothing; the <code>.dir</code> hash is unchanged by the move; <code>scripts/check.sh</code> passes.</span></li>
+    <li><span class="box done"></span><span><code>dvc mv dataset/ood_positives dataset/segmenter_positives</code>; rename the manifest and README beside it. <span class="result">Done 2026-10-08, <code>b534ff4</code>.</span></span></li>
+    <li><span class="box done"></span><span>Manifest: a row for each of the 128 photos, with a column naming the photo each copy duplicates; the dev/holdout and scenario columns dropped. <span class="result">Done 2026-10-08: columns <code>filename, camera, date, batch, duplicate_of, notes</code>; each of the 70 copies matches exactly one photo in the other <code>dataset/</code> DVC listings by hash (50 pool photos, 17 <code>2026-07-24__first_pictures</code>, 3 <code>2026-08-06__box_pictures</code>); batch names became arrival dates. Tested in <code>tests/test_segmenter_positives.py</code>.</span></span></li>
+    <li><span class="box done"></span><span>README rewritten for the new role (D1); the old provenance sections kept as history. <span class="result">Done 2026-10-08.</span></span></li>
+    <li><span class="box done"></span><span>References: <code>coffeecv/seg_lists.py</code> (<code>POSITIVE_DIRS</code>), <code>coffeecv/coverage_report.py</code>, <code>README.md</code>. ML-2's <code>photo_lists.yaml</code> stays unchanged; <code>seg_lists check</code> is retired from <code>scripts/check.sh</code> with ML-2's lists. <span class="result">Done 2026-10-08: <code>seg_lists build</code> and <code>check</code> refuse (a test), the full-tier coverage test is gone, <code>POSITIVE_DIRS</code> keeps only <code>ood_positives_internet</code>; <code>README.md</code> had no reference. Until P8, ML-2's lists still name the dev photos under the old path, so a seg_* stage reading <code>pos_seg_*</code> cannot run.</span></span></li>
+    <li><span class="box done"></span><span>Checks: <code>grep -rn ood_positives</code> outside history (tickets, plans, ADRs, <code>labels/ml2/</code>, shipped probe files) finds nothing; the <code>.dir</code> hash is unchanged by the move; <code>scripts/check.sh</code> passes. <span class="result">Done 2026-10-08: <code>.dir</code> hash <code>31433111&hellip;</code> before and after; check passes. Left in the grep, all history or P3's: the <code>fit_ood_probe</code> docstring's <code>--positives</code> example and an <code>ood_eval</code> comment (P3 removes that path), the README's history sections, <code>docs/ood_guard_eval.md</code> (a dated record, now noting the rename), <code>labels/ml3/strip_manifest.csv</code> (paths as stripped) and <code>analysis/</code>.</span></span></li>
   </ol>
 
   <h2>5. P3 &mdash; Two ADRs; the guard follows <span class="pill sm open">stop</span></h2>
@@ -223,7 +223,7 @@
   <h2>14. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: every object of the three new listings is on the remote.</span></li>
-    <li><span class="box"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
+    <li><span class="box done"></span><span>P2: no live reference to <code>dataset/ood_positives</code>; the folder's <code>.dir</code> hash unchanged by the move.</span></li>
     <li><span class="box"></span><span>P4: L0 outputs byte-identical after the variant change.</span></li>
     <li><span class="box"></span><span>P5: the split tests pass.</span></li>
     <li><span class="box"></span><span>P6: the point probe reproduces <code>analysis/ml5_point_probe/summary.txt</code>.</span></li>
@@ -257,6 +257,10 @@
       (<code>analysis/ml5_point_probe/</code>): <code>ft_s123</code> ignores points through <code>multi3</code> too, so
       pass 1 is unchanged. Ticket D23: box plus points trains and redraws through <code>multi3</code>; P6, P8 and the
       probe follow.</div>
+    <div><div class="when">2026-10-08</div>P2 done (<code>b534ff4</code>): <code>dvc mv</code> to
+      <code>dataset/segmenter_positives</code> with the <code>.dir</code> hash unchanged, so nothing to push. The manifest
+      has 128 rows, a <code>duplicate_of</code> for each of the 70 copies, no split or scenario columns; README
+      rewritten. <code>seg_lists build</code> and <code>check</code> retired with ML-2's lists.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
