@@ -36,11 +36,11 @@ import numpy as np
 import torch
 
 from coffeecv.class_list import ClassList, load_classes
-from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
+from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
-from coffeecv.infer import (PROBE_THRESHOLD, _sha, config_for_checkpoint, forward_with_embeddings,
-                            inference_tta_for, load_model, load_ood_probe, patches_for_photo, probe_path_for,
-                            probe_score)
+from coffeecv.infer import (LEGACY_CONFIG_NOTE, PROBE_THRESHOLD, _sha, config_for_checkpoint,
+                            forward_with_embeddings, inference_tta_for, load_model, load_ood_probe,
+                            patches_for_photo, probe_path_for, probe_score)
 from coffeecv.repo_files import sha256_file
 from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset
 from coffeecv.transforms import build_eval_transform
@@ -177,6 +177,17 @@ def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
     return index[stem]
 
 
+def split_config(checkpoint: Path, explicit: str | None) -> tuple[RunConfig, str]:
+    """`infer.config_for_checkpoint`, for a caller of `id_photos`: a checkpoint trained before ticket ML-1
+    (its card or config says `train_rigs`) is refused, because the pooled split id_photos recomputes is not
+    the per-camera split it trained on, so its "train" and "test" photos would be the wrong ones."""
+    cfg, source = config_for_checkpoint(checkpoint, explicit)
+    if LEGACY_CONFIG_NOTE in source:
+        raise ValueError(f"{checkpoint} was trained before ticket ML-1 ({source}): id_photos cannot recompute "
+                         "its photo split, so which photos it trained on is unknown here")
+    return cfg, source
+
+
 def id_photos(cfg, classes: ClassList, split: str) -> list[Path]:
     """The checkpoint's own `split` photos (train, val or test), as *raw* paths.
 
@@ -184,8 +195,8 @@ def id_photos(cfg, classes: ClassList, split: str) -> list[Path]:
     `split_photos_by_class`) with this checkpoint's seed, so for a checkpoint trained
     by the current code the photos returned are the ones it actually held out.
 
-    NOT for a checkpoint trained before ticket ML-1 (2026-09-29) -- both deployed
-    models included. Those were split per camera and class with a camera-position
+    NOT for a checkpoint trained before ticket ML-1 (2026-09-29); `split_config`
+    refuses one. Those were split per camera and class with a camera-position
     seed; the pooled split recomputed here is a different partition, so part of
     what it returns as "held out" was in that checkpoint's training set and scores
     optimistically in-distribution. Such a card still carries the legacy
@@ -304,7 +315,10 @@ def main() -> None:
 
     photos = load_seg_dataset(Path(args.dataset))
     checkpoint = Path(args.checkpoint)
-    cfg, cfg_source = config_for_checkpoint(checkpoint, args.config)
+    try:
+        cfg, cfg_source = split_config(checkpoint, args.config)
+    except ValueError as e:
+        sys.exit(f"refusing: {e}")
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
     classes = load_classes(classes_file)

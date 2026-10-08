@@ -7,6 +7,7 @@ synthetic crops.
 """
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -77,6 +78,30 @@ class TestIdPhotos(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "class C"):
             self.id_stems(load_classes(self.tmp / "classes4.txt"), "val")
 
+
+
+class TestPreMl1CheckpointIsRefused(unittest.TestCase):
+    """id_photos recomputes today's pooled split; a checkpoint trained before ticket ML-1 was split per camera,
+    so its "train" and "test" photos would be the wrong ones. ood_eval (trained / not trained) and fit_ood_probe
+    (its bean photos) read the checkpoint's config through split_config, which refuses such a card."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = Path(tmp.name)
+
+    def card(self, training_config: dict) -> Path:
+        ckpt = self.tmp / "m.pt"
+        ckpt.with_suffix(".json").write_text(json.dumps({"training_config": training_config}))
+        return ckpt
+
+    def test_a_card_with_train_rigs_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "before ticket ML-1"):
+            ood_eval.split_config(self.card({"train_rigs": ["data/cropped/cam_sony"]}), None)
+
+    def test_a_card_from_ml1_on_is_read(self):
+        cfg, _ = ood_eval.split_config(self.card({"train_capture_dirs": ["data/cropped/cam_sony"], "seed": 3}), None)
+        self.assertEqual((cfg.train_capture_dirs, cfg.seed), (("data/cropped/cam_sony",), 3))
 
 if __name__ == "__main__":
     unittest.main()
