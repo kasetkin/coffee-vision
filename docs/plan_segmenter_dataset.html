@@ -12,7 +12,7 @@
     the first step that changes a number is P8, XL0-v1.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1&ndash;P3 and P5&ndash;P9 done (ADRs 0015 and 0016 approved by the owner; pass-1 labels, XL0-v1 and pass-2 labels 2026-10-09); P4's code done, its VM timing awaits the owner's OK</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1&ndash;P3 and P5&ndash;P9 done (ADRs 0015 and 0016 approved by the owner; pass-1 labels, XL0-v1 and pass-2 labels 2026-10-09); P10: XL0-v2 trained, the owner's blind paired session pending; P4's code done, its VM timing awaits the owner's OK</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -198,14 +198,14 @@
 
   <h2>12. P10 &mdash; XL0-v2 and the choice <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-09: XL0-v2 trained and both models' test masks stored (<code>b5eea78</code>), the report built (<code>e3e5332</code>); the owner's blind paired session pending</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P9</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Fine-tune XL0 again on the pass-2 labels, as P8; predict the test split.</span></li>
+    <li><span class="box done"></span><span>Fine-tune XL0 again on the pass-2 labels, as P8; predict the test split. <span class="result">Done 2026-10-09, <code>aaa585f</code>, <code>b5eea78</code>: locally, v1's recipe and selection rule (the owner's call, so that the two differ only in their labels). 157 training and 41 validation positives; all 40 epochs ran, the checkpoint is epoch 35: validation mean IoU 0.969, 13/14 validation negatives empty or tiny (score 0.949). Test masks of all 107 test photos in <code>data/seg_masks_ml5/xl0_v2</code>; v1's, recomputed, came out byte-identical.</span></span></li>
     <li><span class="box"></span><span>Stop for the owner: judge v1's and v2's test masks in one blind session (D22): each test positive's two masks side by side, sides drawn at random per photo from a seed in <code>params.yaml</code>, the model hidden, identical masks judged once.</span></li>
-    <li><span class="box"></span><span>Report, per source and overall: both pass, v1 only, v2 only, both fail, and an exact McNemar p-value on the discordant pairs; internet positives counted with the segmenter positives; the empty-or-tiny rate on test negatives for both. The owner picks v1 or v2 (default v2, D20).</span></li>
-    <li><span class="box"></span><span>Re-derive <code>seg_min_area_frac</code> from the chosen model's accepted test masks (D21); report the test positives below the old and new values.</span></li>
+    <li><span class="box"></span><span>Report, per source and overall: both pass, v1 only, v2 only, both fail, and an exact McNemar p-value on the discordant pairs; internet positives counted with the segmenter positives; the empty-or-tiny rate on test negatives for both. The owner picks v1 or v2 (default v2, D20). <span class="result">Built 2026-10-09, <code>e3e5332</code>: <code>python -m coffeecv.seg_review paired-report</code>.</span></span></li>
+    <li><span class="box"></span><span>Re-derive <code>seg_min_area_frac</code> from the chosen model's accepted test masks (D21); report the test positives below the old and new values. <span class="result">Built 2026-10-09, <code>e3e5332</code>: <code>paired-report --chosen &lt;model&gt;</code>.</span></span></li>
   </ol>
 
   <h2>13. P11 &mdash; Re-crop and retrain the classifier <span class="pill sm open">stop</span></h2>
@@ -317,6 +317,10 @@
       validation positives again, proposals and redraws by XL0-v1. 198 accepted, 183 in round 1 (pass 1: 150); 4
       dropped. 7 of pass 1's 8 drops are now accepted; of the 191 photos accepted in both passes, 183 masks agree
       with pass 1 at IoU &ge; 0.95.</div>
+    <div><div class="when">2026-10-09</div>P10 in progress: XL0-v2 fine-tuned locally on the pass-2 labels with
+      v1's recipe and selection rule (<code>b5eea78</code>), and both models' test masks stored; the paired report
+      and the D21 threshold are code (<code>e3e5332</code>). Next: the owner's blind session over the 66 test
+      positives (2 with identical masks).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
