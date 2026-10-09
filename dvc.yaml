@@ -340,8 +340,9 @@ stages:
 
   # Ticket ML-5 P8 (D8, D14, D15): the fine-tune on a labelling session's labels (coffeecv/seg_finetune.py).
   # seg_ml5_cache@<session>: encoder embeddings (fp16) of every training and validation photo the owner accepted,
-  # and every negative, in each seg_ft view, labels in the encoder's frame (1024 for XL0). Rebuildable, so never
-  # pushed. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
+  # and every negative, in each seg_ft view, labels in the encoder's frame (1024 for XL0). About 3.7 GB for pass1
+  # and rebuildable, so not in DVC's cache (cache: false; on ext4 it would be a second full copy): the lock
+  # records its hash only. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
   # seg_mask_select (D23); the checkpoint chosen on the validation split only. The .json card is in git.
   seg_ml5_cache:
     foreach: [pass1]
@@ -359,7 +360,7 @@ stages:
             - seg_ft.views
       outs:
         - data/seg_cache_ml5/${item}:
-            push: false
+            cache: false
 
   seg_ml5_finetune:
     foreach:
