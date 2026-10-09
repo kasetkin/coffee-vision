@@ -1,0 +1,189 @@
+{
+  "seed": 123,
+  "train_capture_dirs": [
+    "data/segcropped/cam_pixel",
+    "data/segcropped/cam_sony",
+    "data/segcropped/cam_oneplus",
+    "data/segcropped/cam_iphone"
+  ],
+  "classes_file": "dataset/classes.txt",
+  "patch_crop_size": 900,
+  "patch_resize": 224,
+  "safety_margin": 0.97,
+  "patch_store_size": 448,
+  "train_patches_per_class": 150,
+  "val_patches_per_class": 40,
+  "test_patches_per_class": 40,
+  "train_photo_frac": 0.7,
+  "val_photo_frac": 0.15,
+  "test_photo_frac": 0.15,
+  "model_name": "dinov3_vitb16",
+  "freeze_mode": "full",
+  "dropout": 0.0,
+  "label_smoothing": 0.0,
+  "color_jitter_strength": 0.0,
+  "brightness_jitter_strength": 0.0,
+  "patch_scale_frac_min": 0.0,
+  "patch_scale_frac_max": 0.0,
+  "patch_beans_min": 4.0,
+  "patch_beans_max": 7.0,
+  "bean_k_lo": 4,
+  "bean_k_hi": 80,
+  "bean_analysis_frac": 0.4,
+  "bean_calibration_k": 1.18,
+  "rotation_jitter_degrees": 0.0,
+  "zoom_scale_min": 1.0,
+  "random_erasing_p": 0.0,
+  "illum_gradient_strength": 0.0,
+  "mixup_alpha": 0.0,
+  "mixstyle_p": 0.0,
+  "mixstyle_alpha": 0.1,
+  "mixstyle_mode": "agnostic",
+  "batch_size": 32,
+  "epochs": 100,
+  "early_stop_patience": 20,
+  "eta_min": 1e-05,
+  "scheduler": "cosine",
+  "plateau_smooth": 5,
+  "plateau_threshold": 0.003,
+  "plateau_patience": 6,
+  "plateau_cooldown": 3,
+  "plateau_factor": 0.3,
+  "floor_epochs": 15,
+  "optimizer": "adamw",
+  "lr": 0.001,
+  "backbone_lr": 1e-05,
+  "weight_decay": 0.0001,
+  "seg_split_seed": 239,
+  "seg_prompt": "box",
+  "seg_mask_select": "multi3",
+  "seg_min_area_frac": 0.040223,
+  "crop_method": "segment",
+  "seg_weights": "efficientvit_sam/efficientvit_sam_xl0.pt",
+  "seg_weights_sha256": "9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8",
+  "seg_decoder": "models/seg/xl0_v2.pt",
+  "seg_decoder_sha256": "9972761b0f3c0a0dd59851a4d4a67b5dc80aed62292a95d63a2e933f8da03902",
+  "seg_keep_frac": 0.95,
+  "patch_min_bean_share": 0.8,
+  "patch_max_attempts_factor": 20,
+  "seg_ft": {
+    "weights": "efficientvit_sam/efficientvit_sam_xl0.pt",
+    "views": [
+      "id",
+      "hflip",
+      "vflip",
+      "rot180"
+    ],
+    "epochs": 40,
+    "patience": 8,
+    "batch_size": 8,
+    "lr": 0.0001,
+    "lr_min": 1e-06,
+    "weight_decay": 0.0001,
+    "focal_weight": 20.0,
+    "dice_weight": 1.0,
+    "iou_weight": 1.0,
+    "focal_gamma": 2.0,
+    "focal_alpha": 0.25,
+    "neg_share": 0.5,
+    "point_share": 0.5,
+    "max_points": 3,
+    "select_min_area_frac": 0.083
+  },
+  "seg_dataset": {
+    "seed": 511,
+    "split": {
+      "train": 0.6,
+      "validation": 0.15,
+      "test": 0.25
+    }
+  },
+  "seg_paired_seed": 2210,
+  "class_ids": [
+    "Ethiopia",
+    "Kenya",
+    "Colombia",
+    "CostaRica",
+    "Guatemala",
+    "Brazil",
+    "Vietnam",
+    "Indonesia",
+    "Peru",
+    "Rwanda"
+  ],
+  "classes_sha256": "5f41516ea57d0f878fb9c8d0bdce3c06fd46596b56032a10517a289d2dd96fa1",
+  "env": {
+    "torch_version": "2.14.0+cpu",
+    "torchvision_version": "0.29.1+cpu",
+    "git_commit": "fdcdb8a81d88a8ffef39dea1722fe55337e0b256",
+    "argv": [
+      "/workspace/coffeecv/fit_frozen_head.py",
+      "--seeds",
+      "42",
+      "123",
+      "7",
+      "--start-exp",
+      "264"
+    ]
+  },
+  "dino": {
+    "experiment": "docs/dinov3_integration_plan.md \u00a79.1: all-cameras shipping fit of the selected cell",
+    "backbone": "dinov3_vitb16",
+    "readout": "cls_mean",
+    "weights": "dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
+    "weights_sha256": "73cec8be7427c8655ceced13ce62f6e20a1fa90d1b4d4a550df17a1144081a7c",
+    "timm_version": "1.0.30",
+    "head": "sklearn LogisticRegression (L2, lbfgs) on standardised features at a FIXED C, exported to nn.Linear; the SGD-loop fields above (epochs, lr, optimizer, scheduler, ...) are unused",
+    "C": 0.1,
+    "C_rule": "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)",
+    "converged": true,
+    "fit_seconds": 18.1,
+    "diagnostic_val_selected_C": 0.31622776601683794,
+    "diagnostic_val_macro_f1_by_C": {
+      "0.001": 0.9638668123177085,
+      "0.0031622776601683794": 0.9775996957513353,
+      "0.01": 0.9817120232755713,
+      "0.03162277660168379": 0.9818112282059227,
+      "0.1": 0.9824520391831058,
+      "0.31622776601683794": 0.9831687834893268,
+      "1.0": 0.9830710437368104,
+      "3.1622776601683795": 0.9830710437368104,
+      "10.0": 0.9824520391831058,
+      "31.622776601683793": 0.9824520391831058,
+      "100.0": 0.9824520391831058
+    },
+    "train_transform": "eval transform (frozen arms get no photometric augmentation)",
+    "sizes": {
+      "train": 5550,
+      "val": 1440,
+      "test": 1440
+    },
+    "embed_ms_per_img": {
+      "train": 154.6,
+      "val": 165.2,
+      "test": 137.9
+    },
+    "segment": {
+      "train": {
+        "fallback_photos": [
+          "PXL_20261006_064901464__cropped.jpg"
+        ],
+        "patches_below_share": 6
+      },
+      "val": {
+        "fallback_photos": [],
+        "patches_below_share": 0
+      },
+      "test": {
+        "fallback_photos": [
+          "PXL_20261008_042442100__cropped.jpg"
+        ],
+        "patches_below_share": 0
+      }
+    },
+    "smoke": false,
+    "host": "68093ec5d91f",
+    "torch_threads": 6,
+    "run_dir": "outputs/frozen_allrigs/s123"
+  }
+}
