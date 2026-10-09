@@ -243,8 +243,9 @@ def ship(exp: int, name: str, seed_exps: list[int] | None = None) -> None:
                      "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
                      "fitted on per-folder classes"),
         },
-        **({"ood_guard": ("not freshly validated (ticket ML-3 D11): the probe is refitted on this head, but its "
-                          "holdout was spent before; --verify on it is a regression check only")}
+        **({"ood_guard": ("ADR 0016: the linear probe at a fixed 0.5 after every classification, fitted on the "
+                          "segmenter dataset's training and validation negatives (fit_ood_probe) and measured on "
+                          "its test split (ood_eval)")}
            if not per_folder else {}),
         "training_config": training_config,
         "dino": dino,

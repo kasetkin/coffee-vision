@@ -1,0 +1,5 @@
+outs:
+- md5: efb5d2bba706cc8223167a9ffcd04466
+  size: 63701
+  hash: md5
+  path: allrigs_dino3b16_segxl0_country_s123.pt
