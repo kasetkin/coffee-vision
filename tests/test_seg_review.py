@@ -390,6 +390,52 @@ class PairedSession(unittest.TestCase):
             self.assertEqual((r.status_code, r.mimetype), (200, "image/jpeg"), url)
         self.assertEqual(self.c.get("/img/0/both.jpg").status_code, 404)
 
+    def judge(self, verdicts):
+        """Judge every mask through the page: `verdicts` {item index: (xl0_v1 accepted, xl0_v2 accepted)}."""
+        for i, (a, b) in verdicts.items():
+            it = self.items[i]
+            for side, ks in seg_review.shown_sides(it, 7).items():
+                ok = (a, b)[ks[0]]
+                self.post(i, {"side": side, "decision": "accept" if ok else "decline"})
+
+    def test_paired_report_counts_pairs_by_model_not_by_side(self):
+        with self.assertRaisesRegex(ValueError, "not judged"):
+            seg_review.paired_verdicts(self.items, self.decisions, 7)
+        self.judge({0: (True, False), 1: (False, True), 2: (True, True)})
+        verdicts = seg_review.paired_verdicts(self.items, self.decisions, 7)
+        self.assertEqual(verdicts[self.items[0]["item"]], {"xl0_v1": True, "xl0_v2": False})
+        self.assertEqual(verdicts[self.items[2]["item"]], {"xl0_v1": True, "xl0_v2": True})   # one verdict, both
+        empty, tiny, big = np.zeros((10, 10), bool), np.zeros((10, 10), bool), np.ones((10, 10), bool)
+        tiny[0, 0] = True                                                   # 1% of the photo, under 0.083
+        rep = seg_review.paired_report(self.items, verdicts, {"xl0_v1": [empty, tiny, big], "xl0_v2": [big]}, 0.083)
+        g = rep["groups"]
+        self.assertEqual((g["pool"]["n"], g["pool"]["xl0_v1 only"]), (1, 1))
+        self.assertEqual((g["segmenter_positive"]["n"], g["segmenter_positive"]["xl0_v2 only"],   # internet joins
+                          g["segmenter_positive"]["both pass"]), (2, 1, 1))
+        self.assertEqual({k: g["overall"][k] for k in ("both pass", "xl0_v1 only", "xl0_v2 only", "both fail")},
+                         {"both pass": 1, "xl0_v1 only": 1, "xl0_v2 only": 1, "both fail": 0})
+        self.assertEqual(g["overall"]["mcnemar_p"], 1.0)
+        self.assertEqual(rep["negatives"]["xl0_v1"], {"n": 3, "empty": 1, "empty_or_tiny": 2})
+        self.assertEqual(rep["negatives"]["xl0_v2"], {"n": 1, "empty": 0, "empty_or_tiny": 0})
+
+    def test_tiny_threshold_is_half_the_smallest_accepted_mask_of_the_chosen_model(self):
+        self.judge({0: (True, False), 1: (False, True), 2: (True, True)})
+        verdicts = seg_review.paired_verdicts(self.items, self.decisions, 7)
+        ids = [it["item"] for it in self.items]
+        areas = {ids[0]: 0.30, ids[1]: 0.05, ids[2]: 0.20}                  # item 1's xl0_v1 mask was declined
+        t = seg_review.tiny_threshold(self.items, verdicts, "xl0_v1", areas, 0.083)
+        self.assertEqual((t["new"], t["from_n_accepted"]), (0.1, 2))
+        self.assertEqual(t["under_old"], [self.items[1]["path"]])
+        self.assertEqual(t["under_new"], [self.items[1]["path"]])
+
+
+class McNemar(unittest.TestCase):
+    def test_exact_two_sided_p(self):
+        self.assertEqual(seg_review.mcnemar_exact(0, 0), 1.0)
+        self.assertAlmostEqual(seg_review.mcnemar_exact(0, 5), 2 / 32)
+        self.assertAlmostEqual(seg_review.mcnemar_exact(9, 1), 2 * 11 / 1024)
+        self.assertEqual(seg_review.mcnemar_exact(3, 3), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

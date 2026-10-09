@@ -26,7 +26,14 @@ Blind paired (P10, D22):
 
 Each test positive's two masks side by side, left and right drawn at random per photo from params.yaml
 seg_paired_seed (or --seed), the model names hidden until every mask is judged; identical masks are judged
-once. A/D judge the left mask, J/L the right one.
+once. A/D judge the left mask, J/L the right one. Then the report (P10, D22):
+
+    python -m coffeecv.seg_review paired-report --session p10_test --masks <v1 dir> <v2 dir> --out <json>
+
+per source (internet positives with the segmenter positives) and overall: both pass, v1 only, v2 only, both
+fail, with an exact McNemar p-value on the discordant pairs; and each model's empty and empty-or-tiny masks on
+the test negatives (read from the same mask directories, which hold every test photo). Once the owner picks a
+model (D20), `--chosen <model>` adds the re-derived tiny-mask threshold (D21).
 
 Storage, as ML-2 D16: verdicts and their points in git, masks DVC-tracked (`dvc add data/ml5_labels/<session>`
 when the session is done; .gitignore keeps them out of git from the first click).
@@ -44,6 +51,7 @@ import argparse
 import csv
 import html
 import json
+import math
 import threading
 import time
 from collections import Counter, OrderedDict
@@ -540,6 +548,28 @@ def paired_sides(photo_sha256: str, seed: int) -> tuple[int, int]:
     return (1, 0) if flip else (0, 1)
 
 
+def shown_sides(it: dict, seed: int) -> dict[str, list[int]]:
+    """{side: the mask sets it shows}: left and right, or both when the masks are identical (judged once)."""
+    if it["identical"]:
+        return {"both": [0, 1]}
+    left, right = paired_sides(it["photo_sha256"], seed)
+    return {"left": [left], "right": [right]}
+
+
+def paired_decisions(items: list[dict], decisions_path: Path, seed: int) -> dict[tuple[str, str], dict]:
+    """{(item, side): the last verdict on the mask that side shows now}."""
+    by_item = {it["item"]: it for it in items}
+    out = {}
+    for r in _read_jsonl(decisions_path):
+        it = by_item.get(r["item"])
+        if not it:
+            continue
+        sides = shown_sides(it, seed)
+        if r["side"] in sides and it["masks"][sides[r["side"]][0]]["mask_sha256"] == r["mask_sha256"]:
+            out[(r["item"], r["side"])] = r
+    return out
+
+
 def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: str,
                       reviewer: str = "owner") -> Flask:
     app = _app()
@@ -552,20 +582,10 @@ def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: 
         return items[i]
 
     def sides(it: dict) -> dict[str, list[int]]:
-        """{side: the mask sets it shows}: left and right, or both when the masks are identical."""
-        if it["identical"]:
-            return {"both": [0, 1]}
-        left, right = paired_sides(it["photo_sha256"], seed)
-        return {"left": [left], "right": [right]}
+        return shown_sides(it, seed)
 
     def current() -> dict[tuple[str, str], dict]:
-        by_item = {it["item"]: it for it in items}
-        out = {}
-        for r in _read_jsonl(decisions_path):
-            it = by_item.get(r["item"])
-            if it and r["side"] in sides(it) and it["masks"][sides(it)[r["side"]][0]]["mask_sha256"] == r["mask_sha256"]:
-                out[(r["item"], r["side"])] = r
-        return out
+        return paired_decisions(items, decisions_path, seed)
 
     def judged(dec: dict) -> tuple[int, int]:
         total = sum(len(sides(it)) for it in items)
@@ -642,6 +662,90 @@ def create_paired_app(items: list[dict], decisions_path: Path, seed: int, rule: 
 
 # ---------------------------------------------------------------- after a session
 
+# ---------------------------------------------------------------- P10's paired report (D22)
+
+def paired_verdicts(items: list[dict], decisions_path: Path, seed: int) -> dict[str, dict[str, bool]]:
+    """{item: {model: accepted}} once every mask is judged; an identical pair's one verdict counts for both."""
+    dec = paired_decisions(items, decisions_path, seed)
+    missing = [(it["item"], s) for it in items for s in shown_sides(it, seed) if (it["item"], s) not in dec]
+    if missing:
+        raise ValueError(f"{len(missing)} masks not judged yet, e.g. {missing[0]}")
+    return {it["item"]: {it["names"][k]: dec[(it["item"], s)]["decision"] == "accept"
+                         for s, ks in shown_sides(it, seed).items() for k in ks} for it in items}
+
+
+def mcnemar_exact(b: int, c: int) -> float:
+    """Two-sided exact McNemar p-value on the discordant pairs: binomial(b + c, 1/2), doubled tail."""
+    n = b + c
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, k) for k in range(min(b, c) + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+PAIRED_GROUPS = {"pool": "pool", "segmenter_positive": "segmenter_positive",
+                 "internet_positive": "segmenter_positive"}    # D22: internet positives count with them
+
+
+def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]], neg_masks: dict[str, list[np.ndarray]],
+                  min_area_frac: float) -> dict:
+    """D22: per source and overall, both pass / first only / second only / both fail, and the exact McNemar
+    p-value on the discordant pairs; each model's empty and empty-or-tiny masks on the test negatives (the
+    D18 rule: no pixel, or an area under `min_area_frac`). Models in the items' order."""
+    names = items[0]["names"]
+    counts: dict[str, Counter] = {}
+    for it in items:
+        a, b = (verdicts[it["item"]][n] for n in names)
+        key = "both pass" if a and b else f"{names[0]} only" if a else f"{names[1]} only" if b else "both fail"
+        for group in (PAIRED_GROUPS[it["source"]], "overall"):
+            counts.setdefault(group, Counter())[key] += 1
+    out = {"models": names, "min_area_frac": min_area_frac, "groups": {}, "negatives": {}}
+    for group in ("pool", "segmenter_positive", "overall"):
+        c = counts.get(group, Counter())
+        b, d = c[f"{names[0]} only"], c[f"{names[1]} only"]
+        n = sum(c.values())
+        out["groups"][group] = {
+            "n": n, "both pass": c["both pass"], f"{names[0]} only": b, f"{names[1]} only": d,
+            "both fail": c["both fail"], f"{names[0]} pass": c["both pass"] + b, f"{names[1]} pass": c["both pass"] + d,
+            "mcnemar_p": mcnemar_exact(b, d)}
+    for name in names:
+        masks = neg_masks[name]
+        out["negatives"][name] = {"n": len(masks), "empty": sum(not m.any() for m in masks),
+                                  "empty_or_tiny": sum((not m.any()) or m.mean() < min_area_frac for m in masks)}
+    return out
+
+
+def tiny_threshold(items: list[dict], verdicts: dict[str, dict[str, bool]], model: str, areas: dict[str, float],
+                   old: float) -> dict:
+    """D21, ML-2 D18's rule on the new test split: half the smallest area (mask pixels / photo pixels) among the
+    chosen model's test-positive masks the owner accepted; and which test positives of that model fall under the
+    old and the new value (empty masks included). `areas` {item: area} for that model's masks."""
+    accepted = [areas[it["item"]] for it in items if verdicts[it["item"]][model]]
+    new = round(0.5 * min(accepted), 6) if accepted else None
+    under = lambda t: [it["path"] for it in items if t is not None and areas[it["item"]] < t]  # noqa: E731
+    return {"model": model, "rule": "half the smallest accepted test-positive mask (ML-2 D18, ML-5 D21)",
+            "from_n_accepted": len(accepted), "old": old, "new": new, "under_old": under(old), "under_new": under(new)}
+
+
+def print_paired_report(rep: dict) -> None:
+    a, b = rep["models"]
+    print(f"test positives, judged blind and paired (D22): {a} vs {b}")
+    for group, c in rep["groups"].items():
+        print(f"  {group:20s} n={c['n']:3d}  both pass {c['both pass']:3d}  {a} only {c[f'{a} only']:2d}  "
+              f"{b} only {c[f'{b} only']:2d}  both fail {c['both fail']:2d}  |  {a} {c[f'{a} pass']}/{c['n']}  "
+              f"{b} {c[f'{b} pass']}/{c['n']}  |  exact McNemar p = {c['mcnemar_p']:.3g}")
+    print(f"test negatives, empty / empty or tiny (area < {rep['min_area_frac']:g}):")
+    for name, c in rep["negatives"].items():
+        print(f"  {name:20s} {c['empty']}/{c['n']} empty, {c['empty_or_tiny']}/{c['n']} empty or tiny")
+    if t := rep.get("tiny_threshold"):
+        print(f"tiny-mask threshold (D21) from {t['model']}'s {t['from_n_accepted']} accepted test positives: "
+              f"new {t['new']}, old {t['old']}; test positives under old {len(t['under_old'])}, "
+              f"under new {len(t['under_new'])}")
+        for path in sorted(set(t["under_old"]) | set(t["under_new"])):
+            which = [name for name in ("old", "new") if path in t[f"under_{name}"]]
+            print(f"  under {' and '.join(which)}: {path}")
+
+
 def report(rows: list[dict]) -> dict:
     """P7's report: accepted by round, dropped and why, per source."""
     pos = [r for r in rows if r["status"] != "negative"]
@@ -690,7 +794,12 @@ def main(argv: list[str] | None = None) -> None:
     par.add_argument("--masks", nargs=2, type=Path, required=True, metavar="DIR",
                      help="two mask directories (index.csv + <id>.png), each named by its model")
     par.add_argument("--seed", type=int, default=None, help="side draw (default: params.yaml seg_paired_seed)")
-    for p in (lab, st, par):
+    prep = sub.add_parser("paired-report", help="P10's paired counts, McNemar test and test-negative rates (D22)")
+    prep.add_argument("--masks", nargs=2, type=Path, required=True, metavar="DIR", help="as for paired, same order")
+    prep.add_argument("--seed", type=int, default=None, help="as for paired")
+    prep.add_argument("--out", type=Path, help="also write the report as JSON")
+    prep.add_argument("--chosen", help="the model the owner picks (D20): re-derive the tiny-mask threshold (D21)")
+    for p in (lab, st, par, prep):
         p.add_argument("--session", required=True, help="the session's name, e.g. pass1")
     for p in (lab, par):
         p.add_argument("--reviewer", default="owner")
@@ -702,6 +811,26 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "status":
         rep = report(LabelSession(args.session, entries, None).write_labels())
         print_report(rep)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(rep, indent=2) + "\n")
+        return
+    if args.command == "paired-report":
+        cfg = RunConfig.from_params_yaml()
+        seed = cfg.seg_paired_seed if args.seed is None else args.seed
+        dirs = [d if d.is_absolute() else REPO_ROOT / d for d in args.masks]
+        items = paired_items(entries, dirs)
+        verdicts = paired_verdicts(items, LABELS_DIR / f"{args.session}.paired.jsonl", seed)
+        neg_masks = {d.name: [np.array(Image.open(d / f"{r['id']}.png")) > 0 for r in read_csv(d / "index.csv")
+                              if r.get("source") == "negative"] for d in dirs}
+        rep = paired_report(items, verdicts, neg_masks, cfg.seg_min_area_frac)
+        if args.chosen:
+            k = items[0]["names"].index(args.chosen) if items and args.chosen in items[0]["names"] else None
+            if k is None:
+                raise SystemExit(f"--chosen {args.chosen}: not one of {items[0]['names'] if items else []}")
+            areas = {it["item"]: float((np.array(Image.open(it["masks"][k]["mask"])) > 0).mean()) for it in items}
+            rep["tiny_threshold"] = tiny_threshold(items, verdicts, args.chosen, areas, cfg.seg_min_area_frac)
+        print_paired_report(rep)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_text(json.dumps(rep, indent=2) + "\n")
