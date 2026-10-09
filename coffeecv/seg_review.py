@@ -711,7 +711,7 @@ def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]], neg_m
     for name in names:
         masks = neg_masks[name]
         out["negatives"][name] = {"n": len(masks), "empty": sum(not m.any() for m in masks),
-                                  "empty_or_tiny": sum((not m.any()) or m.mean() < min_area_frac for m in masks)}
+                                  "empty_or_tiny": sum(bool(not m.any() or m.mean() < min_area_frac) for m in masks)}
     return out
 
 

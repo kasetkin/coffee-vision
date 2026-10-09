@@ -417,6 +417,7 @@ class PairedSession(unittest.TestCase):
         self.assertEqual(g["overall"]["mcnemar_p"], 1.0)
         self.assertEqual(rep["negatives"]["xl0_v1"], {"n": 3, "empty": 1, "empty_or_tiny": 2})
         self.assertEqual(rep["negatives"]["xl0_v2"], {"n": 1, "empty": 0, "empty_or_tiny": 0})
+        self.assertEqual(json.loads(json.dumps(rep))["negatives"], rep["negatives"])      # --out writes it
 
     def test_tiny_threshold_is_half_the_smallest_accepted_mask_of_the_chosen_model(self):
         self.judge({0: (True, False), 1: (False, True), 2: (True, True)})
