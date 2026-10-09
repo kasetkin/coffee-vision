@@ -185,7 +185,9 @@ patch_max_attempts_factor: 20
 # negatives (D10/D11); the validation negatives choose the checkpoint (ML-5 D8; ML-2 held out a random
 # neg_select_frac of 0.2 of its negative groups instead). point_share: ticket ML-5 D15, the share of batches
 # that add 1 to max_points points from the error region of the box-only prediction to the box (0.5: box or
-# points at random, as EfficientViT-SAM trains). weights: the pretrained base under models_pretrained/; its variant sets the
+# points at random, as EfficientViT-SAM trains). select_min_area_frac: the tiny-mask rule of checkpoint
+# selection on the validation negatives, the value XL0-v1 and v2 were selected with (ML-2 D18's 0.083); the
+# fine-tune's own since ML-5 P11, so that moving serving's seg_min_area_frac retrains nothing. weights: the pretrained base under models_pretrained/; its variant sets the
 # cache's and the loss's frame (ticket ML-5 P4: 512 for L0, 1024 for XL0). It is the fine-tune's own, not
 # seg_weights, which names the classifier's segmenter and moves only when the classifier is re-cropped.
 # The one place the fine-tune's base is written: seg_predict's "pretrained" is it, and each decoder runs over
@@ -207,6 +209,7 @@ seg_ft:
   neg_share: 0.5
   point_share: 0.5
   max_points: 3
+  select_min_area_frac: 0.083
 
 # Ticket ML-5 P5 (D11-D13, D16): the segmenter dataset (coffeecv/seg_dataset.py ->
 # labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is

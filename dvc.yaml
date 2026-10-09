@@ -383,7 +383,6 @@ stages:
             - seg_ft
             - seg_prompt
             - seg_mask_select
-            - seg_min_area_frac
       outs:
         - models/seg/${key}.pt
         - models/seg/${key}.json:

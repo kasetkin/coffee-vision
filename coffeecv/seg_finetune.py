@@ -32,8 +32,9 @@ point where the label is bean and an exclude point where it is not, and decoded 
 as a redraw on the review page decodes them. Checkpoint selection stays box-only. The loss is focal_weight x focal + dice_weight x soft dice (smooth 1) + iou_weight x MSE
 of the IoU head against the IoU it achieves. Each epoch shows every train positive once, in a random view; each
 batch holds neg_share negatives, drawn with replacement. AdamW with cosine decay to lr_min; the epoch with the
-best selection score is kept: (mean val IoU + neg_select empty-or-tiny share) / 2. Stops after `patience`
-epochs without a better score.
+best selection score is kept: (mean val IoU + neg_select empty-or-tiny share) / 2, tiny meaning under
+seg_ft.select_min_area_frac (the fine-tune's own; params.yaml seg_min_area_frac is serving's, ML-5 P11). Stops
+after `patience` epochs without a better score.
 
 Out: models/seg/<name>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params, label session and
 label-set hash, history, the chosen epoch). segment_beans.SegParams(weights=..., decoder=...) loads it over the pretrained
@@ -100,6 +101,7 @@ class FtParams:
     neg_share: float = 0.5
     point_share: float = 0.0      # share of batches that add points to the box (D15)
     max_points: int = 3
+    select_min_area_frac: float = 0.083   # selection's tiny-mask rule on the validation negatives (ML-2 D18)
 
     @classmethod
     def from_config(cls, cfg: RunConfig) -> "FtParams":
@@ -352,7 +354,7 @@ def train(seed: int, cfg: RunConfig, p: FtParams, session: str) -> dict:
     opt = torch.optim.AdamW(model.mask_decoder.parameters(), lr=p.lr, weight_decay=p.weight_decay)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=p.epochs * steps, eta_min=p.lr_min)
     model.mask_decoder.eval()
-    history = [{"epoch": 0, **evaluate(model, cache, k, cfg.seg_min_area_frac)}]
+    history = [{"epoch": 0, **evaluate(model, cache, k, p.select_min_area_frac)}]
     print(f"seed {seed}: {len(pos)} positives, {len(neg)} negatives, batch {n_pos}+{n_neg}, {steps} steps/epoch, "
           f"point batches {p.point_share}; epoch 0 {history[0]}", flush=True)
     best = dict(history[0], state={n: t.clone() for n, t in model.mask_decoder.state_dict().items()})
@@ -383,7 +385,7 @@ def train(seed: int, cfg: RunConfig, p: FtParams, session: str) -> dict:
             opt.step()
             sched.step()
         model.mask_decoder.eval()
-        ev = evaluate(model, cache, k, cfg.seg_min_area_frac)
+        ev = evaluate(model, cache, k, p.select_min_area_frac)
         row = {"epoch": epoch, **{f"train_{a}": round(b, 5) for a, b in sums.items()}, "point_steps": point_steps, **ev,
                "lr": sched.get_last_lr()[0], "seconds": round(time.perf_counter() - t0, 1)}
         history.append(row)
@@ -405,7 +407,7 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, cache: Cache, name: str)
     card = {"name": name, "seed": res["seed"], "labels": cache.info["labels"], "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
             "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select,
-            "seg_min_area_frac": cfg.seg_min_area_frac, "cache": cache.info,
+            "cache": cache.info,
             "chosen": res["best"], "history": res["history"], "threads": torch.get_num_threads()}
     out.with_suffix(".json").write_text(json.dumps(card, indent=2) + "\n")
     return out
