@@ -12,7 +12,7 @@
     the first step that changes a number is P8, XL0-v1.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1&ndash;P3 and P5&ndash;P10 done (ADRs 0015 and 0016 approved by the owner; labels, XL0-v1 and XL0-v2 2026-10-09; the owner picks XL0-v2 and a tiny-mask threshold of 0.040223); P11 re-cropped, retrained and reported, the owner's ship-or-not pending; P4's code done, its VM timing awaits the owner's OK</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1&ndash;P3 and P5&ndash;P10 done (ADRs 0015 and 0016 approved by the owner; labels, XL0-v1 and XL0-v2 2026-10-09; the owner picks XL0-v2 and a tiny-mask threshold of 0.040223); P11 shipped 2026-10-09 (release 20261009T1740Z-f585d14-allrigs_dino3b16_segxl0_country_s123): every phase done; P4's code done, its VM timing awaits the owner's OK</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -210,14 +210,14 @@
 
   <h2>13. P11 &mdash; Re-crop and retrain the classifier <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-09: re-cropped, retrained, probe fitted and reported (<code>fdcdb8a</code>, <code>c2f04ad</code>, <code>ce4d48c</code>); the owner's ship-or-not pending</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-09, <code>fdcdb8a</code>, <code>c2f04ad</code>, <code>ce4d48c</code>, <code>f585d14</code>; shipped by the owner, release <code>20261009T1740Z-f585d14-allrigs_dino3b16_segxl0_country_s123</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P10</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box done"></span><span>Point <code>seg_weights</code>, <code>seg_decoder</code> and <code>seg_min_area_frac</code> at the chosen segmenter; re-run every <code>segcrop</code> and <code>merge_segcam_*</code> stage on the VM. <span class="result">Params done 2026-10-09, <code>03e3a7d</code>: XL0 weights, <code>models/seg/xl0_v2.pt</code>, 0.040223, sha256-pinned. The re-crop runs locally (the VM is gone). Done 2026-10-09, <code>fdcdb8a</code>: 16 <code>segcrop</code> stages and four pools, 1,248 photos, 2 D18 fallbacks (both <code>random_date_raccoon</code>). The first attempt began retraining XL0-v2, whose selection read <code>seg_min_area_frac</code>; stopped at epoch 0, the decoder restored from the cache (sha256 unchanged), and the fine-tune given its own <code>seg_ft.select_min_area_frac</code> (<code>0d5f35d</code>, <code>fd27b0c</code>).</span></span></li>
     <li><span class="box done"></span><span>Retrain the classifier, seeds 42/123/7, as a recorded run (<code>docs/agents/experiments.md</code>); fit its probe per the new ADR. <span class="result">Done 2026-10-09: exp264&ndash;266 (<code>c2f04ad</code>), locally at torch's 6 threads, 31&ndash;39 min a seed. Seed 123 (exp265, the highest val macro-F1) written as <code>models/allrigs_dino3b16_segxl0_country_s123.pt</code> with its OOD reference and probe (<code>ce4d48c</code>): 113 bean photos (73 dropped as in the segmenter test split's groups) and 99 training and validation negatives. Not a release.</span></span></li>
     <li><span class="box done"></span><span>Report per D20. <span class="result">Done 2026-10-09, <code>analysis/ml5_p11/</code>. Against the shipped classifier's exp261&ndash;263, which differ only in the segmenter: val patch macro-F1 0.9792/0.9824/0.9616 against 0.9731/0.9790/0.9700 (seeds 42/123/7; delta mean +0.0004, &minus;0.0084 to +0.0061), test 0.9764/0.9655/0.9631 against 0.9668/0.9683/0.9808 (mean &minus;0.0036, &minus;0.0176 to +0.0097). Per class, no class moves by more than 0.013 on the mean. Probe on the segmenter test split: 41/41 negatives caught (95% CI 91&ndash;100%), 0/66 positives refused (0/31 trained on, 0/35 not); the segmenter leaves 35/41 test negatives empty or tiny.</span></span></li>
-    <li><span class="box"></span><span>Stop for the owner: ship or not. A release is a separate deploy step.</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: ship or not. A release is a separate deploy step. <span class="result">Done 2026-10-09: the owner ships the seed-123 candidate. The deploy's full check first failed on the DINOv3 fixture, whose patches come from the re-cropped <code>cam_iphone</code> pool; the owner regenerated it (<code>f585d14</code>). Deployed and verified on the live site (commit f585d14, model_sha <code>22b18ca57167920c</code>); server latency for the verify request 8,224 ms against the old release's 6,972 ms (one request each). The previous release is kept for <code>--rollback</code>. The ML-5 data and models are pushed to the DVC remote and all 3,233 objects verified there.</span></span></li>
   </ol>
 
   <h2>14. Verification</h2>
@@ -330,6 +330,9 @@
       delta mean +0.0004 and test &minus;0.0036, both ranges spanning zero, so no difference measurable at three
       seeds. The candidate (seed 123) has its probe per ADR 0016: 41/41 test negatives caught, 0/66 test positives
       refused. Ship or not is the owner's call; a release goes through <code>docs/agents/deploy.md</code>.</div>
+    <div><div class="when">2026-10-09</div>P11 done: the owner ships XL0-v2 and the seed-123 classifier
+      (<code>allrigs_dino3b16_segxl0_country_s123</code>), live and verified as release
+      <code>20261009T1740Z-f585d14-allrigs_dino3b16_segxl0_country_s123</code>. Every phase of this plan is done.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,
