@@ -1,0 +1,68 @@
+{
+  "models": [
+    "xl0_v1",
+    "xl0_v2"
+  ],
+  "min_area_frac": 0.083,
+  "groups": {
+    "pool": {
+      "n": 32,
+      "both pass": 31,
+      "xl0_v1 only": 0,
+      "xl0_v2 only": 1,
+      "both fail": 0,
+      "xl0_v1 pass": 31,
+      "xl0_v2 pass": 32,
+      "mcnemar_p": 1.0
+    },
+    "segmenter_positive": {
+      "n": 34,
+      "both pass": 30,
+      "xl0_v1 only": 1,
+      "xl0_v2 only": 1,
+      "both fail": 2,
+      "xl0_v1 pass": 31,
+      "xl0_v2 pass": 31,
+      "mcnemar_p": 1.0
+    },
+    "overall": {
+      "n": 66,
+      "both pass": 61,
+      "xl0_v1 only": 1,
+      "xl0_v2 only": 2,
+      "both fail": 2,
+      "xl0_v1 pass": 62,
+      "xl0_v2 pass": 63,
+      "mcnemar_p": 1.0
+    }
+  },
+  "negatives": {
+    "xl0_v1": {
+      "n": 41,
+      "empty": 34,
+      "empty_or_tiny": 36
+    },
+    "xl0_v2": {
+      "n": 41,
+      "empty": 33,
+      "empty_or_tiny": 36
+    }
+  },
+  "tiny_threshold": {
+    "model": "xl0_v2",
+    "rule": "half the smallest accepted test-positive mask (ML-2 D18, ML-5 D21)",
+    "from_n_accepted": 63,
+    "old": 0.083,
+    "new": 0.040223,
+    "under_old": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg",
+      "dataset/segmenter_positives/PXL_20260724_114729110.RAW-01.jpg",
+      "dataset/segmenter_positives/PXL_20260724_114930003.RAW-01.jpg"
+    ],
+    "under_new": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg"
+    ]
+  }
+}

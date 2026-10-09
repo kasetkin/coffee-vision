@@ -1,0 +1,12 @@
+test positives, judged blind and paired (D22): xl0_v1 vs xl0_v2
+  pool                 n= 32  both pass  31  xl0_v1 only  0  xl0_v2 only  1  both fail  0  |  xl0_v1 31/32  xl0_v2 32/32  |  exact McNemar p = 1
+  segmenter_positive   n= 34  both pass  30  xl0_v1 only  1  xl0_v2 only  1  both fail  2  |  xl0_v1 31/34  xl0_v2 31/34  |  exact McNemar p = 1
+  overall              n= 66  both pass  61  xl0_v1 only  1  xl0_v2 only  2  both fail  2  |  xl0_v1 62/66  xl0_v2 63/66  |  exact McNemar p = 1
+test negatives, empty / empty or tiny (area < 0.083):
+  xl0_v1               34/41 empty, 36/41 empty or tiny
+  xl0_v2               33/41 empty, 36/41 empty or tiny
+tiny-mask threshold (D21) from xl0_v2's 63 accepted test positives: new 0.040223, old 0.083; test positives under old 4, under new 2
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg
+  under old: dataset/segmenter_positives/PXL_20260724_114729110.RAW-01.jpg
+  under old: dataset/segmenter_positives/PXL_20260724_114930003.RAW-01.jpg

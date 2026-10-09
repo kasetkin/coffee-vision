@@ -103,8 +103,8 @@ class TestSegParams(unittest.TestCase):
 
     def test_variant_follows_the_weights(self):
         cfg = RunConfig.from_params_yaml()
-        self.assertEqual(seg_params(cfg).variant, "l0")
-        self.assertEqual(seg_params(replace(cfg, seg_weights=weights_for("xl0"))).variant, "xl0")
+        for variant in ("l0", "xl0"):
+            self.assertEqual(seg_params(replace(cfg, seg_weights=weights_for(variant))).variant, variant)
         with self.assertRaisesRegex(ValueError, "variant"):
             SegParams(mask_select="multi3", weights="efficientvit_sam/some_other_model.pt")
 

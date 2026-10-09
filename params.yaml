@@ -151,7 +151,11 @@ seg_mask_select: multi3
 # smallest owner-accepted base mask (0.1657). The plan's rule (half the smallest
 # judge-accepted pretrained mask) gives 0.45, since only frame-filling masks
 # pass, and would send every correct tray mask to the fallback.
-seg_min_area_frac: 0.083
+# Ticket ML-5 P10 (D21, owner 2026-10-09): re-derived on the segmenter dataset's test split as
+# half the smallest owner-accepted XL0-v2 test-positive mask (0.0804); 2 test positives fall
+# under it against 4 under 0.083, and 35/41 test negatives stay empty or tiny (36 under 0.083).
+# analysis/ml5_p10_paired/.
+seg_min_area_frac: 0.040223
 
 # Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
 # below, at both ends (segcrop stage -> data/segcropped, live segmentation in
@@ -159,11 +163,13 @@ seg_min_area_frac: 0.083
 # models (allrigs_cam_s123 and older) served with; their data/cropped pools were retired
 # in ticket ML-3 P2b, so it rests at segment, matching train_capture_dirs above.
 crop_method: segment
-# The segmenter (P5, owner 2026-10-02): pretrained L0 + the seed-123 fine-tuned decoder.
-seg_weights: efficientvit_sam/efficientvit_sam_l0.pt
-seg_weights_sha256: c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8
-seg_decoder: models/seg/ft_s123.pt
-seg_decoder_sha256: c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd
+# The segmenter. Ticket ML-5 P10 (D20, owner 2026-10-09): XL0-v2, pretrained XL0 + the decoder
+# fine-tuned on the owner's pass-2 labels (models/seg/xl0_v2.json); until then (ML-2 P5, owner
+# 2026-10-02) pretrained L0 + ft_s123, which the shipped classifier was cropped with.
+seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
+seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
+seg_decoder: models/seg/xl0_v2.pt
+seg_decoder_sha256: 9972761b0f3c0a0dd59851a4d4a67b5dc80aed62292a95d63a2e933f8da03902
 # D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
 seg_keep_frac: 0.95
 # D17: reject a patch box under 80% bean region; after 20 x n candidates, top up
