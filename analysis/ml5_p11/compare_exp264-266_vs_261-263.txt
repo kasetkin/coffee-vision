@@ -1,0 +1,36 @@
+new:      exp 264 265 266 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; ML-2 segmenter pools (data/segcropped, crop_method segment); country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; in-distribution metrics only)
+baseline: exp 261 262 263 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; ML-2 segmenter pools (data/segcropped, crop_method segment); country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; in-distribution metrics only)
+changed:  seg_decoder: models/seg/ft_s123.pt -> models/seg/xl0_v2.pt; seg_decoder_sha256: c95369d59dbae0af89efa341edd799da28fe661a4c0ebbcf43137d22602c4efd -> 9972761b0f3c0a0dd59851a4d4a67b5dc80aed62292a95d63a2e933f8da03902; seg_ft: {'views': ['id', 'hflip', 'vflip', 'rot180'], 'epochs': 40, 'patience': 8, 'batch_size': 8, 'lr': 0.0001, 'lr_min': 1e-06, 'weight_decay': 0.0001, 'focal_weight': 20.0, 'dice_weight': 1.0, 'iou_weight': 1.0, 'focal_gamma': 2.0, 'focal_alpha': 0.25, 'neg_share': 0.5, 'neg_select_frac': 0.2} -> {'weights': 'efficientvit_sam/efficientvit_sam_xl0.pt', 'views': ['id', 'hflip', 'vflip', 'rot180'], 'epochs': 40, 'patience': 8, 'batch_size': 8, 'lr': 0.0001, 'lr_min': 1e-06, 'weight_decay': 0.0001, 'focal_weight': 20.0, 'dice_weight': 1.0, 'iou_weight': 1.0, 'focal_gamma': 2.0, 'focal_alpha': 0.25, 'neg_share': 0.5, 'point_share': 0.5, 'max_points': 3, 'select_min_area_frac': 0.083}; seg_min_area_frac: 0.083 -> 0.040223; seg_weights: efficientvit_sam/efficientvit_sam_l0.pt -> efficientvit_sam/efficientvit_sam_xl0.pt; seg_weights_sha256: c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8 -> 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
+
+ seed       exp  val base  val new    val Δ  test base  test new   test Δ
+   42   264/261    0.9731   0.9792  +0.0061     0.9668    0.9764  +0.0097
+  123   265/262    0.9790   0.9824  +0.0035     0.9683    0.9655  -0.0028
+    7   266/263    0.9700   0.9616  -0.0084     0.9808    0.9631  -0.0176
+  val Δ: mean +0.0004, range -0.0084 .. +0.0061 (spread 0.0145)
+ test Δ: mean -0.0036, range -0.0176 .. +0.0097 (spread 0.0273)
+
+per-class val F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Brazil                       0.991 -> 0.984 0.997 -> 0.994 0.988 -> 0.966   -0.010
+  Kenya                        0.966 -> 0.963 0.968 -> 0.975 0.960 -> 0.939   -0.006
+  Rwanda                       0.996 -> 0.996 1.000 -> 1.000 0.979 -> 0.971   -0.003
+  Colombia                     0.962 -> 0.946 0.945 -> 0.953 0.923 -> 0.926   -0.001
+  CostaRica                    1.000 -> 1.000 1.000 -> 0.994 0.994 -> 1.000   -0.000
+  Vietnam                      1.000 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.000
+  Indonesia                    1.000 -> 1.000 1.000 -> 1.000 0.992 -> 0.992   +0.000
+  Guatemala                    0.908 -> 0.940 0.946 -> 0.962 0.923 -> 0.886   +0.004
+  Peru                         0.988 -> 1.000 0.988 -> 0.992 0.967 -> 0.967   +0.006
+  Ethiopia                     0.920 -> 0.962 0.946 -> 0.955 0.975 -> 0.969   +0.015
+
+per-class test F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Vietnam                      1.000 -> 1.000 0.997 -> 1.000 1.000 -> 0.958   -0.013
+  Guatemala                    0.924 -> 0.946 0.925 -> 0.911 0.931 -> 0.885   -0.013
+  Peru                         0.956 -> 0.980 0.992 -> 0.976 0.996 -> 0.968   -0.007
+  Colombia                     0.947 -> 0.972 0.939 -> 0.933 0.972 -> 0.942   -0.004
+  Brazil                       0.971 -> 0.972 0.975 -> 0.975 0.984 -> 0.975   -0.003
+  Kenya                        0.950 -> 0.962 0.938 -> 0.942 0.971 -> 0.955   -0.000
+  Indonesia                    0.996 -> 0.996 0.992 -> 0.996 0.992 -> 0.988   +0.000
+  Rwanda                       0.992 -> 0.992 0.983 -> 0.979 0.996 -> 1.000   +0.000
+  Ethiopia                     0.939 -> 0.958 0.975 -> 0.969 0.972 -> 0.962   +0.001
+  CostaRica                    0.994 -> 0.987 0.967 -> 0.975 0.994 -> 1.000   +0.003
