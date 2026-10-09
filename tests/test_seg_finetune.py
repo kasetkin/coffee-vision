@@ -2,7 +2,8 @@
 decoder -> logits in the encoder's frame) gives the mask serving gives, the box prompt matches serving's, labels sit
 in the frame the way SamPad pads the image, the loss and IoU behave on empty negatives, the params block is checked
 key by key, and a fine-tuned decoder refuses other base weights. ML-5 P4: the frame follows the base weights'
-variant (512 for L0, 1024 for XL0), in the cache and in training. Plain unittest.
+variant (512 for L0, 1024 for XL0), in the cache and in training. ML-5 P8: roles come from a labelling session's
+splits, and point prompts drawn from the error region decode as the review page's redraw does. Plain unittest.
 
     python -m unittest tests.test_seg_finetune -v
 
@@ -86,12 +87,71 @@ class Loss(unittest.TestCase):
                         float(ft.losses(-right, torch.tensor(0.0), lab, self.P)["total"]))
 
 
+def label_csv(rows: list[tuple[str, str]]) -> str:
+    """A session's labels.csv with one photo per (status, split)."""
+    head = "id,path,photo_sha256,source,split,status,round,mask,mask_sha256,include,exclude,reason\n"
+    return head + "".join(f"p{i},dataset/x/p{i}.jpg,{i:064x},pool,{split},{status},,m{i}.png,{i:064x},,,\n"
+                          for i, (status, split) in enumerate(rows))
+
+
+class Roles(unittest.TestCase):
+    """ML-5 D8, D14: training positives train, validation positives and negatives only choose the checkpoint."""
+
+    def rows(self, rows):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "s").mkdir()
+            (Path(tmp) / "s" / "labels.csv").write_text(label_csv(rows))
+            with mock.patch.object(ft, "LABELS_ROOT", Path(tmp)):
+                return ft.label_rows("s")
+
+    def test_roles_follow_status_and_split_and_drops_are_left_out(self):
+        got = self.rows([("accepted", "train"), ("accepted", "validation"), ("negative", "train"),
+                         ("negative", "validation"), ("dropped", "train")])
+        self.assertEqual([r["role"] for r in got], ["train", "val", "neg_train", "neg_select"])
+
+    def test_pending_or_test_photos_are_refused(self):
+        with self.assertRaisesRegex(ValueError, "pending"):
+            self.rows([("accepted", "train"), ("pending", "train")])
+        with self.assertRaisesRegex(ValueError, "outside training and validation"):
+            self.rows([("accepted", "test")])
+
+
+class Points(unittest.TestCase):
+    """D15: points come from the error region of the box-only prediction, labelled by the label there."""
+
+    def test_points_sit_on_errors_with_the_labels_class(self):
+        lab = torch.full((F, F), ft.IGNORE, dtype=torch.uint8)
+        lab[:256] = 0
+        lab[:100, :100] = 1                                   # bean the prediction misses
+        logits = torch.full((F, F), -5.0)
+        logits[200:300, 300:400] = 5.0                        # predicted bean: 200-255 wrong, 256+ is padding
+        coords, labels = ft.error_points(logits, lab, 200, np.random.default_rng(0))
+        self.assertEqual((tuple(coords.shape), tuple(labels.shape)), ((1, 200, 2), (1, 200)))
+        xy = (coords[0].numpy() * F / ft.PROMPT_FRAME - 0.5).round().astype(int)
+        for (x, y), c in zip(xy, labels[0].tolist()):
+            if c == 1:
+                self.assertTrue(x < 100 and y < 100)
+            else:
+                self.assertTrue(200 <= y < 256 and 300 <= x < 400)
+        self.assertEqual(set(labels[0].tolist()), {0, 1})
+
+    def test_no_error_no_points(self):
+        lab = torch.zeros((F, F), dtype=torch.uint8)
+        self.assertIsNone(ft.error_points(torch.full((F, F), -5.0), lab, 3, np.random.default_rng(0)))
+
+    def test_frame_to_prompt_scales_pixel_centres(self):
+        np.testing.assert_allclose(ft.frame_to_prompt([[0, 511]], 512), [[1.0, 1023.0]])
+        np.testing.assert_allclose(ft.frame_to_prompt([[0, 1023]], 1024), [[0.5, 1023.5]])
+
+
 class Params(unittest.TestCase):
     def test_unknown_key_is_an_error(self):
         with self.assertRaises(ValueError):
             ft.FtParams.from_config(RunConfig(seg_ft={"lr": 1e-4, "lrr": 1}))
         with self.assertRaises(ValueError):
             ft.FtParams.from_config(RunConfig(seg_ft={"views": ["hflip", "id"]}))
+        with self.assertRaisesRegex(ValueError, "point_share"):
+            ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "point_share": 1.5}))
 
     def test_base_weights_are_params_yamls_and_name_a_variant(self):
         with self.assertRaisesRegex(ValueError, "seg_ft.weights"):
@@ -136,6 +196,25 @@ class ServingParity(unittest.TestCase):
         valid = lab != ft.IGNORE
         self.assertGreater(float(ft.hard_iou(logits[valid] > 0, lab[valid] == 1)), 0.98)
 
+    def test_points_decode_as_the_review_pages_redraw(self):
+        """Box plus an include and an exclude point, through multi3 (D23): the training path's mask is the one
+        segment_beans.decode_points (the review page's redraw) draws from the same points."""
+        model, h, w = self.seg.model, *self.rgb.shape[:2]
+        frame = ft.encoder_frame(model)
+        fh, fw = ft.frame_size(h, w, frame)
+        in_xy, ex_xy = (0.45 * fw, 0.55 * fh), (0.05 * fw, 0.05 * fh)
+        to_frac = [((x + 0.5) * max(h, w) / frame / (w - 1), (y + 0.5) * max(h, w) / frame / (h - 1))
+                   for x, y in (in_xy, ex_xy)]
+        self.seg.predict_mask(self.rgb)
+        serving, _ = self.seg.decode_points([to_frac[0]], [to_frac[1]], "multi3")
+        with torch.no_grad():
+            emb = model.image_encoder(model.transform(self.rgb).unsqueeze(0)).half().float()
+            points = (torch.from_numpy(ft.frame_to_prompt([in_xy, ex_xy], frame))[None], torch.tensor([[1, 0]]))
+            logits, _ = ft.decode(model, emb, torch.from_numpy(ft.whole_box(h, w))[None], 3, points)
+        lab = torch.from_numpy(ft.label_in_frame(serving, frame))
+        valid = lab != ft.IGNORE
+        self.assertGreater(float(ft.hard_iou(logits[valid] > 0, lab[valid] == 1)), 0.98)
+
     def test_decoder_from_other_weights_is_refused(self):
         from coffeecv.segment_beans import load_decoder
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as tmp:
@@ -157,30 +236,29 @@ class ServingParityXL0(ServingParity):
 
 
 class DvcStagesReadTheBaseWeights(unittest.TestCase):
-    """dvc.yaml's seg_embed_cache and seg_finetune@<seed> depend on models_pretrained/${seg_ft.weights}, the file
-    seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4); so do seg_predict@pretrained and
-    seg_predict_ft@<seed>, whose models are that base and decoders fine-tuned over it (seg_predict.model_params),
-    so that moving the fine-tune to XL0 is one edit of params.yaml."""
+    """dvc.yaml's seg_ml5_cache@<session> and seg_ml5_finetune@<name> depend on models_pretrained/${seg_ft.weights},
+    the file seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4, P8); so does seg_ml5_predict@<name>,
+    a decoder fine-tuned over it, so that the fine-tune's base is one edit of params.yaml."""
 
     def test_the_interpolated_dependency_is_the_file_seg_finetune_builds_from(self):
         from dvc.repo import Repo
         weights = ft.FtParams.from_config(RunConfig.from_params_yaml()).weights
         with Repo(str(REPO_ROOT)) as repo:
-            for name in ("seg_embed_cache", "seg_finetune@42", "seg_finetune@123", "seg_finetune@7",
-                         "seg_predict@pretrained", "seg_predict_ft@42", "seg_predict_ft@123", "seg_predict_ft@7"):
+            for name in ("seg_ml5_cache@pass1", "seg_ml5_finetune@xl0_v1", "seg_ml5_predict@xl0_v1"):
                 with self.subTest(name):
                     stage = repo.stage.collect(name)[0]
                     pretrained = [d.def_path for d in stage.deps if d.def_path.startswith("models_pretrained/")]
                     self.assertEqual(pretrained, [f"models_pretrained/{weights}"])
-                    module = "seg_predict" if name.startswith("seg_predict") else "seg_finetune"
+                    module = "seg_predict" if "predict" in name else "seg_finetune"
                     self.assertTrue(stage.cmd.startswith(f"python -m coffeecv.{module} "))
 
 
 class EntryPointAtToyScale:
-    """`python -m coffeecv.seg_finetune cache` then `train --seed 42`, the two DVC stages' commands, through
+    """`python -m coffeecv.seg_finetune cache --labels toy` then `train --labels toy --seed 42 --name toy_s42`, the
+    two DVC stages' commands, through
     main() and a params.yaml that is the repo's with seg_ft at toy scale and its base weights set to WEIGHTS
     (CODING_STANDARDS "Run the real entry point"). The label set is three synthetic photos: labels are cached in
-    the variant's frame, one epoch trains, and the card names the base weights."""
+    the variant's frame, one epoch trains with every batch adding points, and the card names the base weights."""
 
     WEIGHTS = FRAME = None
 
@@ -189,7 +267,7 @@ class EntryPointAtToyScale:
             tmp = Path(tmp)
             raw = yaml.safe_load(PARAMS_FILE.read_text())
             raw["seg_ft"] = {**raw["seg_ft"], "weights": self.WEIGHTS, "views": ["id", "hflip"], "epochs": 1,
-                             "batch_size": 2}
+                             "batch_size": 2, "point_share": 1.0}
             params = tmp / "params.yaml"
             params.write_text(yaml.safe_dump(raw, sort_keys=False))
             rows = []
@@ -198,22 +276,23 @@ class EntryPointAtToyScale:
                 mask = (rgb != rgb[0, 0]).any(axis=2) if role != "neg_train" else np.zeros((h, w), bool)
                 Image.fromarray(rgb).save(tmp / f"{i}.png")
                 Image.fromarray(mask).save(tmp / f"{i}_mask.png")
-                rows.append({"id": str(i), "list": "toy", "role": role,
+                rows.append({"id": str(i), "source": "toy", "split": "toy", "role": role,
                              "path": str((tmp / f"{i}.png").relative_to(REPO_ROOT)),
                              "photo_sha256": sha256_file(tmp / f"{i}.png"),
                              "mask": str((tmp / f"{i}_mask.png").relative_to(REPO_ROOT)), "mask_sha256": "toy"})
             read = RunConfig.from_params_yaml
             with (mock.patch.object(RunConfig, "from_params_yaml", lambda: read(params)),
                   mock.patch.object(ft, "CACHE_ROOT", tmp / "cache"), mock.patch.object(ft, "MODEL_DIR", tmp / "m"),
-                  mock.patch.object(ft, "label_rows", lambda c, q: rows)):
-                ft.main(["cache", "--threads", "4"])
-                ft.main(["train", "--seed", "42", "--threads", "4"])
-                cache = ft.Cache()
+                  mock.patch.object(ft, "label_rows", lambda session: rows)):
+                ft.main(["cache", "--labels", "toy", "--threads", "4"])
+                ft.main(["train", "--labels", "toy", "--seed", "42", "--name", "toy_s42", "--threads", "4"])
+                cache = ft.Cache("toy")
             self.assertEqual((cache.info["weights"], cache.frame), (self.WEIGHTS, self.FRAME))
             self.assertEqual(cache.label["hflip"].shape, (3, self.FRAME, self.FRAME))
-            card = json.loads((tmp / "m" / "ft_s42.json").read_text())
-            self.assertEqual((card["base_weights"], card["seg_ft"]["epochs"], len(card["history"])),
-                             (self.WEIGHTS, 1, 2))
+            card = json.loads((tmp / "m" / "toy_s42.json").read_text())
+            self.assertEqual((card["name"], card["labels"], card["base_weights"], card["seg_ft"]["epochs"],
+                              len(card["history"])), ("toy_s42", "toy", self.WEIGHTS, 1, 2))
+            self.assertEqual(card["history"][1]["point_steps"], 1)
 
 
 @real_data

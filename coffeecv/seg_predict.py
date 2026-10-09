@@ -15,6 +15,14 @@ Prompt and output come from params.yaml (seg_prompt, seg_mask_select; D5).
 
 Out: data/seg_masks/<model>/<id>.png (1-bit) + index.csv, one row per photo: the list, the photo and mask
 sha256, area fraction, the selected output's predicted IoU, and the D4 crop box (empty if the mask is empty).
+
+Ticket ML-5 P8 (D22): `--split test` predicts one split of the segmenter dataset (labels/ml5/seg_dataset.yaml),
+every source, negatives included, with a segmenter named in segment_beans.NAMED_SEGMENTERS:
+
+    python -m coffeecv.seg_predict xl0_v1 --split test --threads 4    # seg_ml5_predict@xl0_v1
+
+Out: data/seg_masks_ml5/<model>/<id>.png + index.csv as above, `source` and `split` in place of the list; the
+blind paired session (seg_review paired) reads two of these.
 """
 from __future__ import annotations
 
@@ -31,10 +39,13 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.repo_files import read_csv, sha256_file
 from coffeecv.seg_base_masks import item_id
+from coffeecv.seg_dataset import load_seg_dataset, photo_id
 from coffeecv.seg_finetune import FtParams
-from coffeecv.segment_beans import BeanSegmenter, SegParams, d4_box, decoder_base, mask_sha256
+from coffeecv.segment_beans import (NAMED_SEGMENTERS, BeanSegmenter, SegParams, d4_box, decoder_base, mask_sha256,
+                                    named_params)
 
 MASK_ROOT = REPO_ROOT / "data" / "seg_masks"
+ML5_MASK_ROOT = REPO_ROOT / "data" / "seg_masks_ml5"
 LISTS = ("seg_eval", "neg_seg_eval", "pos_seg_eval")
 FT_SEEDS = (42, 123, 7)
 
@@ -76,23 +87,41 @@ def mask_items(model: str) -> list[dict]:
     return [{"item": r["id"], "mask": str((out_dir / f"{r['id']}.png").relative_to(REPO_ROOT)), **r} for r in rows]
 
 
+def split_entries(split: str) -> list[dict]:
+    """[{id, source, split, path, sha256}] of one split of the segmenter dataset, in file order."""
+    return [{"id": photo_id(e["path"]), "source": e["source"], "split": e["split"], "path": e["path"],
+             "sha256": e["sha256"]} for e in load_seg_dataset() if e["split"] == split]
+
+
 def run(model: str) -> None:
     cfg = RunConfig.from_params_yaml()
     _, lists = seg_lists.load_lists()
-    entries = photo_entries(lists)
-    out_dir = MASK_ROOT / model
+    predict(photo_entries(lists), BeanSegmenter(model_params(model, cfg)), MASK_ROOT / model, cfg)
+
+
+def run_split(model: str, split: str) -> None:
+    cfg = RunConfig.from_params_yaml()
+    if cfg.seg_prompt != "box":
+        raise ValueError(f"seg_prompt {cfg.seg_prompt!r}: named segmenters take the serving box prompt")
+    seg = BeanSegmenter(named_params(model, cfg.seg_mask_select))
+    predict(split_entries(split), seg, ML5_MASK_ROOT / model, cfg)
+
+
+def predict(entries: list[dict], seg: BeanSegmenter, out_dir, cfg: RunConfig) -> None:
+    """Each entry's mask and index row; an entry carries its own columns (list, or source and split) besides
+    id, path and sha256."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    seg = BeanSegmenter(model_params(model, cfg))
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
         path = REPO_ROOT / e["path"]
         if sha256_file(path) != e["sha256"]:
-            raise ValueError(f"{e['path']}: sha256 differs from photo_lists.yaml")
+            raise ValueError(f"{e['path']}: sha256 differs from the list it came from")
         mask = seg.predict_mask(load_rgb_image(path))
         Image.fromarray(mask).convert("1").save(out_dir / f"{e['id']}.png", optimize=True)
         box = d4_box(mask) if mask.any() else None
-        rows.append({"id": e["id"], "list": e["list"], "path": e["path"], "photo_sha256": e["sha256"],
+        own = {k: v for k, v in e.items() if k not in ("id", "path", "sha256")}
+        rows.append({"id": e["id"], **own, "path": e["path"], "photo_sha256": e["sha256"],
                      "mask_sha256": mask_sha256(mask), "height": mask.shape[0], "width": mask.shape[1],
                      "area_frac": f"{mask.mean():.4f}", "pred_iou": f"{seg.pred_iou:.4f}",
                      "box": " ".join(map(str, box)) if box else "",
@@ -109,12 +138,21 @@ def run(model: str) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("model", choices=list(MODELS))
+    ap.add_argument("model", help=f"ML-2's lists: one of {list(MODELS)}; with --split: one of "
+                                  f"{list(NAMED_SEGMENTERS)}")
+    ap.add_argument("--split", choices=["train", "validation", "test"],
+                    help="ML-5: predict this split of labels/ml5/seg_dataset.yaml instead of ML-2's lists")
     ap.add_argument("--threads", type=int, required=True,
                     help="torch.set_num_threads; pinned in dvc.yaml, because it changes mask bits")
     args = ap.parse_args(argv)
+    known = NAMED_SEGMENTERS if args.split else MODELS
+    if args.model not in known:
+        ap.error(f"model {args.model!r}: not one of {list(known)}")
     torch.set_num_threads(args.threads)
-    run(args.model)
+    if args.split:
+        run_split(args.model, args.split)
+    else:
+        run(args.model)
 
 
 if __name__ == "__main__":

@@ -317,7 +317,7 @@ def decoder_base(decoder: str) -> str:
 # redraws in pass 1): pretrained weights, or a fine-tuned decoder over the base its card names (decoder_base).
 # A pass-2 model is passed as WEIGHTS:DECODER until it is named here.
 NAMED_SEGMENTERS = {"pretrained_l0": (weights_for("l0"), None), "pretrained_xl0": (weights_for("xl0"), None),
-                    "ft_s123": (None, "models/seg/ft_s123.pt")}
+                    "ft_s123": (None, "models/seg/ft_s123.pt"), "xl0_v1": (None, "models/seg/xl0_v1.pt")}
 
 
 def named_params(name: str, mask_select: str = "multi3") -> SegParams:

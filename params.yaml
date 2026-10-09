@@ -175,15 +175,17 @@ patch_max_attempts_factor: 20
 # coffeecv/seg_finetune.py. The image and prompt encoders stay frozen; the prompt (seg_prompt) and the
 # trained output (seg_mask_select) are the serving ones. Loss: focal_weight x focal(gamma, alpha) +
 # dice_weight x soft dice + iou_weight x MSE on the IoU head (SAM's weighting). views: dihedral views
-# cached per photo (each ~2 MB per photo in fp16). neg_share: share of each batch drawn from the seg-train
-# negatives (D10/D11). neg_select_frac: share of negative near-duplicate groups held out for checkpoint
-# selection, never trained on. weights: the pretrained base under models_pretrained/; its variant sets the
+# cached per photo (each ~2 MB per photo in fp16). neg_share: share of each batch drawn from the training
+# negatives (D10/D11); the validation negatives choose the checkpoint (ML-5 D8; ML-2 held out a random
+# neg_select_frac of 0.2 of its negative groups instead). point_share: ticket ML-5 D15, the share of batches
+# that add 1 to max_points points from the error region of the box-only prediction to the box (0.5: box or
+# points at random, as EfficientViT-SAM trains). weights: the pretrained base under models_pretrained/; its variant sets the
 # cache's and the loss's frame (ticket ML-5 P4: 512 for L0, 1024 for XL0). It is the fine-tune's own, not
 # seg_weights, which names the classifier's segmenter and moves only when the classifier is re-cropped.
 # The one place the fine-tune's base is written: seg_predict's "pretrained" is it, and each decoder runs over
 # the base its card (models/seg/<name>.json) records (segment_beans.decoder_base).
 seg_ft:
-  weights: efficientvit_sam/efficientvit_sam_l0.pt
+  weights: efficientvit_sam/efficientvit_sam_xl0.pt
   views: [id, hflip, vflip, rot180]
   epochs: 40
   patience: 8
@@ -197,7 +199,8 @@ seg_ft:
   focal_gamma: 2.0
   focal_alpha: 0.25
   neg_share: 0.5
-  neg_select_frac: 0.2
+  point_share: 0.5
+  max_points: 3
 
 # Ticket ML-5 P5 (D11-D13, D16): the segmenter dataset (coffeecv/seg_dataset.py ->
 # labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is

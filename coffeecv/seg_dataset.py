@@ -69,6 +69,15 @@ class Params:
         return {"seed": self.seed, "split": dict(self.split)}
 
 
+def photo_id(path: str) -> str:
+    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix. (Not
+    seg_base_masks.item_id, which names ML-2's list entries.)"""
+    parts = Path(path).with_suffix("").parts
+    if "dataset" in parts:
+        parts = parts[len(parts) - parts[::-1].index("dataset"):]
+    return "__".join(parts)
+
+
 def seeded_rng(seed: int, *stream) -> np.random.Generator:
     """An RNG stream under `seed`, named by `stream` (crc32 of each part's str), so one draw never shifts
     another. The pool draw and the split here; seg_review's paired sides (D22)."""

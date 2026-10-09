@@ -60,7 +60,7 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.review_masks import REASONS, RULE_FILE, jpeg, view_image, zoom_tile
 from coffeecv.repo_files import read_csv, rel, sha256_file
-from coffeecv.seg_dataset import load_seg_dataset, seeded_rng
+from coffeecv.seg_dataset import load_seg_dataset, photo_id, seeded_rng
 from coffeecv.seg_review_pages import LABEL_PAGE, PAIRED_PAGE
 from coffeecv.segment_beans import THREADS, BeanSegmenter, mask_sha256, named_params
 
@@ -74,15 +74,6 @@ INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", 
                 "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
 LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
                 "include", "exclude", "reason"]
-
-
-def photo_id(path: str) -> str:
-    """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix. (Not
-    seg_base_masks.item_id, which names ML-2's list entries.)"""
-    parts = Path(path).with_suffix("").parts
-    if "dataset" in parts:
-        parts = parts[len(parts) - parts[::-1].index("dataset"):]
-    return "__".join(parts)
 
 
 def _now() -> str:

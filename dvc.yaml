@@ -172,9 +172,14 @@ stages:
   # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this runs on the VM at
   # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's
   # sha256 is in photo_lists.yaml and checked before use. `ft` joins at P5.
+  # Ticket ML-5 P8: ML-2's segmenter stages below (seg_predict, seg_embed_cache, seg_finetune, seg_predict_ft,
+  # seg_predict_ml3_new, seg_eval) are frozen, not deleted: their outputs stay tracked, models/seg/ft_s123.pt
+  # first, which segcrop and serving use until P11, and repro never reruns them. They ran on L0, written out
+  # here, from ML-2's lists and the code at a1e73e3. ML-5's own stages follow them (seg_ml5_*).
   seg_predict:
-    foreach: [pretrained]       # the fine-tune's base, seg_ft.weights (seg_predict.model_params)
+    foreach: [pretrained]
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ${item} --threads 4
       deps:
         - coffeecv/seg_predict.py
@@ -182,7 +187,7 @@ stages:
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - labels/ml2/photo_lists.yaml
-        - models_pretrained/${seg_ft.weights}
+        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       params:
         - params.yaml:
             - seg_prompt
@@ -200,6 +205,7 @@ stages:
   # derived from the pre-strip hashes (labels/ml3/strip_manifest.csv maps them), and a forced repro of this
   # stage would not reproduce its recorded outputs; the embeddings and decoders themselves are unchanged.
   seg_embed_cache:
+    frozen: true
     cmd: python -m coffeecv.seg_finetune cache --threads 4
     deps:
       - coffeecv/seg_finetune.py
@@ -207,7 +213,7 @@ stages:
       - third_party/efficientvit/efficientvit
       - labels/ml2/photo_lists.yaml
       - data/seg_labels
-      - models_pretrained/${seg_ft.weights}
+      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
     params:
       - params.yaml:
           - seg_split_seed
@@ -225,13 +231,14 @@ stages:
   seg_finetune:
     foreach: [42, 123, 7]
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --seed ${item} --threads 4
       deps:
         - coffeecv/seg_finetune.py
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - data/seg_cache
-        - models_pretrained/${seg_ft.weights}
+        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       params:
         - params.yaml:
             - seg_ft
@@ -248,6 +255,7 @@ stages:
   seg_predict_ft:
     foreach: [42, 123, 7]
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ft_s${item} --threads 4
       deps:
         - coffeecv/seg_predict.py
@@ -255,7 +263,7 @@ stages:
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - labels/ml2/photo_lists.yaml
-        - models_pretrained/${seg_ft.weights}      # the base seg_finetune trains the decoders over
+        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt      # the base seg_finetune trains the decoders over
         - models/seg/ft_s${item}.pt
       params:
         - params.yaml:
@@ -268,6 +276,7 @@ stages:
   # only crop-aligned masks; this recomputes the full-frame ones on the VM at the same 4 threads and stops unless
   # each equals the mask_sha256 segcrop recorded, so the owner judges exactly the masks training crops with.
   seg_predict_ml3_new:
+    frozen: true
     cmd: python -m coffeecv.seg_predict_sessions ft_s123 --threads 4 --out ml3_new_ft_s123 --sessions 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon
     deps:
       - coffeecv/seg_predict_sessions.py
@@ -310,6 +319,7 @@ stages:
       - pretrained
       - ft_s123
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_eval ${item}
       deps:
         - coffeecv/seg_eval.py
@@ -327,3 +337,71 @@ stages:
       metrics:
         - outputs/seg_eval_${item}.json:
             cache: false
+
+  # Ticket ML-5 P8 (D8, D14, D15): the fine-tune on a labelling session's labels (coffeecv/seg_finetune.py).
+  # seg_ml5_cache@<session>: encoder embeddings (fp16) of every training and validation photo the owner accepted,
+  # and every negative, in each seg_ft view, labels in the encoder's frame (1024 for XL0). Rebuildable, so never
+  # pushed. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
+  # seg_mask_select (D23); the checkpoint chosen on the validation split only. The .json card is in git.
+  seg_ml5_cache:
+    foreach: [pass1]
+    do:
+      cmd: python -m coffeecv.seg_finetune cache --labels ${item} --threads 4
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft.weights
+            - seg_ft.views
+      outs:
+        - data/seg_cache_ml5/${item}:
+            push: false
+
+  seg_ml5_finetune:
+    foreach:
+      xl0_v1:
+        labels: pass1
+        seed: 123
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 4
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/seg_cache_ml5/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - seg_prompt
+            - seg_mask_select
+            - seg_min_area_frac
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
+  # Ticket ML-5 P8, P10 (D22): a fine-tuned segmenter's masks of every test photo, negatives included (their
+  # empty-or-tiny rate), stored once at the pinned threads, for the blind paired session (seg_review paired).
+  seg_ml5_predict:
+    foreach: [xl0_v1]
+    do:
+      cmd: python -m coffeecv.seg_predict ${item} --split test --threads 4
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml5/seg_dataset.yaml
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/${item}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks_ml5/${item}
