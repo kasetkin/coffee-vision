@@ -1,0 +1,11 @@
+{
+  "session": "pass1",
+  "proposer": "ft_s123",
+  "redraw": "pretrained_l0",
+  "redraw_output": "multi3",
+  "splits": [
+    "train",
+    "validation"
+  ],
+  "created": "2026-10-08T18:14:14+00:00"
+}
