@@ -1698,8 +1698,8 @@ stages:
       size: 3195
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: cbae9674c9e17b772a5285cd04b60e06
-      size: 22604
+      md5: 421cb4c4850d7d065f33b6924324c1de
+      size: 22796
     - path: data/ml5_labels/pass1
       hash: md5
       md5: 67fe93cf64678a2e18b3ae8de2029b35.dir
@@ -1738,8 +1738,8 @@ stages:
       size: 3195
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: cbae9674c9e17b772a5285cd04b60e06
-      size: 22604
+      md5: 421cb4c4850d7d065f33b6924324c1de
+      size: 22796
     - path: data/seg_cache_ml5/pass1
       hash: md5
       md5: 3cae97c737ac3a8c9209dc1bd9efa886.dir
@@ -1777,8 +1777,8 @@ stages:
           neg_share: 0.5
           point_share: 0.5
           max_points: 3
+          select_min_area_frac: 0.083
         seg_mask_select: multi3
-        seg_min_area_frac: 0.083
         seg_prompt: box
     outs:
     - path: models/seg/xl0_v1.json
@@ -1840,8 +1840,8 @@ stages:
       size: 3195
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: cbae9674c9e17b772a5285cd04b60e06
-      size: 22604
+      md5: 421cb4c4850d7d065f33b6924324c1de
+      size: 22796
     - path: data/ml5_labels/pass2
       hash: md5
       md5: 56bf3da7a6f4fb61d37aa55c597daae0.dir
@@ -1880,8 +1880,8 @@ stages:
       size: 3195
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: cbae9674c9e17b772a5285cd04b60e06
-      size: 22604
+      md5: 421cb4c4850d7d065f33b6924324c1de
+      size: 22796
     - path: data/seg_cache_ml5/pass2
       hash: md5
       md5: 6400fb2445167605f66d0fd6a8d45d55.dir
@@ -1919,8 +1919,8 @@ stages:
           neg_share: 0.5
           point_share: 0.5
           max_points: 3
+          select_min_area_frac: 0.083
         seg_mask_select: multi3
-        seg_min_area_frac: 0.083
         seg_prompt: box
     outs:
     - path: models/seg/xl0_v2.json
