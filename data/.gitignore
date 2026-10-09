@@ -1,2 +1,4 @@
 /seg_labels
 /seg_cache
+/seg_masks_ml5
+/seg_cache_ml5
