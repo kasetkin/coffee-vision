@@ -12,7 +12,7 @@
     the first step that changes a number is P8, XL0-v1.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1, P2, P3, P5, P6 and P7 done (ADRs 0015 and 0016 approved by the owner; pass-1 labels 2026-10-09); P4's code done, its VM timing awaits the owner's OK</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-08, rewritten after the design session the same day; Q1&ndash;Q7 answered (D7&ndash;D21); as of 2026-10-08: P1, P2, P3, P5, P6, P7 and P8 done (ADRs 0015 and 0016 approved by the owner; pass-1 labels and XL0-v1 2026-10-09); P4's code done, its VM timing awaits the owner's OK</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_dataset.html"><code>ticket_segmenter_dataset.html</code></a> (ML-5)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -174,15 +174,15 @@
 
   <h2>10. P8 &mdash; XL0-v1</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-09: code done (<code>e6a4fc0</code>); the VM run waits for SSH to the VM, which times out</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-09, <code>e6a4fc0</code>, <code>127bcf2</code>, <code>1985307</code>; run locally, the VM being gone</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box done"></span><span>Repoint <code>seg_embed_cache</code>, <code>seg_finetune</code>, <code>seg_predict</code> and <code>seg_eval</code> at the dataset file; retire the ML-2-only stages. <span class="result">Done 2026-10-09, <code>e6a4fc0</code>, as new stages beside ML-2's rather than repointed ones: repointing <code>seg_finetune</code> would have overwritten <code>models/seg/ft_s123.pt</code>, which segcrop and serving use until P11. ML-2's six segmenter stages are frozen (outputs still tracked, never rerun), their L0 path written out; <code>seg_ml5_cache@pass1</code>, <code>seg_ml5_finetune@xl0_v1</code> (seed 123, <code>models/seg/xl0_v1.pt</code>) and <code>seg_ml5_predict@xl0_v1</code> (<code>seg_predict xl0_v1 --split test</code>: every test photo, negatives included, in the layout the paired session reads). Roles by split (D8): 155 training and 39 validation positives, 87 training and 14 validation negatives; ML-2's random 20% negative hold-out retires. <code>seg_eval</code> is not repointed: P10's paired report replaces it.</span></span></li>
     <li><span class="box"></span><span>Point prompts in training (D15): some batches add 1&ndash;3 points sampled from the error region of the box-only prediction, the box kept; the share is a param. Those batches train the <code>multi3</code> output, as box-only batches do (D23). Checkpoint selection stays box-only. <span class="result">Done 2026-10-09, <code>e6a4fc0</code>: <code>seg_ft.point_share</code> 0.5 (box or points at random, as EfficientViT-SAM trains), <code>max_points</code> 3; points drawn uniformly from the error region, include where the label is bean; a test shows the training path's box-plus-points mask is the review page's redraw (IoU &gt; 0.98, L0 and XL0).</span></span></li>
-    <li><span class="box"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune XL0, seed 123, checkpoint on validation; predict the test split.</span></li>
-    <li><span class="box"></span><span>Point probe on XL0-v1 against the pass-1 accepts with points, through <code>multi3</code> (D23): decides the pass-2 redraw model (D19).</span></li>
-    <li><span class="box"></span><span>No test verdicts or test numbers here: XL0-v1's test predictions are stored and judged with XL0-v2's in P10 (D22).</span></li>
+    <li><span class="box done"></span><span>On the VM (<code>docs/agents/remote-sweeps.md</code>): fine-tune XL0, seed 123, checkpoint on validation; predict the test split. <span class="result">Done 2026-10-09, <code>1985307</code>, on the local machine instead (the VM is down and not coming back soon; the owner's call), <code>dvc repro seg_ml5_predict@xl0_v1</code> at the pinned 4 threads. Cache: 295 photos &times; 4 views in 43 min, 3.5 GB, kept out of DVC's cache (<code>127bcf2</code>). Training: 69&ndash;78 s per epoch, stopped at epoch 36; the checkpoint is epoch 28, validation mean IoU 0.970 and 14/14 validation negatives empty or tiny (score 0.985), against pretrained XL0's 0.672 and 0/14. The selection score twice passed over epochs with a higher IoU and one or two negatives masked (epoch 23: 0.986 and 12/14). Test masks of all 107 test photos in <code>data/seg_masks_ml5/xl0_v1</code> (DVC).</span></span></li>
+    <li><span class="box done"></span><span>Point probe on XL0-v1 against the pass-1 accepts with points, through <code>multi3</code> (D23): decides the pass-2 redraw model (D19). <span class="result">Done 2026-10-09, <code>analysis/ml5_p8_point_probe/</code>: on the 44 pass-1 accepts from rounds 2 and 3, the owner's points replayed give IoU &ge; 0.9 on 82% (XL0-v1) and 93% (pretrained XL0), none empty; box then 1&ndash;3 simulated clicks, 77/91/91/93% (XL0-v1) against 20/32/52/57%. XL0-v1 follows points (ft_s123 reproduced 17&ndash;39%). Its box and click numbers are flattered: the 44 masks are its own training and validation labels; the replay is the fair test. Pass 2's redraw model: XL0-v1, unless the owner prefers pretrained XL0's closer replay.</span></span></li>
+    <li><span class="box done"></span><span>No test verdicts or test numbers here: XL0-v1's test predictions are stored and judged with XL0-v2's in P10 (D22).</span></li>
   </ol>
 
   <h2>11. P9 &mdash; Pass 2 labels <span class="pill sm open">stop</span></h2>
@@ -307,6 +307,12 @@
       prediction's error region; <code>seg_ft.weights</code> is XL0. ML-2's segmenter stages are frozen, and XL0-v1
       gets its own stages and <code>models/seg/xl0_v1.pt</code>, so <code>ft_s123</code> stays the shipped
       segmenter. The VM run waits: SSH to the VM times out (port 22) while its web server answers.</div>
+    <div><div class="when">2026-10-09</div>P8 done. The VM is down and will not be back soon, so the owner has
+      XL0-v1 fine-tuned on the local machine (<code>1985307</code>): epoch 28 of 36, validation mean IoU 0.970 with
+      every validation negative empty or tiny. Its test masks are stored for P10 and not looked at as numbers (D22).
+      The point probe shows XL0-v1 follows points (82% of the owner's pass-1 corrections replayed at IoU &ge; 0.9,
+      pretrained XL0 93%), so it is the default pass-2 redraw model. The DVC remote lived on the VM: the pass-1
+      masks and XL0-v1 are on this machine only.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5 ticket</a>, <a href="plan_segmentation_mask.html">ML-2 plan</a>,

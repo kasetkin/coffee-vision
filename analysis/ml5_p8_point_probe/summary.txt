@@ -1,0 +1,6 @@
+44 reference masks: ml5:pass1 44
+20/44 65s
+40/44 133s
+set       model          out        n  replay>=.9 empty  | box-only>=.9  click1  click2  click3 | median IoU c0..c3
+ml5:pass1 pretrained_xl0 multi3    44        93%     0% |        20%     32%     52%     57% | 0.000 0.662 0.918 0.953
+ml5:pass1 xl0_v1         multi3    44        82%     0% |        77%     91%     91%     93% | 0.972 0.991 0.991 0.991
