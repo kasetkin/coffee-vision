@@ -345,7 +345,7 @@ stages:
   # records its hash only. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
   # seg_mask_select (D23); the checkpoint chosen on the validation split only. The .json card is in git.
   seg_ml5_cache:
-    foreach: [pass1]
+    foreach: [pass1, pass2]
     do:
       cmd: python -m coffeecv.seg_finetune cache --labels ${item} --threads 4
       deps:
@@ -366,6 +366,9 @@ stages:
     foreach:
       xl0_v1:
         labels: pass1
+        seed: 123
+      xl0_v2:                 # P10: on the owner's pass-2 labels, the recipe and selection rule unchanged
+        labels: pass2
         seed: 123
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 4
@@ -389,7 +392,7 @@ stages:
   # Ticket ML-5 P8, P10 (D22): a fine-tuned segmenter's masks of every test photo, negatives included (their
   # empty-or-tiny rate), stored once at the pinned threads, for the blind paired session (seg_review paired).
   seg_ml5_predict:
-    foreach: [xl0_v1]
+    foreach: [xl0_v1, xl0_v2]
     do:
       cmd: python -m coffeecv.seg_predict ${item} --split test --threads 4
       deps:

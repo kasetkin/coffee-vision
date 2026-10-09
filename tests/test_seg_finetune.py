@@ -244,7 +244,8 @@ class DvcStagesReadTheBaseWeights(unittest.TestCase):
         from dvc.repo import Repo
         weights = ft.FtParams.from_config(RunConfig.from_params_yaml()).weights
         with Repo(str(REPO_ROOT)) as repo:
-            for name in ("seg_ml5_cache@pass1", "seg_ml5_finetune@xl0_v1", "seg_ml5_predict@xl0_v1"):
+            for name in ("seg_ml5_cache@pass1", "seg_ml5_cache@pass2", "seg_ml5_finetune@xl0_v1",
+                         "seg_ml5_finetune@xl0_v2", "seg_ml5_predict@xl0_v1", "seg_ml5_predict@xl0_v2"):
                 with self.subTest(name):
                     stage = repo.stage.collect(name)[0]
                     pretrained = [d.def_path for d in stage.deps if d.def_path.startswith("models_pretrained/")]
