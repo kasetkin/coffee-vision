@@ -14,3 +14,5 @@
 # run rewrites .pyc files, changes the directory hash, and makes DVC report the
 # stage as changed when no source file changed.
 __pycache__/
+
+VERY_BIG_NEGATIVES/

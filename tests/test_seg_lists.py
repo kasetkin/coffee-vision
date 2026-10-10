@@ -176,9 +176,12 @@ class CommittedLists(unittest.TestCase):
         shown = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=REPO_ROOT, capture_output=True, text=True)
         if shown.returncode != 0:
             self.skipTest("the lists are not committed yet")
-        committed = yaml.safe_load(shown.stdout)["lists"]
-        # The one allowed content change: a photo's hash before -> after the ML-3 metadata strip (`seg_lists
-        # rekey`, from labels/ml3/strip_manifest.csv). Pixels are unchanged; any other hash change still fails.
+        # The allowed changes: a photo's path before -> after an owner's rename (coffeecv.rename_photos, from
+        # labels/photo_renames.csv), and below its hash before -> after the ML-3 metadata strip (`seg_lists
+        # rekey`, from labels/ml3/strip_manifest.csv). Pixels are unchanged; any other change still fails.
+        from coffeecv.rename_photos import RENAMES, load_renames, replacements, rewrite
+        text = rewrite(shown.stdout, replacements(load_renames())[0])[0] if RENAMES.exists() else shown.stdout
+        committed = yaml.safe_load(text)["lists"]
         from coffeecv.rekey_photos import MANIFEST, load_map
         rekey, _ = load_map() if MANIFEST.exists() else ({}, set())
         for entries in committed.values():

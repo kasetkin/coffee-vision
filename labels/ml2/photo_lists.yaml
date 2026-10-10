@@ -7278,27 +7278,27 @@ lists:
     pile_like: true
     camera: internet_proxy
     group: dataset/ood_negatives/2026-09__internet_proxy/wrong_bean_type/wrong_bean_type_011.jpg
-  - path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_002.jpg
+  - path: dataset/ood_negatives/user_realworld/20260910_195601-1.jpg
     sha256: 6adfb6ed993e8449972d453efe3cabb7c4da9ae277347ea1cb8722e531af46cb
-    batch: 2026-09__user_realworld
+    batch: user_realworld
     tag: real_world_negatives
     pile_like: false
     camera: pixel
-    group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_002.jpg
-  - path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
+    group: dataset/ood_negatives/user_realworld/20260910_195601-1.jpg
+  - path: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
     sha256: 2efef30827ce825a43e39cc3d1e5aaa86477d741f9ee5d1a97251a3201733e6c
-    batch: 2026-09__user_realworld
+    batch: user_realworld
     tag: real_world_negatives
     pile_like: false
     camera: pixel
-    group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
-  - path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_006.jpg
+    group: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
+  - path: dataset/ood_negatives/user_realworld/20260910_195602-3.jpg
     sha256: 5ac5cce2be01ca0a777a953f0b140680f1a6979cdd7545cfc8c990a3a3f5c617
-    batch: 2026-09__user_realworld
+    batch: user_realworld
     tag: real_world_negatives
     pile_like: false
     camera: pixel
-    group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
+    group: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
   neg_seg_eval:
   - path: dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132408.JPG
     sha256: c85b57466f4bc14eb8ac2444818532581544bde5bcd079d7facec799a0ca2a47
@@ -7496,20 +7496,20 @@ lists:
     pile_like: true
     camera: internet_proxy
     group: dataset/ood_negatives/2026-09__internet_proxy/wrong_bean_type/wrong_bean_type_010.jpg
-  - path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg
+  - path: dataset/ood_negatives/user_realworld/20260910_195601.jpg
     sha256: 9aec4e3ecd4ed1c34cf9e049036d2fedcf343e7a0d1100c138eb4b598418e6b2
-    batch: 2026-09__user_realworld
+    batch: user_realworld
     tag: real_world_negatives
     pile_like: false
     camera: pixel
-    group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg
-  - path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_003.jpg
+    group: dataset/ood_negatives/user_realworld/20260910_195601.jpg
+  - path: dataset/ood_negatives/user_realworld/20260910_195602.jpg
     sha256: 1b198086e3f497db7d0d45283638ea105f2caeecea88ed49b3dd5003377a2135
-    batch: 2026-09__user_realworld
+    batch: user_realworld
     tag: real_world_negatives
     pile_like: false
     camera: pixel
-    group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_003.jpg
+    group: dataset/ood_negatives/user_realworld/20260910_195602.jpg
   pos_seg_train:
   - path: dataset/ood_positives/PXL_20260809_121311639.jpg
     sha256: c5365c0f6478190747281628568a06909b6277a8b78752f2ad1d7ca94f9596c5

@@ -1706,62 +1706,62 @@ photos:
   tag: wrong_bean_type
   split: test
   group: dataset/ood_negatives/2026-09__internet_proxy/wrong_bean_type/wrong_bean_type_011.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195601.jpg
   sha256: 9aec4e3ecd4ed1c34cf9e049036d2fedcf343e7a0d1100c138eb4b598418e6b2
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: validation
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_002.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195601.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195601-1.jpg
   sha256: 6adfb6ed993e8449972d453efe3cabb7c4da9ae277347ea1cb8722e531af46cb
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: test
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_002.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_003.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195601-1.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602.jpg
   sha256: 1b198086e3f497db7d0d45283638ea105f2caeecea88ed49b3dd5003377a2135
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_003.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_004.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602-1.jpg
   sha256: 0371458f01b79842227a6fdf19e33150ce39e1c0316db0f89e8ed1d4a8640433
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_003.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
   sha256: 2efef30827ce825a43e39cc3d1e5aaa86477d741f9ee5d1a97251a3201733e6c
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_006.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602-3.jpg
   sha256: 5ac5cce2be01ca0a777a953f0b140680f1a6979cdd7545cfc8c990a3a3f5c617
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_005.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_007.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602-2.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602-4.jpg
   sha256: 9ae8e798f3110e0afdb2716366fb735b0d9feae0792aa42d9d76bdae892576d2
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_007.jpg
-- path: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_008.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602-4.jpg
+- path: dataset/ood_negatives/user_realworld/20260910_195602-5.jpg
   sha256: 6ab5f385fbb27b13285e7521c85db684260fc06ef61675c62f94d762c6800ddc
   source: negative
-  batch: 2026-09__user_realworld
+  batch: user_realworld
   tag: real_world_negatives
   split: train
-  group: dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_008.jpg
+  group: dataset/ood_negatives/user_realworld/20260910_195602-5.jpg
 - path: dataset/ood_positives_internet/internet_beans/internet_beans_001.jpg
   sha256: c207566771d8053841f2fb5352927e2171805579b2e9fac5cdf382d26a651bb2
   source: internet_positive

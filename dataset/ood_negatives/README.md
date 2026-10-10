@@ -20,7 +20,7 @@ coffee beans. Used only to evaluate OOD/content-guard candidate methods
 
 ## Batches
 
-Each dated subdirectory is one capture/collection batch, DVC-tracked the same way as
+Each subdirectory is one capture/collection batch, DVC-tracked the same way as
 `dataset/<session>/` (one `.dvc` pointer file per batch), with its own `manifest.csv`
 (`filename, scenario_tag, camera, split, date, source_title, source_url, notes`).
 
@@ -40,20 +40,27 @@ Each dated subdirectory is one capture/collection batch, DVC-tracked the same wa
   the training set already contains such photos as legitimate examples, so they are not
   negatives at all and would have scored as false failures.
 
-- **`2026-09__user_realworld/`** — 8 photos from the user's own phone (Pixel), EXIF stripped
-  on 2026-09-10 (they carried GPS coordinates). Outdoor/travel photos: rock, scree, lichen,
-  glacier, a marmot, a yurt in a valley. Nothing resembling a bean tray — and that is the
-  point. **Three of the eight were already misclassified by the shipped guard**: it accepted
-  them and named a bean origin, on photos containing no beans at all. Measured
-  2026-09-10 against `models/allrigs_cam_s123.pt`; each row's `notes` records whether that
-  photo was a `baseline_false_accept` or `baseline_refused`.
+- **`user_realworld/`** — general, random real-world photos from the user's own phones, no
+  scenario subfolders (every row is tagged `real_world_negatives`). 451 photos, shot 2023–2026
+  on a Pixel 9 Pro and a OnePlus 7 Pro (the rigs' phone models; `camera` is `pixel` or
+  `oneplus`). Private metadata (GPS and the rest of ML-3 D13's deny list) stripped with
+  `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
 
-  This is the most valuable batch here, and the only one that is evidence rather than
-  hypothesis: the internet batch is a guess about what *might* fool the guard, while these
-  are photos that demonstrably *did*. All three failures are rocky/scree textures, which is
-  a coherent failure mode rather than a fluke — small mid-brown fragments at roughly bean
-  scale is exactly what the embedding space was trained to find interesting.
+  The first 8 (2026-09-10, Pixel, EXIF stripped that day) were the batch
+  `2026-09__user_realworld/real_world_negatives/`, renamed by the owner on 2026-10-10 to
+  `20260910_195601.jpg` … `20260910_195602-5.jpg` (`labels/photo_renames.csv` maps each old
+  path; `coffeecv.rename_photos` re-pointed the label records). Outdoor/travel photos: rock,
+  scree, lichen, glacier, a marmot, a yurt in a valley. **Three of the eight were
+  misclassified by the guard shipped then**: it accepted them and named a bean origin, on
+  photos containing no beans at all. Measured 2026-09-10 against `models/allrigs_cam_s123.pt`;
+  each of those rows' `notes` records whether that photo was a `baseline_false_accept` or
+  `baseline_refused`. All three failures are rocky/scree textures, a coherent failure mode
+  rather than a fluke: small mid-brown fragments at roughly bean scale is exactly what the
+  embedding space was trained to find interesting. Their dev/holdout split was assigned by
+  hand, not randomly: with only three confirmed failures, a random split could have put all
+  three on one side.
 
-  The dev/holdout split here is assigned deliberately, not randomly: with only three
-  confirmed failures, a random split could have put all three on one side and left the
-  other with no genuinely hard case in it.
+  The other 443 (added 2026-10-10) have a seeded split (seed 20261010, ~60/40 dev/holdout by
+  photo), assigned before any scoring. Shots on one camera within 120 s of each other
+  (`seg_lists.NEAR_DUP_SECONDS`) form one group and land on the same side. Their `date` is
+  EXIF DateTimeOriginal's.
