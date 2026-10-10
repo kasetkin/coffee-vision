@@ -3,8 +3,8 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 70 of the 128 photos are byte copies of photos in other
-`dataset/` folders, 50 of them pool photos.
+**There is no "never seen" claim any more**: 71 of the 132 photos are byte copies of photos in other
+`dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
 train/validation/test within this source (D13), a copy in one group with its original. Nothing here trains
@@ -28,6 +28,14 @@ The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by M
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-10: 4 Pixel photos
+
+- **New photos** (batch `2026-10-10`): `PXL_20261008_074853981.jpg`, `PXL_20261008_074902440.jpg`,
+  `PXL_20261008_074913048.jpg` and `PXL_20261010_041340477.jpg`, Pixel 9 Pro; the last is a byte copy of the
+  `random_date_raccoon` pool photo of the same name, added the same day. Not yet in the segmenter dataset
+  (`labels/ml5/seg_dataset.yaml`).
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
 
 ## 2026-10-08: 70 copies, the rename
 

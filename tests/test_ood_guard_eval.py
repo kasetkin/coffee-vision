@@ -25,7 +25,7 @@ SEG = {NEG + "1.jpg": M(0.99, empty=True, empty_or_tiny=True),      # the segmen
 SCORES = {
     NEG + "1.jpg": 0.99,
     NEG + "2.jpg": 0.5,                    # on the boundary: not caught, the probe refuses above 0.5
-    "dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg": None,
+    "dataset/ood_negatives/user_realworld/20260910_195601.jpg": None,
     POOL + "0000000.jpg": 0.01,            # trained on
     POOL + "0100000.jpg": 0.7,             # trained on
     POOL + "0200000.jpg": 0.6,

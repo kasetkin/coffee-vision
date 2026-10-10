@@ -31,6 +31,8 @@ The file is append-only (D20): `build` rebuilds from the data and refuses to wri
 would change list, change hash or disappear. The eval lists only ever grow; no eval photo moves to training.
 `rekey` is the one way a pinned hash changes: ticket ML-3 stripped private metadata from every photo, which
 changes its bytes but not its pixels, and labels/ml3/strip_manifest.csv records each hash before and after.
+`coffeecv.rename_photos` is the one way a path changes: the owner renamed a photo, and
+labels/photo_renames.csv records each path before and after.
 """
 from __future__ import annotations
 

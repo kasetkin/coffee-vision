@@ -1,6 +1,6 @@
 outs:
-- md5: 455f5b5bbf5b4ad34c353884c5e6f120.dir
-  size: 15663627
+- md5: 63e4c5a067e11dc4f8f8077faa3ffa21.dir
+  size: 15663420
   nfiles: 1252
   hash: md5
   path: seg_labels

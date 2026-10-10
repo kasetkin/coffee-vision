@@ -37,3 +37,5 @@ __pycache__/
 # not the directory: DVC refuses to write a .dvc file git ignores, so <session>.dvc is re-included.
 /data/ml5_labels/*
 !/data/ml5_labels/*.dvc
+
+VERY_BIG_NEGATIVES/

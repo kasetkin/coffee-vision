@@ -134,8 +134,8 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       hash: md5
       md5: f4cb99bd8a564de2139b0ede145f5531
@@ -181,8 +181,8 @@ stages:
       size: 3123
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: labels/ml2/verdicts.jsonl
       hash: md5
       md5: 3d14eb7bd259c58230d7be4c22c24346
@@ -213,13 +213,13 @@ stages:
       size: 18437
     - path: data/seg_labels
       hash: md5
-      md5: 455f5b5bbf5b4ad34c353884c5e6f120.dir
-      size: 15663627
+      md5: 63e4c5a067e11dc4f8f8077faa3ffa21.dir
+      size: 15663420
       nfiles: 1252
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
       hash: md5
       md5: f4cb99bd8a564de2139b0ede145f5531
@@ -319,8 +319,8 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: models/seg/ft_s123.pt
       hash: md5
       md5: 0ed3266101f153b086a0dc61cf31e52a
@@ -477,8 +477,8 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: models/seg/ft_s42.pt
       hash: md5
       md5: 707b63f3aeea7b4fa5a42b43e2e3b118
@@ -519,8 +519,8 @@ stages:
       size: 18803
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: models/seg/ft_s7.pt
       hash: md5
       md5: dc9dfcbe645e8701de4b2e4310ae7aed
@@ -570,8 +570,8 @@ stages:
       size: 3123
     - path: labels/ml2/photo_lists.yaml
       hash: md5
-      md5: ef0306416d716fff7b335b24f5d37242
-      size: 406717
+      md5: 213c7afeddb6eafdf5c607ccbe89b740
+      size: 406294
     - path: labels/ml2/verdicts.jsonl
       hash: md5
       md5: 3d14eb7bd259c58230d7be4c22c24346
@@ -1702,8 +1702,8 @@ stages:
       size: 22796
     - path: data/ml5_labels/pass1
       hash: md5
-      md5: 67fe93cf64678a2e18b3ae8de2029b35.dir
-      size: 5083125
+      md5: c328f682b3c895274668cc5fb588cc6c.dir
+      size: 5082322
       nfiles: 372
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
       hash: md5
@@ -1806,8 +1806,8 @@ stages:
       size: 22977
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 77914f0aab2edd81baae58354b2923e9
-      size: 127474
+      md5: 5e01c7e274a743488ea180cec019af2d
+      size: 126800
     - path: models/seg/xl0_v1.pt
       hash: md5
       md5: 61e97b25c29308f12b3d832dacab6e19
@@ -1844,8 +1844,8 @@ stages:
       size: 22796
     - path: data/ml5_labels/pass2
       hash: md5
-      md5: 56bf3da7a6f4fb61d37aa55c597daae0.dir
-      size: 4383719
+      md5: e83cbbcfaa797251246a26947b7bf1d1.dir
+      size: 4382916
       nfiles: 331
     - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
       hash: md5
@@ -1948,8 +1948,8 @@ stages:
       size: 22977
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 77914f0aab2edd81baae58354b2923e9
-      size: 127474
+      md5: 5e01c7e274a743488ea180cec019af2d
+      size: 126800
     - path: models/seg/xl0_v2.pt
       hash: md5
       md5: 2a3110cf039139a797507a68ae849467
