@@ -15,7 +15,9 @@ tree is never written through). The checks, all of which must pass:
 
   - pixels: the decoded image is equal before and after -- `dataset.load_rgb_image` (rawpy for a RAW
     file), and Pillow's own decode in the file's mode, so a PNG's alpha counts too; for HEIC every
-    top-level image and every auxiliary image (Apple's gain map, depth); for RAW the sensor data as well;
+    top-level image and every auxiliary image (Apple's gain map, depth), and an auxiliary image pillow-heif
+    cannot decode (10-bit, ML-6 D10) by its stored bytes: coded data, properties and tiles; for RAW the
+    sensor data as well;
   - every other tag survives byte for byte: binary tags (an MPF gain map, the ICC profile) are compared
     as bytes, and the kept fields D13 names -- Orientation, ICC profile, Make, Model, DateTimeOriginal,
     the exposure tags -- must be present after if they were before. load_rgb_image ignores Orientation
@@ -36,6 +38,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -89,7 +92,8 @@ KEPT_TAGS = {"Orientation", "ICC_Profile", "Make", "Model", "DateTimeOriginal", 
 # Groups exiftool derives or describes the file with (either family); never compared.
 VOLATILE_GROUPS = {"System", "ExifTool", "Composite"}
 # Where things sit in the file: they move when a segment before them goes. A HEIC's MediaData is its
-# mdat box, which holds the Exif item as well as the images; the images are compared decoded instead.
+# mdat box, which holds the Exif item as well as the images; the images are compared decoded instead (or by
+# their stored bytes, an auxiliary image pillow-heif cannot decode).
 # exiftool also keeps EXIF and IPTC well-formed on its own: YCbCrPositioning goes with an IFD0 left with
 # nothing else, and EnvelopeRecordVersion and the IPTC digests come with rewritten IPTC.
 LAYOUT_TAGS = {"MPImageStart", "MPImageLength", "FileSize", "ExifByteOrder", "XMPToolkit",
@@ -146,8 +150,117 @@ def _digest(h, arr: np.ndarray) -> None:
     h.update(np.ascontiguousarray(arr).tobytes())
 
 
+def _boxes(b: bytes, start: int, end: int):
+    """(type, payload start, end) of each ISO-BMFF box in b[start:end]."""
+    while start < end:
+        size, typ = struct.unpack_from(">I4s", b, start)
+        head = 8
+        if size == 1:
+            size, head = struct.unpack_from(">Q", b, start + 8)[0], 16
+        elif size == 0:
+            size = end - start
+        if size < head or start + size > end:
+            raise StripError(f"malformed {typ!r} box at byte {start}")
+        yield typ.decode("latin-1"), start + head, start + size
+        start += size
+
+
+def _uint(b: bytes, pos: int, n: int) -> tuple[int, int]:
+    return int.from_bytes(b[pos:pos + n], "big"), pos + n
+
+
+def _heif_meta(b: bytes) -> dict:
+    """A HEIF file's item table, from its meta box: primary item, iloc extents, idat, the ipco properties
+    and their ipma associations, and the dimg references (a grid to its tiles)."""
+    meta = next(((s, e) for t, s, e in _boxes(b, 0, len(b)) if t == "meta"), None)
+    if meta is None:
+        raise StripError("no meta box")
+    sub = list(_boxes(b, meta[0] + 4, meta[1]))                 # meta is a full box: version and flags first
+    box = {t: (s, e) for t, s, e in sub}
+    out = {"primary": None, "extents": {}, "idat": b"", "props": [], "assoc": {}, "dimg": {}}
+    if "pitm" in box:
+        s = box["pitm"][0]
+        out["primary"] = _uint(b, s + 4, 2 if b[s] == 0 else 4)[0]
+    if "idat" in box:
+        out["idat"] = b[box["idat"][0]:box["idat"][1]]
+    s = box["iloc"][0]
+    version, p = b[s], s + 4
+    off_size, len_size, base_size = b[p] >> 4, b[p] & 15, b[p + 1] >> 4
+    index_size = b[p + 1] & 15 if version in (1, 2) else 0
+    id_size = 2 if version < 2 else 4
+    count, p = _uint(b, p + 2, id_size)
+    for _ in range(count):
+        iid, p = _uint(b, p, id_size)
+        method = 0
+        if version in (1, 2):
+            method, p = b[p + 1] & 15, p + 2
+        ref, p = _uint(b, p, 2)
+        base, p = _uint(b, p, base_size)
+        n, p = _uint(b, p, 2)
+        extents = []
+        for _ in range(n):
+            p += index_size
+            off, p = _uint(b, p, off_size)
+            length, p = _uint(b, p, len_size)
+            extents.append((base + off, length))
+        out["extents"][iid] = (method, ref, extents)
+    if "iprp" in box:
+        for t, s, e in _boxes(b, *box["iprp"]):
+            if t == "ipco":
+                out["props"] += [t2.encode() + b[s2:e2] for t2, s2, e2 in _boxes(b, s, e)]
+            elif t == "ipma":
+                version, flags, p = b[s], _uint(b, s + 1, 3)[0], s + 4
+                n, p = _uint(b, p, 4)
+                for _ in range(n):
+                    iid, p = _uint(b, p, 2 if version < 1 else 4)
+                    k, p = b[p], p + 1
+                    for _ in range(k):
+                        v, p = _uint(b, p, 2 if flags & 1 else 1)
+                        out["assoc"].setdefault(iid, []).append(v & (0x7FFF if flags & 1 else 0x7F))
+    if "iref" in box:
+        s, e = box["iref"]
+        id_size = 2 if b[s] == 0 else 4
+        for t, s2, _ in _boxes(b, s + 4, e):
+            src, p = _uint(b, s2, id_size)
+            n, p = _uint(b, p, 2)
+            if t == "dimg":
+                out["dimg"].setdefault(src, []).extend(_uint(b, p + i * id_size, id_size)[0] for i in range(n))
+    return out
+
+
+def heif_stored_digest(path: Path, item_id: int) -> str:
+    """sha256 of a HEIF image item as stored: its coded data (in the file, or in the meta box's idat), the
+    properties ipma associates with it (its decoder configuration among them), and the same for every item
+    it is derived from (dimg: a grid's tiles), recursively. For an auxiliary image pillow-heif cannot
+    decode (Apple's 10-bit ones, ticket ML-6 D10): exiftool never re-encodes image data, so equal stored
+    bytes are an equal image."""
+    b = path.read_bytes()
+    meta = _heif_meta(b)
+    h = hashlib.sha256()
+
+    def add(iid: int, chain: tuple) -> None:
+        if iid in chain:
+            raise StripError(f"item {iid} is derived from itself")
+        method, ref, extents = meta["extents"].get(iid, (0, 0, []))
+        if ref or method not in (0, 1):
+            raise StripError(f"item {iid}: data outside the file or construction method {method}")
+        src = b if method == 0 else meta["idat"]
+        h.update(f"item {iid}".encode())
+        for off, length in extents:
+            h.update(src[off:off + length] if length else src[off:])
+        for k in meta["assoc"].get(iid, []):
+            if k:
+                h.update(meta["props"][k - 1])
+        for tile in meta["dimg"].get(iid, []):
+            add(tile, chain + (iid,))
+
+    add(item_id, ())
+    return h.hexdigest()
+
+
 def pixel_digest(path: Path) -> str:
-    """sha256 over every decoded image in the file: what the strip must leave alone."""
+    """sha256 over every decoded image in the file: what the strip must leave alone. A HEIF auxiliary image
+    pillow-heif cannot decode counts by its stored bytes instead (heif_stored_digest)."""
     h = hashlib.sha256()
     _digest(h, load_rgb_image(path))               # what training and serving decode
     ext = path.suffix.lower()
@@ -162,7 +275,12 @@ def pixel_digest(path: Path) -> str:
                 _digest(h, np.asarray(depth))
             for ids in (img.info.get("aux") or {}).values():
                 for aux_id in ids:
-                    _digest(h, np.asarray(img.get_aux_image(aux_id)))
+                    try:
+                        aux = np.asarray(img.get_aux_image(aux_id))
+                    except NotImplementedError:      # pillow-heif decodes 8-bit auxiliary images only
+                        h.update(f"stored {heif_stored_digest(path, aux_id)}".encode())
+                        continue
+                    _digest(h, aux)
     else:
         with Image.open(path) as im:                # the file's own mode: a PNG's alpha counts
             _digest(h, np.asarray(im))
