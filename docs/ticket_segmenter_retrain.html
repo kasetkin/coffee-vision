@@ -8,15 +8,15 @@
   <div class="eyebrow">Ticket ML-6 · coffee-vision · segmenter data and training</div>
   <h1>Add the 2026-10-10 and 2026-10-11 photos to the segmenter dataset and fine-tune XL0-v3 on them</h1>
   <p class="lede">On 2026-10-10 the owner added 443 real-world negatives, 4 segmenter positives and 6 pool photos
-    (<code>75b067c</code>). On 2026-10-11 the owner added 4 more segmenter positives. 3 of them are in DVC; the
-    fourth, an iPhone HEIC, waits for the metadata strip to handle it (D10). None of these photos is in
+    (<code>75b067c</code>). On 2026-10-11 the owner added 4 more segmenter positives, all stripped and in DVC; the
+    iPhone HEIC among them needed the metadata strip extended first (D10). None of these photos is in
     <code>labels/ml5/seg_dataset.yaml</code> yet. Until they are, a
     real-data test fails and deploys refuse. This ticket appends them, labels the few new positives, fine-tunes a new
     XL0 decoder (XL0-v3) with ML-5's recipe and compares it with the shipped XL0-v2. Written; decisions open, not
     planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: three JPEGs stripped and in DVC, the HEIC held (D10); not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -59,22 +59,26 @@
         <li><code>PXL_20261011_042719013.jpg</code>, Pixel 9 Pro.</li>
         <li><code>IMG_7252.HEIC</code>, iPhone 16 Pro Max, a camera new to the folder.</li>
       </ul>
-      The three JPEGs had GPS, C2PA and embedded thumbnails stripped, with 0 checks failing. They are in DVC
-      (135 files) and the remote, with every object checked there. The HEIC could not be stripped: two of its four
-      auxiliary images (Apple's style delta map and linear thumbnail) are 10-bit, and pillow-heif 1.8.0, like 1.8.1,
-      decodes only 8-bit ones, so the strip's pixel check cannot run. It is held outside the repository's tracked
-      tree until the check handles it (D10).</li>
-    <li><strong>What <code>seg_dataset build</code> appends</strong> (run 2026-10-11 on the three JPEGs too, then
-      reverted until D1 is decided). It adds 457 photos, for 867 in total:
+      The three JPEGs had GPS, C2PA and embedded thumbnails stripped, with 0 checks failing. The HEIC could not be
+      stripped at first: two of its four auxiliary images (Apple's style delta map and linear thumbnail) are 10-bit,
+      and pillow-heif 1.8.0, like 1.8.1, decodes only 8-bit ones, so the strip's pixel check could not run. After
+      D10 (<code>aae6258</code>) it lost 15 GPS and 57 Apple maker-note tags, with 0 checks failing. All four are in
+      DVC (136 files) and on the remote, with every object checked there.</li>
+    <li><strong>What <code>seg_dataset build</code> appends</strong> (run 2026-10-11 with all four new photos, in
+      memory; nothing written until D1 is decided). It adds 459 photos, for 869 in total:
       <ul>
         <li>443 negatives: 264 train, 67 validation, 112 test, in 368 groups.</li>
-        <li>7 segmenter positives (4 from 2026-10-10, 3 from 2026-10-11): 5 train, 2 test.</li>
-        <li>A pool top-up of 7 photos to keep pool equal to segmenter positives (ML-5 D12): 4 train, 1 validation,
+        <li>8 segmenter positives (4 from 2026-10-10, 4 from 2026-10-11): 5 train, 3 test.</li>
+        <li>A pool top-up of 8 photos to keep pool equal to segmenter positives (ML-5 D12): 5 train, 1 validation,
           2 test. None of the 6 new class_005 photos is drawn.</li>
       </ul>
-      So the owner has 10 new training and validation positives to label and 4 new test positives. Test negatives
-      grow from 41 to 153, validation negatives from 14 to 81, training negatives from 87 to 351. The HEIC, once it
-      joins, adds one segmenter positive and one more pool photo.</li>
+      So the owner has 11 new training and validation positives to label and 5 new test positives. Test negatives
+      grow from 41 to 153, validation negatives from 14 to 81, training negatives from 87 to 351.</li>
+    <li><strong>One scene on two clocks.</strong> <code>IMG_7252.HEIC</code> (iPhone, 09:59:05) and the two OnePlus
+      shots (09:59:33 and 09:59:35) show the same hopper of beans within 30 s. The iPhone records a UTC offset and the
+      OnePlus does not, so <code>seg_dataset.shot_time</code> puts them on different clocks, and the grouping
+      (ML-5 D13) never compares two clocks. They form two groups: the build puts the HEIC in train and both OnePlus
+      shots in test (R6, D11).</li>
     <li><strong>The manifest's holdout is not respected.</strong> The segmenter split ignores the manifest's
       dev/holdout, as ML-5 D16 retired it for this dataset. 119 of the manifest's holdout photos would land in
       training and 20 in validation.</li>
@@ -196,26 +200,26 @@
     classifier only as the pool photo it is a copy of.</p>
 
   <h3>3.4 How many photos</h3>
-  <p>Photos in the file, now &rarr; after the append. "After" is the build of 2026-10-11 under D1 (a), before
-    the HEIC joins (D10); D1 (b) or (c) would shrink the <code>user_realworld</code> row.</p>
+  <p>Photos in the file, now &rarr; after the append. "After" is the build of 2026-10-11 under D1 (a), all four
+    2026-10-11 photos included; D1 (b) or (c) would shrink the <code>user_realworld</code> row.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Source</th><th>Train</th><th>Validation</th><th>Test</th><th>Total</th></tr></thead>
     <tbody>
-      <tr><td>Segmenter positive</td><td>77 &rarr; 82</td><td>20</td><td>31 &rarr; 33</td><td>128 &rarr; 135</td></tr>
-      <tr><td>Pool photo</td><td>77 &rarr; 81</td><td>19 &rarr; 20</td><td>32 &rarr; 34</td><td>128 &rarr; 135</td></tr>
+      <tr><td>Segmenter positive</td><td>77 &rarr; 82</td><td>20</td><td>31 &rarr; 34</td><td>128 &rarr; 136</td></tr>
+      <tr><td>Pool photo</td><td>77 &rarr; 82</td><td>19 &rarr; 20</td><td>32 &rarr; 34</td><td>128 &rarr; 136</td></tr>
       <tr><td>Internet positive</td><td>7</td><td>2</td><td>3</td><td>12</td></tr>
       <tr><td>Negative</td><td>87 &rarr; 351</td><td>14 &rarr; 81</td><td>41 &rarr; 153</td><td>142 &rarr; 585</td></tr>
       <tr><td>&nbsp;&nbsp;<code>user_realworld</code> / real-world</td><td>6 &rarr; 270</td><td>1 &rarr; 68</td><td>1 &rarr; 113</td><td>8 &rarr; 451</td></tr>
       <tr><td>&nbsp;&nbsp;<code>2026-09__internet_proxy</code>, six tags</td><td>55</td><td>13</td><td>25</td><td>93</td></tr>
       <tr><td>&nbsp;&nbsp;<code>2026-09-11__user_samerig</code>, two tags</td><td>26</td><td>0</td><td>15</td><td>41</td></tr>
-      <tr><td><strong>All</strong></td><td><strong>248 &rarr; 521</strong></td><td><strong>55 &rarr; 123</strong></td><td><strong>107 &rarr; 223</strong></td><td><strong>410 &rarr; 867</strong></td></tr>
+      <tr><td><strong>All</strong></td><td><strong>248 &rarr; 522</strong></td><td><strong>55 &rarr; 123</strong></td><td><strong>107 &rarr; 224</strong></td><td><strong>410 &rarr; 869</strong></td></tr>
     </tbody>
   </table></div>
   <p>What the fine-tune actually trains on:</p>
   <ul>
     <li><strong>XL0-v2</strong> trained on the accepted pass-2 masks: 157 training and 41 validation positives (4
       dropped), plus 87 training and 14 validation negatives.</li>
-    <li><strong>XL0-v3</strong>, if the owner accepts all 10 new positives: 166 training and 42 validation positives,
+    <li><strong>XL0-v3</strong>, if the owner accepts all 11 new positives: 167 training and 42 validation positives,
       plus 351 training and 81 validation negatives.</li>
   </ul>
   <p>Because of the 4 + 4 batch, an epoch grows only with the positives: from 40 steps to 42. Each negative is
@@ -227,7 +231,6 @@
       <h3>Now</h3>
       <ul>
         <li><code>seg_dataset.yaml</code>: 410 photos; the 2026-10-10 and 2026-10-11 photos are missing, a real-data test fails and deploys refuse.</li>
-        <li><code>IMG_7252.HEIC</code> held back: the strip cannot check a 10-bit auxiliary image.</li>
         <li>Negatives: 142 in three batches, 8 of them real-world photos.</li>
         <li>Segmenter: XL0-v2, from the pass-2 labels.</li>
       </ul>
@@ -235,10 +238,10 @@
     <div>
       <h3>After</h3>
       <ul>
-        <li><code>seg_dataset.yaml</code>: about 869 photos with the HEIC, appended and not re-split (ML-5 D11); the test passes.</li>
+        <li><code>seg_dataset.yaml</code>: 869 photos under D1 (a), appended and not re-split (ML-5 D11); the test passes.</li>
         <li>The strip checks a HEIF auxiliary image it cannot decode by its stored bytes; the HEIC is stripped and in DVC (D10).</li>
         <li>Negatives: the new ones split 60/15/25 within <code>user_realworld</code>, as D1 decides.</li>
-        <li>Labels for the 10 or so new training and validation positives and verdicts on the new test positives (D3).</li>
+        <li>Labels for the 11 new training and validation positives and verdicts on the 5 new test positives (D3).</li>
         <li>XL0-v3 fine-tuned, compared with XL0-v2 on the enlarged test split (D6), and one of them chosen.</li>
       </ul>
     </div>
@@ -266,7 +269,7 @@
           tray of beans, so the score may lean on easy cases. D5 decides the score. Reports give the empty-or-tiny
           rate per batch and tag as well as overall.</td></tr>
       <tr><td class="id">R2</td><td><strong>The positive side barely changes, so the paired test can show no difference there.</strong></td>
-        <td>There are about 10 new labels on top of about 200, and 70 test positives. XL0-v1 against XL0-v2 already gave
+        <td>There are 11 new labels on top of about 200, and 71 test positives. XL0-v1 against XL0-v2 already gave
           McNemar p = 1. The case for XL0-v3 rests on negatives, and the positive comparison only guards against a
           regression.</td></tr>
       <tr><td class="id">R3</td><td><strong>Manifest holdout photos end up in training.</strong></td>
@@ -278,6 +281,11 @@
       <tr><td class="id">R5</td><td><strong>The 6 new class_005 pool photos never reach the segmenter.</strong></td>
         <td>The pool draw tops up by count and did not pick them. They reach the classifier only through a re-crop
           (D8). This is accepted by design (ML-5 D12), and recorded here so nobody expects otherwise.</td></tr>
+      <tr><td class="id">R6</td><td><strong>One scene shot on two phones lands in both train and test.</strong></td>
+        <td>The 2026-10-11 hopper: the iPhone shot goes to train, the two OnePlus shots 28&ndash;30 s later go to test,
+          because their clocks are never compared (&sect;2). The angle and framing differ, but the beans are the
+          same. The same can happen whenever the owner shoots one scene with a phone that records a UTC offset and
+          one that does not. D11 decides.</td></tr>
     </tbody>
   </table></div>
 
@@ -296,7 +304,7 @@
         <td>Open.</td></tr>
       <tr><td class="id">D3</td><td>How are the new positives labelled?</td>
         <td>(a) A <code>pass3</code> session that carries the pass-2 labels over unchanged. The owner judges only
-          the new training and validation photos (10 before the HEIC), with XL0-v2 proposing and redrawing through <code>multi3</code>.
+          the 11 new training and validation photos, with XL0-v2 proposing and redrawing through <code>multi3</code>.
           (b) The owner reviews every training and validation positive again, as pass 2 did.</td>
         <td>Open.</td></tr>
       <tr><td class="id">D4</td><td>What is XL0-v3's recipe?</td>
@@ -308,7 +316,7 @@
           per-batch shares, so <code>user_realworld</code> and <code>internet_proxy</code> weigh the same.</td>
         <td>Open.</td></tr>
       <tr><td class="id">D6</td><td>How is XL0-v3 compared with XL0-v2?</td>
-        <td>(a) As ML-5 D22: one blind paired session on the 70 test positives (71 with the HEIC, if it lands in test) with an exact McNemar test, plus the
+        <td>(a) As ML-5 D22: one blind paired session on the 71 test positives with an exact McNemar test, plus the
           empty-or-tiny rate on the 153 test negatives, overall and per batch. (b) Negatives only, with XL0-v3's
           positives judged unpaired.</td>
         <td>Open.</td></tr>
@@ -329,13 +337,18 @@
           and hold the HEIC outside the folder until it can be stripped. (c) Convert it to JPEG.</td>
         <td>(a) and (b), 2026-10-11: the JPEGs join now and the HEIC follows once the check is extended. Not (c):
           the HEIC is never converted.</td></tr>
+      <tr><td class="id">D11</td><td>Do the 2026-10-11 iPhone and OnePlus shots of one hopper form one group (R6)?</td>
+        <td>(a) Accept two groups, as ML-5 D13's rule gives. (b) Group them by hand: a committed list of photos that
+          form one group, which <code>seg_dataset.groups</code> reads, before the append. (c) Give a camera without an
+          offset a known one (here +05:00, which the iPhone and the Pixel recorded that morning), so that its shots share the UTC clock.</td>
+        <td>Open.</td></tr>
     </tbody>
   </table></div>
 
   <h2>8. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The three 2026-10-11 JPEGs are stripped, in DVC and on the remote, every object verified (D10 (b)).</span></li>
-    <li><span class="box"></span><span><code>coffeecv/strip_metadata.py</code> checks undecodable HEIF auxiliary images by their bytes, with tests; <code>IMG_7252.HEIC</code> is stripped, in the manifest, in DVC and on the remote (D10 (a)).</span></li>
+    <li><span class="box done"></span><span><code>coffeecv/strip_metadata.py</code> checks undecodable HEIF auxiliary images by their bytes, with tests; <code>IMG_7252.HEIC</code> is stripped, in the manifest, in DVC and on the remote (D10 (a)).</span></li>
     <li><span class="box"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, and the real-data tier is green.</span></li>
     <li><span class="box"></span><span>The new training and validation positives are labelled and the new test positive judged by the owner (D3); the labels are DVC-tracked.</span></li>
     <li><span class="box"></span><span>XL0-v3 is fine-tuned as a DVC stage beside <code>xl0_v1</code> and <code>xl0_v2</code>, and its test masks are stored.</span></li>
@@ -369,6 +382,13 @@
       remote. The HEIC failed the strip's pixel check (10-bit auxiliary images), and the owner decided D10. A
       <code>seg_dataset build</code> was run and reverted: it would have settled D1 as (a). &sect;2 and &sect;3.4
       counts updated to the build of 2026-10-11.</div>
+    <div><div class="when">2026-10-11</div>D10 (a) done. <code>coffeecv.strip_metadata</code> compares an
+      auxiliary image pillow-heif cannot decode by its stored bytes: coded data, properties and dimg tiles
+      (<code>aae6258</code>). A test forces the fallback on the HEIC fixture, and a real-data test runs the iPhone
+      HEIC with a planted byte change in its thumbnail and in one style-map tile; all 10 strip tests pass. The HEIC
+      was stripped in place (15 GPS and 57 Apple maker-note tags; the HEIF thumbnail item stays, as decided
+      2026-10-05) and added to DVC (136 files); all 137 objects were found on the remote. A new in-memory build
+      gives 869 photos and shows R6; D11 added.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
