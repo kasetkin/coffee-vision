@@ -1,7 +1,7 @@
 """coffeecv.strip_metadata (ticket ML-3, D13): private tags go, pixels and every other tag stay, and a photo
 that fails any check keeps its original bytes. Plain unittest, on JPEG and HEIC fixtures written to a
 temp dir (Orientation 6, an sRGB ICC profile, GPS, an artist and a serial number), plus one real Pixel DNG
-when the DVC data is present.
+and one real iPhone 16 HEIC when the DVC data is present.
 
     python -m unittest discover -s tests -p 'test_strip_metadata.py'
 
@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import numpy as np
@@ -28,6 +29,8 @@ from tests._tiers import real_data
 
 HAVE_EXIFTOOL = shutil.which("exiftool") is not None
 DNG = REPO_ROOT / "dataset/2026-07-24__first_pictures/dng/PXL_20260724_114105353.RAW-02.ORIGINAL.dng"
+# ML-6 D10: two of its auxiliary images are 10-bit, which pillow-heif cannot decode.
+IPHONE16 = REPO_ROOT / "dataset/segmenter_positives/IMG_7252.HEIC"
 PRIVATE = ["-GPSLatitude=48.1", "-GPSLatitudeRef=N", "-GPSLongitude=11.5", "-GPSLongitudeRef=E",
            "-Artist=Someone", "-SerialNumber=SN123", "-ExifIFD:DateTimeOriginal=2026:10:05 10:00:00"]
 
@@ -42,6 +45,15 @@ def write_fixture(path: Path) -> Path:
     im.save(path, exif=exif.tobytes(), icc_profile=icc, quality=90)
     subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE, str(path)], check=True)
     return path
+
+
+def flip_coded_byte(path: Path, item_id: int) -> None:
+    """Change one bit in the middle of a HEIF item's coded data, stored in the file (iloc method 0)."""
+    method, _, [(off, length), *_] = sm._heif_meta(path.read_bytes())["extents"][item_id]
+    assert method == 0, method
+    b = bytearray(path.read_bytes())
+    b[off + length // 2] ^= 1
+    path.write_bytes(bytes(b))
 
 
 @unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")
@@ -114,6 +126,53 @@ class TestStrip(unittest.TestCase):
         self.assertEqual(row["problems"], [])
         self.assertTrue(row["removed"])
         self.assertEqual(sm.sha256_file(path), sha)
+
+    def test_undecodable_aux_image_compared_by_stored_bytes(self):
+        """An auxiliary image pillow-heif cannot decode (ML-6 D10) counts by its stored bytes: the strip
+        passes, and a changed byte in its coded data changes the digest. The fixture has no auxiliary image,
+        so its primary item stands in for one."""
+        path = write_fixture(self.tmp / "a.heic")
+        primary = sm._heif_meta(path.read_bytes())["primary"]
+
+        class Undecodable:
+            def __init__(self, img):
+                self._img, self.info = img, {**img.info, "aux": {"urn:test:aux": [primary]}}
+
+            def __array__(self, dtype=None, copy=None):
+                return np.asarray(self._img)
+
+            def get_aux_image(self, aux_id):
+                raise NotImplementedError("Only 8-bit AUX images are currently supported. Got 10-bit image.")
+
+        heif = SimpleNamespace(open_heif=lambda *a, **k: [Undecodable(i) for i in pillow_heif.open_heif(*a, **k)])
+        with mock.patch.object(sm, "pillow_heif", heif), \
+                mock.patch.object(sm, "heif_stored_digest", wraps=sm.heif_stored_digest) as stored_digest:
+            row = sm.strip_one(path, dry_run=True)
+        self.assertEqual(row["problems"], [])
+        self.assertIn("EXIF:GPS:GPSLatitude", row["removed"].split())
+        self.assertTrue(stored_digest.called)
+        stored = sm.heif_stored_digest(path, primary)
+        flip_coded_byte(path, primary)
+        self.assertNotEqual(sm.heif_stored_digest(path, primary), stored)
+
+    @real_data
+    @unittest.skipUnless(IPHONE16.exists(), "the 2026-10-11 iPhone HEIC is not present (dvc pull)")
+    def test_iphone16_heic(self):
+        """An iPhone 16 Pro Max HEIC with two 10-bit auxiliary images (Apple's style delta map, a grid of 30
+        tiles, and its linear thumbnail) loses GPS and its maker notes with every image unchanged; a changed
+        byte in the thumbnail, or in one tile of the style map, fails the check."""
+        path = self.tmp / IPHONE16.name
+        shutil.copyfile(IPHONE16, path)
+        subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE[:5], str(path)], check=True)
+        row = sm.strip_one(path, dry_run=True)
+        self.assertIn("EXIF:GPS:GPSLatitude", row["removed"].split())
+        self.assertEqual(row["problems"], [])
+        meta = sm._heif_meta(path.read_bytes())
+        for item in (97, meta["dimg"][83][5]):
+            planted = self.tmp / f"planted_{item}.heic"
+            shutil.copyfile(path, planted)
+            flip_coded_byte(planted, item)
+            self.assertNotEqual(sm.pixel_digest(planted), row["pixel_sha256"], item)
 
     @real_data
     @unittest.skipUnless(DNG.exists(), "the 2026-07-24 DNGs are not present (dvc pull)")

@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 132 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 136 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -28,6 +28,19 @@ The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by M
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-11: 4 grinder-hopper photos
+
+- **New photos** (batch `2026-10-11`): `IMG_20261011_095933.jpg` and `IMG_20261011_095935.jpg` (OnePlus KB2005)
+  and `PXL_20261011_042719013.jpg` (Pixel 9 Pro), roasted beans in a grinder hopper on a kitchen counter; and
+  `IMG_7252.HEIC` (iPhone 16 Pro Max, a camera new to the folder), the same beans close up. None is
+  a byte copy of another photo under `dataset/`. The owner's file name `IMG_20261011_095933 (1).jpg` was renamed
+  before any record named it. Not yet in the segmenter dataset (`labels/ml5/seg_dataset.yaml`; ticket ML-6, D1).
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
+- **`IMG_7252.HEIC` joined a commit later.** Two of its auxiliary images (Apple's style delta map and linear
+  thumbnail) are 10-bit, which pillow-heif cannot decode, so the strip's pixel check could not run. It was held
+  outside the folder until `coffeecv.strip_metadata` compared such images by their stored bytes (ticket ML-6,
+  D10). It was never converted.
 
 ## 2026-10-10: 4 Pixel photos
 
