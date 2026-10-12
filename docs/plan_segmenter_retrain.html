@@ -14,7 +14,7 @@
     a remote machine (D9, owner 2026-10-12).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-12, rewritten the same day for D12; Q1, Q3&ndash;Q5 answered (ticket D13&ndash;D16), Q2 open, ticket D1&ndash;D8 and D11 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-12, rewritten the same day for D12; Q1&ndash;Q5 answered (ticket D3, D13&ndash;D16); every ticket decision taken except D7 (deferred to P7); not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_retrain.html"><code>ticket_segmenter_retrain.html</code></a> (ML-6)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -40,14 +40,14 @@
         <code>PXL_20261012_*</code> grinder-hopper photos were byte copies of <code>random_date_raccoon</code> pool
         photos. With them in, the pool top-up became 10 photos. It drew
         <code>2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174902324.jpg</code>, whose 120 s chain joins
-        two listed groups in different splits, and <code>assign</code> refused (ML-5 D11). Without the two
+        two listed split units in different splits, and <code>assign</code> refused (ML-5 D11). Without the two
         positives, the build gives the ticket's 869 photos. On 2026-10-12 the owner had them removed from
         <code>dataset/segmenter_positives</code>. Their pool copies stay in <code>random_date_raccoon</code>, and
         the build still gives 869 with those copies present. The draw can hit this again on any later append.
         Q3.</li>
       <li><b>D3 (a) needs code.</b> <code>seg_review label</code> shows every training and validation positive of
         the dataset file and has no way to start from another session's verdicts. P3 adds a carry-over. Whether the
-        4 pass-2 drops carry over as drops is Q2.</li>
+        4 pass-2 drops carry over is Q2: they do not (ticket D3).</li>
       <li><b>Growing the dataset file makes <code>seg_ml5_predict@xl0_v1</code> and <code>@xl0_v2</code>
         stale.</b> Both list <code>labels/ml5/seg_dataset.yaml</code> as a dep, and the test split grows from 107
         to 224 photos. P1 reruns both. Their 107 existing masks should come back byte-identical, which also checks
@@ -81,13 +81,13 @@
     <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
     <tbody>
       <tr><td class="id">P1</td><td>Append the 2026-10-10 and 2026-10-11 photos; rerun v1 and v2 test predictions</td><td>this host</td><td>no: listed entries and the 107 old test masks unchanged, checked byte for byte</td></tr>
-      <tr><td class="id">P2</td><td>XL0-v2 on the new negatives (only under D2 (a)) <span class="pill sm open">stop</span></td><td>this host, owner</td><td>no: measures the shipped model</td></tr>
+      <tr><td class="id">P2</td><td>XL0-v2 on the new training and validation negatives; train or not <span class="pill sm open">stop</span></td><td>this host, owner</td><td>no: measures the shipped model</td></tr>
       <tr><td class="id">P3</td><td>Pass-3 carry-over in <code>seg_review label</code></td><td>this host</td><td>no: tooling, tested</td></tr>
       <tr><td class="id">P4</td><td>Pass-3 labels <span class="pill sm open">stop</span></td><td>this host, owner</td><td>no: new labels only</td></tr>
       <tr><td class="id">P5</td><td>On-the-fly Albumentations in <code>seg_finetune</code>; the view cache retired (D12)</td><td>this host</td><td>no: code, tests and a toy-scale run; v1 and v2 frozen as trained</td></tr>
       <tr><td class="id">P6</td><td>XL0-v3: fine-tune, test masks</td><td>this host</td><td>yes: a new decoder</td></tr>
       <tr><td class="id">P7</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>this host, owner</td><td>yes: test verdicts, maybe a new tiny-mask threshold (D7)</td></tr>
-      <tr><td class="id">P8</td><td>Follow-through per D7 and D8 <span class="pill sm open">stop</span></td><td>this host, owner</td><td>yes, under D8 (a): re-crop and classifier</td></tr>
+      <tr><td class="id">P8</td><td>Probe refit (D18); under XL0-v3, re-crop and classifier (D8) <span class="pill sm open">stop</span></td><td>this host, owner</td><td>yes: the probe; under XL0-v3 also crops and classifier</td></tr>
     </tbody>
   </table></div>
 
@@ -111,10 +111,9 @@
           <code>segmenter_positives/PXL_20260806_151019702.jpg</code>, <code>PXL_20260806_151042773.jpg</code>,
           <code>PXL_20261003_061204827.jpg</code> and <code>PXL_20261006_064901464.jpg</code>. Do these 4 stay out
           of pass 3, or does the owner see them once more, with XL0-v2's mask as the proposal?</td>
-        <td><span class="pill sm open">Open</span> They stay out. Pass 2 already gave each three rounds with points,
-          and XL0-v2 never trained on them, so its proposal has no reason to be better. Showing them again costs 4
-          more judgements.</td><td>P3</td></tr>
-      <tr><td class="id">Q3</td><td>The pool draw can pick a photo that joins listed groups in two splits, and then
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: show them again (against the
+          recommendation to leave them out). Ticket D3. Pass 3 shows 15 photos: the 11 new and these 4.</td><td>P3</td></tr>
+      <tr><td class="id">Q3</td><td>The pool draw can pick a photo that joins listed split units in two splits, and then
           the build refuses (finding 3). Does <code>seg_dataset</code> get a rule that skips such a photo and draws
           the next one?</td>
         <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: as recommended. Ticket D14. Not in ML-6. This append does not hit it, and a new rule in an
@@ -151,20 +150,23 @@
   <h2>3. P1 &mdash; Append the photos; rerun the test predictions</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">D1, D11; the data in the tree committed (the 2026-10-12 <code>random_date_raccoon</code> photos)</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1 (a) and D11 (b) decided; the 2026-10-12 pool photos committed (<code>7a11b0b</code>)</span></span></div>
   </div>
   <p>The dataset file gains the 2026-10-10 and 2026-10-11 photos, and nothing listed changes (ML-5 D11). Under D1
     (a), it gains 459 photos, for 869 in total. The build is run from a committed data state, because a run's
     commit must hold its data version (<code>docs/agents/experiments.md</code>).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>If D11 is (b) or (c): first change <code>seg_dataset.groups</code> or
-      <code>shot_time</code>, test-first, with a test showing the 2026-10-11 hopper as one group. A build of
-      today's file must stay unchanged.</span></li>
-    <li><span class="box"></span><span>If D1 is (b) or (c): the scan keeps only the chosen negatives. Under (b),
-      those are the manifest's <code>dev</code> rows. Test-first as well.</span></li>
+    <li><span class="box"></span><span>D11 (b), test-first: <code>labels/ml5/split_units.yaml</code> lists sets of
+      photos the owner ties together, and <code>seg_dataset.groups</code> unions each set. Its first entry is the
+      three 2026-10-11 hopper shots (<code>IMG_7252.HEIC</code>, <code>IMG_20261011_095933.jpg</code>,
+      <code>IMG_20261011_095935.jpg</code>). A path the data does not have is refused. A build of today's file
+      stays unchanged, and a test shows the three in one split unit.</span></li>
+    <li><span class="box"></span><span>D1 (a): <code>dataset/ood_negatives/README.md</code> says the
+      <code>user_realworld</code> holdout no longer means "unseen by every model": the segmenter dataset ignores it
+      (ticket D1, ML-5 D16).</span></li>
     <li><span class="box"></span><span><code>python -m coffeecv.seg_dataset build</code>, then
       <code>seg_dataset counts</code>. The git diff of <code>labels/ml5/seg_dataset.yaml</code> holds only added
-      entries. The counts match the ticket's &sect;3.4 for the decided D1, or the ticket is corrected.</span></li>
+      entries. The counts match the ticket's &sect;3.4 (D11 (b) moves no count), and all three hopper shots are in train.</span></li>
     <li><span class="box"></span><span><code>dvc repro -s seg_ml5_predict@xl0_v1 seg_ml5_predict@xl0_v2</code> at
       the pinned 4 threads (224 test photos each). The 107 masks each model already had come back
       byte-identical.</span></li>
@@ -177,47 +179,48 @@
 
   <h2>4. P2 &mdash; XL0-v2 on the new negatives <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started; skipped under D2 (b)</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, D2</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>seg_predict xl0_v2 --split train</code> and <code>--split validation</code>
       at 4 threads, into <code>analysis/ml6_p2_baseline/</code>. The test split is already done in P1.</span></li>
-    <li><span class="box"></span><span>Report: empty and empty-or-tiny rates on the 443 new negatives, per split and
-      per batch and tag, at the serving threshold (0.040223) and the selection one (0.083), and a contact sheet of
-      the masked ones.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: train XL0-v3, or stop here with XL0-v2.</span></li>
+    <li><span class="box"></span><span>Report on the about 331 new training and validation negatives only (D2):
+      empty and empty-or-tiny rates per split, at the serving threshold (0.040223) and the selection one (0.083),
+      and a contact sheet of the masked ones. The new test negatives are not looked at; they wait for P7.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: train XL0-v3, or keep XL0-v2. No fixed bar (D2). If
+      XL0-v2 stays, P3&ndash;P7 are skipped and P8 refits the probe only (D18).</span></li>
   </ol>
 
   <h2>5. P3 &mdash; Pass-3 carry-over in <code>seg_review label</code></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">D3, Q2</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D3 decided</span></span></div>
   </div>
-  <p>Under D3 (a), a new session starts from an earlier one. A photo listed there with the same sha256 keeps its
-    verdict and mask. The page shows only the rest. Under D3 (b), this phase is dropped and P4 runs
-    <code>label</code> as pass 2 did.</p>
+  <p>Under D3 (a), a new session starts from an earlier one. A photo the earlier session accepted, with the same
+    sha256, keeps its verdict and mask. Its drops are not carried. The page shows the rest: the new photos and the
+    earlier drops.</p>
   <ol class="tasks">
     <li><span class="box"></span><span>Test-first: <code>label --carry &lt;session&gt;</code> copies each carried
       photo's final verdict and mask into the new session. A verdict row is marked <code>carried_from</code>, and
-      the mask sha256 is unchanged. Drops are carried or not per Q2. The session file records the carry, and a
+      the mask sha256 is unchanged. Drops are not carried (D3). The session file records the carry, and a
       resume with another one is refused. <code>status</code> reports carried and new labels apart.</span></li>
     <li><span class="box"></span><span>Encodings for the redraw model are prepared only for the photos the page
-      will show: 11 under D1 (a), not about 210.</span></li>
-    <li><span class="box"></span><span>Checks: a smoke run on fixtures with a carried accept, a carried drop and a
-      new photo; <code>labels.csv</code> of a carried session equals the source session's on the carried rows.</span></li>
+      will show: 15, not about 210.</span></li>
+    <li><span class="box"></span><span>Checks: a smoke run on fixtures with a carried accept, an earlier drop shown
+      again and a new photo; <code>labels.csv</code> of a carried session equals the source session's on the carried rows.</span></li>
   </ol>
 
   <h2>6. P4 &mdash; Pass-3 labels <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P3; P2 under D2 (a)</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2 (the owner's go), P3</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2
       --carry pass2</code>, through <code>multi3</code> (D3 (a)), served from this host.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: judge the 11 new training and validation positives (D1 (a):
-      5 segmenter positives and 6 pool photos), with points on declines.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge 15 training and validation positives, with points on
+      declines: the 11 new (5 segmenter positives and 6 pool photos) and pass 2's 4 drops (D3).</span></li>
     <li><span class="box"></span><span><code>status --session pass3</code>: accepted by round, drops and why, per
       source, carried against new. Then <code>dvc add data/ml5_labels/pass3</code>, commit the verdicts, push by
       target and verify on the remote.</span></li>
@@ -226,7 +229,7 @@
   <h2>7. P5 &mdash; On-the-fly Albumentations in <code>seg_finetune</code></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">D12, D16 (decided); D5 if (b)</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D12, D16, D19 decided; D5 (a) needs no code</span></span></div>
   </div>
   <p>The fine-tune stops reading an embedding cache. At the start of a run it loads every training photo and label
     once, verifies each photo's sha256 against the session's <code>labels.csv</code>, and resizes it to the
@@ -257,9 +260,7 @@
       <code>@pass2</code>, <code>seg_ml5_finetune@xl0_v1</code> and <code>@xl0_v2</code> become
       <code>frozen: true</code>, as ML-2's stages are. A comment names the last commit with the cache code. The
       <code>seg_ml5_predict</code> stages stay live.</span></li>
-    <li><span class="box"></span><span>If D5 is (b): the score's negative term becomes the mean of the per-batch
-      empty-or-tiny shares, each batch read from the dataset file by path. Test-first.</span></li>
-    <li><span class="box"></span><span>ADR for D12, in <code>/domain-modeling</code>'s format: segmenter fine-tunes
+    <li><span class="box"></span><span>ADR for D12 (D19), in <code>/domain-modeling</code>'s format: segmenter fine-tunes
       augment on the fly through <code>albumentations</code> and store no augmented data. It binds later
       fine-tunes, and the ticket's D12 links it.</span></li>
     <li><span class="box"></span><span>Delete <code>data/seg_cache_ml5/pass1</code> and <code>pass2</code>
@@ -275,17 +276,17 @@
   <h2>8. P6 &mdash; XL0-v3</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P5, D4; D15 (decided)</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P5 <span class="tag">D4, D5, D15 decided</span></span></div>
   </div>
   <p>Runs on this host, not a remote machine (D9). Expected time: about 7 h at 8 threads (Q4), for 40 epochs of 42
     steps, with the test predictions on top. There is no cache step.</p>
   <ol class="tasks">
     <li><span class="box"></span><span><code>dvc.yaml</code>: <code>xl0_v3</code> in <code>seg_ml5_finetune</code>
-      (labels <code>pass3</code>, seed 123 unless D4 says otherwise, threads per Q4). Its deps: the session's labels,
+      (labels <code>pass3</code>, seed 123, 8 threads; D4, D15). Its deps: the session's labels,
       the dataset file and the photo folders it reads, in place of the cache. Add <code>xl0_v3</code> to
       <code>seg_ml5_predict</code>. Diff <code>seg_ft</code>, <code>seg_prompt</code> and
       <code>seg_mask_select</code> key by key against <code>models/seg/xl0_v2.json</code>. Only
-      <code>augment</code>, and whatever D4 names, may differ.</span></li>
+      <code>augment</code> (and <code>views</code>, which it replaces) may differ (D4).</span></li>
     <li><span class="box"></span><span>Commit the stages, then run <code>dvc repro -s seg_ml5_finetune@xl0_v3
       seg_ml5_predict@xl0_v3</code> as a background command with a log. Check early that the log prints pass 3's role
       counts and the pipeline, and that the first epoch's time matches the estimate.</span></li>
@@ -299,7 +300,7 @@
   <h2>9. P7 &mdash; Paired comparison and the choice <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P6, D6</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6 <span class="tag">D6 decided</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Test-first: <code>paired-report</code> gives each model's test-negative rates
@@ -308,28 +309,35 @@
       data/seg_masks_ml5/xl0_v2 data/seg_masks_ml5/xl0_v3</code> on the 71 test positives (D6 (a)), served from
       this host.</span></li>
     <li><span class="box"></span><span><code>paired-report</code> into <code>analysis/ml6_p7_paired/</code>: both
-      pass, v2 only, v3 only, both fail, exact McNemar p, and the negatives per batch. Under D7 (a), add
-      <code>--chosen</code>. The report says that v3 differs from v2 in its data and its augmentation, so it names
+      pass, v2 only, v3 only, both fail, exact McNemar p, and the negatives per batch. If the owner then re-derives
+      the threshold (D7), <code>--chosen</code> gives it. The report says that v3 differs from v2 in its data and its augmentation, so it names
       the better model and not the cause (R8).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: XL0-v2 or XL0-v3, and the threshold under D7.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: XL0-v2 or XL0-v3, and D7 (re-derive the tiny-mask
+      threshold or keep it), deferred to here.</span></li>
   </ol>
 
   <h2>10. P8 &mdash; Follow-through <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P7, D7, D8</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7, or P2 if the owner keeps XL0-v2 there <span class="tag">D8, D18 decided; D7 from P7</span></span></div>
   </div>
-  <p>If XL0-v2 stays, this phase only records the outcome. If XL0-v3 is chosen under D8 (a), it repeats ML-5 P11
-    on this host: about 2 h for the re-crop and 31&ndash;39 min a seed.</p>
+  <p>The probe is refit on the new negatives whichever segmenter is chosen (D18). If XL0-v2 stays, that is the
+    whole phase: the shipped classifier keeps its crops. If XL0-v3 is chosen (D8 (a)), the phase repeats ML-5 P11
+    on this host first: about 2 h for the re-crop and 31&ndash;39 min a seed.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_decoder</code> with its sha256, and
+    <li><span class="box"></span><span>XL0-v2 stays: <code>fit_ood_probe</code> on the shipped checkpoint with the
+      enlarged training and validation negatives, then <code>ood_eval</code> on the test split, reported against
+      ML-5 P11's probe (41/41 negatives caught, 0/66 positives refused), overall and per batch.</span></li>
+    <li><span class="box"></span><span>XL0-v3 chosen: <code>params.yaml</code>: <code>seg_decoder</code> with its sha256, and
       <code>seg_min_area_frac</code> under D7 (a). Then <code>dvc repro -s</code> each <code>segcrop</code> and
       <code>merge_segcam_*</code> stage; a plain <code>dvc repro</code> is never run.</span></li>
-    <li><span class="box"></span><span>Classifier seeds 42/123/7 through <code>coffeecv.fit_frozen_head</code> as
-      a recorded run; refit the probe on the new training and validation negatives; report against
-      exp264&ndash;266 per <code>docs/agents/experiments.md</code>.</span></li>
+    <li><span class="box"></span><span>XL0-v3 chosen: classifier seeds 42/123/7 through
+      <code>coffeecv.fit_frozen_head</code> as a recorded run; fit the probe on the new training and validation
+      negatives and measure it as above; report against exp264&ndash;266 per
+      <code>docs/agents/experiments.md</code>.</span></li>
     <li><span class="box"></span><span>Push every ML-6 output by target and verify on the remote.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: ship or not. A release is a separate deploy step.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: ship or not (the refit probe, and under XL0-v3 the new
+      segmenter and classifier). A release is a separate deploy step.</span></li>
   </ol>
 
   <h2>11. Verification</h2>
@@ -364,6 +372,11 @@
     <div><div class="when">2026-10-12</div>The owner answers Q1 (delete the caches), Q3 (as recommended), Q4 (8
       threads) and Q5 (as recommended), recorded as ticket D13&ndash;D16. Q2 is reworded with the 4 photos it is
       about, and stays open. Not implemented.</div>
+    <div><div class="when">2026-10-12</div>The ticket's open decisions are settled in a grilling session (ticket
+      D1&ndash;D6, D8, D11, D17&ndash;D19; D7 deferred to P7). Q2 answered: pass 2's drops are shown again. P1
+      gains <code>split_units.yaml</code> and the README note; P2 measures training and validation negatives only
+      and ends at the owner's go; P3 and P4 show 15 photos; the D5 (b) task is dropped; P8 refits the probe under
+      either outcome. "Split unit" replaces "group" in this plan's text (D17). Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
