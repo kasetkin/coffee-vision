@@ -13,6 +13,14 @@ every training and validation negative (never shown, D14), and each positive's e
 stored once, so that a redraw reruns only the decoder (D19). The proposer and the redraw model are arguments
 (pass 1: ft_s123 and pretrained L0, D19), recorded in the session file; a resume with other models is refused.
 
+A session can start from an earlier one (ticket ML-6 D3 (a)):
+
+    python -m coffeecv.seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2 --carry pass2
+
+Every photo pass2 accepted, with the same sha256, keeps its verdicts and masks, copied into pass3 and marked
+`carried_from`; the page shows only the rest (pass2's drops and the photos new since), and only they are
+encoded. `status` counts carried labels apart.
+
 On the page: A accepts the mask; D (or 1-5, with a reason) declines it. After a decline, hold g and left-click
 for an include point (green), r and left-click for an exclude point (red); U or Backspace undoes the last
 point; Enter redraws: the redraw model draws the whole-image box plus every point so far through the multi3
@@ -198,13 +206,18 @@ class SegDrawer:
 
 class LabelSession:
     """A labelling session's photos, masks and verdicts. `entries` are the dataset file's photos; the session
-    covers its training and validation ones. `models` ({"proposer": name, "redraw": name}) is written to the
-    session file on first use and must match it after."""
+    covers its training and validation ones. `models` ({"proposer": name, "redraw": name}, optionally "carry":
+    an earlier session) is written to the session file on first use and must match it after.
+
+    A carried session (ML-6 D3 (a)) starts from the earlier one: `prepare` copies each photo it accepted, with
+    the same sha256, into this session, every round's mask, index row and verdict as they were, the verdicts
+    marked `carried_from`. Its drops and the photos new to it are the ones the page shows (`shown`)."""
 
     def __init__(self, name: str, entries: list[dict], models: dict | None, labels_dir: Path = LABELS_DIR,
                  mask_root: Path = MASK_ROOT):
         """`models` None reads them from the session file (a session already started)."""
         self.name = name
+        self.entries, self.labels_dir, self.mask_root = entries, labels_dir, mask_root
         mine = [{**e, "id": photo_id(e["path"])} for e in entries if e["split"] in LABEL_SPLITS]
         self.items = [e for e in mine if e["source"] != "negative"]
         self.negatives = [e for e in mine if e["source"] == "negative"]
@@ -215,8 +228,11 @@ class LabelSession:
             if not self.meta_path.exists():
                 raise ValueError(f"no session {name}: {rel(self.meta_path)} does not exist")
             models = json.loads(self.meta_path.read_text())
+        self.carry = models.get("carry")
+        if self.carry == name:
+            raise ValueError(f"session {name} cannot carry itself")
         meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
-                "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS)}
+                "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS), "carry": self.carry}
         if self.meta_path.exists():
             old = json.loads(self.meta_path.read_text())
             diff = [k for k in meta if old.get(k) != meta[k]]
@@ -244,14 +260,19 @@ class LabelSession:
     def _put(self, k: int, item: dict, mask: np.ndarray, iou: float, inc: list, exc: list, info: dict,
              output: str) -> None:
         _save_mask(mask, self.mask_path(item, k))
-        index = dict(self._idx(k))
-        index[item["id"]] = {
+        self._put_row(k, {
             "id": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "mask_sha256": mask_sha256(mask),
             "height": mask.shape[0], "width": mask.shape[1], "area_frac": f"{mask.mean():.4f}",
             "pred_iou": f"{iou:.4f}", "include": json.dumps(inc), "exclude": json.dumps(exc), "model": info["model"],
             "output": output, "threads": torch.get_num_threads(), "weights_sha256": info["weights_sha256"],
-            "decoder_sha256": info["decoder_sha256"]}
+            "decoder_sha256": info["decoder_sha256"]})
+
+    def _put_row(self, k: int, row: dict) -> None:
+        """Round k's index.csv with `row` in place of its photo's."""
+        index = dict(self._idx(k))
+        index[row["id"]] = row
         f = self.mask_dir / f"r{k}" / "index.csv"
+        f.parent.mkdir(parents=True, exist_ok=True)
         with open(f, "w", newline="") as out:
             wr = csv.DictWriter(out, fieldnames=INDEX_FIELDS)
             wr.writeheader()
@@ -312,11 +333,49 @@ class LabelSession:
         self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT)
         return self.state(item)
 
+    # a carried session
+    def carried(self) -> set[str]:
+        """The ids whose verdicts were carried from the earlier session."""
+        return {r["item"] for r in _read_jsonl(self.verdicts_path) if r.get("carried_from")}
+
+    def shown(self) -> list[dict]:
+        """The positives the page shows: all of them, less the carried ones."""
+        carried = self.carried()
+        return [it for it in self.items if it["id"] not in carried]
+
+    def carry_in(self, log: Callable[[str], None] = lambda s: None) -> None:
+        """Copy what the earlier session accepted (same id and photo sha256): each round's mask and index row,
+        then its verdicts, marked carried_from. Its drops and pending photos are not carried. Resumable."""
+        src = LabelSession(self.carry, self.entries, None, self.labels_dir, self.mask_root)
+        verdicts, done = src.verdicts(), self.carried()
+        n = 0
+        for it in self.items:
+            st = src.state(it, verdicts)
+            if it["id"] in done or st.status != "accepted":
+                continue
+            rows = [src.row(it, k) for k in range(1, st.round + 1)]
+            if any(r["photo_sha256"] != it["sha256"] for r in rows):
+                continue
+            for k, r in enumerate(rows, 1):
+                self.mask_path(it, k).parent.mkdir(parents=True, exist_ok=True)
+                self.mask_path(it, k).write_bytes(src.mask_path(it, k).read_bytes())
+                self._put_row(k, dict(r))
+            self.verdicts_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.verdicts_path, "a") as f:
+                for k in range(1, st.round + 1):
+                    f.write(json.dumps({**verdicts[(it["id"], k)], "carried_from": self.carry}) + "\n")
+            n += 1
+        if n:
+            log(f"  carried {n} accepted labels from {self.carry}")
+
     # before the session
     def prepare(self, proposer, redrawer, log: Callable[[str], None] = lambda s: None) -> None:
-        """Round-1 masks by `proposer`, encodings by `redrawer`, the negatives' empty labels; resumable."""
+        """The carried labels (`carry_in`), then round-1 masks by `proposer` and encodings by `redrawer` of the
+        photos `shown`, and the negatives' empty labels; resumable."""
+        if self.carry:
+            self.carry_in(log)
         out_neg = self.mask_dir / "neg"
-        todo = [it for it in self.items if it["id"] not in self._idx(1) or redrawer.needs(it)]
+        todo = [it for it in self.shown() if it["id"] not in self._idx(1) or redrawer.needs(it)]
         negs = [e for e in self.negatives if not (out_neg / f"{e['id']}.png").exists()]
         t0 = time.perf_counter()
         for n, it in enumerate(todo, 1):
@@ -439,11 +498,12 @@ def _image_routes(app: Flask, shown: Callable[..., tuple[np.ndarray, np.ndarray]
 # ---------------------------------------------------------------- labelling mode
 
 def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str = "owner") -> Flask:
-    """The labelling page over `session`'s positives; `redrawer` draws every redraw (SegDrawer in use)."""
+    """The labelling page over `session`'s positives, less those carried; `redrawer` draws every redraw
+    (SegDrawer in use)."""
     app = _app()
     photos = _Photos()
     lock = threading.Lock()
-    items = session.items
+    items = session.shown()
 
     def get(i: int) -> dict:
         if not 0 <= i < len(items):
@@ -746,16 +806,20 @@ def print_paired_report(rep: dict) -> None:
             print(f"  under {' and '.join(which)}: {path}")
 
 
-def report(rows: list[dict]) -> dict:
-    """P7's report: accepted by round, dropped and why, per source."""
+def report(rows: list[dict], carried: set[str] = frozenset()) -> dict:
+    """P7's report: accepted by round, dropped and why, per source. Labels `carried` (ids, ML-6 D3 (a)) count
+    apart: as carried_r<k> per source and in `carried`, not in accepted_by_round, which counts this session's."""
     pos = [r for r in rows if r["status"] != "negative"]
-    by_round = Counter(int(r["round"]) for r in pos if r["status"] == "accepted")
+    new = [r for r in pos if r["id"] not in carried]
+    by_round = Counter(int(r["round"]) for r in new if r["status"] == "accepted")
     by_source: dict[str, Counter] = {}
     for r in pos:
+        kind = "carried" if r["id"] in carried else "accepted"
         by_source.setdefault(r["source"], Counter())[
-            f"accepted_r{r['round']}" if r["status"] == "accepted" else r["status"]] += 1
+            f"{kind}_r{r['round']}" if r["status"] == "accepted" else r["status"]] += 1
     return {"photos": len(pos), "negatives": len(rows) - len(pos),
             "status": dict(Counter(r["status"] for r in pos)),
+            "carried": len(pos) - len(new),
             "accepted_by_round": {f"r{k}": by_round.get(k, 0) for k in ROUNDS},
             "by_source": {s: dict(sorted(c.items())) for s, c in sorted(by_source.items())},
             "dropped": [{"path": r["path"], "source": r["source"], "reason": r["reason"]}
@@ -765,7 +829,9 @@ def report(rows: list[dict]) -> dict:
 def print_report(rep: dict) -> None:
     print(f"{rep['photos']} positives + {rep['negatives']} negatives (empty labels)")
     print(f"  status: {rep['status']}")
-    print(f"  accepted by round: {rep['accepted_by_round']}")
+    if rep["carried"]:
+        print(f"  carried from the earlier session: {rep['carried']}")
+    print(f"  accepted by round{' (not carried)' if rep['carried'] else ''}: {rep['accepted_by_round']}")
     for s, c in rep["by_source"].items():
         print(f"    {s:20s} {c}")
     for d in rep["dropped"]:
@@ -787,6 +853,8 @@ def main(argv: list[str] | None = None) -> None:
     lab = sub.add_parser("label", help="prepare and serve a labelling session")
     lab.add_argument("--proposer", required=True, help="round 1's segmenter (pass 1: ft_s123, D19)")
     lab.add_argument("--redraw", required=True, help="the segmenter that redraws from points (pass 1: pretrained_l0)")
+    lab.add_argument("--carry", default=None,
+                     help="an earlier session whose accepted labels this one keeps (ML-6 D3 (a)); default none")
     lab.add_argument("--prepare-only", action="store_true", help="prepare, then exit without serving")
     st = sub.add_parser("status", help="write the session's labels.csv and print the report")
     st.add_argument("--out", type=Path, help="also write the report as JSON")
@@ -809,7 +877,8 @@ def main(argv: list[str] | None = None) -> None:
     entries = load_seg_dataset()
     rule = RULE_FILE.read_text().strip()
     if args.command == "status":
-        rep = report(LabelSession(args.session, entries, None).write_labels())
+        session = LabelSession(args.session, entries, None)
+        rep = report(session.write_labels(), session.carried())
         print_report(rep)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -844,12 +913,16 @@ def main(argv: list[str] | None = None) -> None:
         create_paired_app(items, path, seed, rule, args.reviewer).run(host=args.host, port=args.port, threaded=True)
         return
     torch.set_num_threads(THREADS)
-    session = LabelSession(args.session, entries, {"proposer": args.proposer, "redraw": args.redraw})
+    session = LabelSession(args.session, entries, {"proposer": args.proposer, "redraw": args.redraw,
+                                                   "carry": args.carry})
     redrawer = SegDrawer(args.redraw)
     proposer = redrawer if args.proposer == args.redraw else SegDrawer(args.proposer)
     print(f"session {args.session}: {len(session.items)} positives, {len(session.negatives)} negatives; "
           f"proposer {args.proposer}, redraw {args.redraw} ({REDRAW_OUTPUT})", flush=True)
     session.prepare(proposer, redrawer, log=lambda s: print(s, flush=True))
+    if args.carry:
+        print(f"{len(session.shown())} positives to judge, {len(session.carried())} carried from {args.carry}",
+              flush=True)
     if args.prepare_only:
         return
     print(f"verdicts -> {rel(session.verdicts_path)}; masks -> {rel(session.mask_dir)}", flush=True)

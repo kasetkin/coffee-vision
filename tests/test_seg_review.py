@@ -90,7 +90,10 @@ class Progress(unittest.TestCase):
                          ("dropped", 3, "declined in round 3"))
 
 
-class LabelSession(unittest.TestCase):
+class SessionFixture(unittest.TestCase):
+    """Six synthetic photos (three training and validation positives, a training negative, two test photos), a
+    session pass1 over them, prepared, and the page's helpers."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -133,6 +136,8 @@ class LabelSession(unittest.TestCase):
     def verdict_rows(self):
         return [json.loads(line) for line in (self.labels_dir / "pass1.verdicts.jsonl").read_text().splitlines()]
 
+
+class LabelSession(SessionFixture):
     def test_only_training_and_validation_positives_are_shown_negatives_get_empty_labels(self):
         c = self.client()
         self.assertEqual(self.info(c, 0)["n"], 3)
@@ -240,6 +245,87 @@ class LabelSession(unittest.TestCase):
     def test_a_resume_with_other_models_is_refused(self):
         with self.assertRaisesRegex(ValueError, "redraw"):
             self.open(redraw="pretrained_xl0")
+
+
+class CarriedSession(SessionFixture):
+    """Ticket ML-6 D3 (a), plan P3: a session that starts from an earlier one. pass1 accepts p0 in round 1 and p1
+    in round 2 and drops p2; pass2 carries pass1 and adds a new photo, p6."""
+
+    def setUp(self):
+        super().setUp()
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "accept"})
+        self.post(c, "/decide/1", {"decision": "decline"})
+        self.post(c, "/redraw/1", {"include": [[0.5, 0.5]], "exclude": []})
+        self.post(c, "/decide/1", {"decision": "accept"})
+        for k in range(3):
+            self.post(c, "/decide/2", {"decision": "decline", "reason": "beans missed"})
+            if k < 2:
+                self.post(c, "/redraw/2", {"include": [[0.3, 0.3 + 0.1 * k]], "exclude": []})
+        self.pass1_labels = {r["id"]: r for r in self.session.write_labels()}
+        f = Path(self.tmp.name) / "dataset" / "segmenter_positive" / "p6.png"
+        Image.fromarray(np.full((H, W, 3), 250, np.uint8)).save(f)
+        self.entries.append({"path": str(f), "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+                             "source": "segmenter_positive", "split": "train", "group": str(f)})
+        self.proposer2, self.redrawer2 = FakeDrawer("prop2"), FakeDrawer("redraw2")
+        self.carried = self.open_pass2()
+        self.carried.prepare(self.proposer2, self.redrawer2)
+
+    def open_pass2(self, carry="pass1"):
+        return seg_review.LabelSession("pass2", self.entries, {"proposer": "prop2", "redraw": "redraw2",
+                                                               "carry": carry}, self.labels_dir, self.mask_root)
+
+    def test_an_accepted_photo_keeps_its_round_and_mask_marked_carried(self):
+        for i, k in (("segmenter_positive__p0", 1), ("pool__p1", 2)):
+            item = next(it for it in self.carried.items if it["id"] == i)
+            self.assertEqual(self.carried.state(item), ("accepted", k, None))
+            self.assertEqual(self.carried.row(item, k)["mask_sha256"], self.pass1_labels[i]["mask_sha256"])
+        rows = [json.loads(x) for x in (self.labels_dir / "pass2.verdicts.jsonl").read_text().splitlines()]
+        self.assertEqual({(r["item"], r["round"], r["decision"], r["carried_from"]) for r in rows},
+                         {("segmenter_positive__p0", 1, "accept", "pass1"), ("pool__p1", 1, "decline", "pass1"),
+                          ("pool__p1", 2, "accept", "pass1")})
+
+    def test_the_page_shows_the_earlier_drop_and_the_new_photo_with_the_new_proposal(self):
+        c = seg_review.create_label_app(self.open_pass2(), self.redrawer2, "rule").test_client()
+        shown = [self.info(c, i) for i in range(2)]
+        self.assertEqual([(s["item"], s["status"], s["round"], s["model"]) for s in shown],
+                         [("internet_positive__p2", "judge", 1, "prop2"), ("segmenter_positive__p6", "judge", 1, "prop2")])
+        self.assertEqual(shown[0]["n"], 2)
+        self.assertEqual(c.get("/item/2").status_code, 404)
+        self.assertEqual(self.redrawer2.prepared, ["internet_positive__p2", "segmenter_positive__p6"])
+
+    def test_labels_of_the_carried_photos_equal_the_earlier_sessions_but_for_where_the_mask_is(self):
+        rows = {r["id"]: r for r in self.carried.write_labels()}
+        for i in ("segmenter_positive__p0", "pool__p1"):
+            mine, theirs = rows[i], self.pass1_labels[i]
+            self.assertEqual({k: v for k, v in mine.items() if k != "mask"},
+                             {k: v for k, v in theirs.items() if k != "mask"})
+            self.assertIn("/pass2/", mine["mask"])
+            self.assertEqual(Path(mine["mask"]).read_bytes(), Path(theirs["mask"]).read_bytes())
+        self.assertEqual((rows["internet_positive__p2"]["status"], rows["segmenter_positive__p6"]["status"]),
+                         ("pending", "pending"))
+
+    def test_a_second_prepare_carries_nothing_twice(self):
+        before = (self.labels_dir / "pass2.verdicts.jsonl").read_text()
+        self.open_pass2().prepare(self.proposer2, self.redrawer2)
+        self.assertEqual((self.labels_dir / "pass2.verdicts.jsonl").read_text(), before)
+
+    def test_the_session_file_records_the_carry_and_a_resume_with_another_is_refused(self):
+        meta = json.loads((self.labels_dir / "pass2.session.json").read_text())
+        self.assertEqual(meta["carry"], "pass1")
+        for other in (None, "pass0"):
+            with self.subTest(carry=other), self.assertRaisesRegex(ValueError, "carry"):
+                self.open_pass2(carry=other)
+        resumed = seg_review.LabelSession("pass2", self.entries, None, self.labels_dir, self.mask_root)
+        self.assertEqual(resumed.carry, "pass1")
+
+    def test_the_report_counts_carried_and_new_labels_apart(self):
+        c = seg_review.create_label_app(self.open_pass2(), self.redrawer2, "rule").test_client()
+        self.post(c, "/decide/1", {"decision": "accept"})                  # the new photo, p6
+        rep = seg_review.report(self.carried.write_labels(), self.carried.carried())
+        self.assertEqual(rep["by_source"], {"internet_positive": {"pending": 1}, "pool": {"carried_r2": 1},
+                                            "segmenter_positive": {"accepted_r1": 1, "carried_r1": 1}})
+        self.assertEqual((rep["carried"], rep["accepted_by_round"]), (2, {"r1": 1, "r2": 0, "r3": 0}))
 
 
 class SessionMasksStayOutOfGit(unittest.TestCase):
