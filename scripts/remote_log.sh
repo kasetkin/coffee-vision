@@ -6,11 +6,11 @@
 # multi-hundred-KB line per epoch, unreadable and unwieldy to hand off).
 # Companion to remote_launch.sh/remote_wait.sh/remote_watch.sh.
 #
-# Usage: scripts/remote_log.sh [ssh_host] [remote_log] [local_out]
+# Usage: scripts/remote_log.sh <ssh_host> [remote_log] [local_out]
 #   local_out: if given, also write the rendered log there (still prints to stdout)
 set -uo pipefail
 
-HOST="${1:-powervpsssh}"
+HOST="${1:?usage: remote_log.sh <ssh_host> ...: no default host since the VM (powervpsssh) was retired}"
 LOG="${2:-~/sweep.log}"
 OUT="${3:-}"
 

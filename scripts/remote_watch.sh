@@ -6,10 +6,10 @@
 # replays the log from the start on first connect, then only new lines on any
 # reconnect, so a network blip doesn't re-emit history.
 #
-# Usage: scripts/remote_watch.sh [ssh_host] [remote_log] [grep_pattern]
+# Usage: scripts/remote_watch.sh <ssh_host> [remote_log] [grep_pattern]
 set -uo pipefail
 
-HOST="${1:-powervpsssh}"
+HOST="${1:?usage: remote_watch.sh <ssh_host> ...: no default host since the VM (powervpsssh) was retired}"
 LOG="${2:-~/sweep.log}"
 PATTERN="${3:-^===|^epoch|finished in|Archived to|SWEEP_DONE_EXIT|Traceback|Error|FAILED|Killed|OOM|SystemExit|[Rr]efusing}"
 

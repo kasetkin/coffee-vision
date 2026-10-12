@@ -10,9 +10,9 @@
 #
 # Runs locally and drives the VM over SSH. <git-ref> must resolve to a commit on origin/main. <model> is
 # a name under models/ (e.g. allrigs_dino3b16_seg_country_s123). Environment (defaults in brackets):
-#   HOST [powervpsssh]  APP_ROOT [/opt/coffee-cv]  APP_USER [alioth, the deploy user]
+#   HOST [webappremote]  APP_USER [the deploy user: HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
-#   DEPLOY_SKIP_CHECK [unset; 1 skips the full test suite, as the local rehearsal does]
+#   PUBLIC_PORT [12346, nginx's TLS port]  DEPLOY_SKIP_CHECK [unset; 1 skips the full test suite]
 #
 # Safe while a training sweep runs (plan §5): every step that runs code on the VM is a transient
 # systemd unit that can write only /opt/coffee-cv, capped at 1 CPU (smoke: 2) and 3 GB with no swap;
@@ -24,15 +24,16 @@ set -euo pipefail
 usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 # ---------------------------------------------------------------------------------------------- config
-HOST=${HOST:-powervpsssh}
+HOST=${HOST:-webappremote}
 APP_ROOT=${APP_ROOT:-/opt/coffee-cv}
-APP_USER=${APP_USER:-alioth}
+APP_USER=${APP_USER:-$(ssh -G "$HOST" 2>/dev/null | awk '$1 == "user" { print $2 }')}
 SERVICE_USER=${SERVICE_USER:-coffee-cv}
 DOMAIN=${DOMAIN:-}
 LOG_ROOT=${LOG_ROOT:-/var/log/coffee-cv}
 # Where the public checks go; the local rehearsal sets it empty to skip them (there is no nginx there).
 PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
-PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN}}
+PUBLIC_PORT=${PUBLIC_PORT:-12346}
+PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN:$PUBLIC_PORT}}
 # Prefix for /etc and /run -- empty on the VM; a scratch directory in the local rehearsal.
 SYSTEM_ROOT=${SYSTEM_ROOT:-}
 PORT=${PORT:-8000}
@@ -381,7 +382,8 @@ render_production() {   # installs the unit and nginx site from $SHA if they cha
   local unit site out
   unit=$(render "$SHA" webapp/deploy/coffee-cv-web.service.template SERVICE_USER="$SERVICE_USER" \
            RELEASE_DIR="$APP_ROOT/current" PORT="$PORT" LOG_DIR="$LOG_ROOT")
-  site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template DOMAIN="$DOMAIN" APP_ROOT="$APP_ROOT")
+  site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template DOMAIN="$DOMAIN" APP_ROOT="$APP_ROOT" \
+              PUBLIC_PORT="$PUBLIC_PORT")
   out=$(vm '
     UNIT_F="$SYSTEM_ROOT/etc/systemd/system/coffee-cv-web.service"
     SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"

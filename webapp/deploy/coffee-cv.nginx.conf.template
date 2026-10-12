@@ -1,6 +1,6 @@
-# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN and $APP_ROOT (and nothing
-# else -- every other $ here is nginx's own) and installs the result as
-# /etc/nginx/conf.d/coffee-cv.conf on the VM -- this template stays domain-generic
+# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN, $APP_ROOT and $PUBLIC_PORT (and
+# nothing else -- every other $ here is nginx's own) and installs the result as
+# /etc/nginx/conf.d/coffee-cv.conf on the host -- this template stays domain-generic
 # so the real domain never enters git (see webapp/README.md).
 
 # Deliberately no $remote_addr (or any other client-IP variable) in this
@@ -22,17 +22,13 @@ log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status 
 # so the cap has to be combined, not per-route, to mean what it says.
 limit_conn_zone $server_name zone=coffee_cv_inflight:1m;
 
+# One public port, TLS only: the host's router forwards just this port, so there is no port-80
+# redirect server. A plain-http request to it (nginx's 497) is redirected to https on the same port.
 server {
-    listen 80;
-    listen [::]:80;
+    listen $PUBLIC_PORT ssl;
+    listen [::]:$PUBLIC_PORT ssl;
     server_name $DOMAIN;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name $DOMAIN;
+    error_page 497 =301 https://$host:$server_port$request_uri;
 
     # domain.cert.pem is Porkbun's naming and already contains the full chain
     # (leaf + intermediates concatenated) -- no separate fullchain build step.

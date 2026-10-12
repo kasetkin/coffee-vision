@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prerequisites for the coffee-cv web service on a fresh Ubuntu 24.04 box: nginx, the TLS cert
-# directory, and the firewall. Nothing else.
+# directory, and the firewall rules (ufw itself is left disabled). Nothing else.
 #
 # Everything the service itself needs -- its system user, /opt/coffee-cv, uv, the log directory, and
 # every rendered file (systemd unit, nginx site, logrotate) -- belongs to scripts/deploy_webapp.sh
@@ -41,11 +41,16 @@ done
 # Ubuntu's default site (sites-enabled/default) is left alone -- harmless, and
 # touching it is one more thing that can go wrong for no benefit.
 
-echo "== 3. firewall (SSH allowed before enabling, so this can't lock you out) =="
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw --force enable
+echo "== 3. firewall rules (ufw is not enabled) =="
+# The rules only: enabling ufw is off for now (owner, 2026-10-12), because the host also runs other
+# services whose ports these rules don't cover. An inactive ufw records the rules and filters nothing,
+# so a later `ufw enable` starts with SSH and the site already allowed.
+if command -v ufw >/dev/null; then
+  ufw allow 22/tcp
+  ufw allow "${PUBLIC_PORT:-12346}"/tcp   # nginx's TLS port, scripts/deploy_webapp.sh's PUBLIC_PORT
+else
+  echo "   ufw is not installed: no rules recorded"
+fi
 
 systemctl enable nginx
 

@@ -58,7 +58,7 @@ class TextFindings(unittest.TestCase):
         self.assertEqual(found, [(2, "GitHub token", "ghp_a1..."), (3, "password in URL", "://uma...")])
 
     def test_ssh_and_dvc_urls_pass(self):
-        self.assertEqual(kinds("url = ssh://alioth@powervpsssh/home/alioth/dvc-store\nhttps://coffee.kasetkin.com/"), [])
+        self.assertEqual(kinds("url = ssh://sun@dvcnewremote/home/sun/dvc-store\nhttps://coffee.kasetkin.com/"), [])
 
     def test_private_patterns(self):
         private = [lc.re.compile(rb"secret-street", lc.re.IGNORECASE)]

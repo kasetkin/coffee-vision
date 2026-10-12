@@ -16,14 +16,14 @@
 # with && -- a failing step stops the chain (mirrors run_all_rigs.py exiting
 # non-zero on failure) and reports as SWEEP_DONE_EXIT=<its exit code>.
 #
-# Usage: scripts/remote_launch.sh <payload> [ssh_host] [remote_workdir] [remote_venv] [remote_log] [remote_status]
+# Usage: scripts/remote_launch.sh <payload> <ssh_host> [remote_workdir] [remote_venv] [remote_log] [remote_status]
 # Example:
 #   scripts/remote_launch.sh \
 #     'python -m coffeecv.run_all_rigs --seeds 42 123 7 --mixstyle-p 0.5 --freeze-mode none --eta-min 1e-5 --scheduler cosine --start-exp 255'
 set -uo pipefail
 
-PAYLOAD="${1:?usage: remote_launch.sh <payload> [ssh_host] [remote_workdir] [remote_venv] [remote_log] [remote_status]}"
-HOST="${2:-powervpsssh}"
+PAYLOAD="${1:?usage: remote_launch.sh <payload> <ssh_host> [remote_workdir] [remote_venv] [remote_log] [remote_status]}"
+HOST="${2:?usage: remote_launch.sh <payload> <ssh_host> ...: no default host since the VM (powervpsssh) was retired}"
 WORKDIR="${3:-~/coffee-vision}"
 VENV="${4:-~/coffee-vision-venv}"
 LOG="${5:-~/sweep.log}"

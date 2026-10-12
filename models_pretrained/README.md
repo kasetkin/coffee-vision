@@ -18,9 +18,9 @@ python models_pretrained/verify.py     # what you have, and what is missing or w
 - **You, on another machine:** `dvc pull` once the weights are DVC-tracked. They live in the
   private DVC remote, so this needs nothing from Meta a second time.
   Until then, rsync this folder from a machine that has it and run `verify.py` on the receiving
-  side -- done for `powervpsssh:~/coffee-vision/models_pretrained/` on 2026-09-24 (all 5 files
-  sha256 OK there).
-- **The web service** never reads this folder on the VM: `scripts/deploy_webapp.sh` copies the one
+  side -- done for the VM (`powervpsssh`, retired 2026-10-12) on 2026-09-24 (all 5 files sha256
+  OK there).
+- **The web service** never reads this folder on its host: `scripts/deploy_webapp.sh` copies the one
   backbone a model needs into each release under `/opt/coffee-cv`, from the deploying machine's copy,
   refusing it unless its sha256 matches `manifest.json`.
 - **Anyone else:** DINOv3 cannot be redistributed from a public repo (licence §1b-i), so a copy

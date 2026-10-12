@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Makes ~/.ssh a symlink to /workspace/.private_ssh/ (gitignored, in the workspace bind mount), so the SSH
-# config (the VM's host alias), its keys and known_hosts survive a container rebuild; ~/.ssh itself is
+# config (the DVC remote's host alias), its keys and known_hosts survive a container rebuild; ~/.ssh itself is
 # inside the container and does not. Runs on container create (postCreateCommand); safe to re-run.
 #
 # Container setup creates a real ~/.ssh before this runs, holding a known_hosts that lacks the entries
