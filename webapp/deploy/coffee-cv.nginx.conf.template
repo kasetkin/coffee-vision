@@ -22,13 +22,13 @@ log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status 
 # so the cap has to be combined, not per-route, to mean what it says.
 limit_conn_zone $server_name zone=coffee_cv_inflight:1m;
 
-# One public port, TLS only: the host's router forwards just this port, so there is no port-80
-# redirect server. A plain-http request to it (nginx's 497) is redirected to https on the same port.
+# One port, TLS only, behind the proxy that serves the domain on 80/443 and forwards here: no port-80
+# server of our own. A plain-http request (nginx's 497) is redirected to the public https URL.
 server {
     listen $PUBLIC_PORT ssl;
     listen [::]:$PUBLIC_PORT ssl;
     server_name $DOMAIN;
-    error_page 497 =301 https://$host:$server_port$request_uri;
+    error_page 497 =301 https://$host$request_uri;
 
     # domain.cert.pem is Porkbun's naming and already contains the full chain
     # (leaf + intermediates concatenated) -- no separate fullchain build step.

@@ -9,7 +9,7 @@ running the thing that serves it.
 ## Architecture
 
 ```
-Browser --HTTPS :12346--> nginx (TLS termination, static file, rate limit)
+Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate limit)
                       |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html
                       |-- POST /preview    -> proxy_pass -> gunicorn (127.0.0.1:8000)
                       |                                     -> Flask app -> coffeecv.dataset.load_rgb_image
@@ -112,8 +112,8 @@ log's `top1_class` holds a country key. A rollback to an older release shows fol
 Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the host over SSH. Set
 `DOMAIN` to the public host name (it is never written into git). The host is the SSH alias
 `webappremote` (`HOST`; the deploy user `APP_USER` is its SSH user), since the VM `powervpsssh` was
-shut down for good on 2026-10-12. nginx serves TLS on one port, 12346 (`PUBLIC_PORT`), which the
-host's router forwards; the site is `https://<DOMAIN>:12346/`.
+shut down for good on 2026-10-12. nginx serves TLS on one port, 12346 (`PUBLIC_PORT`), behind a
+proxy that serves the domain on 80/443 and forwards to it; the site is `https://<DOMAIN>/`.
 
 ```
 scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
@@ -150,10 +150,12 @@ local DVC cache (`dvc fetch` at that commit); the release is built from that com
 
 ### Deploying while a sweep trains
 
-Allowed, up to and including the flip. Every step that runs code on the host (venv build, compileall,
-`--compare`, the smoke) is a transient systemd unit with `ProtectSystem=strict` and `ProtectHome=
-read-only`, writable only under `/opt/coffee-cv`, at `CPUQuota=100%` (smoke 200%), `MemoryMax=3G`,
-`MemorySwapMax=0` -- an overrun kills the deploy step, never the sweep. The deploy prints the sweep's
+Every step that runs code on the host (venv build, compileall, `--compare`, the smoke) is a transient
+systemd unit with `ProtectSystem=strict` and `ProtectHome=read-only`, writable only under
+`/opt/coffee-cv`, at `CPUQuota=$CAP_CPU` (smoke `$SMOKE_CPU`), `MemoryMax=$CAP_MEM`, `MemorySwapMax=0`.
+The defaults (400%, 400%, 7G) take the whole of `webappremote`, which trains nothing. On a host that
+also runs a sweep, deploy with `CAP_CPU=100% SMOKE_CPU=200% CAP_MEM=3G`, the old VM's caps: then an
+overrun kills the deploy step, never the sweep, and deploying is allowed up to and including the flip. The deploy prints the sweep's
 PIDs and log size before its first host step and after its last. Never during a sweep: `setup_server.sh`
 (apt, ufw), `remote_launch.sh` with default paths (it deletes `~/sweep.log`), git commands that move the
 host's checkout, reboots.
@@ -193,8 +195,8 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   nginx config template uses a placeholder everywhere the domain would
   appear. Worth noting privately (e.g. your own shell history) since it's not
   written anywhere in this repo.
-- **The DNS record.** Point your domain's A record at the public IP that reaches
-  the host (its router forwards port 12346) yourself -- not something a script
+- **The DNS record.** Point your domain's A record at the proxy that forwards to
+  the host's port 12346 yourself -- not something a script
   here can do for you.
 - **The TLS cert/key.** `setup_server.sh` creates `/etc/nginx/ssl/coffee-cv/`
   (root-owned, `700`) for you to place your Porkbun files into, using

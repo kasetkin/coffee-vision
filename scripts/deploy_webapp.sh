@@ -12,10 +12,11 @@
 # a name under models/ (e.g. allrigs_dino3b16_seg_country_s123). Environment (defaults in brackets):
 #   HOST [webappremote]  APP_USER [the deploy user: HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
-#   PUBLIC_PORT [12346, nginx's TLS port]  DEPLOY_SKIP_CHECK [unset; 1 skips the full test suite]
+#   PUBLIC_PORT [12346, nginx's TLS port, behind the proxy]  DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]
 #
-# Safe while a training sweep runs (plan §5): every step that runs code on the VM is a transient
-# systemd unit that can write only /opt/coffee-cv, capped at 1 CPU (smoke: 2) and 3 GB with no swap;
+# Every step that runs code on the host is a transient systemd unit that can write only /opt/coffee-cv,
+# capped at CAP_CPU and CAP_MEM with no swap (default: the whole 4-core, 7.5 GB webappremote; plan §5's
+# 1 CPU and 3 GB kept a training sweep on the old VM safe);
 # preflight refuses without 5 GB available memory and 10 GB free on /opt; the sweep's PIDs and log
 # size are printed before the first VM step and after the last. It never touches ~/coffee-vision*,
 # never runs apt, and starts the service only if it is already enabled.
@@ -33,13 +34,15 @@ LOG_ROOT=${LOG_ROOT:-/var/log/coffee-cv}
 # Where the public checks go; the local rehearsal sets it empty to skip them (there is no nginx there).
 PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
 PUBLIC_PORT=${PUBLIC_PORT:-12346}
-PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN:$PUBLIC_PORT}}
+# The public site is the proxy in front of the host (it forwards to $PUBLIC_PORT there), so no port.
+PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN}}
 # Prefix for /etc and /run -- empty on the VM; a scratch directory in the local rehearsal.
 SYSTEM_ROOT=${SYSTEM_ROOT:-}
 PORT=${PORT:-8000}
 SMOKE_PORT=${SMOKE_PORT:-8001}
-SMOKE_CPU=${SMOKE_CPU:-200%}
-CAP_MEM=${CAP_MEM:-3G}
+CAP_CPU=${CAP_CPU:-400%}
+SMOKE_CPU=${SMOKE_CPU:-400%}
+CAP_MEM=${CAP_MEM:-7G}
 MIN_MEM_GB=${MIN_MEM_GB:-5}
 MIN_FREE_GB=${MIN_FREE_GB:-10}
 LOCAL_PY=${LOCAL_PY:-python3}
@@ -107,7 +110,7 @@ vm() {
   local script=$1; shift
   local full="$PRELUDE"$'\n'"$script"
   local envs=(APP_ROOT="$APP_ROOT" APP_USER="$APP_USER" SERVICE_USER="$SERVICE_USER" LOG_ROOT="$LOG_ROOT"
-              SYSTEM_ROOT="$SYSTEM_ROOT" CAP_MEM="$CAP_MEM" UV_BIN="$UV_BIN" PY_VERSION="$PY_VERSION" "$@")
+              SYSTEM_ROOT="$SYSTEM_ROOT" CAP_CPU="$CAP_CPU" CAP_MEM="$CAP_MEM" UV_BIN="$UV_BIN" PY_VERSION="$PY_VERSION" "$@")
   if [[ "$HOST" == local ]]; then
     env "${envs[@]}" PATH="${STUB_PATH:+$STUB_PATH:}$PATH" bash -c "$full" vm </dev/null
   else
@@ -309,14 +312,14 @@ stage() {
       if (( ${#digest} == 32 )); then got=$(md5sum < "$R/$path" | cut -c1-32); else got=$(sha256sum < "$R/$path" | cut -c1-64); fi
       [[ "$got" == "$digest" ]] || { echo "$path arrived corrupt"; exit 1; }
     done <<<"$EXPECT"
-    echo "   venv: uv sync --locked (capped: 1 CPU, $CAP_MEM)"
-    capped 100% "$R" \
+    echo "   venv: uv sync --locked (capped: $CAP_CPU CPU, $CAP_MEM)"
+    capped "$CAP_CPU" "$R" \
       -E UV_CACHE_DIR="$APP_ROOT/uv-cache" -E UV_LINK_MODE=copy -E UV_PYTHON_DOWNLOADS=never \
       -E UV_PYTHON_INSTALL_DIR="$APP_ROOT/python" -E UV_PYTHON_PREFERENCE=only-managed \
       -E UV_PROJECT_ENVIRONMENT="$R/.venv" -E UV_NO_PROGRESS=1 \
       "$UV_BIN" sync --project webapp --locked --no-dev --compile-bytecode --python "$PY_VERSION" 2>&1 | tail -8 | sed "s/^/   /"
     # third_party/: the vendored segmenter, only in the release of a segmenter model (ticket ML-2).
-    capped 100% "$R" "$R/.venv/bin/python" -m compileall -q coffeecv webapp $([[ -d "$R/third_party" ]] && echo third_party)
+    capped "$CAP_CPU" "$R" "$R/.venv/bin/python" -m compileall -q coffeecv webapp $([[ -d "$R/third_party" ]] && echo third_party)
   ' ID="$ID" EXPECT="$expect" || die "building the venv failed"
   note "venv $((SECONDS - t0)) s"
 
@@ -555,7 +558,7 @@ prune() {
     for f in fixtures/expected/*.json; do
       [[ -d "releases/$(basename "$f" .json)" ]] || { rm -f "$f"; echo "   removed $f"; }
     done
-    capped 100% "$APP_ROOT" -E UV_CACHE_DIR="$APP_ROOT/uv-cache" "$UV_BIN" cache prune --quiet
+    capped "$CAP_CPU" "$APP_ROOT" -E UV_CACHE_DIR="$APP_ROOT/uv-cache" "$UV_BIN" cache prune --quiet
     echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"'
 }
 
@@ -564,12 +567,12 @@ compare() {   # compare <release id>: the staged code under the training venv vs
   preflight
   check_fixtures
   send_fixtures
-  say "Compare $id: training venv ($TRAIN_PY -B) vs release venv, $(fixtures compare | wc -l) photos (capped: 1 CPU)"
+  say "Compare $id: training venv ($TRAIN_PY -B) vs release venv, $(fixtures compare | wc -l) photos (capped: $CAP_CPU CPU)"
   local run='
     R="$APP_ROOT/releases/$ID"
     [[ -f "$R/.complete" ]] || { echo "$R is not a complete release"; exit 1; }
     ckpt=$(sed -n "s/^COFFEE_CV_CHECKPOINT=//p" "$R/release.env")
-    capped 100% "$R" -E COFFEE_CV_CHECKPOINT="$ckpt" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs \
+    capped "$CAP_CPU" "$R" -E COFFEE_CV_CHECKPOINT="$ckpt" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs \
       -E PYTHONDONTWRITEBYTECODE=1 -E OMP_NUM_THREADS=1 \
       "$PY" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.txt" \
         --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)'
