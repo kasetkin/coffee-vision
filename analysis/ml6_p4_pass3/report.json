@@ -1,0 +1,45 @@
+{
+  "photos": 213,
+  "negatives": 432,
+  "status": {
+    "accepted": 211,
+    "dropped": 2
+  },
+  "carried": 198,
+  "accepted_by_round": {
+    "r1": 12,
+    "r2": 1,
+    "r3": 0
+  },
+  "by_source": {
+    "internet_positive": {
+      "carried_r1": 2,
+      "carried_r2": 7
+    },
+    "pool": {
+      "accepted_r1": 6,
+      "carried_r1": 94,
+      "carried_r2": 2
+    },
+    "segmenter_positive": {
+      "accepted_r1": 6,
+      "accepted_r2": 1,
+      "carried_r1": 87,
+      "carried_r2": 5,
+      "carried_r3": 1,
+      "dropped": 2
+    }
+  },
+  "dropped": [
+    {
+      "path": "dataset/segmenter_positives/PXL_20261006_064901464.jpg",
+      "source": "segmenter_positive",
+      "reason": "declined in round 3"
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261010_041340477.jpg",
+      "source": "segmenter_positive",
+      "reason": "declined in round 3"
+    }
+  ]
+}

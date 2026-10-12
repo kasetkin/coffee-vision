@@ -232,15 +232,15 @@
 
   <h2>6. P4 &mdash; Pass-3 labels <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: pass 3 prepared and served; the owner judges</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-12: <code>faf2a10</code> and the labels commit; 211 accepted (198 carried, 13 new), 2 dropped; 280 objects verified on <code>dvcnewremote</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2 (the owner's go), P3</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2
+    <li><span class="box done"></span><span><code>seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2
       --carry pass2</code>, through <code>multi3</code> (D3 (a)), served from this host.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: judge 15 training and validation positives, with points on
+    <li><span class="box done"></span><span>Stop for the owner: judge 15 training and validation positives, with points on
       declines: the 11 new (5 segmenter positives and 6 pool photos) and pass 2's 4 drops (D3).</span></li>
-    <li><span class="box"></span><span><code>status --session pass3</code>: accepted by round, drops and why, per
+    <li><span class="box done"></span><span><code>status --session pass3</code>: accepted by round, drops and why, per
       source, carried against new. Then <code>dvc add data/ml5_labels/pass3</code>, commit the verdicts, push by
       target and verify on the remote.</span></li>
   </ol>
@@ -425,6 +425,12 @@
       Recorded: P1 also made <code>fit_ood_probe</code>'s bean exclusion read the split units, so a bean photo
       tied to a test photo stays out of the probe's fit (P8). P2's contact sheet shows all 328 non-empty masks,
       61 of them under serving's tiny threshold.</div>
+    <div><div class="when">2026-10-12</div>P4: the owner judged pass 3's 15 photos. 13 accepted (12 in round
+      1, 1 in round 2); 2 dropped in round 3, <code>PXL_20261006_064901464.jpg</code> (a pass-2 drop again) and the
+      new <code>PXL_20261010_041340477.jpg</code>. Three of pass 2's four drops are now labels. With the 198 carried:
+      211 accepted. XL0-v3 trains on 169 positives and 351 negatives and selects on 42 and 81 (XL0-v2: 157, 87,
+      41, 14). <code>data/ml5_labels/pass3</code> is in DVC, 280 objects verified on the remote. The page was served
+      by the owner with <code>--host 0.0.0.0</code> when localhost did not forward.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
