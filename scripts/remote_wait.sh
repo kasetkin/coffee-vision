@@ -6,10 +6,10 @@
 # from its SSH session (setsid/nohup) so a dropped connection here never
 # touches the training job itself.
 #
-# Usage: scripts/remote_wait.sh [ssh_host] [remote_status_file] [remote_log] [sentinel]
+# Usage: scripts/remote_wait.sh <ssh_host> [remote_status_file] [remote_log] [sentinel]
 set -uo pipefail
 
-HOST="${1:-powervpsssh}"
+HOST="${1:?usage: remote_wait.sh <ssh_host> ...: no default host since the VM (powervpsssh) was retired}"
 STATUS="${2:-~/sweep_status.log}"
 LOG="${3:-~/sweep.log}"
 SENTINEL="${4:-SWEEP_DONE_EXIT}"

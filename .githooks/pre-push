@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs scripts/check.sh (the fast tier) before a push to origin: scripts/deploy_webapp.sh deploys only
-# commits on origin/main, and runs the full tier itself. Pushes to other remotes (the VM, powervpsssh) are
+# commits on origin/main, and runs the full tier itself. Pushes to other remotes (a training machine) are
 # work-in-progress hand-offs and skip it.
 # Bypass once with `git push --no-verify`.
 #

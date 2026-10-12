@@ -1,4 +1,4 @@
 [core]
-    remote = powervpsssh
-['remote "powervpsssh"']
-    url = ssh://alioth@powervpsssh/home/alioth/dvc-store
+    remote = dvcnewremote
+['remote "dvcnewremote"']
+    url = ssh://sun@dvcnewremote/home/sun/dvc-store
