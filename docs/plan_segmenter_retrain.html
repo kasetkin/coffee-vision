@@ -152,14 +152,14 @@
           (b) Rerun them all: about 2 h of re-crop and 40 min of predictions for identical outputs. (c) Let
           <code>seg_predict</code> take <code>WEIGHTS:DECODER</code>: an edit to <code>seg_predict.py</code>, the same
           staleness.</td>
-        <td><span class="pill sm open">Open</span> (a), with one stage rerun first to show the outputs do not
-          change.</td><td>P6</td></tr>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "as recommended". Ticket D21. (a), with one
+          stage rerun first to show the outputs do not change.</td><td>P6</td></tr>
       <tr><td class="id">Q7</td><td>What does <code>seg_ml6_finetune@xl0_v3</code> depend on? (a) The pass-3 labels
           (whose <code>labels.csv</code> pins every photo's sha256, checked by the run), the code, the base weights and
           <code>seg_ft</code>, <code>seg_prompt</code>, <code>seg_mask_select</code>. (b) As the plan first said, also
           the dataset file and the photo folders.</td>
-        <td><span class="pill sm open">Open</span> (a): the photos are pinned either way, and (b) stales the stage
-          on every later append or capture.</td><td>P6</td></tr>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "as recommended". Ticket D22. (a): the
+          photos are pinned either way, and (b) stales the stage on every later append or capture.</td><td>P6</td></tr>
       <tr><td class="id">Q8</td><td>When does the XL0-v3 run start?</td>
         <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "when i tell you to start". Ticket D20.</td>
         <td>P6</td></tr>
@@ -294,8 +294,8 @@
 
   <h2>8. P6 &mdash; XL0-v3</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q6, Q7, the owner's word (D20) <span class="tag">P5 done; D4, D5, D15 decided</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: stages written; run started on the owner's word</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P4, P5 done; Q6, Q7 answered (D21, D22); the owner's word given (D20)</span></span></div>
   </div>
   <p>Runs on this host, not a remote machine (D9). Expected time: about 7 h at 8 threads (Q4), for 40 epochs of 42
     steps, with the test predictions on top. There is no cache step.</p>

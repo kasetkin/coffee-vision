@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D20 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); P6 waits on plan Q6, Q7 and the owner's word (D20)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D22 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 training (P6, D20&ndash;D22)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -436,7 +436,19 @@
           <a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>.</td></tr>
       <tr><td class="id">D20</td><td>When does the XL0-v3 fine-tune start? (plan Q8)</td>
         <td>(a) As soon as pass 3 has no pending photo. (b) On the owner's word.</td>
-        <td>(b), owner 2026-10-12: the 7&ndash;10 h run starts only when the owner says so (R7).</td></tr>
+        <td>(b), owner 2026-10-12: the 7&ndash;10 h run starts only when the owner says so (R7). Given the same
+          day, after pass 3.</td></tr>
+      <tr><td class="id">D21</td><td>How is XL0-v3 named to the prediction stage? (plan Q6)</td>
+        <td>(a) Add it to <code>segment_beans.NAMED_SEGMENTERS</code> and <code>dvc commit</code> the stages the edit
+          stales. (b) Rerun them (about 2 h 40 min, same outputs). (c) <code>seg_predict</code> takes
+          <code>WEIGHTS:DECODER</code>.</td>
+        <td>(a), owner 2026-10-12, with one stage rerun first to show the outputs do not change;
+          <code>segcrop@random_date_raccoon</code> stays stale until D8.</td></tr>
+      <tr><td class="id">D22</td><td>What does the XL0-v3 fine-tune stage depend on? (plan Q7)</td>
+        <td>(a) The pass-3 labels (which pin every photo's sha256), the code, the base weights and the params.
+          (b) Also the dataset file and the photo folders.</td>
+        <td>(a), owner 2026-10-12: the photos are pinned either way, and (b) would stale the stage on every
+          later append or capture.</td></tr>
     </tbody>
   </table></div>
 
@@ -538,6 +550,8 @@
     <div><div class="when">2026-10-12</div>Pass 3 labelled by the owner (D3): of the 15 photos shown, 13
       accepted and 2 dropped; three of pass 2's four drops are labels now. 211 accepted in all, DVC-tracked and on
       the remote. Report: <code>analysis/ml6_p4_pass3/report.json</code>.</div>
+    <div><div class="when">2026-10-12</div>The owner answers the plan's Q6 and Q7 as recommended (D21, D22)
+      and gives the word to start XL0-v3's run (D20).</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,

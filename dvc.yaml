@@ -70,6 +70,10 @@ stages:
   # the filled D4 crop and its bean mask, or the whole photo on a D18 fallback. The segmenter is params.yaml's
   # seg_* fields. Mask bits differ across CPUs and thread counts (P0), so this runs on the VM at a pinned 4
   # threads, like seg_predict. Since ticket ML-3 P2b these are the only crops training reads.
+  # Ticket ML-6 P6 (D21): segment_beans.py gained the xl0_v3 name (NAMED_SEGMENTERS), a change no stage's output
+  # depends on. seg_ml5_predict@xl0_v1 was rerun and came back byte-identical (225 of 225 files); every segcrop
+  # stage but random_date_raccoon (stale on its new photos until ML-6 D8) and seg_ml5_predict@xl0_v2 were then
+  # recorded with `dvc commit`, not re-run.
   segcrop:
     foreach:
       - 2026-08-07__box_pictures_all_classes
@@ -394,10 +398,38 @@ stages:
         - models/seg/${key}.json:
             cache: false
 
+  # Ticket ML-6 P6 (D4, D12, D15, D21, D22): XL0-v3, XL0-v2's recipe on the pass-3 labels, each sample augmented
+  # as it trains (seg_ft.augment, docs/adr/0018-segmenter-fine-tunes-augment-on-the-fly.md), at 8 threads. Its own
+  # stage because seg_ml5_finetune is frozen whole. Deps (D22): the labels, whose labels.csv pins every photo's
+  # sha256 (the run refuses a mismatch), not the photo folders or the dataset file, which change with every append.
+  seg_ml6_finetune:
+    foreach:
+      xl0_v3:
+        labels: pass3
+        seed: 123
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
   # Ticket ML-5 P8, P10 (D22): a fine-tuned segmenter's masks of every test photo, negatives included (their
   # empty-or-tiny rate), stored once at the pinned threads, for the blind paired session (seg_review paired).
+  # ML-6 P6: xl0_v3 named in segment_beans.NAMED_SEGMENTERS (D21).
   seg_ml5_predict:
-    foreach: [xl0_v1, xl0_v2]
+    foreach: [xl0_v1, xl0_v2, xl0_v3]
     do:
       cmd: python -m coffeecv.seg_predict ${item} --split test --threads 4
       deps:
