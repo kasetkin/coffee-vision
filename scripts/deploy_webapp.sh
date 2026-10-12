@@ -197,7 +197,7 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   # A complete release of this commit and model is reused, not rebuilt: the full deploy then flips the
   # very release that --stage-only smoked and --compare checked.
   REUSE=$(vm 'shopt -s nullglob
-    for d in "$APP_ROOT"/releases/*-"$SUFFIX"; do [[ -f "$d/.complete" ]] && basename "$d"; done | tail -1' \
+    for d in "$APP_ROOT"/releases/*-"$SUFFIX"; do if [[ -f "$d/.complete" ]]; then basename "$d"; fi; done | tail -1' \
     SUFFIX="${SHA:0:7}-$model")
   ID=${REUSE:-"$(date -u +%Y%m%dT%H%MZ)-${SHA:0:7}-$model"}
   STAGE="$SCRATCH/$ID"
@@ -282,10 +282,17 @@ stage() {
   cur=$(vm '[[ -e "$APP_ROOT/releases/$ID" ]] && { echo "EXISTS"; exit 0; }
             if [[ -e "$APP_ROOT/current" ]]; then readlink -f "$APP_ROOT/current"; fi' ID="$ID")
   [[ "$cur" != EXISTS ]] || die "$APP_ROOT/releases/$ID already exists (incomplete: it is pruned by the next full deploy)"
-  local t0=$SECONDS
-  # --copy-dest: files unchanged since the current release are copied on the VM, not sent again
-  # (a full copy, never a hard link -- each release stays independent).
-  to_vm -a --chmod=D755,F644 ${cur:+--copy-dest="$cur/"} "$STAGE/" "$APP_ROOT/releases/$ID/"
+  local t0=$SECONDS basis=() d
+  # --copy-dest: a file found unchanged in an existing release is copied on the host, not sent again
+  # (a full copy, never a hard link -- each release stays independent), and a changed one is sent as
+  # a delta against it. The current release first, then the newest others: an upload cut off by a
+  # dropped connection then costs only what it had not sent (rsync takes at most 20 such dirs).
+  if [[ -n "$cur" ]]; then basis+=(--copy-dest="$cur/"); fi
+  while read -r d; do
+    if [[ -n "$d" && "$d" != "$cur" && ${#basis[@]} -lt 20 ]]; then basis+=(--copy-dest="$d/"); fi
+  done < <(vm 'shopt -s nullglob
+    for d in "$APP_ROOT"/releases/*/; do echo "$(stat -c %Y "$d") ${d%/}"; done | sort -rn | cut -d" " -f2-')
+  to_vm -a --chmod=D755,F644 "${basis[@]}" "$STAGE/" "$APP_ROOT/releases/$ID/"
   note "rsync $((SECONDS - t0)) s"
 
   t0=$SECONDS
