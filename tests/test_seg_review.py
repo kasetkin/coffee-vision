@@ -500,7 +500,9 @@ class PairedSession(unittest.TestCase):
         self.assertEqual(verdicts[self.items[2]["item"]], {"xl0_v1": True, "xl0_v2": True})   # one verdict, both
         empty, tiny, big = np.zeros((10, 10), bool), np.zeros((10, 10), bool), np.ones((10, 10), bool)
         tiny[0, 0] = True                                                   # 1% of the photo, under 0.083
-        rep = seg_review.paired_report(self.items, verdicts, {"xl0_v1": [empty, tiny, big], "xl0_v2": [big]}, 0.083)
+        b1, b2 = "user_realworld / real_world_negatives", "2026-09__internet_proxy / empty_tray"
+        rep = seg_review.paired_report(self.items, verdicts, {"xl0_v1": [(b1, empty), (b1, tiny), (b2, big)],
+                                                              "xl0_v2": [(b2, big)]}, 0.083)
         g = rep["groups"]
         self.assertEqual((g["pool"]["n"], g["pool"]["xl0_v1 only"]), (1, 1))
         self.assertEqual((g["segmenter_positive"]["n"], g["segmenter_positive"]["xl0_v2 only"],   # internet joins
@@ -508,8 +510,14 @@ class PairedSession(unittest.TestCase):
         self.assertEqual({k: g["overall"][k] for k in ("both pass", "xl0_v1 only", "xl0_v2 only", "both fail")},
                          {"both pass": 1, "xl0_v1 only": 1, "xl0_v2 only": 1, "both fail": 0})
         self.assertEqual(g["overall"]["mcnemar_p"], 1.0)
-        self.assertEqual(rep["negatives"]["xl0_v1"], {"n": 3, "empty": 1, "empty_or_tiny": 2})
-        self.assertEqual(rep["negatives"]["xl0_v2"], {"n": 1, "empty": 0, "empty_or_tiny": 0})
+        self.assertEqual({k: rep["negatives"]["xl0_v1"][k] for k in ("n", "empty", "empty_or_tiny")},
+                         {"n": 3, "empty": 1, "empty_or_tiny": 2})
+        self.assertEqual({k: rep["negatives"]["xl0_v2"][k] for k in ("n", "empty", "empty_or_tiny")},
+                         {"n": 1, "empty": 0, "empty_or_tiny": 0})
+        # ML-6 P7 (R1, D6): each model's test negatives per batch and tag as well as overall
+        self.assertEqual(rep["negatives"]["xl0_v1"]["by_batch"],
+                         {b1: {"n": 2, "empty": 1, "empty_or_tiny": 2}, b2: {"n": 1, "empty": 0, "empty_or_tiny": 0}})
+        self.assertEqual(rep["negatives"]["xl0_v2"]["by_batch"], {b2: {"n": 1, "empty": 0, "empty_or_tiny": 0}})
         self.assertEqual(json.loads(json.dumps(rep))["negatives"], rep["negatives"])      # --out writes it
 
     def test_tiny_threshold_is_half_the_smallest_accepted_mask_of_the_chosen_model(self):

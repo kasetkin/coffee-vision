@@ -747,11 +747,12 @@ PAIRED_GROUPS = {"pool": "pool", "segmenter_positive": "segmenter_positive",
                  "internet_positive": "segmenter_positive"}    # D22: internet positives count with them
 
 
-def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]], neg_masks: dict[str, list[np.ndarray]],
-                  min_area_frac: float) -> dict:
+def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]],
+                  neg_masks: dict[str, list[tuple[str, np.ndarray]]], min_area_frac: float) -> dict:
     """D22: per source and overall, both pass / first only / second only / both fail, and the exact McNemar
     p-value on the discordant pairs; each model's empty and empty-or-tiny masks on the test negatives (the
-    D18 rule: no pixel, or an area under `min_area_frac`). Models in the items' order."""
+    D18 rule: no pixel, or an area under `min_area_frac`), overall and per "batch / tag" (ML-6 R1, D6):
+    `neg_masks` {model: [(batch / tag, mask)]}. Models in the items' order."""
     names = items[0]["names"]
     counts: dict[str, Counter] = {}
     for it in items:
@@ -768,10 +769,16 @@ def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]], neg_m
             "n": n, "both pass": c["both pass"], f"{names[0]} only": b, f"{names[1]} only": d,
             "both fail": c["both fail"], f"{names[0]} pass": c["both pass"] + b, f"{names[1]} pass": c["both pass"] + d,
             "mcnemar_p": mcnemar_exact(b, d)}
+    def rates(masks: list[np.ndarray]) -> dict:
+        return {"n": len(masks), "empty": sum(not m.any() for m in masks),
+                "empty_or_tiny": sum(bool(not m.any() or m.mean() < min_area_frac) for m in masks)}
+
     for name in names:
-        masks = neg_masks[name]
-        out["negatives"][name] = {"n": len(masks), "empty": sum(not m.any() for m in masks),
-                                  "empty_or_tiny": sum(bool(not m.any() or m.mean() < min_area_frac) for m in masks)}
+        by_batch: dict[str, list[np.ndarray]] = {}
+        for batch, m in neg_masks[name]:
+            by_batch.setdefault(batch, []).append(m)
+        out["negatives"][name] = {**rates([m for _, m in neg_masks[name]]),
+                                  "by_batch": {k: rates(v) for k, v in sorted(by_batch.items())}}
     return out
 
 
@@ -797,6 +804,8 @@ def print_paired_report(rep: dict) -> None:
     print(f"test negatives, empty / empty or tiny (area < {rep['min_area_frac']:g}):")
     for name, c in rep["negatives"].items():
         print(f"  {name:20s} {c['empty']}/{c['n']} empty, {c['empty_or_tiny']}/{c['n']} empty or tiny")
+        for batch, b in c["by_batch"].items():
+            print(f"    {batch:48s} {b['empty']}/{b['n']} empty, {b['empty_or_tiny']}/{b['n']} empty or tiny")
     if t := rep.get("tiny_threshold"):
         print(f"tiny-mask threshold (D21) from {t['model']}'s {t['from_n_accepted']} accepted test positives: "
               f"new {t['new']}, old {t['old']}; test positives under old {len(t['under_old'])}, "
@@ -890,8 +899,9 @@ def main(argv: list[str] | None = None) -> None:
         dirs = [d if d.is_absolute() else REPO_ROOT / d for d in args.masks]
         items = paired_items(entries, dirs)
         verdicts = paired_verdicts(items, LABELS_DIR / f"{args.session}.paired.jsonl", seed)
-        neg_masks = {d.name: [np.array(Image.open(d / f"{r['id']}.png")) > 0 for r in read_csv(d / "index.csv")
-                              if r.get("source") == "negative"] for d in dirs}
+        batch_of = {e["path"]: f"{e['batch']} / {e['tag']}" for e in entries if e["source"] == "negative"}
+        neg_masks = {d.name: [(batch_of[r["path"]], np.array(Image.open(d / f"{r['id']}.png")) > 0)
+                              for r in read_csv(d / "index.csv") if r.get("source") == "negative"] for d in dirs}
         rep = paired_report(items, verdicts, neg_masks, cfg.seg_min_area_frac)
         if args.chosen:
             k = items[0]["names"].index(args.chosen) if items and args.chosen in items[0]["names"] else None
