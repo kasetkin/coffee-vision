@@ -1806,8 +1806,8 @@ stages:
       size: 22977
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 5e01c7e274a743488ea180cec019af2d
-      size: 126800
+      md5: 9bc099f8211ac39586c9f5f74bf4e651
+      size: 260895
     - path: models/seg/xl0_v1.pt
       hash: md5
       md5: 61e97b25c29308f12b3d832dacab6e19
@@ -1828,9 +1828,9 @@ stages:
     outs:
     - path: data/seg_masks_ml5/xl0_v1
       hash: md5
-      md5: 225b5621f7581490495b27d16cd3582b.dir
-      size: 1044297
-      nfiles: 108
+      md5: 88a33a66c627135dd40c4f604870624f.dir
+      size: 4778022
+      nfiles: 225
   seg_ml5_cache@pass2:
     cmd: python -m coffeecv.seg_finetune cache --labels pass2 --threads 4
     deps:
@@ -1948,8 +1948,8 @@ stages:
       size: 22977
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 5e01c7e274a743488ea180cec019af2d
-      size: 126800
+      md5: 9bc099f8211ac39586c9f5f74bf4e651
+      size: 260895
     - path: models/seg/xl0_v2.pt
       hash: md5
       md5: 2a3110cf039139a797507a68ae849467
@@ -1970,6 +1970,6 @@ stages:
     outs:
     - path: data/seg_masks_ml5/xl0_v2
       hash: md5
-      md5: c87ed8e568183f381ae3fac1625bf674.dir
-      size: 912905
-      nfiles: 108
+      md5: 80802a51061bd86dc814fc997de19eab.dir
+      size: 6035039
+      nfiles: 225
