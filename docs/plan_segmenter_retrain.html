@@ -398,6 +398,14 @@
       328 of the 331 new training and validation negatives; 64 are empty or tiny at the serving threshold, 110 at
       the selection one (<code>analysis/ml6_p2_baseline/</code>). Full suite green. Waiting on the owner's go
       (P2).</div>
+    <div><div class="when">2026-10-12</div><code>/code-review</code> of P1&ndash;P5. Fixed: the rewrite is
+      checked against the original (<code>CODING_STANDARDS.md</code>): on 6 pass-2 photos (training, negative and
+      validation) the new path, unaugmented, gives the embedding of the 956362a cache's identity view to the bit,
+      and the same label and box; a transform that changes a photo's shape is refused; a session file from before
+      <code>carry</code> resumes (tested); the last commit with the cache code is named as <code>46ec14c</code>.
+      Recorded: P1 also made <code>fit_ood_probe</code>'s bean exclusion read the split units, so a bean photo
+      tied to a test photo stays out of the probe's fit (P8). P2's contact sheet shows all 328 non-empty masks,
+      61 of them under serving's tiny threshold.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,

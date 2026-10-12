@@ -209,6 +209,11 @@ class Stream(unittest.TestCase):
         self.assertTrue((label[192:] == ft.IGNORE).all())
         np.testing.assert_allclose(box[0].numpy(), ft.whole_box(300, 400))
 
+    def test_a_transform_that_changes_the_photos_shape_is_refused(self):
+        aug = ft.build_augment(one("Transpose"), seed=0)
+        with self.assertRaisesRegex(ValueError, "shape"):
+            self.data.sample(self.data.pos[0], aug)
+
     def test_one_seed_gives_one_stream_and_another_seed_another(self):
         a, b, c = self.stream(5), self.stream(5), self.stream(6)
         self.assertEqual(len(a), 2 * 3 * 2)                  # 2 epochs x 3 steps x (1 positive + 1 negative)

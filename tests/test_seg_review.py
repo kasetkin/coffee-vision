@@ -246,6 +246,13 @@ class LabelSession(SessionFixture):
         with self.assertRaisesRegex(ValueError, "redraw"):
             self.open(redraw="pretrained_xl0")
 
+    def test_a_session_file_from_before_carry_resumes_without_one(self):
+        meta = self.labels_dir / "pass1.session.json"
+        old = {k: v for k, v in json.loads(meta.read_text()).items() if k != "carry"}   # as pass1 and pass2 are
+        meta.write_text(json.dumps(old))
+        self.assertIsNone(self.open().carry)
+        self.assertIsNone(seg_review.LabelSession("pass1", self.entries, None, self.labels_dir, self.mask_root).carry)
+
 
 class CarriedSession(SessionFixture):
     """Ticket ML-6 D3 (a), plan P3: a session that starts from an earlier one. pass1 accepts p0 in round 1 and p1

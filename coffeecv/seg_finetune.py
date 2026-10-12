@@ -3,7 +3,7 @@ labels of a labelling session, with point prompts (D15); ticket ML-6 P5: augment
 stage:
 
     python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name xl0_v3 --threads 8
-                                                                          # seg_ml5_finetune@xl0_v3
+                                                        # XL0-v3's stage (ML-6 P6; seg_ml5_finetune is frozen)
 
 Labels come from data/ml5_labels/<session>/labels.csv (seg_review.py, the owner's verdicts): every accepted
 positive and every negative (an empty label, D14) of the training and validation splits. Dropped photos are left
@@ -17,7 +17,7 @@ out, a pending one stops the run, and a test photo never appears there (D4). Rol
 ML-2's fine-tune (labels/ml2 lists, data/seg_labels, its random 20% of negative groups held for selection) made
 models/seg/ft_s{42,123,7}.pt; its stages are frozen in dvc.yaml and the code that ran them is at a1e73e3. ML-5's
 fine-tunes xl0_v1 and xl0_v2 trained on an embedding cache of 4 dihedral views (seg_ml5_cache@pass1, @pass2); those
-stages are frozen too, and the code that ran them is at 956362a.
+stages are frozen too, and the code that ran them is at 46ec14c.
 
 Data (ML-6 D12, docs/adr/0018): nothing is cached, and nothing augmented is written. At the start of a run each
 training photo (train, neg_train) is checked against labels.csv's sha256, resized to the encoder's frame by
@@ -258,7 +258,11 @@ class TrainSet:
         box 1 x 4 in the prompt frame, the photo's own, which a spatial transform keeps)."""
         rgb, label, box = self.items[i]
         if aug is not None:
+            shape = rgb.shape
             rgb, label = aug(rgb, label)
+            if rgb.shape != shape or label.shape != shape[:2]:
+                raise ValueError(f"seg_ft.augment changed a photo's shape {shape} -> {rgb.shape}: the box and the "
+                                 "padding would no longer fit it")
         return rgb, pad_label(label, self.frame), torch.from_numpy(box)[None]
 
 

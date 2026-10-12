@@ -345,7 +345,7 @@ stages:
   # records its hash only. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
   # seg_mask_select (D23); the checkpoint chosen on the validation split only. The .json card is in git.
   # Frozen by ticket ML-6 P5 (D12, docs/adr/0018-segmenter-fine-tunes-augment-on-the-fly.md): fine-tunes now
-  # augment each sample as they train and cache nothing. 956362a is the last commit with the cache code that ran
+  # augment each sample as they train and cache nothing. 46ec14c is the last commit with the cache code that ran
   # these stages (seg_finetune cache, the dihedral views, the memory-mapped reader); XL0-v1 and v2 keep their
   # cards and test masks. The caches themselves were deleted after the freeze (ML-6 D13).
   seg_ml5_cache:
