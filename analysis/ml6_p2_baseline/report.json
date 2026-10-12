@@ -1,0 +1,1676 @@
+{
+  "ticket": "ML-6 P2 (D2 (a))",
+  "model": "xl0_v2",
+  "threads": 4,
+  "thresholds": {
+    "serving": 0.040223,
+    "selection": 0.083
+  },
+  "negatives": {
+    "batches": {
+      "user_realworld / real_world_negatives": 331
+    }
+  },
+  "rates": {
+    "train": {
+      "n": 264,
+      "empty": 3,
+      "empty_or_tiny_serving": 42,
+      "empty_or_tiny_selection": 78
+    },
+    "validation": {
+      "n": 67,
+      "empty": 0,
+      "empty_or_tiny_serving": 22,
+      "empty_or_tiny_selection": 32
+    },
+    "all": {
+      "n": 331,
+      "empty": 3,
+      "empty_or_tiny_serving": 64,
+      "empty_or_tiny_selection": 110
+    }
+  },
+  "masked": [
+    {
+      "path": "dataset/ood_negatives/user_realworld/20261010_120922.jpg",
+      "split": "train",
+      "area_frac": 0.9978
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240518_113351.jpg",
+      "split": "train",
+      "area_frac": 0.9918
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260414_111711.jpg",
+      "split": "train",
+      "area_frac": 0.9902
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_140953.jpg",
+      "split": "train",
+      "area_frac": 0.9778
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240324_191343.jpg",
+      "split": "train",
+      "area_frac": 0.9735
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250803_102101.jpg",
+      "split": "train",
+      "area_frac": 0.9534
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240518_113354.jpg",
+      "split": "train",
+      "area_frac": 0.9484
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_130716.jpg",
+      "split": "train",
+      "area_frac": 0.9348
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260309_111630.jpg",
+      "split": "train",
+      "area_frac": 0.9346
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230712_204823.jpg",
+      "split": "train",
+      "area_frac": 0.8904
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240127_154615.jpg",
+      "split": "train",
+      "area_frac": 0.8869
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_114700.jpg",
+      "split": "train",
+      "area_frac": 0.8652
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20261008_102634.jpg",
+      "split": "train",
+      "area_frac": 0.865
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260112_212709.jpg",
+      "split": "train",
+      "area_frac": 0.832
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240422_103307.jpg",
+      "split": "train",
+      "area_frac": 0.8207
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240324_191407.jpg",
+      "split": "train",
+      "area_frac": 0.8137
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251101_201539.jpg",
+      "split": "train",
+      "area_frac": 0.8105
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240508_211041.jpg",
+      "split": "train",
+      "area_frac": 0.8042
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_174227.jpg",
+      "split": "train",
+      "area_frac": 0.7986
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240422_103340.jpg",
+      "split": "train",
+      "area_frac": 0.7952
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250831_120003.jpg",
+      "split": "train",
+      "area_frac": 0.7873
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241114_110435.jpg",
+      "split": "train",
+      "area_frac": 0.7763
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251018_095047.jpg",
+      "split": "validation",
+      "area_frac": 0.7582
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_155452.jpg",
+      "split": "train",
+      "area_frac": 0.7117
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_135820.jpg",
+      "split": "train",
+      "area_frac": 0.6914
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250625_172031.jpg",
+      "split": "train",
+      "area_frac": 0.6866
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240328_110719.jpg",
+      "split": "train",
+      "area_frac": 0.6841
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250403_172517.jpg",
+      "split": "validation",
+      "area_frac": 0.6732
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_105439.jpg",
+      "split": "train",
+      "area_frac": 0.6663
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20261008_102636.jpg",
+      "split": "train",
+      "area_frac": 0.6615
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250411_152604.jpg",
+      "split": "train",
+      "area_frac": 0.6604
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231222_221526.jpg",
+      "split": "train",
+      "area_frac": 0.6553
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_135831.jpg",
+      "split": "train",
+      "area_frac": 0.6391
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231029_170340.jpg",
+      "split": "train",
+      "area_frac": 0.6256
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_164805.jpg",
+      "split": "train",
+      "area_frac": 0.6249
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250629_135245.jpg",
+      "split": "train",
+      "area_frac": 0.6124
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250829_134356.jpg",
+      "split": "train",
+      "area_frac": 0.6017
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240102_135222.jpg",
+      "split": "validation",
+      "area_frac": 0.5952
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260409_131559.jpg",
+      "split": "train",
+      "area_frac": 0.5741
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_155456.jpg",
+      "split": "train",
+      "area_frac": 0.5739
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250921_140130.jpg",
+      "split": "train",
+      "area_frac": 0.5736
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_135844.jpg",
+      "split": "train",
+      "area_frac": 0.5353
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240322_173148.jpg",
+      "split": "train",
+      "area_frac": 0.5297
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250803_102104.jpg",
+      "split": "train",
+      "area_frac": 0.5292
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250501_111531.jpg",
+      "split": "validation",
+      "area_frac": 0.5215
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240519_123050.jpg",
+      "split": "train",
+      "area_frac": 0.5201
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260118_130841.jpg",
+      "split": "train",
+      "area_frac": 0.5104
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240211_130129.jpg",
+      "split": "train",
+      "area_frac": 0.5093
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_160150.jpg",
+      "split": "train",
+      "area_frac": 0.5071
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240516_093231.jpg",
+      "split": "train",
+      "area_frac": 0.4996
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250626_173115.jpg",
+      "split": "validation",
+      "area_frac": 0.4965
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231015_141312.jpg",
+      "split": "train",
+      "area_frac": 0.4949
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250710_171836.jpg",
+      "split": "train",
+      "area_frac": 0.4792
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231015_162141.jpg",
+      "split": "train",
+      "area_frac": 0.4754
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251110_150741.jpg",
+      "split": "train",
+      "area_frac": 0.4729
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250614_130708.jpg",
+      "split": "train",
+      "area_frac": 0.4605
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_135944.jpg",
+      "split": "train",
+      "area_frac": 0.4562
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250427_132844.jpg",
+      "split": "train",
+      "area_frac": 0.4554
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241025_092928.jpg",
+      "split": "train",
+      "area_frac": 0.4502
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250626_173119.jpg",
+      "split": "validation",
+      "area_frac": 0.4472
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260413_163228.jpg",
+      "split": "train",
+      "area_frac": 0.4416
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240815_134933.jpg",
+      "split": "train",
+      "area_frac": 0.4337
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_135837.jpg",
+      "split": "train",
+      "area_frac": 0.4307
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240219_173136.jpg",
+      "split": "validation",
+      "area_frac": 0.4296
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_105941.jpg",
+      "split": "train",
+      "area_frac": 0.4289
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260414_112602.jpg",
+      "split": "train",
+      "area_frac": 0.4271
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230712_204810.jpg",
+      "split": "train",
+      "area_frac": 0.4265
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250626_173122.jpg",
+      "split": "validation",
+      "area_frac": 0.4261
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260316_133220.jpg",
+      "split": "train",
+      "area_frac": 0.4248
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_172629.jpg",
+      "split": "train",
+      "area_frac": 0.4217
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240120_154024.jpg",
+      "split": "validation",
+      "area_frac": 0.4206
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250527_200925.jpg",
+      "split": "train",
+      "area_frac": 0.4191
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260415_120136.jpg",
+      "split": "train",
+      "area_frac": 0.4187
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260627_143049.jpg",
+      "split": "train",
+      "area_frac": 0.4151
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250629_171158.jpg",
+      "split": "train",
+      "area_frac": 0.4138
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250810_150500.jpg",
+      "split": "validation",
+      "area_frac": 0.4065
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240328_162103.jpg",
+      "split": "train",
+      "area_frac": 0.4058
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_135939.jpg",
+      "split": "train",
+      "area_frac": 0.3942
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240322_173130.jpg",
+      "split": "train",
+      "area_frac": 0.3936
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_104706.jpg",
+      "split": "train",
+      "area_frac": 0.3928
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240324_191443.jpg",
+      "split": "train",
+      "area_frac": 0.3886
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241005_172512.jpg",
+      "split": "validation",
+      "area_frac": 0.3841
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250710_171843.jpg",
+      "split": "train",
+      "area_frac": 0.3807
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250405_151347.jpg",
+      "split": "train",
+      "area_frac": 0.379
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240520_161054.jpg",
+      "split": "train",
+      "area_frac": 0.3666
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250921_115016.jpg",
+      "split": "train",
+      "area_frac": 0.3647
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250525_093641.jpg",
+      "split": "train",
+      "area_frac": 0.3572
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250527_200922.jpg",
+      "split": "train",
+      "area_frac": 0.3557
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251108_145239.jpg",
+      "split": "train",
+      "area_frac": 0.3539
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250923_183541.jpg",
+      "split": "train",
+      "area_frac": 0.3486
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260402_141858.jpg",
+      "split": "train",
+      "area_frac": 0.3462
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240302_181550.jpg",
+      "split": "train",
+      "area_frac": 0.3455
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251116_115356.jpg",
+      "split": "train",
+      "area_frac": 0.3342
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251123_112631.jpg",
+      "split": "train",
+      "area_frac": 0.3201
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260125_122648.jpg",
+      "split": "train",
+      "area_frac": 0.3194
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240219_153504.jpg",
+      "split": "train",
+      "area_frac": 0.3156
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_155453.jpg",
+      "split": "train",
+      "area_frac": 0.3139
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251105_170024.jpg",
+      "split": "train",
+      "area_frac": 0.3126
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250523_200339.jpg",
+      "split": "train",
+      "area_frac": 0.3088
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_141023.jpg",
+      "split": "train",
+      "area_frac": 0.3085
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251005_084252.jpg",
+      "split": "train",
+      "area_frac": 0.308
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251013_114548.jpg",
+      "split": "train",
+      "area_frac": 0.2981
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_135848.jpg",
+      "split": "train",
+      "area_frac": 0.2968
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260501_104333.jpg",
+      "split": "train",
+      "area_frac": 0.2959
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240519_133120.jpg",
+      "split": "train",
+      "area_frac": 0.2938
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250408_151703.jpg",
+      "split": "validation",
+      "area_frac": 0.291
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251104_232606.jpg",
+      "split": "train",
+      "area_frac": 0.2907
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240219_153527.jpg",
+      "split": "train",
+      "area_frac": 0.2885
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241222_113203.jpg",
+      "split": "validation",
+      "area_frac": 0.2885
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250913_182100.jpg",
+      "split": "train",
+      "area_frac": 0.286
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250425_163821.jpg",
+      "split": "validation",
+      "area_frac": 0.2856
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_105653.jpg",
+      "split": "train",
+      "area_frac": 0.2833
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251104_232539.jpg",
+      "split": "train",
+      "area_frac": 0.2797
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240519_133102.jpg",
+      "split": "train",
+      "area_frac": 0.2783
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250710_164947.jpg",
+      "split": "validation",
+      "area_frac": 0.2721
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240128_151446.jpg",
+      "split": "train",
+      "area_frac": 0.2706
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250528_222252.jpg",
+      "split": "train",
+      "area_frac": 0.2658
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240519_131109.jpg",
+      "split": "train",
+      "area_frac": 0.2572
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260516_132451.jpg",
+      "split": "train",
+      "area_frac": 0.2519
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_130245.jpg",
+      "split": "train",
+      "area_frac": 0.2497
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241114_110439.jpg",
+      "split": "train",
+      "area_frac": 0.2464
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250710_153337.jpg",
+      "split": "train",
+      "area_frac": 0.2422
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240509_185056.jpg",
+      "split": "train",
+      "area_frac": 0.2387
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251024_200240.jpg",
+      "split": "train",
+      "area_frac": 0.2371
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230705_190518.jpg",
+      "split": "train",
+      "area_frac": 0.2316
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250816_142734.jpg",
+      "split": "train",
+      "area_frac": 0.2311
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250405_153717.jpg",
+      "split": "validation",
+      "area_frac": 0.2272
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250525_150854.jpg",
+      "split": "train",
+      "area_frac": 0.2272
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240321_092310.jpg",
+      "split": "train",
+      "area_frac": 0.2221
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260125_194751.jpg",
+      "split": "train",
+      "area_frac": 0.2136
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260125_194758.jpg",
+      "split": "train",
+      "area_frac": 0.213
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250913_185045.jpg",
+      "split": "validation",
+      "area_frac": 0.2104
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240112_163113.jpg",
+      "split": "validation",
+      "area_frac": 0.2103
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250809_182653.jpg",
+      "split": "train",
+      "area_frac": 0.2101
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251108_152408.jpg",
+      "split": "train",
+      "area_frac": 0.208
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_155448.jpg",
+      "split": "train",
+      "area_frac": 0.206
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_172636.jpg",
+      "split": "train",
+      "area_frac": 0.206
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240607_101843.jpg",
+      "split": "train",
+      "area_frac": 0.2037
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_104708.jpg",
+      "split": "train",
+      "area_frac": 0.2036
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_123233.jpg",
+      "split": "train",
+      "area_frac": 0.203
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260125_122649.jpg",
+      "split": "train",
+      "area_frac": 0.2
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_120725.jpg",
+      "split": "validation",
+      "area_frac": 0.2
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240718_110918.jpg",
+      "split": "train",
+      "area_frac": 0.1982
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250425_183210.jpg",
+      "split": "train",
+      "area_frac": 0.1981
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260304_110156.jpg",
+      "split": "validation",
+      "area_frac": 0.197
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260414_114434.jpg",
+      "split": "train",
+      "area_frac": 0.1933
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230719_212820.jpg",
+      "split": "train",
+      "area_frac": 0.1929
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260506_160125.jpg",
+      "split": "train",
+      "area_frac": 0.1927
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250608_151525.jpg",
+      "split": "train",
+      "area_frac": 0.1911
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260114_205213.jpg",
+      "split": "train",
+      "area_frac": 0.1904
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250525_174744.jpg",
+      "split": "train",
+      "area_frac": 0.188
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260403_172150.jpg",
+      "split": "validation",
+      "area_frac": 0.1852
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250616_192905.jpg",
+      "split": "train",
+      "area_frac": 0.1809
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260213_191920.jpg",
+      "split": "train",
+      "area_frac": 0.1808
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260301_133648.jpg",
+      "split": "train",
+      "area_frac": 0.1788
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260415_123533.jpg",
+      "split": "train",
+      "area_frac": 0.1769
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251021_161957.jpg",
+      "split": "train",
+      "area_frac": 0.1765
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250309_094109.jpg",
+      "split": "train",
+      "area_frac": 0.1764
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_174105.jpg",
+      "split": "train",
+      "area_frac": 0.1742
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241107_145022.jpg",
+      "split": "validation",
+      "area_frac": 0.1727
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250412_112441.jpg",
+      "split": "train",
+      "area_frac": 0.1711
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_170120.jpg",
+      "split": "validation",
+      "area_frac": 0.1672
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230821_150632.jpg",
+      "split": "validation",
+      "area_frac": 0.167
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260425_150307.jpg",
+      "split": "train",
+      "area_frac": 0.167
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241220_193638.jpg",
+      "split": "validation",
+      "area_frac": 0.1665
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260413_140853.jpg",
+      "split": "train",
+      "area_frac": 0.1633
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250827_172159.jpg",
+      "split": "train",
+      "area_frac": 0.1617
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250616_192854.jpg",
+      "split": "train",
+      "area_frac": 0.1588
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260409_130808.jpg",
+      "split": "train",
+      "area_frac": 0.1579
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241209_163507.jpg",
+      "split": "train",
+      "area_frac": 0.1542
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250920_172428.jpg",
+      "split": "train",
+      "area_frac": 0.1534
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20261008_095104.jpg",
+      "split": "validation",
+      "area_frac": 0.1492
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240824_140804.jpg",
+      "split": "train",
+      "area_frac": 0.1484
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241022_101058.jpg",
+      "split": "train",
+      "area_frac": 0.1471
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250921_113841.jpg",
+      "split": "train",
+      "area_frac": 0.1452
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_135935.jpg",
+      "split": "train",
+      "area_frac": 0.1447
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260509_162121.jpg",
+      "split": "train",
+      "area_frac": 0.1424
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_123235.jpg",
+      "split": "train",
+      "area_frac": 0.1423
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260525_112012.jpg",
+      "split": "train",
+      "area_frac": 0.1352
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240424_100532.jpg",
+      "split": "train",
+      "area_frac": 0.1302
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231029_165644.jpg",
+      "split": "train",
+      "area_frac": 0.1282
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250623_182233.jpg",
+      "split": "train",
+      "area_frac": 0.1282
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241114_105314.jpg",
+      "split": "validation",
+      "area_frac": 0.1246
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260419_152415.jpg",
+      "split": "train",
+      "area_frac": 0.1244
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251116_102526.jpg",
+      "split": "validation",
+      "area_frac": 0.1242
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250726_100928.jpg",
+      "split": "train",
+      "area_frac": 0.1238
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_121035.jpg",
+      "split": "train",
+      "area_frac": 0.1214
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240112_163116.jpg",
+      "split": "validation",
+      "area_frac": 0.1199
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240517_161337.jpg",
+      "split": "train",
+      "area_frac": 0.1193
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251013_114534.jpg",
+      "split": "train",
+      "area_frac": 0.1192
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250417_175147.jpg",
+      "split": "train",
+      "area_frac": 0.1189
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250521_132750.jpg",
+      "split": "train",
+      "area_frac": 0.1167
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260426_163705.jpg",
+      "split": "train",
+      "area_frac": 0.1154
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250408_114311.jpg",
+      "split": "train",
+      "area_frac": 0.1142
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240711_193331.jpg",
+      "split": "train",
+      "area_frac": 0.113
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260105_123558.jpg",
+      "split": "train",
+      "area_frac": 0.1123
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_121422.jpg",
+      "split": "train",
+      "area_frac": 0.1113
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230701_165744.jpg",
+      "split": "train",
+      "area_frac": 0.111
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241021_150516.jpg",
+      "split": "validation",
+      "area_frac": 0.1097
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_133748.jpg",
+      "split": "train",
+      "area_frac": 0.1096
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250309_094133.jpg",
+      "split": "train",
+      "area_frac": 0.1073
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250614_122240.jpg",
+      "split": "train",
+      "area_frac": 0.1066
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260530_110710.jpg",
+      "split": "validation",
+      "area_frac": 0.1061
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250101_150751.jpg",
+      "split": "train",
+      "area_frac": 0.1059
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_175020.jpg",
+      "split": "train",
+      "area_frac": 0.1049
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260422_105232.jpg",
+      "split": "train",
+      "area_frac": 0.1042
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250716_171410.jpg",
+      "split": "validation",
+      "area_frac": 0.1035
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260606_185418.jpg",
+      "split": "validation",
+      "area_frac": 0.1033
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260103_171102.jpg",
+      "split": "train",
+      "area_frac": 0.1026
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260426_152654.jpg",
+      "split": "train",
+      "area_frac": 0.1025
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240226_164525.jpg",
+      "split": "train",
+      "area_frac": 0.1024
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240824_140831.jpg",
+      "split": "train",
+      "area_frac": 0.1001
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260419_152417.jpg",
+      "split": "train",
+      "area_frac": 0.0998
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260408_211451.jpg",
+      "split": "train",
+      "area_frac": 0.0963
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260225_162922.jpg",
+      "split": "validation",
+      "area_frac": 0.0944
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250209_102912.jpg",
+      "split": "train",
+      "area_frac": 0.0935
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241107_145104.jpg",
+      "split": "validation",
+      "area_frac": 0.0919
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260105_123557.jpg",
+      "split": "train",
+      "area_frac": 0.0913
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250308_103851.jpg",
+      "split": "train",
+      "area_frac": 0.0902
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240214_112030.jpg",
+      "split": "train",
+      "area_frac": 0.0895
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250913_195256.jpg",
+      "split": "train",
+      "area_frac": 0.0884
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260627_143045.jpg",
+      "split": "train",
+      "area_frac": 0.0818
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260225_162835.jpg",
+      "split": "validation",
+      "area_frac": 0.0802
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240528_095322.jpg",
+      "split": "validation",
+      "area_frac": 0.079
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_162905.jpg",
+      "split": "train",
+      "area_frac": 0.0739
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241112_181033.jpg",
+      "split": "train",
+      "area_frac": 0.0728
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251105_061507.jpg",
+      "split": "train",
+      "area_frac": 0.0715
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250628_182847.jpg",
+      "split": "train",
+      "area_frac": 0.0712
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251106_115136.jpg",
+      "split": "train",
+      "area_frac": 0.0703
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260327_163039.jpg",
+      "split": "train",
+      "area_frac": 0.07
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251210_234531.jpg",
+      "split": "train",
+      "area_frac": 0.0699
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231026_171808.jpg",
+      "split": "validation",
+      "area_frac": 0.0692
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240302_164301.jpg",
+      "split": "train",
+      "area_frac": 0.0666
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251230_104129.jpg",
+      "split": "train",
+      "area_frac": 0.0664
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250414_133649.jpg",
+      "split": "validation",
+      "area_frac": 0.0663
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_124439.jpg",
+      "split": "train",
+      "area_frac": 0.0652
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240322_163439.jpg",
+      "split": "train",
+      "area_frac": 0.0651
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240424_095125.jpg",
+      "split": "train",
+      "area_frac": 0.0611
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_105908.jpg",
+      "split": "train",
+      "area_frac": 0.0608
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251126_111859.jpg",
+      "split": "train",
+      "area_frac": 0.0602
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_105909.jpg",
+      "split": "train",
+      "area_frac": 0.0597
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231026_171809.jpg",
+      "split": "validation",
+      "area_frac": 0.0596
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260420_180945.jpg",
+      "split": "train",
+      "area_frac": 0.0595
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251029_135137.jpg",
+      "split": "validation",
+      "area_frac": 0.0588
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231202_152712.jpg",
+      "split": "train",
+      "area_frac": 0.0587
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260312_133846.jpg",
+      "split": "train",
+      "area_frac": 0.0583
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250615_150102.jpg",
+      "split": "train",
+      "area_frac": 0.0557
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260415_125409.jpg",
+      "split": "train",
+      "area_frac": 0.0555
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250105_201404.jpg",
+      "split": "train",
+      "area_frac": 0.0553
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260328_111613.jpg",
+      "split": "train",
+      "area_frac": 0.0545
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240615_144727.jpg",
+      "split": "validation",
+      "area_frac": 0.052
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_162926.jpg",
+      "split": "train",
+      "area_frac": 0.0518
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231026_171812.jpg",
+      "split": "validation",
+      "area_frac": 0.0517
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231111_193538.jpg",
+      "split": "train",
+      "area_frac": 0.0515
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240622_175224.jpg",
+      "split": "train",
+      "area_frac": 0.0507
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260422_110401.jpg",
+      "split": "train",
+      "area_frac": 0.05
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_114320.jpg",
+      "split": "train",
+      "area_frac": 0.0496
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251018_095045.jpg",
+      "split": "validation",
+      "area_frac": 0.049
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250405_150832.jpg",
+      "split": "train",
+      "area_frac": 0.0477
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240321_092242.jpg",
+      "split": "train",
+      "area_frac": 0.0469
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250501_131506.jpg",
+      "split": "train",
+      "area_frac": 0.0468
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231008_142930.jpg",
+      "split": "train",
+      "area_frac": 0.0459
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230701_141417.jpg",
+      "split": "train",
+      "area_frac": 0.0455
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260301_131708.jpg",
+      "split": "train",
+      "area_frac": 0.0449
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260412_133521.jpg",
+      "split": "validation",
+      "area_frac": 0.0447
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251018_092905.jpg",
+      "split": "train",
+      "area_frac": 0.0416
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241025_125201.jpg",
+      "split": "train",
+      "area_frac": 0.0414
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241112_181046.jpg",
+      "split": "train",
+      "area_frac": 0.0401
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250315_153210.jpg",
+      "split": "train",
+      "area_frac": 0.0399
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250113_154708.jpg",
+      "split": "validation",
+      "area_frac": 0.0387
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240724_101136.jpg",
+      "split": "validation",
+      "area_frac": 0.0375
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240321_145324.jpg",
+      "split": "train",
+      "area_frac": 0.0374
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260506_154447.jpg",
+      "split": "train",
+      "area_frac": 0.0354
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240731_184418.jpg",
+      "split": "train",
+      "area_frac": 0.0334
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250629_125001.jpg",
+      "split": "validation",
+      "area_frac": 0.033
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241031_211750.jpg",
+      "split": "validation",
+      "area_frac": 0.032
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260309_113413.jpg",
+      "split": "train",
+      "area_frac": 0.0301
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_135921.jpg",
+      "split": "train",
+      "area_frac": 0.0297
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231118_002228.jpg",
+      "split": "train",
+      "area_frac": 0.0296
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250608_095111.jpg",
+      "split": "train",
+      "area_frac": 0.0292
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_104703.jpg",
+      "split": "train",
+      "area_frac": 0.029
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260304_144828.jpg",
+      "split": "validation",
+      "area_frac": 0.028
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251123_123939.jpg",
+      "split": "train",
+      "area_frac": 0.0279
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230831_124054.jpg",
+      "split": "train",
+      "area_frac": 0.0276
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260114_203317.jpg",
+      "split": "validation",
+      "area_frac": 0.0276
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260304_144831.jpg",
+      "split": "validation",
+      "area_frac": 0.0275
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250913_191723.jpg",
+      "split": "train",
+      "area_frac": 0.0271
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230719_181951.jpg",
+      "split": "validation",
+      "area_frac": 0.0268
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260116_221204.jpg",
+      "split": "train",
+      "area_frac": 0.0265
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250105_152315.jpg",
+      "split": "train",
+      "area_frac": 0.0262
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240328_162102.dng",
+      "split": "train",
+      "area_frac": 0.0261
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250615_170310.jpg",
+      "split": "train",
+      "area_frac": 0.0254
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260518_192138.jpg",
+      "split": "validation",
+      "area_frac": 0.024
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231202_152717.jpg",
+      "split": "train",
+      "area_frac": 0.0239
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250615_143014.jpg",
+      "split": "validation",
+      "area_frac": 0.0229
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260419_152423.jpg",
+      "split": "train",
+      "area_frac": 0.0221
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260625_113714.jpg",
+      "split": "validation",
+      "area_frac": 0.0217
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251124_111108.jpg",
+      "split": "validation",
+      "area_frac": 0.0215
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_140759.jpg",
+      "split": "train",
+      "area_frac": 0.0204
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251013_115203.jpg",
+      "split": "train",
+      "area_frac": 0.0201
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240815_095200.jpg",
+      "split": "validation",
+      "area_frac": 0.0194
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251105_061447.jpg",
+      "split": "train",
+      "area_frac": 0.0193
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260506_154105.jpg",
+      "split": "train",
+      "area_frac": 0.0185
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241108_202316.jpg",
+      "split": "train",
+      "area_frac": 0.0178
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231222_104211.jpg",
+      "split": "train",
+      "area_frac": 0.0177
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250525_094436.jpg",
+      "split": "validation",
+      "area_frac": 0.0173
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240731_192030.jpg",
+      "split": "validation",
+      "area_frac": 0.0172
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251018_093108.jpg",
+      "split": "validation",
+      "area_frac": 0.0172
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_110528.jpg",
+      "split": "train",
+      "area_frac": 0.0172
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_125915.jpg",
+      "split": "train",
+      "area_frac": 0.0165
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231216_234940.jpg",
+      "split": "train",
+      "area_frac": 0.0158
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250310_101018.jpg",
+      "split": "validation",
+      "area_frac": 0.0146
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250411_161040.jpg",
+      "split": "train",
+      "area_frac": 0.0141
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260112_120248.jpg",
+      "split": "train",
+      "area_frac": 0.0141
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260503_104933.jpg",
+      "split": "train",
+      "area_frac": 0.0138
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250311_102939.jpg",
+      "split": "validation",
+      "area_frac": 0.0137
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260313_103829.jpg",
+      "split": "train",
+      "area_frac": 0.0136
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250629_175247.jpg",
+      "split": "train",
+      "area_frac": 0.0135
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230628_150943.jpg",
+      "split": "validation",
+      "area_frac": 0.0134
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240528_192855.jpg",
+      "split": "validation",
+      "area_frac": 0.0134
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260328_120141.jpg",
+      "split": "train",
+      "area_frac": 0.013
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240626_194644.jpg",
+      "split": "validation",
+      "area_frac": 0.0121
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251105_170027.jpg",
+      "split": "train",
+      "area_frac": 0.012
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251005_084215.jpg",
+      "split": "train",
+      "area_frac": 0.0117
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241221_144607.jpg",
+      "split": "train",
+      "area_frac": 0.0111
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250914_165934.jpg",
+      "split": "validation",
+      "area_frac": 0.0106
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_155201.jpg",
+      "split": "train",
+      "area_frac": 0.0104
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20261010_110743.jpg",
+      "split": "train",
+      "area_frac": 0.0006
+    }
+  ]
+}

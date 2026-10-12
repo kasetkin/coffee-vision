@@ -1,0 +1,6 @@
+XL0-v2 on the 331 new training and validation negatives (ML-6 P2, D2 (a)); test negatives not looked at
+thresholds: serving 0.040223, selection 0.083
+  train      n=264  empty   3  empty or tiny: serving  42, selection  78
+  validation n= 67  empty   0  empty or tiny: serving  22, selection  32
+  all        n=331  empty   3  empty or tiny: serving  64, selection 110
+328 photos with a non-empty mask; contact sheet: outputs/ml6_p2_baseline/masked_sheet.jpg (not in git)

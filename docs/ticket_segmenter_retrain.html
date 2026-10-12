@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D19 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D19 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, waiting on the owner's go to train (D2)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -440,10 +440,10 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The three 2026-10-11 JPEGs are stripped, in DVC and on the remote, every object verified (D10 (b)).</span></li>
     <li><span class="box done"></span><span><code>coffeecv/strip_metadata.py</code> checks undecodable HEIF auxiliary images by their bytes, with tests; <code>IMG_7252.HEIC</code> is stripped, in the manifest, in DVC and on the remote (D10 (a)).</span></li>
-    <li><span class="box"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, the hopper shots in one split unit (D11), and the real-data tier is green. The negatives' README says their holdout is no longer unseen.</span></li>
+    <li><span class="box done"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, the hopper shots in one split unit (D11), and the real-data tier is green. The negatives' README says their holdout is no longer unseen.</span></li>
     <li><span class="box"></span><span>XL0-v2's rates on the new training and validation negatives are reported, and the owner has decided whether to train (D2).</span></li>
     <li><span class="box"></span><span>The 11 new training and validation positives and pass 2's 4 drops are judged by the owner in pass 3, the rest carried from pass 2 (D3); the labels are DVC-tracked.</span></li>
-    <li><span class="box"></span><span><code>coffeecv/seg_finetune.py</code> augments training samples through Albumentations as it trains and stores none (D12). The dihedral-view cache code is gone, and the stages that used it are frozen.</span></li>
+    <li><span class="box done"></span><span><code>coffeecv/seg_finetune.py</code> augments training samples through Albumentations as it trains and stores none (D12). The dihedral-view cache code is gone, and the stages that used it are frozen.</span></li>
     <li><span class="box"></span><span>XL0-v3 is fine-tuned as a DVC stage beside <code>xl0_v1</code> and <code>xl0_v2</code>, and its test masks are stored.</span></li>
     <li><span class="box"></span><span>The XL0-v3 against XL0-v2 report exists (D6), and the owner has picked one.</span></li>
     <li><span class="box"></span><span>D7 and D8 are carried out as decided; the probe is refit on the new negatives and measured on the test split (D18); data and models are pushed to the DVC remote and verified there.</span></li>
@@ -520,6 +520,14 @@
       Facts behind them: an in-memory build for D11 (b) and (c), XL0-v2's training curve (flat from about epoch 25),
       the negatives' README rule for their holdout, and <code>ood_eval.CLEAN_NEGATIVE_TAGS</code>. Triage
       <code>ready-for-agent</code>; the plan is updated. Not implemented.</div>
+    <div><div class="when">2026-10-12</div>Implemented through the plan's P1, P3 and P5; P2 measured. The
+      dataset file holds 869 photos (459 appended, none listed changed, the three hopper shots one split unit in
+      train), and the real-data tier is green, so deploys no longer refuse. <code>seg_review label --carry</code>
+      starts pass 3 from pass 2. The fine-tune augments on the fly
+      (<a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>); ML-5's caches are frozen and
+      deleted. D2: XL0-v2 masks 328 of the 331 new training and validation negatives, and only 64 are empty or
+      tiny at serving's threshold (<code>analysis/ml6_p2_baseline/summary.txt</code>; contact sheet in
+      <code>outputs/ml6_p2_baseline/</code>, not in git). The owner decides whether to train.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,

@@ -14,7 +14,7 @@
     a remote machine (D9, owner 2026-10-12).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-12, rewritten the same day for D12; Q1&ndash;Q5 answered (ticket D3, D13&ndash;D16); every ticket decision taken except D7 (deferred to P7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-12, rewritten the same day for D12; Q1&ndash;Q5 answered (ticket D3, D13&ndash;D16); 2026-10-12: P1, P3, P5 done, P2 measured and waiting on the owner</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_retrain.html"><code>ticket_segmenter_retrain.html</code></a> (ML-6)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -149,7 +149,7 @@
 
   <h2>3. P1 &mdash; Append the photos; rerun the test predictions</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-12: <code>5a3bfcf</code>, <code>46ec14c</code>; 869 photos, every listed entry unchanged; the 107 old test masks of v1 and v2 byte-identical; 395 objects verified on <code>dvcnewremote</code>; full suite green</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1 (a) and D11 (b) decided; the 2026-10-12 pool photos committed (<code>7a11b0b</code>)</span></span></div>
   </div>
   <p>The dataset file gains the 2026-10-10 and 2026-10-11 photos, and nothing listed changes (ML-5 D11). Under D1
@@ -167,25 +167,25 @@
     <li><span class="box done"></span><span><code>python -m coffeecv.seg_dataset build</code>, then
       <code>seg_dataset counts</code>. The git diff of <code>labels/ml5/seg_dataset.yaml</code> holds only added
       entries. The counts match the ticket's &sect;3.4 (D11 (b) moves no count), and all three hopper shots are in train.</span></li>
-    <li><span class="box"></span><span><code>dvc repro -s seg_ml5_predict@xl0_v1 seg_ml5_predict@xl0_v2</code> at
+    <li><span class="box done"></span><span><code>dvc repro -s seg_ml5_predict@xl0_v1 seg_ml5_predict@xl0_v2</code> at
       the pinned 4 threads (224 test photos each). The 107 masks each model already had come back
       byte-identical.</span></li>
-    <li><span class="box"></span><span>Push the two mask outputs by target, and verify every object on
+    <li><span class="box done"></span><span>Push the two mask outputs by target, and verify every object on
       <code>dvcnewremote</code> (<code>docs/agents/dvc.md</code>).</span></li>
-    <li><span class="box"></span><span>Checks: the full suite, the real-data tier included
+    <li><span class="box done"></span><span>Checks: the full suite, the real-data tier included
       (<code>test_seg_dataset.CommittedFileAgainstPhotos</code> green); <code>dvc status</code> clean for the
       dataset and predict stages.</span></li>
   </ol>
 
   <h2>4. P2 &mdash; XL0-v2 on the new negatives <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: measured; waits on the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>seg_predict xl0_v2 --split train</code> and <code>--split validation</code>
+    <li><span class="box done"></span><span><code>seg_predict xl0_v2 --split train</code> and <code>--split validation</code>
       at 4 threads, into <code>analysis/ml6_p2_baseline/</code>. The test split is already done in P1.</span></li>
-    <li><span class="box"></span><span>Report on the about 331 new training and validation negatives only (D2):
+    <li><span class="box done"></span><span>Report on the about 331 new training and validation negatives only (D2):
       empty and empty-or-tiny rates per split, at the serving threshold (0.040223) and the selection one (0.083),
       and a contact sheet of the masked ones. The new test negatives are not looked at; they wait for P7.</span></li>
     <li><span class="box"></span><span>Stop for the owner: train XL0-v3, or keep XL0-v2. No fixed bar (D2). If
@@ -228,7 +228,7 @@
 
   <h2>7. P5 &mdash; On-the-fly Albumentations in <code>seg_finetune</code></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-12: <code>f8fb363</code>; ADR 0018; caches deleted after the freeze (7.0 GB, 17 GB free); toy run 1.9 s a sample at 8 threads</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D12, D16, D19 decided; D5 (a) needs no code</span></span></div>
   </div>
   <p>The fine-tune stops reading an embedding cache. At the start of a run it loads every training photo and label
@@ -240,7 +240,7 @@
     stays deterministic and cheap. Point prompts are still drawn from the error region of the augmented sample's
     box-only prediction, so no keypoint transform is needed.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Test-first, in <code>tests/test_seg_finetune.py</code>:
+    <li><span class="box done"></span><span>Test-first, in <code>tests/test_seg_finetune.py</code>:
       <ul>
         <li>a spatial transform moves the label with the photo (a forced horizontal flip equals
           <code>np.fliplr</code> on both);</li>
@@ -249,27 +249,27 @@
         <li>one seed gives one stream of batches, and another seed gives another;</li>
         <li>no file is written during training apart from the model and its card.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_ft.views</code> gives way to
+    <li><span class="box done"></span><span><code>params.yaml</code>: <code>seg_ft.views</code> gives way to
       <code>seg_ft.augment</code>, the Q5 pipeline as a list of {transform, arguments, p}. It is built by name from
       <code>albumentations</code> and seeded from the run's seed. The card records the pipeline and the
       <code>albumentations</code> version. <code>NO_ALBUMENTATIONS_UPDATE=1</code> is set before the import, so
       neither training nor the tests touch the network. <code>pyproject.toml</code> pins
       <code>albumentations==2.0.8</code>, the MIT release, and not AlbumentationsX.</span></li>
-    <li><span class="box"></span><span>Retire the custom code: <code>VIEWS</code>, the <code>cache</code> command
+    <li><span class="box done"></span><span>Retire the custom code: <code>VIEWS</code>, the <code>cache</code> command
       and the memory-mapped cache reader. In <code>dvc.yaml</code>, <code>seg_ml5_cache@pass1</code>,
       <code>@pass2</code>, <code>seg_ml5_finetune@xl0_v1</code> and <code>@xl0_v2</code> become
       <code>frozen: true</code>, as ML-2's stages are. A comment names the last commit with the cache code. The
       <code>seg_ml5_predict</code> stages stay live.</span></li>
-    <li><span class="box"></span><span>ADR for D12 (D19), in <code>/domain-modeling</code>'s format: segmenter fine-tunes
+    <li><span class="box done"></span><span>ADR for D12 (D19), in <code>/domain-modeling</code>'s format: segmenter fine-tunes
       augment on the fly through <code>albumentations</code> and store no augmented data. It binds later
       fine-tunes, and the ticket's D12 links it.</span></li>
-    <li><span class="box"></span><span>Delete <code>data/seg_cache_ml5/pass1</code> and <code>pass2</code>
+    <li><span class="box done"></span><span>Delete <code>data/seg_cache_ml5/pass1</code> and <code>pass2</code>
       once the freeze is committed (D13).</span></li>
-    <li><span class="box"></span><span>Toy-scale run (<code>CODING_STANDARDS.md</code>, "Proving a change" and "Run
+    <li><span class="box done"></span><span>Toy-scale run (<code>CODING_STANDARDS.md</code>, "Proving a change" and "Run
       the real entry point"): the stage's own command, <code>python -m coffeecv.seg_finetune train</code>, with 1&ndash;2
       epochs on about 16 pass-2 photos at 8 threads, under a scratch name that is not committed. Check the log's
       role counts and pipeline, the time per step against the about 1.9 s per sample estimate, and the card.</span></li>
-    <li><span class="box"></span><span>Checks: full suite and lint green; <code>dvc status</code> shows the frozen
+    <li><span class="box done"></span><span>Checks: full suite and lint green; <code>dvc status</code> shows the frozen
       stages unchanged.</span></li>
   </ol>
 
@@ -281,7 +281,14 @@
   <p>Runs on this host, not a remote machine (D9). Expected time: about 7 h at 8 threads (Q4), for 40 epochs of 42
     steps, with the test predictions on top. There is no cache step.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>dvc.yaml</code>: <code>xl0_v3</code> in <code>seg_ml5_finetune</code>
+    <li><span class="box"></span><span>(P5 froze <code>seg_ml5_finetune</code> whole: a <code>foreach</code> shares one
+      <code>frozen</code> flag and one dep list, so <code>xl0_v3</code> gets a stage of its own, e.g.
+      <code>seg_ml6_finetune@xl0_v3</code>, with the deps below. Also: <code>seg_predict --split</code> takes only
+      names in <code>segment_beans.NAMED_SEGMENTERS</code>, and <code>segment_beans.py</code> and
+      <code>seg_predict.py</code> are deps of every <code>segcrop</code> stage and of
+      <code>seg_ml5_predict</code>, so registering <code>xl0_v3</code> there stales them all, a 2 h re-crop under
+      XL0-v2 too. Decide how XL0-v3 is named to the predict stage before editing either file, P5 finding.)
+      <code>dvc.yaml</code>: <code>xl0_v3</code> in <code>seg_ml5_finetune</code>
       (labels <code>pass3</code>, seed 123, 8 threads; D4, D15). Its deps: the session's labels,
       the dataset file and the photo folders it reads, in place of the cache. Add <code>xl0_v3</code> to
       <code>seg_ml5_predict</code>. Diff <code>seg_ft</code>, <code>seg_prompt</code> and
@@ -342,9 +349,9 @@
 
   <h2>11. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: dataset file append-only (diff adds lines only); v1 and v2 masks of the 107 old test photos byte-identical.</span></li>
-    <li><span class="box"></span><span>P3: carried labels identical to pass 2's; the new session shows only uncarried photos.</span></li>
-    <li><span class="box"></span><span>P5: nothing augmented is written during training; one seed repeats its batches; the frozen stages' outputs unchanged.</span></li>
+    <li><span class="box done"></span><span>P1: dataset file append-only (diff adds lines only); v1 and v2 masks of the 107 old test photos byte-identical.</span></li>
+    <li><span class="box done"></span><span>P3: carried labels identical to pass 2's; the new session shows only uncarried photos.</span></li>
+    <li><span class="box done"></span><span>P5: nothing augmented is written during training; one seed repeats its batches; the frozen stages' outputs unchanged.</span></li>
     <li><span class="box"></span><span>P6: XL0-v3's config differs from XL0-v2's only in <code>augment</code> and where D4 says; its card names <code>pass3</code>, the pipeline and the <code>albumentations</code> version.</span></li>
     <li><span class="box"></span><span>Every DVC output pushed by target and each object verified on <code>dvcnewremote</code>.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
@@ -377,6 +384,20 @@
       gains <code>split_units.yaml</code> and the README note; P2 measures training and validation negatives only
       and ends at the owner's go; P3 and P4 show 15 photos; the D5 (b) task is dropped; P8 refits the probe under
       either outcome. "Split unit" replaces "group" in this plan's text (D17). Not implemented.</div>
+    <div><div class="when">2026-10-12</div>Claude implements P1, P3 and P5 and runs P2 to its stop. P1
+      (<code>5a3bfcf</code>, <code>46ec14c</code>): <code>labels/ml5/split_units.yaml</code> and the append, 869
+      photos with every listed entry unchanged by value (a line diff shows 7 removed lines, field lines git aligns
+      across interleaved entries) and the three hopper shots in train; v1 and v2 rerun on 224 test photos, their
+      107 old masks byte-identical, 395 objects verified on <code>dvcnewremote</code>. P3 (<code>956362a</code>):
+      <code>label --carry</code>; a dry run against pass2 carries 198 labels, each equal to pass2's, and shows 15.
+      P5 (<code>f8fb363</code>): albumentations on the fly, ADR 0018, the ML-5 cache and fine-tune stages frozen,
+      the caches deleted (D13); the blur and noise strengths, which Q5 left open, are mild picks named in
+      <code>params.yaml</code>; a toy run through the CLI takes 1.9 s a sample at 8 threads. A
+      <code>sam_loader.py</code> helper was dropped because that file is a dep of every <code>segcrop</code> stage;
+      the same holds for <code>segment_beans.py</code>, which P6 must reckon with (noted there). P2: XL0-v2 masks
+      328 of the 331 new training and validation negatives; 64 are empty or tiny at the serving threshold, 110 at
+      the selection one (<code>analysis/ml6_p2_baseline/</code>). Full suite green. Waiting on the owner's go
+      (P2).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
