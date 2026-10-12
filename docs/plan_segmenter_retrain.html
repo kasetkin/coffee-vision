@@ -194,20 +194,20 @@
 
   <h2>5. P3 &mdash; Pass-3 carry-over in <code>seg_review label</code></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-12: <code>956362a</code>; dry run against pass2: 198 carried, 15 shown</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D3 decided</span></span></div>
   </div>
   <p>Under D3 (a), a new session starts from an earlier one. A photo the earlier session accepted, with the same
     sha256, keeps its verdict and mask. Its drops are not carried. The page shows the rest: the new photos and the
     earlier drops.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Test-first: <code>label --carry &lt;session&gt;</code> copies each carried
+    <li><span class="box done"></span><span>Test-first: <code>label --carry &lt;session&gt;</code> copies each carried
       photo's final verdict and mask into the new session. A verdict row is marked <code>carried_from</code>, and
       the mask sha256 is unchanged. Drops are not carried (D3). The session file records the carry, and a
       resume with another one is refused. <code>status</code> reports carried and new labels apart.</span></li>
-    <li><span class="box"></span><span>Encodings for the redraw model are prepared only for the photos the page
+    <li><span class="box done"></span><span>Encodings for the redraw model are prepared only for the photos the page
       will show: 15, not about 210.</span></li>
-    <li><span class="box"></span><span>Checks: a smoke run on fixtures with a carried accept, an earlier drop shown
+    <li><span class="box done"></span><span>Checks: a smoke run on fixtures with a carried accept, an earlier drop shown
       again and a new photo; <code>labels.csv</code> of a carried session equals the source session's on the carried rows.</span></li>
   </ol>
 
@@ -228,7 +228,7 @@
 
   <h2>7. P5 &mdash; On-the-fly Albumentations in <code>seg_finetune</code></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D12, D16, D19 decided; D5 (a) needs no code</span></span></div>
   </div>
   <p>The fine-tune stops reading an embedding cache. At the start of a run it loads every training photo and label

@@ -2,8 +2,10 @@
 decoder -> logits in the encoder's frame) gives the mask serving gives, the box prompt matches serving's, labels sit
 in the frame the way SamPad pads the image, the loss and IoU behave on empty negatives, the params block is checked
 key by key, and a fine-tuned decoder refuses other base weights. ML-5 P4: the frame follows the base weights'
-variant (512 for L0, 1024 for XL0), in the cache and in training. ML-5 P8: roles come from a labelling session's
-splits, and point prompts drawn from the error region decode as the review page's redraw does. Plain unittest.
+variant (512 for L0, 1024 for XL0). ML-5 P8: roles come from a labelling session's splits, and point prompts
+drawn from the error region decode as the review page's redraw does. ML-6 P5 (D12): training samples are
+augmented by albumentations as they are drawn, the label moving with the photo, and nothing is stored. Plain
+unittest.
 
     python -m unittest tests.test_seg_finetune -v
 
@@ -22,6 +24,7 @@ import torch
 import yaml
 from PIL import Image
 
+from coffeecv import sam_loader
 from coffeecv import seg_finetune as ft
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
@@ -57,12 +60,6 @@ class Geometry(unittest.TestCase):
             self.assertEqual(lab.shape, (frame, frame))
             self.assertTrue((lab[:rows, :] == 1).all())
             self.assertTrue((lab[rows:, :] == ft.IGNORE).all())
-
-    def test_views_are_dihedral_and_invertible_in_shape(self):
-        a = np.arange(6).reshape(2, 3)
-        for name, f in ft.VIEWS.items():
-            self.assertEqual(sorted(f(a).ravel()), list(range(6)), name)
-        self.assertEqual(len({ft.VIEWS[v](a).tobytes() + bytes(ft.VIEWS[v](a).shape) for v in ft.VIEWS}), 8)
 
 
 class Loss(unittest.TestCase):
@@ -116,6 +113,109 @@ class Roles(unittest.TestCase):
             self.rows([("accepted", "test")])
 
 
+def toy_rows(tmp: Path, specs) -> list[dict]:
+    """labels.csv-like rows (with roles) for synthetic photos written under `tmp`: one per (role, h, w); a
+    positive's label is its textured blob, a negative's is empty."""
+    rows = []
+    for i, (role, h, w) in enumerate(specs):
+        rgb = pile_photo(h, w)
+        mask = (rgb != rgb[0, 0]).any(axis=2) if not role.startswith("neg") else np.zeros((h, w), bool)
+        Image.fromarray(rgb).save(tmp / f"{i}.png")
+        Image.fromarray(mask).save(tmp / f"{i}_mask.png")
+        rows.append({"id": str(i), "source": "toy", "split": "toy", "role": role,
+                     "path": str((tmp / f"{i}.png").relative_to(REPO_ROOT)),
+                     "photo_sha256": sha256_file(tmp / f"{i}.png"),
+                     "mask": str((tmp / f"{i}_mask.png").relative_to(REPO_ROOT)), "mask_sha256": "toy"})
+    return rows
+
+
+def one(transform: str, **args) -> list[dict]:
+    """An augment spec of one transform, always applied."""
+    return [{"transform": transform, "p": 1.0, "args": args}]
+
+
+class Augment(unittest.TestCase):
+    """ML-6 D12, D16: seg_ft.augment, built by name from albumentations; a spatial transform moves the label with
+    the photo, a pixel transform leaves it be, and a warp's exposed border is ignored."""
+
+    def setUp(self):
+        self.rgb = pile_photo(300, 400)
+        self.label = np.zeros((300, 400), np.uint8)
+        self.label[50:120, 30:200] = 1
+
+    def test_a_forced_horizontal_flip_flips_photo_and_label_alike(self):
+        rgb, label = ft.build_augment(one("HorizontalFlip"), seed=0)(self.rgb, self.label)
+        np.testing.assert_array_equal(rgb, np.fliplr(self.rgb))
+        np.testing.assert_array_equal(label, np.fliplr(self.label))
+
+    def test_a_pixel_transform_changes_the_photo_and_not_the_label(self):
+        rgb, label = ft.build_augment(one("RandomBrightnessContrast", brightness_limit=[0.3, 0.3],
+                                          contrast_limit=0), seed=0)(self.rgb, self.label)
+        self.assertFalse(np.array_equal(rgb, self.rgb))
+        np.testing.assert_array_equal(label, self.label)
+
+    def test_a_warps_exposed_border_is_ignored_in_the_label_and_by_the_loss(self):
+        aug = ft.build_augment(one("Affine", rotate=[15, 15], border_mode=0, fill=0, fill_mask=ft.IGNORE), seed=0)
+        rgb, label = aug(self.rgb, self.label)
+        self.assertEqual(label[0, 0], ft.IGNORE)
+        self.assertEqual(set(np.unique(label)), {0, 1, ft.IGNORE})
+        lab = torch.from_numpy(ft.pad_label(label, 512))
+        good = torch.where(lab == 1, 20.0, -20.0)
+        good[lab == ft.IGNORE] = 20.0                        # wrong only where the label is ignored
+        self.assertLess(float(ft.losses(good, torch.tensor(1.0), lab, Loss.P)["total"]), 1e-3)
+
+    def test_params_yamls_pipeline_builds(self):
+        p = ft.FtParams.from_config(RunConfig.from_params_yaml())
+        rgb, label = ft.build_augment(p.augment, seed=0)(self.rgb, self.label)
+        self.assertEqual((rgb.shape, label.shape), (self.rgb.shape, self.label.shape))
+
+    def test_an_unknown_transform_or_a_warp_that_fills_the_label_is_refused(self):
+        for spec in (one("NoSuchTransform"), one("Affine", rotate=[15, 15], fill_mask=0), one("Affine", rotate=15)):
+            with self.subTest(spec=spec), self.assertRaises(ValueError):
+                ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "augment": spec}))
+
+
+def serving_resize(size: int):
+    """SamResize, the first step of an EfficientViT-SAM model's transform, without building a model."""
+    sam_loader._import_efficientvit_sam()
+    from efficientvit.models.efficientvit.sam import SamResize
+    return SamResize(size)
+
+
+class Stream(unittest.TestCase):
+    """ML-6 D12: an epoch's batches are drawn and augmented as training goes; one seed gives one stream."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(dir=REPO_ROOT)
+        cls.addClassCleanup(cls.tmp.cleanup)
+        rows = toy_rows(Path(cls.tmp.name), [("train", 300, 400), ("train", 200, 300), ("train", 400, 300),
+                                             ("neg_train", 300, 300), ("val", 300, 400)])
+        cls.data = ft.TrainSet(rows, serving_resize(256))
+        cls.p = ft.FtParams.from_config(RunConfig.from_params_yaml())
+        cls.p = ft.FtParams(**{**ft.asdict(cls.p), "batch_size": 2})
+
+    def stream(self, seed: int) -> list[tuple]:
+        rng = np.random.default_rng(seed)
+        aug = ft.build_augment(self.p.augment, seed)
+        return [(rgb.tobytes(), label.tobytes(), with_points)
+                for _ in range(2) for samples, with_points in ft.epoch_batches(self.data, self.p, rng, aug)
+                for rgb, label, box in samples]
+
+    def test_the_training_roles_are_held_at_the_frame(self):
+        self.assertEqual((len(self.data.pos), len(self.data.neg)), (3, 1))
+        rgb, label, box = self.data.sample(self.data.pos[0], aug=None)
+        self.assertEqual((rgb.shape, label.shape), ((192, 256, 3), (256, 256)))
+        self.assertTrue((label[192:] == ft.IGNORE).all())
+        np.testing.assert_allclose(box[0].numpy(), ft.whole_box(300, 400))
+
+    def test_one_seed_gives_one_stream_and_another_seed_another(self):
+        a, b, c = self.stream(5), self.stream(5), self.stream(6)
+        self.assertEqual(len(a), 2 * 3 * 2)                  # 2 epochs x 3 steps x (1 positive + 1 negative)
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+
+
 class Points(unittest.TestCase):
     """D15: points come from the error region of the box-only prediction, labelled by the label there."""
 
@@ -149,7 +249,7 @@ class Params(unittest.TestCase):
         with self.assertRaises(ValueError):
             ft.FtParams.from_config(RunConfig(seg_ft={"lr": 1e-4, "lrr": 1}))
         with self.assertRaises(ValueError):
-            ft.FtParams.from_config(RunConfig(seg_ft={"views": ["hflip", "id"]}))
+            ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "views": ["id", "hflip"]}))
         with self.assertRaisesRegex(ValueError, "point_share"):
             ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "point_share": 1.5}))
 
@@ -255,44 +355,36 @@ class DvcStagesReadTheBaseWeights(unittest.TestCase):
 
 
 class EntryPointAtToyScale:
-    """`python -m coffeecv.seg_finetune cache --labels toy` then `train --labels toy --seed 42 --name toy_s42`, the
-    two DVC stages' commands, through
-    main() and a params.yaml that is the repo's with seg_ft at toy scale and its base weights set to WEIGHTS
-    (CODING_STANDARDS "Run the real entry point"). The label set is three synthetic photos: labels are cached in
-    the variant's frame, one epoch trains with every batch adding points, and the card names the base weights."""
+    """`python -m coffeecv.seg_finetune train --labels toy --seed 42 --name toy_s42`, the DVC stage's command,
+    through main() and a params.yaml that is the repo's with seg_ft at toy scale and its base weights set to WEIGHTS
+    (CODING_STANDARDS "Run the real entry point"). The label set is three synthetic photos: one epoch trains with
+    every batch adding points, the card names the base weights, the pipeline and albumentations' version, and
+    nothing but the model and its card is written (ML-6 D12)."""
 
     WEIGHTS = FRAME = None
 
-    def test_cache_then_train_through_main(self):
+    def test_train_through_main_writes_only_the_model_and_its_card(self):
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as tmp:
             tmp = Path(tmp)
             raw = yaml.safe_load(PARAMS_FILE.read_text())
-            raw["seg_ft"] = {**raw["seg_ft"], "weights": self.WEIGHTS, "views": ["id", "hflip"], "epochs": 1,
-                             "batch_size": 2, "point_share": 1.0}
+            raw["seg_ft"] = {**raw["seg_ft"], "weights": self.WEIGHTS, "epochs": 1, "batch_size": 2,
+                             "point_share": 1.0}
             params = tmp / "params.yaml"
             params.write_text(yaml.safe_dump(raw, sort_keys=False))
-            rows = []
-            for i, (role, h, w) in enumerate((("train", 600, 900), ("val", 450, 300), ("neg_train", 500, 400))):
-                rgb = pile_photo(h, w)
-                mask = (rgb != rgb[0, 0]).any(axis=2) if role != "neg_train" else np.zeros((h, w), bool)
-                Image.fromarray(rgb).save(tmp / f"{i}.png")
-                Image.fromarray(mask).save(tmp / f"{i}_mask.png")
-                rows.append({"id": str(i), "source": "toy", "split": "toy", "role": role,
-                             "path": str((tmp / f"{i}.png").relative_to(REPO_ROOT)),
-                             "photo_sha256": sha256_file(tmp / f"{i}.png"),
-                             "mask": str((tmp / f"{i}_mask.png").relative_to(REPO_ROOT)), "mask_sha256": "toy"})
+            rows = toy_rows(tmp, [("train", 600, 900), ("val", 450, 300), ("neg_train", 500, 400)])
+            before = {f for f in tmp.rglob("*")}
             read = RunConfig.from_params_yaml
             with (mock.patch.object(RunConfig, "from_params_yaml", lambda: read(params)),
-                  mock.patch.object(ft, "CACHE_ROOT", tmp / "cache"), mock.patch.object(ft, "MODEL_DIR", tmp / "m"),
+                  mock.patch.object(ft, "MODEL_DIR", tmp / "m"),
                   mock.patch.object(ft, "label_rows", lambda session: rows)):
-                ft.main(["cache", "--labels", "toy", "--threads", "4"])
                 ft.main(["train", "--labels", "toy", "--seed", "42", "--name", "toy_s42", "--threads", "4"])
-                cache = ft.Cache("toy")
-            self.assertEqual((cache.info["weights"], cache.frame), (self.WEIGHTS, self.FRAME))
-            self.assertEqual(cache.label["hflip"].shape, (3, self.FRAME, self.FRAME))
+            self.assertEqual({f.relative_to(tmp) for f in tmp.rglob("*")} - {f.relative_to(tmp) for f in before},
+                             {Path("m"), Path("m/toy_s42.pt"), Path("m/toy_s42.json")})
             card = json.loads((tmp / "m" / "toy_s42.json").read_text())
             self.assertEqual((card["name"], card["labels"], card["base_weights"], card["seg_ft"]["epochs"],
-                              len(card["history"])), ("toy_s42", "toy", self.WEIGHTS, 1, 2))
+                              len(card["history"]), card["frame"]), ("toy_s42", "toy", self.WEIGHTS, 1, 2, self.FRAME))
+            self.assertEqual(card["label_set"]["roles"], {"train": 1, "val": 1, "neg_train": 1, "neg_select": 0})
+            self.assertEqual((card["albumentations"], card["seg_ft"]["augment"]), ("2.0.8", raw["seg_ft"]["augment"]))
             self.assertEqual(card["history"][1]["point_steps"], 1)
 
 

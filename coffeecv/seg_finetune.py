@@ -1,13 +1,13 @@
 """Ticket ML-2 P5: decoder-only fine-tuning of the segmenter (D7 (a), plan §8); ticket ML-5 P8: on the owner's
-labels of a labelling session, with point prompts (D15). Two DVC stages:
+labels of a labelling session, with point prompts (D15); ticket ML-6 P5: augmented as it trains (D12). One DVC
+stage:
 
-    python -m coffeecv.seg_finetune cache --labels pass1 --threads 4     # seg_ml5_cache@pass1
-    python -m coffeecv.seg_finetune train --labels pass1 --seed 123 --name xl0_v1 --threads 4
-                                                                          # seg_ml5_finetune@xl0_v1
+    python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name xl0_v3 --threads 8
+                                                                          # seg_ml5_finetune@xl0_v3
 
 Labels come from data/ml5_labels/<session>/labels.csv (seg_review.py, the owner's verdicts): every accepted
 positive and every negative (an empty label, D14) of the training and validation splits. Dropped photos are left
-out, a pending one stops the cache, and a test photo never appears there (D4). Roles, by split (D8):
+out, a pending one stops the run, and a test photo never appears there (D4). Roles, by split (D8):
 
     train       training positives
     val         validation positives: checkpoint selection only (mean IoU)
@@ -15,41 +15,49 @@ out, a pending one stops the cache, and a test photo never appears there (D4). R
     neg_select  validation negatives: checkpoint selection only (share empty or tiny, ML-2 D18 threshold)
 
 ML-2's fine-tune (labels/ml2 lists, data/seg_labels, its random 20% of negative groups held for selection) made
-models/seg/ft_s{42,123,7}.pt; its stages are frozen in dvc.yaml and the code that ran them is at a1e73e3.
+models/seg/ft_s{42,123,7}.pt; its stages are frozen in dvc.yaml and the code that ran them is at a1e73e3. ML-5's
+fine-tunes xl0_v1 and xl0_v2 trained on an embedding cache of 4 dihedral views (seg_ml5_cache@pass1, @pass2); those
+stages are frozen too, and the code that ran them is at 956362a.
 
-Cache: for each view in seg_ft.views (dihedral: id, hflip, vflip, rot180, rot90, rot270, transpose,
-antitranspose), the photo and its label are transformed at full resolution, the photo goes through the frozen
-encoder of seg_ft.weights exactly as at serving (resize to the encoder's frame on the long side, normalise, pad),
-and the embedding is stored in fp16 with the label resized into the same frame (255 = padding, ignored). The frame
-follows the weights' variant (ticket ML-5 P4): 512 for L0, 1024 for XL0. data/seg_cache/<view>/emb.npy
-(N, 256, 64, 64) and label.npy (N, frame, frame) are memory-mapped; index.csv holds the rows and roles.
+Data (ML-6 D12, docs/adr/0018): nothing is cached, and nothing augmented is written. At the start of a run each
+training photo (train, neg_train) is checked against labels.csv's sha256, resized to the encoder's frame by
+serving's own resize (SamResize, the first step of model.transform: the long side to 512 for L0, 1024 for XL0,
+which the encoder's transform then leaves as it is), and held in memory with
+its label at the same size (INTER_AREA, >= 0.5). Each sample is augmented when it is drawn, by seg_ft.augment
+(albumentations transforms built by name, seeded from the run's seed; a spatial transform moves the label with
+the photo, and a warp fills the label's exposed border with IGNORE), its label padded with IGNORE as SamPad pads
+the image, and encoded by the frozen encoder. The validation photos are not augmented: they are encoded once per
+run at full resolution, as at serving, and held in memory, so checkpoint selection is deterministic.
 
 Training (seg_ft in params.yaml): the image encoder and prompt encoder are frozen, the mask decoder trains. The
 prompt is the serving prompt, one whole-image box, and the loss is on the output serving keeps (seg_mask_select,
 multi3), upsampled to the encoder's frame. A point_share of the batches add 1 to max_points points to the box
-(ML-5 D15, SAM's recipe): drawn uniformly from the error region of that photo's box-only prediction, an include
+(ML-5 D15, SAM's recipe): drawn uniformly from the error region of that sample's box-only prediction, an include
 point where the label is bean and an exclude point where it is not, and decoded through the same output (D23),
-as a redraw on the review page decodes them. Checkpoint selection stays box-only. The loss is focal_weight x focal + dice_weight x soft dice (smooth 1) + iou_weight x MSE
-of the IoU head against the IoU it achieves. Each epoch shows every train positive once, in a random view; each
-batch holds neg_share negatives, drawn with replacement. AdamW with cosine decay to lr_min; the epoch with the
-best selection score is kept: (mean val IoU + neg_select empty-or-tiny share) / 2, tiny meaning under
-seg_ft.select_min_area_frac (the fine-tune's own; params.yaml seg_min_area_frac is serving's, ML-5 P11). Stops
-after `patience` epochs without a better score.
+as a redraw on the review page decodes them. Checkpoint selection stays box-only. The loss is focal_weight x focal
++ dice_weight x soft dice (smooth 1) + iou_weight x MSE of the IoU head against the IoU it achieves. Each epoch
+shows every train positive once, augmented; each batch holds neg_share negatives, drawn with replacement. AdamW
+with cosine decay to lr_min; the epoch with the best selection score is kept: (mean val IoU + neg_select
+empty-or-tiny share) / 2, tiny meaning under seg_ft.select_min_area_frac (the fine-tune's own; params.yaml
+seg_min_area_frac is serving's, ML-5 P11). Stops after `patience` epochs without a better score.
 
-Out: models/seg/<name>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params, label session and
-label-set hash, history, the chosen epoch). segment_beans.SegParams(weights=..., decoder=...) loads it over the pretrained
-weights it was fine-tuned from, which the card's base_weights names (segment_beans.decoder_base).
+Out: models/seg/<name>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params with the pipeline,
+albumentations' version, label session and label-set hash, history, the chosen epoch).
+segment_beans.SegParams(weights=..., decoder=...) loads it over the pretrained weights it was fine-tuned from,
+which the card's base_weights names (segment_beans.decoder_base).
 """
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
+import inspect
 import json
 import math
+import os
 import time
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Callable, Iterator
 
 import cv2
 import numpy as np
@@ -63,30 +71,19 @@ from coffeecv.repo_files import read_csv, sha256_file
 from coffeecv.sam_loader import build_sam, variant_of
 
 LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <session>/labels.csv
-CACHE_ROOT = REPO_ROOT / "data" / "seg_cache_ml5"   # <session>/
 MODEL_DIR = REPO_ROOT / "models" / "seg"
 LOW = 256                         # the decoder's low-res logits
 PROMPT_FRAME = 1024               # SAM's prompt coordinates (model.image_size[0])
 IGNORE = 255
-EMB_SHAPE = (256, 64, 64)
 ROLES = {("accepted", "train"): "train", ("accepted", "validation"): "val",
          ("negative", "train"): "neg_train", ("negative", "validation"): "neg_select"}
-VIEWS = {
-    "id": lambda a: a,
-    "hflip": lambda a: a[:, ::-1],
-    "vflip": lambda a: a[::-1],
-    "rot180": lambda a: a[::-1, ::-1],
-    "rot90": lambda a: np.rot90(a, 1),
-    "rot270": lambda a: np.rot90(a, 3),
-    "transpose": lambda a: np.swapaxes(a, 0, 1),
-    "antitranspose": lambda a: np.rot90(np.swapaxes(a, 0, 1), 2),
-}
+TRAIN_ROLES, SELECT_ROLES = ("train", "neg_train"), ("val", "neg_select")
 
 
 @dataclass(frozen=True)
 class FtParams:
     weights: str                  # the pretrained base under models_pretrained/ (params.yaml); its variant sets the frame
-    views: tuple[str, ...] = ("id", "hflip", "vflip", "rot180")
+    augment: tuple[dict, ...] = ()        # ML-6 D12, D16: albumentations transforms, each {transform, p, args}
     epochs: int = 40
     patience: int = 8
     batch_size: int = 8
@@ -113,17 +110,56 @@ class FtParams:
             raise ValueError("params.yaml seg_ft.weights must name the pretrained base (no default: it is the one "
                              "place the fine-tune's base is written)")
         p = cls(**{k: tuple(v) if isinstance(v, list) else v for k, v in cfg.seg_ft.items()})
-        if bad := [v for v in p.views if v not in VIEWS]:
-            raise ValueError(f"seg_ft.views: unknown {bad}; known {list(VIEWS)}")
-        if p.views[0] != "id":
-            raise ValueError("seg_ft.views must start with id (selection reads the identity view)")
         if not 0 <= p.point_share <= 1 or p.max_points < 1:
             raise ValueError("seg_ft.point_share must be in [0, 1] and max_points at least 1")
         variant_of(p.weights)
+        build_augment(p.augment, seed=0)
         return p
 
 
-# ---------------------------------------------------------------- geometry shared by cache and training
+# ---------------------------------------------------------------- augmentation (ML-6 D12, D16)
+
+def _albumentations():
+    """albumentations, imported without its update check (2.0.8 asks PyPI on import otherwise)."""
+    os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
+    import albumentations
+    return albumentations
+
+
+def _transform(A, t: dict):
+    """One seg_ft.augment entry as an albumentations transform. Lists become tuples, `transforms` (OneOf and the
+    like) nest entries. A transform that fills a mask (a warp's exposed border) must fill it with IGNORE."""
+    if not isinstance(t, dict) or set(t) - {"transform", "p", "args"} or "transform" not in t or "p" not in t:
+        raise ValueError(f"seg_ft.augment: {t!r} is not {{transform, p, args}}")
+    cls = getattr(A, str(t["transform"]), None)
+    if not (inspect.isclass(cls) and issubclass(cls, A.BasicTransform | A.BaseCompose)):
+        raise ValueError(f"seg_ft.augment: {t['transform']!r} is not an albumentations transform")
+    args = dict(t.get("args") or {})
+    if "fill_mask" in inspect.signature(cls).parameters and args.get("fill_mask") != IGNORE:
+        raise ValueError(f"seg_ft.augment: {t['transform']} must set fill_mask: {IGNORE} (the label's ignore value)")
+    tup = lambda v: tuple(tup(x) for x in v) if isinstance(v, list) else v  # noqa: E731
+    args = {k: [_transform(A, x) for x in v] if k == "transforms" else tup(v) for k, v in args.items()}
+    try:
+        return cls(**args, p=float(t["p"]))
+    except Exception as e:
+        raise ValueError(f"seg_ft.augment: {t['transform']}: {e}") from e
+
+
+def build_augment(spec, seed: int) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    """(photo HxWx3 uint8, label HxW uint8) -> the same, augmented by `spec` (seg_ft.augment) in a stream seeded
+    by `seed`: a spatial transform moves the label with the photo, a pixel transform leaves it as it is."""
+    if not spec:
+        return lambda rgb, label: (rgb, label)
+    A = _albumentations()
+    pipe = A.Compose([_transform(A, t) for t in spec], seed=seed, strict=True)
+
+    def augment(rgb: np.ndarray, label: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        out = pipe(image=rgb, mask=label)
+        return out["image"], out["mask"]
+    return augment
+
+
+# ---------------------------------------------------------------- geometry
 
 def frame_size(h: int, w: int, long_side: int) -> tuple[int, int]:
     """SAM's ResizeLongestSide.get_preprocess_shape."""
@@ -137,14 +173,22 @@ def encoder_frame(model) -> int:
     return int(model.image_size[1])
 
 
-def label_in_frame(mask: np.ndarray, frame: int) -> np.ndarray:
-    """A full-resolution bool mask -> uint8 frame x frame: 1 bean, 0 not, IGNORE on the padding (bottom/right,
-    as SamPad pads the image)."""
-    fh, fw = frame_size(*mask.shape, frame)
-    small = cv2.resize(mask.astype(np.float32), (fw, fh), interpolation=cv2.INTER_AREA) >= 0.5
+def label_at(mask: np.ndarray, size: tuple[int, int]) -> np.ndarray:
+    """A full-resolution bool mask -> uint8 at `size` (h, w): 1 bean, 0 not."""
+    return (cv2.resize(mask.astype(np.float32), size[::-1], interpolation=cv2.INTER_AREA) >= 0.5).astype(np.uint8)
+
+
+def pad_label(label: np.ndarray, frame: int) -> np.ndarray:
+    """A label at the photo's resized size -> frame x frame, IGNORE on the padding (bottom/right, as SamPad pads
+    the image)."""
     out = np.full((frame, frame), IGNORE, np.uint8)
-    out[:fh, :fw] = small
+    out[:label.shape[0], :label.shape[1]] = label
     return out
+
+
+def label_in_frame(mask: np.ndarray, frame: int) -> np.ndarray:
+    """A full-resolution bool mask -> uint8 frame x frame: 1 bean, 0 not, IGNORE on the padding."""
+    return pad_label(label_at(mask, frame_size(*mask.shape, frame)), frame)
 
 
 def whole_box(h: int, w: int) -> np.ndarray:
@@ -153,7 +197,7 @@ def whole_box(h: int, w: int) -> np.ndarray:
     return np.array([0.0, 0.0, (w - 1) * fw / w, (h - 1) * fh / h], np.float32)
 
 
-# ---------------------------------------------------------------- the label set and the cache
+# ---------------------------------------------------------------- the label set, held in memory
 
 def label_rows(session: str) -> list[dict]:
     """A labelling session's labels.csv rows that train or select, each with its role (ROLES). Dropped photos are
@@ -173,76 +217,89 @@ def label_set_sha256(rows: list[dict]) -> str:
     return h.hexdigest()
 
 
-@torch.inference_mode()
-def build_cache(session: str, p: FtParams) -> None:
-    rows = label_rows(session)
-    root = CACHE_ROOT / session
-    predictor, wsha = build_sam(p.weights)
-    model = predictor.model
-    frame = encoder_frame(model)
-    n = len(rows)
-    t0 = time.perf_counter()
-    arrays = {}
-    for v in p.views:
-        d = root / v
-        d.mkdir(parents=True, exist_ok=True)
-        arrays[v] = (np.lib.format.open_memmap(d / "emb.npy", "w+", np.float16, (n, *EMB_SHAPE)),
-                     np.lib.format.open_memmap(d / "label.npy", "w+", np.uint8, (n, frame, frame)), [])
-    for i, r in enumerate(rows):
-        photo = REPO_ROOT / r["path"]
-        if sha256_file(photo) != r["photo_sha256"]:
-            raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
-        rgb = load_rgb_image(photo)
-        mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0
-        if mask.shape != rgb.shape[:2]:
-            raise ValueError(f"{r['id']}: label {mask.shape} does not match photo {rgb.shape[:2]}")
-        for v in p.views:
-            im = np.ascontiguousarray(VIEWS[v](rgb))
-            m = np.ascontiguousarray(VIEWS[v](mask))
-            emb, lab, meta = arrays[v]
-            emb[i] = model.image_encoder(model.transform(im).unsqueeze(0))[0].numpy().astype(np.float16)
-            lab[i] = label_in_frame(m, frame)
-            meta.append({"h": m.shape[0], "w": m.shape[1]})
-        if (i + 1) % 25 == 0 or i + 1 == n:
-            print(f"  {i + 1}/{n}  {time.perf_counter() - t0:.0f}s", flush=True)
-    for v, (emb, lab, meta) in arrays.items():
-        emb.flush()
-        lab.flush()
-        (root / v / "meta.json").write_text(json.dumps(meta) + "\n")
-    fields_ = ["id", "source", "split", "role", "path", "photo_sha256", "mask_sha256"]
-    with open(root / "index.csv", "w", newline="") as f:
-        wr = csv.DictWriter(f, fieldnames=["i", *fields_])
-        wr.writeheader()
-        for i, r in enumerate(rows):
-            wr.writerow({"i": i, **{k: r[k] for k in fields_}})
-    (root / "cache.json").write_text(json.dumps({
-        "labels": session, "views": list(p.views), "n": n, "weights": p.weights, "weights_sha256": wsha, "frame": frame,
-        "label_set_sha256": label_set_sha256(rows),
-        "roles": {k: sum(r["role"] == k for r in rows) for k in ("train", "val", "neg_train", "neg_select")},
-        "threads": torch.get_num_threads()}, indent=2) + "\n")
+def label_set(session: str, rows: list[dict]) -> dict:
+    """What the card records of the labels: the session, the label-set hash and the photos per role."""
+    return {"session": session, "label_set_sha256": label_set_sha256(rows), "n": len(rows),
+            "roles": {k: sum(r["role"] == k for r in rows) for k in (*TRAIN_ROLES, *SELECT_ROLES)}}
 
 
-class Cache:
-    def __init__(self, session: str):
-        root = CACHE_ROOT / session
-        info = json.loads((root / "cache.json").read_text())
-        self.info = info
-        self.rows = read_csv(root / "index.csv")
-        self.views = info["views"]
-        self.emb = {v: np.load(root / v / "emb.npy", mmap_mode="r") for v in self.views}
-        self.label = {v: np.load(root / v / "label.npy", mmap_mode="r") for v in self.views}
-        self.meta = {v: json.loads((root / v / "meta.json").read_text()) for v in self.views}
-        self.frame = int(self.label["id"].shape[-1])
+def load_pair(r: dict) -> tuple[np.ndarray, np.ndarray]:
+    """(photo, bool label) of a labels.csv row at full resolution, the photo checked against its sha256."""
+    photo = REPO_ROOT / r["path"]
+    if sha256_file(photo) != r["photo_sha256"]:
+        raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
+    rgb = load_rgb_image(photo)
+    mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0
+    if mask.shape != rgb.shape[:2]:
+        raise ValueError(f"{r['id']}: label {mask.shape} does not match photo {rgb.shape[:2]}")
+    return rgb, mask
 
-    def role(self, name: str) -> list[int]:
-        return [int(r["i"]) for r in self.rows if r["role"] == name]
 
-    def sample(self, i: int, view: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """(embedding 1x256x64x64 float32, label frame x frame uint8, box 1x4 in the prompt frame)."""
-        m = self.meta[view][i]
-        return (torch.from_numpy(np.asarray(self.emb[view][i], np.float32))[None],
-                torch.from_numpy(np.array(self.label[view][i])),
-                torch.from_numpy(whole_box(m["h"], m["w"]))[None])
+class TrainSet:
+    """The training photos (train, neg_train) and their labels, loaded once and held in memory at the encoder's
+    frame; `pos` and `neg` index them. `sample` augments one as it is drawn. `resize` is serving's
+    (model.transform's SamResize, `resize.size` the frame), so the encoder's own transform leaves the photo as it
+    is."""
+
+    def __init__(self, rows: list[dict], resize):
+        self.frame = int(resize.size)
+        self.items: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
+        self.pos, self.neg = [], []
+        for r in rows:
+            if r["role"] not in TRAIN_ROLES:
+                continue
+            rgb, mask = load_pair(r)
+            small = np.ascontiguousarray(resize(rgb))
+            (self.pos if r["role"] == "train" else self.neg).append(len(self.items))
+            self.items.append((small, label_at(mask, small.shape[:2]), whole_box(*rgb.shape[:2])))
+
+    def sample(self, i: int, aug) -> tuple[np.ndarray, np.ndarray, torch.Tensor]:
+        """(photo at the frame, augmented by `aug` unless None; its label padded to frame x frame; the whole-image
+        box 1 x 4 in the prompt frame, the photo's own, which a spatial transform keeps)."""
+        rgb, label, box = self.items[i]
+        if aug is not None:
+            rgb, label = aug(rgb, label)
+        return rgb, pad_label(label, self.frame), torch.from_numpy(box)[None]
+
+
+@torch.no_grad()
+def encode(model, rgb: np.ndarray) -> torch.Tensor:
+    """The frozen encoder's embedding (1 x 256 x 64 x 64) of a photo, as at serving (model.transform)."""
+    return model.image_encoder(model.transform(rgb).unsqueeze(0))
+
+
+class Selection:
+    """The validation photos (val, neg_select), unaugmented, encoded once at full resolution as at serving and
+    held in memory: `val` and `neg`, lists of (embedding, label frame x frame, box)."""
+
+    def __init__(self, rows: list[dict], model):
+        frame = encoder_frame(model)
+        self.val, self.neg = [], []
+        for r in rows:
+            if r["role"] not in SELECT_ROLES:
+                continue
+            rgb, mask = load_pair(r)
+            item = (encode(model, rgb), torch.from_numpy(label_in_frame(mask, frame)),
+                    torch.from_numpy(whole_box(*rgb.shape[:2]))[None])
+            (self.val if r["role"] == "val" else self.neg).append(item)
+
+
+def batch_split(data: TrainSet, p: FtParams) -> tuple[int, int]:
+    """(positives, negatives) per batch."""
+    n_neg = round(p.batch_size * p.neg_share) if data.neg else 0
+    return p.batch_size - n_neg, n_neg
+
+
+def epoch_batches(data: TrainSet, p: FtParams, rng: np.random.Generator, aug) -> Iterator[tuple[list, bool]]:
+    """One epoch, drawn and augmented as it goes: (samples, with_points) a step, each sample `TrainSet.sample`'s.
+    Every training positive once in a random order; negatives drawn with replacement; a point_share of the
+    batches add points."""
+    n_pos, n_neg = batch_split(data, p)
+    order = rng.permutation(data.pos)
+    for s in range(math.ceil(len(data.pos) / n_pos)):
+        batch = list(order[s * n_pos:(s + 1) * n_pos]) + (list(rng.choice(data.neg, n_neg)) if n_neg else [])
+        with_points = bool(rng.random() < p.point_share)
+        yield [data.sample(int(i), aug) for i in batch], with_points
 
 
 # ---------------------------------------------------------------- the decoder pass and the loss
@@ -317,17 +374,15 @@ def hard_iou(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 @torch.no_grad()
-def evaluate(model, cache: Cache, k: int, min_area_frac: float) -> dict:
-    """Selection metrics on the identity view: mean IoU on val, share of neg_select empty or tiny."""
+def evaluate(model, sel: Selection, k: int, min_area_frac: float) -> dict:
+    """Selection metrics, unaugmented: mean IoU on val, share of neg_select empty or tiny."""
     ious = []
-    for i in cache.role("val"):
-        emb, lab, box = cache.sample(i, "id")
+    for emb, lab, box in sel.val:
         logits, _ = decode(model, emb, box, k)
         valid = lab != IGNORE
         ious.append(float(hard_iou(logits[valid] > 0, lab[valid] == 1)))
     empty = []
-    for i in cache.role("neg_select"):
-        emb, lab, box = cache.sample(i, "id")
+    for emb, lab, box in sel.neg:
         logits, _ = decode(model, emb, box, k)
         empty.append(float((logits[lab != IGNORE] > 0).float().mean()) < min_area_frac)
     miou = float(np.mean(ious)) if ious else math.nan
@@ -335,43 +390,41 @@ def evaluate(model, cache: Cache, k: int, min_area_frac: float) -> dict:
     return {"val_miou": miou, "neg_select_empty": neg, "score": float(np.nanmean([miou, neg]))}
 
 
-def train(seed: int, cfg: RunConfig, p: FtParams, session: str) -> dict:
+def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict]) -> dict:
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-    cache = Cache(session)
     predictor, wsha = build_sam(p.weights)
-    if wsha != cache.info["weights_sha256"]:
-        raise ValueError("the cache was built from other encoder weights")
     model = predictor.model
+    frame = encoder_frame(model)
+    t0 = time.perf_counter()
+    data, sel = TrainSet(rows, model.transform.transforms[0]), Selection(rows, model)
+    print(f"loaded {len(data.pos)} positives and {len(data.neg)} negatives to train on, encoded {len(sel.val)} + "
+          f"{len(sel.neg)} validation photos: {time.perf_counter() - t0:.0f} s", flush=True)
+    aug = build_augment(p.augment, seed)
     model.mask_decoder.train()
     for q in model.mask_decoder.parameters():
         q.requires_grad_(True)
     k = output_index(cfg.seg_mask_select)
-    pos, neg = cache.role("train"), cache.role("neg_train")
-    n_neg = round(p.batch_size * p.neg_share) if neg else 0
-    n_pos = p.batch_size - n_neg
-    steps = math.ceil(len(pos) / n_pos)
+    n_pos, n_neg = batch_split(data, p)
+    steps = math.ceil(len(data.pos) / n_pos)
     opt = torch.optim.AdamW(model.mask_decoder.parameters(), lr=p.lr, weight_decay=p.weight_decay)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=p.epochs * steps, eta_min=p.lr_min)
     model.mask_decoder.eval()
-    history = [{"epoch": 0, **evaluate(model, cache, k, p.select_min_area_frac)}]
-    print(f"seed {seed}: {len(pos)} positives, {len(neg)} negatives, batch {n_pos}+{n_neg}, {steps} steps/epoch, "
-          f"point batches {p.point_share}; epoch 0 {history[0]}", flush=True)
+    history = [{"epoch": 0, **evaluate(model, sel, k, p.select_min_area_frac)}]
+    print(f"seed {seed}: batch {n_pos}+{n_neg}, {steps} steps/epoch, point batches {p.point_share}; augment "
+          f"{[t['transform'] for t in p.augment]}; epoch 0 {history[0]}", flush=True)
     best = dict(history[0], state={n: t.clone() for n, t in model.mask_decoder.state_dict().items()})
     for epoch in range(1, p.epochs + 1):
         model.mask_decoder.train()
         t0 = time.perf_counter()
-        order = rng.permutation(pos)
         sums = {"total": 0.0, "focal": 0.0, "dice": 0.0, "iou_mse": 0.0}
         point_steps = 0
-        for s in range(steps):
-            batch = list(order[s * n_pos:(s + 1) * n_pos]) + list(rng.choice(neg, n_neg)) if n_neg else \
-                list(order[s * n_pos:(s + 1) * n_pos])
-            with_points = bool(rng.random() < p.point_share)
+        for s, (samples, with_points) in enumerate(epoch_batches(data, p, rng, aug), 1):
             point_steps += with_points
             opt.zero_grad()
-            for i in batch:
-                emb, lab, box = cache.sample(int(i), cache.views[rng.integers(len(cache.views))])
+            for rgb, lab, box in samples:
+                lab = torch.from_numpy(lab)
+                emb = encode(model, rgb)
                 points = None
                 if with_points:
                     with torch.no_grad():
@@ -379,13 +432,15 @@ def train(seed: int, cfg: RunConfig, p: FtParams, session: str) -> dict:
                     points = error_points(box_only, lab, int(rng.integers(1, p.max_points + 1)), rng)
                 logits, iou = decode(model, emb, box, k, points)
                 ls = losses(logits, iou, lab, p)
-                (ls["total"] / len(batch)).backward()
+                (ls["total"] / len(samples)).backward()
                 for key in sums:
-                    sums[key] += float(ls[key].detach()) / len(batch) / steps
+                    sums[key] += float(ls[key].detach()) / len(samples) / steps
             opt.step()
             sched.step()
+            if s % 10 == 0:
+                print(f"  epoch {epoch} step {s}/{steps}  {time.perf_counter() - t0:.0f} s", flush=True)
         model.mask_decoder.eval()
-        ev = evaluate(model, cache, k, p.select_min_area_frac)
+        ev = evaluate(model, sel, k, p.select_min_area_frac)
         row = {"epoch": epoch, **{f"train_{a}": round(b, 5) for a, b in sums.items()}, "point_steps": point_steps, **ev,
                "lr": sched.get_last_lr()[0], "seconds": round(time.perf_counter() - t0, 1)}
         history.append(row)
@@ -396,18 +451,20 @@ def train(seed: int, cfg: RunConfig, p: FtParams, session: str) -> dict:
             print(f"no better score for {p.patience} epochs; stopping", flush=True)
             break
     return {"seed": seed, "best": {a: b for a, b in best.items() if a != "state"}, "state": best["state"],
-            "history": history, "weights_sha256": wsha, "k": k}
+            "history": history, "weights_sha256": wsha, "k": k, "frame": frame}
 
 
-def write_model(res: dict, cfg: RunConfig, p: FtParams, cache: Cache, name: str) -> Path:
+def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str) -> Path:
+    """The decoder and its card; `labels` is `label_set`'s."""
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     out = MODEL_DIR / f"{name}.pt"
     torch.save({"mask_decoder": res["state"], "base_weights_sha256": res["weights_sha256"],
                 "output": cfg.seg_mask_select, "prompt": cfg.seg_prompt}, out)
-    card = {"name": name, "seed": res["seed"], "labels": cache.info["labels"], "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
+    card = {"name": name, "seed": res["seed"], "labels": labels["session"], "label_set": labels,
+            "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
-            "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select,
-            "cache": cache.info,
+            "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select, "frame": res["frame"],
+            "albumentations": _albumentations().__version__,
             "chosen": res["best"], "history": res["history"], "threads": torch.get_num_threads()}
     out.with_suffix(".json").write_text(json.dumps(card, indent=2) + "\n")
     return out
@@ -415,22 +472,18 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, cache: Cache, name: str)
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["cache", "train"])
+    ap.add_argument("command", choices=["train"])
     ap.add_argument("--labels", required=True, help="the labelling session (data/ml5_labels/<session>)")
-    ap.add_argument("--seed", type=int, help="train: the fine-tune seed")
-    ap.add_argument("--name", help="train: the model's name, models/seg/<name>.pt")
+    ap.add_argument("--seed", type=int, required=True, help="the fine-tune seed")
+    ap.add_argument("--name", required=True, help="the model's name, models/seg/<name>.pt")
     ap.add_argument("--threads", type=int, required=True, help="torch.set_num_threads")
     args = ap.parse_args(argv)
     torch.set_num_threads(args.threads)
     cfg = RunConfig.from_params_yaml()
     p = FtParams.from_config(cfg)
-    if args.command == "cache":
-        build_cache(args.labels, p)
-        return
-    if args.seed is None or not args.name:
-        ap.error("train needs --seed and --name")
-    res = train(args.seed, cfg, p, args.labels)
-    out = write_model(res, cfg, p, Cache(args.labels), args.name)
+    rows = label_rows(args.labels)
+    res = train(args.seed, cfg, p, rows)
+    out = write_model(res, cfg, p, label_set(args.labels, rows), args.name)
     print(f"wrote {out.relative_to(REPO_ROOT)}: epoch {res['best']['epoch']}, score {res['best']['score']:.4f}")
 
 

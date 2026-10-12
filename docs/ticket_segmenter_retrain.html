@@ -400,7 +400,7 @@
         <td>(b), owner 2026-10-12: Albumentations replaces the custom view code. Augmentations are generated
           during training and never stored, so each epoch sees new ones, with no disk and no transfer cost. Built
           on the MIT <code>albumentations</code> 2.0.8 already locked; the transform set and the thread count are
-          plan Q4 and Q5.</td></tr>
+          plan Q4 and Q5. <a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>.</td></tr>
       <tr><td class="id">D13</td><td>May the pass-1 and pass-2 embedding caches (7.1 GB) be deleted? (plan Q1)</td>
         <td>(a) Yes, once their stages are frozen (plan P5). (b) Keep them.</td>
         <td>(a), owner 2026-10-12.</td></tr>
@@ -431,7 +431,8 @@
           deploy.</td></tr>
       <tr><td class="id">D19</td><td>Does D12 get an ADR?</td>
         <td>(a) Yes: segmenter fine-tunes augment on the fly and store nothing. (b) No: D12 is the record.</td>
-        <td>(a), owner 2026-10-12. Written in plan P5.</td></tr>
+        <td>(a), owner 2026-10-12. Written in plan P5:
+          <a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>.</td></tr>
     </tbody>
   </table></div>
 
