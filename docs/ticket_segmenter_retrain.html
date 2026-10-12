@@ -14,15 +14,15 @@
     real-data test fails and deploys refuse. This ticket appends them, labels the few new positives, fine-tunes a new
     XL0 decoder (XL0-v3) with ML-5's recipe, except that its augmentation is generated on the fly by Albumentations
     and never stored (D12), and compares it with the shipped XL0-v2. All of it runs on this host,
-    not on a remote machine (D9). Written and <a href="plan_segmenter_retrain.html">planned</a>; D9 and D10
-    decided, the rest open; not implemented.</p>
+    not on a remote machine (D9). Written and <a href="plan_segmenter_retrain.html">planned</a>; every decision
+    taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs, <a href="plan_segmenter_retrain.html">planned</a>; not implemented</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D19 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (<code>seg_ml5_cache</code>, <code>seg_ml5_finetune</code>, <code>seg_ml5_predict</code>), <code>params.yaml</code> (<code>seg_ft</code>, <code>seg_weights</code>, <code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/strip_metadata.py</code> (D10), <code>dataset/segmenter_positives</code>, <code>albumentations</code> 2.0.8 in <code>pyproject.toml</code> (D12)</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (<code>seg_ml5_cache</code>, <code>seg_ml5_finetune</code>, <code>seg_ml5_predict</code>), <code>params.yaml</code> (<code>seg_ft</code>, <code>seg_weights</code>, <code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/strip_metadata.py</code> (D10), <code>dataset/segmenter_positives</code>, <code>albumentations</code> 2.0.8 in <code>pyproject.toml</code> (D12), <code>labels/ml5/split_units.yaml</code> (D11), <code>dataset/ood_negatives/README.md</code> (D1), <code>coffeecv/fit_ood_probe.py</code> and <code>coffeecv/ood_eval.py</code> (D18)</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, mask verdicts)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-10</span></div>
@@ -69,7 +69,7 @@
     <li><strong>What <code>seg_dataset build</code> appends</strong> (run 2026-10-11 with all four new photos, in
       memory; nothing written until D1 is decided). It adds 459 photos, for 869 in total:
       <ul>
-        <li>443 negatives: 264 train, 67 validation, 112 test, in 368 groups.</li>
+        <li>443 negatives: 264 train, 67 validation, 112 test, in 368 split units.</li>
         <li>8 segmenter positives (4 from 2026-10-10, 4 from 2026-10-11): 5 train, 3 test.</li>
         <li>A pool top-up of 8 photos to keep pool equal to segmenter positives (ML-5 D12): 5 train, 1 validation,
           2 test. None of the 6 new class_005 photos is drawn.</li>
@@ -78,8 +78,8 @@
       grow from 41 to 153, validation negatives from 14 to 81, training negatives from 87 to 351.</li>
     <li><strong>One scene on two clocks.</strong> <code>IMG_7252.HEIC</code> (iPhone, 09:59:05) and the two OnePlus
       shots (09:59:33 and 09:59:35) show the same hopper of beans within 30 s. The iPhone records a UTC offset and the
-      OnePlus does not, so <code>seg_dataset.shot_time</code> puts them on different clocks, and the grouping
-      (ML-5 D13) never compares two clocks. They form two groups: the build puts the HEIC in train and both OnePlus
+      OnePlus does not, so <code>seg_dataset.shot_time</code> puts them on different clocks, and the rule for split
+      units (ML-5 D13) never compares two clocks. They form two split units: the build puts the HEIC in train and both OnePlus
       shots in test (R6, D11).</li>
     <li><strong>The manifest's holdout is not respected.</strong> The segmenter split ignores the manifest's
       dev/holdout, as ML-5 D16 retired it for this dataset. 119 of the manifest's holdout photos would land in
@@ -161,19 +161,22 @@
     </tbody>
   </table></div>
 
-  <h3>3.2 How the photos are grouped and split</h3>
+  <h3>3.2 How the photos are tied into split units and split</h3>
   <ul>
-    <li><strong>Groups first.</strong> These photos form one group:
+    <li><strong>Split units first.</strong> A split unit is a set of photos that always lands in one split. These
+      photos form one (the code calls it a group: <code>seg_dataset.groups</code>, the file's <code>group</code>
+      field):
       <ul>
         <li>byte-identical files;</li>
         <li>photos from one source URL;</li>
-        <li>shots chained while each is within 120 s of the last.</li>
+        <li>shots chained while each is within 120 s of the last;</li>
+        <li>photos the owner ties together by hand in <code>labels/ml5/split_units.yaml</code> (this ticket's D11).</li>
       </ul>
-      A group always goes to one split. Why: a copy or a near-identical burst shot on both sides would test the
+      A split unit always goes to one split. Why: a copy or a near-identical burst shot on both sides would test the
       model on a photo it has in effect trained on. 71 segmenter positives are byte copies of other photos in
       <code>dataset/</code>, 51 of them pool photos (D13, ML-5 R1).</li>
     <li><strong>Then the split.</strong> The file splits 60% train, 15% validation and 25% test within each source,
-      and within each (batch, tag) for negatives. Whole groups move at a time, in an order drawn from seed 511
+      and within each (batch, tag) for negatives. Whole split units move at a time, in an order drawn from seed 511
       (<code>params.yaml</code> <code>seg_dataset</code>). Why per source and per (batch, tag): each source and each
       negative scenario keeps its share in every split, so each gets a test line of its own. Why 25% test: the owner
       chose 60/15/25 over 70/15/15 (D13), which gives about 32 test photos per positive source. Exception: the 11
@@ -204,7 +207,7 @@
           </ul></td>
         <td>The probe is fitted on training and validation negatives with a clean tag, so
           <code>wrong_bean_type</code> is left out. Its bean photos come from the classifier's own test split, minus
-          any in a group with a segmenter test photo.</td>
+          any in a split unit with a segmenter test photo.</td>
         <td>A fixed half-and-half batch means more negatives add variety, not weight. The decoder can't drift
           towards always or never masking as the negative count changes. Flips and rotations are the only
           augmentation the cached embeddings allow.</td></tr>
@@ -310,7 +313,7 @@
           (D8). This is accepted by design (ML-5 D12), and recorded here so nobody expects otherwise.</td></tr>
       <tr><td class="id">R6</td><td><strong>One scene shot on two phones lands in both train and test.</strong></td>
         <td>The 2026-10-11 hopper: the iPhone shot goes to train, the two OnePlus shots 28&ndash;30 s later go to test,
-          because their clocks are never compared (&sect;2). The angle and framing differ, but the beans are the
+          because their clocks are never compared (&sect;2), so they form two split units. The angle and framing differ, but the beans are the
           same. The same can happen whenever the owner shoots one scene with a phone that records a UTC offset and
           one that does not. D11 decides.</td></tr>
       <tr><td class="id">R7</td><td><strong>The fine-tune takes 7&ndash;10 h.</strong></td>
@@ -332,38 +335,47 @@
         <td>(a) All of them, as ML-5 D16 had, split by <code>seg_dataset</code> with the manifest's dev/holdout ignored.
           (b) Only the manifest's dev photos (about 271), so the holdout stays unseen by every model.
           (c) A subsample.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12. <code>dataset/ood_negatives/README.md</code> is updated in P1 to say the
+          <code>user_realworld</code> holdout no longer means "unseen by every model": no live code reads it, and
+          the segmenter's test split is the check no model has seen.</td></tr>
       <tr><td class="id">D2</td><td>Is XL0-v2 measured on the new negatives before any training?</td>
         <td>(a) Yes: predict all 443 with XL0-v2, report the empty-or-tiny rate per split, and the
           owner decides whether to train. (b) No: train directly; XL0-v2 is measured on test in D6 anyway.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12, on the about 331 new training and validation negatives only: the test negatives
+          are kept for D6, so the decision to train does not look at them. No fixed bar: the owner decides on
+          seeing the rates and the photos XL0-v2 masks.</td></tr>
       <tr><td class="id">D3</td><td>How are the new positives labelled?</td>
         <td>(a) A <code>pass3</code> session that carries the pass-2 labels over unchanged. The owner judges only
           the 11 new training and validation photos, with XL0-v2 proposing and redrawing through <code>multi3</code>.
           (b) The owner reviews every training and validation positive again, as pass 2 did.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12, with one change: pass 2's 4 drops (declined three times, so never trained on)
+          are not carried but shown again, with XL0-v2 proposing. The owner judges 15 photos: the 11 new and those
+          4.</td></tr>
       <tr><td class="id">D4</td><td>What is XL0-v3's recipe?</td>
         <td>(a) XL0-v2's unchanged: seed 123, <code>seg_ft</code> as it is, so XL0-v3 differs only in its data.
           (b) Changes, named.</td>
-        <td>(b) in part, 2026-10-12: the augmentation changes (D12). The seed and the rest of
-          <code>seg_ft</code> are still open.</td></tr>
+        <td>(b) in part, 2026-10-12: the augmentation changes (D12). Otherwise XL0-v2's, owner 2026-10-12:
+          seed 123, 40 epochs, patience 8, the same loss and learning rate.</td></tr>
       <tr><td class="id">D5</td><td>What does the checkpoint score count for validation negatives?</td>
         <td>(a) As now: the share of all validation negatives that are empty or tiny. (b) The mean of the
           per-batch shares, so <code>user_realworld</code> and <code>internet_proxy</code> weigh the same.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12: XL0-v2's rule, so XL0-v3 changes in its data and augmentation only. Reports
+          still give the share per batch.</td></tr>
       <tr><td class="id">D6</td><td>How is XL0-v3 compared with XL0-v2?</td>
         <td>(a) As ML-5 D22: one blind paired session on the 71 test positives with an exact McNemar test, plus the
           empty-or-tiny rate on the 153 test negatives, overall and per batch. (b) Negatives only, with XL0-v3's
           positives judged unpaired.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12. The owner judged 66 of XL0-v2's test masks in ML-5 P10, so they may look
+          familiar; sides stay randomised.</td></tr>
       <tr><td class="id">D7</td><td>Is the tiny-mask threshold (0.040223) re-derived?</td>
         <td>(a) Yes, as ML-5 D21, from the chosen model's accepted test masks. (b) Kept as it is.</td>
-        <td>Open.</td></tr>
+        <td>Deferred, owner 2026-10-12: decided in P7, after XL0-v3 is trained and tested.</td></tr>
       <tr><td class="id">D8</td><td>What follows if XL0-v3 is chosen?</td>
         <td>(a) As ML-5 P11, in this ticket: re-crop the pools, retrain the classifier (seeds 42/123/7) and refit
           the probe on the new training and validation negatives. (b) Segmenter only; the classifier and probe get
           their own ticket.</td>
-        <td>Open.</td></tr>
+        <td>(a), owner 2026-10-12: serving crops with the segmenter, so XL0-v3 cannot ship without the re-crop
+          and the retrained classifier. The probe is refit in either case (D18).</td></tr>
       <tr><td class="id">D9</td><td>Where does the cache and fine-tune run?</td>
         <td>(a) The local machine, as ML-5 P8&ndash;P11. (b) The VM, with the owner's OK.</td>
         <td>(a), 2026-10-12: XL0-v3 is trained on this host, not on a remote machine. Every other ML-6 run is too.
@@ -374,11 +386,14 @@
           and hold the HEIC outside the folder until it can be stripped. (c) Convert it to JPEG.</td>
         <td>(a) and (b), 2026-10-11: the JPEGs join now and the HEIC follows once the check is extended. Not (c):
           the HEIC is never converted.</td></tr>
-      <tr><td class="id">D11</td><td>Do the 2026-10-11 iPhone and OnePlus shots of one hopper form one group (R6)?</td>
-        <td>(a) Accept two groups, as ML-5 D13's rule gives. (b) Group them by hand: a committed list of photos that
-          form one group, which <code>seg_dataset.groups</code> reads, before the append. (c) Give a camera without an
-          offset a known one (here +05:00, which the iPhone and the Pixel recorded that morning), so that its shots share the UTC clock.</td>
-        <td>Open.</td></tr>
+      <tr><td class="id">D11</td><td>Do the 2026-10-11 iPhone and OnePlus shots of one hopper form one split unit (R6)?</td>
+        <td>(a) Accept two split units, as ML-5 D13's rule gives. (b) Tie them by hand: a committed list of photos
+          that form one split unit, which <code>seg_dataset.groups</code> reads, before the append. (c) Give a camera
+          without an offset a known one (here +05:00, which the iPhone and the Pixel recorded that morning), so that
+          its shots share the UTC clock.</td>
+        <td>(b), owner 2026-10-12, in <code>labels/ml5/split_units.yaml</code>. Simulated: all three shots land in
+          train, two other new photos take the test places, and the counts per source do not change. Not (c): it
+          would re-read all 6 KB2005 photos, 2 of them listed, with an offset right only for that morning.</td></tr>
       <tr><td class="id">D12</td><td>How is XL0-v3's training data augmented?</td>
         <td>(a) As ML-5: 4 dihedral views precomputed by our own code into the embedding cache. (b) The
           Albumentations library, augmenting each sample as training goes, with nothing augmented stored.</td>
@@ -401,6 +416,22 @@
           border ignored); brightness and contrast, small hue, saturation and value shifts, gamma, JPEG quality,
           blur, noise. (b) Another set, named.</td>
         <td>(a), owner 2026-10-12.</td></tr>
+      <tr><td class="id">D17</td><td>What is the set of photos that always lands in one split called?</td>
+        <td>(a) "Group", as the code and ML-5 say. (b) "Split unit".</td>
+        <td>(b), owner 2026-10-12: "group" misleads. ML-6's descriptive text, its open decisions, its plan and the
+          new <code>split_units.yaml</code> say "split unit". The glossary, the ADRs, ML-5's documents, the code,
+          the dataset file's <code>group</code> field, this ticket's Activity log and its decisions answered before
+          this one stay as written.</td></tr>
+      <tr><td class="id">D18</td><td>Is the OOD guard's probe refit on the new negatives if XL0-v2 stays?</td>
+        <td>(a) Yes: refit in ML-6 and measured on the test split, whichever segmenter is chosen. (b) Only with
+          XL0-v3. (c) Its own ticket.</td>
+        <td>(a), owner 2026-10-12. <code>fit_ood_probe</code> needs no new segmenter, and
+          <code>real_world_negatives</code> is a clean tag, so the fit grows from 99 negatives to about 330,
+          including the rock and scree photos the guard once accepted. A refit probe ships only through a
+          deploy.</td></tr>
+      <tr><td class="id">D19</td><td>Does D12 get an ADR?</td>
+        <td>(a) Yes: segmenter fine-tunes augment on the fly and store nothing. (b) No: D12 is the record.</td>
+        <td>(a), owner 2026-10-12. Written in plan P5.</td></tr>
     </tbody>
   </table></div>
 
@@ -408,12 +439,13 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The three 2026-10-11 JPEGs are stripped, in DVC and on the remote, every object verified (D10 (b)).</span></li>
     <li><span class="box done"></span><span><code>coffeecv/strip_metadata.py</code> checks undecodable HEIF auxiliary images by their bytes, with tests; <code>IMG_7252.HEIC</code> is stripped, in the manifest, in DVC and on the remote (D10 (a)).</span></li>
-    <li><span class="box"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, and the real-data tier is green.</span></li>
-    <li><span class="box"></span><span>The new training and validation positives are labelled and the new test positive judged by the owner (D3); the labels are DVC-tracked.</span></li>
+    <li><span class="box"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, the hopper shots in one split unit (D11), and the real-data tier is green. The negatives' README says their holdout is no longer unseen.</span></li>
+    <li><span class="box"></span><span>XL0-v2's rates on the new training and validation negatives are reported, and the owner has decided whether to train (D2).</span></li>
+    <li><span class="box"></span><span>The 11 new training and validation positives and pass 2's 4 drops are judged by the owner in pass 3, the rest carried from pass 2 (D3); the labels are DVC-tracked.</span></li>
     <li><span class="box"></span><span><code>coffeecv/seg_finetune.py</code> augments training samples through Albumentations as it trains and stores none (D12). The dihedral-view cache code is gone, and the stages that used it are frozen.</span></li>
     <li><span class="box"></span><span>XL0-v3 is fine-tuned as a DVC stage beside <code>xl0_v1</code> and <code>xl0_v2</code>, and its test masks are stored.</span></li>
     <li><span class="box"></span><span>The XL0-v3 against XL0-v2 report exists (D6), and the owner has picked one.</span></li>
-    <li><span class="box"></span><span>D7 and D8 are carried out as decided; data and models are pushed to the DVC remote and verified there.</span></li>
+    <li><span class="box"></span><span>D7 and D8 are carried out as decided; the probe is refit on the new negatives and measured on the test split (D18); data and models are pushed to the DVC remote and verified there.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -480,6 +512,13 @@
       D13&ndash;D16. Q2 stays open. The owner ended the parallel session, whose commit <code>7a11b0b</code> (the two
       pool photos) Claude checked: <code>dvc status</code> clean, and the cache in sync with
       <code>dvcnewremote</code>.</div>
+    <div><div class="when">2026-10-12</div>A grilling session with the owner settles the open decisions: D1 (a),
+      D2 (a) on training and validation negatives with no fixed bar, D3 (a) with pass 2's drops shown again, D4
+      (XL0-v2's recipe apart from D12), D5 (a), D6 (a), D8 (a), D11 (b), and new D17 ("split unit" for what the code
+      calls a group), D18 (the probe refit under either outcome) and D19 (an ADR for D12). D7 is deferred to P7.
+      Facts behind them: an in-memory build for D11 (b) and (c), XL0-v2's training curve (flat from about epoch 25),
+      the negatives' README rule for their holdout, and <code>ood_eval.CLEAN_NEGATIVE_TAGS</code>. Triage
+      <code>ready-for-agent</code>; the plan is updated. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
