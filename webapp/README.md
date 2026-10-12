@@ -56,7 +56,8 @@ Production does not run from a checkout. Each deploy builds an immutable release
   visible to it -- not the training checkout, not the training venv, not `~/.cache/torch`. What a
   sweep does to `~/coffee-vision` or `~/coffee-vision-venv` cannot change what production serves.
 - Each release has its own `.venv`, built on the host by `uv sync --locked` from `webapp/pyproject.toml`
-  + `webapp/uv.lock` (versions copied from the production freeze; torch/torchvision from the PyTorch
+  + `webapp/uv.lock` on uv's own CPython (`PY_VERSION` in the deploy script, under `/opt/coffee-cv/python`,
+  installed by `--bootstrap`; never the host's system Python) (versions copied from the production freeze; torch/torchvision from the PyTorch
   CPU index; timm without its download-only deps). Packages are copied, not hard-linked, so every
   release is independent and a rollback restores exactly what that release was tested with.
 - **The model is chosen inside the release**, in `release.env` (`COFFEE_CV_CHECKPOINT=models/<name>.pt`),
@@ -115,7 +116,7 @@ shut down for good on 2026-10-12. nginx serves TLS on one port, 12346 (`PUBLIC_P
 host's router forwards; the site is `https://<DOMAIN>:12346/`.
 
 ```
-scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, log dir, logrotate
+scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
 DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_seg_country_s123
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
 scripts/deploy_webapp.sh --compare <release-id>             # training venv vs release venv, 10 photos, must be bit-identical

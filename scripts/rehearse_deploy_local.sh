@@ -154,7 +154,7 @@ chmod +x "$S"/*
 # ------------------------------------------------------------------------------------------ the runs
 export HOST=local APP_ROOT="$R/opt/coffee-cv" APP_USER="$(id -un)" SERVICE_USER="$(id -un)"
 export SYSTEM_ROOT="$R/sys" LOG_ROOT="$R/log/coffee-cv" DOMAIN=rehearsal.invalid PUBLIC_URL=
-export UV_BIN="${UV_BIN:-$(command -v uv)}" PY_BIN="${PY_BIN:-$(command -v python3.12 || command -v python3)}"
+export UV_BIN="${UV_BIN:-$(command -v uv)}"   # the releases' Python: uv-managed, installed by --bootstrap
 export TRAIN_PY="${TRAIN_PY:-$(command -v python3)}" LOCAL_PY="${LOCAL_PY:-python3}"
 export STUB_PATH="$S" STUB_STATE="$R/state" DEPLOY_SCRATCH="$R/scratch"
 export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOKE_PORT=18001
