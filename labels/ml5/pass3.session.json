@@ -1,0 +1,12 @@
+{
+  "session": "pass3",
+  "proposer": "xl0_v2",
+  "redraw": "xl0_v2",
+  "redraw_output": "multi3",
+  "splits": [
+    "train",
+    "validation"
+  ],
+  "carry": "pass2",
+  "created": "2026-10-12T16:16:18+00:00"
+}

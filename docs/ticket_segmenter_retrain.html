@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D19 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, waiting on the owner's go to train (D2)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D20 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 under way (P4)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -343,7 +343,8 @@
           owner decides whether to train. (b) No: train directly; XL0-v2 is measured on test in D6 anyway.</td>
         <td>(a), owner 2026-10-12, on the about 331 new training and validation negatives only: the test negatives
           are kept for D6, so the decision to train does not look at them. No fixed bar: the owner decides on
-          seeing the rates and the photos XL0-v2 masks.</td></tr>
+          seeing the rates and the photos XL0-v2 masks. Outcome, owner 2026-10-12 after P2 (XL0-v2 masks 328 of the
+          331, 64 empty or tiny at serving's threshold): train XL0-v3.</td></tr>
       <tr><td class="id">D3</td><td>How are the new positives labelled?</td>
         <td>(a) A <code>pass3</code> session that carries the pass-2 labels over unchanged. The owner judges only
           the 11 new training and validation photos, with XL0-v2 proposing and redrawing through <code>multi3</code>.
@@ -433,6 +434,9 @@
         <td>(a) Yes: segmenter fine-tunes augment on the fly and store nothing. (b) No: D12 is the record.</td>
         <td>(a), owner 2026-10-12. Written in plan P5:
           <a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>.</td></tr>
+      <tr><td class="id">D20</td><td>When does the XL0-v3 fine-tune start? (plan Q8)</td>
+        <td>(a) As soon as pass 3 has no pending photo. (b) On the owner's word.</td>
+        <td>(b), owner 2026-10-12: the 7&ndash;10 h run starts only when the owner says so (R7).</td></tr>
     </tbody>
   </table></div>
 
@@ -528,6 +532,9 @@
       deleted. D2: XL0-v2 masks 328 of the 331 new training and validation negatives, and only 64 are empty or
       tiny at serving's threshold (<code>analysis/ml6_p2_baseline/summary.txt</code>; contact sheet in
       <code>outputs/ml6_p2_baseline/</code>, not in git). The owner decides whether to train.</div>
+    <div><div class="when">2026-10-12</div>The owner decides, after P2: train XL0-v3 (D2), and start the run only
+      on the owner's word (D20). The plan's Q6 (how XL0-v3 is named to the prediction stage) and Q7 (the fine-tune
+      stage's deps) are open. Pass 3 is prepared and served (P4).</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
