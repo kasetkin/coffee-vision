@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prerequisites for the coffee-cv web service on a fresh Ubuntu 24.04 box: nginx, the TLS cert
+# Prerequisites for the coffee-cv web service on a fresh Debian or Ubuntu box: nginx, the TLS cert
 # directory, and the firewall rules (ufw itself is left disabled). Nothing else.
 #
 # Everything the service itself needs -- its system user, /opt/coffee-cv, uv, the log directory, and

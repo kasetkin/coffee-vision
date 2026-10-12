@@ -47,7 +47,9 @@ LOCAL_PY=${LOCAL_PY:-python3}
 UV_VERSION=0.12.19
 UV_TARBALL_SHA256=23bf5552d220e0842b65c862097b2ebaeba0064b74eda5e565e77fd25969d8c8
 UV_BIN=${UV_BIN:-/usr/local/bin/uv}
-PY_BIN=${PY_BIN:-/usr/bin/python3.12}
+# The releases' Python: a uv-managed CPython under $APP_ROOT/python, never the host's own (a Debian
+# host has no 3.12). --bootstrap installs it; the newest 3.12 uv $UV_VERSION offers.
+PY_VERSION=${PY_VERSION:-3.12.14}
 TRAIN_PY=${TRAIN_PY:-/home/$APP_USER/coffee-vision-venv/bin/python}
 
 REPO=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -80,6 +82,9 @@ capped() {
     -p CPUQuota="$cpu" -p MemoryMax="$CAP_MEM" -p MemorySwapMax=0 --nice=19 \
     --working-directory="$wd" "$@" </dev/null
 }
+managed_python() {   # managed_python <uv python subcommand> ...: only uv's own CPythons, under $APP_ROOT/python
+  UV_PYTHON_INSTALL_DIR="$APP_ROOT/python" UV_PYTHON_PREFERENCE=only-managed "$UV_BIN" python "$@"
+}
 sweep_state() {
   local pids log="" size=""
   pids=$(pgrep -f '[t]rain_baseline' | sort -n | tr '\n' ' ' || true)
@@ -102,7 +107,7 @@ vm() {
   local script=$1; shift
   local full="$PRELUDE"$'\n'"$script"
   local envs=(APP_ROOT="$APP_ROOT" APP_USER="$APP_USER" SERVICE_USER="$SERVICE_USER" LOG_ROOT="$LOG_ROOT"
-              SYSTEM_ROOT="$SYSTEM_ROOT" CAP_MEM="$CAP_MEM" UV_BIN="$UV_BIN" PY_BIN="$PY_BIN" "$@")
+              SYSTEM_ROOT="$SYSTEM_ROOT" CAP_MEM="$CAP_MEM" UV_BIN="$UV_BIN" PY_VERSION="$PY_VERSION" "$@")
   if [[ "$HOST" == local ]]; then
     env "${envs[@]}" PATH="${STUB_PATH:+$STUB_PATH:}$PATH" bash -c "$full" vm </dev/null
   else
@@ -138,15 +143,17 @@ preflight() {
     echo "MEM_AVAIL_KB=$(awk "/MemAvailable/ {print \$2}" /proc/meminfo)"
     echo "OPT_FREE_KB=$(df -Pk "$APP_ROOT" | awk "NR==2 {print \$4}")"
     echo "UV=$("$UV_BIN" --version 2>/dev/null | awk "{print \$2}")"
+    echo "PY=$(managed_python find "$PY_VERSION" 2>/dev/null || true)"
     sweep_state')
-  local mem free uv
-  mem=$(kv MEM_AVAIL_KB "$out"); free=$(kv OPT_FREE_KB "$out"); uv=$(kv UV "$out")
+  local mem free uv py
+  mem=$(kv MEM_AVAIL_KB "$out"); free=$(kv OPT_FREE_KB "$out"); uv=$(kv UV "$out"); py=$(kv PY "$out")
   PRE_SWEEP=$(grep '^SWEEP_' <<<"$out" || true)
-  note "MemAvailable $((mem / 1048576)) GB (need $MIN_MEM_GB), free on $APP_ROOT $((free / 1048576)) GB (need $MIN_FREE_GB), uv ${uv:-missing}"
+  note "MemAvailable $((mem / 1048576)) GB (need $MIN_MEM_GB), free on $APP_ROOT $((free / 1048576)) GB (need $MIN_FREE_GB), uv ${uv:-missing}, Python ${py:-missing}"
   note "sweep before: $(tr '\n' ' ' <<<"$PRE_SWEEP")"
   (( mem >= MIN_MEM_GB * 1048576 )) || die "only $((mem / 1024)) MB available memory; need ${MIN_MEM_GB} GB"
   (( free >= MIN_FREE_GB * 1048576 )) || die "only $((free / 1048576)) GB free on $APP_ROOT; need ${MIN_FREE_GB} GB"
-  [[ "$uv" == "$UV_VERSION" ]] || die "uv on the VM is '${uv:-missing}', not $UV_VERSION -- run --bootstrap"
+  [[ "$uv" == "$UV_VERSION" ]] || die "uv on the host is '${uv:-missing}', not $UV_VERSION -- run --bootstrap"
+  [[ -n "$py" ]] || die "no uv-managed Python $PY_VERSION under $APP_ROOT/python -- run --bootstrap"
 }
 
 postflight() {
@@ -305,8 +312,9 @@ stage() {
     echo "   venv: uv sync --locked (capped: 1 CPU, $CAP_MEM)"
     capped 100% "$R" \
       -E UV_CACHE_DIR="$APP_ROOT/uv-cache" -E UV_LINK_MODE=copy -E UV_PYTHON_DOWNLOADS=never \
+      -E UV_PYTHON_INSTALL_DIR="$APP_ROOT/python" -E UV_PYTHON_PREFERENCE=only-managed \
       -E UV_PROJECT_ENVIRONMENT="$R/.venv" -E UV_NO_PROGRESS=1 \
-      "$UV_BIN" sync --project webapp --locked --no-dev --compile-bytecode --python "$PY_BIN" 2>&1 | tail -8 | sed "s/^/   /"
+      "$UV_BIN" sync --project webapp --locked --no-dev --compile-bytecode --python "$PY_VERSION" 2>&1 | tail -8 | sed "s/^/   /"
     # third_party/: the vendored segmenter, only in the release of a segmenter model (ticket ML-2).
     capped 100% "$R" "$R/.venv/bin/python" -m compileall -q coffeecv webapp $([[ -d "$R/third_party" ]] && echo third_party)
   ' ID="$ID" EXPECT="$expect" || die "building the venv failed"
@@ -606,6 +614,9 @@ bootstrap() {
       $SUDO install -m 0755 "$dl/uv-x86_64-unknown-linux-gnu/uv" "$UV_BIN"
     fi
     echo "   $("$UV_BIN" --version) at $UV_BIN"
+    $SUDO install -d -o "$APP_USER" -g "$APP_USER" -m 0755 "$APP_ROOT/python"
+    UV_CACHE_DIR="$APP_ROOT/uv-cache" managed_python install --no-bin "$PY_VERSION" 2>&1 | sed "s/^/   /"
+    echo "   Python $PY_VERSION at $(managed_python find "$PY_VERSION")"
 
     $SUDO install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$LOG_ROOT"
     $SUDO find "$LOG_ROOT" -maxdepth 1 -type f -exec chown "$SERVICE_USER:$SERVICE_USER" {} +
