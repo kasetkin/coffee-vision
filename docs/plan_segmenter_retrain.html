@@ -294,13 +294,13 @@
 
   <h2>8. P6 &mdash; XL0-v3</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: stages written; run started on the owner's word</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-12/13: <code>3e7984e</code> and the run's commit; epoch 9 of 17 chosen (patience); 191 objects verified on <code>dvcnewremote</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P4, P5 done; Q6, Q7 answered (D21, D22); the owner's word given (D20)</span></span></div>
   </div>
   <p>Runs on this host, not a remote machine (D9). Expected time: about 7 h at 8 threads (Q4), for 40 epochs of 42
     steps, with the test predictions on top. There is no cache step.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>(P5 froze <code>seg_ml5_finetune</code> whole: a <code>foreach</code> shares one
+    <li><span class="box done"></span><span>(P5 froze <code>seg_ml5_finetune</code> whole: a <code>foreach</code> shares one
       <code>frozen</code> flag and one dep list, so <code>xl0_v3</code> gets a stage of its own, e.g.
       <code>seg_ml6_finetune@xl0_v3</code>, with the deps below. Also: <code>seg_predict --split</code> takes only
       names in <code>segment_beans.NAMED_SEGMENTERS</code>, and <code>segment_beans.py</code> and
@@ -313,13 +313,13 @@
       <code>seg_ml5_predict</code>. Diff <code>seg_ft</code>, <code>seg_prompt</code> and
       <code>seg_mask_select</code> key by key against <code>models/seg/xl0_v2.json</code>. Only
       <code>augment</code> (and <code>views</code>, which it replaces) may differ (D4).</span></li>
-    <li><span class="box"></span><span>Commit the stages, then run <code>dvc repro -s seg_ml5_finetune@xl0_v3
+    <li><span class="box done"></span><span>Commit the stages, then run <code>dvc repro -s seg_ml5_finetune@xl0_v3
       seg_ml5_predict@xl0_v3</code> as a background command with a log. Check early that the log prints pass 3's role
       counts and the pipeline, and that the first epoch's time matches the estimate.</span></li>
-    <li><span class="box"></span><span>Report the validation result from <code>models/seg/xl0_v3.json</code>
+    <li><span class="box done"></span><span>Report the validation result from <code>models/seg/xl0_v3.json</code>
       alone: chosen epoch, mean IoU, and the empty-or-tiny share of the validation negatives, overall and per batch.
       No test numbers here; those come in P7.</span></li>
-    <li><span class="box"></span><span>Push <code>models/seg/xl0_v3.pt</code> and the test masks by target, and
+    <li><span class="box done"></span><span>Push <code>models/seg/xl0_v3.pt</code> and the test masks by target, and
       verify on the remote.</span></li>
   </ol>
 
@@ -371,7 +371,7 @@
     <li><span class="box done"></span><span>P1: dataset file append-only (diff adds lines only); v1 and v2 masks of the 107 old test photos byte-identical.</span></li>
     <li><span class="box done"></span><span>P3: carried labels identical to pass 2's; the new session shows only uncarried photos.</span></li>
     <li><span class="box done"></span><span>P5: nothing augmented is written during training; one seed repeats its batches; the frozen stages' outputs unchanged.</span></li>
-    <li><span class="box"></span><span>P6: XL0-v3's config differs from XL0-v2's only in <code>augment</code> and where D4 says; its card names <code>pass3</code>, the pipeline and the <code>albumentations</code> version.</span></li>
+    <li><span class="box done"></span><span>P6: XL0-v3's config differs from XL0-v2's only in <code>augment</code> and where D4 says; its card names <code>pass3</code>, the pipeline and the <code>albumentations</code> version.</span></li>
     <li><span class="box"></span><span>Every DVC output pushed by target and each object verified on <code>dvcnewremote</code>.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
@@ -431,6 +431,15 @@
       211 accepted. XL0-v3 trains on 169 positives and 351 negatives and selects on 42 and 81 (XL0-v2: 157, 87,
       41, 14). <code>data/ml5_labels/pass3</code> is in DVC, 280 objects verified on the remote. The owner served the
       page from a terminal, as localhost did not forward from the background server.</div>
+    <div><div class="when">2026-10-13</div>P6. <code>segment_beans.NAMED_SEGMENTERS</code> names
+      <code>xl0_v3</code> (D21): <code>seg_ml5_predict@xl0_v1</code> rerun byte-identical (225 of 225 files), then
+      <code>seg_ml5_predict@xl0_v2</code> and 15 <code>segcrop</code> stages recorded with <code>dvc commit</code>.
+      <code>seg_ml6_finetune@xl0_v3</code> (D22) ran detached from 17:24 UTC at 8 threads: loading 6 min, about
+      650 s an epoch (1.9 s a sample); patience stopped it after epoch 17 and kept epoch 9. Validation only (card,
+      and <code>analysis/ml6_p6_validation/</code> per batch, its overall equal to the card's): mean IoU 0.955, 78
+      of 81 validation negatives empty or tiny (67/68 real-world, 1/3 <code>other_nuts_seeds</code>), score 0.959.
+      Not comparable with XL0-v2's card: another validation set. Test predictions stored at 4 threads. No test
+      number is looked at before P7.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,

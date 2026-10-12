@@ -1,0 +1,40 @@
+{
+  "model": "xl0_v3",
+  "labels": "pass3",
+  "chosen_epoch": 9,
+  "val_miou": 0.9548159435036636,
+  "neg_select_empty_card": 0.9629629629629629,
+  "select_min_area_frac": 0.083,
+  "neg_select_by_batch": {
+    "2026-09__internet_proxy / confusable_grain": {
+      "empty_or_tiny": 5,
+      "n": 5
+    },
+    "2026-09__internet_proxy / empty_tray": {
+      "empty_or_tiny": 2,
+      "n": 2
+    },
+    "2026-09__internet_proxy / ground_coffee": {
+      "empty_or_tiny": 2,
+      "n": 2
+    },
+    "2026-09__internet_proxy / non_food_objects": {
+      "empty_or_tiny": 1,
+      "n": 1
+    },
+    "2026-09__internet_proxy / other_nuts_seeds": {
+      "empty_or_tiny": 1,
+      "n": 3
+    },
+    "all": {
+      "empty_or_tiny": 78,
+      "n": 81
+    },
+    "user_realworld / real_world_negatives": {
+      "empty_or_tiny": 67,
+      "n": 68
+    }
+  },
+  "epochs_run": 17,
+  "threads": 8
+}

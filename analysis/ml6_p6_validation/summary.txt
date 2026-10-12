@@ -1,0 +1,10 @@
+XL0-v3 (ML-6 P6), validation only: epoch 9 of 17 chosen, score 0.9589
+  validation positives: mean IoU 0.9548
+  validation negatives empty or tiny (< 0.083):
+    2026-09__internet_proxy / confusable_grain         5/5
+    2026-09__internet_proxy / empty_tray               2/2
+    2026-09__internet_proxy / ground_coffee            2/2
+    2026-09__internet_proxy / non_food_objects         1/1
+    2026-09__internet_proxy / other_nuts_seeds         1/3
+    user_realworld / real_world_negatives              67/68
+    all                                                78/81
