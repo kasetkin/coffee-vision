@@ -12,15 +12,17 @@
     iPhone HEIC among them needed the metadata strip extended first (D10). None of these photos is in
     <code>labels/ml5/seg_dataset.yaml</code> yet. Until they are, a
     real-data test fails and deploys refuse. This ticket appends them, labels the few new positives, fine-tunes a new
-    XL0 decoder (XL0-v3) with ML-5's recipe and compares it with the shipped XL0-v2. Written; decisions open, not
-    planned, not implemented.</p>
+    XL0 decoder (XL0-v3) with ML-5's recipe, except that its augmentation is generated on the fly by Albumentations
+    and never stored (D12), and compares it with the shipped XL0-v2. All of it runs on this host,
+    not on a remote machine (D9). Written and <a href="plan_segmenter_retrain.html">planned</a>; D9 and D10
+    decided, the rest open; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs, <a href="plan_segmenter_retrain.html">planned</a>; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (<code>seg_ml5_cache</code>, <code>seg_ml5_finetune</code>, <code>seg_ml5_predict</code>), <code>params.yaml</code> (<code>seg_ft</code>, <code>seg_weights</code>, <code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/strip_metadata.py</code> (D10), <code>dataset/segmenter_positives</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (<code>seg_ml5_cache</code>, <code>seg_ml5_finetune</code>, <code>seg_ml5_predict</code>), <code>params.yaml</code> (<code>seg_ft</code>, <code>seg_weights</code>, <code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/strip_metadata.py</code> (D10), <code>dataset/segmenter_positives</code>, <code>albumentations</code> 2.0.8 in <code>pyproject.toml</code> (D12)</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, mask verdicts)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-10</span></div>
@@ -38,8 +40,8 @@
     dataset and the owner's pass-2 labels, and it ships in release
     <code>20261009T1740Z-f585d14-allrigs_dino3b16_segxl0_country_s123</code>. After this ticket the dataset file holds
     the 2026-10-10 and 2026-10-11 photos. XL0-v3 is fine-tuned on that data, compared with XL0-v2 on the enlarged test split, and the
-    owner picks which goes on. The work has five parts: append, label, fine-tune, compare, and then whatever D8
-    decides about the classifier.</p>
+    owner picks which goes on. The work has six parts: append, label, move the fine-tune's augmentation to
+    Albumentations (D12), fine-tune, compare, and then whatever D8 decides about the classifier.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -102,9 +104,32 @@
       positive (198 accepted, 4 dropped). The <code>pass2</code> cache takes 3.6 GB for about 300 photos. A cache for
       the new data, about 640 photos, would take about 7.5 GB and about 1.5 h at 4 threads (ML-5 P8 cached 295
       photos in 43 min). <code>/workspace</code> has 24 GB free (98% used).</li>
-    <li><strong>Where it runs.</strong> ML-5 P8&ndash;P11 ran on the local machine because the VM was down.
-      Starting work on the VM needs the owner's OK
-      (<code>docs/agents/remote-sweeps.md</code>).</li>
+    <li><strong>Where it runs.</strong> On this host, the one ML-5 P8&ndash;P11 ran on (D9, owner 2026-10-12):
+      the cache, the fine-tune, the predictions, the review sessions and, under D8 (a), the re-crop and the
+      classifier. Never on a remote machine. The VM (<code>powervpsssh</code>) was shut down for good on 2026-10-12,
+      and the DVC remote is now <code>dvcnewremote</code>. This host has 12 cores, 13 GB of RAM and no GPU.</li>
+    <li><strong>Augmentation today, and D12.</strong> ML-5's fine-tune augments with 4 dihedral views only
+      (identity, both flips, rotation by 180&deg;). Its own code precomputes them in the embedding cache, so each
+      photo is ever seen in only those 4 forms. D12 moves this to Albumentations, generated per sample during
+      training with nothing stored:
+      <ul>
+        <li><strong>Library.</strong> <code>albumentations</code> 2.0.8 (MIT) is already in
+          <code>pyproject.toml</code> and <code>uv.lock</code>, but no module imports it. Upstream archived it on
+          2025-07-10. Its successor, AlbumentationsX (2.5.1, 2026-10-11), is AGPL-3.0 or commercial and sends
+          telemetry by default. 2.0.8 checks PyPI for updates on import unless
+          <code>NO_ALBUMENTATIONS_UPDATE=1</code> is set.</li>
+        <li><strong>Smoke test here, 2026-10-12.</strong> It works with OpenCV 5.0.0 and numpy 2.5.3. The mask
+          stays nearest-neighbour, and a warp's exposed border can be set to 255 (ignore). With 9 transforms all
+          on, it costs about 44 ms per 1024 px sample. One seed gives one stream of augmentations.</li>
+        <li><strong>The cost is the encoder, not the library.</strong> The cache existed because the frozen XL0
+          encoder is slow on this CPU. Each photo costs 2.3 s at 4 threads, 1.7&ndash;1.8 s at 8 and
+          1.6&ndash;1.7 s at 12 (<code>analysis/ml5_xl0_timing/xl0_timing.py</code>, measured 2026-10-12). On the
+          fly, an epoch of 42 batches of 8 costs about 10&ndash;13 min, so 40 epochs take about 7&ndash;10 h,
+          against about 1.5 h of caching and 50 min of training today.</li>
+        <li><strong>What it saves.</strong> The pass-3 cache would have taken about 7.6 GB on a disk with 11 GB
+          free. The cache was never pushed to the DVC remote (<code>cache: false</code>), so no network transfer
+          is saved.</li>
+      </ul></li>
   </ul>
 
   <h2>3. How the segmenter dataset's photos are used</h2>
@@ -195,6 +220,8 @@
         <td>It is the only evidence no model has seen.</td></tr>
     </tbody>
   </table></div>
+  <p>For XL0-v3, D12 changes the Train row's augmentation: the 4 cached views give way to Albumentations
+    transforms drawn per sample. Validation stays unaugmented.</p>
   <p>The classifier doesn't use this file. It has its own split over the pools (ADR 0010). A pool photo in the
     segmenter's test split can be in the classifier's training split (ML-5 R7). A segmenter positive reaches the
     classifier only as the pool photo it is a copy of.</p>
@@ -276,8 +303,8 @@
         <td>119 of them would, under D1 (a). Anything that reads the manifest's <code>holdout</code> as unseen would
           be wrong once a model trains on them. D1 decides.</td></tr>
       <tr><td class="id">R4</td><td><strong>Disk.</strong></td>
-        <td>The new cache needs about 7.5 GB, and 24 GB is free. The pass-1 cache (3.5 GB, <code>cache: false</code>,
-          rebuildable) can go first, after the owner's OK.</td></tr>
+        <td>The new cache needs about 7.5 GB. 24 GB was free on 2026-10-10, but only 11 GB on 2026-10-12 (plan Q1). The pass-1 cache (3.5 GB, <code>cache: false</code>,
+          rebuildable) can go first, after the owner's OK. Under D12 there is no pass-3 cache, so this risk is gone.</td></tr>
       <tr><td class="id">R5</td><td><strong>The 6 new class_005 pool photos never reach the segmenter.</strong></td>
         <td>The pool draw tops up by count and did not pick them. They reach the classifier only through a re-crop
           (D8). This is accepted by design (ML-5 D12), and recorded here so nobody expects otherwise.</td></tr>
@@ -286,6 +313,14 @@
           because their clocks are never compared (&sect;2). The angle and framing differ, but the beans are the
           same. The same can happen whenever the owner shoots one scene with a phone that records a UTC offset and
           one that does not. D11 decides.</td></tr>
+      <tr><td class="id">R7</td><td><strong>The fine-tune takes 7&ndash;10 h.</strong></td>
+        <td>Under D12 the frozen encoder runs on every sample in every epoch (&sect;2). The run goes in the
+          background with a log, and a toy-scale run proves the path first. A rerun after a fault costs the
+          whole run again, so the run should start only when the host can be left to it.</td></tr>
+      <tr><td class="id">R8</td><td><strong>The comparison cannot say what helped.</strong></td>
+        <td>XL0-v3 differs from XL0-v2 in its data and in its augmentation (D4, D12). The paired test says which
+          model is better on test, not why. Separating the two would take a third model, and that is not
+          planned.</td></tr>
     </tbody>
   </table></div>
 
@@ -310,7 +345,8 @@
       <tr><td class="id">D4</td><td>What is XL0-v3's recipe?</td>
         <td>(a) XL0-v2's unchanged: seed 123, <code>seg_ft</code> as it is, so XL0-v3 differs only in its data.
           (b) Changes, named.</td>
-        <td>Open.</td></tr>
+        <td>(b) in part, 2026-10-12: the augmentation changes (D12). The seed and the rest of
+          <code>seg_ft</code> are still open.</td></tr>
       <tr><td class="id">D5</td><td>What does the checkpoint score count for validation negatives?</td>
         <td>(a) As now: the share of all validation negatives that are empty or tiny. (b) The mean of the
           per-batch shares, so <code>user_realworld</code> and <code>internet_proxy</code> weigh the same.</td>
@@ -330,7 +366,8 @@
         <td>Open.</td></tr>
       <tr><td class="id">D9</td><td>Where does the cache and fine-tune run?</td>
         <td>(a) The local machine, as ML-5 P8&ndash;P11. (b) The VM, with the owner's OK.</td>
-        <td>Open.</td></tr>
+        <td>(a), 2026-10-12: XL0-v3 is trained on this host, not on a remote machine. Every other ML-6 run is too.
+          The VM no longer exists anyway.</td></tr>
       <tr><td class="id">D10</td><td>What happens to <code>IMG_7252.HEIC</code>, whose 10-bit auxiliary images the strip cannot check?</td>
         <td>(a) Extend the check: an auxiliary image pillow-heif cannot decode is compared by its stored bytes
           before and after, which exiftool never re-encodes; tested on the old cases too. (b) Add the three JPEGs now
@@ -342,6 +379,28 @@
           form one group, which <code>seg_dataset.groups</code> reads, before the append. (c) Give a camera without an
           offset a known one (here +05:00, which the iPhone and the Pixel recorded that morning), so that its shots share the UTC clock.</td>
         <td>Open.</td></tr>
+      <tr><td class="id">D12</td><td>How is XL0-v3's training data augmented?</td>
+        <td>(a) As ML-5: 4 dihedral views precomputed by our own code into the embedding cache. (b) The
+          Albumentations library, augmenting each sample as training goes, with nothing augmented stored.</td>
+        <td>(b), owner 2026-10-12: Albumentations replaces the custom view code. Augmentations are generated
+          during training and never stored, so each epoch sees new ones, with no disk and no transfer cost. Built
+          on the MIT <code>albumentations</code> 2.0.8 already locked; the transform set and the thread count are
+          plan Q4 and Q5.</td></tr>
+      <tr><td class="id">D13</td><td>May the pass-1 and pass-2 embedding caches (7.1 GB) be deleted? (plan Q1)</td>
+        <td>(a) Yes, once their stages are frozen (plan P5). (b) Keep them.</td>
+        <td>(a), owner 2026-10-12.</td></tr>
+      <tr><td class="id">D14</td><td>Does the pool draw get a rule against photos that join listed groups in two
+          splits? (plan Q3)</td>
+        <td>(a) Yes, in ML-6. (b) Not in ML-6: in the ticket that brings the 2026-10-12 segmenter positives back.</td>
+        <td>(b), owner 2026-10-12.</td></tr>
+      <tr><td class="id">D15</td><td>How many threads does the XL0-v3 fine-tune use? (plan Q4)</td>
+        <td>(a) 4, as v1 and v2 (about 10 h). (b) 8 (about 7 h). (c) 12 (about 6.5 h).</td>
+        <td>(b), owner 2026-10-12. Predictions keep the pinned 4.</td></tr>
+      <tr><td class="id">D16</td><td>Which transforms does the Albumentations pipeline apply? (plan Q5)</td>
+        <td>(a) The plan's mild set: flips; Affine (scale 0.9&ndash;1.1, shift 5%, rotation &plusmn;15&deg;,
+          border ignored); brightness and contrast, small hue, saturation and value shifts, gamma, JPEG quality,
+          blur, noise. (b) Another set, named.</td>
+        <td>(a), owner 2026-10-12.</td></tr>
     </tbody>
   </table></div>
 
@@ -351,6 +410,7 @@
     <li><span class="box done"></span><span><code>coffeecv/strip_metadata.py</code> checks undecodable HEIF auxiliary images by their bytes, with tests; <code>IMG_7252.HEIC</code> is stripped, in the manifest, in DVC and on the remote (D10 (a)).</span></li>
     <li><span class="box"></span><span><code>labels/ml5/seg_dataset.yaml</code> holds the 2026-10-10 and 2026-10-11 photos as D1 decides, appended with no listed entry changed, and the real-data tier is green.</span></li>
     <li><span class="box"></span><span>The new training and validation positives are labelled and the new test positive judged by the owner (D3); the labels are DVC-tracked.</span></li>
+    <li><span class="box"></span><span><code>coffeecv/seg_finetune.py</code> augments training samples through Albumentations as it trains and stores none (D12). The dihedral-view cache code is gone, and the stages that used it are frozen.</span></li>
     <li><span class="box"></span><span>XL0-v3 is fine-tuned as a DVC stage beside <code>xl0_v1</code> and <code>xl0_v2</code>, and its test masks are stored.</span></li>
     <li><span class="box"></span><span>The XL0-v3 against XL0-v2 report exists (D6), and the owner has picked one.</span></li>
     <li><span class="box"></span><span>D7 and D8 are carried out as decided; data and models are pushed to the DVC remote and verified there.</span></li>
@@ -361,6 +421,9 @@
     <li>Deploying: a release goes through <code>docs/agents/deploy.md</code> as its own step, on the owner's call.</li>
     <li>Changing the segmenter's design or the acceptance rule (ADR 0015), and the recipe points ML-5 left out on purpose (its plan, &sect;14).</li>
     <li>New capture sessions (<a href="ticket_capture_gaps.html">ML-4</a>). Photos added after 2026-10-11 join through a later append.</li>
+    <li>The two 2026-10-12 grinder-hopper photos as segmenter positives. They broke the pool draw's append, and the
+      owner had them taken out (plan, finding 3 and Q3). Their pool copies in <code>random_date_raccoon</code>
+      stay.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -389,9 +452,37 @@
       was stripped in place (15 GPS and 57 Apple maker-note tags; the HEIF thumbnail item stays, as decided
       2026-10-05) and added to DVC (136 files); all 137 objects were found on the remote. A new in-memory build
       gives 869 photos and shows R6; D11 added.</div>
+    <div><div class="when">2026-10-12</div>The owner decides D9: the new segmenter is trained on this host, not on
+      a remote machine. Two 2026-10-12 photos (<code>PXL_20261012_053919102.jpg</code>,
+      <code>PXL_20261012_053924850.jpg</code>), byte copies of new <code>random_date_raccoon</code> pool photos,
+      had been added to <code>dataset/segmenter_positives</code> but not committed. With them in, the in-memory
+      build refused: the pool top-up drew a photo whose chain joins two listed groups in different splits. At the
+      owner's request Claude removed them from the folder, its manifest, its README and
+      <code>labels/ml3/strip_manifest.csv</code>; their pool copies stay. Without them the build gives 869 photos
+      again. <a href="plan_segmenter_retrain.html">Plan</a> written: P1&ndash;P7, Q1&ndash;Q3.</div>
+    <div><div class="when">2026-10-12</div>The two pool copies,
+      <code>random_date_raccoon/class_005__Guatemala_Tata/PXL_20261012_053919102.jpg</code> and
+      <code>PXL_20261012_053924850.jpg</code> (Pixel 9 Pro), were stripped with <code>coffeecv.strip_metadata</code>:
+      50 tags each (GPS, C2PA, the embedded thumbnail, Google's HDR+ maker note), 0 checks failing, 2 rows in
+      <code>labels/ml3/strip_manifest.csv</code>. <code>dvc add</code> gives <code>random_date_raccoon</code> 48
+      files, its old listing plus these two and nothing else changed; <code>dvc push</code> by target, and all 49
+      objects were found on the remote. The <code>segmenter_positives</code> copies had been stripped and added in
+      the same run, before they were taken out; <code>dataset/segmenter_positives.dvc</code> was restored to its
+      committed 136-file listing, which the folder matches file by file. 32 of its 137 objects were missing on
+      <code>dvcnewremote</code> (photos from 2026-07-24 to 2026-10-11 and the listing); a push by target added them,
+      and all 137 were then found there at their cache sizes. Not yet committed in git, which P1 waits on.</div>
+    <div><div class="when">2026-10-12</div>The owner decides D12: Albumentations replaces the custom augmentation,
+      and augmentations are generated during training and never stored. A research agent read the library's primary
+      sources: <code>albumentations</code> 2.0.8 is MIT and archived, and AlbumentationsX is AGPL with telemetry.
+      Claude smoke-tested 2.0.8 here and timed the XL0 encoder at 8 and 12 threads (&sect;2). R7 and R8 added; D4
+      is (b) in part. The plan is rewritten to P1&ndash;P8.</div>
+    <div><div class="when">2026-10-12</div>The owner answers the plan's Q1, Q3, Q4 and Q5, recorded here as
+      D13&ndash;D16. Q2 stays open. The owner ended the parallel session, whose commit <code>7a11b0b</code> (the two
+      pool photos) Claude checked: <code>dvc status</code> clean, and the cache in sync with
+      <code>dvcnewremote</code>.</div>
   </div>
 
-  <footer>Related: <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
+  <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
     <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>,
     <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>, <code>dataset/ood_negatives/README.md</code>.</footer>
 </main>
