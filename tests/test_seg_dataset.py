@@ -158,6 +158,54 @@ class Groups(unittest.TestCase):
         out = sd.assign(self.background + negs, [], PARAMS)
         self.assert_one_group(out, [n["path"] for n in negs])
 
+    def test_photos_the_owner_ties_by_hand_are_one_group_across_clocks(self):
+        # Ticket ML-6 D11 (b): one hopper shot by an iPhone (UTC) and a OnePlus (local clock) 28 s apart.
+        iphone = photo("dataset/segmenter_positives/IMG_7252.HEIC", "segmenter_positive", time=at(0))
+        oneplus = [photo(f"dataset/segmenter_positives/IMG_{i}.jpg", "segmenter_positive",
+                         time=at(5 * 3600 + 28 + 2 * i, "local OnePlus KB2005")) for i in range(2)]
+        shots = [iphone, *oneplus]
+        out = sd.assign(self.background + shots, [], PARAMS, ties=[[s["path"] for s in shots]])
+        self.assert_one_group(out, [s["path"] for s in shots])
+
+    def test_a_tie_naming_a_photo_not_drawn_ties_the_rest(self):
+        a, b = positives(2, prefix="tie")
+        out = sd.assign(self.background + [a, b], [], PARAMS,
+                        ties=[[a["path"], b["path"], "dataset/a/class_001__X/not_drawn.jpg"]])
+        self.assert_one_group(out, [a["path"], b["path"]])
+
+
+class SplitUnitsFile(unittest.TestCase):
+    """labels/ml5/split_units.yaml: photos the owner ties into one split unit by hand (ticket ML-6 D11)."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = Path(self.dir.name) / "split_units.yaml"
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def write(self, units: list[dict]) -> None:
+        self.path.write_text(yaml.safe_dump({"split_units": units}, sort_keys=False))
+
+    def test_reads_each_units_photos(self):
+        self.write([{"why": "one hopper, two phones", "photos": ["dataset/a.jpg", "dataset/b.jpg"]}])
+        self.assertEqual(sd.load_split_units(self.path, known={"dataset/a.jpg", "dataset/b.jpg"}),
+                         [["dataset/a.jpg", "dataset/b.jpg"]])
+
+    def test_refuses_a_path_the_data_does_not_have(self):
+        self.write([{"why": "typo", "photos": ["dataset/a.jpg", "dataset/a.jpeg"]}])
+        with self.assertRaisesRegex(ValueError, "dataset/a.jpeg"):
+            sd.load_split_units(self.path, known={"dataset/a.jpg"})
+
+    def test_refuses_a_unit_of_one_photo_or_without_a_reason(self):
+        for unit in ({"why": "alone", "photos": ["dataset/a.jpg"]}, {"photos": ["dataset/a.jpg", "dataset/b.jpg"]}):
+            self.write([unit])
+            with self.subTest(unit=unit), self.assertRaises(ValueError):
+                sd.load_split_units(self.path, known={"dataset/a.jpg", "dataset/b.jpg"})
+
+    def test_no_file_is_no_ties(self):
+        self.assertEqual(sd.load_split_units(Path(self.dir.name) / "absent.yaml", known=set()), [])
+
 
 def stored(entries: list[dict]) -> list[dict]:
     """Entries as the file stores them: no shot time or URL."""
@@ -311,9 +359,17 @@ class CommittedFile(unittest.TestCase):
         self.assertEqual({s: g for s, g in groups.items() if len(g) > 1}, {})
 
     def test_every_source_in_full_and_as_many_pool_photos_as_segmenter_positives(self):
-        # Ticket ML-5 §2 and D3/D12/D16: 128 segmenter positives, 142 negatives in three batches, 12 internet.
+        # Ticket ML-6 §3.4 (ML-5 D3/D12/D16, ML-6 D1 (a)): 136 segmenter positives, 585 negatives in three
+        # batches, 12 internet.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 128, "pool": 128, "negative": 142, "internet_positive": 12})
+                         {"segmenter_positive": 136, "pool": 136, "negative": 585, "internet_positive": 12})
+
+    def test_each_of_the_owners_split_units_is_one_group(self):
+        group = {e["path"]: e["group"] for e in self.photos}
+        units = sd.load_split_units()
+        self.assertTrue(units)
+        for unit in units:
+            self.assertEqual(len({group[p] for p in unit if p in group}), 1, unit)
 
     def test_no_pool_photo_is_a_copy_of_a_segmenter_positive(self):
         positive = {e["sha256"] for e in self.photos if e["source"] == "segmenter_positive"}
@@ -349,7 +405,8 @@ class CommittedFileAgainstPhotos(unittest.TestCase):
 
     def test_a_rebuild_from_the_data_changes_nothing(self):
         params = sd.Params.from_config(RunConfig.from_params_yaml().seg_dataset)
-        self.assertEqual(stored(sd.assign(self.candidates, self.photos, params)), self.photos)
+        ties = sd.load_split_units(known={c["path"] for c in self.candidates})
+        self.assertEqual(stored(sd.assign(self.candidates, self.photos, params, ties)), self.photos)
 
 
 if __name__ == "__main__":

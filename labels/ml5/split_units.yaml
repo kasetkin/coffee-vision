@@ -1,0 +1,12 @@
+# Photos the owner ties into one split unit by hand (ticket ML-6, D11). A split unit always lands in one split.
+# coffeecv.seg_dataset reads this file (load_split_units) beside its own rules: byte-identical files, one
+# source URL, and shots within 120 s on one clock. Add a unit when one scene is shot on two clocks, which those
+# rules never compare. Each unit has a reason and at least two paths; a path the data does not have is refused.
+split_units:
+  - why: >-
+      One grinder hopper, 2026-10-11, within 30 s: the iPhone records a UTC offset and the OnePlus does not, so
+      the shots are on two clocks (ML-6 R6, D11).
+    photos:
+      - dataset/segmenter_positives/IMG_7252.HEIC
+      - dataset/segmenter_positives/IMG_20261011_095933.jpg
+      - dataset/segmenter_positives/IMG_20261011_095935.jpg

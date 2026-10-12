@@ -33,7 +33,7 @@ from coffeecv.infer import PROBE_THRESHOLD, _sha, inference_tta_for, load_model,
 from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, embed_photo, id_photos,
                                split_config)
 from coffeecv.repo_files import rel
-from coffeecv.seg_dataset import SEG_DATASET_FILE, groups, load_seg_dataset, scan
+from coffeecv.seg_dataset import SEG_DATASET_FILE, groups, load_seg_dataset, load_split_units, scan
 
 FIT_SPLITS = ("train", "validation")
 
@@ -49,12 +49,12 @@ def probe_beans(beans: list[Path], photos: list[dict],
     """(`beans` without any photo in a group with a test photo of `photos`, how many were dropped).
 
     The groups are seg_dataset's (D13), over the test photos and `beans` together: byte-identical files, one
-    source URL, and shots of one subject chained within GROUP_SECONDS on one clock. So a bean photo goes if it
-    is a test photo, a copy of one, or in its burst (a pool photo the dataset did not draw, shot seconds
-    before or after a test one). `describe` is seg_dataset.scan(only=...): their records, shot times
+    source URL, the owner's split units, and shots of one subject chained within GROUP_SECONDS on one clock. So
+    a bean photo goes if it is a test photo, a copy of one, tied to one, or in its burst (a pool photo the
+    dataset did not draw, shot seconds before or after a test one). `describe` is seg_dataset.scan(only=...): their records, shot times
     included."""
     test = [e["path"] for e in photos if e["split"] == "test"]
-    group = groups(describe({rel(q) for q in beans} | set(test)))
+    group = groups(describe({rel(q) for q in beans} | set(test)), load_split_units())
     in_test = {group[p] for p in test}
     kept = [q for q in beans if group[rel(q)] not in in_test]
     return kept, len(beans) - len(kept)

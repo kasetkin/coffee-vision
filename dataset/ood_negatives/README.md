@@ -64,3 +64,9 @@ Each subdirectory is one capture/collection batch, DVC-tracked the same way as
   photo), assigned before any scoring. Shots on one camera within 120 s of each other
   (`seg_lists.NEAR_DUP_SECONDS`) form one group and land on the same side. Their `date` is
   EXIF DateTimeOriginal's.
+
+  **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
+  2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
+  `split` column (ML-5 D16) and splits all 451 photos 60/15/25 itself, so about 120 holdout
+  photos are in the segmenter's training split. The check no model has seen is that file's
+  test split; no live code reads this manifest's holdout.

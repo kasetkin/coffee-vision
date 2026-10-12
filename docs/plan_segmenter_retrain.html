@@ -149,22 +149,22 @@
 
   <h2>3. P1 &mdash; Append the photos; rerun the test predictions</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-12: started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1 (a) and D11 (b) decided; the 2026-10-12 pool photos committed (<code>7a11b0b</code>)</span></span></div>
   </div>
   <p>The dataset file gains the 2026-10-10 and 2026-10-11 photos, and nothing listed changes (ML-5 D11). Under D1
     (a), it gains 459 photos, for 869 in total. The build is run from a committed data state, because a run's
     commit must hold its data version (<code>docs/agents/experiments.md</code>).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>D11 (b), test-first: <code>labels/ml5/split_units.yaml</code> lists sets of
+    <li><span class="box done"></span><span>D11 (b), test-first: <code>labels/ml5/split_units.yaml</code> lists sets of
       photos the owner ties together, and <code>seg_dataset.groups</code> unions each set. Its first entry is the
       three 2026-10-11 hopper shots (<code>IMG_7252.HEIC</code>, <code>IMG_20261011_095933.jpg</code>,
       <code>IMG_20261011_095935.jpg</code>). A path the data does not have is refused. A build of today's file
       stays unchanged, and a test shows the three in one split unit.</span></li>
-    <li><span class="box"></span><span>D1 (a): <code>dataset/ood_negatives/README.md</code> says the
+    <li><span class="box done"></span><span>D1 (a): <code>dataset/ood_negatives/README.md</code> says the
       <code>user_realworld</code> holdout no longer means "unseen by every model": the segmenter dataset ignores it
       (ticket D1, ML-5 D16).</span></li>
-    <li><span class="box"></span><span><code>python -m coffeecv.seg_dataset build</code>, then
+    <li><span class="box done"></span><span><code>python -m coffeecv.seg_dataset build</code>, then
       <code>seg_dataset counts</code>. The git diff of <code>labels/ml5/seg_dataset.yaml</code> holds only added
       entries. The counts match the ticket's &sect;3.4 (D11 (b) moves no count), and all three hopper shots are in train.</span></li>
     <li><span class="box"></span><span><code>dvc repro -s seg_ml5_predict@xl0_v1 seg_ml5_predict@xl0_v2</code> at

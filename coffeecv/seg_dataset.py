@@ -12,6 +12,8 @@ and all internet positives. Its schema is `load_seg_dataset`'s, the reader every
   groups (D13)      byte-identical files, photos from one source URL, and shots of one subject chained while
                     each is within GROUP_SECONDS of the last (`groups`, `shot_time`); a group never straddles
                     splits
+  split units       photos the owner ties into one group by hand, in labels/ml5/split_units.yaml (ML-6 D11:
+                    one scene on two clocks; `load_split_units`)
   split (D13, D16)  params.yaml seg_dataset.split's train/validation/test shares within each source, and
                     within each (batch, tag) for negatives, whole groups at a time
   append-only (D11) a rebuild keeps every listed entry as it is and refuses a listed photo gone or changed;
@@ -37,6 +39,7 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.repo_files import read_csv, rel, sha256_file
 
 SEG_DATASET_FILE = REPO_ROOT / "labels" / "ml5" / "seg_dataset.yaml"
+SPLIT_UNITS_FILE = REPO_ROOT / "labels" / "ml5" / "split_units.yaml"
 DATASET = REPO_ROOT / "dataset"
 SEGMENTER_POSITIVES = DATASET / "segmenter_positives"
 NEGATIVES = DATASET / "ood_negatives"
@@ -112,13 +115,14 @@ def draw_pool(eligible: list[dict], n: int, rng: np.random.Generator) -> list[di
 IDENTITY = ("sha256", "source", "batch", "tag", "folder")    # what a listed photo may never change
 
 
-def assign(candidates: list[dict], existing: list[dict], params: Params) -> list[dict]:
+def assign(candidates: list[dict], existing: list[dict], params: Params,
+           ties: list[list[str]] = ()) -> list[dict]:
     """The dataset's entries, sorted by path. `candidates` is every photo in the data (`scan`'s records);
     `existing` is the committed file's entries, which come back unchanged (D11, append-only): a listed photo
     gone from the data, or with other bytes, source, batch, tag or folder, is refused. Every non-pool
     candidate not yet listed joins, and pool photos are drawn until they match the segmenter positives in
     number (D12). A new photo whose group is already split takes that split; the other new groups are split
-    per `split_groups`."""
+    per `split_groups`. `ties` are `load_split_units`' sets, passed to `groups`."""
     by_path = {c["path"]: c for c in candidates}
     for e in existing:
         c = by_path.get(e["path"])
@@ -139,7 +143,7 @@ def assign(candidates: list[dict], existing: list[dict], params: Params) -> list
     entries += draw_pool(eligible, max(need, 0), seeded_rng(params.seed, "pool", n_pool))
     entries = sorted(entries, key=lambda e: e["path"])
 
-    component = groups(entries)
+    component = groups(entries, ties)
     old_split: dict[str, str] = {}
     old_name: dict[str, str] = {}
     for e in existing:
@@ -193,9 +197,10 @@ def stratum(e: dict) -> tuple:
     return (e["source"], e["batch"], e["tag"]) if e["source"] == "negative" else (e["source"],)
 
 
-def groups(entries: list[dict]) -> dict[str, str]:
+def groups(entries: list[dict], ties: list[list[str]] = ()) -> dict[str, str]:
     """{path: the group's first path}. One group (D13): byte-identical files; photos from one source URL;
-    and shots of one subject on one clock, chained while each is within GROUP_SECONDS of the one before.
+    the photos of each set in `ties` that are among `entries` (ML-6 D11, `load_split_units`); and shots of
+    one subject on one clock, chained while each is within GROUP_SECONDS of the one before.
     `time` is `shot_time`'s (clock, datetime) or None; two clocks are never compared. The subject is the
     beans for every positive source (a segmenter positive is often a pool photo's burst neighbour, on any
     camera of the rig) and each (batch, tag) for negatives: a different negative scenario, or a negative
@@ -222,6 +227,10 @@ def groups(entries: list[dict]) -> dict[str, str]:
         if e.get("time") is not None:
             subject = stratum(e) if e["source"] == "negative" else ("beans",)
             clocks[(subject, e["time"][0])].append((e["time"][1], e["path"]))
+    for tie in ties:
+        present = [p for p in tie if p in parent]
+        for a, b in zip(present, present[1:]):
+            union(a, b)
     for shots in clocks.values():
         shots.sort()
         for (t0, a), (t1, b) in zip(shots, shots[1:]):
@@ -310,6 +319,25 @@ def read_seg_dataset(path: Path = SEG_DATASET_FILE) -> tuple[dict, list[dict]]:
             raise ValueError(f"{where}: path listed twice")
         seen.add(e["path"])
     return raw.get("meta") or {}, photos
+
+
+def load_split_units(path: Path = SPLIT_UNITS_FILE, known: set[str] | None = None) -> list[list[str]]:
+    """The photo sets of the owner's split units file, for `groups`: `split_units`, a list of {why, photos},
+    each with a reason and at least two repo-relative paths (ML-6 D11). A path not in `known` (the data's
+    photos, `scan`'s paths) is refused, so a typo can't silently tie nothing. No file is no ties."""
+    if not Path(path).exists():
+        return []
+    units = (yaml.safe_load(Path(path).read_text()) or {}).get("split_units") or []
+    out = []
+    for i, u in enumerate(units):
+        photos = u.get("photos") if isinstance(u, dict) else None
+        if not isinstance(photos, list) or len(photos) < 2 or not u.get("why"):
+            raise ValueError(f"{path}: split_units[{i}] needs a `why` and at least two `photos`")
+        unknown = sorted(set(photos) - known) if known is not None else []
+        if unknown:
+            raise ValueError(f"{path}: split_units[{i}] names photos the data does not have: {unknown}")
+        out.append([str(p) for p in photos])
+    return out
 
 
 def write_seg_dataset(params: Params, entries: list[dict], path: Path = SEG_DATASET_FILE) -> None:
@@ -435,7 +463,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"refusing: the file was built with {built_with}, params.yaml says {params.as_meta()}; the file "
               "is append-only (D11)", file=sys.stderr)
         return 1
-    entries = assign(scan(), existing, params)
+    candidates = scan()
+    entries = assign(candidates, existing, params, load_split_units(known={c["path"] for c in candidates}))
     added = len(entries) - len(existing)
     write_seg_dataset(params, entries)
     print(f"{rel(SEG_DATASET_FILE)}: {len(entries)} photos, {added} added\n{counts_table(entries)}")
