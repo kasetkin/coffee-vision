@@ -9,7 +9,7 @@ running the thing that serves it.
 ## Architecture
 
 ```
-Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
+Browser --HTTPS :12346--> nginx (TLS termination, static file, rate limit)
                       |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html
                       |-- POST /preview    -> proxy_pass -> gunicorn (127.0.0.1:8000)
                       |                                     -> Flask app -> coffeecv.dataset.load_rgb_image
@@ -33,8 +33,8 @@ Browser --HTTPS--> nginx (TLS termination, static file, rate limit)
   step.
 - `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
   manifest, and the helpers `scripts/deploy_webapp.sh` uses; `setup_server.sh`
-  installs only nginx, the cert directory and ufw on a fresh box. See
-  "Deploying" below.
+  installs only nginx, the cert directory and ufw rules (ufw stays disabled) on
+  a fresh box. See "Deploying" below.
 - `pyproject.toml` + `uv.lock` -- the service's own environment (uv).
 
 ## Where it runs: releases under /opt/coffee-cv
@@ -55,7 +55,7 @@ Production does not run from a checkout. Each deploy builds an immutable release
 - The service runs as the `coffee-cv` system user with `ProtectHome=true`: nothing under `/home` is
   visible to it -- not the training checkout, not the training venv, not `~/.cache/torch`. What a
   sweep does to `~/coffee-vision` or `~/coffee-vision-venv` cannot change what production serves.
-- Each release has its own `.venv`, built on the VM by `uv sync --locked` from `webapp/pyproject.toml`
+- Each release has its own `.venv`, built on the host by `uv sync --locked` from `webapp/pyproject.toml`
   + `webapp/uv.lock` (versions copied from the production freeze; torch/torchvision from the PyTorch
   CPU index; timm without its download-only deps). Packages are copied, not hard-linked, so every
   release is independent and a rollback restores exactly what that release was tested with.
@@ -108,8 +108,11 @@ log's `top1_class` holds a country key. A rollback to an older release shows fol
 
 ## Deploying
 
-Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the VM over SSH. Set
-`DOMAIN` to the public host name (it is never written into git).
+Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the host over SSH. Set
+`DOMAIN` to the public host name (it is never written into git). The host is the SSH alias
+`webappremote` (`HOST`; the deploy user `APP_USER` is its SSH user), since the VM `powervpsssh` was
+shut down for good on 2026-10-12. nginx serves TLS on one port, 12346 (`PUBLIC_PORT`), which the
+host's router forwards; the site is `https://<DOMAIN>:12346/`.
 
 ```
 scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, log dir, logrotate
@@ -136,7 +139,7 @@ release's `index.html`; public `/classify` top-1 as expected; on failure it roll
 service if there is nothing to roll back to) -> **prune** to `current` + `previous`.
 
 **The deploy never enables the service.** If `coffee-cv-web` is disabled it stops after the flip and
-prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the VM, then
+prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the host, then
 `scripts/deploy_webapp.sh --verify`.
 
 **Fallback:** `--rollback` to `previous`. There is no second model in `models/` (the ResNet18 fallback,
@@ -146,13 +149,13 @@ local DVC cache (`dvc fetch` at that commit); the release is built from that com
 
 ### Deploying while a sweep trains
 
-Allowed, up to and including the flip. Every step that runs code on the VM (venv build, compileall,
+Allowed, up to and including the flip. Every step that runs code on the host (venv build, compileall,
 `--compare`, the smoke) is a transient systemd unit with `ProtectSystem=strict` and `ProtectHome=
 read-only`, writable only under `/opt/coffee-cv`, at `CPUQuota=100%` (smoke 200%), `MemoryMax=3G`,
 `MemorySwapMax=0` -- an overrun kills the deploy step, never the sweep. The deploy prints the sweep's
-PIDs and log size before its first VM step and after its last. Never during a sweep: `setup_server.sh`
+PIDs and log size before its first host step and after its last. Never during a sweep: `setup_server.sh`
 (apt, ufw), `remote_launch.sh` with default paths (it deletes `~/sweep.log`), git commands that move the
-VM's checkout, reboots.
+host's checkout, reboots.
 
 **Keeping the site on during a sweep** is fine for the frozen DINOv3 model: measured 2026-09-27/28,
 `/classify` takes 12.5 s mean and 13.7 s max server-side during a ResNet18 sweep, against 7.0 s idle, well inside
@@ -189,8 +192,9 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   nginx config template uses a placeholder everywhere the domain would
   appear. Worth noting privately (e.g. your own shell history) since it's not
   written anywhere in this repo.
-- **The DNS record.** Point your domain's A record at the VM's public IP
-  yourself -- not something a script here can do for you.
+- **The DNS record.** Point your domain's A record at the public IP that reaches
+  the host (its router forwards port 12346) yourself -- not something a script
+  here can do for you.
 - **The TLS cert/key.** `setup_server.sh` creates `/etc/nginx/ssl/coffee-cv/`
   (root-owned, `700`) for you to place your Porkbun files into, using
   Porkbun's own filenames directly -- `ssl_certificate` points at
@@ -210,7 +214,7 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   hostname) -- Porkbun issues per-domain, not automatically per-subdomain.
 
   `nginx.service` runs `nginx -t` on start, and a missing cert fails that
-  check for the whole config -- so if the VM reboots before the cert files
+  check for the whole config -- so if the host reboots before the cert files
   are ever placed, nginx won't come up automatically that one time. Once the
   real files are on disk they persist across every future reboot like any
   other file.
@@ -243,7 +247,7 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   libavif/libjxl) is bug-free. None of this changes application behavior --
   it only shrinks the blast radius if one of those codecs is ever exploited.
   `MemoryDenyWriteExecute=true` was considered but left out of the committed
-  unit pending a real test on the VM (some ML runtimes JIT-compile at
+  unit pending a real test on the host (some ML runtimes JIT-compile at
   runtime) -- try it there; add it if torch's CPU inference path still works,
   drop the idea if it doesn't.
 - **Format support is pinned in `coffeecv/dataset.py`, not here.** JPG/PNG/
