@@ -1,0 +1,372 @@
+<title>Implementation plan: XL0-v3 on the enlarged segmenter dataset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-6 · coffee-vision · implementation</div>
+  <h1>Implementation plan: XL0-v3 on the enlarged segmenter dataset</h1>
+  <p class="lede">The order of work for <a href="ticket_segmenter_retrain.html">ticket ML-6</a>. There are five
+    strands: append the photos, label the new positives, move the fine-tune's augmentation to Albumentations on the
+    fly (D12), fine-tune and compare, and follow through. The append comes first. It is the only step that changes
+    nothing about any model, and it ends the deploy refusal on its own. The first step that changes a number is the
+    XL0-v3 fine-tune (P6). <strong>Everything runs on this host</strong> (the one ML-5 P8&ndash;P11 ran on), not on
+    a remote machine (D9, owner 2026-10-12).</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-12, rewritten the same day for D12; Q1, Q3&ndash;Q5 answered (ticket D13&ndash;D16), Q2 open, ticket D1&ndash;D8 and D11 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_retrain.html"><code>ticket_segmenter_retrain.html</code></a> (ML-6)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-12</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">as a whole; each phase names the ticket decisions and Qs it waits on</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>56f62b0</code>, an in-memory <code>seg_dataset build</code>, a
+      smoke test of <code>albumentations</code> and encoder timings on this host, not from the ticket alone. The read
+      turned up 8 things the ticket does not cover. They are folded in below, and the ones that need a decision are
+      Q1&ndash;Q5 (&sect;2).</p>
+    <ol>
+      <li><b>The VM is gone, so D9 is settled by circumstance as well as by the owner.</b> <code>powervpsssh</code>
+        was shut down for good on 2026-10-12 (<code>b23e659</code>), and the DVC remote is now
+        <code>dvcnewremote</code>. Every phase runs here. <code>data/seg_cache_ml5/pass1</code> and
+        <code>pass2</code> are on this host, so it is the machine ML-5 P8&ndash;P11 ran on. This host has 12 cores,
+        13 GB of RAM and no GPU.</li>
+      <li><b>The disk is tighter than the ticket said, but D12 removes the need.</b> <code>/workspace</code> has
+        11 GB free, not 24. A pass-3 cache would have taken about 7.6 GB. Under D12 there is none. The pass-1 and
+        pass-2 caches (7.1 GB) serve only stages that P5 freezes. Q1.</li>
+      <li><b>The 2026-10-12 segmenter positives broke the build. The owner took them out.</b> The two
+        <code>PXL_20261012_*</code> grinder-hopper photos were byte copies of <code>random_date_raccoon</code> pool
+        photos. With them in, the pool top-up became 10 photos. It drew
+        <code>2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174902324.jpg</code>, whose 120 s chain joins
+        two listed groups in different splits, and <code>assign</code> refused (ML-5 D11). Without the two
+        positives, the build gives the ticket's 869 photos. On 2026-10-12 the owner had them removed from
+        <code>dataset/segmenter_positives</code>. Their pool copies stay in <code>random_date_raccoon</code>, and
+        the build still gives 869 with those copies present. The draw can hit this again on any later append.
+        Q3.</li>
+      <li><b>D3 (a) needs code.</b> <code>seg_review label</code> shows every training and validation positive of
+        the dataset file and has no way to start from another session's verdicts. P3 adds a carry-over. Whether the
+        4 pass-2 drops carry over as drops is Q2.</li>
+      <li><b>Growing the dataset file makes <code>seg_ml5_predict@xl0_v1</code> and <code>@xl0_v2</code>
+        stale.</b> Both list <code>labels/ml5/seg_dataset.yaml</code> as a dep, and the test split grows from 107
+        to 224 photos. P1 reruns both. Their 107 existing masks should come back byte-identical, which also checks
+        the predict path. XL0-v2's masks of the new test photos are needed for P7 anyway.</li>
+      <li><b>The paired report gives one test-negative rate overall.</b> R1 asks for the rate per batch and tag,
+        and so does D6 (a). P7 adds that breakdown to <code>seg_review paired-report</code>. D5 (b) would also need
+        each validation negative's batch in <code>seg_finetune</code>'s score; the dataset file can supply it by
+        path.</li>
+      <li><b><code>albumentations</code> is declared but unused, and its successor carries strings.</b>
+        <code>pyproject.toml</code> lists it, and <code>uv.lock</code> pins 2.0.8 (MIT), but nothing imports it.
+        Upstream archived 2.0.8 on 2025-07-10. AlbumentationsX (AGPL-3.0 or commercial) sends telemetry by default
+        and needs PyTorch to import. 2.0.8 asks PyPI for a newer version on import unless
+        <code>NO_ALBUMENTATIONS_UPDATE=1</code> is set. Here, 2.0.8 runs on OpenCV 5.0.0 and numpy 2.5.3, keeps a
+        255 ignore value through warps (<code>fill_mask</code>), costs about 44 ms per 1024 px sample with 9
+        transforms on, and repeats its stream for one seed. It has no per-worker seeding, which a single-process
+        training loop does not need.</li>
+      <li><b>On the fly, the frozen encoder dominates.</b> XL0's encoder takes 2.3 s per photo at 4 threads,
+        1.7&ndash;1.8 s at 8 and 1.6&ndash;1.7 s at 12 (2026-10-12, <code>xl0_timing.py</code>); the decoder takes
+        about 0.1 s. An epoch of 336 samples takes about 10&ndash;13 min, and 40 epochs about 7&ndash;10 h. This is
+        ticket R7. Q4.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 only appends to a file and reruns predictions that must come back identical. Nothing in it changes a model,
+    and it unblocks deploys. P2 is optional (D2) and only measures. P3 and P5 are code and can run alongside P1 and
+    P4. P4 is the owner's labelling. P6 is the first step that produces a new number, and the long one: about 7 h
+    under Q4's recommendation. P7 and P8 end at the owner's choices. Predictions keep the pinned 4 threads of every
+    <code>seg_ml5_predict</code> stage, so the v2 and v3 test masks are made the same way.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Append the 2026-10-10 and 2026-10-11 photos; rerun v1 and v2 test predictions</td><td>this host</td><td>no: listed entries and the 107 old test masks unchanged, checked byte for byte</td></tr>
+      <tr><td class="id">P2</td><td>XL0-v2 on the new negatives (only under D2 (a)) <span class="pill sm open">stop</span></td><td>this host, owner</td><td>no: measures the shipped model</td></tr>
+      <tr><td class="id">P3</td><td>Pass-3 carry-over in <code>seg_review label</code></td><td>this host</td><td>no: tooling, tested</td></tr>
+      <tr><td class="id">P4</td><td>Pass-3 labels <span class="pill sm open">stop</span></td><td>this host, owner</td><td>no: new labels only</td></tr>
+      <tr><td class="id">P5</td><td>On-the-fly Albumentations in <code>seg_finetune</code>; the view cache retired (D12)</td><td>this host</td><td>no: code, tests and a toy-scale run; v1 and v2 frozen as trained</td></tr>
+      <tr><td class="id">P6</td><td>XL0-v3: fine-tune, test masks</td><td>this host</td><td>yes: a new decoder</td></tr>
+      <tr><td class="id">P7</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>this host, owner</td><td>yes: test verdicts, maybe a new tiny-mask threshold (D7)</td></tr>
+      <tr><td class="id">P8</td><td>Follow-through per D7 and D8 <span class="pill sm open">stop</span></td><td>this host, owner</td><td>yes, under D8 (a): re-crop and classifier</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered. The ticket's own open decisions (D1&ndash;D8, D11) are named in each phase's
+    Blocked by.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Once P5 freezes the stages that built them, may
+          <code>data/seg_cache_ml5/pass1</code> and <code>pass2</code> (7.1 GB together, <code>cache: false</code>)
+          be deleted?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "yes, cache can be deleted". Ticket
+          D13. Deleted in P5, after the freeze. Frozen stages never rerun, XL0-v1 and XL0-v2 keep their cards and
+          masks, and either cache can be rebuilt from the commit P5 names. That takes the disk from 11 GB free to
+          about 18 GB.</td><td>None (housekeeping in P5)</td></tr>
+      <tr><td class="id">Q2</td><td>Only matters under D3 (a), where pass 3 keeps every pass-2 label and the
+          owner judges only the 11 new photos. In pass 2 the owner declined the mask of 4 training photos three
+          times, so they have no label and are not trained on:
+          <code>segmenter_positives/PXL_20260806_151019702.jpg</code>, <code>PXL_20260806_151042773.jpg</code>,
+          <code>PXL_20261003_061204827.jpg</code> and <code>PXL_20261006_064901464.jpg</code>. Do these 4 stay out
+          of pass 3, or does the owner see them once more, with XL0-v2's mask as the proposal?</td>
+        <td><span class="pill sm open">Open</span> They stay out. Pass 2 already gave each three rounds with points,
+          and XL0-v2 never trained on them, so its proposal has no reason to be better. Showing them again costs 4
+          more judgements.</td><td>P3</td></tr>
+      <tr><td class="id">Q3</td><td>The pool draw can pick a photo that joins listed groups in two splits, and then
+          the build refuses (finding 3). Does <code>seg_dataset</code> get a rule that skips such a photo and draws
+          the next one?</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: as recommended. Ticket D14. Not in ML-6. This append does not hit it, and a new rule in an
+          append-only builder deserves its own test-first change. Do it in the ticket that brings the 2026-10-12
+          positives back.</td><td>None</td></tr>
+      <tr><td class="id">Q4</td><td>How many threads does the XL0-v3 fine-tune use? 4, as v1 and v2 used (about
+          10 h); 8 (about 7 h); or 12 (about 6.5 h, the whole host).</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "okay 8 threads". Ticket D15. 8. It gets nearly all of 12's speed and leaves 4 cores for the
+          owner and other sessions. Matching v2's 4 threads buys nothing once the augmentation differs (ticket R8).
+          The count goes into the stage's command and the card, so a rerun repeats it.</td><td>P6</td></tr>
+      <tr><td class="id">Q5</td><td>Which transforms, and how strong? A spatial transform moves the mask with the
+          photo; a pixel transform changes only the photo.</td>
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-10-12: "do as recommended". Ticket D16. Start mild and photo-like:
+          <ul>
+            <li><strong>Spatial:</strong> horizontal and vertical flip at p 0.5 each, which covers today's 4 views.
+              Then Affine at p 0.5: scale 0.9&ndash;1.1, shift up to 5%, rotation up to &plusmn;15&deg;, the exposed
+              border black in the photo and 255 (ignore) in the mask.</li>
+            <li><strong>Pixel:</strong>
+              <ul>
+                <li>brightness and contrast &plusmn;0.2 (p 0.5);</li>
+                <li>hue &plusmn;5, saturation &plusmn;15 and value &plusmn;10 (p 0.3), with hue kept small because
+                  green and roasted beans, and the green-legume negatives, differ by colour;</li>
+                <li>gamma 0.8&ndash;1.2 (p 0.3);</li>
+                <li>JPEG quality 60&ndash;95 (p 0.3);</li>
+                <li>motion blur or defocus (p 0.2);</li>
+                <li>Gaussian noise (p 0.2).</li>
+              </ul></li>
+          </ul>
+          Negatives get the same pipeline, with an empty mask. The ResNet18 brightness result in
+          <code>.out-of-scope/</code> concerns the classifier, so it does not bind the segmenter.</td><td>P5</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; Append the photos; rerun the test predictions</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">D1, D11; the data in the tree committed (the 2026-10-12 <code>random_date_raccoon</code> photos)</span></div>
+  </div>
+  <p>The dataset file gains the 2026-10-10 and 2026-10-11 photos, and nothing listed changes (ML-5 D11). Under D1
+    (a), it gains 459 photos, for 869 in total. The build is run from a committed data state, because a run's
+    commit must hold its data version (<code>docs/agents/experiments.md</code>).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>If D11 is (b) or (c): first change <code>seg_dataset.groups</code> or
+      <code>shot_time</code>, test-first, with a test showing the 2026-10-11 hopper as one group. A build of
+      today's file must stay unchanged.</span></li>
+    <li><span class="box"></span><span>If D1 is (b) or (c): the scan keeps only the chosen negatives. Under (b),
+      those are the manifest's <code>dev</code> rows. Test-first as well.</span></li>
+    <li><span class="box"></span><span><code>python -m coffeecv.seg_dataset build</code>, then
+      <code>seg_dataset counts</code>. The git diff of <code>labels/ml5/seg_dataset.yaml</code> holds only added
+      entries. The counts match the ticket's &sect;3.4 for the decided D1, or the ticket is corrected.</span></li>
+    <li><span class="box"></span><span><code>dvc repro -s seg_ml5_predict@xl0_v1 seg_ml5_predict@xl0_v2</code> at
+      the pinned 4 threads (224 test photos each). The 107 masks each model already had come back
+      byte-identical.</span></li>
+    <li><span class="box"></span><span>Push the two mask outputs by target, and verify every object on
+      <code>dvcnewremote</code> (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>Checks: the full suite, the real-data tier included
+      (<code>test_seg_dataset.CommittedFileAgainstPhotos</code> green); <code>dvc status</code> clean for the
+      dataset and predict stages.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; XL0-v2 on the new negatives <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started; skipped under D2 (b)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, D2</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_predict xl0_v2 --split train</code> and <code>--split validation</code>
+      at 4 threads, into <code>analysis/ml6_p2_baseline/</code>. The test split is already done in P1.</span></li>
+    <li><span class="box"></span><span>Report: empty and empty-or-tiny rates on the 443 new negatives, per split and
+      per batch and tag, at the serving threshold (0.040223) and the selection one (0.083), and a contact sheet of
+      the masked ones.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: train XL0-v3, or stop here with XL0-v2.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; Pass-3 carry-over in <code>seg_review label</code></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">D3, Q2</span></div>
+  </div>
+  <p>Under D3 (a), a new session starts from an earlier one. A photo listed there with the same sha256 keeps its
+    verdict and mask. The page shows only the rest. Under D3 (b), this phase is dropped and P4 runs
+    <code>label</code> as pass 2 did.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Test-first: <code>label --carry &lt;session&gt;</code> copies each carried
+      photo's final verdict and mask into the new session. A verdict row is marked <code>carried_from</code>, and
+      the mask sha256 is unchanged. Drops are carried or not per Q2. The session file records the carry, and a
+      resume with another one is refused. <code>status</code> reports carried and new labels apart.</span></li>
+    <li><span class="box"></span><span>Encodings for the redraw model are prepared only for the photos the page
+      will show: 11 under D1 (a), not about 210.</span></li>
+    <li><span class="box"></span><span>Checks: a smoke run on fixtures with a carried accept, a carried drop and a
+      new photo; <code>labels.csv</code> of a carried session equals the source session's on the carried rows.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Pass-3 labels <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P3; P2 under D2 (a)</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2
+      --carry pass2</code>, through <code>multi3</code> (D3 (a)), served from this host.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge the 11 new training and validation positives (D1 (a):
+      5 segmenter positives and 6 pool photos), with points on declines.</span></li>
+    <li><span class="box"></span><span><code>status --session pass3</code>: accepted by round, drops and why, per
+      source, carried against new. Then <code>dvc add data/ml5_labels/pass3</code>, commit the verdicts, push by
+      target and verify on the remote.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; On-the-fly Albumentations in <code>seg_finetune</code></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">D12, D16 (decided); D5 if (b)</span></div>
+  </div>
+  <p>The fine-tune stops reading an embedding cache. At the start of a run it loads every training photo and label
+    once, verifies each photo's sha256 against the session's <code>labels.csv</code>, and resizes it to the
+    encoder's frame with the serving code's own resize. It holds them in memory: about 1.5 GB for about 520 photos
+    at 1024 px. Each sample is augmented when it is drawn, then encoded by the frozen encoder under
+    <code>no_grad</code>, and the decoder takes its step. Nothing augmented is written anywhere. The validation photos
+    are not augmented. They are encoded once per run and held in memory (about 0.25 GB), so checkpoint selection
+    stays deterministic and cheap. Point prompts are still drawn from the error region of the augmented sample's
+    box-only prediction, so no keypoint transform is needed.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Test-first, in <code>tests/test_seg_finetune.py</code>:
+      <ul>
+        <li>a spatial transform moves the label with the photo (a forced horizontal flip equals
+          <code>np.fliplr</code> on both);</li>
+        <li>a pixel transform leaves the label unchanged;</li>
+        <li>a warp's exposed border is 255 in the label, and the loss ignores it;</li>
+        <li>one seed gives one stream of batches, and another seed gives another;</li>
+        <li>no file is written during training apart from the model and its card.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_ft.views</code> gives way to
+      <code>seg_ft.augment</code>, the Q5 pipeline as a list of {transform, arguments, p}. It is built by name from
+      <code>albumentations</code> and seeded from the run's seed. The card records the pipeline and the
+      <code>albumentations</code> version. <code>NO_ALBUMENTATIONS_UPDATE=1</code> is set before the import, so
+      neither training nor the tests touch the network. <code>pyproject.toml</code> pins
+      <code>albumentations==2.0.8</code>, the MIT release, and not AlbumentationsX.</span></li>
+    <li><span class="box"></span><span>Retire the custom code: <code>VIEWS</code>, the <code>cache</code> command
+      and the memory-mapped cache reader. In <code>dvc.yaml</code>, <code>seg_ml5_cache@pass1</code>,
+      <code>@pass2</code>, <code>seg_ml5_finetune@xl0_v1</code> and <code>@xl0_v2</code> become
+      <code>frozen: true</code>, as ML-2's stages are. A comment names the last commit with the cache code. The
+      <code>seg_ml5_predict</code> stages stay live.</span></li>
+    <li><span class="box"></span><span>If D5 is (b): the score's negative term becomes the mean of the per-batch
+      empty-or-tiny shares, each batch read from the dataset file by path. Test-first.</span></li>
+    <li><span class="box"></span><span>ADR for D12, in <code>/domain-modeling</code>'s format: segmenter fine-tunes
+      augment on the fly through <code>albumentations</code> and store no augmented data. It binds later
+      fine-tunes, and the ticket's D12 links it.</span></li>
+    <li><span class="box"></span><span>Delete <code>data/seg_cache_ml5/pass1</code> and <code>pass2</code>
+      once the freeze is committed (D13).</span></li>
+    <li><span class="box"></span><span>Toy-scale run (<code>CODING_STANDARDS.md</code>, "Proving a change" and "Run
+      the real entry point"): the stage's own command, <code>python -m coffeecv.seg_finetune train</code>, with 1&ndash;2
+      epochs on about 16 pass-2 photos at 8 threads, under a scratch name that is not committed. Check the log's
+      role counts and pipeline, the time per step against the about 1.9 s per sample estimate, and the card.</span></li>
+    <li><span class="box"></span><span>Checks: full suite and lint green; <code>dvc status</code> shows the frozen
+      stages unchanged.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; XL0-v3</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P5, D4; D15 (decided)</span></div>
+  </div>
+  <p>Runs on this host, not a remote machine (D9). Expected time: about 7 h at 8 threads (Q4), for 40 epochs of 42
+    steps, with the test predictions on top. There is no cache step.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc.yaml</code>: <code>xl0_v3</code> in <code>seg_ml5_finetune</code>
+      (labels <code>pass3</code>, seed 123 unless D4 says otherwise, threads per Q4). Its deps: the session's labels,
+      the dataset file and the photo folders it reads, in place of the cache. Add <code>xl0_v3</code> to
+      <code>seg_ml5_predict</code>. Diff <code>seg_ft</code>, <code>seg_prompt</code> and
+      <code>seg_mask_select</code> key by key against <code>models/seg/xl0_v2.json</code>. Only
+      <code>augment</code>, and whatever D4 names, may differ.</span></li>
+    <li><span class="box"></span><span>Commit the stages, then run <code>dvc repro -s seg_ml5_finetune@xl0_v3
+      seg_ml5_predict@xl0_v3</code> as a background command with a log. Check early that the log prints pass 3's role
+      counts and the pipeline, and that the first epoch's time matches the estimate.</span></li>
+    <li><span class="box"></span><span>Report the validation result from <code>models/seg/xl0_v3.json</code>
+      alone: chosen epoch, mean IoU, and the empty-or-tiny share of the validation negatives, overall and per batch.
+      No test numbers here; those come in P7.</span></li>
+    <li><span class="box"></span><span>Push <code>models/seg/xl0_v3.pt</code> and the test masks by target, and
+      verify on the remote.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; Paired comparison and the choice <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6, D6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Test-first: <code>paired-report</code> gives each model's test-negative rates
+      per batch and tag as well as overall (R1).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: <code>seg_review paired --session ml6_test --masks
+      data/seg_masks_ml5/xl0_v2 data/seg_masks_ml5/xl0_v3</code> on the 71 test positives (D6 (a)), served from
+      this host.</span></li>
+    <li><span class="box"></span><span><code>paired-report</code> into <code>analysis/ml6_p7_paired/</code>: both
+      pass, v2 only, v3 only, both fail, exact McNemar p, and the negatives per batch. Under D7 (a), add
+      <code>--chosen</code>. The report says that v3 differs from v2 in its data and its augmentation, so it names
+      the better model and not the cause (R8).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: XL0-v2 or XL0-v3, and the threshold under D7.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; Follow-through <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7, D7, D8</span></div>
+  </div>
+  <p>If XL0-v2 stays, this phase only records the outcome. If XL0-v3 is chosen under D8 (a), it repeats ML-5 P11
+    on this host: about 2 h for the re-crop and 31&ndash;39 min a seed.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_decoder</code> with its sha256, and
+      <code>seg_min_area_frac</code> under D7 (a). Then <code>dvc repro -s</code> each <code>segcrop</code> and
+      <code>merge_segcam_*</code> stage; a plain <code>dvc repro</code> is never run.</span></li>
+    <li><span class="box"></span><span>Classifier seeds 42/123/7 through <code>coffeecv.fit_frozen_head</code> as
+      a recorded run; refit the probe on the new training and validation negatives; report against
+      exp264&ndash;266 per <code>docs/agents/experiments.md</code>.</span></li>
+    <li><span class="box"></span><span>Push every ML-6 output by target and verify on the remote.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: ship or not. A release is a separate deploy step.</span></li>
+  </ol>
+
+  <h2>11. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: dataset file append-only (diff adds lines only); v1 and v2 masks of the 107 old test photos byte-identical.</span></li>
+    <li><span class="box"></span><span>P3: carried labels identical to pass 2's; the new session shows only uncarried photos.</span></li>
+    <li><span class="box"></span><span>P5: nothing augmented is written during training; one seed repeats its batches; the frozen stages' outputs unchanged.</span></li>
+    <li><span class="box"></span><span>P6: XL0-v3's config differs from XL0-v2's only in <code>augment</code> and where D4 says; its card names <code>pass3</code>, the pipeline and the <code>albumentations</code> version.</span></li>
+    <li><span class="box"></span><span>Every DVC output pushed by target and each object verified on <code>dvcnewremote</code>.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope".</li>
+    <li>Running anything on a remote machine (D9).</li>
+    <li>AlbumentationsX, and augmentation in the classifier's training.</li>
+    <li>A third model to separate the effect of the data from that of the augmentation (ticket R8).</li>
+    <li>The 2026-10-12 segmenter positives and the pool-draw rule they exposed (Q3).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-12</div>Claude reads ticket ML-6 at <code>56f62b0</code> and writes this plan,
+      with an in-memory <code>seg_dataset build</code> (869 photos without the 2026-10-12 positives; refused with
+      them). 6 findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-12</div>Rewritten for D12 (the owner: Albumentations on the fly, nothing
+      stored). A research agent's read of the library's sources, a smoke test of <code>albumentations</code> 2.0.8
+      here, and XL0 encoder timings at 8 and 12 threads give findings 7 and 8. The new P5 replaces the view cache,
+      the run moves to P6, and the comparison and follow-through become P7 and P8. Q1 is reworded for the frozen
+      caches; Q4 (threads) and Q5 (transforms) added. Not implemented.</div>
+    <div><div class="when">2026-10-12</div>The owner answers Q1 (delete the caches), Q3 (as recommended), Q4 (8
+      threads) and Q5 (as recommended), recorded as ticket D13&ndash;D16. Q2 is reworded with the 4 photos it is
+      about, and stays open. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
+    <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <code>docs/agents/dvc.md</code>,
+    <code>docs/agents/experiments.md</code>, <code>analysis/ml5_xl0_timing/</code>.</footer>
+</main>
