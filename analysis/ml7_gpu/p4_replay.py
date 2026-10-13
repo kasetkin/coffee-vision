@@ -57,12 +57,13 @@ def main() -> None:
     if args.photos:
         inputs = {k: v[:args.photos] for k, v in inputs.items()}
     cell = backends.CELLS[args.cell]
+    args.out.parent.mkdir(parents=True, exist_ok=True)          # the capture's file lives beside the outputs
     sampler = cellrun.Sampler()
     sampler.start()
     probe = cellrun.Probe()
     mem0 = cellrun.mem_available_mb()
     try:
-        with CapturedStderr() as err:
+        with CapturedStderr(args.out.parent / (args.out.name + ".stderr")) as err:
             t_load = time.perf_counter()
             mods = backends._torch_modules(args.threads) if cell.runtime == "torch" else None
             enc, dec, dino = (backends.open_graph(args.cell, g, args.model_dir, args.threads, args.runtime_dir,

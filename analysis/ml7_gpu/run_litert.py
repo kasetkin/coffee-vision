@@ -86,12 +86,17 @@ def delegate_report(log: str) -> dict:
 
 
 class CapturedStderr:
-    """fd 2 into a temporary file while open, then written on to the real stderr; .text holds it. LiteRT reports
-    from C++, below Python's sys.stderr."""
+    """fd 2 into a file while open, then written on to the real stderr; .text holds it. LiteRT reports from C++,
+    below Python's sys.stderr. With `keep`, the file is that path, removed on a clean exit and left behind if the
+    process dies inside (a native abort's message would otherwise be lost: P4's rehearsal)."""
+
+    def __init__(self, keep: Path | None = None):
+        self.keep = keep
 
     def __enter__(self):
         sys.stderr.flush()
-        self._saved, self._tmp = os.dup(2), tempfile.TemporaryFile()
+        self._saved = os.dup(2)
+        self._tmp = open(self.keep, "w+b") if self.keep else tempfile.TemporaryFile()
         os.dup2(self._tmp.fileno(), 2)
         return self
 
@@ -102,6 +107,8 @@ class CapturedStderr:
         self._tmp.seek(0)
         self.text = self._tmp.read().decode(errors="replace")
         self._tmp.close()
+        if self.keep:
+            self.keep.unlink()
         sys.stderr.write(self.text)
         sys.stderr.flush()
 

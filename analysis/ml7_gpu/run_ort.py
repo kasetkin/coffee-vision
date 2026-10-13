@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cellrun  # noqa: E402
 
 GPU_PATH = {"webgpu": "vulkan", "openvino_gpu": "opencl"}
+_REGISTERED: set[str] = set()                # plugin execution-provider libraries registered in this process
 
 
 def make_session(path: Path, provider: str, threads: int, fallback: bool, precision: str = "fp32",
@@ -49,7 +50,9 @@ def make_session(path: Path, provider: str, threads: int, fallback: bool, precis
     so.add_session_config_entry("session.inter_op.allow_spinning", "0")
     if provider == "webgpu":
         import onnxruntime_ep_webgpu as webgpu
-        ort.register_execution_provider_library("webgpu", webgpu.get_library_path())
+        if "webgpu" not in _REGISTERED:      # once per process: a second registration fails, and ORT then aborts
+            ort.register_execution_provider_library("webgpu", webgpu.get_library_path())
+            _REGISTERED.add("webgpu")
         device = next((d for d in ort.get_ep_devices() if d.ep_name == webgpu.get_ep_name()), None)
         if device is None:
             raise SystemExit("run_ort: no WebGPU device")

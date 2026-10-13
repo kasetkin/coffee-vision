@@ -83,6 +83,34 @@ class DelegateReport(unittest.TestCase):
         self.assertEqual(r["refused"], [])
 
 
+class CapturedStderrSurvivesACrash(unittest.TestCase):
+    """A cell that aborts inside the capture must leave its stderr behind (in the P4 rehearsal ORT's abort
+    message was lost with the temporary file), and a clean one passes it on and leaves nothing."""
+
+    def _child(self, tmp, crash: bool) -> str:
+        import subprocess
+        code = (f"import os, sys; sys.path.insert(0, {str(REPO_ROOT / 'analysis' / 'ml7_gpu')!r}); "
+                "from run_litert import CapturedStderr; from pathlib import Path\n"
+                f"with CapturedStderr(Path({str(tmp)!r})):\n"
+                "    os.write(2, b'native says why\\n')\n"
+                f"    {'os.abort()' if crash else 'pass'}\n")
+        return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True).stderr
+
+    def test_a_crash_leaves_the_file(self):
+        import tempfile
+        from pathlib import Path
+        tmp = Path(tempfile.mkdtemp()) / "cell.stderr"
+        self._child(tmp, crash=True)
+        self.assertIn("native says why", tmp.read_text())
+
+    def test_a_clean_run_passes_it_on_and_removes_the_file(self):
+        import tempfile
+        from pathlib import Path
+        tmp = Path(tempfile.mkdtemp()) / "cell.stderr"
+        self.assertIn("native says why", self._child(tmp, crash=False))
+        self.assertFalse(tmp.exists())
+
+
 class Timing(unittest.TestCase):
     def test_cold_is_creation_plus_the_first_call_and_warm_the_rest(self):
         t = cr.timing(create_s=2.0, call_s=[5.0, 1.0, 2.0, 3.0, 4.0])

@@ -53,6 +53,7 @@ def main() -> None:
     refs = dict(np.load(args.refs, allow_pickle=False))
     items = items_for(args.graph, inputs, refs)
     cell = backends.CELLS[args.cell]
+    args.out.parent.mkdir(parents=True, exist_ok=True)          # the capture's file lives beside the outputs
     sampler = cellrun.Sampler()
     sampler.start()
     opened = []
@@ -62,7 +63,7 @@ def main() -> None:
                                           args.cache_dir))
         return opened[0]
     try:
-        with CapturedStderr() as err:
+        with CapturedStderr(args.out.parent / (args.out.name + ".stderr")) as err:
             _, record = cellrun.measure(make, lambda m, item: m(*item), items, sampler, cell.path,
                                         warmup=args.warmup, timed=args.timed)
     finally:
