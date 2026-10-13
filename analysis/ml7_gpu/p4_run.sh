@@ -12,7 +12,9 @@
 # DINOv3 also runs ORT-fused; the information-only variants (fp16 GPU copies, the int8 encoder) run in round 1.
 # OpenVINO's cache is emptied before each of its processes, so each cold start compiles.
 #
-# The protocol's numbers can be overridden from the environment, for a rehearsal:
+# The cells come from backends.P4_CELLS and P4_VARIANTS. The replay's DINOv3 batch is the faster one in round 1,
+# kept for the later rounds (OUT/batch_<cell>). The protocol's numbers can be overridden from the environment,
+# for a rehearsal:
 #   ROUNDS=1 WARMUP=1 TIMED=2 STAB=3 PASSES=1 PHOTOS=2 OUT=p4/rehearsal ./p4_run.sh
 set -u
 cd "$(dirname "$0")"
@@ -20,8 +22,9 @@ export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json PYTHONUNBU
 P=p2; THREADS=4; RELEASE=/opt/coffee-cv/current
 ROUNDS=${ROUNDS:-3}; WARMUP=${WARMUP:-3}; TIMED=${TIMED:-20}; STAB=${STAB:-100}; PASSES=${PASSES:-2}
 PHOTOS=${PHOTOS:-}; OUT=${OUT:-p4/out}
-read -r -a CELLS <<< "${CELLS:-torch litert_cpu ort_cpu ovcpu litert_gpu webgpu ovgpu}"
-read -r -a VARIANTS <<< "${VARIANTS:-litert_gpu_fp16 webgpu_fp16 ovgpu_fp16 ort_cpu_int8 ovcpu_int8}"
+from_backends() { venv_litert/bin/python -c "import backends; print(*$1)"; }   # the lists live in backends.py
+read -r -a CELLS <<< "$(from_backends backends.P4_CELLS)"
+read -r -a VARIANTS <<< "$(from_backends backends.P4_VARIANTS)"
 
 python_of() {
   case $1 in
@@ -37,7 +40,8 @@ common() {   # common <cell>: the arguments every process of the cell takes
   if [[ $1 == ov* ]]; then rm -rf cache/openvino; mkdir -p cache/openvino; a+=(--cache-dir cache/openvino); fi
   printf '%s\n' "${a[@]}"
 }
-run() {   # run <cell> <label> <script> <args...>: one process, logged; the torch cell runs the release's code
+run() {   # run <cell> <record> <script> <args...>: one process, logged; the torch cell runs the release's code.
+  # A failure leaves <cell>__<record>.failed beside the records, its exit code and the log's tail (p4_results.py).
   local cell=$1 label=$2; shift 2
   local env=() args; mapfile -t args < <(common "$cell")
   [[ $cell == torch ]] && env=(ML7_REPO="$RELEASE" COFFEE_CV_CHECKPOINT="$checkpoint")
@@ -47,7 +51,11 @@ run() {   # run <cell> <label> <script> <args...>: one process, logged; the torc
   env "${env[@]}" "$(python_of "$cell")" "$@" "${args[@]}" > "$log" 2>&1   # the whole output kept, per process
   rc=$?
   grep -E '^\{|Traceback|Error:|error:' "$log" | grep -v kLiteRtStatusErrorNotFound | tail -n 5
-  (( rc == 0 )) || echo "=== r$R $cell $label FAILED exit=$rc$( ((rc > 128)) && echo " (signal $((rc - 128)))") $log"
+  if (( rc != 0 )); then
+    echo "=== r$R $cell $label FAILED exit=$rc$( ((rc > 128)) && echo " (signal $((rc - 128)))") $log"
+    { echo "exit=$rc log=$log"; grep -v kLiteRtStatusErrorNotFound "$log" | tail -n 20; } \
+      > "$OUT/r$R/${cell}__${label}.failed"
+  fi
 }
 graph() {   # graph <cell> <graph> <timed> <suffix>
   run "$1" "$2$4" p4_graph.py --graph "$2" --refs $P/refs_emb.npz --warmup "$WARMUP" --timed "$3" \
@@ -68,9 +76,11 @@ PY
 cell() {   # cell <cell>: the four graphs, the stability run and the replay
   local c=$1 g b
   for g in decoder encoder dino_b8 dino_b40; do graph "$c" "$g" "$TIMED" ""; done
-  b=$(faster "$c")
+  # The replay batch is chosen once, in round 1, so every round replays at it (D15's spread between rounds).
+  [[ -s "$OUT/batch_$c" ]] || faster "$c" > "$OUT/batch_$c"
+  b=$(< "$OUT/batch_$c")
   graph "$c" "dino_b$b" "$STAB" "__stability"
-  run "$c" "replay b$b" p4_replay.py --batch "$b" --passes "$PASSES" ${PHOTOS:+--photos "$PHOTOS"} \
+  run "$c" "replay" p4_replay.py --batch "$b" --passes "$PASSES" ${PHOTOS:+--photos "$PHOTOS"} \
     --out "$OUT/r$R/${c}__replay"
   if [[ $c == ort_cpu ]]; then
     for g in dino_b8 dino_b40; do graph ort_cpu_fused "$g" "$TIMED" ""; done

@@ -23,7 +23,10 @@ from typing import NamedTuple
 
 IDLE_MAX = 0.5          # "RC6 rising by well under the wall time": the GPU idle for at most half the timed run
 
-DRIVERS = {"vulkan": ("libvulkan_intel.so",), "opencl": ("libigdrcl.so",)}
+# Per GPU path, the libraries the process must have mapped, each group by one of its names: the Intel Vulkan
+# driver; NEO's OpenCL driver; NEO and OpenVINO's GPU plugin for ORT's OpenVINO provider (plan P3).
+DRIVERS = {"vulkan": (("libvulkan_intel.so",),), "opencl": (("libigdrcl.so",),),
+           "openvino": (("libigdrcl.so",), ("libopenvino_intel_gpu_plugin.so",))}
 LLVMPIPE = "libvulkan_lvp.so"
 WATCHED = ("libvulkan_intel.so", "libvulkan_lvp.so", "libvulkan.so", "libigdrcl.so", "libOpenCL.so",
            "libLiteRtWebGpuAccelerator.so", "libLiteRtGpuAccelerator.so", "libLiteRtOpenClAccelerator.so",
@@ -166,12 +169,13 @@ def loaded() -> dict:
 
 
 def gpu_proof(seen: dict, counters: dict, path: str) -> dict:
-    """Plan P2's proof for a GPU cell on `path` ("vulkan" or "opencl"), from loaded() and the counters over the
+    """Plan P2's proof for a GPU cell on `path` (a DRIVERS key), from loaded() and the counters over the
     timed calls; ok with every condition met, else the reasons."""
     names = [Path(lib).name for lib in seen["libs"]]
     why = []
-    if not any(n.startswith(d) for n in names for d in DRIVERS[path]):
-        why.append(f"no {path} driver ({', '.join(DRIVERS[path])}) loaded")
+    for group in DRIVERS[path]:
+        if not any(n.startswith(d) for n in names for d in group):
+            why.append(f"no {path} library ({', '.join(group)}) loaded")
     if any(n.startswith(LLVMPIPE) for n in names):
         why.append("llvmpipe (Mesa's CPU Vulkan) loaded")
     if not any(n.startswith("/dev/dri/renderD") for n in seen["render_nodes"]):
@@ -224,7 +228,7 @@ def measure(make, call, items: list, sampler: Sampler, path: str | None, warmup:
     items: the first is the cold call, the warm-ups are not timed (timed: one pass over the items, P2's
     protocol, unless given; P4 gives 3 and 20). Records the timing, CPU time against wall time and the counters
     over the timed calls, the calls with a NaN or Inf in any output, peak RSS and the drop in MemAvailable,
-    what the process loaded and, on a GPU `path` ("vulkan", "opencl"), gpu_proof. Returns the outputs of the
+    what the process loaded and, on a GPU `path` (a DRIVERS key), gpu_proof. Returns the outputs of the
     first pass over the items, and the record."""
     probe = Probe()
     mem0 = mem_available_mb()

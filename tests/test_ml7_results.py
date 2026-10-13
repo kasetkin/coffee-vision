@@ -54,6 +54,28 @@ class Graphs(unittest.TestCase):
         self.assertEqual(s["warm_median_s"], 1.0)
 
 
+class Failures(unittest.TestCase):
+    """Plan P4: every cell either has its numbers or is marked failed, with the error."""
+
+    def test_a_failure_marker_is_a_failed_round_with_its_error(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        runs = Path(tempfile.mkdtemp())
+        (runs / "r1").mkdir()
+        (runs / "r2").mkdir()
+        (runs / "r1" / "webgpu__encoder.json").write_text(json.dumps(_graph(4.0, proof=True)))
+        (runs / "r2" / "webgpu__encoder.failed").write_text("exit=134 log=x\nterminate called ...\n")
+        (runs / "r1" / "ovgpu__replay.failed").write_text("exit=1 log=y\nOutOfMemory\n")
+        loaded = pr.load_runs(runs)
+        s = pr.summarise_graph(loaded[("webgpu", "encoder", False)])
+        self.assertEqual(s["failed_rounds"], [2])
+        self.assertIn("exit=134", s["errors"]["2"])
+        r = pr.summarise_replay(loaded[("ovgpu", "replay", False)])     # failed everywhere: still listed
+        self.assertEqual((r["rounds"], r["failed_rounds"]), (0, [1]))
+        self.assertIn("OutOfMemory", r["errors"]["1"])
+
+
 class Replay(unittest.TestCase):
     @staticmethod
     def _replay(median, first=20.0, proof=None):

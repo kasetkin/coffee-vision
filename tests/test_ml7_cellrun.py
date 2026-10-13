@@ -111,6 +111,24 @@ class CapturedStderrSurvivesACrash(unittest.TestCase):
         self.assertFalse(tmp.exists())
 
 
+class OpenVinoProof(unittest.TestCase):
+    """Plan P3: the OpenCL proof for ORT's OpenVINO provider needs OpenVINO's GPU plugin as well as NEO."""
+
+    NEO = "/usr/lib/x86_64-linux-gnu/intel-opencl/libigdrcl.so"
+    PLUGIN = "/home/x/venv/lib/python3.12/site-packages/onnxruntime/capi/libopenvino_intel_gpu_plugin.so"
+
+    def test_neo_and_the_plugin(self):
+        p = cr.gpu_proof({"libs": [self.NEO, self.PLUGIN], "render_nodes": ["/dev/dri/renderD128"]}, _busy(0.9),
+                         path="openvino")
+        self.assertTrue(p["ok"], p)
+
+    def test_neo_without_the_plugin_is_not_openvino(self):
+        p = cr.gpu_proof({"libs": [self.NEO], "render_nodes": ["/dev/dri/renderD128"]}, _busy(0.9),
+                         path="openvino")
+        self.assertFalse(p["ok"])
+        self.assertIn("libopenvino_intel_gpu_plugin", " ".join(p["why_not"]))
+
+
 class Timing(unittest.TestCase):
     def test_cold_is_creation_plus_the_first_call_and_warm_the_rest(self):
         t = cr.timing(create_s=2.0, call_s=[5.0, 1.0, 2.0, 3.0, 4.0])

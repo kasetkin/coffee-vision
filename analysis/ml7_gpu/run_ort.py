@@ -13,7 +13,8 @@ outputs for parity.py and a record of the cell (cellrun.measure). Run with the v
                       cache: give an empty one to time a cold start that compiles everything.
 
 On every provider but cpu the session fails rather than half-running on ORT's CPU provider
-(session.disable_cpu_ep_fallback=1) unless --fallback is given, for diagnosis only; thread spinning is off, so a
+(session.disable_cpu_ep_fallback=1) unless --fallback is given, for diagnosis only, with ORT's verbose log on so
+the log names the nodes placed on the CPU; thread spinning is off, so a
 GPU run does not take the N100's shared power budget for busy waits.
 
 --graph dino runs each photo's 40 patches at the file's batch; encoder each photo's image; decoder each photo's
@@ -33,7 +34,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cellrun  # noqa: E402
 
-GPU_PATH = {"webgpu": "vulkan", "openvino_gpu": "opencl"}
+GPU_PATH = {"webgpu": "vulkan", "openvino_gpu": "openvino"}
 _REGISTERED: set[str] = set()                # plugin execution-provider libraries registered in this process
 
 
@@ -46,6 +47,8 @@ def make_session(path: Path, provider: str, threads: int, fallback: bool, precis
     if provider == "cpu":
         return ort.InferenceSession(str(path), so, providers=["CPUExecutionProvider"])
     so.add_session_config_entry("session.disable_cpu_ep_fallback", "0" if fallback else "1")
+    if fallback:                             # diagnosis: ORT's verbose log names every node and its provider
+        so.log_severity_level, so.log_verbosity_level = 0, 0
     so.add_session_config_entry("session.intra_op.allow_spinning", "0")
     so.add_session_config_entry("session.inter_op.allow_spinning", "0")
     if provider == "webgpu":

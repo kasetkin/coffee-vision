@@ -242,7 +242,7 @@ def fp16_copy(src: Path, dst: Path, blanket: bool) -> dict:
     out = float16.convert_float_to_float16(m, keep_io_types=True, op_block_list=kept_ops, node_block_list=kept_nodes)
     retyped = retype_casts(out)
     save(out, dst)
-    loads(dst)
+    check_loads(dst)
     return {"kept_fp32_ops": sorted(set(kept_ops) & {n.op_type for n in m.graph.node}),
             "kept_fp32_attention_matmuls": len(kept_nodes), "retyped_casts": len(retyped)}
 
@@ -263,7 +263,7 @@ def retype_casts(model) -> list[str]:
     return retyped
 
 
-def loads(path: Path) -> None:
+def check_loads(path: Path) -> None:
     """An ORT CPU session is created from the file: its types check out (P1 had not loaded the fp16 copies)."""
     import onnxruntime as ort
     ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
@@ -357,7 +357,7 @@ def main() -> None:
             if "fp16" in m["variant"]:
                 kept["retyped_casts"] = repair_casts(out / f)
             kept["zero_biases_dropped"] = repair_biases(out / f) or kept.get("zero_biases_dropped", 0)
-            loads(out / f)
+            check_loads(out / f)
             record(out / f, m["graph"], m["variant"], **kept)
     if "int8" in steps:
         record(out / "encoder.int8.onnx", "encoder", "int8 QDQ",

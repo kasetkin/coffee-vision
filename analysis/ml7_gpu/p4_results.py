@@ -47,16 +47,23 @@ def _common(records: list[dict]) -> dict:
             "gpu_proven": _proven(records)}
 
 
+def _split(rounds: dict[int, dict | None]) -> tuple[dict, list[int], dict]:
+    """The rounds that produced a record; the failed ones (None, or p4_run.sh's {"failed": text}); their errors."""
+    ok = {k: r for k, r in sorted(rounds.items()) if r is not None and "failed" not in r}
+    failed = [k for k in sorted(rounds) if k not in ok]
+    errors = {str(k): rounds[k]["failed"] for k in failed if rounds[k] is not None}
+    return ok, failed, errors
+
+
 def summarise_graph(rounds: dict[int, dict | None]) -> dict:
-    """{round: the record of p4_graph.py, or None if the round failed} -> the cell and graph across rounds."""
-    ok = {k: r for k, r in sorted(rounds.items()) if r is not None}
-    failed = [k for k, r in sorted(rounds.items()) if r is None]
+    """{round: the record of p4_graph.py, None, or a failure} -> the cell and graph across rounds."""
+    ok, failed, errors = _split(rounds)
     if not ok:
-        return {"rounds": 0, "failed_rounds": failed}
+        return {"rounds": 0, "failed_rounds": failed, "errors": errors}
     recs = list(ok.values())
     medians = [r["timing"]["warm"]["median"] for r in recs]
     median = statistics.median(medians)
-    return {"rounds": len(recs), "failed_rounds": failed, "warm_median_s": median,
+    return {"rounds": len(recs), "failed_rounds": failed, "errors": errors, "warm_median_s": median,
             "warm_medians_s": medians, "round_spread": _spread(medians),
             "warm_p90_s": statistics.median(r["timing"]["warm"]["p90"] for r in recs),
             "cold_s": [r["timing"]["cold_s"] for r in recs],
@@ -68,14 +75,14 @@ def summarise_graph(rounds: dict[int, dict | None]) -> dict:
 
 
 def summarise_replay(rounds: dict[int, dict | None]) -> dict:
-    """{round: the record of p4_replay.py, or None} -> the cell's photo replay across rounds."""
-    ok = {k: r for k, r in sorted(rounds.items()) if r is not None}
-    failed = [k for k, r in sorted(rounds.items()) if r is None]
+    """{round: the record of p4_replay.py, None, or a failure} -> the cell's photo replay across rounds."""
+    ok, failed, errors = _split(rounds)
     if not ok:
-        return {"rounds": 0, "failed_rounds": failed}
+        return {"rounds": 0, "failed_rounds": failed, "errors": errors}
     recs = list(ok.values())
     medians = [r["photo"]["median"] for r in recs]
-    return {"rounds": len(recs), "failed_rounds": failed, "batch": sorted({r["batch"] for r in recs}),
+    return {"rounds": len(recs), "failed_rounds": failed, "errors": errors,
+            "batch": sorted({r["batch"] for r in recs}),
             "photo_median_s": statistics.median(medians), "photo_medians_s": medians,
             "round_spread": _spread(medians), "photo_p90_s": statistics.median(r["photo"]["p90"] for r in recs),
             "first_answer_s": [r["first_answer_s"] for r in recs],
@@ -84,29 +91,34 @@ def summarise_replay(rounds: dict[int, dict | None]) -> dict:
 
 
 def load_runs(runs: Path) -> dict:
-    """{(cell, what, stability): {round: record or None}} from runs/r<k>/*.json. A record absent from a round
-    in which the cell ran is a failed round."""
+    """{(cell, what, stability): {round: record, {"failed": text} or None}} from runs/r<k>/: each *.json, each
+    *.failed that p4_run.sh leaves for a process that failed, and None for a record absent from a round in which
+    the cell ran."""
     out: dict = {}
     rounds = sorted(int(d.name[1:]) for d in runs.glob("r[0-9]*") if d.is_dir())
     for k in rounds:
-        for f in sorted((runs / f"r{k}").glob("*.json")):
+        for f in sorted((runs / f"r{k}").glob("*.json")) + sorted((runs / f"r{k}").glob("*.failed")):
             m = RECORD.match(f.stem)
             if not m:
                 continue
-            try:
-                rec = json.loads(f.read_text())
-            except ValueError:
-                rec = None
+            if f.suffix == ".failed":
+                rec = {"failed": f.read_text()}
+            else:
+                try:
+                    rec = json.loads(f.read_text())
+                except ValueError:
+                    rec = None
             out.setdefault((m["cell"], m["what"], bool(m["stab"])), {})[k] = rec
     for key, by_round in out.items():
         for k in rounds:
-            if k not in by_round and any((runs / f"r{k}").glob(f"{key[0]}__*.json")):
+            if k not in by_round and any((runs / f"r{k}").glob(f"{key[0]}__*")):
                 by_round[k] = None
     return out
 
 
 def replay_parity(runs: Path, cell: str, refs_path: Path, context) -> dict:
-    """D7 per round on the replay's first pass (refs cut to the photos the replay ran)."""
+    """D7 per round on the replay's first pass (refs cut to the photos the replay ran): the gate and the per-photo
+    measures, the continuous ones from P1 among them (plan P4)."""
     import numpy as np
     from parity import compare
     refs = dict(np.load(refs_path, allow_pickle=False))
@@ -116,7 +128,7 @@ def replay_parity(runs: Path, cell: str, refs_path: Path, context) -> dict:
         n = len(got["readouts"])
         report = compare({k: v[:n] if getattr(v, "ndim", 0) and len(v) == len(refs["photos"]) else v
                           for k, v in refs.items()}, got, context)
-        out[f.parent.name] = report["gate"]
+        out[f.parent.name] = report
     return out
 
 
@@ -140,9 +152,9 @@ def main() -> None:
             results["stability" if stab else "graphs"].setdefault(cell, {})[what] = summarise_graph(rounds)
     args.out.write_text(json.dumps(results, indent=2, default=float) + "\n")
     for cell, r in results["replay"].items():
-        gates = r.get("parity", {})
+        gates = [p["gate"] for p in r.get("parity", {}).values()]
         print(f"{cell:12s} replay {r.get('photo_median_s', float('nan')):7.2f} s/photo  "
-              f"parity {'PASS' if gates and all(g['pass'] for g in gates.values()) else 'FAIL'}  "
+              f"parity {'PASS' if gates and all(g['pass'] for g in gates) else 'FAIL'}  "
               f"gpu {r.get('gpu_proven')}")
 
 

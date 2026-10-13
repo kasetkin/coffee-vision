@@ -836,6 +836,20 @@
       answer, compiling), ORT WebGPU 22.4 s, PyTorch 36.9 s, OpenVINO CPU 37.7 s, ORT CPU 39.9 s, LiteRT CPU
       49.7 s. ORT's fused DINOv3 is no faster than the plain one on the N100 (5.16 s against 4.98 s a batch of
       8). The full protocol projects to about 19.5 h: Q6 opened.</div>
+    <div><div class="when">2026-10-13</div>Two-axis review (standards and spec) of P2, P3 and P4's tooling, from
+      <code>57d4af1</code>. Fixed: P4 runs the blanket fp16 DINOv3 b8 copy too (§8's table); a fallback
+      run logs ORT's verbose node placement, as §6 asks; the proof for ORT's OpenVINO provider requires OpenVINO's
+      GPU plugin as well as NEO (§7); the replay's parity keeps the per-photo measures, not only the gate (§8);
+      a process that fails leaves a marker that <code>results.json</code> reads, so a cell that fails everywhere
+      is still listed, with its error (§8's checks); each cell's replay batch is chosen in round 1 and kept, so
+      D15's spread between rounds never mixes batches; the cell lists live once, in <code>backends.py</code>
+      (<code>CODING_STANDARDS.md</code>, input lists), and the protocol's numbers once, in
+      <code>p4_run.sh</code>. Kept, and recorded here: the int8 encoder runs in P4 for information, as §8's table
+      lists, though P1 dropped it from serving; every graph and replay is a fresh process, stricter than one
+      process per cell; the information-only variants run once, after round 1's cells, outside the rotation.
+      The review's code smells (duplicated runner shapes across <code>run_ort.py</code>,
+      <code>run_litert.py</code> and <code>p4_graph.py</code>; string-typed devices) are left: analysis code,
+      each script runnable alone on the host.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

@@ -13,7 +13,8 @@ The cells (plan P4) and the information-only variants (ticket D4, Q4), each run 
   ort_cpu      ORT's CPU provider                       webgpu       ORT's WebGPU plugin (Vulkan), fp32
   ovcpu        ORT's OpenVINO provider, CPU             ovgpu        ORT's OpenVINO provider, GPU (OpenCL), fp32
   variants     ort_cpu_fused (DINOv3's ORT-fused graphs), ort_cpu_int8 and ovcpu_int8 (the int8 encoder),
-               litert_gpu_fp16, webgpu_fp16 (the mixed fp16 copies), ovgpu_fp16 (OpenVINO's f16 hint)
+               litert_gpu_fp16, webgpu_fp16 (the mixed fp16 copies), webgpu_fp16blanket (DINOv3 b8 with
+               nothing kept in fp32), ovgpu_fp16 (OpenVINO's f16 hint)
 
 Every cell runs at --threads CPU threads; the GPU cells refuse CPU fallback as in P2 and P3.
 """
@@ -32,7 +33,7 @@ class Cell(NamedTuple):
     runtime: str                  # torch, litert, ort
     device: str = "cpu"           # litert: cpu or gpu; ort: run_ort.py's --provider
     precision: str = "fp32"       # litert's GPU (enforce_f32) and OpenVINO's hint
-    variant: str = ""             # the .onnx file's: "", "fp16", "opt", "int8"
+    variant: str = ""             # the .onnx file's: "", "fp16", "fp16_blanket", "opt", "int8"
     graphs: tuple = GRAPHS        # the graphs the cell has a file for
     path: str | None = None       # the GPU path cellrun.gpu_proof checks
 
@@ -44,14 +45,18 @@ CELLS = {
     "ort_cpu": Cell("ort", "cpu"),
     "ovcpu": Cell("ort", "openvino_cpu"),
     "webgpu": Cell("ort", "webgpu", path="vulkan"),
-    "ovgpu": Cell("ort", "openvino_gpu", path="opencl"),
+    "ovgpu": Cell("ort", "openvino_gpu", path="openvino"),
     "ort_cpu_fused": Cell("ort", "cpu", variant="opt", graphs=("dino_b8", "dino_b40")),
     "ort_cpu_int8": Cell("ort", "cpu", variant="int8", graphs=("encoder",)),
     "ovcpu_int8": Cell("ort", "openvino_cpu", variant="int8", graphs=("encoder",)),
     "litert_gpu_fp16": Cell("litert", "gpu", "fp16", path="vulkan"),
     "webgpu_fp16": Cell("ort", "webgpu", variant="fp16", path="vulkan"),
-    "ovgpu_fp16": Cell("ort", "openvino_gpu", "fp16", path="opencl"),
+    "ovgpu_fp16": Cell("ort", "openvino_gpu", "fp16", path="openvino"),
+    "webgpu_fp16blanket": Cell("ort", "webgpu", variant="fp16_blanket", graphs=("dino_b8",), path="vulkan"),
 }
+# The comparison run's cells, and the variants it runs once for information (plan P4; p4_run.sh reads these).
+P4_CELLS = ("torch", "litert_cpu", "ort_cpu", "ovcpu", "litert_gpu", "webgpu", "ovgpu")
+P4_VARIANTS = ("litert_gpu_fp16", "webgpu_fp16", "webgpu_fp16blanket", "ovgpu_fp16", "ort_cpu_int8", "ovcpu_int8")
 
 
 def onnx_name(graph: str, variant: str) -> str:
