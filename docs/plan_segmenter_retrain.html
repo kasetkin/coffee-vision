@@ -458,6 +458,11 @@
       140 bean photos and 430 negatives (D18). On the test split the probe catches 153/153 negatives and refuses
       0/71 positives. <code>analysis/ml6_p8/summary.txt</code>. The push of the re-crop and the weights is slow
       (upload-bound) and is verified on the remote when it ends. Waits on the owner: ship or not.</div>
+    <div><div class="when">2026-10-13</div>The full check after the re-crop failed only on
+      <code>test_matches_meta_reference</code>: the DINOv3 fixture's patches come from the re-cropped
+      <code>cam_iphone</code>. At the owner's word Claude reran <code>scripts/make_dinov3_fixture.py</code> (Meta
+      dinov3 @ 6876159); full suite green. The owner asks that this step always follow a segmenter change:
+      <code>docs/agents/experiments.md</code>, "Changing the segmenter" (<code>cba1d5b</code>).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
