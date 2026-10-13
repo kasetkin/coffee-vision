@@ -1,0 +1,25 @@
+ML-6 P8: follow-through under XL0-v3 (ticket D8 (a), D18, D23; D7 (a) threshold 0.064511). All on this host.
+
+Re-crop (0675f40): 16 segcrop stages and the four merge_segcam_* pools at 4 threads, 1,256 photos (ML-5's 1,248
+and the 8 pool photos added since), 1 D18 fallback: random_date_raccoon/class_005__Guatemala_Tata/
+PXL_20261009_095251707.jpg, beans in a grinder hopper whose XL0-v3 mask is holed (area 0.0563): under the new
+threshold, over the old one, so the raised threshold sends it to the whole photo. Crops checked at full size.
+
+Classifier (909782a), exp267-269 against exp264-266 (XL0-v2 pools), compare_exp267-269_vs_264-266.txt:
+  val macro-F1  mean +0.0029, range -0.0020 .. +0.0086
+  test macro-F1 mean -0.0011, range -0.0018 .. +0.0001
+  no class's mean F1 moves by more than 0.012. The pools also hold the 8 photos added since exp264-266.
+
+Candidate: models/allrigs_dino3b16_segxl0v3_country_s42 = exp267 (seed 42, the highest val macro-F1, 0.9815).
+Its card's training_config names the XL0-v3 decoder (sha256 4b21ed7b...) and seg_min_area_frac 0.064511.
+  OOD reference: 861 training photos.
+  Probe (ADR 0016, D18): 140 bean photos (48 dropped, in the segmenter test split's groups) and 430 training and
+  validation negatives (2 dropped, ambiguous patch labels); ML-5's probe had 113 and 99.
+
+Probe on the segmenter test split (ood_eval_segxl0v3_s42.txt), threshold 0.5:
+  negatives caught   153/153 (95% CI 98-100%), every tag; real_world_negatives 113/113, confusable_grain 24/24
+  positives refused    0/71  (0/39 trained on, 0/32 not)
+  ML-5's candidate (analysis/ml5_p11/): 41/41 and 0/66, on the smaller test split before the ML-6 append.
+  Segmenter alone on the test negatives (not a guard): 141/153 empty or tiny under 0.064511.
+
+Not a release: shipping is the owner's call and a separate deploy step (docs/agents/deploy.md).

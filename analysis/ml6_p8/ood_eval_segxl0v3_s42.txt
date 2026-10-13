@@ -1,0 +1,30 @@
+config: models/allrigs_dino3b16_segxl0v3_country_s42.json (training_config)
+scoring 224 test photos of /workspace/labels/ml5/seg_dataset.yaml with no TTA, 40 patches; the classifier's train split holds 860 photos
+
+test split, probe threshold 0.5 (fixed, ADR 0016)
+negatives caught at 0.5: 153/153 (100%, 95% CI 98%-100%)
+    confusable_grain: 24/24 (100%, 95% CI 86%-100%)
+    empty_tray: 3/3 (100%, 95% CI 44%-100%)
+    ground_coffee: 4/4 (100%, 95% CI 51%-100%)
+    non_food_objects: 3/3 (100%, 95% CI 44%-100%)
+    other_nuts_seeds: 5/5 (100%, 95% CI 57%-100%)
+    real_world_negatives: 113/113 (100%, 95% CI 97%-100%)
+    wrong_bean_type: 1/1 (100%, 95% CI 21%-100%)
+segmenter on the test negatives (beside the probe, not a guard; D9, D22):
+  all: empty mask: 43/153, empty or tiny (area < 0.064511): 141/153
+    confusable_grain: empty mask: 13/24, empty or tiny (area < 0.064511): 19/24
+    empty_tray: empty mask: 2/3, empty or tiny (area < 0.064511): 3/3
+    ground_coffee: empty mask: 1/4, empty or tiny (area < 0.064511): 4/4
+    non_food_objects: empty mask: 0/3, empty or tiny (area < 0.064511): 3/3
+    other_nuts_seeds: empty mask: 2/5, empty or tiny (area < 0.064511): 3/5
+    real_world_negatives: empty mask: 25/113, empty or tiny (area < 0.064511): 109/113
+    wrong_bean_type: empty mask: 0/1, empty or tiny (area < 0.064511): 0/1
+positives refused at 0.5:
+  segmenter_positive, trained on: 0/14 (0%, 95% CI 0%-22%)
+  segmenter_positive, not trained on: 0/20 (0%, 95% CI 0%-16%)
+  pool, trained on: 0/25 (0%, 95% CI 0%-13%)
+  pool, not trained on: 0/9 (0%, 95% CI 0%-30%)
+  internet_positive, trained on: none
+  internet_positive, not trained on: 0/3 (0%, 95% CI 0%-56%)
+  all, trained on: 0/39 (0%, 95% CI 0%-9%)
+  all, not trained on: 0/32 (0%, 95% CI 0%-11%)

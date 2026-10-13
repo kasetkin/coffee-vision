@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D8, D11, D17&ndash;D23 decided; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner chose XL0-v3 (D23) and re-derived the threshold (D7: 0.064511); P8 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D8, D11, D17&ndash;D23 decided; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner chose XL0-v3 (D23), threshold 0.064511 (D7); P8: pools re-cropped, classifier exp267&ndash;269, candidate <code>allrigs_dino3b16_segxl0v3_country_s42</code> with a refit probe (153/153 test negatives caught, 0/71 positives refused); waits on the owner: ship or not</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -572,6 +572,11 @@
       re-derived (D7 (a)): 0.064511. <code>params.yaml</code> names the XL0-v3 decoder and the new threshold together,
       since the threshold is derived from that decoder's masks; every <code>segcrop</code> stage is stale until P8's
       re-crop. Nothing is deployed.</div>
+    <div><div class="when">2026-10-13</div>P8 (D8 (a), D18): the pools re-cropped with XL0-v3, the classifier
+      retrained (exp267&ndash;269, within &plusmn;0.009 of exp264&ndash;266 per seed), and the candidate
+      <code>allrigs_dino3b16_segxl0v3_country_s42</code> written with its OOD reference and a probe refit on 430
+      negatives. On the segmenter test split the probe catches 153/153 negatives and refuses 0/71 positives. Not a
+      release; the owner decides whether to ship (<code>analysis/ml6_p8/summary.txt</code>).</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,

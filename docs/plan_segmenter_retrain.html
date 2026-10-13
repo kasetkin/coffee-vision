@@ -344,7 +344,7 @@
 
   <h2>10. P8 &mdash; Follow-through <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-13: params set (XL0-v3 decoder, 0.064511); the re-crop not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-13: <code>0675f40</code>, <code>909782a</code> and the candidate commit; the push to the remote running; waits on the owner: ship or not</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7, or P2 if the owner keeps XL0-v2 there <span class="tag">D8, D18 decided; D7 from P7</span></span></div>
   </div>
   <p>The probe is refit on the new negatives whichever segmenter is chosen (D18). If XL0-v2 stays, that is the
@@ -357,7 +357,7 @@
     <li><span class="box done"></span><span>XL0-v3 chosen: <code>params.yaml</code>: <code>seg_decoder</code> with its sha256, and
       <code>seg_min_area_frac</code> under D7 (a). Then <code>dvc repro -s</code> each <code>segcrop</code> and
       <code>merge_segcam_*</code> stage; a plain <code>dvc repro</code> is never run.</span></li>
-    <li><span class="box"></span><span>XL0-v3 chosen: classifier seeds 42/123/7 through
+    <li><span class="box done"></span><span>XL0-v3 chosen: classifier seeds 42/123/7 through
       <code>coffeecv.fit_frozen_head</code> as a recorded run; fit the probe on the new training and validation
       negatives and measure it as above; report against exp264&ndash;266 per
       <code>docs/agents/experiments.md</code>.</span></li>
@@ -450,6 +450,14 @@
       0.1290), recorded in <code>analysis/ml6_p7_paired/report.json</code>. P8's first task done with it:
       <code>params.yaml</code> <code>seg_decoder</code> (XL0-v3, sha256 4b21ed7b&hellip;) and
       <code>seg_min_area_frac</code> in one commit. Every <code>segcrop</code> stage is stale until the re-crop.</div>
+    <div><div class="when">2026-10-13</div>P8 under XL0-v3. Re-crop (<code>0675f40</code>): 20 stages, 1,256
+      photos, 1 D18 fallback (a hopper whose holed mask, 0.0563, is under the new threshold and was over the old).
+      Classifier exp267&ndash;269 (<code>909782a</code>) against exp264&ndash;266: val macro-F1 +0.0029
+      (&minus;0.0020 to +0.0086), test &minus;0.0011 (&minus;0.0018 to +0.0001). Candidate
+      <code>allrigs_dino3b16_segxl0v3_country_s42</code> (exp267, the val pick) with its OOD reference and probe:
+      140 bean photos and 430 negatives (D18). On the test split the probe catches 153/153 negatives and refuses
+      0/71 positives. <code>analysis/ml6_p8/summary.txt</code>. The push of the re-crop and the weights is slow
+      (upload-bound) and is verified on the remote when it ends. Waits on the owner: ship or not.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,
