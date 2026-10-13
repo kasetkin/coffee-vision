@@ -45,6 +45,8 @@ def run(args) -> tuple[dict, dict]:
     if args.decoder:
         emb = out.get("embeddings")
         if emb is None:
+            if args.refs is None:
+                raise SystemExit("run_ort: --decoder needs --encoder or --refs for its input")
             emb = np.load(args.refs, allow_pickle=False)["embeddings"]
             info["decoder_input"] = "PyTorch embeddings (refs)"
         s = session(args.onnx_dir / args.decoder, args.threads, args.provider)

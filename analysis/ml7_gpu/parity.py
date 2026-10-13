@@ -32,37 +32,50 @@ def least_cosine(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def mask_iou(a: np.ndarray, b: np.ndarray) -> float:
-    union = np.count_nonzero(a | b)
-    return np.count_nonzero(a & b) / union if union else 1.0
+    union = int(np.count_nonzero(a | b))
+    return int(np.count_nonzero(a & b)) / union if union else 1.0
+
+
+def _least(values: list[float]) -> float | None:
+    """The least value, NaN if any is NaN (Python's min() skips a NaN unless it comes first)."""
+    if not values:
+        return None
+    return float("nan") if any(np.isnan(v) for v in values) else float(min(values))
 
 
 def gate(rows: list[dict]) -> dict:
     """D7 over the per-photo rows: pass if every photo's least cosine and mask IoU (where measured) reach the
-    bars; the photos whose top-1 or guard verdict changed, listed."""
-    cos = [r["least_cosine"] for r in rows if r.get("least_cosine") is not None]
-    iou = [r["mask_iou"] for r in rows if r.get("mask_iou") is not None]
-    least_cos, least_iou = (min(cos) if cos else None), (min(iou) if iou else None)
-    ok = (least_cos is None or least_cos >= COSINE_MIN) and (least_iou is None or least_iou >= IOU_MIN)
+    bars, every output is finite, and something was measured at all; the photos whose top-1, guard verdict or
+    D18 verdict changed, listed (not blocking)."""
+    least_cos = _least([r["least_cosine"] for r in rows if r.get("least_cosine") is not None])
+    least_iou = _least([r["mask_iou"] for r in rows if r.get("mask_iou") is not None])
+    finite = not any(r.get("nan_or_inf") or r.get("low_nan_or_inf") for r in rows)
+    measured = least_cos is not None or least_iou is not None
+    ok = (measured and finite and (least_cos is None or least_cos >= COSINE_MIN)
+          and (least_iou is None or least_iou >= IOU_MIN))       # a NaN fails both comparisons
     changed = [r["photo"] for r in rows
                if False in (r.get("top1_same"), r.get("verdict_same"), r.get("fallback_same"))]
-    return {"pass": ok, "least_cosine": least_cos, "least_mask_iou": least_iou, "changed_answer": changed,
-            "bars": {"cosine": COSINE_MIN, "mask_iou": IOU_MIN}}
+    return {"pass": bool(ok), "least_cosine": least_cos, "least_mask_iou": least_iou, "all_finite": finite,
+            "changed_answer": changed, "bars": {"cosine": COSINE_MIN, "mask_iou": IOU_MIN}}
 
 
 # ---------------------------------------------------------------------------------------- the repo's answers
 def _answers(readouts: np.ndarray, head: dict, ref: dict | None, probe: dict | None) -> dict:
-    """What classify_one answers from a photo's readouts: its head, mean probabilities and guard (coffeecv.infer)."""
-    from coffeecv.infer import PROBE_THRESHOLD, ood_scores, probe_score
+    """What classify_one answers from a photo's readouts: its head, mean probabilities and guard, by
+    coffeecv.infer's scores and thresholds (the probe when there is one, else the centroid median).
+    make_refs.py checks these against classify_one's own answers on every fixture."""
+    from coffeecv.infer import OOD_THRESHOLD, PROBE_THRESHOLD, ood_scores, probe_score
 
     logits = readouts @ head["weight"].T + head["bias"]
     z = np.exp(logits - logits.max(1, keepdims=True))
     probs = (z / z.sum(1, keepdims=True)).mean(0)
     out = {"probs": probs, "top1": int(probs.argmax())}
     if probe is not None:
-        out["probe"] = float(probe_score(readouts, probe))
-        out["refused"] = out["probe"] > PROBE_THRESHOLD
+        out.update(method="linear_probe", score=float(probe_score(readouts, probe)), threshold=PROBE_THRESHOLD)
     elif ref is not None:
-        out["probe"] = float(np.median(ood_scores(readouts, ref)[0]))
+        out.update(method="centroid", score=float(np.median(ood_scores(readouts, ref)[0])), threshold=OOD_THRESHOLD)
+    if "score" in out:
+        out["refused"] = out["score"] > out["threshold"]
     return out
 
 
@@ -70,8 +83,12 @@ def _final_mask(low: np.ndarray, input_size, original_size, seg) -> np.ndarray:
     """multi3's low-res logits -> the photo's bool mask, by the segmenter's own post-processing (_upsample)."""
     import torch
     pr = seg.predictor
+    saved = pr.input_size, pr.original_size
     pr.input_size, pr.original_size = tuple(int(v) for v in input_size), tuple(int(v) for v in original_size)
-    return seg._upsample(torch.from_numpy(np.ascontiguousarray(low)))
+    try:
+        return seg._upsample(torch.from_numpy(np.ascontiguousarray(low)))
+    finally:
+        pr.input_size, pr.original_size = saved
 
 
 def unpack_mask(bits: np.ndarray, original_size) -> np.ndarray:
@@ -100,10 +117,10 @@ def compare(refs: dict, got: dict, context) -> dict:
                        nan_or_inf=bool(not np.isfinite(r_got).all()),
                        top1_same=a_ref["top1"] == a_got["top1"],
                        prob_max_change=float(np.abs(a_got["probs"] - a_ref["probs"]).max()))
-            if "probe" in a_ref:
-                row.update(probe_change=a_got["probe"] - a_ref["probe"],
-                           probe_distance_from_threshold=a_ref["probe"] - 0.5 if context.probe else None,
-                           verdict_same=a_ref.get("refused") == a_got.get("refused"))
+            if "score" in a_ref:
+                row.update(guard=a_ref["method"], guard_score_change=a_got["score"] - a_ref["score"],
+                           guard_distance_from_threshold=a_ref["score"] - a_ref["threshold"],
+                           verdict_same=a_ref["refused"] == a_got["refused"])
         if "low_masks" in got:
             low_ref, low_got = refs["low_masks"][i], got["low_masks"][i]
             m_got = _final_mask(low_got[2], refs["input_size"][i], refs["original_size"][i], context.seg)  # multi3
@@ -124,8 +141,8 @@ def summary_line(label: str, report: dict) -> str:
     if g["least_cosine"] is not None:
         parts.append(f"least cosine {g['least_cosine']:.7f}")
         parts.append(f"max prob change {max(r['prob_max_change'] for r in rows):.2e}")
-        if any(r.get("probe_change") is not None for r in rows):
-            parts.append(f"max |probe change| {max(abs(r['probe_change']) for r in rows):.2e}")
+        if any(r.get("guard_score_change") is not None for r in rows):
+            parts.append(f"max |guard score change| {max(abs(r['guard_score_change']) for r in rows):.2e}")
     if g["least_mask_iou"] is not None:
         parts.append(f"least mask IoU {g['least_mask_iou']:.6f}")
         parts.append(f"max low-res logit change {max(r['low_logit_max_change'] for r in rows):.2e}")

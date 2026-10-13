@@ -46,7 +46,7 @@ def main() -> None:
     manifest_path = out / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     manifest.update(torch=torch.__version__, litert_torch=litert_torch.__version__)
-    g = graphs.prepare(args.checkpoint if args.checkpoint.is_absolute() else graphs.REPO / args.checkpoint)
+    g, _ = graphs.prepare(args.checkpoint)
     names = args.only or [f"dino_b{b}" for b in graphs.DINO_BATCHES] + ["encoder", "decoder"]
     for name in names:
         module, ex = g[name]

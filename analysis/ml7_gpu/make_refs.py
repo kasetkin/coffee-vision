@@ -12,7 +12,7 @@ inputs.npz so every path gets the same bytes and preprocessing stays outside the
 [40, 3, 224, 224] as patches_for_photo and the eval transform make them, the encoder input [1, 3, 1024, 1024]
 and the transformed whole-image box [1, 4]. Then PyTorch's outputs for those inputs, to refs.npz: the readouts,
 the encoder embedding, the three low-res masks and their IoUs, the final multi3 mask after the segmenter's own
-post-processing and its D18 verdict, the top-1 and the guard's score. classify_one runs beside them: the answers
+post-processing and its D18 verdict, the mean class probabilities, the top-1, and the guard's score and verdict. classify_one runs beside them: the answers
 rebuilt from the readouts (parity._answers) and the mask must be its own, or this stops. Last, the rewritten
 graphs (graphs.prepare) run on the same inputs against these references, each within REWRITE_TOL of the output's
 largest magnitude (plan P1), or this stops; the result goes to rewrite_check.json.
@@ -42,12 +42,14 @@ REPO = graphs.REPO
 FIXTURES = REPO / "webapp" / "deploy" / "fixtures.txt"
 REWRITE_TOL = 1e-5          # plan P1: max-abs under 1e-5 of the output's largest magnitude
 CALIB_PER_SESSION = 2
+SCALARS = ("fallback", "top1", "guard_score", "refused")     # one value per photo in refs.npz
 CALIB_SEED = 7
 
 
 @dataclass
 class Context:
     """What serving loads for a checkpoint (webapp/app.py), to rebuild answers from readouts and masks from logits."""
+    checkpoint: Path
     cfg: object
     class_ids: list
     class_labels: dict
@@ -63,12 +65,12 @@ class Context:
         from coffeecv.class_list import load_classes
         from coffeecv.infer import config_for_checkpoint, load_model, load_ood_probe, load_ood_reference, segmenter_for
 
-        checkpoint = checkpoint if checkpoint.is_absolute() else REPO / checkpoint
+        checkpoint = graphs.repo_path(checkpoint)
         cfg, _ = config_for_checkpoint(checkpoint, None)
         classes = load_classes(REPO / cfg.classes_file)
         model, head = load_model(checkpoint, cfg.model_name, len(classes.keys), cfg.dropout)
         weights = {"weight": head.weight.detach().numpy(), "bias": head.bias.detach().numpy()}
-        return cls(cfg, list(classes.keys), dict(classes.labels), model, head, weights,
+        return cls(checkpoint, cfg, list(classes.keys), dict(classes.labels), model, head, weights,
                    load_ood_reference(checkpoint, head), load_ood_probe(checkpoint, head=head), segmenter_for(cfg))
 
 
@@ -105,23 +107,29 @@ def pack_masks(masks: list[np.ndarray]) -> np.ndarray:
 @torch.no_grad()
 def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
     from coffeecv.dataset import load_rgb_image
-    from coffeecv.infer import classify_one, forward_with_embeddings, patches_for_photo, sig12
+    from coffeecv.infer import classify_one, forward_with_embeddings, inference_tta_for, patches_for_photo, sig12
     from coffeecv.segment_beans import segment_and_crop
     from coffeecv.transforms import build_eval_transform
 
     transform = build_eval_transform(ctx.cfg.patch_resize)
     pr = ctx.seg.predictor
+    tta = inference_tta_for(ctx.checkpoint, ctx.cfg.model_name)
+    if tta:   # the graphs are one plain pass over the patches; a TTA model would serve eight
+        raise SystemExit("make_refs: this checkpoint is served with dihedral TTA; the graphs do not cover it")
     inp = {k: [] for k in ("patches", "images", "boxes", "input_size", "original_size")}
-    ref = {k: [] for k in ("readouts", "embeddings", "low_masks", "ious", "masks", "fallback", "top1", "probe")}
+    ref = {k: [] for k in ("readouts", "embeddings", "low_masks", "ious", "masks", "probs", "fallback", "top1",
+                           "guard_score", "refused")}
     for path in photos:
         entry = classify_one(path, ctx.cfg, ctx.class_ids, ctx.class_labels, ctx.model, ctx.head_module, ctx.ref,
-                             n_patches=40, tta=False, probe=ctx.probe)
+                             n_patches=40, tta=tta, probe=ctx.probe)
         patches, _ = patches_for_photo(path, ctx.cfg, 40, [42, 0])     # classify_one's own seed key
         tensors = torch.stack([transform(p) for p in patches])
         _, readouts = forward_with_embeddings(ctx.model, ctx.head_module, tensors)
         mine = parity._answers(readouts, ctx.head, ctx.ref, ctx.probe)
-        if ctx.class_ids[mine["top1"]] != entry["ranked"][0][0] or (
-                "probe" in mine and sig12(mine["probe"]) != entry["ood"]["probe"]):
+        ood = entry.get("ood") or {}
+        if ctx.class_ids[mine["top1"]] != entry["ranked"][0][0] or ("score" in mine and (
+                sig12(mine["score"]) != ood.get("score")
+                or mine["refused"] != (entry["verdict"] == "REFUSED (out of distribution)"))):
             raise SystemExit(f"make_refs: the answers rebuilt from {path.name}'s readouts are not classify_one's")
 
         rgb = load_rgb_image(path)
@@ -148,7 +156,9 @@ def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
         ref["masks"].append(mask)
         ref["fallback"].append(bool(crop.info["fallback"]))
         ref["top1"].append(mine["top1"])
-        ref["probe"].append(mine.get("probe", np.nan))
+        ref["probs"].append(mine["probs"])
+        ref["guard_score"].append(mine.get("score", np.nan))
+        ref["refused"].append(bool(mine.get("refused", False)))
         print(f"{path.name}: {entry['ranked'][0][0]}, {entry['verdict']}, mask {mask.mean():.1%}"
               f"{' (D18 fallback)' if crop.info['fallback'] else ''}", flush=True)
 
@@ -158,8 +168,8 @@ def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
     inputs = {**meta, **{k: np.stack(v) for k, v in inp.items()}}
     masks = ref.pop("masks")
     refs = {**meta, "mask_bits": pack_masks(masks),
-            **{k: np.array(v) for k, v in ref.items() if k in ("fallback", "top1", "probe")},
-            **{k: np.stack(v) for k, v in ref.items() if k not in ("fallback", "top1", "probe")}}
+            **{k: np.array(v) for k, v in ref.items() if k in SCALARS},
+            **{k: np.stack(v) for k, v in ref.items() if k not in SCALARS}}
     return inputs, refs
 
 
@@ -167,8 +177,8 @@ def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
 def check_rewrites(checkpoint: Path, inputs: dict, refs: dict) -> dict:
     """Each rewritten graph against PyTorch's own outputs on the fixtures: the largest absolute difference over the
     output's largest magnitude, per graph, within REWRITE_TOL."""
-    g = graphs.prepare(checkpoint, rewrite=True)
-    report = {"neck": [{**r, "in_hw": list(r["in_hw"]), "out_hw": list(r["out_hw"])} for r in g["neck"]],
+    g, neck = graphs.prepare(checkpoint)
+    report = {"neck": [{**r, "in_hw": list(r["in_hw"]), "out_hw": list(r["out_hw"])} for r in neck],
               "tolerance": REWRITE_TOL, "graphs": {}}
 
     def rel(got, want):
@@ -245,8 +255,7 @@ def main() -> None:
         from coffeecv.dataset import load_rgb_image
         from coffeecv.segment_beans import BeanSegmenter, seg_params
         from coffeecv.infer import config_for_checkpoint
-        cfg, _ = config_for_checkpoint(args.checkpoint if args.checkpoint.is_absolute() else REPO / args.checkpoint,
-                                       None)
+        cfg, _ = config_for_checkpoint(graphs.repo_path(args.checkpoint), None)
         seg = BeanSegmenter(seg_params(cfg))
         xs = [encoder_input(seg, load_rgb_image(p))[0].numpy() for p in read_list(args.list)]
         args.out.parent.mkdir(parents=True, exist_ok=True)

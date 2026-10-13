@@ -9,8 +9,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.259629011154175e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -26,8 +27,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.043081283569336e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -43,8 +45,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -60,8 +63,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.1886080503463745e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -77,8 +81,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -94,8 +99,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 1,
@@ -111,8 +117,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -128,8 +135,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 2,
@@ -145,8 +153,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": -1.2970669645542038e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.2970669645542038e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -162,8 +171,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.6338966563344e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 1,
@@ -179,8 +189,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.7567148208618164e-07,
-        "probe_change": 3.1465547495814014e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": 3.1465547495814014e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -196,8 +207,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 9.080395102500916e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -213,8 +225,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 8.498318493366241e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -224,9 +237,10 @@
       }
     ],
     "gate": {
-      "pass": 1.0,
+      "pass": true,
       "least_cosine": 0.9999999999875965,
       "least_mask_iou": 0.9999994833944909,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,
@@ -244,8 +258,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.259629011154175e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -256,8 +271,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.043081283569336e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -268,8 +284,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -280,8 +297,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.1886080503463745e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -292,8 +310,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -304,8 +323,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -316,8 +336,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -328,8 +349,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -340,8 +362,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": -1.2970669645542038e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.2970669645542038e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true
       },
       {
@@ -352,8 +375,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.6338966563344e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -364,8 +388,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.7567148208618164e-07,
-        "probe_change": 3.1465547495814014e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": 3.1465547495814014e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true
       },
       {
@@ -376,8 +401,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 9.080395102500916e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -388,8 +414,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 8.498318493366241e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       }
     ],
@@ -397,6 +424,7 @@
       "pass": true,
       "least_cosine": 0.9999999999875965,
       "least_mask_iou": null,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,
@@ -414,8 +442,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.259629011154175e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -426,8 +455,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.043081283569336e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -438,8 +468,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -450,8 +481,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.1886080503463745e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -462,8 +494,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -474,8 +507,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -486,8 +520,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -498,8 +533,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -510,8 +546,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": -1.2970669645542038e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.2970669645542038e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true
       },
       {
@@ -522,8 +559,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.6338966563344e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -534,8 +572,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.7567148208618164e-07,
-        "probe_change": 3.1465547495814014e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": 3.1465547495814014e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true
       },
       {
@@ -546,8 +585,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 9.080395102500916e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -558,8 +598,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 8.498318493366241e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       }
     ],
@@ -567,6 +608,7 @@
       "pass": true,
       "least_cosine": 0.9999999999875965,
       "least_mask_iou": null,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,
@@ -584,8 +626,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.259629011154175e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -596,8 +639,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.043081283569336e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -608,8 +652,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -620,8 +665,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.1886080503463745e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -632,8 +678,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -644,8 +691,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -656,8 +704,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -668,8 +717,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -680,8 +730,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": -1.2970669645542038e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.2970669645542038e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true
       },
       {
@@ -692,8 +743,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.6338966563344e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -704,8 +756,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.7567148208618164e-07,
-        "probe_change": 3.1465547495814014e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": 3.1465547495814014e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true
       },
       {
@@ -716,8 +769,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 9.080395102500916e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -728,8 +782,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 8.498318493366241e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       }
     ],
@@ -737,6 +792,7 @@
       "pass": true,
       "least_cosine": 0.9999999999875965,
       "least_mask_iou": null,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,
@@ -878,9 +934,10 @@
       }
     ],
     "gate": {
-      "pass": 0.0,
+      "pass": false,
       "least_cosine": null,
       "least_mask_iou": 0.0004683306461304278,
+      "all_finite": true,
       "changed_answer": [
         "PXL_20260809_130838005.jpg",
         "PIC_20260809_201618.JPG",
@@ -903,8 +960,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.597233444452286e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 5,
@@ -920,8 +978,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -937,8 +996,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -954,8 +1014,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.816079020500183e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 2,
@@ -971,8 +1032,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 1,
@@ -988,8 +1050,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 4.76837158203125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 5,
@@ -1005,8 +1068,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -1022,8 +1086,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 1,
@@ -1039,8 +1104,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.8998980522155762e-07,
-        "probe_change": -1.1952567823479997e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.1952567823479997e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -1056,8 +1122,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.128661774098873e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 8,
@@ -1073,8 +1140,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.948807716369629e-07,
-        "probe_change": -2.7616135940948348e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": -2.7616135940948348e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 1,
@@ -1090,8 +1158,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.885928213596344e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -1107,8 +1176,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.6530975699424744e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true,
         "fallback_same": true,
         "mask_pixels_differ": 0,
@@ -1118,9 +1188,10 @@
       }
     ],
     "gate": {
-      "pass": 1.0,
+      "pass": true,
       "least_cosine": 0.9999999999765768,
       "least_mask_iou": 0.999997416972454,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,
@@ -1138,8 +1209,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.597233444452286e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1150,8 +1222,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 2.980232238769531e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1162,8 +1235,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1174,8 +1248,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.816079020500183e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1186,8 +1261,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.7881393432617188e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1198,8 +1274,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 4.76837158203125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1210,8 +1287,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1222,8 +1300,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.1920928955078125e-07,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1234,8 +1313,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.8998980522155762e-07,
-        "probe_change": -1.1952567823479997e-15,
-        "probe_distance_from_threshold": -0.4999999998787717,
+        "guard": "linear_probe",
+        "guard_score_change": -1.1952567823479997e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
         "verdict_same": true
       },
       {
@@ -1246,8 +1326,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.128661774098873e-09,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1258,8 +1339,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 3.948807716369629e-07,
-        "probe_change": -2.7616135940948348e-14,
-        "probe_distance_from_threshold": -0.4999999984939764,
+        "guard": "linear_probe",
+        "guard_score_change": -2.7616135940948348e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
         "verdict_same": true
       },
       {
@@ -1270,8 +1352,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.885928213596344e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       },
       {
@@ -1282,8 +1365,9 @@
         "nan_or_inf": false,
         "top1_same": true,
         "prob_max_change": 1.6530975699424744e-08,
-        "probe_change": 0.0,
-        "probe_distance_from_threshold": -0.4999999999999064,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
         "verdict_same": true
       }
     ],
@@ -1291,6 +1375,7 @@
       "pass": true,
       "least_cosine": 0.9999999999765768,
       "least_mask_iou": null,
+      "all_finite": true,
       "changed_answer": [],
       "bars": {
         "cosine": 0.99999,

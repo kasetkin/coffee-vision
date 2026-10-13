@@ -83,12 +83,23 @@ def export_base(module, args, path: Path, kind: str) -> None:
     prog.save(str(path), external_data=True)
 
 
+SCALE_OPS = {"Div", "Mul", "Add", "Cast"}     # what may sit between q k^T and its Softmax (SAM divides by sqrt(d))
+
+
 def attention_score_matmuls(model) -> list[str]:
-    """The MatMul nodes whose output a Softmax reads: q k^T in every attention block."""
+    """The MatMul nodes a Softmax reads, directly or through a scale (SCALE_OPS): q k^T in every attention block,
+    DINOv3's (MatMul -> Softmax) and SAM's decoder's (MatMul -> Div -> Softmax)."""
     by_output = {o: n for n in model.graph.node for o in n.output}
-    return sorted({by_output[n.input[0]].name for n in model.graph.node
-                   if n.op_type == "Softmax" and by_output.get(n.input[0]) is not None
-                   and by_output[n.input[0]].op_type == "MatMul"})
+    found = set()
+    for n in model.graph.node:
+        if n.op_type != "Softmax":
+            continue
+        src = by_output.get(n.input[0])
+        while src is not None and src.op_type in SCALE_OPS:
+            src = by_output.get(src.input[0])
+        if src is not None and src.op_type == "MatMul":
+            found.add(src.name)
+    return sorted(found)
 
 
 def fp16_copy(src: Path, dst: Path, blanket: bool) -> dict:
@@ -98,8 +109,9 @@ def fp16_copy(src: Path, dst: Path, blanket: bool) -> dict:
     if blanket:
         kept_ops, kept_nodes = [], []
     else:
-        # Softmax and LayerNorm, whole (LayerNormalization) or decomposed (the encoder's and decoder's
-        # LayerNorm2d: ReduceMean, Sub, Pow, Sqrt, Div), stay fp32 (plan P1)
+        # Softmax and LayerNorm stay fp32 (plan P1), whole (LayerNormalization) or decomposed: the encoder's and
+        # decoder's LayerNorm2d is ReduceMean, Sub, Pow, Sqrt and Div. Every op of those types stays fp32, not only
+        # the LayerNorm ones, which also keeps the XL0 encoder's linear-attention division (LiteMLA) in fp32.
         kept_ops = list(float16.DEFAULT_OP_BLOCK_LIST) + ["Softmax", "LayerNormalization",
                                                            "ReduceMean", "Sub", "Pow", "Sqrt", "Div"]
         kept_nodes = attention_score_matmuls(m)
@@ -112,7 +124,7 @@ def fp16_copy(src: Path, dst: Path, blanket: bool) -> dict:
 def fuse(src: Path, dst: Path) -> dict:
     from onnxruntime.transformers import optimizer
     m = optimizer.optimize_model(str(src), model_type="vit", **ATTN)
-    stats = {k: v for k, v in m.get_fused_operator_statistics().items() if v}
+    stats = dict(m.get_fused_operator_statistics())       # zeros kept: a fusion that did not apply is reported
     clear(dst)
     m.save_model_to_file(str(dst), use_external_data_format=True)
     return {"fusions": stats}
@@ -149,10 +161,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--checkpoint", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, required=True)
-    ap.add_argument("--calib", type=Path, required=True, help="make_refs.py calib's output")
+    ap.add_argument("--calib", type=Path, default=None, help="make_refs.py calib's output (the int8 step)")
     ap.add_argument("--only", nargs="*", default=None, help="these steps only (base fp16 fused int8); default all")
     args = ap.parse_args()
     steps = set(args.only or ["base", "fp16", "fused", "int8"])
+    if "int8" in steps and args.calib is None:
+        ap.error("the int8 step needs --calib")
     out = args.out_dir
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / "manifest.json"
@@ -168,7 +182,7 @@ def main() -> None:
 
     names = [f"dino_b{b}" for b in graphs.DINO_BATCHES] + ["encoder", "decoder"]
     if "base" in steps:
-        g = graphs.prepare(args.checkpoint if args.checkpoint.is_absolute() else graphs.REPO / args.checkpoint)
+        g, _ = graphs.prepare(args.checkpoint)
         for name in names:
             module, ex = g[name]
             export_base(module, ex, out / f"{name}.onnx", name.split("_")[0])

@@ -188,6 +188,11 @@ class SegDecoder(nn.Module):
 
 
 # ------------------------------------------------------------------------------------------------- loading
+def repo_path(path: Path) -> Path:
+    """A path as given on a command line: absolute, or relative to the repo."""
+    return path if path.is_absolute() else REPO / path
+
+
 def load_shipped(checkpoint: Path):
     """(DinoClassifier, BeanSegmenter, RunConfig) for a shipped checkpoint, built as webapp/app.py builds them."""
     from coffeecv.class_list import load_classes
@@ -200,10 +205,10 @@ def load_shipped(checkpoint: Path):
     return model.eval(), seg, cfg
 
 
-def prepare(checkpoint: Path, rewrite: bool = True) -> dict:
-    """{graph name: (module, example args)} for the shipped checkpoint: dino_b8, dino_b40, encoder and decoder,
-    with the rewrites applied unless rewrite=False (the originals, to check the rewrites against)."""
-    model, seg, cfg = load_shipped(checkpoint)
+def prepare(checkpoint: Path) -> tuple[dict, list[dict]]:
+    """({graph name: (module, example args)}, the neck layers matmul_neck replaced) for the shipped checkpoint:
+    dino_b8, dino_b40, encoder and decoder, with the three rewrites applied."""
+    model, seg, cfg = load_shipped(repo_path(checkpoint))
     if cfg.patch_resize != PATCH:
         raise ValueError(f"patch_resize {cfg.patch_resize}, the graphs are built for {PATCH}")
     sam = seg.model
@@ -214,11 +219,10 @@ def prepare(checkpoint: Path, rewrite: bool = True) -> dict:
     image = torch.zeros(1, 3, FRAME, FRAME)
     out = {"encoder": (encoder, (image,)),
            "decoder": (decoder, (torch.zeros(1, 256, 64, 64), torch.tensor([[0.0, 0.0, 1023.0, 767.0]])))}
-    if rewrite:
-        timm_model = model.backbone.model
-        four_d_attention(timm_model)
-        constant_rope(timm_model, (PATCH // timm_model.patch_embed.patch_size[0],) * 2)
-        out["neck"] = matmul_neck(encoder, image)
+    timm_model = model.backbone.model
+    four_d_attention(timm_model)
+    constant_rope(timm_model, (PATCH // timm_model.patch_embed.patch_size[0],) * 2)
+    neck = matmul_neck(encoder, image)
     for b in DINO_BATCHES:
         out[f"dino_b{b}"] = (readout, (torch.zeros(b, 3, PATCH, PATCH),))
-    return out
+    return out, neck

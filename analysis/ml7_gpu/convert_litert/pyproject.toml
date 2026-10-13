@@ -1,5 +1,5 @@
-# ML-7 P1: the LiteRT conversion and LiteRT's CPU (XNNPACK) check, apart from the training lock (ADR 0007;
-# plan P1). litert-torch requires torch below 2.14 and training is on 2.14, so the converter gets its own
+# ML-7 P1: the LiteRT conversion, apart from the training lock (ADR 0007; plan P1); the CPU check runs from
+# ../run_litert. litert-torch requires torch below 2.14 and training is on 2.14, so the converter gets its own
 # torch here (ticket 2.3); the readouts are compared with torch 2.14's, which would show a difference.
 #     uv lock --project analysis/ml7_gpu/convert_litert
 #     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/convert_litert/.venv uv sync --locked --project analysis/ml7_gpu/convert_litert

@@ -326,7 +326,7 @@
     },
     "ops": {
       "Add": 57,
-      "Cast": 95,
+      "Cast": 102,
       "CastLike": 4,
       "Concat": 45,
       "Constant": 178,
@@ -357,8 +357,8 @@
     },
     "files": {
       "decoder.fp16.onnx": {
-        "bytes": 1170576,
-        "sha256": "a67a7daec1625a2c98be11a6910bd48841410cd8d1a0c4ea2c9585f72424dc8e"
+        "bytes": 1172788,
+        "sha256": "34e8eaa19f05f733bbf9a473a6e1959eabd958c5ac36047568bcc9b85eba1613"
       },
       "decoder.fp16.onnx.data": {
         "bytes": 10186752,
@@ -374,7 +374,7 @@
       "Sqrt",
       "Sub"
     ],
-    "kept_fp32_attention_matmuls": 0
+    "kept_fp32_attention_matmuls": 7
   },
   "dino_b8.fp16_blanket.onnx": {
     "file": "dino_b8.fp16_blanket.onnx",
@@ -464,8 +464,22 @@
       }
     },
     "fusions": {
+      "EmbedLayerNormalization": 0,
+      "Attention": 0,
+      "MultiHeadAttention": 0,
       "Gelu": 12,
-      "LayerNormalization": 25
+      "FastGelu": 0,
+      "BiasGelu": 0,
+      "GemmFastGelu": 0,
+      "LayerNormalization": 25,
+      "SimplifiedLayerNormalization": 0,
+      "SkipLayerNormalization": 0,
+      "SkipSimplifiedLayerNormalization": 0,
+      "RotaryEmbedding": 0,
+      "QOrderedAttention": 0,
+      "QOrderedGelu": 0,
+      "QOrderedLayerNormalization": 0,
+      "QOrderedMatMul": 0
     }
   },
   "dino_b40.opt.onnx": {
@@ -513,8 +527,22 @@
       }
     },
     "fusions": {
+      "EmbedLayerNormalization": 0,
+      "Attention": 0,
+      "MultiHeadAttention": 0,
       "Gelu": 12,
-      "LayerNormalization": 25
+      "FastGelu": 0,
+      "BiasGelu": 0,
+      "GemmFastGelu": 0,
+      "LayerNormalization": 25,
+      "SimplifiedLayerNormalization": 0,
+      "SkipLayerNormalization": 0,
+      "SkipSimplifiedLayerNormalization": 0,
+      "RotaryEmbedding": 0,
+      "QOrderedAttention": 0,
+      "QOrderedGelu": 0,
+      "QOrderedLayerNormalization": 0,
+      "QOrderedMatMul": 0
     }
   },
   "encoder.int8.onnx": {

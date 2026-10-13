@@ -30,6 +30,8 @@ class Graph:
         key = sig.get("key") or list(self.model.get_signature_list())[0]
         self.outputs = self.model.get_output_tensor_details(key)
         self.out_names = sig["outputs"]
+        details = self.model.get_input_tensor_details(key)
+        self.input_shapes = [[int(d) for d in details[name]["shape"]] for name in sig["inputs"]]
         self.inputs = self.model.create_input_buffers(0)
         self.output_buffers = self.model.create_output_buffers(0)
 
@@ -52,11 +54,10 @@ def run(args) -> tuple[dict, dict]:
     import ai_edge_litert
     inputs = dict(np.load(args.inputs, allow_pickle=False))
     out, info = {}, {"ai_edge_litert": getattr(ai_edge_litert, "__version__", "?"), "threads": args.threads,
-                     "accelerator": "CPU (XNNPACK)"}
+                     "accelerator": "CPU"}     # LiteRT's CPU accelerator, XNNPACK underneath
     if args.dino:
         g = Graph(args.model_dir / args.dino, args.threads)
-        batch = int(g.model.get_input_tensor_details(list(g.model.get_signature_list())[0])
-                    [g.model.get_signature_by_index(0)["inputs"][0]]["shape"][0])
+        batch = g.input_shapes[0][0]
         t0 = time.perf_counter()
         out["readouts"] = np.stack([np.concatenate([g(p[i:i + batch])[0] for i in range(0, len(p), batch)])
                                     for p in inputs["patches"]])
@@ -71,6 +72,8 @@ def run(args) -> tuple[dict, dict]:
     if args.decoder:
         emb = out.get("embeddings")
         if emb is None:
+            if args.refs is None:
+                raise SystemExit("run_litert: --decoder needs --encoder or --refs for its input")
             emb = np.load(args.refs, allow_pickle=False)["embeddings"]
             info["decoder_input"] = "PyTorch embeddings (refs)"
         g = Graph(args.model_dir / args.decoder, args.threads)

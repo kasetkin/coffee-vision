@@ -31,6 +31,7 @@ def _load(name):
 
 graphs = _load("graphs")
 parity = _load("parity")
+export_onnx = _load("export_onnx")
 
 
 def _rel_err(a: torch.Tensor, b: torch.Tensor) -> float:
@@ -103,6 +104,23 @@ class FourDAttention(unittest.TestCase):
             self.model.rope.get_embed(shape=(5, 5))
 
 
+class AttentionScoreMatmuls(unittest.TestCase):
+    """The fp16 copies keep q k^T in fp32 (plan P1): found directly before a Softmax or through a scale."""
+
+    @staticmethod
+    def _graph(*nodes):
+        from types import SimpleNamespace as N
+        return N(graph=N(node=[N(name=n, op_type=op, input=list(i), output=list(o)) for n, op, i, o in nodes]))
+
+    def test_direct_and_scaled_scores_found_and_others_not(self):
+        g = self._graph(("dino_qk", "MatMul", ["q", "kt"], ["s1"]), ("sm1", "Softmax", ["s1"], ["a1"]),
+                        ("sam_qk", "MatMul", ["q2", "kt2"], ["s2"]), ("scale", "Div", ["s2", "d"], ["s3"]),
+                        ("sm2", "Softmax", ["s3"], ["a2"]),
+                        ("av", "MatMul", ["a1", "v"], ["o"]),                     # attn @ v: not a score
+                        ("lin", "Gemm", ["x", "w"], ["l"]), ("sm3", "Softmax", ["l"], ["p"]))
+        self.assertEqual(export_onnx.attention_score_matmuls(g), ["dino_qk", "sam_qk"])
+
+
 class Measures(unittest.TestCase):
     def test_least_cosine_over_every_patch(self):
         a = np.ones((2, 3, 4), np.float32)
@@ -129,6 +147,31 @@ class Measures(unittest.TestCase):
         self.assertFalse(parity.gate(rows)["pass"])
         rows[0]["least_cosine"], rows[1]["mask_iou"] = 1.0, 0.998
         self.assertFalse(parity.gate(rows)["pass"])
+
+    def test_a_nan_anywhere_fails(self):
+        for rows in ([{"photo": "a", "least_cosine": 1.0}, {"photo": "b", "least_cosine": float("nan")}],
+                     [{"photo": "a", "least_cosine": float("nan")}, {"photo": "b", "least_cosine": 1.0}],
+                     [{"photo": "a", "mask_iou": 1.0, "low_nan_or_inf": True}],
+                     [{"photo": "a", "least_cosine": 1.0, "nan_or_inf": True}]):
+            self.assertFalse(parity.gate(rows)["pass"], rows)
+
+    def test_nothing_measured_fails(self):
+        g = parity.gate([{"photo": "a", "least_cosine": None, "mask_iou": None}])
+        self.assertFalse(g["pass"])
+
+    def test_the_gate_is_json_plain(self):
+        g = parity.gate([{"photo": "a", "least_cosine": 1.0, "mask_iou": parity.mask_iou(
+            np.ones((2, 2), bool), np.ones((2, 2), bool))}])
+        self.assertIs(g["pass"], True)
+        self.assertIs(type(g["least_mask_iou"]), float)
+
+    def test_the_centroid_guard_has_a_verdict(self):
+        ref = {"classes": {"a": {"centroid": [0.0, 0.0], "spread": 1.0}}}
+        head = {"weight": np.eye(2, dtype=np.float32), "bias": np.zeros(2, np.float32)}
+        near = parity._answers(np.zeros((3, 2), np.float32), head, ref, None)
+        far = parity._answers(np.full((3, 2), 10.0, np.float32), head, ref, None)
+        self.assertFalse(near["refused"])
+        self.assertTrue(far["refused"])
 
     def test_a_changed_d18_verdict_is_a_changed_answer(self):
         g = parity.gate([{"photo": "a", "least_cosine": None, "mask_iou": 0.9995, "fallback_same": False}])
