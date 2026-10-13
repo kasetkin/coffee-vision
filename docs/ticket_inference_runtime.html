@@ -1,0 +1,563 @@
+<title>Inference Runtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-7 · coffee-vision · inference runtime</div>
+  <h1>Serve the segmenter and the classifier from ONNX Runtime or LiteRT; training stays on PyTorch</h1>
+  <p class="lede">Both models run in PyTorch eager mode on the CPU today. The live site takes 20&ndash;27 s per photo
+    on a 4-core host behind a 30 s timeout. This ticket converts the shipped XL0 segmenter and the shipped DINOv3
+    ViT-B/16 classifier to a dedicated inference runtime, ONNX Runtime or LiteRT (the renamed TensorFlow Lite), and
+    serves the converted copies. Training stays on PyTorch: the crops, the embeddings, the head, the OOD reference
+    and the probe (D3). A model is trained, then converted, checked against its PyTorch self, and deployed. The
+    live host, <code>yappy</code>, has an Intel iGPU with OpenCL, and the owner wants LiteRT tested on it (D8).
+    The research is done and summarised below. D3 is decided, the rest open; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/deploy/coffee-cv-web.service.template</code> (D8), <code>coffeecv/infer.py</code>, <code>coffeecv/segment_beans.py</code>, <code>coffeecv/sam_loader.py</code>, <code>coffeecv/dino_classifier.py</code>, <code>webapp/app.py</code>, <code>webapp/pyproject.toml</code>, <code>webapp/deploy/release_manifest.py</code>, <code>webapp/deploy/release_probe.py</code>, <code>scripts/deploy_webapp.sh</code>, <code>dvc.yaml</code>, <code>pyproject.toml</code>, <code>tests/test_seg_parity.py</code>, <code>tests/test_sam_loader.py</code>, <code>third_party/efficientvit/PATCHES.md</code>, <code>docs/agents/experiments.md</code>, <code>docs/agents/deploy.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-13</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The site serves converted copies of the shipped models, with a new runtime in its environment. No retrain: the converted copies must reproduce the PyTorch answers within D7. Nothing changes on the site until a deploy the owner calls.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-13.</strong> Create a ticket for using the ONNX or LiteRT (renamed TFLite)
+      runtime for model inference, both segmentation and classification. Later the same day: both models keep
+      training on PyTorch, so this ticket is only about inference. A model is trained, then converted and
+      deployed. Then: test LiteRT with the OpenCL delegate, because the <code>yappy</code> host supports it
+      (<code>clinfo</code> output pasted by the owner).</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today both models run as PyTorch modules everywhere: the vendored EfficientViT-SAM-XL0 with the fine-tuned
+    <code>xl0_v3</code> decoder, and the timm DINOv3 ViT-B/16 with its folded logistic-regression head. After this
+    ticket, training is unchanged, and the release route gains a conversion step. The shipped models are exported
+    to one runtime, chosen by the owner on measurements from the live host. Each export is checked against the
+    PyTorch original (D7), and the webapp serves it. The parity that <code>CODING_STANDARDS.md</code> asks for
+    (the same crop, mask and normalisation in training and serving) then rests on that check rather than on shared
+    code.</p>
+  <p>The work splits into five parts:</p>
+  <ol>
+    <li><strong>Measure.</strong> Time each stage on the live host.</li>
+    <li><strong>Spike.</strong> Export both models and test them for parity and speed.</li>
+    <li><strong>Choose.</strong> The owner picks the runtime on that evidence.</li>
+    <li><strong>Convert in the release route.</strong> A DVC stage exports a shipped model and checks it, and the
+      serving path in <code>coffeecv/infer.py</code> runs the export.</li>
+    <li><strong>Deploy.</strong> Ship the current model's converted copy and report the latency.</li>
+  </ol>
+
+  <h2>2. Background</h2>
+  <h3>2.1 What runs today</h3>
+  <p>Read at <code>69d9870</code>.</p>
+  <ul>
+    <li><strong>Segmenter.</strong> <code>segment_and_crop</code> (<code>coffeecv/segment_beans.py</code>) runs
+      three steps:
+      <ol>
+        <li>Resize, normalise and pad the photo to <code>[1,3,1024,1024]</code>.</li>
+        <li>Encode it to a <code>[1,256,64,64]</code> embedding.</li>
+        <li>Decode a whole-image box prompt to three low-resolution masks of 256&times;256 and keep
+          <code>multi3</code> (index 2).</li>
+      </ol>
+      Then it upsamples bilinearly to the photo's size and thresholds at 0. The encoder is the frozen XL0 base
+      (468 MB, 117 M parameters). Only the mask decoder is fine-tuned: <code>models/seg/xl0_v3.pt</code>, 16 MB,
+      about 4 M parameters.</li>
+    <li><strong>Classifier.</strong> Each photo gives 40 bean-unit patches, resized to 224 px and
+      ImageNet-normalised. They run in batches of 32 and 8 through <code>vit_base_patch16_dinov3</code> (timm
+      1.0.30, RoPE, 4 register tokens). The model reads out <code>cls_mean</code>, a 1536-d vector, and applies a
+      <code>Linear(1536, 10)</code> with the scaler folded in (<code>coffeecv/backbones.py</code>,
+      <code>coffeecv/linear_head.py</code>). The same 1536-d vectors feed the OOD guard's centroid score and its
+      probe (<code>coffeecv/infer.py</code>).</li>
+    <li><strong>What stays on PyTorch (D3).</strong> These paths fit or produce what serving is measured
+      against, and none of them moves:
+      <ul>
+        <li>the <code>segcrop</code> stage (<code>coffeecv/segcrop_session.py</code>), which cuts the training
+          pools;</li>
+        <li><code>fit_frozen_head.py</code>, which embeds them and fits the head;</li>
+        <li><code>build_ood_reference.py</code>, <code>ood_eval.py</code> and <code>fit_ood_probe.py</code>, which
+          embed through <code>forward_with_embeddings</code>;</li>
+        <li>the decoder fine-tune (<code>seg_finetune.py</code>).</li>
+      </ul>
+      <code>tests/test_seg_parity.py</code> pins segcrop's arrays to serving's, array for array. Under this ticket
+      it must compare the PyTorch path with the runtime path at D7's tolerance instead.</li>
+    <li><strong>The earlier decision.</strong> ML-2 kept the PyTorch runtime "for now, at both ends". It said a
+      later move "has to switch at both ends together (training pools rebuilt too), because two runtimes would
+      break train/inference parity" (<a href="plan_segmentation_mask.html">ML-2 plan</a> Q4; <a
+      href="ticket_segmentation_mask.html">ML-2</a> D23 and R5). D3 replaces that rule. Parity is kept by
+      checking every export against its PyTorch original, not by running one runtime at both ends. The
+      <code>onnx</code> import is patched out of the vendored copy (<code>third_party/efficientvit/PATCHES.md</code>,
+      row 3). <code>tests/test_sam_loader.py</code> checks that the segmenter builds with <code>onnx</code>
+      blocked, and neither lock installs it.</li>
+  </ul>
+
+  <h3>2.2 What it costs</h3>
+  <ul>
+    <li><strong>Live site.</strong> 20.1&ndash;26.7 s per photo on <code>webappremote</code> (4 cores, 7.5 GB),
+      against gunicorn's and nginx's 30 s timeouts. At 2 cores the smoke test went over 30 s (<code>c30688f</code>;
+      <a href="ticket_segmenter_retrain.html">ML-6</a> activity). Each upload runs the segmenter twice, once for
+      <code>/crop</code> and once for <code>/classify</code> (<a
+      href="ticket_photos_and_answers_optimization.html">OPS-7</a>).</li>
+    <li><strong>Stage times measured elsewhere.</strong> None of these was taken on <code>webappremote</code>, an
+      Intel N100 with AVX2 and AVX-VNNI but no AVX-512 or AMX (2.4).
+      <ul>
+        <li>XL0 encoder: 2.3 s at 4 threads on the devcontainer (Ryzen 5 5600U, AVX2); decoder 0.13&ndash;0.16
+          s (<code>analysis/ml5_xl0_timing/</code>).</li>
+        <li>DINOv3 B/16: 145 ms per patch at 4 threads on the retired VM, so about 5.8 s for 40 patches
+          (<code>docs/dinov3_integration_plan.md</code> &sect;6.2).</li>
+      </ul></li>
+    <li><strong>Footprint.</strong> The torch 2.14.0 CPU wheel is 196 MB. The deploy preflight wants 5 GB of
+      available memory, and the ML-6 deploy fell short and was rerun at 4 GB (<code>6842b08</code>). The webapp
+      never sets a thread count, and gunicorn runs one sync worker.</li>
+    <li><strong>Deploy gates that pin numbers.</strong>
+      <ul>
+        <li><code>deploy_webapp.sh --compare</code> wants bit-identical answers from the training and release
+          environments. Once the release runs the runtime, that cannot hold (R4).</li>
+        <li><code>release_probe.py</code> wants scores within 1e-4 and mask IoU of at least 0.999.</li>
+        <li><code>tests/test_dino_backbone.py</code> pins ViT-S/16 readouts against Meta's code at atol 1e-4.</li>
+      </ul></li>
+  </ul>
+
+  <h3>2.3 The two runtimes</h3>
+  <p>Research, 2026-10-13, from primary sources. The facts that decide the choice were checked twice: the PyPI
+    metadata and torch 2.14's opset constants.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th>ONNX Runtime</th><th>LiteRT</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Runtime</td>
+        <td><code>onnxruntime</code> 1.31.0, MIT, cp312 x86_64 wheel about 24 MB. Built for server CPUs as well as
+          edge devices.</td>
+        <td><code>ai-edge-litert</code> 2.3.0, Apache-2.0, cp312 x86_64 wheel about 22 MB, no TensorFlow. PyPI
+          describes it as "for mobile and embedded devices"; its CPU backend is XNNPACK.</td></tr>
+      <tr><td class="id">Converter</td>
+        <td><code>torch.onnx.export(dynamo=True)</code>, part of torch 2.14 (needs <code>onnx</code> and
+          <code>onnxscript</code>). Default opset 20, dynamic batch through <code>dynamic_shapes</code>,
+          <code>torch.onnx.verification</code> for parity checks.</td>
+        <td><code>litert-torch</code> 0.9.4, formerly <code>ai-edge-torch</code>. It requires <code>torch&lt;2.14</code>,
+          so it needs its own conversion environment. It converts static shapes only: dynamic batch is an open bug
+          (litert-torch #870).</td></tr>
+      <tr><td class="id">DINOv3</td>
+        <td>timm's DINOv3 RoPE is real sin/cos with no complex numbers, and no ONNX bug was found against it. Whether
+          <code>torch.export</code> traces it is untested. Kornia's DINOv3 ViT-S export matched PyTorch at cosine
+          0.999998 in fp32. An <code>onnx-community</code> ViT-B/16 export exists, but it is the Hugging Face port,
+          not timm's.</td>
+        <td>Community conversions of timm DINOv3 ViT-S and DINOv2 needed graph rewrites: 4-D attention and constant
+          RoPE tables, for mobile GPUs. The Hugging Face DINOv3 failed on an attention op (#827). No CPU parity
+          report exists for B/16.</td></tr>
+      <tr><td class="id">XL0 segmenter</td>
+        <td>Upstream ships ONNX export scripts for the encoder and decoder, already in
+          <code>third_party/efficientvit/applications/efficientvit_sam/deployment/onnx/</code>. They use the legacy
+          exporter at opset 17. The decoder takes the box as two points labelled 2 and 3. Its
+          <code>--return-single-mask</code> picks by argmax IoU, which is not <code>multi3</code>.</td>
+        <td>No EfficientViT-SAM port exists. The neck's <code>UpSampleLayer</code> is bicubic, which litert-torch
+          cannot lower. Upstream's TFLite script swaps it for bilinear, which would change the model.</td></tr>
+      <tr><td class="id">Speed on x86</td>
+        <td>No careful ViT-B comparison against torch 2.x exists. The evidence points to about 1.0&ndash;1.5&times;
+          in fp32. Dynamic int8 gave 2.6&times; on a 4-vCPU Ice Lake in 2022, an older stack.</td>
+        <td>No native x86 benchmark against ORT or PyTorch for ViT-class models. A 2023 study found TFLite slowest on
+          Intel CPUs, but it predates today's XNNPACK.</td></tr>
+      <tr><td class="id">In the browser</td>
+        <td>onnxruntime-web (WASM, WebGPU); transformers.js already runs DINOv3.</td>
+        <td>LiteRT.js (WebGPU, WASM, 2 GB memory cap); a SAM 2.1-Tiny demo runs.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Facts that hold for both runtimes:</p>
+  <ul>
+    <li>fp16 is no option on this CPU. ORT's CPU build has no fp16 kernels, and DINOv3's attention logits reach
+      about 2.1e6, past fp16's 65,504, which gives NaN.</li>
+    <li>int8 moves the embeddings. A DINOv2-based retrieval model fell from R@1 89.9 to 62.6 under int8. With
+      training on PyTorch (D3), the head and the probe were fitted on fp32 embeddings, so int8 serving would feed
+      them inputs they were not fitted on (D4).</li>
+    <li>An exported DINOv3 file is a derivative work under the DINOv3 License, like the <code>.pt</code>. It may
+      live in DVC; published weights would need the licence shipped with them.</li>
+    <li>OpenVINO reads ONNX and may be fastest on Intel CPUs. It was not requested and is not assessed.</li>
+  </ul>
+
+  <h3>2.4 The live host's iGPU, and LiteRT's GPU paths</h3>
+  <p><code>webappremote</code> is the host <code>yappy</code> (the SSH config). The owner's <code>clinfo</code>,
+    2026-10-13, shows:</p>
+  <ul>
+    <li><strong>Device.</strong> Intel Graphics [0x46d1]: Alder Lake-N, as in the N100 class. 24 compute units at
+      750 MHz, with fp16 and DP4A.</li>
+    <li><strong>Driver.</strong> OpenCL 3.0 on Intel's NEO driver 22.43.24595, from late 2022. It lists 0x46d1.</li>
+    <li><strong>Memory.</strong> 6 GiB global memory, at most 3 GiB per allocation. The memory is shared with the
+      host's 7.5 GB of RAM.</li>
+  </ul>
+  <p>Read on the host by Claude over SSH, 2026-10-13 (<code>lscpu</code>, <code>vulkaninfo --summary</code>):</p>
+  <ul>
+    <li><strong>CPU.</strong> Intel N100: 4 cores, 1 thread each, up to 3.4 GHz, 6 MiB L3. It has AVX2, FMA,
+      F16C, AVX-VNNI (the 256-bit form) and VAES. It has no AVX-512 and no AMX, so ORT's int8 speedups for
+      AVX-512 VNNI and AMX do not apply.</li>
+    <li><strong>System.</strong> Debian 12, kernel 6.1, 7,681 MB of RAM, about 4.9 GB available at the time.</li>
+    <li><strong>Vulkan.</strong> Mesa 22.3.6's Intel driver (ANV) shows the iGPU as "Intel(R) Graphics (ADL-N)",
+      Vulkan 1.3.230. Only <code>sudo</code> sees it. The deploy user is not in the <code>render</code> group,
+      <code>/dev/dri/renderD128</code> is <code>root:render</code> mode 660, and without access Vulkan offers only
+      llvmpipe, Mesa's software renderer on the CPU.</li>
+  </ul>
+  <p>Research, 2026-10-13, on what LiteRT can do with that GPU:</p>
+  <ul>
+    <li><strong>The pip wheel has no OpenCL path.</strong> <code>ai-edge-litert</code> 2.3.0 for Linux x86_64 ships
+      <code>libLiteRtWebGpuAccelerator.so</code> and no OpenCL accelerator (wheel listing, checked here). The
+      WebGPU accelerator runs through Dawn on Vulkan, so on <code>yappy</code> it would use Mesa's Vulkan driver,
+      not the OpenCL driver <code>clinfo</code> shows. The release notes of 2.1.2 say "Desktop GPU support in the
+      ai-edge-litert Python package for Linux (through WebGPU)".</li>
+    <li><strong>OpenCL means a source build.</strong> LiteRT builds <code>libLiteRtGpuAccelerator.so</code> (OpenCL
+      and WebGPU, OpenCL preferred) or <code>libLiteRtOpenClAccelerator.so</code> from source with Bazel, and its
+      loader looks for both before the WebGPU library (<code>gpu_registry.cc</code>). Nobody has reported that a
+      self-built accelerator works with the 2.3.0 wheel. It needs the unversioned <code>libOpenCL.so</code>.</li>
+    <li><strong>The OpenCL path and Intel GPUs.</strong> LiteRT's GPU engine (ML Drift) has Intel-specific code,
+      and its paper benchmarks Meteor Lake and Lunar Lake over OpenCL, about 2&times; faster than WebGPU on one
+      model. No report covers Linux, the NEO driver or Alder Lake-N.</li>
+    <li><strong>The GPU defaults to fp16.</strong> <code>GpuOptions(enforce_f32=True)</code> forces fp32. Without
+      it, DINOv3's attention logits overflow, and LiteRT returns NaN with no error, still reporting the model
+      "fully accelerated" (LiteRT #9249).</li>
+    <li><strong>Op coverage.</strong> The GPU handles tensors of up to 4 dimensions. A 5-D reshape, like the qkv
+      split in timm's attention, falls back to the CPU, and split execution is usually slower;
+      <code>is_fully_accelerated()</code> tells. The ops needed here are supported: batch matmul, softmax, GELU,
+      sin, cos, slicing, mean and bilinear resize. Bicubic is not a TFLite op.</li>
+    <li><strong>Start-up.</strong> Python cannot set the GPU's program-cache options, so every process start
+      compiles all kernels again.</li>
+    <li><strong>The sandbox.</strong> The service runs as its own user under a systemd sandbox (OPS-1). The GPU
+      needs:
+      <ul>
+        <li><code>/dev/dri/renderD128</code> and the <code>render</code> group;</li>
+        <li>its kernel caches (NEO's, or Mesa's for Vulkan) moved off the home directory, which
+          <code>ProtectHome=true</code> hides, or turned off.</li>
+      </ul>
+      <code>ioctl</code> is in <code>@system-service</code>, so the syscall filter allows it.</li>
+    <li><strong>The same iGPU through Intel's stack.</strong> OpenVINO's GPU plugin uses the NEO OpenCL driver
+      directly, with an fp32 precision hint and a kernel cache directory. It can be reached as
+      <code>openvino</code> 2026.4.1, as ONNX Runtime's OpenVINO execution provider
+      (<code>onnxruntime-openvino</code> 1.24.1), or through LiteRT's own OpenVINO dispatch library, which the
+      wheel ships. Whether OpenVINO 2026 still supports driver 22.43 is unverified.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Both models run as PyTorch modules, in training and serving.</li>
+        <li>A shipped model goes straight from <code>fit_frozen_head --ship</code> to the deploy.</li>
+        <li>No <code>onnx</code> or runtime package in either environment; its import is patched out.</li>
+        <li>The release environment carries torch, torchvision, timm and segment-anything.</li>
+        <li>About 20&ndash;27 s per photo on the live host, with no per-stage breakdown.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Training is unchanged and stays on PyTorch.</li>
+        <li>The release route gains a step: a DVC stage exports the shipped model and checks the export against
+          PyTorch (D6, D7). A model whose export fails the check does not deploy.</li>
+        <li>The webapp runs the XL0 encoder, the XL0 decoder and the DINOv3 backbone with its readout as exported
+          graphs on one runtime. The cards record each file's sha256 and the runtime version.</li>
+        <li>The training environment gains the exporter; the release environment gains the runtime, and loses torch
+          only if D5 says so.</li>
+        <li>Per-stage times on the live host, measured before and after.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Training.</strong> The segcrop stage, the decoder fine-tune, the embeddings for the head, the head
+      fit, the OOD reference and the probe stay on PyTorch and scikit-learn (D3). No re-crop and no retrain come
+      from this ticket.</li>
+    <li><strong>The models.</strong> They stay DINOv3 ViT-B/16 with <code>cls_mean</code> and a C=0.1 linear head
+      (<a href="adr/0006-frozen-dinov3-b16-head.md">ADR 0006</a>), and the XL0 segmenter at 1024 px with a box prompt
+      and <code>multi3</code> (<a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>). The export
+      must reproduce them, bicubic neck included, not approximate them.</li>
+    <li><strong>Pre- and post-processing.</strong> The resize, normalisation, patch sampling, mask upsampling and
+      D18 fallback stay as they are, unless D5 moves them out of torch. In that case they must match the torch
+      versions to D7's tolerance.</li>
+    <li><strong>Releases and environments.</strong> Releases stay immutable, one per directory (<a
+      href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>). New packages come through
+      <code>uv lock</code> (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>).</li>
+    <li><strong>The OOD guard.</strong> Its logic and fixed 0.5 probe threshold stay (<a
+      href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>No speedup in fp32.</strong></td>
+        <td>The sources suggest 1.0&ndash;1.5&times; for ORT and give no x86 figure for LiteRT. The live host is a
+          4-core N100 with AVX2 and AVX-VNNI and no AVX-512 (2.4). Mitigation: P1 measures each stage on <code>webappremote</code>, at the release's thread
+          count, before any integration work. The owner sets the gain worth the switch (D2).</td></tr>
+      <tr><td class="id">R2</td><td><strong>Serving drifts from what training fitted.</strong></td>
+        <td>The pools were cut and the head and probe fitted on PyTorch outputs (D3), and serving would now compute
+          them on another runtime. In fp32 the gap is rounding: thresholded masks flip edge pixels, and
+          probabilities and guard scores shift by small amounts. A photo near the guard's 0.5 threshold or near a
+          top-1 tie can change answer. Mitigation: D7's gate on every export, on fixtures and validation photos,
+          with the photos that change answer listed for the owner. fp32 only unless D4 says otherwise.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The export fails or is silently wrong.</strong></td>
+        <td>Known traps:
+          <ul>
+            <li>DINOv3 RoPE through <code>torch.export</code> is untested.</li>
+            <li>Upstream's decoder export selects masks differently from <code>multi3</code>.</li>
+            <li>The bicubic neck under LiteRT.</li>
+            <li>LiteRT's static batch: 40 patches would need fixed batch signatures.</li>
+            <li>A SAM 2.1 LiteRT decoder once converted "fine" and gave masks at correlation 0.265.</li>
+          </ul>
+          Mitigation: export with the dynamo exporter first. Gate on the readout's cosine and max-abs difference,
+          mask IoU, top-1 and guard verdicts on real photos, not on "it converts".</td></tr>
+      <tr><td class="id">R4</td><td><strong>The deploy gates assume one runtime.</strong></td>
+        <td><code>--compare</code> demands bit-identical answers between the training environment (PyTorch) and the
+          release (the runtime). That can no longer hold. <code>release_probe.py</code> compares the smoke test's
+          answers with locally computed ones. ORT's saved <code>ORT_ENABLE_ALL</code> graphs are tied to one ISA,
+          and the devcontainer (AVX2) and the host may differ. Mitigation: <code>--compare</code> checks the
+          release against the local runtime path bit for bit, and against PyTorch at D7's tolerance. Graphs are
+          optimised at session load, not in the stored file.</td></tr>
+      <tr><td class="id">R5</td><td><strong>Memory on a 7.5 GB host.</strong></td>
+        <td>The ML-6 deploy already fell short of the preflight's 5 GB. ORT's arena, or torch and a runtime loaded
+          side by side under D5 (a), could make it worse. Mitigation: peak RSS measured in P1 and at the smoke
+          test.</td></tr>
+      <tr><td class="id">R6</td><td><strong>The iGPU path is unproven and costly to keep.</strong></td>
+        <td>OpenCL needs a LiteRT accelerator built from source. It has to match the wheel it plugs into, and is
+          rebuilt on every LiteRT upgrade. The 2022 driver, Alder Lake-N and Linux are all unreported. Silent
+          wrong answers come from fp16 by default and from partial CPU fallback. Kernels compile at every start.
+          GPU memory is the host's RAM (R5). Mitigation: P1 tests it before any integration, with
+          <code>enforce_f32</code>, <code>is_fully_accelerated()</code> and D7's gate. The time and peak RSS
+          count from a cold start. The sandbox changes are tried in the smoke-test unit first. A WebGPU run that
+          cannot open the GPU may land on llvmpipe, Mesa's CPU renderer, without failing (2.4). Each GPU run logs
+          the adapter it got and refuses llvmpipe.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What is the switch for?</td>
+        <td>(a) Server latency, back well under the 30 s timeout. (b) A smaller release environment and less
+          memory. (c) A later move to inference in the visitor's browser. The answer sets what P1 measures and
+          what counts as success. (c) would publish the weights (the DINOv3 License; the XL0 encoder alone is
+          about 450 MB), so it would be its own ticket.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>ONNX Runtime or LiteRT?</td>
+        <td>(a) ONNX Runtime for both models. (b) LiteRT for both. (c) Measure both on the classifier in P1, with ORT
+          for the segmenter regardless. Recommendation: (c), keeping (a) unless LiteRT is clearly faster.
+          LiteRT's converter does not support torch 2.14, which training uses, and has no dynamic batch; no
+          EfficientViT-SAM port exists; and its x86 speed is unmeasured. One runtime per release either way
+          (R5).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>Do the training paths move to the runtime too?</td>
+        <td>(a) Yes, as ML-2 Q4 required: segcrop, embeddings, head, reference and probe on the runtime, with a
+          re-crop and retrain. (b) No: training stays on PyTorch, and the shipped model is converted for
+          serving only.</td>
+        <td><strong>(b), owner 2026-10-13.</strong> Both models keep training on PyTorch; the ticket is about
+          inference only. A model is trained, then converted and deployed. This replaces ML-2 Q4's rule that a
+          runtime change switches both ends together. Parity between training and serving now rests on D7's check
+          of each export. Recorded in an ADR together with D2 (section 7).</td></tr>
+      <tr><td class="id">D4</td><td>Precision?</td>
+        <td>(a) fp32 only. (b) fp32 first, then dynamic int8 as a separate step. Under D3, int8 serving would feed
+          the head and the probe embeddings they were not fitted on. That is "an accurate method offline with a
+          cheap one live", which <code>CODING_STANDARDS.md</code> rejects, unless int8 passes D7's gate unchanged.
+          Fitting the head on int8 embeddings would move training onto the runtime, against D3. fp16 is excluded
+          (2.3). Recommendation: (a).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D5</td><td>Does torch stay in the release environment?</td>
+        <td>(a) Keep it for pre- and post-processing (torchvision transforms, bilinear mask upsampling), so serving
+          shares that code with training and the parity risks stay few. (b) Port those to numpy, PIL and OpenCV,
+          and drop torch, torchvision, timm and segment-anything from <code>webapp/pyproject.toml</code>, saving
+          about 200 MB of wheels and the torch import. The port would then be checked against the torch versions
+          under D7. Recommendation: (a) in this ticket; (b) as a later phase once parity holds.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D6</td><td>Where are the exported files made and kept?</td>
+        <td>(a) A DVC stage exports them from the shipped checkpoints in the training environment and runs D7's
+          check. The cards record each file's sha256, the exporter, the opset and the runtime version, and the
+          release manifest copies them like the <code>.pt</code> files. (b) Exported at deploy time on the host.
+          Recommendation: (a). The files are reproducible and checked before a deploy, and nothing builds models
+          on the server.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D7</td><td>What parity must an export reach to deploy?</td>
+        <td>This is now the train/serve parity gate (D3). A proposal, on the 13 deploy fixtures and the validation
+          photos:
+          <ul>
+            <li>readout cosine &ge; 0.99999 against PyTorch fp32;</li>
+            <li>mask IoU &ge; 0.999 (<code>release_probe</code>'s bar);</li>
+            <li>the same top-1 and the same guard verdict on every photo, or each photo that changes answer listed
+              for the owner to accept.</li>
+          </ul>
+          The owner may set other bars.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D8</td><td>How is LiteRT on <code>yappy</code>'s iGPU tested?</td>
+        <td>The owner asked for OpenCL (2026-10-13). The wheel offers only WebGPU (2.4). Options:
+          <ul>
+            <li>(a) OpenCL as asked: build LiteRT's GPU accelerator from source at the wheel's version and load it
+              through <code>runtime_path</code>.</li>
+            <li>(b) The wheel's WebGPU path as shipped, on Vulkan. Mesa's Vulkan driver on <code>yappy</code>
+              sees the iGPU (2.4).</li>
+            <li>(c) Both: (b) first because it costs nothing to try, then (a).</li>
+          </ul>
+          Separately, whether OpenVINO on the same GPU joins P1 as a comparator. It is Intel's stack on the same
+          NEO driver, with fp32 and a kernel cache, so it shows whether a slow result is LiteRT's or the
+          iGPU's. Every option runs fp32 (<code>enforce_f32</code>), and the same models are timed on the CPU
+          beside it. Recommendation: (c), with OpenVINO as the comparator.</td>
+        <td><strong>(c), owner 2026-10-13:</strong> "create plan how we will compare Vulkan vs OpenCL paths". Both
+          paths are built and measured side by side (<a href="plan_inference_runtime.html">plan</a> P2&ndash;P4).
+          Whether OpenVINO joins is the plan's Q2. Which path serves, if any, is decided after the comparison
+          (plan P5).</td></tr>
+      <tr><td class="id">D9</td><td>Does ONNX Runtime join the GPU comparison? (plan Q2)</td>
+        <td>ORT reaches both paths from pip, with no build. Vulkan comes through its WebGPU plugin
+          (<code>onnxruntime-ep-webgpu</code>, Dawn on Vulkan, as in LiteRT's wheel). OpenCL comes through the
+          OpenVINO execution provider (<code>onnxruntime-openvino</code>, OpenVINO's GPU plugin on the NEO driver).
+          Both need the models exported to ONNX.</td>
+        <td><strong>Yes, owner 2026-10-13:</strong> "add ONNX cells to the plan and add models conversion to the
+          ONNX format". Both models are exported to ONNX as well as LiteRT (plan P1). ORT is measured on the CPU,
+          on Vulkan and on OpenCL beside LiteRT (plan P2&ndash;P4). OpenVINO comes in as ORT's execution provider,
+          not as a runtime of its own.</td></tr>
+      <tr><td class="id">D10</td><td>When is LiteRT on OpenCL tried?</td>
+        <td>It is the only cell that needs a source build, a library matched to the wheel, and a rebuild on every
+          LiteRT upgrade (R6). (a) In the main comparison. (b) As the last resort, only if every other cell fails.
+          A cell fails unless it meets D7's parity and beats the PyTorch baseline's projected model time per
+          photo; Claude's reading of "fail", for the owner to correct.</td>
+        <td><strong>(b), owner 2026-10-13:</strong> "mark LiteRT via OpenCL as the last resort that we will try
+          only if all other ways fail". Plan P6, run only if P5 finds no passing cell and the owner says go.</td></tr>
+      <tr><td class="id">D11</td><td>Does the site stay down during the comparison? (plan Q3)</td>
+        <td>It was stopped on 2026-10-13 to free <code>yappy</code>. The runs in plan P2&ndash;P4 need the
+          memory.</td>
+        <td><strong>Yes, owner 2026-10-13:</strong> "yes, site stays down". Down through plan P4, restarted and
+          verified in P5. If P6 runs, the site is stopped again for its measurement session only.</td></tr>
+      <tr><td class="id">D12</td><td>Are fp16 GPU runs measured in the comparison? (plan Q4)</td>
+        <td>fp16 is excluded from serving for now (D4; 2.3: DINOv3 overflows fp16). The GPU computes fp16 natively,
+          though, and LiteRT's GPU defaults to it.</td>
+        <td><strong>Yes, owner 2026-10-13:</strong> "okay, let's also try fp16". Every GPU cell runs fp16 beside
+          fp32, judged by D7's measures. Whether fp16 could ever serve stays with D4.</td></tr>
+      <tr><td class="id">D13</td><td>Where is LiteRT's OpenCL library built, if the last resort runs? (plan Q1)</td>
+        <td>The devcontainer has 12 cores but little free disk, and a newer glibc (2.41) than <code>yappy</code>
+          (2.36). <code>yappy</code> has the disk but 4 slow cores, and it is the live host.</td>
+        <td><strong>The devcontainer, owner 2026-10-13:</strong> "build inside this container if necessary". The
+          library must need no glibc above 2.36. No fallback build on <code>yappy</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The live host's CPU model and ISA flags are recorded.
+      <span class="result">2026-10-13: Intel N100, AVX2 and AVX-VNNI, no AVX-512 or AMX; its iGPU is visible to
+      Vulkan through Mesa 22.3.6 (2.4).</span></span></li>
+    <li><span class="box"></span><span>A per-stage PyTorch baseline is recorded at the release's thread count: XL0
+      resize, encoder, decoder and upsample, and DINOv3 per batch of 32 and 8, with peak RSS.</span></li>
+    <li><span class="box"></span><span>LiteRT on <code>yappy</code>'s iGPU is tested by D8's route. Both models
+      run in fp32, and the report records whether each is fully accelerated, D7's parity, warm and cold-start
+      times and peak RSS, beside the CPU numbers.</span></li>
+    <li><span class="box"></span><span>Both shipped models are exported and pass D7's parity on the chosen runtime,
+      and on LiteRT too if D2 is (c). Times on the live host are recorded beside the baseline.</span></li>
+    <li><span class="box"></span><span>The owner chooses the runtime (D2). One ADR records D2 and D3, since they
+      bind later tickets: models train on PyTorch and are served as checked exports on that runtime. It names
+      what it changes in ML-2 Q4 and in <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>'s
+      "same code in training and serving", and <code>CODING_STANDARDS.md</code>'s parity rule is updated to
+      match.</span></li>
+    <li><span class="box"></span><span>The export and its check run as a DVC stage from the shipped checkpoints
+      (D6). The serving path in <code>coffeecv/infer.py</code> runs the exports, and the PyTorch path stays for
+      training. <code>tests/test_seg_parity.py</code> compares the two at D7's tolerance, and the
+      <code>onnx</code> import test and <code>PATCHES.md</code> row 3 are updated.</span></li>
+    <li><span class="box"></span><span><a href="agents/experiments.md">experiments.md</a> and <a
+      href="agents/deploy.md">deploy.md</a> name the conversion step between shipping a candidate and deploying
+      it. The deploy gates (<code>--compare</code>, <code>release_probe.py</code>) check the release against the
+      runtime path and against PyTorch (R4).</span></li>
+    <li><span class="box"></span><span>If the iGPU is chosen, the service unit gets the GPU device and the
+      <code>render</code> group, and its kernel caches go to a writable directory or are turned off. Every other
+      sandbox line stays. <code>webapp/README.md</code> names the host's GPU driver as a deploy dependency.</span></li>
+    <li><span class="box"></span><span>The current model's converted copy is deployed and the gates pass. The
+      <code>latency_ms</code> from the app's log is reported before and after.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Moving any training path to the runtime: segcrop, embeddings, head, reference, probe, decoder fine-tune
+      (D3).</li>
+    <li>Inference in the visitor's browser. It would be its own ticket if D1 (c) is wanted.</li>
+    <li>GPU serving and TensorRT (<a href="ticket_segmentation_mask.html">ML-2</a>, out of scope).</li>
+    <li>OpenVINO as the serving runtime, <code>torch.compile</code> and AOTInductor. They were not requested; a
+      ticket of their own if P1 disappoints. OpenVINO may join P1 as a comparator only (D8).</li>
+    <li>Upgrading <code>yappy</code>'s GPU driver. If the 2022 driver blocks the test, that goes to the owner
+      first.</li>
+    <li>Running the segmenter once per upload instead of twice (<a
+      href="ticket_photos_and_answers_optimization.html">OPS-7</a>).</li>
+    <li>Changing either model, its input size or its patch count.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-13</div>Ticket written from the code and docs at <code>69d9870</code>, and from
+      web research on ONNX Runtime and LiteRT. The litert-torch torch pin, the onnxruntime version and torch 2.14's
+      ONNX opset were rechecked at the source. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-13</div>Owner decides D3 (b): both models keep training on PyTorch, and the
+      ticket is about inference only (train, then convert and deploy). This replaces ML-2 Q4's both-ends rule.
+      Rewritten to match: no re-crop or retrain, a conversion step in the release route, and D7 as the
+      train/serve parity gate. D4 now recommends fp32 only, and R2, R4 and the scope follow.</div>
+    <div><div class="when">2026-10-13</div>Owner: test LiteRT with the OpenCL delegate on <code>yappy</code>,
+      whose <code>clinfo</code> shows an Intel Alder Lake-N iGPU on NEO driver 22.43. Research found the 2.3.0
+      wheel ships only the WebGPU (Vulkan) GPU accelerator. The wheel's file list was checked here. Added 2.4,
+      R6, D8 and the iGPU scope items.</div>
+    <div><div class="when">2026-10-13</div>Owner: read <code>lscpu</code> and <code>vulkaninfo</code> on the host.
+      Done read-only over SSH. Results in 2.4: Intel N100 with AVX2 and AVX-VNNI, no AVX-512. Mesa 22.3.6's Vulkan
+      driver sees the iGPU only with <code>render</code> access, and the deploy user has none.</div>
+    <div><div class="when">2026-10-13</div>Owner: add the deploy user to the <code>render</code> group. Claude ran
+      <code>sudo usermod -aG render coffee-deploy</code> on <code>yappy</code>. In a new session, without
+      <code>sudo</code>, <code>vulkaninfo</code> lists "Intel(R) Graphics (ADL-N)" as an integrated GPU, and
+      <code>clinfo -l</code> lists the OpenCL device. The web
+      service's own user is unchanged and still has no GPU access, so serving is not affected.</div>
+    <div><div class="when">2026-10-13</div>Owner: stop the live webapp and nginx on <code>yappy</code> to free
+      resources for testing. Claude stopped <code>coffee-cv-web.service</code> and <code>nginx.service</code>.
+      Both are inactive but still enabled, so a reboot starts them again. Available memory rose from 4,929 MB to
+      6,424 MB. <strong>The live site is down</strong> until both are started again
+      (<code>sudo systemctl start nginx coffee-cv-web</code>, then <code>deploy_webapp.sh --verify</code>).</div>
+    <div><div class="when">2026-10-13</div>Owner: plan how to compare the Vulkan and OpenCL paths. D8 recorded as
+      (c). <a href="plan_inference_runtime.html">Plan</a> written:
+      <ul>
+        <li>P1: convert both models once and check them on the CPU.</li>
+        <li>P2: the Vulkan path.</li>
+        <li>P3: the OpenCL path, built from source.</li>
+        <li>P4: one comparison run against PyTorch and LiteRT's CPU path.</li>
+        <li>P5: report, owner's choice, site restarted.</li>
+      </ul>
+      Q1&ndash;Q4 open. The owner is freeing devcontainer disk for the OpenCL build.</div>
+    <div><div class="when">2026-10-13</div>Owner asked whether ORT can use Vulkan or OpenCL. It can: Vulkan through
+      the WebGPU plugin, and OpenCL through the OpenVINO execution provider. Owner: add ONNX cells and the ONNX
+      conversion to the plan. Recorded as D9 (plan Q2 answered). The plan now exports both models to ONNX as
+      well, and measures ORT on the CPU, on Vulkan and on OpenCL beside LiteRT. 2.1 corrected: the
+      <code>test_sam_loader</code> test blocks <code>onnx</code>, it does not check it is absent.</div>
+    <div><div class="when">2026-10-13</div>Owner: LiteRT via OpenCL is the last resort, tried only if all other
+      ways fail. Recorded as D10, with Claude's reading of "fail" for the owner to correct. In the plan, its
+      build moves to a conditional phase, P6; P3 is now ORT with OpenVINO alone, and P4 compares six cells.</div>
+    <div><div class="when">2026-10-13</div>Owner answers plan Q3: the site stays down through the comparison
+      (D11). It is restarted and verified in plan P5.</div>
+    <div><div class="when">2026-10-13</div>Owner answers plan Q4: try fp16 too (D12). Every GPU cell gets an fp16
+      run beside its fp32 one.</div>
+    <div><div class="when">2026-10-13</div>Owner answers plan Q1: LiteRT's OpenCL library, if ever needed, is built
+      in the devcontainer (D13). The plan has no open question.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a
+    href="plan_segmentation_mask.html">its plan</a> (Q4); <a href="ticket_segmenter_retrain.html">ML-6</a>; <a
+    href="ticket_photos_and_answers_optimization.html">OPS-7</a>; <a href="agents/experiments.md">experiments.md</a>; <a
+    href="agents/deploy.md">deploy.md</a>; <a
+    href="https://docs.pytorch.org/docs/2.14/onnx_export.html">torch.onnx export (2.14)</a>; <a
+    href="https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html">ORT graph
+    optimisations</a>; <a href="https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html">ORT
+    quantisation</a>; <a
+    href="https://github.com/mit-han-lab/efficientvit/blob/master/applications/efficientvit_sam/README.md">EfficientViT-SAM
+    ONNX deployment</a>; <a href="https://github.com/google-ai-edge/litert-torch">litert-torch</a> and <a
+    href="https://github.com/google-ai-edge/litert-torch/issues/870">its static-shape issue</a>; <a
+    href="https://developers.google.com/edge/litert/next/python">LiteRT Python API</a>; <a
+    href="https://developers.google.com/edge/litert/next/gpu">LiteRT GPU</a>; <a
+    href="https://github.com/google-ai-edge/LiteRT/blob/main/litert/runtime/accelerators/gpu_registry.cc">LiteRT's GPU
+    accelerator loader</a>; <a href="https://github.com/google-ai-edge/LiteRT/issues/9249">LiteRT #9249 (fp16
+    NaN)</a>; <a href="https://github.com/intel/compute-runtime/blob/master/programmers-guide/COMPILER_CACHE.md">NEO
+    compiler cache</a>; <a
+    href="https://docs.openvino.ai/2026/openvino-workflow/running-inference/optimize-inference/precision-control.html">OpenVINO
+    precision control</a>; <a
+    href="https://huggingface.co/paulbauriegel/fungitastic-dinov3-vits16-384">a timm DINOv3 to LiteRT conversion</a>; <a
+    href="https://huggingface.co/kornia/dinov3">kornia DINOv3 ONNX notes</a>; <a
+    href="https://raw.githubusercontent.com/facebookresearch/dinov3/main/LICENSE.md">DINOv3 License</a>.</footer>
+</main>

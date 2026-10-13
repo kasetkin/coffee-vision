@@ -1,0 +1,457 @@
+<title>Implementation plan: LiteRT and ONNX Runtime on the iGPU, Vulkan against OpenCL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-7 · coffee-vision · implementation</div>
+  <h1>Implementation plan: LiteRT and ONNX Runtime on the iGPU, Vulkan against OpenCL</h1>
+  <p class="lede">The order of work for <a href="ticket_inference_runtime.html">ticket ML-7</a>, first strand: how
+    the two models run on <code>yappy</code>'s Intel iGPU through two runtimes, LiteRT and ONNX Runtime (ORT), on
+    two GPU paths, Vulkan and OpenCL. Each runtime's CPU path and the current PyTorch serving are measured beside
+    them. Both models are converted once per format (<code>.tflite</code>, <code>.onnx</code>) and checked on the
+    CPU first, so every path of a runtime runs the same files on the same inputs. LiteRT on OpenCL needs a source
+    build and is the last resort: tried only if every other cell fails (ticket D10). No phase changes what the site
+    serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); no Q open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-13</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 can start; P6 runs only under D10</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>69d9870</code>, the LiteRT 2.3.0 wheel's Python sources, ORT's
+      execution-provider docs and the host itself, not from the ticket alone. Eight things the ticket does not
+      cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q4 (§3).</p>
+    <ol>
+      <li><b>No backend switch in LiteRT's Python.</b> <code>GpuOptions</code> has <code>enforce_f32</code> but no
+        way to pick OpenCL or WebGPU. <code>Environment.create(runtime_path=...)</code> does exist
+        (<code>ai_edge_litert/environment.py</code>), and LiteRT loads its GPU library from that directory. So each
+        LiteRT path gets its own runtime directory holding <code>libLiteRt.so</code> and exactly one GPU library
+        (P2, P6).</li>
+      <li><b>Vulkan can silently land on the CPU.</b> Without GPU access, Vulkan offers only llvmpipe, Mesa's CPU
+        renderer (ticket 2.4). This holds for both runtimes' Vulkan paths. Every Vulkan run sets
+        <code>VK_ICD_FILENAMES</code> to Intel's driver alone, so llvmpipe cannot be picked, and
+        <code>strace</code> confirms which driver loaded (P2).</li>
+      <li><b>LiteRT's OpenCL path needs the unversioned <code>libOpenCL.so</code></b>, which <code>yappy</code>
+        does not have. A symlink in the scratch directory, found through <code>LD_LIBRARY_PATH</code>, avoids
+        installing a package on the host (P6).</li>
+      <li><b>The LiteRT converter needs torch below 2.14</b>, and training is on 2.14 (ticket 2.3). So it gets its
+        own uv project, apart from the training lock (<a href="adr/0007-uv-for-every-environment.md">ADR 0007</a>)
+        (P1).</li>
+      <li><b>The devcontainer's disk has 11 GB free</b> (99% used), likely too little for a Bazel build of LiteRT;
+        the owner is freeing space. Its glibc (2.41) is newer than <code>yappy</code>'s (2.36), so a library built
+        here may not load there. <code>yappy</code> has 139 GB free but 4 slow cores and 7.5 GB of RAM (Q1,
+        P6).</li>
+      <li><b>A self-built accelerator may not fit the wheel.</b> LiteRT #10446 was a libc++/libstdc++ mismatch
+        between LiteRT's libraries. The OpenCL library is built at the wheel's own tag, <code>v2.3.0</code>, with
+        the repo's toolchain. If it still won't load, <code>libLiteRt.so</code> is built from the same tag and the
+        pair is used (P6).</li>
+      <li><b>ORT reaches both paths from pip, with no build.</b> Vulkan comes through the WebGPU plugin
+        (<code>onnxruntime-ep-webgpu</code> 0.4.0, 2026-09-22, manylinux 2.28, for <code>onnxruntime</code>
+        1.24.4 or later). Like LiteRT's, it uses Dawn, which runs on Vulkan on Linux. OpenCL comes through the
+        OpenVINO execution provider (<code>onnxruntime-openvino</code>). It replaces the <code>onnxruntime</code>
+        package, so it gets its own venv. ORT's docs give the WebGPU plugin no precision setting, so its fp32 is
+        checked, not assumed (P2, P3).</li>
+      <li><b>The ONNX export gets its own environment too.</b> The training lock has no <code>onnx</code> (<a
+        href="ticket_segmentation_mask.html">ML-2</a> D23; <code>third_party/efficientvit/PATCHES.md</code> row 3).
+        The export runs from a separate uv project at the training lock's torch 2.14 and timm 1.0.30, plus
+        <code>onnx</code>, <code>onnxscript</code> and <code>onnxruntime</code>. It is the same torch the release
+        route would export with (ticket D6) (P1).</li>
+    </ol>
+  </div>
+
+  <h2>1. How each path reaches the GPU</h2>
+  <p>All the GPU cells end at the same iGPU through the same kernel driver. What differs is the software between
+    the runtime and the driver. "WebGPU" is a browser standard, but no browser is involved here: both runtimes
+    bundle Dawn, Chrome's WebGPU engine, as a plain library, and Dawn turns WebGPU calls into Vulkan calls. Vulkan
+    is used for compute, not graphics: the model's operations become compute shaders, programs the GPU runs on
+    tensors, and nothing is drawn.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Layer</th><th>Vulkan path</th><th>OpenCL path</th></tr></thead>
+    <tbody>
+      <tr><td class="id">LiteRT</td><td><code>libLiteRtWebGpuAccelerator.so</code>, in the wheel. ML Drift writes
+        each operation as a WGSL compute shader, and Dawn runs them.</td>
+        <td><b>Last resort (D10, P6).</b> <code>libLiteRtOpenClAccelerator.so</code>, built from source at
+        <code>v2.3.0</code>. ML Drift writes each operation as an OpenCL C kernel.</td></tr>
+      <tr><td class="id">ORT</td><td>The <code>onnxruntime-ep-webgpu</code> plugin. ORT's own WGSL kernels, run by
+        Dawn.</td>
+        <td>The OpenVINO execution provider. OpenVINO's GPU plugin compiles the graph into OpenCL kernels.</td></tr>
+      <tr><td class="id">API layer</td><td>Dawn translates WebGPU into Vulkan, through the
+        <code>libvulkan.so.1</code> loader.</td>
+        <td>The ICD loader <code>libOpenCL.so</code> picks the vendor driver.</td></tr>
+      <tr><td class="id">Driver</td><td>Mesa 22.3.6 ANV, Intel's open-source Vulkan driver
+        (<code>libvulkan_intel.so</code>), which compiles shaders to GPU code.</td>
+        <td>Intel NEO 22.43 (<code>libigdrcl.so</code>), Intel's OpenCL driver, which compiles kernels to GPU code.</td></tr>
+      <tr><td class="id">Kernel and device</td><td colspan="2">i915 through <code>/dev/dri/renderD128</code> (the
+        <code>render</code> group), on the Alder Lake-N iGPU: 24 EUs at 750 MHz, sharing the host's RAM.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Each cell compiles the same model through a different stack. Speed and exact numbers can differ, and any cell
+    can fail where another works. The ML Drift paper measured LiteRT's OpenCL path about 2&times; faster than its
+    WebGPU path on one Intel model, on another OS. That is the case for keeping LiteRT on OpenCL as the last
+    resort rather than dropping it.</p>
+
+  <h2>2. Phase order and why</h2>
+  <p>Conversion comes first and runs on the CPU. A <code>.tflite</code> or <code>.onnx</code> that already
+    disagrees with PyTorch on the CPU would make every GPU number for it meaningless, and both GPU paths of a
+    runtime run the same file. The Vulkan paths come next, then ORT's OpenCL path. None of the three needs a build.
+    The measurement runs once, with every cell in one interleaved session, so that heat and clock speed affect
+    them alike. P5 reports, and the owner chooses. P6, LiteRT on OpenCL, runs only if P5 finds that every other
+    cell failed and the owner says go (D10). No phase changes a served number. New files go to the scratch
+    directory on <code>yappy</code> and to <code>analysis/ml7_gpu/</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Both conversion environments, four <code>.tflite</code> and four
+        <code>.onnx</code> files, PyTorch reference outputs, CPU parity</td><td>local</td><td>no: new files
+        only</td></tr>
+      <tr><td class="id">P2</td><td>The Vulkan paths on <code>yappy</code>, LiteRT's and ORT's: run, on the GPU,
+        fully accelerated</td><td><code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>ORT's OpenCL path, through OpenVINO</td><td><code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>The comparison run, six cells</td><td><code>yappy</code></td><td>no:
+        measurements</td></tr>
+      <tr><td class="id">P5</td><td>Report; the owner chooses; the site restarted <span class="pill sm open">stop</span></td>
+        <td>local, owner</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>Last resort, only under D10: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></td>
+        <td>devcontainer (Q1), then <code>yappy</code></td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. Questions for the owner</h2>
+  <p>Each comes from the code, the wheels or the host, not from the ticket's decisions. Each has a recommendation,
+    which this plan assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Where is LiteRT's OpenCL accelerator built, if P6 runs? The devcontainer has 12
+        cores but 11 GB free, likely too little for Bazel's output tree. <code>yappy</code> has 139 GB free, 4
+        cores and 7.5 GB of RAM, so the build would take hours. If it needs a compiler <code>yappy</code> lacks,
+        packages go onto the live host.</td>
+        <td><span class="pill sm ok">Answered 2026-10-13</span> <strong>Owner:</strong> "build inside this
+          container if necessary". If P6 runs, the build runs in the devcontainer, which the owner is freeing space
+          on. Nothing is built or installed on the live host. Ticket D13. Two checks first:
+          <ul>
+            <li>Free disk before the build starts. The space a LiteRT Bazel tree needs is not documented; tens of
+              GB is an estimate.</li>
+            <li>The library's glibc. The devcontainer has glibc 2.41 (Debian 13), <code>yappy</code> 2.36 (Debian
+              12). <code>objdump -T</code> on the built library must show no <code>GLIBC_</code> version above
+              2.36. If it does, the build is redone with LiteRT's own release toolchain, the one that makes its
+              manylinux 2.27 wheels.</li>
+          </ul>
+          Bazel's jobs are capped to fit about 4 GB of free RAM. If the build cannot fit here, P6 stops for the
+          owner; it does not fall back to <code>yappy</code>.</td><td>P6</td></tr>
+      <tr><td class="id">Q2</td><td>Does OpenVINO join P4 as a comparator? It is Intel's stack on the same NEO
+        OpenCL driver (ticket D8).</td>
+        <td><span class="pill sm ok">Answered 2026-10-13</span> <strong>Owner:</strong> add ONNX cells to the plan,
+          and convert the models to ONNX. OpenVINO joins as ORT's OpenVINO execution provider, the ORT cell of the
+          OpenCL path, fp32 (<code>INFERENCE_PRECISION_HINT=f32</code>). Ticket D9.</td><td>P3, P4</td></tr>
+      <tr><td class="id">Q3</td><td>Does the site stay down from now until P5? It was stopped on 2026-10-13 to free
+        the host. The runs in P2&ndash;P4 need the memory.</td>
+        <td><span class="pill sm ok">Answered 2026-10-13</span> <strong>Owner:</strong> "yes, site stays down".
+          It stays down through P4 and is restarted and verified in P5. If P6 runs, the site is stopped again for
+          P6's measurement session only. Ticket D11.</td><td>P2&ndash;P4</td></tr>
+      <tr><td class="id">Q4</td><td>Are fp16 GPU runs measured too? They are for information only, never a
+        candidate (ticket D4).</td>
+        <td><span class="pill sm ok">Answered 2026-10-13</span> <strong>Owner:</strong> "okay, let's also try
+          fp16". One fp16 run per GPU cell, beside the fp32 one:
+          <ul>
+            <li>LiteRT on Vulkan, and on OpenCL if P6 runs: <code>enforce_f32=False</code>.</li>
+            <li>ORT with OpenVINO: <code>INFERENCE_PRECISION_HINT=f16</code>.</li>
+            <li>ORT's WebGPU plugin has no precision setting, so it runs fp16 copies of the <code>.onnx</code>
+              files made in P1.</li>
+          </ul>
+          It shows what fp32 costs on this GPU and whether DINOv3 really returns NaN. fp16 is reported beside
+          fp32 and judged by the same D7 measures; whether it could ever serve stays with ticket D4. Ticket
+          D12.</td><td>P1, P4</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>4. P1 &mdash; Convert both models to both formats and check them on the CPU</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>The graphs are the models as served (ticket §4), cut where serving's own code already cuts them, and the
+    same in both formats:</p>
+  <ul>
+    <li>The DINOv3 graph returns the 1536-d <code>cls_mean</code> readout. The head and the guard stay in numpy, so
+      parity is judged on what they consume.</li>
+    <li>The segmenter is two graphs, as in <code>segment_beans.py</code>: the encoder, and the prompt encoder with
+      the mask decoder. The box goes in as two points labelled 2 and 3, and all three masks and their IoUs come
+      out. <code>multi3</code> is selected outside the graph, as today. The ONNX export is of these same wrapper
+      modules, not upstream's scripts. Upstream's use the legacy exporter, and their single-mask option picks by
+      IoU.</li>
+    <li>LiteRT has no dynamic batch (litert-torch #870), so DINOv3 is converted at batch 8 (40 patches = 5 calls)
+      and at batch 40 (1 call). The ONNX files use the same fixed batches, so the two runtimes run the same
+      shapes.</li>
+  </ul>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Two uv projects, each with its own <code>pyproject.toml</code> and
+      <code>uv.lock</code>. Both import <code>coffeecv.backbones</code> and the vendored efficientvit as they are.
+      <ul>
+        <li><code>analysis/ml7_gpu/convert_litert/</code>: torch 2.13 (CPU), timm 1.0.30, litert-torch 0.9.4,
+          segment-anything 1.0.</li>
+        <li><code>analysis/ml7_gpu/convert_onnx/</code>: the training lock's torch 2.14.0 and timm 1.0.30,
+          segment-anything 1.0, <code>onnx</code>, <code>onnxscript</code>, <code>onnxruntime</code> and
+          <code>onnxconverter-common</code>.</li>
+      </ul>
+      <code>coffeecv.dino_classifier</code> refuses a timm mismatch, not a torch one. The readouts are compared
+      with torch 2.14's in the last task, so a torch 2.13 difference would show there.</span></li>
+    <li><span class="box"></span><span>Inputs: for each of the 13 photos in <code>webapp/deploy/fixtures.txt</code>,
+      the serving path's preprocessed tensors, from the training environment (torch 2.14): the 40 patches
+      <code>[40,3,224,224]</code>, the encoder input <code>[1,3,1024,1024]</code> and the transformed box. Saved
+      to <code>inputs.npz</code>, so every path gets the same bytes and preprocessing is outside the
+      comparison.</span></li>
+    <li><span class="box"></span><span>References: the PyTorch outputs for those inputs in the training
+      environment. These are the readouts, the encoder embeddings, the three low-resolution masks and their IoUs,
+      the final masks after <code>postprocess_masks</code> and the D18 rule, and the probabilities and guard
+      verdicts. Saved to <code>refs.npz</code>.</span></li>
+    <li><span class="box"></span><span>Convert to LiteRT: <code>dino_b16_readout_b8.tflite</code>,
+      <code>dino_b16_readout_b40.tflite</code>, <code>xl0_encoder.tflite</code>,
+      <code>xl0_v3_decoder_box.tflite</code>. Record for each the op histogram, any tensor above 4-D (these fall
+      back to the CPU on LiteRT's GPU), the file size and sha256.</span></li>
+    <li><span class="box"></span><span>Export to ONNX, the same four graphs as <code>.onnx</code>, with
+      <code>torch.onnx.export(dynamo=True)</code> at the default opset 20. Weights go in an
+      <code>.onnx.data</code> file beside each graph, and the two always travel together. Record for each the op
+      histogram, the opset, the file sizes and sha256. If an execution provider in P2 or P3 rejects opset 20,
+      re-export at 18 and note it.</span></li>
+    <li><span class="box"></span><span>fp16 copies of the four <code>.onnx</code> files, for ORT's WebGPU cell
+      (Q4). They are converted with <code>onnxconverter-common</code>'s <code>float16</code> converter with
+      <code>keep_io_types=True</code>, so inputs and outputs stay fp32 and the scripts do not change. They are
+      not checked on the CPU, where ORT has no fp16 kernels.</span></li>
+    <li><span class="box"></span><span><b>The bicubic neck, in both formats.</b> If it does not convert exactly,
+      stop and report. It is not swapped for bilinear, which would be a different model (ticket §4). ONNX has a
+      cubic <code>Resize</code>; its coefficient must match torch's (-0.75), checked in the exported
+      graph.</span></li>
+    <li><span class="box"></span><span>CPU parity against <code>refs.npz</code>, with D7's measures: readout
+      cosine and max-abs difference, mask IoU after the shared post-processing, top-1 and guard verdict per photo.
+      LiteRT runs on XNNPACK at 4 threads, ORT on its default CPU provider at 4 threads. The files, inputs and
+      references go to DVC, like the other analysis outputs.</span></li>
+    <li><span class="box"></span><span>Checks: all eight files convert, and CPU parity meets D7's proposal
+      (cosine &ge; 0.99999, IoU &ge; 0.999, no change of answer) for each, or the gap is reported with its cause
+      before P2.</span></li>
+  </ol>
+
+  <h2>5. P2 &mdash; The Vulkan paths on <code>yappy</code></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Scratch directory <code>~/ml7/</code> on <code>yappy</code> as
+      <code>coffee-deploy</code> (already in <code>render</code>). It holds the P1 files and one uv venv per
+      stack. Nothing goes under <code>/opt/coffee-cv</code>.
+      <ul>
+        <li><code>venv_litert</code>: <code>ai-edge-litert==2.3.0</code> and numpy.</li>
+        <li><code>venv_ort_webgpu</code>: <code>onnxruntime</code> (1.24.4 or later) and
+          <code>onnxruntime-ep-webgpu==0.4.0</code>.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>LiteRT's runtime directory <code>~/ml7/rt_vulkan/</code>: the wheel's
+      <code>libLiteRt.so</code> and <code>libLiteRtWebGpuAccelerator.so</code>, and no other GPU
+      library.</span></li>
+    <li><span class="box"></span><span><code>analysis/ml7_gpu/run_litert.py</code> and
+      <code>analysis/ml7_gpu/run_ort.py</code>: one graph, one path, one precision per process. Both log the same
+      fields: cold start (time to the first output, kernel compilation included), warm times, CPU time against
+      wall time and peak RSS. Both save the outputs to an <code>.npz</code>.
+      <ul>
+        <li>LiteRT: options are passed in full (<code>Options</code> with
+          <code>CpuOptions(num_threads=4)</code>), because the <code>hardware_accel=</code> shortcut silently sets
+          1 CPU thread. It logs <code>is_fully_accelerated()</code>.</li>
+        <li>ORT: <code>session.disable_cpu_ep_fallback=1</code>, so a graph that does not fit the GPU fails rather
+          than half-running on the CPU. It logs <code>get_providers()</code> and verbose node placement.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>Prove the GPU ran, for each runtime. Use
+      <code>VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json</code>, so llvmpipe is not on offer.
+      <code>strace -f -e trace=openat</code> must show <code>libvulkan_intel.so</code> and
+      <code>/dev/dri/renderD128</code> opened. CPU time well below 4&times; wall time is the sanity check: llvmpipe
+      would keep all cores busy.</span></li>
+    <li><span class="box"></span><span>If LiteRT 2.3.0 crashes in WebGPU start-up (LiteRT #10446, fixed on
+      2026-10-09 after 2.3.0), retry with the nightly wheel and note the version.</span></li>
+    <li><span class="box"></span><span>Checks: each of the eight files runs on its runtime's Vulkan path. For
+      each, the log records whether it ran fully on the GPU (if not, which ops fell back or why the session
+      refused), the IoU and cosine against <code>refs.npz</code>, and one cold and one warm time. For ORT's
+      WebGPU plugin, the readout's cosine shows whether it computes in fp32.</span></li>
+  </ol>
+
+  <h2>6. P3 &mdash; ORT's OpenCL path, through OpenVINO</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>~/ml7/venv_ort_openvino</code> with <code>onnxruntime-openvino</code>,
+      which replaces <code>onnxruntime</code> in its venv. The <code>OpenVINOExecutionProvider</code> runs with
+      <code>device_type="GPU"</code> and <code>load_config={"GPU": {"INFERENCE_PRECISION_HINT": "f32"}}</code>,
+      and <code>session.disable_cpu_ep_fallback=1</code> as in P2. Its kernel cache goes to
+      <code>~/ml7/cache/openvino</code>, and its cold starts are measured with the cache empty.</span></li>
+    <li><span class="box"></span><span>Prove OpenCL ran: <code>strace</code> must show OpenVINO's GPU plugin,
+      NEO's <code>libigdrcl.so</code> and <code>/dev/dri/renderD128</code>.</span></li>
+    <li><span class="box"></span><span>If OpenVINO refuses driver 22.43, record the error and go to the owner. A
+      driver upgrade is out of scope (ticket), and P4 then runs without this cell, saying so.</span></li>
+    <li><span class="box"></span><span>Checks: the same as P2's, for the four <code>.onnx</code> files.</span></li>
+  </ol>
+
+  <h2>7. P4 &mdash; The comparison run</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3, Q3, Q4</span></div>
+  </div>
+  <p>One session on <code>yappy</code>, with the webapp and nginx stopped and nothing else running. The cells are
+    run in rotation, three rounds, so that clock speed and heat fall on all of them alike. Each cell is a fresh
+    process: one cold start, 3 warm-ups, then 20 timed runs.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Path</th><th>LiteRT (<code>.tflite</code>)</th><th>ONNX Runtime (<code>.onnx</code>)</th><th>Precision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Baseline</td><td colspan="2">PyTorch, the current serving: the release's own venv and code,
+        read-only, at 4 threads.</td><td>fp32</td></tr>
+      <tr><td class="id">CPU</td><td>XNNPACK, 4 threads</td><td>default CPU provider, 4 threads</td><td>fp32</td></tr>
+      <tr><td class="id">Vulkan</td><td><code>rt_vulkan</code> (the wheel's WebGPU library)</td>
+        <td><code>onnxruntime-ep-webgpu</code></td><td>fp32 and fp16 (Q4)</td></tr>
+      <tr><td class="id">OpenCL</td><td>Not run here: last resort (D10, P6)</td>
+        <td>OpenVINO execution provider, GPU</td><td>fp32 and fp16 (Q4)</td></tr>
+    </tbody>
+  </table></div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>For each cell and graph (DINOv3 at batch 8 and 40, encoder, decoder),
+      record:
+      <ul>
+        <li>whether it ran fully on its device;</li>
+        <li>cold start;</li>
+        <li>warm median and p90;</li>
+        <li>CPU time against wall time;</li>
+        <li>peak RSS, and the drop in <code>MemAvailable</code> (GPU memory is host memory);</li>
+        <li>NaN or Inf in any output;</li>
+        <li>a 100-call stability run on the faster DINOv3 batch.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>Parity is computed locally from the saved outputs with the repo's code,
+      against <code>refs.npz</code> and D7's measures, per photo.</span></li>
+    <li><span class="box"></span><span>Per photo, the encoder, decoder and 40 patches are added up into a
+      projected model time for each cell. It is labelled a projection: preprocessing, decoding and the second
+      segmenter pass for <code>/crop</code> are left out, and are the same for every cell.</span></li>
+    <li><span class="box"></span><span>Results go to <code>analysis/ml7_gpu/results.json</code> and the
+      scripts to <code>analysis/ml7_gpu/</code>, committed. The raw outputs go to DVC.</span></li>
+    <li><span class="box"></span><span>Checks: every cell either has its numbers or is marked failed, with the
+      error. No GPU cell counts unless P2's or P3's proof of the GPU held in that session.</span></li>
+  </ol>
+
+  <h2>8. P5 &mdash; Report, the owner's choice, the site back <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>analysis/ml7_gpu/README.md</code>, written to these rules:
+      <ul>
+        <li>one table: the six cells across, the graphs down, with time, parity and fully-on-device in each, and
+          the GPU cells' fp16 results beside their fp32 ones;</li>
+        <li>every photo that changes answer named;</li>
+        <li>for each cell other than the baseline, pass or fail by D10's test: it meets D7's parity and its
+          projected model time per photo beats the PyTorch baseline's;</li>
+        <li>what each cell costs to keep. LiteRT's Vulkan path comes with the wheel. ORT's two are pip packages: a
+          plugin, and a separate ORT build that bundles OpenVINO.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
+      and verify it (<code>scripts/deploy_webapp.sh --verify</code>), unless Q3 says otherwise. Log both in the
+      ticket's Activity.</span></li>
+    <li><span class="box"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
+      the device or the CPU (ticket D2, D8), and P6 is not run. If none passes, the owner decides whether P6 runs
+      (D10). The phases that move serving (export in the release route, the gates, the sandbox) are written into
+      this plan only after that.</span></li>
+  </ol>
+
+  <h2>9. P6 &mdash; Last resort: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started; runs only under D10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5 (no cell passes, and the owner says go)</span></div>
+  </div>
+  <p>Tried only if every other cell failed (ticket D10). It is the one cell that needs a source build, a library
+    that has to match the wheel it plugs into, and a rebuild on every LiteRT upgrade (ticket R6).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Check out <code>google-ai-edge/LiteRT</code> at tag <code>v2.3.0</code>
+      in the devcontainer (Q1). Read <code>litert/runtime/accelerators/gpu/BUILD</code> for the OpenCL target's exact name,
+      and build it with the repo's own Bazel configuration. The build log and commands are kept in
+      <code>analysis/ml7_gpu/opencl_build.md</code>. Built in the devcontainer, the library must show no
+      <code>GLIBC_</code> version above 2.36 (<code>objdump -T</code>) before it goes to
+      <code>yappy</code>.</span></li>
+    <li><span class="box"></span><span>Runtime directory <code>~/ml7/rt_opencl/</code>: the wheel's
+      <code>libLiteRt.so</code> and the built OpenCL library, with no WebGPU library. A <code>libOpenCL.so</code>
+      symlink to <code>/usr/lib/x86_64-linux-gnu/libOpenCL.so.1</code> sits in <code>~/ml7/lib/</code>, on
+      <code>LD_LIBRARY_PATH</code>.</span></li>
+    <li><span class="box"></span><span>Prove OpenCL ran: <code>strace</code> must show
+      <code>libLiteRtOpenClAccelerator.so</code>, <code>libOpenCL.so</code>, NEO's <code>libigdrcl.so</code> and
+      <code>/dev/dri/renderD128</code>, and no <code>libvulkan</code>.</span></li>
+    <li><span class="box"></span><span>If the library does not load with the wheel's <code>libLiteRt.so</code>,
+      build <code>libLiteRt.so</code> at the same tag and use the pair. That pair, not the wheel, is then what is
+      measured, and the report says so.</span></li>
+    <li><span class="box"></span><span>Measure it with P4's scripts and fields, in a session of its own, with the
+      PyTorch baseline run again beside it so the two are comparable. The site is stopped for that session only
+      (Q3). Results are added to <code>results.json</code> and the README.</span></li>
+    <li><span class="box"></span><span>Stop for the owner if the build fails after one working session, if it
+      cannot fit in the devcontainer (Q1), or when the cell is measured: it passes or fails
+      by D10's test, and the owner decides.</span></li>
+  </ol>
+
+  <h2>10. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
+      outputs meet D7 against PyTorch 2.14 on the 13 fixtures.</span></li>
+    <li><span class="box"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
+      by <code>strace</code>, not by "no error".</span></li>
+    <li><span class="box"></span><span>P4: every cell measured or marked failed; parity computed with the repo's
+      code.</span></li>
+    <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test; the site answers on the
+      domain again.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope".</li>
+    <li>Any change to <code>coffeecv</code>, the webapp, its environment or its service unit, or to the training
+      lock. The serving phases come after P5.</li>
+    <li>LiteRT on OpenCL, unless D10's condition is met (P6).</li>
+    <li>OpenVINO's own runtime without ORT. It reaches the same driver as ORT's OpenVINO cell.</li>
+    <li>Upgrading <code>yappy</code>'s Mesa or NEO driver.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-13</div>Claude reads ticket ML-7 at <code>69d9870</code>, the LiteRT 2.3.0 wheel's
+      Python sources and <code>yappy</code>, and writes this plan for the owner's request: compare the Vulkan and
+      OpenCL paths. Six findings not in the ticket; Q1&ndash;Q4 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-13</div>Owner: add ONNX cells to the plan, and convert the models to ONNX. ORT
+      added on both paths: Vulkan through <code>onnxruntime-ep-webgpu</code>, OpenCL through the OpenVINO
+      execution provider. It is also measured on the CPU. P1 now exports to ONNX in a uv project of its own at
+      torch 2.14. Two findings added (7, 8). Q2 answered: OpenVINO comes in as ORT's execution provider (ticket
+      D9).</div>
+    <div><div class="when">2026-10-13</div>Owner: LiteRT via OpenCL is the last resort, tried only if all other
+      ways fail (ticket D10). Its build moved from P3 to a new conditional phase, P6, run only if P5 finds no
+      passing cell and the owner says go. P3 is now ORT's OpenCL path alone, and P4 compares six cells. Q1 is
+      needed only for P6. "Fail" defined for D10: a cell fails unless it meets D7's parity and beats the PyTorch
+      baseline's projected model time per photo.</div>
+    <div><div class="when">2026-10-13</div>Owner answers Q3: the site stays down through P4 and comes back in P5
+      (ticket D11).</div>
+    <div><div class="when">2026-10-13</div>Owner answers Q4: try fp16 too (ticket D12). Every GPU cell gets an
+      fp16 run beside its fp32 one. P1 adds fp16 copies of the <code>.onnx</code> files for ORT's WebGPU plugin,
+      which has no precision setting.</div>
+    <div><div class="when">2026-10-13</div>Owner answers Q1: if P6 runs, LiteRT's OpenCL library is built in the
+      devcontainer (ticket D13). There is no fallback build on <code>yappy</code>; P6 stops for the owner if the
+      build cannot fit here. No question is open.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
+    <a href="agents/deploy.md">deploy.md</a>, <code>webapp/deploy/fixtures.txt</code>, <a
+    href="https://github.com/google-ai-edge/LiteRT/blob/main/litert/runtime/accelerators/gpu_registry.cc">LiteRT's GPU
+    accelerator loader</a>, <a
+    href="https://github.com/google-ai-edge/LiteRT/blob/main/litert/runtime/accelerators/gpu/BUILD">LiteRT GPU
+    accelerator targets</a>, <a href="https://github.com/google-ai-edge/LiteRT/issues/10446">LiteRT #10446</a>, <a
+    href="https://onnxruntime.ai/docs/execution-providers/WebGPU-ExecutionProvider.html">ORT WebGPU execution
+    provider</a>, <a href="https://onnxruntime.ai/docs/execution-providers/OpenVINO-ExecutionProvider.html">ORT
+    OpenVINO execution provider</a>, <a href="https://docs.pytorch.org/docs/2.14/onnx_export.html">torch.onnx export
+    (2.14)</a>, <a href="https://arxiv.org/abs/2505.00232">ML Drift paper</a>.</footer>
+</main>
