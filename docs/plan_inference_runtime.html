@@ -26,7 +26,8 @@
   <div class="callout info">
     <p>Built from a read of the code at <code>69d9870</code>, the LiteRT 2.3.0 wheel's Python sources, ORT's
       execution-provider docs and the host itself, not from the ticket alone. Eight things the ticket does not
-      cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q4 (§3).</p>
+      cover turned up. They are folded in below, and the ones that needed a decision were Q1&ndash;Q4 (§3); Q5
+      came from the review below. All five are answered.</p>
     <ol>
       <li><b>No backend switch in LiteRT's Python.</b> <code>GpuOptions</code> has <code>enforce_f32</code> but no
         way to pick OpenCL or WebGPU. <code>Environment.create(runtime_path=...)</code> does exist
@@ -231,7 +232,7 @@
 
   <h2>4. P0 &mdash; Where the time goes now</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-13; the instrument written and tried locally at toy scale; the run on <code>yappy</code> not yet done</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>This covers the ticket's per-stage baseline (§7), and R1's "measure before any integration work". The
@@ -243,9 +244,10 @@
       <code>inference_ms</code>, and the request count. It is read in place; only the aggregates leave the host,
       to <code>analysis/ml7_gpu/baseline.json</code>.</span></li>
     <li><span class="box"></span><span><b>The release's code, per stage.</b>
-      <code>analysis/ml7_gpu/baseline_stages.py</code>, run from <code>~/ml7/</code> with the live release's
-      own venv and code, read-only, at 4 threads, over the 13 photos in <code>webapp/deploy/fixtures.txt</code>,
-      two passes. Per photo it records:
+      <code>analysis/ml7_gpu/baseline_stages.py</code>, kept in <code>~/ml7/</code> and run from inside the
+      live release's directory with its own venv and code, read-only, at the release's own thread count (4 on
+      this host), over the 13 photos in <code>webapp/deploy/fixtures.txt</code>, two passes. Its docstring has
+      the commands. Per photo it records:
       <ul>
         <li>the file decode;</li>
         <li>the segmenter's own <code>timing_ms</code>: resize, encoder, decoder, upsample, and the rest of
@@ -254,8 +256,8 @@
         <li>DINOv3 per batch of 32 and of 8, and the head and guard;</li>
         <li>the whole <code>/crop</code> and <code>/classify</code> paths, as the app calls them.</li>
       </ul>
-      Also: the load time of each model (DINOv3 loads at worker start, <code>webapp/app.py</code>; the segmenter
-      at the first request, <code>coffeecv/infer.py</code> <code>_segmenter</code>), peak RSS, and the CPU clock
+      Also: the load time of each model (both load at worker start, when <code>webapp/app.py</code> is imported;
+      neither is warmed, so the first request pays the first inference's set-up), peak RSS, and the CPU clock
       and package temperature sampled every 100 ms.</span></li>
     <li><span class="box"></span><span>Checks: the stage times add up to within 10% of the whole paths, and the
       whole paths sit within the live record's range or the gap is explained. The share of each photo's time
@@ -448,7 +450,7 @@
   <h2>8. P4 &mdash; The comparison run</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3, Q3, Q4</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
   </div>
   <p>One session on <code>yappy</code>, with the webapp and nginx stopped and nothing else running. The cells are
     run in rotation, three rounds, so that clock speed and heat fall on all of them alike. Each cell is a fresh
@@ -529,8 +531,9 @@
           and drop in <code>MemAvailable</code>, against the baseline's and the deploy preflight's 5 GB. The
           release keeps torch (D5 (a)), so a runtime adds to the size; the report states what dropping torch
           (D5 (b)) would save, for the owner's second look.</li>
-        <li>notes for the serving phases. Today the segmenter loads at the first request, inside its 30 s timeout;
-          a GPU runtime also compiles its kernels at every start. Serving must warm both models at worker start,
+        <li>notes for the serving phases. Today both models load at worker start but neither is warmed, so the first
+          request pays the first inference's set-up inside its 30 s timeout; a GPU runtime also compiles its kernels
+          at every start. Serving must warm both models at worker start,
           and the boot time is measured.</li>
       </ul></span></li>
     <li><span class="box"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
@@ -643,6 +646,17 @@
       and a second look at D5.</div>
     <div><div class="when">2026-10-13</div>Ticket D2 rewritten: at P5 the owner picks one passing cell, a runtime and
       a device together, or keeps PyTorch; which GPU path serves (D8) is part of it.</div>
+    <div><div class="when">2026-10-13</div>P0 started. <code>analysis/ml7_gpu/baseline_stages.py</code> written,
+      with <code>tests/test_ml7_baseline.py</code>: <code>log</code> reduces the request log to per-endpoint
+      aggregates, and <code>stages</code> times the release's own code by wrapping its functions in-process, the
+      segmenter by its own <code>timing_ms</code> and DINOv3 per batch by forward hooks, with the request log in
+      a scratch directory. Tried locally (devcontainer, 4 threads, 2 fixtures, 2 passes) with the shipped
+      <code>allrigs_dino3b16_segxl0v3_country_s42</code>: the stages add up to within 3% of every whole path;
+      <code>/crop</code> about 2.2 s (encoder 1.9 s), <code>/classify</code> about 10.5 s (encoder 1.9 s, DINOv3
+      7.6 s); the models are 91% of each photo's time here. Not a <code>yappy</code> number. Corrected here and
+      in the ticket: the segmenter loads at worker start (<code>webapp/app.py</code> imports it), not at the
+      first request; what neither model gets is a warm-up. The run on <code>yappy</code> waits for the owner's
+      go-ahead for SSH to the live host.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
