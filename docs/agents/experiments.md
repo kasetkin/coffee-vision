@@ -17,6 +17,14 @@ Read before launching a recorded run or a screen, comparing runs, or reporting r
       if live[k] != base[k]: print(f'DIFFERS  {k}: running={live[k]}  baseline={base[k]}')
   ```
 
+## Changing the segmenter
+
+A new segmenter decoder or tiny-mask threshold in `params.yaml` (`seg_decoder`, `seg_min_area_frac`) changes every crop the classifier sees. The follow-through, in order:
+
+1. Re-crop: `dvc repro -s` each `segcrop` and `merge_segcam_*` stage, never a plain `dvc repro`. Open a few crops at full size, every D18 fallback included.
+2. Regenerate the DINOv3 fixture: `python scripts/make_dinov3_fixture.py`. Its patches come from `data/segcropped/cam_iphone`, so after a re-crop `test_dino_backbone.test_matches_meta_reference` goes red until it is rerun. The script clones and runs Meta's dinov3 at a pinned commit: the owner runs it, or says Claude may. Commit the new `tests/fixtures/dinov3_vits16_reference.npz` beside the re-crop. Precedent: ML-3 P2b, ML-5 P11 (`f585d14`), ML-6 P8.
+3. Retrain the classifier as a recorded run (seeds 42/123/7) and compare against the previous segmenter's runs; refit the OOD probe on the shipped candidate.
+
 ## Reading the record
 
 - `experiments/expNNN__<slug>/` (config, metrics, predictions, charts) and `experiments/index.csv` are the record; compare runs with `python -m coffeecv.compare_experiments <id> --vs <id>`.

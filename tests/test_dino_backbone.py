@@ -45,7 +45,9 @@ class TestDinov3Loader(unittest.TestCase):
             f = self.bb.features(self.x)
         for readout in ("cls", "cls_mean"):
             np.testing.assert_allclose(f[readout].numpy(), self.ref[readout], atol=1e-4, rtol=0,
-                                       err_msg=f"{readout} drifted from Meta's reference")
+                                       err_msg=f"{readout} drifted from Meta's reference (cam_iphone re-cropped? "
+                                               "regenerate the fixture: docs/agents/experiments.md, "
+                                               "'Changing the segmenter')")
 
     def test_rope_periods_are_the_checkpoints(self):
         rope = self.bb.model.rope

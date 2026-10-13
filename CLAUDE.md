@@ -9,7 +9,7 @@ This repo is public: every committed file is published, and history is kept, not
 - **Decisions**, `docs/adr/`: read the ones in the area before proposing a design change; a proposal that contradicts one says so.
 - **Closed ideas**, `.out-of-scope/`: check before proposing an experiment, a training lever or an infrastructure change.
 - **Review rules**, `CODING_STANDARDS.md`: what a change is reviewed against.
-- **Runbooks**, `docs/agents/`: `dvc.md` before moving data or trusting a DVC status; `remote-sweeps.md` before running or syncing work on a remote machine; `experiments.md` before a recorded run, a comparison or a results report; `deploy.md` before a deploy or a claim that something is live.
+- **Runbooks**, `docs/agents/`: `dvc.md` before moving data or trusting a DVC status; `remote-sweeps.md` before running or syncing work on a remote machine; `experiments.md` before a recorded run, a comparison, a results report or a segmenter change; `deploy.md` before a deploy or a claim that something is live.
 
 ## Agent skills
 
