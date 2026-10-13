@@ -131,5 +131,20 @@
         }
       }
     }
+  },
+  "tiny_threshold": {
+    "model": "xl0_v3",
+    "rule": "half the smallest accepted test-positive mask (ML-2 D18, ML-5 D21)",
+    "from_n_accepted": 66,
+    "old": 0.040223,
+    "new": 0.064511,
+    "under_old": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg"
+    ],
+    "under_new": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg"
+    ]
   }
 }

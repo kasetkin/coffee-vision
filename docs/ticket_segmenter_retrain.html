@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D22 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner's choice and D7 pending</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D8, D11, D17&ndash;D23 decided; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner chose XL0-v3 (D23) and re-derived the threshold (D7: 0.064511); P8 next</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -370,7 +370,10 @@
           familiar; sides stay randomised.</td></tr>
       <tr><td class="id">D7</td><td>Is the tiny-mask threshold (0.040223) re-derived?</td>
         <td>(a) Yes, as ML-5 D21, from the chosen model's accepted test masks. (b) Kept as it is.</td>
-        <td>Deferred, owner 2026-10-12: decided in P7, after XL0-v3 is trained and tested.</td></tr>
+        <td>Deferred, owner 2026-10-12: decided in P7, after XL0-v3 is trained and tested. (a), owner 2026-10-13:
+          0.064511, half the smallest owner-accepted XL0-v3 test-positive mask (0.1290); the same 2 test positives
+          fall under it as under 0.040223, and 141/153 test negatives are empty or tiny (140 before).
+          <code>params.yaml</code> <code>seg_min_area_frac</code>.</td></tr>
       <tr><td class="id">D8</td><td>What follows if XL0-v3 is chosen?</td>
         <td>(a) As ML-5 P11, in this ticket: re-crop the pools, retrain the classifier (seeds 42/123/7) and refit
           the probe on the new training and validation negatives. (b) Segmenter only; the classifier and probe get
@@ -449,6 +452,12 @@
           (b) Also the dataset file and the photo folders.</td>
         <td>(a), owner 2026-10-12: the photos are pinned either way, and (b) would stale the stage on every
           later append or capture.</td></tr>
+      <tr><td class="id">D23</td><td>Which segmenter goes on, XL0-v2 or XL0-v3? (plan P7)</td>
+        <td>(a) XL0-v3: test positives 66/71 against 68/71 (p 0.625), test negatives empty or tiny 140/153 against
+          58/153. (b) XL0-v2.</td>
+        <td>(a), owner 2026-10-13. <code>params.yaml</code> <code>seg_decoder</code> names
+          <code>models/seg/xl0_v3.pt</code>; the classifier is re-cropped and retrained in P8 (D8 (a)). It ships
+          only through a deploy.</td></tr>
     </tbody>
   </table></div>
 
@@ -461,7 +470,7 @@
     <li><span class="box done"></span><span>The 11 new training and validation positives and pass 2's 4 drops are judged by the owner in pass 3, the rest carried from pass 2 (D3); the labels are DVC-tracked.</span></li>
     <li><span class="box done"></span><span><code>coffeecv/seg_finetune.py</code> augments training samples through Albumentations as it trains and stores none (D12). The dihedral-view cache code is gone, and the stages that used it are frozen.</span></li>
     <li><span class="box done"></span><span>XL0-v3 is fine-tuned as a DVC stage beside <code>xl0_v1</code> and <code>xl0_v2</code>, and its test masks are stored.</span></li>
-    <li><span class="box"></span><span>The XL0-v3 against XL0-v2 report exists (D6), and the owner has picked one.</span></li>
+    <li><span class="box done"></span><span>The XL0-v3 against XL0-v2 report exists (D6), and the owner has picked one.</span></li>
     <li><span class="box"></span><span>D7 and D8 are carried out as decided; the probe is refit on the new negatives and measured on the test split (D18); data and models are pushed to the DVC remote and verified there.</span></li>
   </ul>
 
@@ -559,6 +568,10 @@
       test positives 68/71 against 66/71 (p 0.625); test negatives empty or tiny 58/153 against 140/153, with
       XL0-v3 worse only on 4 confusable-grain photos, 3 of them same-rig. The ticket waits on the owner's choice
       and D7.</div>
+    <div><div class="when">2026-10-13</div>The owner chooses XL0-v3 (D23) and has the tiny-mask threshold
+      re-derived (D7 (a)): 0.064511. <code>params.yaml</code> names the XL0-v3 decoder and the new threshold together,
+      since the threshold is derived from that decoder's masks; every <code>segcrop</code> stage is stale until P8's
+      re-crop. Nothing is deployed.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
