@@ -6,6 +6,7 @@ counters between two instants. Plain unittest, no runtime.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import unittest
 
@@ -138,6 +139,29 @@ class SamplerProcess(unittest.TestCase):
         self.assertNotEqual(s.pid, os.getpid())
         self.assertGreaterEqual(live, 5)                # the child's clock is the parent's
         self.assertEqual(s.between(t0, t1)["samples"], live)
+
+
+class SamplerOrphan(unittest.TestCase):
+    """A cell that dies without stopping its sampler (a crash in native code) must not leave it running: in the
+    P4 rehearsal an orphaned sampler held the driver's output pipe open for 47 minutes."""
+
+    def test_the_sampler_exits_with_its_parent_and_holds_no_pipe(self):
+        import subprocess
+        import time
+        code = ("import os, sys; sys.path.insert(0, %r); import cellrun; s = cellrun.Sampler(0.05); s.start(); "
+                "print(s.pid, flush=True); os._exit(1)") % str(REPO_ROOT / "analysis" / "ml7_gpu")
+        t = time.perf_counter()
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=10).stdout
+        self.assertLess(time.perf_counter() - t, 5)      # the pipe closed: no child kept it open
+        pid = int(out.split()[0])
+        for _ in range(40):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.05)
+        os.kill(pid, 9)
+        self.fail("the sampler outlived its parent")
 
 
 class Between(unittest.TestCase):

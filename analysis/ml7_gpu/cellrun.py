@@ -94,7 +94,11 @@ class Sampler:
         import tempfile
         fd, self._file = tempfile.mkstemp(prefix="ml7_samples_", suffix=".jsonl")
         os.close(fd)
-        self._proc = subprocess.Popen([sys.executable, __file__, "--sample", self._file, str(self.period)])
+        # No stdio: a child that outlives a crashed cell must not hold its caller's pipe open (p4_run.sh's did,
+        # for 47 minutes, in the rehearsal); the child also exits when its parent does.
+        self._proc = subprocess.Popen([sys.executable, __file__, "--sample", self._file, str(self.period),
+                                       str(os.getpid())], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL)
 
     @property
     def pid(self) -> int | None:
@@ -118,16 +122,17 @@ class Sampler:
         return summarise(self.samples, t0, t1)
 
 
-def _sample_forever(path: str, period: float) -> None:
+def _sample_forever(path: str, period: float, parent: int) -> None:
     import json
     import signal
     import sys
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     probe = Probe()
     with open(path, "a", buffering=1) as f:
-        while True:
+        while os.getppid() == parent:            # orphaned (the cell died unstopped): stop, and remove the file
             f.write(json.dumps(list(probe.read())) + "\n")
             time.sleep(period)
+    os.unlink(path)
 
 
 def summarise(samples: list[Sample], t0: float, t1: float) -> dict:
@@ -257,4 +262,4 @@ def measure(make, call, items: list, sampler: Sampler, path: str | None, warmup:
 if __name__ == "__main__":       # the Sampler's child: cellrun.py --sample <file> <period>
     import sys
     if sys.argv[1:2] == ["--sample"]:
-        _sample_forever(sys.argv[2], float(sys.argv[3]))
+        _sample_forever(sys.argv[2], float(sys.argv[3]), int(sys.argv[4]))

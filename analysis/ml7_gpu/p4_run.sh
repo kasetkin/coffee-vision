@@ -2,7 +2,8 @@
 # ML-7 P4: the comparison run on yappy (plan P4). Run from ~/ml7/, detached, with the site stopped and nothing
 # else running (ticket D11). It reads P2's layout (p2/inputs.npz, p2/refs_emb.npz, p2/onnx/, p2/tflite/,
 # p2/SHA256SUMS), the venvs, rt_vulkan/, and the release (/opt/coffee-cv/current, read-only) for the torch cell.
-# Outputs to p4/out/r<round>/: <cell>__<graph>.json, <cell>__<graph>__stability.json, <cell>__replay.{json,npz}.
+# Outputs to p4/out/r<round>/: <cell>__<graph>.json, <cell>__<graph>__stability.json, <cell>__replay.{json,npz},
+# and logs/, every process's whole output (a crash leaves its exit code in this log and its output there).
 #
 # Each round runs every cell in turn, the order rotated between rounds so that clock speed and heat fall on all
 # of them alike; every graph and every replay is a fresh process (p4_graph.py, p4_replay.py). Per cell: the
@@ -40,9 +41,13 @@ run() {   # run <cell> <label> <script> <args...>: one process, logged; the torc
   local cell=$1 label=$2; shift 2
   local env=() args; mapfile -t args < <(common "$cell")
   [[ $cell == torch ]] && env=(ML7_REPO="$RELEASE" COFFEE_CV_CHECKPOINT="$checkpoint")
+  local log="$OUT/r$R/logs/${cell}__${label// /_}.log" rc
+  mkdir -p "$OUT/r$R/logs"
   echo "=== r$R $cell $label $(date -Is)"
-  env "${env[@]}" "$(python_of "$cell")" "$@" "${args[@]}" 2>&1 | grep -E '^\{|Error|Traceback|error:' \
-    || echo "=== r$R $cell $label: no result line"
+  env "${env[@]}" "$(python_of "$cell")" "$@" "${args[@]}" > "$log" 2>&1   # the whole output kept, per process
+  rc=$?
+  grep -E '^\{|Traceback|Error:|error:' "$log" | grep -v kLiteRtStatusErrorNotFound | tail -n 5
+  (( rc == 0 )) || echo "=== r$R $cell $label FAILED exit=$rc$( ((rc > 128)) && echo " (signal $((rc - 128)))") $log"
 }
 graph() {   # graph <cell> <graph> <timed> <suffix>
   run "$1" "$2$4" p4_graph.py --graph "$2" --refs $P/refs_emb.npz --warmup "$WARMUP" --timed "$3" \
