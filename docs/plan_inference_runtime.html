@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 in progress 2026-10-13 (the instrument written and tried locally; the run on <code>yappy</code> not yet done)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -232,18 +232,18 @@
 
   <h2>4. P0 &mdash; Where the time goes now</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-13; the instrument written and tried locally at toy scale; the run on <code>yappy</code> not yet done</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-13: <code>b4a6020</code>, <code>c4e0b40</code> (the instrument), <code>ccabaa5</code> (measured on <code>yappy</code>); the models are 94% of each photo's time, so no stop</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>This covers the ticket's per-stage baseline (§7), and R1's "measure before any integration work". The
     site is down (D11), so the host is quiet.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>The live record.</b> From the app's request log on <code>yappy</code>
+    <li><span class="box done"></span><span><b>The live record.</b> From the app's request log on <code>yappy</code>
       (under the service's log directory), per endpoint (<code>/crop</code>, <code>/classify</code>): the median
       and p90 of <code>latency_ms</code>, <code>decode_ms</code>, <code>crop_detect_ms</code> and
       <code>inference_ms</code>, and the request count. It is read in place; only the aggregates leave the host,
       to <code>analysis/ml7_gpu/baseline.json</code>.</span></li>
-    <li><span class="box"></span><span><b>The release's code, per stage.</b>
+    <li><span class="box done"></span><span><b>The release's code, per stage.</b>
       <code>analysis/ml7_gpu/baseline_stages.py</code>, kept in <code>~/ml7/</code> and run from inside the
       live release's directory with its own venv and code, read-only, at the release's own thread count (4 on
       this host), over the 13 photos in <code>webapp/deploy/fixtures.txt</code>, two passes. Its docstring has
@@ -259,10 +259,10 @@
       Also: the load time of each model (both load at worker start, when <code>webapp/app.py</code> is imported;
       neither is warmed, so the first request pays the first inference's set-up), peak RSS, and the CPU clock
       and package temperature sampled every 100 ms.</span></li>
-    <li><span class="box"></span><span>Checks: the stage times add up to within 10% of the whole paths, and the
+    <li><span class="box done"></span><span>Checks: the stage times add up to within 10% of the whole paths, and the
       whole paths sit within the live record's range or the gap is explained. The share of each photo's time
       spent in the encoder (twice), the decoder and DINOv3 is stated.</span></li>
-    <li><span class="box"></span><span><b>Stop for the owner</b> if the three model stages together are under
+    <li><span class="box done"></span><span><b>Stop for the owner</b> if the three model stages together are under
       half of the per-photo time. A runtime switch could then not fix the latency, and the owner decides whether
       P1 goes ahead. Otherwise P1 starts.</span></li>
   </ol>
@@ -581,7 +581,7 @@
 
   <h2>11. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
+    <li><span class="box done"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
       whole paths within 10%, set beside the live log's aggregates.</span></li>
     <li><span class="box"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
       outputs meet D7 against PyTorch 2.14 on the 13 fixtures; the two rewrites matching torch at float rounding;
@@ -671,6 +671,35 @@
       <code>stages</code> with and without <code>--live</code>, a mismatched live model): stages within 3% of
       every path, boot within 2%; the models 90.5% of each photo's time here (DINOv3 61%, encoder 28%, decoder
       2%). Not a <code>yappy</code> number.</div>
+    <div><div class="when">2026-10-13</div>P0 done, on <code>yappy</code> with the owner's go-ahead, the site down
+      (D11). <code>baseline_stages.py</code> at <code>c4e0b40</code> (sha256 <code>f89b1a13</code>, checked on the
+      host) ran from the current release (<code>b1bc9c9</code>, <code>allrigs_dino3b16_segxl0v3_country_s42</code>,
+      XL0 with <code>xl0_v3</code>) in its own venv, at its default 4 threads, over the 13 fixtures, two passes;
+      launched detached. Results in <code>analysis/ml7_gpu/baseline.json</code> and
+      <code>baseline_stages.json</code> (<code>ccabaa5</code>). Medians over the second pass:
+      <ul>
+        <li>Each photo 37.5 s (p90 38.5): <code>/crop</code> 7.3 s, <code>/classify</code> 30.1 s (p90 30.9).</li>
+        <li>The XL0 encoder 6.5 s in each pass, the decoder 0.2 s, DINOv3 21.8 s (batch of 32: 17.4 s; of 8:
+          4.4 s, the head included). Decode, resize, upsample, fill, bean pitch, sampling, transform and guard
+          together under 1.5 s.</li>
+        <li>The models are 93.9% of each photo's time: encoder 34.8% (both passes), DINOv3 57.9%, decoder 1.1%.
+          Not under half, so no stop: P1 can start. OPS-7's single encoder pass would save 6.5 s of 37.5 s
+          (17%).</li>
+        <li>The stages add up to every whole path within 3% (26 of 26 requests); the worker's boot, 5.8 s
+          (imports 2.8 s, DINOv3 1.6 s, the segmenter 1.2 s), within 2%. Peak RSS 2.0 GB; MemAvailable never
+          below 4.6 GB.</li>
+        <li>The live record (<code>--model</code> on the shipped checkpoint) holds only 8 requests, 2 to
+          <code>/crop</code> and 6 to <code>/classify</code>, from 2026-10-13 11:03 to 11:21 UTC, probably the
+          deploy's own: <code>/crop</code> 5.2 s and <code>/classify</code> 23.4 s (p90 26.1), with
+          <code>inference_ms</code> 18.1 s and <code>crop_detect_ms</code> 4.9 s.</li>
+        <li>The fixtures run outside that range, 1.41&times; and 1.28&times; the live medians. The sampler
+          explains it: the first photo ran at about 2.15 GHz and took 5.2 s and 22.1 s, as the live requests did;
+          from the second photo on the cores held about 1.46 GHz, with the package at 58&ndash;69 &deg;C. A
+          sustained-power limit rather than heat is the likely cause; P0 does not read the throttle flags, P2's
+          sampler does. A lone upload gets the boosted clock; back-to-back uploads, or a long replay, run at the
+          sustained one, where <code>/classify</code> alone is at gunicorn's 30 s timeout. P4's replay and the
+          D15 margin are measured in that sustained state.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

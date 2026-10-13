@@ -16,7 +16,7 @@
     numbers; every other decision is made. Planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 in progress 2026-10-13 (the instrument written; the run on <code>yappy</code> not yet done)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
@@ -517,9 +517,12 @@
     <li><span class="box done"></span><span>The live host's CPU model and ISA flags are recorded.
       <span class="result">2026-10-13: Intel N100, AVX2 and AVX-VNNI, no AVX-512 or AMX; its iGPU is visible to
       Vulkan through Mesa 22.3.6 (2.4).</span></span></li>
-    <li><span class="box"></span><span>A per-stage PyTorch baseline is recorded at the release's thread count: XL0
+    <li><span class="box done"></span><span>A per-stage PyTorch baseline is recorded at the release's thread count: XL0
       resize, encoder, decoder and upsample, and DINOv3 per batch of 32 and 8, with peak RSS, beside the live
-      log's per-request split (plan P0).</span></li>
+      log's per-request split (plan P0).
+      <span class="result">2026-10-13, on <code>yappy</code> at 4 threads: each photo 37.5 s under sustained load
+      (encoder 6.5 s per pass, DINOv3 21.8 s), the models 94% of it; peak RSS 2.0 GB. A lone upload runs about
+      27 s at the boosted clock, as the live log shows (plan P0, <code>analysis/ml7_gpu/</code>).</span></span></li>
     <li><span class="box"></span><span>LiteRT on <code>yappy</code>'s iGPU is tested by D8's route as D10
       narrowed it: Vulkan in plan P2&ndash;P4, OpenCL only if P6 runs. Both models run in fp32, with fp16 beside
       it on the GPU (D12), and the report records whether each is fully accelerated, D7's parity, warm and cold-start
@@ -642,6 +645,12 @@
       how D10 narrowed them, and the iGPU item names the fp16 runs D12 added. No decision changed.</div>
     <div><div class="when">2026-10-13</div>Status set to In progress, as plan P0 is. A two-axis review of the P0
       commit (standards and spec) was folded into the instrument (plan Activity).</div>
+    <div><div class="when">2026-10-13</div>Plan P0 done on <code>yappy</code>, with the owner's go-ahead. Under
+      sustained load each photo takes 37.5 s: the encoder 6.5 s in each of its two passes, DINOv3 21.8 s, the
+      rest under 1.5 s. The models are 94% of it, so P0's stop does not apply and a runtime switch can reach the
+      latency. The live log's 20&ndash;27 s are lone uploads at the boosted clock (about 2.15 GHz); back to back,
+      the N100 holds about 1.46 GHz and <code>/classify</code> alone reaches 30 s, gunicorn's timeout. That
+      bears on R1 and on D1 (a). Details in the plan's Activity.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a
