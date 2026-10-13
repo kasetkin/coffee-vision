@@ -344,7 +344,7 @@
 
   <h2>10. P8 &mdash; Follow-through <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-13: <code>0675f40</code>, <code>909782a</code> and the candidate commit; shipped as release 20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42; the push to the remote running</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-13: <code>0675f40</code>, <code>909782a</code> and the candidate commit; shipped as release 20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42; 1,997 objects verified on <code>dvcnewremote</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7, or P2 if the owner keeps XL0-v2 there <span class="tag">D8, D18 decided; D7 from P7</span></span></div>
   </div>
   <p>The probe is refit on the new negatives whichever segmenter is chosen (D18). If XL0-v2 stays, that is the
@@ -361,7 +361,7 @@
       <code>coffeecv.fit_frozen_head</code> as a recorded run; fit the probe on the new training and validation
       negatives and measure it as above; report against exp264&ndash;266 per
       <code>docs/agents/experiments.md</code>.</span></li>
-    <li><span class="box"></span><span>Push every ML-6 output by target and verify on the remote.</span></li>
+    <li><span class="box done"></span><span>Push every ML-6 output by target and verify on the remote.</span></li>
     <li><span class="box done"></span><span>Stop for the owner: ship or not (the refit probe, and under XL0-v3 the new
       segmenter and classifier). A release is a separate deploy step.</span></li>
   </ol>
@@ -372,7 +372,7 @@
     <li><span class="box done"></span><span>P3: carried labels identical to pass 2's; the new session shows only uncarried photos.</span></li>
     <li><span class="box done"></span><span>P5: nothing augmented is written during training; one seed repeats its batches; the frozen stages' outputs unchanged.</span></li>
     <li><span class="box done"></span><span>P6: XL0-v3's config differs from XL0-v2's only in <code>augment</code> and where D4 says; its card names <code>pass3</code>, the pipeline and the <code>albumentations</code> version.</span></li>
-    <li><span class="box"></span><span>Every DVC output pushed by target and each object verified on <code>dvcnewremote</code>.</span></li>
+    <li><span class="box done"></span><span>Every DVC output pushed by target and each object verified on <code>dvcnewremote</code>.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -467,6 +467,8 @@
       <code>20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42</code> with <code>MIN_MEM_GB=4</code> at the owner's word, after two runs stopped at
       the 5 GB preflight floor (4,923 and 4,940 MB available). Smoke, flip and public verify all ok; details in the
       ticket's Activity.</div>
+    <div><div class="when">2026-10-13</div>P8's push finished: 1,997 objects, each verified on
+      <code>dvcnewremote</code>. P8 done.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,

@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D8, D11, D17&ndash;D23 decided; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner chose XL0-v3 (D23), threshold 0.064511 (D7); P8: pools re-cropped, classifier exp267&ndash;269, candidate <code>allrigs_dino3b16_segxl0v3_country_s42</code> with a refit probe (153/153 test negatives caught, 0/71 positives refused); 2026-10-13: shipped as release 20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42; the P8 push to the remote running</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D8, D11, D17&ndash;D23 decided; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner chose XL0-v3 (D23), threshold 0.064511 (D7); P8: pools re-cropped, classifier exp267&ndash;269, candidate <code>allrigs_dino3b16_segxl0v3_country_s42</code> with a refit probe (153/153 test negatives caught, 0/71 positives refused); 2026-10-13: shipped as release 20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42; P8 done, 1,997 objects verified on <code>dvcnewremote</code>; waits on the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -587,7 +587,10 @@
       <code>--verify</code> rerun, all ok. <code>previous</code> is
       <code>20261012T1111Z-4a7ff3f-allrigs_dino3b16_segxl0_country_s123</code>, kept for <code>--rollback</code>.
       Server time per photo 20.1&ndash;26.7 s, against 21.1&ndash;21.8 s for the previous release on the same
-      host. The owner checked the live site: okay and running. The P8 push to the remote is still running.</div>
+      host. The owner checked the live site: okay and running.</div>
+    <div><div class="when">2026-10-13</div>P8's push finished: the re-crop, the pools and the candidate's weights,
+      1,997 objects, each verified on <code>dvcnewremote</code>. P1&ndash;P8 done; the ticket waits on the owner to
+      close it.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,
