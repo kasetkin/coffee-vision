@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -269,7 +269,7 @@
 
   <h2>5. P1 &mdash; Convert both models to both formats and check them on the CPU</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-13: <code>4b5e751</code>, <code>6ed80c6</code>; every base conversion passes D7 on the CPU; the int8 encoder fails and is dropped</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P0</span></div>
   </div>
   <p>The graphs are the models as served (ticket §4), cut where serving's own code already cuts them, and the
@@ -301,7 +301,7 @@
       output and the readout).</li>
   </ul>
   <ol class="tasks">
-    <li><span class="box"></span><span>Two uv projects, each with its own <code>pyproject.toml</code> and
+    <li><span class="box done"></span><span>Two uv projects, each with its own <code>pyproject.toml</code> and
       <code>uv.lock</code>. Both import <code>coffeecv.backbones</code> and the vendored efficientvit as they are.
       <ul>
         <li><code>analysis/ml7_gpu/convert_litert/</code>: torch 2.13 (CPU), timm 1.0.30, litert-torch 0.9.4,
@@ -312,25 +312,25 @@
       </ul>
       <code>coffeecv.dino_classifier</code> refuses a timm mismatch, not a torch one. The readouts are compared
       with torch 2.14's in the last task, so a torch 2.13 difference would show there.</span></li>
-    <li><span class="box"></span><span>Inputs: for each of the 13 photos in <code>webapp/deploy/fixtures.txt</code>,
+    <li><span class="box done"></span><span>Inputs: for each of the 13 photos in <code>webapp/deploy/fixtures.txt</code>,
       the serving path's preprocessed tensors, from the training environment (torch 2.14): the 40 patches
       <code>[40,3,224,224]</code>, the encoder input <code>[1,3,1024,1024]</code> and the transformed box. Saved
       to <code>inputs.npz</code>, so every path gets the same bytes and preprocessing is outside the
       comparison.</span></li>
-    <li><span class="box"></span><span>References: the PyTorch outputs for those inputs in the training
+    <li><span class="box done"></span><span>References: the PyTorch outputs for those inputs in the training
       environment. These are the readouts, the encoder embeddings, the three low-resolution masks and their IoUs,
       the final masks after <code>postprocess_masks</code> and the D18 rule, and the probabilities and guard
       verdicts. Saved to <code>refs.npz</code>.</span></li>
-    <li><span class="box"></span><span>Convert to LiteRT: <code>dino_b16_readout_b8.tflite</code>,
+    <li><span class="box done"></span><span>Convert to LiteRT: <code>dino_b16_readout_b8.tflite</code>,
       <code>dino_b16_readout_b40.tflite</code>, <code>xl0_encoder.tflite</code>,
       <code>xl0_v3_decoder_box.tflite</code>. Record for each the op histogram, any tensor above 4-D (these fall
       back to the CPU on LiteRT's GPU), the file size and sha256.</span></li>
-    <li><span class="box"></span><span>Export to ONNX, the same four graphs as <code>.onnx</code>, with
+    <li><span class="box done"></span><span>Export to ONNX, the same four graphs as <code>.onnx</code>, with
       <code>torch.onnx.export(dynamo=True)</code> at the default opset 20. Weights go in an
       <code>.onnx.data</code> file beside each graph, and the two always travel together. Record for each the op
       histogram, the opset, the file sizes and sha256. If an execution provider in P2 or P3 rejects opset 20,
       re-export at 18 and note it.</span></li>
-    <li><span class="box"></span><span>fp16 copies of the four <code>.onnx</code> files, for ORT's WebGPU cell
+    <li><span class="box done"></span><span>fp16 copies of the four <code>.onnx</code> files, for ORT's WebGPU cell
       (Q4), made with <code>onnxconverter-common</code>'s <code>convert_float_to_float16</code> and
       <code>keep_io_types=True</code>, so inputs and outputs stay fp32 and the scripts do not change. They are
       mixed precision: <code>op_block_list</code> is the converter's default list plus <code>Softmax</code>,
@@ -340,28 +340,28 @@
       in explicitly. One blanket fp16 copy of <code>dino_b16_readout_b8</code>, nothing kept in fp32, answers
       ticket D12's question of whether DINOv3 really returns NaN. None is checked on the CPU, where ORT has no fp16
       kernels.</span></li>
-    <li><span class="box"></span><span><b>ORT's transformer fusions</b> for DINOv3:
+    <li><span class="box done"></span><span><b>ORT's transformer fusions</b> for DINOv3:
       <code>onnxruntime.transformers.optimizer.optimize_model(model_type="vit")</code> on both DINOv3 graphs, giving
       <code>dino_b16_readout_b8.opt.onnx</code> and <code>_b40.opt.onnx</code>. Record which fusions applied
       (attention, LayerNorm, GELU); the RoPE attention may not match ORT's patterns, and a no-op is reported as
       one. They run on ORT's CPU provider only, beside the plain graphs.</span></li>
-    <li><span class="box"></span><span><b>An int8 XL0 encoder</b>, for information only (ticket D4 decides
+    <li><span class="box done"></span><span><b>An int8 XL0 encoder</b>, for information only (ticket D4 decides
       serving): <code>xl0_encoder.int8.onnx</code>, static QDQ quantisation
       (<code>onnxruntime.quantization.quantize_static</code>, per-channel weights), calibrated on the encoder
       inputs of 32 photos from the segcrop stage's sessions under <code>dataset/</code>, spread across cameras,
       none of them a fixture. DINOv3 is not quantised: D4's concern
       is the head and the probe, fitted on fp32 embeddings.</span></li>
-    <li><span class="box"></span><span><b>The bicubic neck</b> goes through the matmul rewrite above in both
+    <li><span class="box done"></span><span><b>The bicubic neck</b> goes through the matmul rewrite above in both
       formats. If the rewrite does not match torch at float rounding, stop and report. It is never swapped for
       bilinear, which would be a different model (ticket §4).</span></li>
-    <li><span class="box"></span><span>CPU parity against <code>refs.npz</code>, with D7's measures: readout
+    <li><span class="box done"></span><span>CPU parity against <code>refs.npz</code>, with D7's measures: readout
       cosine and max-abs difference, mask IoU after the shared post-processing, top-1 and guard verdict per photo.
       Beside them, the continuous measures: the largest change in a class probability, the change in the probe
       score next to the photo's distance from the 0.5 threshold, and the largest change in the low-resolution
       mask logits before the threshold. LiteRT runs on XNNPACK at 4 threads, ORT on its default CPU provider at 4
       threads. The files, inputs and references go to DVC, like the other analysis outputs. The 13 fixtures serve
       this comparison; the validation photos are for D7's gate in the release route.</span></li>
-    <li><span class="box"></span><span>Checks: all eight base files convert, and CPU parity meets D7 (cosine
+    <li><span class="box done"></span><span>Checks: all eight base files convert, and CPU parity meets D7 (cosine
       &ge; 0.99999, IoU &ge; 0.999) for each, or the gap is reported with its cause before P2. Photos that change
       top-1 or guard verdict are listed, not blocking (D7). The fused DINOv3 graphs and the int8 encoder are checked the same way and reported, pass or
       fail; a failure drops that variant, not the phase.</span></li>
@@ -583,7 +583,7 @@
   <ul class="checks">
     <li><span class="box done"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
       whole paths within 10%, set beside the live log's aggregates.</span></li>
-    <li><span class="box"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
+    <li><span class="box done"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
       outputs meet D7 against PyTorch 2.14 on the 13 fixtures; the two rewrites matching torch at float rounding;
       the fused and int8 variants reported pass or fail.</span></li>
     <li><span class="box"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
@@ -699,6 +699,55 @@
           sampler does. A lone upload gets the boosted clock; back-to-back uploads, or a long replay, run at the
           sustained one, where <code>/classify</code> alone is at gunicorn's 30 s timeout. P4's replay and the
           D15 margin are measured in that sustained state.</li>
+      </ul></div>
+    <div><div class="when">2026-10-13</div>P1 done (<code>4b5e751</code>, <code>6ed80c6</code>). Both models are in
+      both formats and pass D7 on the CPU against PyTorch 2.14 on the 13 fixtures. Records:
+      <code>analysis/ml7_gpu/rewrite_check.json</code>, <code>manifest_onnx.json</code>,
+      <code>manifest_tflite.json</code> (op histograms, sizes, sha256), <code>parity_p1_cpu.json</code>; the files
+      in DVC (<code>analysis/ml7_gpu/artifacts.dvc</code>, 46 files, 4.7 GB), not yet pushed.
+      <ul>
+        <li><b>Rewrites, three:</b> the bicubic neck as two matmuls (the 16&times;16 and 32&times;32 inputs; the
+          64&times;64 one is a no-op), the 4-D qkv split with attention written out, and a third not planned:
+          DINOv3's RoPE table, computed once by timm's own function and held constant, so its construction stays
+          out of the graph. Checked against torch 2.14: 5.3e-7 (DINOv3 readout) and 1.6e-6 (encoder output,
+          standing for the neck's) of the largest magnitude, the decoder exact; bar 1e-5. No tensor above 4-D in
+          any <code>.tflite</code>; no bicubic op in either format.</li>
+        <li><b>Environments, three uv projects, not two:</b> <code>convert_onnx</code> (torch 2.14.0, onnx 1.23.2,
+          onnxscript 0.7.2, onnxruntime 1.31.0, onnxconverter-common 1.16.0); <code>convert_litert</code> (torch
+          2.13.0, litert-torch 0.9.4, which pins ai-edge-litert 2.2.0); and <code>run_litert</code>
+          (ai-edge-litert 2.3.0), so the CPU check runs the runtime P2 takes to <code>yappy</code>. Both converter
+          projects carry the serving photo decoders, as <code>coffeecv.infer</code> builds the models. The
+          devcontainer points <code>UV_PROJECT_ENVIRONMENT</code> at the training venv, and one plain
+          <code>uv sync --project</code> rewrote it to the ONNX lock; restored at once with
+          <code>uv sync --locked</code>, and each <code>pyproject.toml</code> now says to set the variable.</li>
+        <li><b>An exporter bug:</b> torch 2.14's default ONNX optimisation (onnxscript 0.7.2) drops
+          <code>x + 1e-15</code> as a no-op. The XL0 encoder's linear attention (LiteMLA) divides by exactly that
+          where its denominator is 0, so the optimised encoder returned NaN everywhere. The graphs are exported
+          with <code>optimize=False</code>; ORT optimises at session load (ticket R4). The release route's export
+          (ticket D6) must do the same, or check for it.</li>
+        <li><b>Files:</b> <code>dino_b8</code>, <code>dino_b40</code>, <code>encoder</code> and
+          <code>decoder</code> (<code>.onnx</code> with <code>.onnx.data</code>, opset 20; <code>.tflite</code>),
+          not the longer names above. ONNX: the fp32 four, mixed fp16 copies of all four and one blanket
+          <code>dino_b8</code>, ORT-fused DINOv3 at both batches, and the int8 encoder. The fp16 copies keep
+          Softmax, LayerNorm and every ReduceMean, Sub, Pow, Sqrt and Div in fp32 (the decomposed LayerNorm2d's
+          op types, which also holds LiteMLA's division), and each q&middot;k<sup>T</sup> by node: 12 in DINOv3,
+          7 in the decoder (SAM scales it with a Div before the Softmax).</li>
+        <li><b>CPU parity (D7, the least cosine over all 520 patches):</b> ORT's CPU provider at batch 8 and 40,
+          plain and fused, least cosine 0.99999999999, largest probability change 3.0e-7, least mask IoU 0.999999;
+          LiteRT on its CPU accelerator (XNNPACK) at 4 threads, batch 8 and 40, 0.99999999998, 4.8e-7, 0.999997.
+          No top-1, guard or D18 verdict changed. The guard measure says little here: the probe sits about 1e-13
+          on every fixture, 0.5 below its threshold. LiteRT reports <code>is_fully_accelerated()</code> false on
+          the CPU path; it is about GPU and NPU acceleration and is read in P2.</li>
+        <li><b>ORT's fusions:</b> GELU (12) and LayerNorm (25) applied; Attention did not (0): the RoPE attention
+          matches none of ORT's patterns. The fused graphs pass, and run in P4 beside the plain ones.</li>
+        <li><b>The int8 encoder fails and is dropped:</b> mask IoU 0.0005 to 0.85, low-res logits off by up to
+          14.5, the D18 verdict flipped on 4 photos (<code>PXL_20260809_130838005</code>,
+          <code>PIC_20260809_201618</code>, <code>PXL_20260809_135958599</code>,
+          <code>PIC_20260830_200129</code>). The size says defect rather than quantisation noise; the likely cause is
+          LiteMLA's denominator, near 0 plus 1e-15, quantised to uint8 over a range up to about 5,000. For ticket D4:
+          this int8 encoder cannot serve; one that keeps LiteMLA's division in fp32 was not tried. P4 runs without it.</li>
+        <li>The fp16 copies are not checked on the CPU (ORT has no fp16 kernels there); P2 does. Times taken in the
+          devcontainer, with other jobs running, are not measurements.</li>
       </ul></div>
   </div>
 

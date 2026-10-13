@@ -16,7 +16,7 @@
     numbers; every other decision is made. Planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13; plan P1 done 2026-10-13 (both formats pass D7 on the CPU; P2 next)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
@@ -328,7 +328,8 @@
           Mitigation: export with the dynamo exporter first. The bicubic neck and the 5-D qkv split are rewritten
           exactly in the export wrappers, the neck as two matmuls with torch's own coefficients, and checked
           against torch before export (D14). Gate on the readout's cosine and max-abs difference, mask IoU, top-1
-          and guard verdicts on real photos, not on "it converts".</td></tr>
+          and guard verdicts on real photos, not on "it converts". Found in plan P1: torch 2.14's default ONNX
+          optimisation drops LiteMLA's <code>+ 1e-15</code>, and the encoder returned NaN; it exports unoptimised.</td></tr>
       <tr><td class="id">R4</td><td><strong>The deploy gates assume one runtime.</strong></td>
         <td><code>--compare</code> demands bit-identical answers between the training environment (PyTorch) and the
           release (the runtime). That can no longer hold. <code>release_probe.py</code> compares the smoke test's
@@ -655,6 +656,12 @@
     <div><div class="when">2026-10-13</div>Owner sets D7's aggregation: the readout cosine of 0.99999 must hold for
       every patch, the least over all patches of all photos, not on average; mask IoU of 0.999 for every
       photo.</div>
+    <div><div class="when">2026-10-13</div>Plan P1 done. Both models convert to ONNX and LiteRT and pass D7 on the
+      CPU, ORT's and LiteRT's, against PyTorch on the 13 fixtures (least cosine 0.99999999998, least mask IoU
+      0.999997, no answer changed). Three exact rewrites (the bicubic neck, 4-D attention, a constant RoPE table).
+      Two findings for later phases: the ONNX export must be unoptimised (R3), which binds D6's release export too;
+      and for D4, a plain int8 XL0 encoder is wrong (mask IoU down to 0.0005), most likely at LiteMLA's division.
+      Details in the plan's Activity.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a
