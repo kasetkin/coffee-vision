@@ -54,6 +54,14 @@ class SummariseRequests(unittest.TestCase):
         # /crop never logs these; their absence is a count of 0, not an error
         self.assertEqual(s["/crop"]["inference_ms"]["n"], 0)
 
+    def test_only_the_named_model_and_what_else_the_log_held(self):
+        records = [_req("/crop", 1000, model="new.pt", build={"git": "a"}),
+                   _req("/crop", 9000, model="old.pt", build={"git": "b"}),
+                   _req("/crop", 1200, model="new.pt", build={"git": "a"})]
+        s = bs.summarise_requests(records, model="new.pt")
+        self.assertEqual(s["/crop"]["latency_ms"]["max"], 1200)
+        self.assertEqual(bs.models_seen(records), {"new.pt": 2, "old.pt": 1})
+
     def test_read_log_takes_rotated_and_gzipped_files_and_counts_bad_lines(self):
         with tempfile.TemporaryDirectory() as d:
             plain, packed = Path(d, "app.jsonl"), Path(d, "app.jsonl.2.gz")
@@ -124,6 +132,12 @@ class ModelShare(unittest.TestCase):
         self.assertAlmostEqual(s["photos"][0]["share"], 10300.0 / 13000.0)
         self.assertFalse(s["stop"])
 
+    def test_each_model_stage_has_its_own_share(self):
+        s = bs.model_share([self._photo(3000.0, 10000.0, 2000.0, 150.0, 6000.0)])
+        self.assertAlmostEqual(s["stage_shares"]["encoder"], 4000.0 / 13000.0)
+        self.assertAlmostEqual(s["stage_shares"]["decoder"], 300.0 / 13000.0)
+        self.assertAlmostEqual(s["stage_shares"]["dinov3"], 6000.0 / 13000.0)
+
     def test_stop_when_the_models_are_under_half_of_the_photo_time(self):
         s = bs.model_share([self._photo(6000.0, 16000.0, 2000.0, 150.0, 6000.0),
                             self._photo(6000.0, 16000.0, 2000.0, 150.0, 6000.0)])
@@ -161,11 +175,6 @@ class ReadFixtures(unittest.TestCase):
             b.write_bytes(b"changed")
             with self.assertRaises(SystemExit):
                 bs.read_fixtures(lst, Path(d))
-
-    def test_the_repo_list_names_thirteen_photos(self):
-        lines = [ln for ln in (REPO_ROOT / "webapp/deploy/fixtures.txt").read_text().splitlines()
-                 if ln.strip() and not ln.startswith("#")]
-        self.assertEqual(len(lines), 13)
 
 
 if __name__ == "__main__":

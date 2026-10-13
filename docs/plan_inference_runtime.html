@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 in progress 2026-10-13 (the instrument written and tried locally; the run on <code>yappy</code> not yet done)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -656,7 +656,21 @@
       7.6 s); the models are 91% of each photo's time here. Not a <code>yappy</code> number. Corrected here and
       in the ticket: the segmenter loads at worker start (<code>webapp/app.py</code> imports it), not at the
       first request; what neither model gets is a warm-up. The run on <code>yappy</code> waits for the owner's
-      go-ahead for SSH to the live host.</div>
+      go-ahead for SSH to the live host. Also edited, with no decision changed: P0's run line (the script is kept
+      in <code>~/ml7/</code> but runs from inside the release directory, at the release's own thread count, as
+      neither the unit nor the app sets one), and P4's Blocked by (Q3 and Q4 are answered).</div>
+    <div><div class="when">2026-10-13</div>P0, after a two-axis review (standards and spec) of the first commit.
+      The instrument now: times the worker's boot from before torch's import; filters the live log to one model
+      (<code>--model</code>), since the log keeps every model the site has served, and lists the models it saw;
+      states each model stage's share (encoder and decoder over both passes, DINOv3) beside the total, DINOv3's
+      including its head, which runs inside the hooked model; checks each request's log line is its own; removes
+      its scratch log; records its own sha256; and is launched on <code>yappy</code> detached through
+      <code>scripts/remote_launch.sh</code>, the live record first, both outputs then copied to
+      <code>analysis/ml7_gpu/</code> (the commands are in its docstring). Rerun locally through
+      <code>main()</code> on every branch (<code>log</code> with and without <code>--model</code>,
+      <code>stages</code> with and without <code>--live</code>, a mismatched live model): stages within 3% of
+      every path, boot within 2%; the models 90.5% of each photo's time here (DINOv3 61%, encoder 28%, decoder
+      2%). Not a <code>yappy</code> number.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
