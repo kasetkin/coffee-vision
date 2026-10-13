@@ -1,0 +1,36 @@
+new:      exp 267 268 269 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; ML-2 segmenter pools (data/segcropped, crop_method segment); country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; in-distribution metrics only)
+baseline: exp 264 265 266 (plan §9.1 all-cameras shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; ML-2 segmenter pools (data/segcropped, crop_method segment); country classes (ticket ML-3, dataset/classes.txt), not comparable with exp258-260; in-distribution metrics only)
+changed:  seg_decoder: models/seg/xl0_v2.pt -> models/seg/xl0_v3.pt; seg_decoder_sha256: 9972761b0f3c0a0dd59851a4d4a67b5dc80aed62292a95d63a2e933f8da03902 -> 4b21ed7beeb20b12eabe8b8afc078d45011ed1d6fa71855638b1c6947da9ae22; seg_ft: {'weights': 'efficientvit_sam/efficientvit_sam_xl0.pt', 'views': ['id', 'hflip', 'vflip', 'rot180'], 'epochs': 40, 'patience': 8, 'batch_size': 8, 'lr': 0.0001, 'lr_min': 1e-06, 'weight_decay': 0.0001, 'focal_weight': 20.0, 'dice_weight': 1.0, 'iou_weight': 1.0, 'focal_gamma': 2.0, 'focal_alpha': 0.25, 'neg_share': 0.5, 'point_share': 0.5, 'max_points': 3, 'select_min_area_frac': 0.083} -> {'weights': 'efficientvit_sam/efficientvit_sam_xl0.pt', 'augment': [{'transform': 'HorizontalFlip', 'p': 0.5}, {'transform': 'VerticalFlip', 'p': 0.5}, {'transform': 'Affine', 'p': 0.5, 'args': {'scale': [0.9, 1.1], 'translate_percent': [-0.05, 0.05], 'rotate': [-15, 15], 'border_mode': 0, 'fill': 0, 'fill_mask': 255}}, {'transform': 'RandomBrightnessContrast', 'p': 0.5, 'args': {'brightness_limit': 0.2, 'contrast_limit': 0.2}}, {'transform': 'HueSaturationValue', 'p': 0.3, 'args': {'hue_shift_limit': 5, 'sat_shift_limit': 15, 'val_shift_limit': 10}}, {'transform': 'RandomGamma', 'p': 0.3, 'args': {'gamma_limit': [80, 120]}}, {'transform': 'ImageCompression', 'p': 0.3, 'args': {'quality_range': [60, 95]}}, {'transform': 'OneOf', 'p': 0.2, 'args': {'transforms': [{'transform': 'MotionBlur', 'p': 1.0, 'args': {'blur_limit': [3, 7]}}, {'transform': 'Defocus', 'p': 1.0, 'args': {'radius': [1, 3]}}]}}, {'transform': 'GaussNoise', 'p': 0.2, 'args': {'std_range': [0.01, 0.04]}}], 'epochs': 40, 'patience': 8, 'batch_size': 8, 'lr': 0.0001, 'lr_min': 1e-06, 'weight_decay': 0.0001, 'focal_weight': 20.0, 'dice_weight': 1.0, 'iou_weight': 1.0, 'focal_gamma': 2.0, 'focal_alpha': 0.25, 'neg_share': 0.5, 'point_share': 0.5, 'max_points': 3, 'select_min_area_frac': 0.083}; seg_min_area_frac: 0.040223 -> 0.064511
+
+ seed       exp  val base  val new    val Δ  test base  test new   test Δ
+   42   267/264    0.9792   0.9815  +0.0023     0.9764    0.9748  -0.0016
+  123   268/265    0.9824   0.9804  -0.0020     0.9655    0.9637  -0.0018
+    7   269/266    0.9616   0.9702  +0.0086     0.9631    0.9632  +0.0001
+  val Δ: mean +0.0029, range -0.0020 .. +0.0086 (spread 0.0106)
+ test Δ: mean -0.0011, range -0.0018 .. +0.0001 (spread 0.0019)
+
+per-class val F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Brazil                       0.984 -> 0.984 0.994 -> 0.988 0.966 -> 0.972   -0.000
+  Vietnam                      1.000 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.000
+  Indonesia                    1.000 -> 1.000 1.000 -> 1.000 0.992 -> 0.992   +0.000
+  Guatemala                    0.940 -> 0.925 0.962 -> 0.949 0.886 -> 0.916   +0.000
+  CostaRica                    1.000 -> 1.000 0.994 -> 1.000 1.000 -> 0.997   +0.001
+  Peru                         1.000 -> 0.988 0.992 -> 0.988 0.967 -> 0.987   +0.001
+  Rwanda                       0.996 -> 1.000 1.000 -> 1.000 0.971 -> 0.979   +0.004
+  Ethiopia                     0.962 -> 0.969 0.955 -> 0.955 0.969 -> 0.978   +0.005
+  Kenya                        0.963 -> 0.978 0.975 -> 0.975 0.939 -> 0.940   +0.005
+  Colombia                     0.946 -> 0.972 0.953 -> 0.951 0.926 -> 0.940   +0.012
+
+per-class test F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Colombia                     0.972 -> 0.966 0.933 -> 0.933 0.942 -> 0.922   -0.009
+  Kenya                        0.962 -> 0.947 0.942 -> 0.945 0.955 -> 0.943   -0.008
+  Brazil                       0.972 -> 0.965 0.975 -> 0.966 0.975 -> 0.981   -0.003
+  Guatemala                    0.946 -> 0.945 0.911 -> 0.900 0.885 -> 0.892   -0.001
+  Vietnam                      1.000 -> 1.000 1.000 -> 1.000 0.958 -> 0.958   +0.000
+  CostaRica                    0.987 -> 0.994 0.975 -> 0.970 1.000 -> 1.000   +0.001
+  Peru                         0.980 -> 0.979 0.976 -> 0.972 0.968 -> 0.976   +0.001
+  Rwanda                       0.992 -> 0.992 0.979 -> 0.983 1.000 -> 1.000   +0.001
+  Indonesia                    0.996 -> 0.996 0.996 -> 0.996 0.988 -> 0.996   +0.003
+  Ethiopia                     0.958 -> 0.965 0.969 -> 0.971 0.962 -> 0.966   +0.004
