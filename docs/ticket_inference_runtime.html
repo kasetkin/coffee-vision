@@ -12,10 +12,11 @@
     serves the converted copies. Training stays on PyTorch: the crops, the embeddings, the head, the OOD reference
     and the probe (D3). A model is trained, then converted, checked against its PyTorch self, and deployed. The
     live host, <code>yappy</code>, has an Intel iGPU with OpenCL, and the owner wants LiteRT tested on it (D8).
-    The research is done and summarised below. D3 is decided, the rest open; not planned, not implemented.</p>
+    The research is done and summarised below. D2 waits on the comparison, and D4's int8 question on its
+    numbers; every other decision is made. Planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
@@ -103,6 +104,17 @@
       <a href="ticket_segmenter_retrain.html">ML-6</a> activity). Each upload runs the segmenter twice, once for
       <code>/crop</code> and once for <code>/classify</code> (<a
       href="ticket_photos_and_answers_optimization.html">OPS-7</a>).</li>
+    <li><strong>What is already timed.</strong> The app logs <code>decode_ms</code>, <code>crop_detect_ms</code>
+      and <code>inference_ms</code> with each request's <code>latency_ms</code> (<code>webapp/app.py</code>), so a
+      coarse split of the live time exists but has never been summarised. The segmenter also times its resize,
+      encoder, decoder and upsample (<code>timing_ms</code> in <code>coffeecv/segment_beans.py</code>); that split
+      is not logged.</li>
+    <li><strong>The compute ceiling.</strong> Estimates from public specifications, not measurements
+      (D14). The N100's CPU peaks at about 190 GFLOPS fp32 (4 cores, 16 FLOP per cycle, about 2.9 GHz on all
+      cores), its iGPU at about 290 (24 EUs, 16 FLOP per cycle, 750 MHz), or about 580 in fp16. They share a 6 W
+      package budget and one memory bus. DINOv3 B/16 is about 17.6 GMAC per patch, so 40 patches are about 1.4
+      TFLOP: at least 7.5 s on this CPU at full efficiency. The 5.8 s below, from another machine, likely
+      understates <code>yappy</code>. In fp32 the iGPU has at most about 1.5&times; the CPU's peak.</li>
     <li><strong>Stage times measured elsewhere.</strong> None of these was taken on <code>webappremote</code>, an
       Intel N100 with AVX2 and AVX-VNNI but no AVX-512 or AMX (2.4).
       <ul>
@@ -175,7 +187,8 @@
       them inputs they were not fitted on (D4).</li>
     <li>An exported DINOv3 file is a derivative work under the DINOv3 License, like the <code>.pt</code>. It may
       live in DVC; published weights would need the licence shipped with them.</li>
-    <li>OpenVINO reads ONNX and may be fastest on Intel CPUs. It was not requested and is not assessed.</li>
+    <li>OpenVINO reads ONNX and may be fastest on Intel CPUs. It is measured as ORT's execution provider, on the
+      GPU (D9) and on the CPU (D14), not as a runtime of its own.</li>
   </ul>
 
   <h3>2.4 The live host's iGPU, and LiteRT's GPU paths</h3>
@@ -191,8 +204,10 @@
   <p>Read on the host by Claude over SSH, 2026-10-13 (<code>lscpu</code>, <code>vulkaninfo --summary</code>):</p>
   <ul>
     <li><strong>CPU.</strong> Intel N100: 4 cores, 1 thread each, up to 3.4 GHz, 6 MiB L3. It has AVX2, FMA,
-      F16C, AVX-VNNI (the 256-bit form) and VAES. It has no AVX-512 and no AMX, so ORT's int8 speedups for
-      AVX-512 VNNI and AMX do not apply.</li>
+      F16C, AVX-VNNI (the 256-bit form) and VAES. It has no AVX-512 and no AMX, so ORT's AVX-512 VNNI and AMX
+      int8 paths do not apply. AVX-VNNI does: ORT's MLAS swaps in AVX-VNNI int8 GEMM and convolution kernels when
+      the CPU reports it (<code>platform.cpp</code>, read 2026-10-13), so int8 has a fast path here
+      (D4, D14).</li>
     <li><strong>System.</strong> Debian 12, kernel 6.1, 7,681 MB of RAM, about 4.9 GB available at the time.</li>
     <li><strong>Vulkan.</strong> Mesa 22.3.6's Intel driver (ANV) shows the iGPU as "Intel(R) Graphics (ADL-N)",
       Vulkan 1.3.230. Only <code>sudo</code> sees it. The deploy user is not in the <code>render</code> group,
@@ -246,7 +261,8 @@
         <li>A shipped model goes straight from <code>fit_frozen_head --ship</code> to the deploy.</li>
         <li>No <code>onnx</code> or runtime package in either environment; its import is patched out.</li>
         <li>The release environment carries torch, torchvision, timm and segment-anything.</li>
-        <li>About 20&ndash;27 s per photo on the live host, with no per-stage breakdown.</li>
+        <li>About 20&ndash;27 s per photo on the live host. The log splits it into decode, crop detection and
+          inference, but nobody has summarised that split, and the model stages are not timed on the host.</li>
       </ul>
     </div>
     <div>
@@ -289,8 +305,11 @@
     <tbody>
       <tr><td class="id">R1</td><td><strong>No speedup in fp32.</strong></td>
         <td>The sources suggest 1.0&ndash;1.5&times; for ORT and give no x86 figure for LiteRT. The live host is a
-          4-core N100 with AVX2 and AVX-VNNI and no AVX-512 (2.4). Mitigation: P1 measures each stage on <code>webappremote</code>, at the release's thread
-          count, before any integration work. The owner sets the gain worth the switch (D2).</td></tr>
+          4-core N100 with AVX2 and AVX-VNNI and no AVX-512 (2.4), and its iGPU's fp32 peak is about 1.5&times;
+          the CPU's (2.2). Mitigation: plan P0 measures each stage on <code>webappremote</code>, at the release's
+          thread count, before any conversion, and stops for the owner if the models are under half of each
+          photo's time. ORT's OpenVINO provider on the CPU is measured beside the GPU cells (D14). The owner sets
+          the gain worth the switch (D2, D15).</td></tr>
       <tr><td class="id">R2</td><td><strong>Serving drifts from what training fitted.</strong></td>
         <td>The pools were cut and the head and probe fitted on PyTorch outputs (D3), and serving would now compute
           them on another runtime. In fp32 the gap is rounding: thresholded masks flip edge pixels, and
@@ -306,8 +325,10 @@
             <li>LiteRT's static batch: 40 patches would need fixed batch signatures.</li>
             <li>A SAM 2.1 LiteRT decoder once converted "fine" and gave masks at correlation 0.265.</li>
           </ul>
-          Mitigation: export with the dynamo exporter first. Gate on the readout's cosine and max-abs difference,
-          mask IoU, top-1 and guard verdicts on real photos, not on "it converts".</td></tr>
+          Mitigation: export with the dynamo exporter first. The bicubic neck and the 5-D qkv split are rewritten
+          exactly in the export wrappers, the neck as two matmuls with torch's own coefficients, and checked
+          against torch before export (D14). Gate on the readout's cosine and max-abs difference, mask IoU, top-1
+          and guard verdicts on real photos, not on "it converts".</td></tr>
       <tr><td class="id">R4</td><td><strong>The deploy gates assume one runtime.</strong></td>
         <td><code>--compare</code> demands bit-identical answers between the training environment (PyTorch) and the
           release (the runtime). That can no longer hold. <code>release_probe.py</code> compares the smoke test's
@@ -317,8 +338,8 @@
           optimised at session load, not in the stored file.</td></tr>
       <tr><td class="id">R5</td><td><strong>Memory on a 7.5 GB host.</strong></td>
         <td>The ML-6 deploy already fell short of the preflight's 5 GB. ORT's arena, or torch and a runtime loaded
-          side by side under D5 (a), could make it worse. Mitigation: peak RSS measured in P1 and at the smoke
-          test.</td></tr>
+          side by side under D5 (a), could make it worse. Mitigation: peak RSS measured in plan P0, in plan P4's
+          photo replay with both models loaded, and at the smoke test.</td></tr>
       <tr><td class="id">R6</td><td><strong>The iGPU path is unproven and costly to keep.</strong></td>
         <td>OpenCL needs a LiteRT accelerator built from source. It has to match the wheel it plugs into, and is
           rebuilt on every LiteRT upgrade. The 2022 driver, Alder Lake-N and Linux are all unreported. Silent
@@ -327,7 +348,8 @@
           <code>enforce_f32</code>, <code>is_fully_accelerated()</code> and D7's gate. The time and peak RSS
           count from a cold start. The sandbox changes are tried in the smoke-test unit first. A WebGPU run that
           cannot open the GPU may land on llvmpipe, Mesa's CPU renderer, without failing (2.4). Each GPU run logs
-          the adapter it got and refuses llvmpipe.</td></tr>
+          the adapter it got and refuses llvmpipe, and proves the GPU computed with the i915 counters in sysfs
+          (frequency and idle time), not only that the device was opened (D14).</td></tr>
     </tbody>
   </table></div>
 
@@ -340,7 +362,11 @@
           memory. (c) A later move to inference in the visitor's browser. The answer sets what P1 measures and
           what counts as success. (c) would publish the weights (the DINOv3 License; the XL0 encoder alone is
           about 450 MB), so it would be its own ticket.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a) and (b), owner 2026-10-13.</strong> Latency comes first: D15's margin is on the photo
+          replay's time. Memory and the release's size count too: plan P4 reports each cell's peak RSS and drop in
+          <code>MemAvailable</code> with both models loaded, and P5 sets them, with each runtime's install size,
+          beside the deploy preflight's 5 GB. (b)'s larger saving, dropping torch, waits on D5. (c) stays out
+          of scope.</td></tr>
       <tr><td class="id">D2</td><td>ONNX Runtime or LiteRT?</td>
         <td>(a) ONNX Runtime for both models. (b) LiteRT for both. (c) Measure both on the classifier in P1, with ORT
           for the segmenter regardless. Recommendation: (c), keeping (a) unless LiteRT is clearly faster.
@@ -361,22 +387,29 @@
           the head and the probe embeddings they were not fitted on. That is "an accurate method offline with a
           cheap one live", which <code>CODING_STANDARDS.md</code> rejects, unless int8 passes D7's gate unchanged.
           Fitting the head on int8 embeddings would move training onto the runtime, against D3. fp16 is excluded
-          (2.3). Recommendation: (a).</td>
-        <td>Open.</td></tr>
+          (2.3). Recommendation: (a). The concern is the head's and the probe's inputs, so it bears on DINOv3
+          more than on the XL0 encoder, whose output is thresholded into a mask. The plan measures an int8 encoder
+          for information (D14); this decision still says whether anything serves in int8.</td>
+        <td><strong>Decided after the measurements, owner 2026-10-13</strong> (option (c): fp32 now, then
+          whether an int8 XL0 encoder that passes D7 may serve, on plan P4's numbers). DINOv3 stays fp32. The owner
+          decides at plan P5, beside D2.</td></tr>
       <tr><td class="id">D5</td><td>Does torch stay in the release environment?</td>
         <td>(a) Keep it for pre- and post-processing (torchvision transforms, bilinear mask upsampling), so serving
           shares that code with training and the parity risks stay few. (b) Port those to numpy, PIL and OpenCV,
           and drop torch, torchvision, timm and segment-anything from <code>webapp/pyproject.toml</code>, saving
           about 200 MB of wheels and the torch import. The port would then be checked against the torch versions
           under D7. Recommendation: (a) in this ticket; (b) as a later phase once parity holds.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a) for now, owner 2026-10-13.</strong> torch stays for pre- and post-processing. The owner
+          will look at (b) again on the results (plan P5), since it is where D1 (b)'s larger saving lies.</td></tr>
       <tr><td class="id">D6</td><td>Where are the exported files made and kept?</td>
         <td>(a) A DVC stage exports them from the shipped checkpoints in the training environment and runs D7's
           check. The cards record each file's sha256, the exporter, the opset and the runtime version, and the
           release manifest copies them like the <code>.pt</code> files. (b) Exported at deploy time on the host.
           Recommendation: (a). The files are reproducible and checked before a deploy, and nothing builds models
           on the server.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a), owner 2026-10-13.</strong> A DVC stage in the training environment exports from the
+          shipped checkpoints and runs D7's check; the cards record each file's sha256, exporter, opset and runtime
+          version.</td></tr>
       <tr><td class="id">D7</td><td>What parity must an export reach to deploy?</td>
         <td>This is now the train/serve parity gate (D3). A proposal, on the 13 deploy fixtures and the validation
           photos:
@@ -386,8 +419,14 @@
             <li>the same top-1 and the same guard verdict on every photo, or each photo that changes answer listed
               for the owner to accept.</li>
           </ul>
+          Reported beside these bars, not gating (D14): the largest change in a class probability, the probe-score
+          change next to each photo's distance from 0.5, and the largest change in low-resolution mask logits
+          before the threshold. They show how close the other photos came to changing answer.
           The owner may set other bars.</td>
-        <td>Open.</td></tr>
+        <td><strong>The proposal, owner 2026-10-13</strong>, with photos that change answer listed, not
+          blocking: readout cosine &ge; 0.99999 and mask IoU &ge; 0.999 gate an export; a photo whose top-1 or
+          guard verdict changes is listed for the owner to accept, and the continuous measures are reported
+          beside them.</td></tr>
       <tr><td class="id">D8</td><td>How is LiteRT on <code>yappy</code>'s iGPU tested?</td>
         <td>The owner asked for OpenCL (2026-10-13). The wheel offers only WebGPU (2.4). Options:
           <ul>
@@ -420,7 +459,9 @@
           A cell fails unless it meets D7's parity and beats the PyTorch baseline's projected model time per
           photo; Claude's reading of "fail", for the owner to correct.</td>
         <td><strong>(b), owner 2026-10-13:</strong> "mark LiteRT via OpenCL as the last resort that we will try
-          only if all other ways fail". Plan P6, run only if P5 finds no passing cell and the owner says go.</td></tr>
+          only if all other ways fail". Plan P6, run only if P5 finds no passing cell and the owner says go.
+          Under D14, "beats" is timed by plan P4's photo replay, not the projected model time, and needs the
+          margin D15 sets.</td></tr>
       <tr><td class="id">D11</td><td>Does the site stay down during the comparison? (plan Q3)</td>
         <td>It was stopped on 2026-10-13 to free <code>yappy</code>. The runs in plan P2&ndash;P4 need the
           memory.</td>
@@ -436,6 +477,25 @@
           (2.36). <code>yappy</code> has the disk but 4 slow cores, and it is the live host.</td>
         <td><strong>The devcontainer, owner 2026-10-13:</strong> "build inside this container if necessary". The
           library must need no glibc above 2.36. No fallback build on <code>yappy</code>.</td></tr>
+      <tr><td class="id">D14</td><td>Are the inference review's findings taken into the plan?</td>
+        <td>A review of the ticket and plan, 2026-10-13, found ten gaps (plan, review callout): no baseline before
+          conversion; a low fp32 ceiling on the iGPU (2.2); OpenVINO's CPU path missing; int8 wrongly ruled out on
+          this CPU (2.4); a projected time that dropped the second encoder pass; a pass test with no margin;
+          GPU proof that ORT's spinning confounds; a stop where an exact bicubic rewrite exists; a blanket fp16
+          that is bound to overflow; and no continuous parity measures.</td>
+        <td><strong>Yes, all as recommended, owner 2026-10-13:</strong> "fix all findings as recommended". The plan
+          gains P0 (the baseline on <code>yappy</code>, with a stop if the models are under half of the time), the
+          OpenVINO provider on the CPU, ORT's fused DINOv3 graph, an int8 encoder for information, the exact
+          rewrites, mixed-precision fp16, GPU proof by the i915 counters, the photo replay and the continuous
+          measures. The margin of D10's test was plan Q5, now D15.</td></tr>
+      <tr><td class="id">D15</td><td>What gain makes a cell pass D10's test? (plan Q5)</td>
+        <td>Without a margin, any cell that meets D7 and is faster at all passes, so a 3% win would justify a new
+          runtime, a new parity regime and its upgrades. Recommendation: a per-photo replay p90 (plan P4, the
+          encoder counted twice) at least 25% below the baseline's, with the gap larger than the spread between
+          rounds for both cells. The bar assumes D1 (a), server latency.</td>
+        <td><strong>The recommendation, owner 2026-10-13:</strong> "your recommendations are good, use them as
+          answer". A cell passes if it meets D7 and its replay p90 is at least 25% below the PyTorch baseline's,
+          beyond the spread between rounds.</td></tr>
     </tbody>
   </table></div>
 
@@ -445,7 +505,8 @@
       <span class="result">2026-10-13: Intel N100, AVX2 and AVX-VNNI, no AVX-512 or AMX; its iGPU is visible to
       Vulkan through Mesa 22.3.6 (2.4).</span></span></li>
     <li><span class="box"></span><span>A per-stage PyTorch baseline is recorded at the release's thread count: XL0
-      resize, encoder, decoder and upsample, and DINOv3 per batch of 32 and 8, with peak RSS.</span></li>
+      resize, encoder, decoder and upsample, and DINOv3 per batch of 32 and 8, with peak RSS, beside the live
+      log's per-request split (plan P0).</span></li>
     <li><span class="box"></span><span>LiteRT on <code>yappy</code>'s iGPU is tested by D8's route. Both models
       run in fp32, and the report records whether each is fully accelerated, D7's parity, warm and cold-start
       times and peak RSS, beside the CPU numbers.</span></li>
@@ -467,6 +528,9 @@
     <li><span class="box"></span><span>If the iGPU is chosen, the service unit gets the GPU device and the
       <code>render</code> group, and its kernel caches go to a writable directory or are turned off. Every other
       sandbox line stays. <code>webapp/README.md</code> names the host's GPU driver as a deploy dependency.</span></li>
+    <li><span class="box"></span><span>The serving path loads and warms both models at worker start, not at the
+      first request as the segmenter does today, and the worker's boot time, kernel compilation included, is
+      reported against gunicorn's timeout.</span></li>
     <li><span class="box"></span><span>The current model's converted copy is deployed and the gates pass. The
       <code>latency_ms</code> from the app's log is reported before and after.</span></li>
   </ul>
@@ -477,12 +541,14 @@
       (D3).</li>
     <li>Inference in the visitor's browser. It would be its own ticket if D1 (c) is wanted.</li>
     <li>GPU serving and TensorRT (<a href="ticket_segmentation_mask.html">ML-2</a>, out of scope).</li>
-    <li>OpenVINO as the serving runtime, <code>torch.compile</code> and AOTInductor. They were not requested; a
-      ticket of their own if P1 disappoints. OpenVINO may join P1 as a comparator only (D8).</li>
+    <li>OpenVINO as a runtime of its own, <code>torch.compile</code> and AOTInductor. They were not requested; a
+      ticket of their own if the comparison disappoints. OpenVINO is measured as ORT's execution provider, on the
+      GPU and the CPU (D9, D14), and serving through it would be ORT under D2.</li>
     <li>Upgrading <code>yappy</code>'s GPU driver. If the 2022 driver blocks the test, that goes to the owner
       first.</li>
     <li>Running the segmenter once per upload instead of twice (<a
-      href="ticket_photos_and_answers_optimization.html">OPS-7</a>).</li>
+      href="ticket_photos_and_answers_optimization.html">OPS-7</a>). The plan's report shows what it would save
+      on each cell, beside the runtime's own gain.</li>
     <li>Changing either model, its input size or its patch count.</li>
   </ul>
 
@@ -536,6 +602,20 @@
       run beside its fp32 one.</div>
     <div><div class="when">2026-10-13</div>Owner answers plan Q1: LiteRT's OpenCL library, if ever needed, is built
       in the devcontainer (D13). The plan has no open question.</div>
+    <div><div class="when">2026-10-13</div>Inference review of the ticket and plan; owner: "fix all findings as
+      recommended" (D14). 2.2 gains what the app already times and the compute ceiling; 2.4 corrected: ORT has
+      AVX-VNNI int8 kernels, which this CPU can use. R1, R3, R5 and R6, D4, D7 and D10, the scope and the
+      out-of-scope list follow. Checked read-only on <code>yappy</code>: the i915 counters in sysfs are readable
+      without root; <code>intel_gpu_top</code>, <code>perf</code> and <code>turbostat</code> are not installed.
+      The plan gains P0 and the changes D14 lists; its Q5 (the margin for D10's test) is open.</div>
+    <div><div class="when">2026-10-13</div>Owner answers plan Q5 with the recommendation (D15): a cell passes if it
+      meets D7 and its replay p90 is at least 25% below the baseline's, beyond the spread between rounds. The plan
+      has no open question.</div>
+    <div><div class="when">2026-10-13</div>Owner decides D1: (a) and (b), latency first, then memory and the
+      release's size. D7: the proposal, with photos that change answer listed for the owner, not blocking. D4:
+      fp32 now; whether an int8 XL0 encoder may serve is decided on plan P4's numbers, at P5. D6: (a), a DVC stage
+      exports and checks. D5: (a) for now, to be looked at again on the results. The plan's P1 check, P5 report
+      (memory and size for D1 (b)) and P5 stop follow. D2 waits on the comparison.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

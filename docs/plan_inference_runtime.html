@@ -9,18 +9,18 @@
   <p class="lede">The order of work for <a href="ticket_inference_runtime.html">ticket ML-7</a>, first strand: how
     the two models run on <code>yappy</code>'s Intel iGPU through two runtimes, LiteRT and ONNX Runtime (ORT), on
     two GPU paths, Vulkan and OpenCL. Each runtime's CPU path and the current PyTorch serving are measured beside
-    them. Both models are converted once per format (<code>.tflite</code>, <code>.onnx</code>) and checked on the
+    them, and so is ORT's OpenVINO provider on the CPU. P0 first times where the 20&ndash;27 s per photo goes today. Both models are converted once per format (<code>.tflite</code>, <code>.onnx</code>) and checked on the
     CPU first, so every path of a runtime runs the same files on the same inputs. LiteRT on OpenCL needs a source
     build and is the last resort: tried only if every other cell fails (ticket D10). No phase changes what the site
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); no Q open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-13</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 can start; P6 runs only under D10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P0 can start; P6 runs only under D10</span></span></div>
   </div>
 
   <div class="callout info">
@@ -65,6 +65,52 @@
     </ol>
   </div>
 
+  <div class="callout info">
+    <p><strong>Review, 2026-10-13 (ticket D14).</strong> An inference review of this plan found it strong on
+      correctness checks and weak on two questions: where the time goes today, and whether this iGPU can win at
+      all. The owner had every finding folded in:</p>
+    <ol>
+      <li><b>Baseline first.</b> The ticket's R1 asks for a per-stage baseline before any integration work. The app
+        already logs <code>decode_ms</code>, <code>crop_detect_ms</code> and <code>inference_ms</code> per request
+        (<code>webapp/app.py</code>), and the segmenter times its resize, encoder, decoder and upsample
+        (<code>segment_beans.py</code>). P0 reads the first and runs the second, before any conversion.</li>
+      <li><b>The iGPU's ceiling is low in fp32.</b> These are estimates from public specifications, not
+        measurements. The CPU peaks at about 190 GFLOPS fp32 (4 Gracemont cores, 16 FLOP per cycle, about 2.9 GHz
+        on all cores). The iGPU peaks at about 290 (24 EUs, 16 FLOP per cycle, 750 MHz), or about 580 in fp16. The
+        two share a 6 W package budget and one memory bus. DINOv3 B/16 is about 17.6 GMAC per patch, so 40 patches
+        are about 1.4 TFLOP: at least 7.5 s on this CPU at full efficiency. So in fp32 a GPU cell may tie or
+        lose; the headroom is fp16 on the GPU and int8 on the CPU.</li>
+      <li><b>The likely-fastest CPU path was missing.</b> ORT's OpenVINO provider on the CPU joins P3 and P4, in
+        the venv P3 already builds. ORT's own CPU cell also runs a DINOv3 graph with ORT's transformer fusions
+        (P1), since the dynamo exporter leaves attention unfused.</li>
+      <li><b>int8 has a path on this CPU.</b> ORT's MLAS swaps in AVX-VNNI int8 kernels when the CPU has them
+        (<code>platform.cpp</code>), and the N100 does. An int8 XL0 encoder is measured for information only; it is
+        judged by mask IoU, and serving it stays with ticket D4. DINOv3 stays fp32 (D4's concern about the head and
+        probe).</li>
+      <li><b>A photo replay replaces the projected model time.</b> The projection left out the second segmenter
+        pass for <code>/crop</code> as "the same for every cell", but that pass is an encoder run, which differs per
+        cell. Summed per-graph medians also miss sustained clocks, both models in memory at once, and transfers
+        between stages. P4 times whole photos in one process, the encoder counted twice.</li>
+      <li><b>The pass test needs a margin.</b> "Beats the baseline" lets a 3% win through. Q5 set the bar
+        (ticket D15): a replay p90 at least 25% below the baseline's, beyond the spread between rounds.</li>
+      <li><b>Proof of the GPU, tightened.</b> ORT's thread pool spin-waits by default, which inflates CPU time on
+        a GPU run and takes power from the GPU on a 6 W chip; GPU cells turn it off. <code>strace</code> proves
+        only that the device was opened. Each run also samples the i915 counters in sysfs, which the deploy user
+        can read without root or a new package (read on <code>yappy</code> 2026-10-13: GPU frequency, RC6 idle
+        time, power-limit throttle flags; <code>intel_gpu_top</code>, <code>perf</code> and <code>turbostat</code>
+        are not installed).</li>
+      <li><b>Two exact rewrites instead of a stop.</b> The neck resizes to a fixed 64&times;64, so its bicubic step is a
+        constant linear map, written as two matmuls with torch's own coefficients. timm's 5-D qkv split is
+        rewritten in 4-D. Both are the same model, so ticket §4 holds, and both formats get them (P1).</li>
+      <li><b>fp16 that can answer a question.</b> A blanket fp16 copy predictably overflows in attention. The fp16
+        ONNX copies keep Softmax, LayerNorm and the attention-score MatMul in fp32 (P1); one blanket copy still
+        checks the NaN (ticket D12).</li>
+      <li><b>Continuous parity measures.</b> Top-1 and guard flips over 13 photos carry little weight. Every
+        parity report adds the largest change in a class probability, the probe-score change beside each photo's
+        distance from 0.5, and the largest change in low-resolution mask logits before the threshold.</li>
+    </ol>
+  </div>
+
   <h2>1. How each path reaches the GPU</h2>
   <p>All the GPU cells end at the same iGPU through the same kernel driver. What differs is the software between
     the runtime and the driver. "WebGPU" is a browser standard, but no browser is involved here: both runtimes
@@ -97,9 +143,11 @@
     resort rather than dropping it.</p>
 
   <h2>2. Phase order and why</h2>
-  <p>Conversion comes first and runs on the CPU. A <code>.tflite</code> or <code>.onnx</code> that already
+  <p>The baseline comes first: if the models are not most of the time per photo, no runtime fixes the latency,
+    and the owner hears that before any conversion. Conversion comes next and runs on the CPU. A
+    <code>.tflite</code> or <code>.onnx</code> that already
     disagrees with PyTorch on the CPU would make every GPU number for it meaningless, and both GPU paths of a
-    runtime run the same file. The Vulkan paths come next, then ORT's OpenCL path. None of the three needs a build.
+    runtime run the same file. The Vulkan paths come next, then ORT's OpenVINO provider on the GPU and the CPU. None of these needs a build.
     The measurement runs once, with every cell in one interleaved session, so that heat and clock speed affect
     them alike. P5 reports, and the owner chooses. P6, LiteRT on OpenCL, runs only if P5 finds that every other
     cell failed and the owner says go (D10). No phase changes a served number. New files go to the scratch
@@ -107,13 +155,15 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
     <tbody>
+      <tr><td class="id">P0</td><td>Where the time goes now: the app's request log, and the release's own code timed
+        per stage on the fixtures</td><td><code>yappy</code></td><td>no: measurements</td></tr>
       <tr><td class="id">P1</td><td>Both conversion environments, four <code>.tflite</code> and four
-        <code>.onnx</code> files, PyTorch reference outputs, CPU parity</td><td>local</td><td>no: new files
-        only</td></tr>
+        <code>.onnx</code> files plus their fp16, fused and int8 variants, PyTorch reference outputs, CPU
+        parity</td><td>local</td><td>no: new files only</td></tr>
       <tr><td class="id">P2</td><td>The Vulkan paths on <code>yappy</code>, LiteRT's and ORT's: run, on the GPU,
         fully accelerated</td><td><code>yappy</code></td><td>no</td></tr>
-      <tr><td class="id">P3</td><td>ORT's OpenCL path, through OpenVINO</td><td><code>yappy</code></td><td>no</td></tr>
-      <tr><td class="id">P4</td><td>The comparison run, six cells</td><td><code>yappy</code></td><td>no:
+      <tr><td class="id">P3</td><td>ORT's OpenVINO provider: the OpenCL path on the GPU, and the CPU</td><td><code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>The comparison run, seven cells, per graph and per photo</td><td><code>yappy</code></td><td>no:
         measurements</td></tr>
       <tr><td class="id">P5</td><td>Report; the owner chooses; the site restarted <span class="pill sm open">stop</span></td>
         <td>local, owner</td><td>no</td></tr>
@@ -168,13 +218,57 @@
           It shows what fp32 costs on this GPU and whether DINOv3 really returns NaN. fp16 is reported beside
           fp32 and judged by the same D7 measures; whether it could ever serve stays with ticket D4. Ticket
           D12.</td><td>P1, P4</td></tr>
+      <tr><td class="id">Q5</td><td>What gain makes a cell pass D10's test? Today any cell that meets D7 and is
+        faster than the baseline at all passes, so a 3% win would justify a new runtime, a new parity regime and
+        its upgrades. The bar rests on ticket D1, which is open; this assumes D1 (a), server latency.</td>
+        <td><span class="pill sm ok">Answered 2026-10-13</span> <strong>Owner:</strong> "your recommendations are
+          good, use them as answer". A cell passes if it meets D7 and its per-photo replay p90 (P4, encoder counted
+          twice) is at least 25% below the baseline's, with the gap larger than the spread between rounds for both
+          cells. 25% is a judgement: the smallest gain that clearly outweighs keeping a second runtime and its
+          parity check. Ticket D15.</td><td>P5</td></tr>
     </tbody>
   </table></div>
 
-  <h2>4. P1 &mdash; Convert both models to both formats and check them on the CPU</h2>
+  <h2>4. P0 &mdash; Where the time goes now</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>This covers the ticket's per-stage baseline (§7), and R1's "measure before any integration work". The
+    site is down (D11), so the host is quiet.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>The live record.</b> From the app's request log on <code>yappy</code>
+      (under the service's log directory), per endpoint (<code>/crop</code>, <code>/classify</code>): the median
+      and p90 of <code>latency_ms</code>, <code>decode_ms</code>, <code>crop_detect_ms</code> and
+      <code>inference_ms</code>, and the request count. It is read in place; only the aggregates leave the host,
+      to <code>analysis/ml7_gpu/baseline.json</code>.</span></li>
+    <li><span class="box"></span><span><b>The release's code, per stage.</b>
+      <code>analysis/ml7_gpu/baseline_stages.py</code>, run from <code>~/ml7/</code> with the live release's
+      own venv and code, read-only, at 4 threads, over the 13 photos in <code>webapp/deploy/fixtures.txt</code>,
+      two passes. Per photo it records:
+      <ul>
+        <li>the file decode;</li>
+        <li>the segmenter's own <code>timing_ms</code>: resize, encoder, decoder, upsample, and the rest of
+          <code>crop_detect</code> (fill and crop) by difference;</li>
+        <li>patch sampling and the eval transform;</li>
+        <li>DINOv3 per batch of 32 and of 8, and the head and guard;</li>
+        <li>the whole <code>/crop</code> and <code>/classify</code> paths, as the app calls them.</li>
+      </ul>
+      Also: the load time of each model (DINOv3 loads at worker start, <code>webapp/app.py</code>; the segmenter
+      at the first request, <code>coffeecv/infer.py</code> <code>_segmenter</code>), peak RSS, and the CPU clock
+      and package temperature sampled every 100 ms.</span></li>
+    <li><span class="box"></span><span>Checks: the stage times add up to within 10% of the whole paths, and the
+      whole paths sit within the live record's range or the gap is explained. The share of each photo's time
+      spent in the encoder (twice), the decoder and DINOv3 is stated.</span></li>
+    <li><span class="box"></span><span><b>Stop for the owner</b> if the three model stages together are under
+      half of the per-photo time. A runtime switch could then not fix the latency, and the owner decides whether
+      P1 goes ahead. Otherwise P1 starts.</span></li>
+  </ol>
+
+  <h2>5. P1 &mdash; Convert both models to both formats and check them on the CPU</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P0</span></div>
   </div>
   <p>The graphs are the models as served (ticket §4), cut where serving's own code already cuts them, and the
     same in both formats:</p>
@@ -189,6 +283,20 @@
     <li>LiteRT has no dynamic batch (litert-torch #870), so DINOv3 is converted at batch 8 (40 patches = 5 calls)
       and at batch 40 (1 call). The ONNX files use the same fixed batches, so the two runtimes run the same
       shapes.</li>
+    <li>Two exact rewrites in the export wrappers, the same in both formats:
+      <ul>
+        <li><b>The bicubic neck.</b> <code>SamNeck</code> resizes three stage outputs to a fixed 64&times;64
+          (<code>UpSampleLayer(size=(64, 64))</code>, bicubic, <code>align_corners=False</code>). Each resize is a
+          constant linear map, so it becomes <code>A_h &middot; X &middot; A_w&#7488;</code>. The matrices are made by
+          passing an identity through torch's own <code>F.interpolate</code>, so they carry torch's coefficient
+          (-0.75), coordinate mapping and edge clamping. Matmuls lower in every runtime, so LiteRT's missing
+          bicubic op and the settings of ONNX's cubic <code>Resize</code> no longer matter.</li>
+        <li><b>4-D attention.</b> timm's attention reshapes qkv to 5-D, which LiteRT's GPU cannot hold (ticket
+          2.4). The wrapper splits q, k and v first and reshapes each in 4-D.</li>
+      </ul>
+      Each rewritten module is checked against the original in torch 2.14 on the fixtures' inputs before export:
+      differences at float rounding only (max-abs under 1e-5 of the output's largest magnitude, on the neck
+      output and the readout).</li>
   </ul>
   <ol class="tasks">
     <li><span class="box"></span><span>Two uv projects, each with its own <code>pyproject.toml</code> and
@@ -221,23 +329,43 @@
       histogram, the opset, the file sizes and sha256. If an execution provider in P2 or P3 rejects opset 20,
       re-export at 18 and note it.</span></li>
     <li><span class="box"></span><span>fp16 copies of the four <code>.onnx</code> files, for ORT's WebGPU cell
-      (Q4). They are converted with <code>onnxconverter-common</code>'s <code>float16</code> converter with
+      (Q4), made with <code>onnxconverter-common</code>'s <code>convert_float_to_float16</code> and
       <code>keep_io_types=True</code>, so inputs and outputs stay fp32 and the scripts do not change. They are
-      not checked on the CPU, where ORT has no fp16 kernels.</span></li>
-    <li><span class="box"></span><span><b>The bicubic neck, in both formats.</b> If it does not convert exactly,
-      stop and report. It is not swapped for bilinear, which would be a different model (ticket §4). ONNX has a
-      cubic <code>Resize</code>; its coefficient must match torch's (-0.75), checked in the exported
-      graph.</span></li>
+      mixed precision: <code>op_block_list</code> is the converter's default list plus <code>Softmax</code>,
+      <code>LayerNormalization</code> (or the ops of a decomposed LayerNorm), and <code>node_block_list</code>
+      names the attention-score MatMul (q&middot;k&#7488;) of each block, found in the exported graph.
+      <code>op_block_list</code> replaces the default list rather than adding to it, so the default is passed
+      in explicitly. One blanket fp16 copy of <code>dino_b16_readout_b8</code>, nothing kept in fp32, answers
+      ticket D12's question of whether DINOv3 really returns NaN. None is checked on the CPU, where ORT has no fp16
+      kernels.</span></li>
+    <li><span class="box"></span><span><b>ORT's transformer fusions</b> for DINOv3:
+      <code>onnxruntime.transformers.optimizer.optimize_model(model_type="vit")</code> on both DINOv3 graphs, giving
+      <code>dino_b16_readout_b8.opt.onnx</code> and <code>_b40.opt.onnx</code>. Record which fusions applied
+      (attention, LayerNorm, GELU); the RoPE attention may not match ORT's patterns, and a no-op is reported as
+      one. They run on ORT's CPU provider only, beside the plain graphs.</span></li>
+    <li><span class="box"></span><span><b>An int8 XL0 encoder</b>, for information only (ticket D4 decides
+      serving): <code>xl0_encoder.int8.onnx</code>, static QDQ quantisation
+      (<code>onnxruntime.quantization.quantize_static</code>, per-channel weights), calibrated on the encoder
+      inputs of 32 photos from the segcrop stage's sessions under <code>dataset/</code>, spread across cameras,
+      none of them a fixture. DINOv3 is not quantised: D4's concern
+      is the head and the probe, fitted on fp32 embeddings.</span></li>
+    <li><span class="box"></span><span><b>The bicubic neck</b> goes through the matmul rewrite above in both
+      formats. If the rewrite does not match torch at float rounding, stop and report. It is never swapped for
+      bilinear, which would be a different model (ticket §4).</span></li>
     <li><span class="box"></span><span>CPU parity against <code>refs.npz</code>, with D7's measures: readout
       cosine and max-abs difference, mask IoU after the shared post-processing, top-1 and guard verdict per photo.
-      LiteRT runs on XNNPACK at 4 threads, ORT on its default CPU provider at 4 threads. The files, inputs and
-      references go to DVC, like the other analysis outputs.</span></li>
-    <li><span class="box"></span><span>Checks: all eight files convert, and CPU parity meets D7's proposal
-      (cosine &ge; 0.99999, IoU &ge; 0.999, no change of answer) for each, or the gap is reported with its cause
-      before P2.</span></li>
+      Beside them, the continuous measures: the largest change in a class probability, the change in the probe
+      score next to the photo's distance from the 0.5 threshold, and the largest change in the low-resolution
+      mask logits before the threshold. LiteRT runs on XNNPACK at 4 threads, ORT on its default CPU provider at 4
+      threads. The files, inputs and references go to DVC, like the other analysis outputs. The 13 fixtures serve
+      this comparison; the validation photos are for D7's gate in the release route.</span></li>
+    <li><span class="box"></span><span>Checks: all eight base files convert, and CPU parity meets D7 (cosine
+      &ge; 0.99999, IoU &ge; 0.999) for each, or the gap is reported with its cause before P2. Photos that change
+      top-1 or guard verdict are listed, not blocking (D7). The fused DINOv3 graphs and the int8 encoder are checked the same way and reported, pass or
+      fail; a failure drops that variant, not the phase.</span></li>
   </ol>
 
-  <h2>5. P2 &mdash; The Vulkan paths on <code>yappy</code></h2>
+  <h2>6. P2 &mdash; The Vulkan paths on <code>yappy</code></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
@@ -263,13 +391,26 @@
           <code>CpuOptions(num_threads=4)</code>), because the <code>hardware_accel=</code> shortcut silently sets
           1 CPU thread. It logs <code>is_fully_accelerated()</code>.</li>
         <li>ORT: <code>session.disable_cpu_ep_fallback=1</code>, so a graph that does not fit the GPU fails rather
-          than half-running on the CPU. It logs <code>get_providers()</code> and verbose node placement.</li>
+          than half-running on the CPU. It logs <code>get_providers()</code> and verbose node placement. On a GPU
+          provider it also sets <code>session.intra_op.allow_spinning=0</code> and
+          <code>session.inter_op.allow_spinning=0</code>: spin-waiting threads would inflate CPU time and take
+          power from the GPU, which shares the N100's 6 W budget.</li>
+        <li>A sampler thread in both scripts reads, every 100 ms, the i915 counters under
+          <code>/sys/class/drm/card0/gt/gt0/</code> (<code>rps_act_freq_mhz</code>, <code>rc6_residency_ms</code>,
+          <code>throttle_reason_pl1</code>), each core's <code>scaling_cur_freq</code> and the package
+          temperature. The deploy user can read all of them without root, and nothing is installed (checked on
+          <code>yappy</code> 2026-10-13).</li>
       </ul></span></li>
     <li><span class="box"></span><span>Prove the GPU ran, for each runtime. Use
       <code>VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json</code>, so llvmpipe is not on offer.
       <code>strace -f -e trace=openat</code> must show <code>libvulkan_intel.so</code> and
-      <code>/dev/dri/renderD128</code> opened. CPU time well below 4&times; wall time is the sanity check: llvmpipe
-      would keep all cores busy.</span></li>
+      <code>/dev/dri/renderD128</code> opened. That shows the device was opened, not that it computed, so the
+      counters must also show it: GPU frequency above zero and RC6 (idle) time rising by well under the wall time
+      while the timed calls run. CPU time against wall time is still logged; with spinning off, llvmpipe would
+      show as all cores busy.</span></li>
+    <li><span class="box"></span><span>If ORT refuses a graph with fallback off, run it once more with fallback
+      on, for diagnosis only: log which nodes went to the CPU and the time. That run is never a cell's
+      result.</span></li>
     <li><span class="box"></span><span>If LiteRT 2.3.0 crashes in WebGPU start-up (LiteRT #10446, fixed on
       2026-10-09 after 2.3.0), retry with the nightly wheel and note the version.</span></li>
     <li><span class="box"></span><span>Checks: each of the eight files runs on its runtime's Vulkan path. For
@@ -278,7 +419,7 @@
       WebGPU plugin, the readout's cosine shows whether it computes in fp32.</span></li>
   </ol>
 
-  <h2>6. P3 &mdash; ORT's OpenCL path, through OpenVINO</h2>
+  <h2>7. P3 &mdash; ORT's OpenVINO provider: the OpenCL path, and the CPU</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
@@ -287,31 +428,46 @@
     <li><span class="box"></span><span><code>~/ml7/venv_ort_openvino</code> with <code>onnxruntime-openvino</code>,
       which replaces <code>onnxruntime</code> in its venv. The <code>OpenVINOExecutionProvider</code> runs with
       <code>device_type="GPU"</code> and <code>load_config={"GPU": {"INFERENCE_PRECISION_HINT": "f32"}}</code>,
-      and <code>session.disable_cpu_ep_fallback=1</code> as in P2. Its kernel cache goes to
+      and <code>session.disable_cpu_ep_fallback=1</code> and spinning off as in P2. Its kernel cache goes to
       <code>~/ml7/cache/openvino</code>, and its cold starts are measured with the cache empty.</span></li>
     <li><span class="box"></span><span>Prove OpenCL ran: <code>strace</code> must show OpenVINO's GPU plugin,
-      NEO's <code>libigdrcl.so</code> and <code>/dev/dri/renderD128</code>.</span></li>
+      NEO's <code>libigdrcl.so</code> and <code>/dev/dri/renderD128</code>, and the i915 counters must show the
+      GPU busy, as in P2.</span></li>
+    <li><span class="box"></span><span><b>The same provider on the CPU</b>, in the same venv:
+      <code>device_type="CPU"</code>, <code>load_config={"CPU": {"INFERENCE_PRECISION_HINT": "f32"}}</code>,
+      4 threads. OpenVINO's CPU plugin is usually the fastest fp32 path on Intel CPUs, and it costs no new
+      package. It also runs the int8 encoder from P1, for information. Its outputs are checked against
+      <code>refs.npz</code> like every other cell's.</span></li>
     <li><span class="box"></span><span>If OpenVINO refuses driver 22.43, record the error and go to the owner. A
-      driver upgrade is out of scope (ticket), and P4 then runs without this cell, saying so.</span></li>
-    <li><span class="box"></span><span>Checks: the same as P2's, for the four <code>.onnx</code> files.</span></li>
+      driver upgrade is out of scope (ticket), and P4 then runs without the GPU cell, saying so. The CPU cell does
+      not depend on the driver.</span></li>
+    <li><span class="box"></span><span>Checks: the same as P2's, for the four <code>.onnx</code> files on the
+      GPU and on the CPU.</span></li>
   </ol>
 
-  <h2>7. P4 &mdash; The comparison run</h2>
+  <h2>8. P4 &mdash; The comparison run</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3, Q3, Q4</span></div>
   </div>
   <p>One session on <code>yappy</code>, with the webapp and nginx stopped and nothing else running. The cells are
     run in rotation, three rounds, so that clock speed and heat fall on all of them alike. Each cell is a fresh
-    process: one cold start, 3 warm-ups, then 20 timed runs.</p>
+    process: one cold start, 3 warm-ups, then 20 timed runs per graph. Then each cell replays whole photos (the
+    task below), which is what decides pass or fail. Every run keeps P2's sampler on.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Path</th><th>LiteRT (<code>.tflite</code>)</th><th>ONNX Runtime (<code>.onnx</code>)</th><th>Precision</th></tr></thead>
     <tbody>
       <tr><td class="id">Baseline</td><td colspan="2">PyTorch, the current serving: the release's own venv and code,
         read-only, at 4 threads.</td><td>fp32</td></tr>
-      <tr><td class="id">CPU</td><td>XNNPACK, 4 threads</td><td>default CPU provider, 4 threads</td><td>fp32</td></tr>
+      <tr><td class="id">CPU</td><td>XNNPACK, 4 threads</td><td>default CPU provider, 4 threads, DINOv3 plain
+        and fused (P1)</td><td>fp32</td></tr>
+      <tr><td class="id">CPU, OpenVINO</td><td>&mdash;</td><td>OpenVINO execution provider, CPU, 4
+        threads</td><td>fp32</td></tr>
+      <tr><td class="id">CPU, int8 encoder</td><td>&mdash;</td><td>the default provider and the OpenVINO provider
+        on the CPU, the encoder only; information, not a cell (D4)</td><td>int8</td></tr>
       <tr><td class="id">Vulkan</td><td><code>rt_vulkan</code> (the wheel's WebGPU library)</td>
-        <td><code>onnxruntime-ep-webgpu</code></td><td>fp32 and fp16 (Q4)</td></tr>
+        <td><code>onnxruntime-ep-webgpu</code></td><td>fp32, and fp16 (Q4): mixed copies, plus the blanket DINOv3
+        b8 copy once</td></tr>
       <tr><td class="id">OpenCL</td><td>Not run here: last resort (D10, P6)</td>
         <td>OpenVINO execution provider, GPU</td><td>fp32 and fp16 (Q4)</td></tr>
     </tbody>
@@ -326,20 +482,32 @@
         <li>CPU time against wall time;</li>
         <li>peak RSS, and the drop in <code>MemAvailable</code> (GPU memory is host memory);</li>
         <li>NaN or Inf in any output;</li>
-        <li>a 100-call stability run on the faster DINOv3 batch.</li>
+        <li>a 100-call stability run on the faster DINOv3 batch;</li>
+        <li>the sampler's CPU and GPU clocks, and whether the power-limit throttle fired.</li>
       </ul></span></li>
+    <li><span class="box"></span><span><b>The photo replay</b>, per cell, in one process that loads the encoder,
+      the decoder and DINOv3 together, at the DINOv3 batch that cell ran faster. For each of the 13 photos, as
+      serving runs them: encoder and decoder (the <code>/crop</code> pass), encoder and decoder again
+      (<code>/classify</code>; OPS-7 would remove one), then the 40 patches. Two passes over the photos. Record:
+      <ul>
+        <li>the time from loading to the first photo's answer (cold start, kernel compilation included);</li>
+        <li>per-photo wall time, median and p90, and the spread of the median between the three rounds;</li>
+        <li>peak RSS and the drop in <code>MemAvailable</code> with both models loaded (ticket R5);</li>
+        <li>the clocks and throttle flags across the replay, which runs past the N100's short turbo
+          window.</li>
+      </ul>
+      The baseline's replay is the same sequence through the release's PyTorch modules. Pre- and post-processing
+      stay out, as they are the same for every cell; P0 has their times, and the report adds them back to set each
+      cell beside the live latency.</span></li>
     <li><span class="box"></span><span>Parity is computed locally from the saved outputs with the repo's code,
-      against <code>refs.npz</code> and D7's measures, per photo.</span></li>
-    <li><span class="box"></span><span>Per photo, the encoder, decoder and 40 patches are added up into a
-      projected model time for each cell. It is labelled a projection: preprocessing, decoding and the second
-      segmenter pass for <code>/crop</code> are left out, and are the same for every cell.</span></li>
+      against <code>refs.npz</code>, per photo: D7's measures and the continuous measures from P1.</span></li>
     <li><span class="box"></span><span>Results go to <code>analysis/ml7_gpu/results.json</code> and the
       scripts to <code>analysis/ml7_gpu/</code>, committed. The raw outputs go to DVC.</span></li>
     <li><span class="box"></span><span>Checks: every cell either has its numbers or is marked failed, with the
       error. No GPU cell counts unless P2's or P3's proof of the GPU held in that session.</span></li>
   </ol>
 
-  <h2>8. P5 &mdash; Report, the owner's choice, the site back <span class="pill sm open">stop</span></h2>
+  <h2>9. P5 &mdash; Report, the owner's choice, the site back <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
@@ -347,24 +515,35 @@
   <ol class="tasks">
     <li><span class="box"></span><span><code>analysis/ml7_gpu/README.md</code>, written to these rules:
       <ul>
-        <li>one table: the six cells across, the graphs down, with time, parity and fully-on-device in each, and
-          the GPU cells' fp16 results beside their fp32 ones;</li>
-        <li>every photo that changes answer named;</li>
-        <li>for each cell other than the baseline, pass or fail by D10's test: it meets D7's parity and its
-          projected model time per photo beats the PyTorch baseline's;</li>
-        <li>what each cell costs to keep. LiteRT's Vulkan path comes with the wheel. ORT's two are pip packages: a
-          plugin, and a separate ORT build that bundles OpenVINO.</li>
+        <li>P0's breakdown first: where each photo's time goes today, live and on the fixtures;</li>
+        <li>one table: the seven cells across, the graphs and the photo replay down, with time, parity and
+          fully-on-device in each; the GPU cells' fp16 results beside their fp32 ones, and the fused DINOv3 and
+          int8 encoder rows marked as variants;</li>
+        <li>each cell's replay set beside the live latency: its replay plus P0's pre- and post-processing, against
+          the baseline's, and what OPS-7's single encoder pass would save on that cell;</li>
+        <li>every photo that changes answer named, and the continuous parity measures per cell;</li>
+        <li>for each cell other than the baseline, pass or fail by D10's test with Q5's margin;</li>
+        <li>what each cell costs to keep. LiteRT's Vulkan path comes with the wheel. ORT's three are pip packages:
+          a plugin, and a separate ORT build that bundles OpenVINO for the GPU and the CPU.</li>
+        <li>memory and size, for ticket D1 (b): each cell's installed size in its venv, and its replay peak RSS
+          and drop in <code>MemAvailable</code>, against the baseline's and the deploy preflight's 5 GB. The
+          release keeps torch (D5 (a)), so a runtime adds to the size; the report states what dropping torch
+          (D5 (b)) would save, for the owner's second look.</li>
+        <li>notes for the serving phases. Today the segmenter loads at the first request, inside its 30 s timeout;
+          a GPU runtime also compiles its kernels at every start. Serving must warm both models at worker start,
+          and the boot time is measured.</li>
       </ul></span></li>
     <li><span class="box"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
       and verify it (<code>scripts/deploy_webapp.sh --verify</code>), unless Q3 says otherwise. Log both in the
       ticket's Activity.</span></li>
     <li><span class="box"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
-      the device or the CPU (ticket D2, D8), and P6 is not run. If none passes, the owner decides whether P6 runs
+      the device or the CPU (ticket D2, D8), whether the int8 encoder may serve (D4), and whether D5 is
+      revisited; P6 is not run. If none passes, the owner decides whether P6 runs
       (D10). The phases that move serving (export in the release route, the gates, the sandbox) are written into
       this plan only after that.</span></li>
   </ol>
 
-  <h2>9. P6 &mdash; Last resort: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></h2>
+  <h2>10. P6 &mdash; Last resort: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started; runs only under D10</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5 (no cell passes, and the owner says go)</span></div>
@@ -384,28 +563,32 @@
       <code>LD_LIBRARY_PATH</code>.</span></li>
     <li><span class="box"></span><span>Prove OpenCL ran: <code>strace</code> must show
       <code>libLiteRtOpenClAccelerator.so</code>, <code>libOpenCL.so</code>, NEO's <code>libigdrcl.so</code> and
-      <code>/dev/dri/renderD128</code>, and no <code>libvulkan</code>.</span></li>
+      <code>/dev/dri/renderD128</code>, and no <code>libvulkan</code>; the i915 counters must show the GPU busy,
+      as in P2.</span></li>
     <li><span class="box"></span><span>If the library does not load with the wheel's <code>libLiteRt.so</code>,
       build <code>libLiteRt.so</code> at the same tag and use the pair. That pair, not the wheel, is then what is
       measured, and the report says so.</span></li>
-    <li><span class="box"></span><span>Measure it with P4's scripts and fields, in a session of its own, with the
-      PyTorch baseline run again beside it so the two are comparable. The site is stopped for that session only
+    <li><span class="box"></span><span>Measure it with P4's scripts and fields, the photo replay included, in a
+      session of its own, with the PyTorch baseline run again beside it so the two are comparable. The site is stopped for that session only
       (Q3). Results are added to <code>results.json</code> and the README.</span></li>
     <li><span class="box"></span><span>Stop for the owner if the build fails after one working session, if it
       cannot fit in the devcontainer (Q1), or when the cell is measured: it passes or fails
-      by D10's test, and the owner decides.</span></li>
+      by D10's test with Q5's margin, and the owner decides.</span></li>
   </ol>
 
-  <h2>10. Verification</h2>
+  <h2>11. Verification</h2>
   <ul class="checks">
+    <li><span class="box"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
+      whole paths within 10%, set beside the live log's aggregates.</span></li>
     <li><span class="box"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
-      outputs meet D7 against PyTorch 2.14 on the 13 fixtures.</span></li>
+      outputs meet D7 against PyTorch 2.14 on the 13 fixtures; the two rewrites matching torch at float rounding;
+      the fused and int8 variants reported pass or fail.</span></li>
     <li><span class="box"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
-      by <code>strace</code>, not by "no error".</span></li>
-    <li><span class="box"></span><span>P4: every cell measured or marked failed; parity computed with the repo's
-      code.</span></li>
-    <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test; the site answers on the
-      domain again.</span></li>
+      by <code>strace</code> and the i915 counters, not by "no error".</span></li>
+    <li><span class="box"></span><span>P4: every cell measured or marked failed, per graph and in the photo replay;
+      parity computed with the repo's code.</span></li>
+    <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test with Q5's margin; the site
+      answers on the domain again.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -442,10 +625,30 @@
     <div><div class="when">2026-10-13</div>Owner answers Q1: if P6 runs, LiteRT's OpenCL library is built in the
       devcontainer (ticket D13). There is no fallback build on <code>yappy</code>; P6 stops for the owner if the
       build cannot fit here. No question is open.</div>
+    <div><div class="when">2026-10-13</div>Inference review of the plan; owner: "fix all findings as
+      recommended" (ticket D14). Added P0, the baseline on <code>yappy</code> before any conversion, with a stop if
+      the models are under half of each photo's time. P1 gains the exact bicubic and 4-D attention rewrites
+      instead of a stop, mixed-precision fp16 copies with one blanket DINOv3 copy, ORT's fused DINOv3 graphs, an
+      int8 encoder for information, and continuous parity measures. P2 and P3 turn off ORT's spinning on the GPU
+      and prove GPU use with the i915 counters in sysfs, which the deploy user can read (checked on
+      <code>yappy</code>: no <code>intel_gpu_top</code>, <code>perf</code> or <code>turbostat</code>). P3 adds
+      the OpenVINO provider on the CPU, so P4 compares seven cells. P4's photo replay replaces the projected model
+      time, with the encoder counted twice. Q5 opened: the margin for D10's test. Phases renumbered.</div>
+    <div><div class="when">2026-10-13</div>Owner answers Q5 with the recommendation: a cell passes if it meets D7
+      and its replay p90 is at least 25% below the baseline's, beyond the spread between rounds (ticket D15). No
+      question is open.</div>
+    <div><div class="when">2026-10-13</div>Owner decides ticket D1 (a and b), D4 (at P5, on P4's numbers), D5 (a,
+      for now), D6 (a) and D7 (photos that change answer listed, not blocking). P1's check follows D7. P5 reports
+      each cell's installed size and memory against the 5 GB preflight for D1 (b), and its stop now includes D4
+      and a second look at D5.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
     <a href="agents/deploy.md">deploy.md</a>, <code>webapp/deploy/fixtures.txt</code>, <a
+    href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/mlas/lib/platform.cpp">ORT's MLAS
+    dispatch (AVX-VNNI)</a>, <a
+    href="https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py">onnxconverter-common
+    float16</a>, <a
     href="https://github.com/google-ai-edge/LiteRT/blob/main/litert/runtime/accelerators/gpu_registry.cc">LiteRT's GPU
     accelerator loader</a>, <a
     href="https://github.com/google-ai-edge/LiteRT/blob/main/litert/runtime/accelerators/gpu/BUILD">LiteRT GPU
