@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 in progress, P3 and P4's tooling started 2026-10-13</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -373,7 +373,7 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Scratch directory <code>~/ml7/</code> on <code>yappy</code> as
+    <li><span class="box done"></span><span>Scratch directory <code>~/ml7/</code> on <code>yappy</code> as
       <code>coffee-deploy</code> (already in <code>render</code>). It holds the P1 files and one uv venv per
       stack. Nothing goes under <code>/opt/coffee-cv</code>.
       <ul>
@@ -381,10 +381,10 @@
         <li><code>venv_ort_webgpu</code>: <code>onnxruntime</code> (1.24.4 or later) and
           <code>onnxruntime-ep-webgpu==0.4.0</code>.</li>
       </ul></span></li>
-    <li><span class="box"></span><span>LiteRT's runtime directory <code>~/ml7/rt_vulkan/</code>: the wheel's
+    <li><span class="box done"></span><span>LiteRT's runtime directory <code>~/ml7/rt_vulkan/</code>: the wheel's
       <code>libLiteRt.so</code> and <code>libLiteRtWebGpuAccelerator.so</code>, and no other GPU
       library.</span></li>
-    <li><span class="box"></span><span><code>analysis/ml7_gpu/run_litert.py</code> and
+    <li><span class="box done"></span><span><code>analysis/ml7_gpu/run_litert.py</code> and
       <code>analysis/ml7_gpu/run_ort.py</code>: one graph, one path, one precision per process. Both log the same
       fields: cold start (time to the first output, kernel compilation included), warm times, CPU time against
       wall time and peak RSS. Both save the outputs to an <code>.npz</code>.
@@ -403,17 +403,17 @@
           temperature. The deploy user can read all of them without root, and nothing is installed (checked on
           <code>yappy</code> 2026-10-13).</li>
       </ul></span></li>
-    <li><span class="box"></span><span>Prove the GPU ran, for each runtime. Use
+    <li><span class="box done"></span><span>Prove the GPU ran, for each runtime. Use
       <code>VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json</code>, so llvmpipe is not on offer.
       <code>strace -f -e trace=openat</code> must show <code>libvulkan_intel.so</code> and
       <code>/dev/dri/renderD128</code> opened. That shows the device was opened, not that it computed, so the
       counters must also show it: GPU frequency above zero and RC6 (idle) time rising by well under the wall time
       while the timed calls run. CPU time against wall time is still logged; with spinning off, llvmpipe would
       show as all cores busy.</span></li>
-    <li><span class="box"></span><span>If ORT refuses a graph with fallback off, run it once more with fallback
+    <li><span class="box done"></span><span>If ORT refuses a graph with fallback off, run it once more with fallback
       on, for diagnosis only: log which nodes went to the CPU and the time. That run is never a cell's
       result.</span></li>
-    <li><span class="box"></span><span>If LiteRT 2.3.0 crashes in WebGPU start-up (LiteRT #10446, fixed on
+    <li><span class="box done"></span><span>If LiteRT 2.3.0 crashes in WebGPU start-up (LiteRT #10446, fixed on
       2026-10-09 after 2.3.0), retry with the nightly wheel and note the version.</span></li>
     <li><span class="box"></span><span>Checks: each of the eight files runs on its runtime's Vulkan path. For
       each, the log records whether it ran fully on the GPU (if not, which ops fell back or why the session
@@ -748,6 +748,41 @@
           this int8 encoder cannot serve; one that keeps LiteMLA's division in fp32 was not tried. P4 runs without it.</li>
         <li>The fp16 copies are not checked on the CPU (ORT has no fp16 kernels there); P2 does. Times taken in the
           devcontainer, with other jobs running, are not measurements.</li>
+      </ul></div>
+    <div><div class="when">2026-10-13</div>P2 in progress on <code>yappy</code> (site down, D11). The instruments
+      (<code>5227986</code>, <code>702546d</code>): <code>run_litert.py</code>, <code>run_ort.py</code> and
+      <code>cellrun.py</code>, whose sampler runs as a child process (in-process, LiteRT's GIL starved it to one
+      sample) and reads RC6 at the timed window's ends. <code>strace</code> is not on the host, so the proof reads
+      the process's own <code>/proc/self/maps</code> and <code>/proc/self/fd</code> instead: the Intel Vulkan
+      driver mapped, a render node open, no llvmpipe, and the i915 counters showing the GPU busy at least half the
+      window. The CPU cells' GPU idle about 98% is the negative control. P1's files reached the host over its slow
+      link (about 240 KiB/s) as zstd level-19 copies, rsync deltas where a twin was already there. Findings so
+      far (<code>63392c9</code>, <code>a4e109d</code>):
+      <ul>
+        <li><b>ORT's WebGPU plugin refused DINOv3</b> with CPU fallback off: the exporter writes
+          <code>chunk</code> and <code>tensor_split</code> as <code>SplitToSequence</code>/<code>SequenceAt</code>,
+          which it has no kernels for. With fallback on, for diagnosis, 23.6 s a photo, the GPU 66% busy.
+          <code>sequences_to_slices</code> writes each as a <code>Slice</code>, graph only: the weights are
+          byte-identical and the outputs bit-identical on ORT's CPU. It also made the fp16 DINOv3 copies load.</li>
+        <li><b>LiteRT's WebGPU delegate placed 55 of the encoder's 310 ops on the GPU</b>: it refuses a constant on
+          a <code>BATCH_MATMUL</code>'s left (P1's bicubic neck, <code>A_h X</code>) and LiteMLA's pad with ones
+          (<code>PADV2</code>), found by probing each form alone on the host. The encoder ran on the CPU fallback
+          (4.2 s, GPU 7% busy; the proof failed, as it should). <code>litert_gpu_forms</code> writes both in forms it
+          takes, <code>(X<sup>T</sup> A_h<sup>T</sup>)<sup>T</sup></code> and a concatenated row of ones, for
+          LiteRT's conversion only; CPU parity holds. Its GPU cell is rerun.</li>
+        <li><b><code>is_fully_accelerated()</code> is not trusted</b>: it said true for a probe the delegate had
+          split 1 GPU op to 2 CPU ops. <code>run_litert.py</code> records the delegate's own report instead.</li>
+        <li><b>The fp16 decoder did not load</b>: onnxconverter-common left four scalar <code>Cast</code>s at float
+          and typed their outputs fp16. <code>retype_casts</code> fixes them (constants 1024, 2, 1, exact in fp16),
+          and every fp16 copy is now loaded on ORT's CPU when written.</li>
+        <li><b>Results so far</b> (warm, per photo; parity D7 against <code>refs.npz</code>): decoder, every fp32
+          cell passes, about 0.07&ndash;0.12 s; the encoder on ORT WebGPU 4.77 s, the GPU 99.5% busy and the CPU
+          idle (CPU/wall 0.02), passing D7; DINOv3 on LiteRT Vulkan 10.95 s at batch 8 and 13.2 s at batch 40, the
+          GPU 98% busy, least cosine 1.0000000; PyTorch takes 6.5 s and 21.8 s. Short cells run at the boosted
+          clock, so P4 decides.</li>
+        <li><b>fp16, for information</b> (D4, D12): every fp16 cell fails D7. LiteRT's fp16 DINOv3 returns NaN
+          (5.8 s); ORT's mixed copy does not (cosine 0.99976, 9.9 s), nor its blanket copy (0.99929); ORT's
+          mixed fp16 encoder returns NaN.</li>
       </ul></div>
   </div>
 
