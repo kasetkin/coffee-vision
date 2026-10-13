@@ -325,16 +325,16 @@
 
   <h2>9. P7 &mdash; Paired comparison and the choice <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-13: paired-report per batch done; the owner judges 71 pairs (142 masks)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-13: <code>cee942b</code>; the owner judged 142 masks; report in <code>analysis/ml6_p7_paired/</code>; waits on the owner&rsquo;s choice and D7</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6 <span class="tag">D6 decided</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box done"></span><span>Test-first: <code>paired-report</code> gives each model's test-negative rates
       per batch and tag as well as overall (R1).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: <code>seg_review paired --session ml6_test --masks
+    <li><span class="box done"></span><span>Stop for the owner: <code>seg_review paired --session ml6_test --masks
       data/seg_masks_ml5/xl0_v2 data/seg_masks_ml5/xl0_v3</code> on the 71 test positives (D6 (a)), served from
       this host.</span></li>
-    <li><span class="box"></span><span><code>paired-report</code> into <code>analysis/ml6_p7_paired/</code>: both
+    <li><span class="box done"></span><span><code>paired-report</code> into <code>analysis/ml6_p7_paired/</code>: both
       pass, v2 only, v3 only, both fail, exact McNemar p, and the negatives per batch. If the owner then re-derives
       the threshold (D7), <code>--chosen</code> gives it. The report says that v3 differs from v2 in its data and its augmentation, so it names
       the better model and not the cause (R8).</span></li>
@@ -440,6 +440,11 @@
       of 81 validation negatives empty or tiny (67/68 real-world, 1/3 <code>other_nuts_seeds</code>), score 0.959.
       Not comparable with XL0-v2's card: another validation set. Test predictions stored at 4 threads. No test
       number is looked at before P7.</div>
+    <div><div class="when">2026-10-13</div>P7. The owner judged the 71 test positives blind and paired (142
+      masks). Positives: XL0-v2 68/71, XL0-v3 66/71, discordant 3 against 1, McNemar p 0.625. Test negatives empty
+      or tiny: XL0-v2 58/153, XL0-v3 140/153 (paired by photo 4 against 86, p 4e-21); real-world 24/113 against
+      108/113; same-rig confusable grain 15/15 against 12/15. D7 preview: 0.064511 under XL0-v3, unchanged under
+      XL0-v2. <code>analysis/ml6_p7_paired/summary.txt</code>. Waits on the owner: which model, and D7.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6 ticket</a>,

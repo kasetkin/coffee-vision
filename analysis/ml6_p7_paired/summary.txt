@@ -1,0 +1,25 @@
+ML-6 P7: XL0-v2 against XL0-v3 on the segmenter test split (D6 (a)). The owner judged both models' masks of the
+71 test positives blind and paired (session ml6_test, 142 masks, no identical pair); the 153 test negatives are
+scored by the serving tiny-mask threshold 0.040223. report.json is `seg_review paired-report`'s output.
+
+Test positives, accepted by the owner
+  pool                 n=34   both pass 34                                         v2 34/34   v3 34/34
+  segmenter_positive   n=37   both pass 31, v2 only 3, v3 only 1, both fail 2      v2 34/37   v3 32/37
+  overall              n=71   both pass 65, v2 only 3, v3 only 1, both fail 2      v2 68/71   v3 66/71
+  exact McNemar p = 0.625: no evidence either way.
+  v2 only: PXL_20260724_114729110.RAW-01.jpg, PXL_20260724_114930003.RAW-01.jpg, PXL_20261008_074913048.jpg
+  v3 only: PXL_20260824_174917686.jpg; both fail: internet_beans_002.jpg, internet_beans_003.jpg
+
+Test negatives, empty or tiny (< 0.040223)
+  all                                          v2  58/153   v3 140/153
+  user_realworld / real_world_negatives        v2  24/113   v3 108/113
+  2026-09-11__user_samerig / confusable_grain  v2  15/15    v3  12/15
+  2026-09__internet_proxy, six tags            v2  19/25    v3  20/25   (per tag in report.json)
+  paired by photo: v2 only 4, v3 only 86, exact McNemar p = 4.3e-21. The 4 photos only v2 leaves empty or tiny
+  are confusable grain: 3 same-rig (PXL_20260911_062220520, _111923713, _111934828) and confusable_grain_014.
+
+D7 preview (half the smallest accepted test-positive mask, ML-2 D18): under v2 0.040223 (unchanged), under v3
+0.064511. At 0.064511 v3 has 141/153 negatives empty or tiny (v2 63/153); 2 test positives fall under either value.
+
+R8: XL0-v3 differs from XL0-v2 in its training data (pass 3, 443 more negatives) and its augmentation (D12), so
+this names the better model on test, not the cause.

@@ -18,7 +18,7 @@
     taken except D7, which waits for XL0-v3's test results; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D22 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-10; 2026-10-11: the four new photos stripped and in DVC, the strip extended (D10); 2026-10-12: D9 decided (this host), the 2026-10-12 positives taken out, their pool copies stripped and in DVC, D12 (augmentation on the fly), D13&ndash;D16 from the plan's Qs; D1&ndash;D6, D8, D11, D17&ndash;D22 decided, D7 deferred to P7; <a href="plan_segmenter_retrain.html">planned</a>; 2026-10-12: P1 (the append, <code>5a3bfcf</code>), P3 (<code>956362a</code>) and P5 (<code>f8fb363</code>) done, P2 measured, the owner's go to train given (D2), pass 3 labelled (P4: 211 accepted, 2 dropped); XL0-v3 trained (P6: epoch 9, validation mean IoU 0.955, 78/81 validation negatives empty or tiny); P7 compared (positives 68/71 against 66/71, p 0.625; test negatives 58/153 against 140/153), the owner's choice and D7 pending</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter dataset append, segmenter fine-tune</span></div>
@@ -555,6 +555,10 @@
     <div><div class="when">2026-10-13</div>XL0-v3 fine-tuned (P6): epoch 9 of 17 chosen on validation, mean IoU
       0.955 and 78 of 81 validation negatives empty or tiny. Its test masks are stored; the model and masks are on
       the remote. Next: the blind paired comparison with XL0-v2 (P7, D6).</div>
+    <div><div class="when">2026-10-13</div>The owner judged the paired test session (D6). XL0-v2 against XL0-v3:
+      test positives 68/71 against 66/71 (p 0.625); test negatives empty or tiny 58/153 against 140/153, with
+      XL0-v3 worse only on 4 confusable-grain photos, 3 of them same-rig. The ticket waits on the owner's choice
+      and D7.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="ticket_segmenter_dataset.html">ML-5</a> and its <a href="plan_segmenter_dataset.html">plan</a>,

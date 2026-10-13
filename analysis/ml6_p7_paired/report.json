@@ -1,0 +1,135 @@
+{
+  "models": [
+    "xl0_v2",
+    "xl0_v3"
+  ],
+  "min_area_frac": 0.040223,
+  "groups": {
+    "pool": {
+      "n": 34,
+      "both pass": 34,
+      "xl0_v2 only": 0,
+      "xl0_v3 only": 0,
+      "both fail": 0,
+      "xl0_v2 pass": 34,
+      "xl0_v3 pass": 34,
+      "mcnemar_p": 1.0
+    },
+    "segmenter_positive": {
+      "n": 37,
+      "both pass": 31,
+      "xl0_v2 only": 3,
+      "xl0_v3 only": 1,
+      "both fail": 2,
+      "xl0_v2 pass": 34,
+      "xl0_v3 pass": 32,
+      "mcnemar_p": 0.625
+    },
+    "overall": {
+      "n": 71,
+      "both pass": 65,
+      "xl0_v2 only": 3,
+      "xl0_v3 only": 1,
+      "both fail": 2,
+      "xl0_v2 pass": 68,
+      "xl0_v3 pass": 66,
+      "mcnemar_p": 0.625
+    }
+  },
+  "negatives": {
+    "xl0_v2": {
+      "n": 153,
+      "empty": 33,
+      "empty_or_tiny": 58,
+      "by_batch": {
+        "2026-09-11__user_samerig / confusable_grain": {
+          "n": 15,
+          "empty": 15,
+          "empty_or_tiny": 15
+        },
+        "2026-09__internet_proxy / confusable_grain": {
+          "n": 9,
+          "empty": 7,
+          "empty_or_tiny": 7
+        },
+        "2026-09__internet_proxy / empty_tray": {
+          "n": 3,
+          "empty": 3,
+          "empty_or_tiny": 3
+        },
+        "2026-09__internet_proxy / ground_coffee": {
+          "n": 4,
+          "empty": 4,
+          "empty_or_tiny": 4
+        },
+        "2026-09__internet_proxy / non_food_objects": {
+          "n": 3,
+          "empty": 1,
+          "empty_or_tiny": 2
+        },
+        "2026-09__internet_proxy / other_nuts_seeds": {
+          "n": 5,
+          "empty": 2,
+          "empty_or_tiny": 3
+        },
+        "2026-09__internet_proxy / wrong_bean_type": {
+          "n": 1,
+          "empty": 0,
+          "empty_or_tiny": 0
+        },
+        "user_realworld / real_world_negatives": {
+          "n": 113,
+          "empty": 1,
+          "empty_or_tiny": 24
+        }
+      }
+    },
+    "xl0_v3": {
+      "n": 153,
+      "empty": 43,
+      "empty_or_tiny": 140,
+      "by_batch": {
+        "2026-09-11__user_samerig / confusable_grain": {
+          "n": 15,
+          "empty": 8,
+          "empty_or_tiny": 12
+        },
+        "2026-09__internet_proxy / confusable_grain": {
+          "n": 9,
+          "empty": 5,
+          "empty_or_tiny": 7
+        },
+        "2026-09__internet_proxy / empty_tray": {
+          "n": 3,
+          "empty": 2,
+          "empty_or_tiny": 3
+        },
+        "2026-09__internet_proxy / ground_coffee": {
+          "n": 4,
+          "empty": 1,
+          "empty_or_tiny": 4
+        },
+        "2026-09__internet_proxy / non_food_objects": {
+          "n": 3,
+          "empty": 0,
+          "empty_or_tiny": 3
+        },
+        "2026-09__internet_proxy / other_nuts_seeds": {
+          "n": 5,
+          "empty": 2,
+          "empty_or_tiny": 3
+        },
+        "2026-09__internet_proxy / wrong_bean_type": {
+          "n": 1,
+          "empty": 0,
+          "empty_or_tiny": 0
+        },
+        "user_realworld / real_world_negatives": {
+          "n": 113,
+          "empty": 25,
+          "empty_or_tiny": 108
+        }
+      }
+    }
+  }
+}
