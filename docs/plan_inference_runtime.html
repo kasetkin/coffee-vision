@@ -850,6 +850,12 @@
       The review's code smells (duplicated runner shapes across <code>run_ort.py</code>,
       <code>run_litert.py</code> and <code>p4_graph.py</code>; string-typed devices) are left: analysis code,
       each script runnable alone on the host.</div>
+    <div><div class="when">2026-10-13</div>Second P4 rehearsal, on the reviewed tooling (<code>1150ebd</code>):
+      clean. No process failed; every cell and variant has its records, the blanket fp16 copy included; every
+      replay passes D7 on its 2 photos and every GPU cell proves its GPU. Times within 3% of the first rehearsal.
+      One cell shows why the replay batch is now fixed in round 1: LiteRT's CPU chose batch 40 in the first
+      rehearsal and batch 8 in this one (0.02% apart a patch). P4 is ready to run; it waits for Q6 and for the DVC
+      push to <code>dvcnewremote</code> to end.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
