@@ -4,3 +4,4 @@
 /run_litert/.venv/
 /scratch/
 /artifacts
+/run_ort_webgpu/.venv/

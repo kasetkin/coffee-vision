@@ -1,31 +1,44 @@
-"""ML-7: LiteRT on make_refs.py's inputs, one cell per process; the outputs for parity.py. P1 runs the CPU (XNNPACK);
-P2 adds the GPU paths to this same script. The run_litert environment (ai-edge-litert 2.3.0, plan P2's runtime):
+"""ML-7: LiteRT on make_refs.py's inputs, one graph, one accelerator, one precision per process (plan P2); the
+outputs for parity.py and a record of the cell (cellrun.measure). The run_litert environment (ai-edge-litert 2.3.0):
 
-    analysis/ml7_gpu/run_litert/.venv/bin/python analysis/ml7_gpu/run_litert.py --model-dir <dir> \\
-        --inputs inputs.npz --dino dino_b8.tflite --encoder encoder.tflite --decoder decoder.tflite \\
-        --threads 4 --out outputs_litert_cpu.npz
+    <venv>/bin/python run_litert.py --model-dir <dir> --inputs inputs.npz --refs refs.npz --graph dino \\
+        --file dino_b8.tflite --accelerator gpu --runtime-dir ~/ml7/rt_vulkan --precision fp32 \\
+        --threads 4 --out <name>.npz
 
-Options are passed in full: the hardware_accel= shortcut silently sets one CPU thread (plan P2). Any of --dino,
---encoder and --decoder may be left out; the decoder reads this run's encoder output when there is one, else
-the PyTorch embeddings in --refs. A graph's inputs and outputs are taken in its signature's order, which
-litert-torch writes in the wrapper's argument and return order.
+  --accelerator cpu   LiteRT's CPU accelerator (XNNPACK underneath); P1
+  --accelerator gpu   GPU with CPU fallback for ops the GPU lacks; is_fully_accelerated() says whether any fell
+                      back. The GPU library comes from --runtime-dir, which holds libLiteRt.so and exactly one GPU
+                      library (rt_vulkan: the wheel's libLiteRtWebGpuAccelerator.so; plan P2). --precision fp32
+                      sets GpuOptions(enforce_f32=True): without it LiteRT's GPU computes in fp16 (ticket 2.4, D12).
+
+Options are passed in full: the hardware_accel= shortcut silently sets one CPU thread. --graph dino runs each
+photo's 40 patches at the file's batch; encoder each photo's image; decoder each photo's PyTorch embedding
+(refs) with its box. Inputs and outputs follow the signature's order, which litert-torch writes in the wrapper's
+argument and return order.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import time
+import sys
 from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cellrun  # noqa: E402
+
 
 class Graph:
-    def __init__(self, path: Path, threads: int):
-        from ai_edge_litert.compiled_model import CompiledModel, CpuOptions, HardwareAccelerator, Options
-        self.path = path
-        self.model = CompiledModel.from_file(str(path), options=Options(
-            hardware_accelerators=HardwareAccelerator.CPU, cpu_options=CpuOptions(num_threads=threads)))
+    def __init__(self, path: Path, threads: int, accelerator: str, fp32: bool, runtime_dir: Path | None):
+        from ai_edge_litert.compiled_model import (CompiledModel, CpuOptions, Environment, EnvironmentOptions,
+                                                   GpuOptions, HardwareAccelerator, Options)
+        hw = HardwareAccelerator.CPU if accelerator == "cpu" else HardwareAccelerator.GPU | HardwareAccelerator.CPU
+        options = Options(hardware_accelerators=hw, cpu_options=CpuOptions(num_threads=threads),
+                          gpu_options=GpuOptions(enforce_f32=fp32) if accelerator == "gpu" else None)
+        env = (Environment.create(options=EnvironmentOptions(runtime_path=str(runtime_dir)))
+               if runtime_dir else None)
+        self.model = CompiledModel.from_file(str(path), environment=env, options=options)
         sig = self.model.get_signature_by_index(0)
         key = sig.get("key") or list(self.model.get_signature_list())[0]
         self.outputs = self.model.get_output_tensor_details(key)
@@ -45,60 +58,81 @@ class Graph:
             out.append(buf.read(int(np.prod(shape)), np.float32).reshape(shape))
         return out
 
-    @property
-    def fully_accelerated(self) -> bool:
-        return bool(self.model.is_fully_accelerated())
+
+def gpu_path(runtime_dir: Path) -> str:
+    """Which GPU path a runtime directory holds: "vulkan" (the wheel's WebGPU library) or "opencl" (P6's build)."""
+    libs = {p.name for p in runtime_dir.iterdir()}
+    if "libLiteRtWebGpuAccelerator.so" in libs:
+        return "vulkan"
+    if libs & {"libLiteRtOpenClAccelerator.so", "libLiteRtGpuAccelerator.so"}:
+        return "opencl"
+    raise SystemExit(f"run_litert: no GPU library in {runtime_dir}")
 
 
-def run(args) -> tuple[dict, dict]:
-    import ai_edge_litert
-    inputs = dict(np.load(args.inputs, allow_pickle=False))
-    out, info = {}, {"ai_edge_litert": getattr(ai_edge_litert, "__version__", "?"), "threads": args.threads,
-                     "accelerator": "CPU"}     # LiteRT's CPU accelerator, XNNPACK underneath
-    if args.dino:
-        g = Graph(args.model_dir / args.dino, args.threads)
-        batch = g.input_shapes[0][0]
-        t0 = time.perf_counter()
-        out["readouts"] = np.stack([np.concatenate([g(p[i:i + batch])[0] for i in range(0, len(p), batch)])
-                                    for p in inputs["patches"]])
-        info["dino"] = {"file": args.dino, "batch": batch, "seconds": round(time.perf_counter() - t0, 1),
-                        "fully_accelerated": g.fully_accelerated}
-    if args.encoder:
-        g = Graph(args.model_dir / args.encoder, args.threads)
-        t0 = time.perf_counter()
-        out["embeddings"] = np.stack([g(x)[0] for x in inputs["images"]])
-        info["encoder"] = {"file": args.encoder, "seconds": round(time.perf_counter() - t0, 1),
-                           "fully_accelerated": g.fully_accelerated}
-    if args.decoder:
-        emb = out.get("embeddings")
-        if emb is None:
-            if args.refs is None:
-                raise SystemExit("run_litert: --decoder needs --encoder or --refs for its input")
-            emb = np.load(args.refs, allow_pickle=False)["embeddings"]
-            info["decoder_input"] = "PyTorch embeddings (refs)"
-        g = Graph(args.model_dir / args.decoder, args.threads)
-        res = [g(e, b) for e, b in zip(emb, inputs["boxes"])]
-        out["low_masks"] = np.stack([r[0][0] for r in res])
-        out["ious"] = np.stack([r[1][0] for r in res])
-        info["decoder"] = {"file": args.decoder, "fully_accelerated": g.fully_accelerated}
-    return out, info
+def items_and_call(graph: str, inputs: dict, refs: dict | None):
+    if graph == "dino":
+        def call(g, p):
+            b = g.input_shapes[0][0]
+            return np.concatenate([g(p[i:i + b])[0] for i in range(0, len(p), b)])
+        return list(inputs["patches"]), call
+    if graph == "encoder":
+        return list(inputs["images"]), lambda g, x: g(x)[0]
+    if refs is None:
+        raise SystemExit("run_litert: --graph decoder needs --refs for its PyTorch embeddings")
+    return list(zip(refs["embeddings"], inputs["boxes"])), lambda g, eb: g(eb[0], eb[1])
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model-dir", type=Path, required=True)
     ap.add_argument("--inputs", type=Path, required=True)
-    ap.add_argument("--refs", type=Path, default=None, help="for the decoder's input when --encoder is not given")
-    ap.add_argument("--dino")
-    ap.add_argument("--encoder")
-    ap.add_argument("--decoder")
+    ap.add_argument("--refs", type=Path, default=None)
+    ap.add_argument("--graph", choices=("dino", "encoder", "decoder"), required=True)
+    ap.add_argument("--file", required=True)
+    ap.add_argument("--accelerator", choices=("cpu", "gpu"), required=True)
+    ap.add_argument("--runtime-dir", type=Path, default=None, help="the GPU library's directory (rt_vulkan)")
+    ap.add_argument("--precision", choices=("fp32", "fp16"), default="fp32", help="the GPU's (enforce_f32)")
     ap.add_argument("--threads", type=int, required=True)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    out, info = run(args)
+    import ai_edge_litert
+
+    if args.accelerator == "gpu" and args.runtime_dir is None:
+        ap.error("--accelerator gpu needs --runtime-dir")
+    path = gpu_path(args.runtime_dir) if args.accelerator == "gpu" else None
+    inputs = dict(np.load(args.inputs, allow_pickle=False))
+    refs = dict(np.load(args.refs, allow_pickle=False)) if args.refs else None
+    items, call = items_and_call(args.graph, inputs, refs)
+    sampler = cellrun.Sampler()
+    sampler.start()
+    graphs = []
+
+    def make():
+        graphs.append(Graph(args.model_dir / args.file, args.threads, args.accelerator, args.precision == "fp32",
+                            args.runtime_dir))
+        return graphs[0]
+    try:
+        outs, record = cellrun.measure(make, call, items, sampler, path)
+    finally:
+        sampler.stop()
+    if args.graph == "dino":
+        out = {"readouts": np.stack(outs)}
+    elif args.graph == "encoder":
+        out = {"embeddings": np.stack(outs)}
+    else:
+        out = {"low_masks": np.stack([o[0][0] for o in outs]), "ious": np.stack([o[1][0] for o in outs])}
+    record.update(runtime="litert", ai_edge_litert=getattr(ai_edge_litert, "__version__", "?"),
+                  accelerator=args.accelerator, path=path, precision=args.precision,
+                  runtime_dir=str(args.runtime_dir) if args.runtime_dir else None,
+                  fully_accelerated=bool(graphs[0].model.is_fully_accelerated()), graph=args.graph, file=args.file,
+                  batch=graphs[0].input_shapes[0][0], threads=args.threads)
     np.savez(args.out, **out)
-    args.out.with_suffix(".json").write_text(json.dumps(info, indent=2) + "\n")
-    print(json.dumps(info))
+    args.out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
+    t = record["timing"]
+    print(json.dumps({"file": args.file, "accelerator": args.accelerator, "precision": args.precision,
+                      "cold_s": t["cold_s"], "warm_median_s": t["warm"]["median"],
+                      "fully_accelerated": record["fully_accelerated"], "cpu_over_wall": record["cpu_over_wall"],
+                      "gpu_proof": record.get("gpu_proof", {}).get("ok")}))
 
 
 if __name__ == "__main__":

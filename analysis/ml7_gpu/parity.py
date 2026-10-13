@@ -49,7 +49,7 @@ def gate(rows: list[dict]) -> dict:
     D18 verdict changed, listed (not blocking)."""
     least_cos = _least([r["least_cosine"] for r in rows if r.get("least_cosine") is not None])
     least_iou = _least([r["mask_iou"] for r in rows if r.get("mask_iou") is not None])
-    finite = not any(r.get("nan_or_inf") or r.get("low_nan_or_inf") for r in rows)
+    finite = not any(r.get("nan_or_inf") or r.get("low_nan_or_inf") or r.get("embedding_nan_or_inf") for r in rows)
     measured = least_cos is not None or least_iou is not None
     ok = (measured and finite and (least_cos is None or least_cos >= COSINE_MIN)
           and (least_iou is None or least_iou >= IOU_MIN))       # a NaN fails both comparisons
@@ -102,8 +102,31 @@ def _fallback(mask: np.ndarray, seg) -> bool:
     return bool(mask_and_crop(np.zeros((*mask.shape, 3), np.uint8), mask, seg.p).info["fallback"])
 
 
+def decode_with_pytorch(embeddings: np.ndarray, refs: dict, seg) -> dict:
+    """A runtime's encoder embeddings through the repo's own PyTorch decoder (BeanSegmenter._decode), so an encoder
+    run alone is judged on the masks it leads to."""
+    import torch
+    pr = seg.predictor
+    low, ious = [], []
+    with torch.inference_mode():
+        for emb, size, orig in zip(embeddings, refs["input_size"], refs["original_size"]):
+            pr.reset_image()
+            pr.features = torch.from_numpy(np.ascontiguousarray(emb))
+            pr.input_size, pr.original_size = tuple(int(v) for v in size), tuple(int(v) for v in orig)
+            pr.is_image_set = True
+            m, i = seg._decode(int(orig[0]), int(orig[1]), multimask=True)
+            low.append(m.numpy())
+            ious.append(i.numpy())
+    return {"low_masks": np.stack(low), "ious": np.stack(ious)}
+
+
 def compare(refs: dict, got: dict, context) -> dict:
-    """Per-photo measures and D7's gate. `context` gives the repo's head, guard and segmenter (make_refs.Context)."""
+    """Per-photo measures and D7's gate. `context` gives the repo's head, guard and segmenter (make_refs.Context).
+    An encoder run alone (embeddings, no masks) is decoded by PyTorch's decoder first."""
+    decoded_by = None
+    if "embeddings" in got and "low_masks" not in got:
+        got = {**got, **decode_with_pytorch(got["embeddings"], refs, context.seg)}
+        decoded_by = "pytorch"
     rows = []
     names = [str(n) for n in refs["photos"]]
     for i, name in enumerate(names):
@@ -121,6 +144,10 @@ def compare(refs: dict, got: dict, context) -> dict:
                 row.update(guard=a_ref["method"], guard_score_change=a_got["score"] - a_ref["score"],
                            guard_distance_from_threshold=a_ref["score"] - a_ref["threshold"],
                            verdict_same=a_ref["refused"] == a_got["refused"])
+        if "embeddings" in got:
+            e_ref, e_got = refs["embeddings"][i], got["embeddings"][i]
+            row.update(embedding_rel_max_change=float(np.abs(e_got - e_ref).max() / np.abs(e_ref).max()),
+                       embedding_nan_or_inf=bool(not np.isfinite(e_got).all()), decoded_by=decoded_by)
         if "low_masks" in got:
             low_ref, low_got = refs["low_masks"][i], got["low_masks"][i]
             m_got = _final_mask(low_got[2], refs["input_size"][i], refs["original_size"][i], context.seg)  # multi3

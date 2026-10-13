@@ -1,0 +1,14 @@
+# ML-7 P2: ONNX Runtime with its WebGPU plugin (Dawn on Vulkan), plan P2's venv_ort_webgpu. Runtime only.
+#     uv lock --project analysis/ml7_gpu/run_ort_webgpu
+#     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/run_ort_webgpu/.venv uv sync --locked --project analysis/ml7_gpu/run_ort_webgpu
+# Set UV_PROJECT_ENVIRONMENT every time: the devcontainer points it at the training venv.
+[project]
+name = "ml7-run-ort-webgpu"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = ["onnxruntime>=1.24.4", "onnxruntime-ep-webgpu==0.4.0", "numpy"]
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
