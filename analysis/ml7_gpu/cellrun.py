@@ -1,7 +1,7 @@
 """ML-7 P2-P4: what every runtime cell records beside its outputs. Standard library only, so each runtime's venv
 can import it as it is (run_ort.py, run_litert.py).
 
-  Sampler      every 0.1 s: the mean CPU clock, the package temperature, MemAvailable, and the iGPU's i915
+  Sampler      every 0.1 s, from a child process: the mean CPU clock, the package temperature, MemAvailable, and the iGPU's i915
                counters under /sys/class/drm/card*/gt/gt0/: its actual clock (rps_act_freq_mhz), its RC6 idle time
                (rc6_residency_ms) and the PL1 power-limit throttle flag (throttle_reason_pl1). The deploy user can
                read all of them without root (plan P2, read on yappy 2026-10-13).
@@ -14,9 +14,9 @@ can import it as it is (run_ort.py, run_litert.py).
 """
 from __future__ import annotations
 
+import os
 import resource
 import statistics
-import threading
 import time
 from pathlib import Path
 from typing import NamedTuple
@@ -52,10 +52,10 @@ class Sample(NamedTuple):
     pl1: int | None
 
 
-class Sampler(threading.Thread):
-    def __init__(self, period: float = 0.1):
-        super().__init__(daemon=True)
-        self.period, self.samples = period, []
+class Probe:
+    """The counters' files, found once; read() is one Sample."""
+
+    def __init__(self):
         self._freqs = sorted(Path("/sys/devices/system/cpu").glob("cpu[0-9]*/cpufreq/scaling_cur_freq"))
         self._temp = next((z / "temp" for z in sorted(Path("/sys/class/thermal").glob("thermal_zone*"))
                            if _read(z / "type") == "x86_pkg_temp"), None)
@@ -63,9 +63,11 @@ class Sampler(threading.Thread):
         self.gt = str(gt) if gt else None
         self._gpu = {k: (gt / f) if gt else None for k, f in
                      (("mhz", "rps_act_freq_mhz"), ("rc6", "rc6_residency_ms"), ("pl1", "throttle_reason_pl1"))}
-        self._halt = threading.Event()    # not `_stop`: threading.Thread has a method of that name
 
-    def _sample(self) -> Sample:
+    def rc6_ms(self) -> int | None:
+        return _int(self._gpu["rc6"])
+
+    def read(self) -> Sample:
         freqs = [int(v) / 1e3 for f in self._freqs if (v := _read(f)) is not None]
         temp = _int(self._temp)
         mem = next((round(int(ln.split()[1]) / 1024) for ln in (_read(Path("/proc/meminfo")) or "").splitlines()
@@ -74,17 +76,58 @@ class Sampler(threading.Thread):
                       temp / 1e3 if temp is not None else None, mem,
                       _int(self._gpu["mhz"]), _int(self._gpu["rc6"]), _int(self._gpu["pl1"]))
 
-    def run(self) -> None:
-        while not self._halt.is_set():
-            self.samples.append(self._sample())
-            self._halt.wait(self.period)
+
+class Sampler:
+    """Samples every `period` s from a child process (this file run as a script), so a runtime whose native calls
+    hold the interpreter lock (LiteRT's do) cannot starve it. perf_counter is CLOCK_MONOTONIC on Linux, the same
+    clock in both processes, so the child's timestamps compare with the parent's."""
+
+    def __init__(self, period: float = 0.1):
+        self.period, self.samples = period, []
+        self.gt = Probe().gt
+        self._proc = None
+        self._file = None
+
+    def start(self) -> None:
+        import subprocess
+        import sys
+        import tempfile
+        fd, self._file = tempfile.mkstemp(prefix="ml7_samples_", suffix=".jsonl")
+        os.close(fd)
+        self._proc = subprocess.Popen([sys.executable, __file__, "--sample", self._file, str(self.period)])
+
+    @property
+    def pid(self) -> int | None:
+        return self._proc.pid if self._proc else None
+
+    def _load(self) -> None:
+        import json
+        if self._file and os.path.exists(self._file):
+            with open(self._file) as f:          # a line still being written is skipped
+                self.samples = [Sample(*json.loads(line)) for line in f if line.endswith("\n")]
 
     def stop(self) -> None:
-        self._halt.set()
-        self.join()
+        self._proc.terminate()
+        self._proc.wait()
+        self._load()
+        os.unlink(self._file)
+        self._file = None
 
     def between(self, t0: float, t1: float) -> dict:
+        self._load()                                 # the samples so far, while the child still runs
         return summarise(self.samples, t0, t1)
+
+
+def _sample_forever(path: str, period: float) -> None:
+    import json
+    import signal
+    import sys
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    probe = Probe()
+    with open(path, "a", buffering=1) as f:
+        while True:
+            f.write(json.dumps(list(probe.read())) + "\n")
+            time.sleep(period)
 
 
 def summarise(samples: list[Sample], t0: float, t1: float) -> dict:
@@ -159,18 +202,21 @@ def measure(make, call, items: list, sampler: Sampler, path: str | None) -> tupl
     """One cell: make() the session, call(session, item) on every item in turn (the first is the cold call), and
     record the timing, CPU time against wall time and the counters over the warm calls, peak RSS, what the
     process loaded and, on a GPU `path` ("vulkan", "opencl"), gpu_proof. Returns (outputs, record)."""
+    probe = Probe()
     t0 = time.perf_counter()
     session = make()
     create_s = time.perf_counter() - t0
     outputs, call_s, warm0, cpu0 = [], [], None, None
     for i, item in enumerate(items):
         if i == 1:
-            warm0, cpu0 = time.perf_counter(), cpu_seconds()
+            warm0, cpu0, rc6_0 = time.perf_counter(), cpu_seconds(), probe.rc6_ms()
         t = time.perf_counter()
         outputs.append(call(session, item))
         call_s.append(time.perf_counter() - t)
-    warm1, cpu1 = time.perf_counter(), cpu_seconds()
+    warm1, cpu1, rc6_1 = time.perf_counter(), cpu_seconds(), probe.rc6_ms()
     counters = sampler.between(warm0, warm1) if warm0 is not None else None
+    if counters is not None and rc6_0 is not None and rc6_1 is not None:
+        counters["rc6_ms_delta"] = rc6_1 - rc6_0     # cumulative: exact over the window, however few samples
     seen = loaded()
     record = {"timing": timing(create_s, call_s), "calls_s": [round(c, 3) for c in call_s],
               "cpu_over_wall": round((cpu1 - cpu0) / (warm1 - warm0), 2) if warm0 is not None else None,
@@ -178,3 +224,9 @@ def measure(make, call, items: list, sampler: Sampler, path: str | None) -> tupl
     if path is not None:
         record["gpu_proof"] = gpu_proof(seen, counters or {}, path)
     return outputs, record
+
+
+if __name__ == "__main__":       # the Sampler's child: cellrun.py --sample <file> <period>
+    import sys
+    if sys.argv[1:2] == ["--sample"]:
+        _sample_forever(sys.argv[2], float(sys.argv[3]))

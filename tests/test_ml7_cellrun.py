@@ -60,6 +60,23 @@ class Timing(unittest.TestCase):
         self.assertEqual(t["warm"]["median"], 2.5)
 
 
+class SamplerProcess(unittest.TestCase):
+    def test_samples_arrive_from_a_separate_process(self):
+        import os
+        import time
+        s = cr.Sampler(period=0.05)
+        s.start()
+        t0 = time.perf_counter()
+        time.sleep(0.5)
+        t1 = time.perf_counter()
+        time.sleep(0.15)
+        live = s.between(t0, t1)["samples"]          # while it runs, as cellrun.measure reads it
+        s.stop()
+        self.assertNotEqual(s.pid, os.getpid())
+        self.assertGreaterEqual(live, 5)                # the child's clock is the parent's
+        self.assertEqual(s.between(t0, t1)["samples"], live)
+
+
 class Between(unittest.TestCase):
     def test_counters_between_two_instants(self):
         s = [cr.Sample(t=0.0, cpu_mhz=2000, temp_c=50.0, mem_available_mb=6000, gpu_mhz=0, rc6_ms=100, pl1=0),
