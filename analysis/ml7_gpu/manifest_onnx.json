@@ -12,7 +12,7 @@
       "Cast": 147,
       "CastLike": 24,
       "Concat": 101,
-      "Constant": 396,
+      "Constant": 789,
       "Conv": 1,
       "Expand": 2,
       "Gather": 1,
@@ -24,22 +24,21 @@
       "Neg": 24,
       "ReduceMean": 1,
       "Reshape": 197,
-      "SequenceAt": 132,
-      "Slice": 49,
+      "Slice": 181,
       "Softmax": 12,
-      "SplitToSequence": 60,
       "Transpose": 109
     },
     "files": {
       "dino_b8.onnx": {
-        "bytes": 1718886,
-        "sha256": "cbf48f49adefde3b812e130aa303d655d7e96590fb0f20ce1dad66621e4e4499"
+        "bytes": 1563688,
+        "sha256": "2cd1b63e5b26852dd0bd9a63ba359cbcdc8343b2287efcf4f49bed918ca67a01"
       },
       "dino_b8.onnx.data": {
         "bytes": 342687744,
         "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
       }
-    }
+    },
+    "sequence_slices": 132
   },
   "dino_b40.onnx": {
     "file": "dino_b40.onnx",
@@ -53,7 +52,7 @@
       "Cast": 147,
       "CastLike": 24,
       "Concat": 101,
-      "Constant": 396,
+      "Constant": 789,
       "Conv": 1,
       "Expand": 2,
       "Gather": 1,
@@ -65,22 +64,21 @@
       "Neg": 24,
       "ReduceMean": 1,
       "Reshape": 197,
-      "SequenceAt": 132,
-      "Slice": 49,
+      "Slice": 181,
       "Softmax": 12,
-      "SplitToSequence": 60,
       "Transpose": 109
     },
     "files": {
       "dino_b40.onnx": {
-        "bytes": 1719352,
-        "sha256": "8bcf39bc1475e74e4ac639e7cdb6fb85963dcb1033a5076960b83bf179b177d1"
+        "bytes": 1564154,
+        "sha256": "81e7e620fef0cc00e3082350a545009210016b1e33aa648896f38a1f2e0d1564"
       },
       "dino_b40.onnx.data": {
         "bytes": 342687744,
         "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
       }
-    }
+    },
+    "sequence_slices": 132
   },
   "encoder.onnx": {
     "file": "encoder.onnx",
@@ -185,7 +183,7 @@
       "Cast": 287,
       "CastLike": 24,
       "Concat": 101,
-      "Constant": 396,
+      "Constant": 789,
       "Conv": 1,
       "Expand": 2,
       "Gather": 1,
@@ -197,22 +195,21 @@
       "Neg": 24,
       "ReduceMean": 1,
       "Reshape": 197,
-      "SequenceAt": 132,
-      "Slice": 49,
+      "Slice": 181,
       "Softmax": 12,
-      "SplitToSequence": 60,
       "Transpose": 109
     },
     "files": {
       "dino_b8.fp16.onnx": {
-        "bytes": 1773391,
-        "sha256": "c3adbbaa71862f0d0dd2cdd7f0bec165efa714e5b0e8cfae64d6ccaddd449258"
+        "bytes": 1618193,
+        "sha256": "79b78865d9e1eced672649909cc5de8a0a85641afa14edc78501efea259c932b"
       },
       "dino_b8.fp16.onnx.data": {
         "bytes": 171332608,
         "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
       }
     },
+    "sequence_slices": 132,
     "kept_fp32_ops": [
       "LayerNormalization",
       "ReduceMean",
@@ -232,7 +229,7 @@
       "Cast": 287,
       "CastLike": 24,
       "Concat": 101,
-      "Constant": 396,
+      "Constant": 789,
       "Conv": 1,
       "Expand": 2,
       "Gather": 1,
@@ -244,22 +241,21 @@
       "Neg": 24,
       "ReduceMean": 1,
       "Reshape": 197,
-      "SequenceAt": 132,
-      "Slice": 49,
+      "Slice": 181,
       "Softmax": 12,
-      "SplitToSequence": 60,
       "Transpose": 109
     },
     "files": {
       "dino_b40.fp16.onnx": {
-        "bytes": 1773870,
-        "sha256": "0549e1cfed6ff3691ed00b40f75c9fa73e8e47d9a3ceeb24368d07c4f866472a"
+        "bytes": 1618672,
+        "sha256": "59578bb23b0c1e59c7f670d38f4e02aeedee295de756196dae6d0ec446e59354"
       },
       "dino_b40.fp16.onnx.data": {
         "bytes": 171332608,
         "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
       }
     },
+    "sequence_slices": 132,
     "kept_fp32_ops": [
       "LayerNormalization",
       "ReduceMean",
@@ -388,7 +384,7 @@
       "Cast": 149,
       "CastLike": 24,
       "Concat": 101,
-      "Constant": 396,
+      "Constant": 789,
       "Conv": 1,
       "Expand": 2,
       "Gather": 1,
@@ -400,22 +396,21 @@
       "Neg": 24,
       "ReduceMean": 1,
       "Reshape": 197,
-      "SequenceAt": 132,
-      "Slice": 49,
+      "Slice": 181,
       "Softmax": 12,
-      "SplitToSequence": 60,
       "Transpose": 109
     },
     "files": {
       "dino_b8.fp16_blanket.onnx": {
-        "bytes": 1739892,
-        "sha256": "ca026c0c1a58169933f417882c3e2005a43ca9a9ce04c14316cfb7f424b4ac34"
+        "bytes": 1584694,
+        "sha256": "ac8d89917a0afe03fe7d06d3f0a86b9d52a9c1cd9af4999e1cba86f4b34ba4ec"
       },
       "dino_b8.fp16_blanket.onnx.data": {
         "bytes": 171332608,
         "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
       }
     },
+    "sequence_slices": 132,
     "kept_fp32_ops": [],
     "kept_fp32_attention_matmuls": 0
   },

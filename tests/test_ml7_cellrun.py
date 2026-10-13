@@ -16,6 +16,10 @@ cr = importlib.util.module_from_spec(_spec)
 sys.modules["cellrun"] = cr
 _spec.loader.exec_module(cr)
 
+_spec = importlib.util.spec_from_file_location("run_litert", REPO_ROOT / "analysis" / "ml7_gpu" / "run_litert.py")
+rl = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(rl)
+
 INTEL = "/usr/lib/x86_64-linux-gnu/libvulkan_intel.so"
 LLVMPIPE = "/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so"
 
@@ -50,6 +54,30 @@ class GpuProof(unittest.TestCase):
         self.assertTrue(ok["ok"])
         self.assertFalse(cr.gpu_proof({"libs": [INTEL], "render_nodes": ["/dev/dri/renderD128"]}, _busy(0.9),
                                       path="opencl")["ok"])
+
+
+class DelegateReport(unittest.TestCase):
+    """LiteRT's is_fully_accelerated() said True for a graph its WebGPU delegate had split 1 GPU op to 2 CPU ops
+    (probed on yappy, plan P2): the record reads the delegate's own report from the log instead."""
+
+    LOG = ("INFO: [gpu_environment.h:155] Created LiteRT GpuEnvironment.\n"
+           "ERROR: Following operations are not supported by GPU delegate:\n"
+           "BATCH_MATMUL: Not supported batched mat mul case: non-constant tensor\n"
+           "PADV2: src has wrong size.\n"
+           "55 operations will run on the GPU, and the remaining 255 operations will run on the CPU.\n"
+           "I0000 00:00:1791913806.814831   31720 delegate_kernel.cc:984] Initializing WebGPU-based API from graph.\n")
+
+    def test_a_split_graph(self):
+        r = rl.delegate_report(self.LOG)
+        self.assertEqual((r["gpu_ops"], r["cpu_ops"]), (55, 255))
+        self.assertEqual(r["refused"], ["BATCH_MATMUL: Not supported batched mat mul case: non-constant tensor",
+                                        "PADV2: src has wrong size."])
+        self.assertFalse(r["all_on_gpu"])
+
+    def test_no_report_is_a_whole_graph(self):
+        r = rl.delegate_report("INFO: [gpu_environment.h:155] Created LiteRT GpuEnvironment.\n")
+        self.assertTrue(r["all_on_gpu"])
+        self.assertEqual(r["refused"], [])
 
 
 class Timing(unittest.TestCase):

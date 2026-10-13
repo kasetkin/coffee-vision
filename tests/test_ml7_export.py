@@ -74,6 +74,42 @@ class BicubicAsMatmul(unittest.TestCase):
         self.assertLess(_rel_err(neck(xs), want), 1e-6)
 
 
+class LiteRtGpuForms(unittest.TestCase):
+    """LiteRT's WebGPU delegate refuses a constant on a BATCH_MATMUL's left and LiteMLA's pad with ones (PADV2;
+    probed on yappy 2026-10-13, plan P2): the encoder's forms it accepts, the same model at float rounding."""
+
+    @staticmethod
+    def _encoder_like():
+        from efficientvit.models.nn.ops import LiteMLA
+        torch.manual_seed(0)
+        m = torch.nn.Module()
+        m.att = LiteMLA(in_channels=32, out_channels=32, dim=8, scales=(5,))
+        m.up = graphs.MatmulResize((16, 16), (32, 32))
+        m.forward = lambda x: m.att(x) + m.up(x[:, :, ::2, ::2])
+        return m.eval()
+
+    def test_same_model_at_float_rounding(self):
+        m, x = self._encoder_like(), torch.randn(1, 32, 32, 32)
+        with torch.no_grad():
+            want = m(x)
+            self.assertEqual(graphs.litert_gpu_forms(m), {"linear_attention": 1, "resize": 1})
+            got = m(x)
+        self.assertLess(_rel_err(got, want), 1e-6)
+
+    def test_no_pad_with_ones_and_no_constant_on_a_matmul_left(self):
+        m = self._encoder_like()
+        graphs.litert_gpu_forms(m)
+        ep = torch.export.export(m, (torch.randn(1, 32, 32, 32),))
+        consts = set(ep.graph_signature.inputs_to_buffers) | set(ep.graph_signature.inputs_to_parameters)
+        for n in ep.graph.nodes:
+            if n.op != "call_function":
+                continue
+            name = str(n.target)
+            self.assertFalse("constant_pad_nd" in name and n.args[2:3] == (1.0,), n.format_node())
+            if "matmul" in name or "bmm" in name or name.endswith("mm.default"):
+                self.assertNotIn(getattr(n.args[0], "name", None), consts, n.format_node())
+
+
 @real_data   # builds a DINOv3 ViT-S (random weights) and traces it: a few seconds
 class FourDAttention(unittest.TestCase):
     @classmethod
@@ -119,6 +155,52 @@ class AttentionScoreMatmuls(unittest.TestCase):
                         ("av", "MatMul", ["a1", "v"], ["o"]),                     # attn @ v: not a score
                         ("lin", "Gemm", ["x", "w"], ["l"]), ("sm3", "Softmax", ["l"], ["p"]))
         self.assertEqual(export_onnx.attention_score_matmuls(g), ["dino_qk", "sam_qk"])
+
+
+def _have(module: str) -> bool:
+    return importlib.util.find_spec(module) is not None
+
+
+@unittest.skipUnless(_have("onnx") and _have("onnxruntime"), "onnx and onnxruntime: the convert_onnx environment")
+class SequencesToSlices(unittest.TestCase):
+    """ORT's WebGPU provider has no sequence kernels, so DINOv3's chunk and tensor_split (SplitToSequence read by
+    SequenceAt) become Slices (plan P2): the same tensors, exactly."""
+
+    @staticmethod
+    def _model(split, positions):
+        from onnx import TensorProto, helper
+        c = lambda name, v: helper.make_node("Constant", [], [name], value=helper.make_tensor(  # noqa: E731
+            name, TensorProto.INT64, [len(v)] if isinstance(v, list) else [], v if isinstance(v, list) else [v]))
+        nodes = [c("split", split), helper.make_node("SplitToSequence", ["x", "split"], ["seq"], axis=-1)]
+        for i, p in enumerate(positions):
+            nodes += [c(f"p{i}", p), helper.make_node("SequenceAt", ["seq", f"p{i}"], [f"y{i}"])]
+        nodes.append(helper.make_node("Concat", [f"y{i}" for i in reversed(range(len(positions)))], ["out"], axis=-1))
+        g = helper.make_graph(nodes, "g", [helper.make_tensor_value_info("x", TensorProto.FLOAT, [2, 7])],
+                              [helper.make_tensor_value_info("out", TensorProto.FLOAT, [2, None])])
+        return helper.make_model(g, opset_imports=[helper.make_opsetid("", 20)], ir_version=10)
+
+    @staticmethod
+    def _run(model, x):
+        import onnxruntime as ort
+        s = ort.InferenceSession(model.SerializeToString(), providers=["CPUExecutionProvider"])
+        return s.run(None, {"x": x})[0]
+
+    def test_equal_chunks_and_listed_sizes_give_the_same_tensors(self):
+        x = np.arange(14, dtype=np.float32).reshape(2, 7)
+        for split, positions in ((3, [0, 1, 2]), ([1, 2, 4], [2, 0, 1]), (3, [1])):
+            before = self._model(split, positions)
+            after = self._model(split, positions)
+            self.assertEqual(export_onnx.sequences_to_slices(after), len(positions))
+            self.assertFalse({n.op_type for n in after.graph.node} & {"SplitToSequence", "SequenceAt"})
+            np.testing.assert_array_equal(self._run(after, x), self._run(before, x))
+
+    def test_a_position_that_is_not_constant_is_refused(self):
+        from onnx import helper
+        m = self._model(3, [0])
+        m.graph.node[-2].input[1] = "x"                    # SequenceAt's position from a graph input
+        m.graph.node.insert(0, helper.make_node("Identity", ["x"], ["unused"]))
+        with self.assertRaises(ValueError):
+            export_onnx.sequences_to_slices(m)
 
 
 class Measures(unittest.TestCase):

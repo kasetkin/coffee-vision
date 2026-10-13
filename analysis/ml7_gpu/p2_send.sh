@@ -38,6 +38,10 @@ seed() {   # seed <twin> <path>: copy the twin on the host, then send <path> as 
   echo "sent $2 (delta on $1) $(date -Is)"
 }
 
+if [[ $# -gt 0 ]]; then   # these files only, after the run: p2_send.sh onnx/encoder.int8.onnx onnx/encoder.int8.onnx.data
+  until rsync -t "$S/SHA256SUMS" "$HOST:$R/SHA256SUMS"; do sleep 60; done
+  for f; do send "$f"; done; exit
+fi
 echo "start $(date -Is)"
 until rsync -t "$S/SHA256SUMS" "$HOST:$R/SHA256SUMS"; do sleep 60; done
 send refs_emb.npz

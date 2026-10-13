@@ -58,27 +58,30 @@
     "graph": "encoder",
     "ops": {
       "ADD": 32,
-      "BATCH_MATMUL": 14,
-      "CONCATENATION": 6,
+      "BATCH_MATMUL": 12,
+      "CONCATENATION": 12,
       "CONV_2D": 65,
       "DEPTHWISE_CONV_2D": 14,
       "DIV": 7,
-      "FULLY_CONNECTED": 2,
+      "FULLY_CONNECTED": 4,
       "GELU": 30,
       "MUL": 4,
       "PAD": 6,
-      "PADV2": 6,
       "RELU": 12,
-      "RESHAPE": 42,
+      "RESHAPE": 40,
       "SLICE": 30,
       "SQRT": 1,
       "SUB": 1,
       "SUM": 2,
-      "TRANSPOSE": 36
+      "TRANSPOSE": 38
     },
     "tensors_above_4d": [],
-    "bytes": 451770828,
-    "sha256": "a4626f2d58433cf5a735d0f2d236cb2e1872736eee9e12149e2b24ad787dc7a4"
+    "bytes": 451969396,
+    "sha256": "feaccd94af001b92f61422182090abacbb7fb05ff783c4d0101eb5105a88e966",
+    "litert_gpu_forms": {
+      "linear_attention": 6,
+      "resize": 2
+    }
   },
   "decoder.tflite": {
     "file": "decoder.tflite",

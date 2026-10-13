@@ -81,6 +81,71 @@ def export_base(module, args, path: Path, kind: str) -> None:
     # optimised graph returns NaN (found in P1). ORT optimises the graph at session load instead (ticket R4).
     prog = torch.onnx.export(module, args, dynamo=True, input_names=ins, output_names=outs, optimize=False)
     prog.save(str(path), external_data=True)
+    slice_sequences(path)
+
+
+def slice_sequences(path: Path) -> int:
+    """sequences_to_slices on a saved .onnx, in place: the graph is rewritten and its .data left byte-identical,
+    so a host that has the weights needs only the new .onnx. The number of SequenceAt replaced."""
+    import onnx
+    model = onnx.load(str(path), load_external_data=False)
+    n = sequences_to_slices(model)
+    if n:
+        onnx.save_model(model, str(path))
+    return n
+
+
+def _constant_ints(model, name: str) -> list[int] | int | None:
+    """An INT64 constant's value (a Constant node's or an initializer's): an int for a scalar, else a list."""
+    from onnx import numpy_helper
+    for n in model.graph.node:
+        if n.op_type == "Constant" and n.output[0] == name:
+            a = numpy_helper.to_array(n.attribute[0].t)
+            return int(a) if a.ndim == 0 else [int(v) for v in a]
+    for t in model.graph.initializer:
+        if t.name == name:
+            a = numpy_helper.to_array(t)
+            return int(a) if a.ndim == 0 else [int(v) for v in a]
+    return None
+
+
+def sequences_to_slices(model) -> int:
+    """Each SplitToSequence (the exporter's chunk and tensor_split) and the SequenceAt nodes that read it, as one
+    Slice per SequenceAt: the same tensors, in ops ORT's WebGPU provider has (it has no sequence kernels; plan
+    P2). In place, the graph only: initializers and their external data are untouched. Returns the number of
+    SequenceAt replaced; refuses a split or position that is not a constant."""
+    from onnx import TensorProto, helper
+    splits = {n.output[0]: n for n in model.graph.node if n.op_type == "SplitToSequence"}
+    nodes, done = [], 0
+    for n in model.graph.node:
+        if n.op_type == "SplitToSequence":
+            continue
+        if n.op_type != "SequenceAt" or n.input[0] not in splits:
+            if set(n.input) & splits.keys():
+                raise ValueError(f"{n.name}: a {n.op_type} reads a sequence; only SequenceAt is rewritten")
+            nodes.append(n)
+            continue
+        split = splits[n.input[0]]
+        axis = next((a.i for a in split.attribute if a.name == "axis"), 0)
+        size = _constant_ints(model, split.input[1]) if len(split.input) > 1 else None
+        p = _constant_ints(model, n.input[1])
+        if size is None or not isinstance(p, int) or p < 0:
+            raise ValueError(f"{split.name} -> {n.name}: split {size}, position {p}; constants needed")
+        bounds = [0]
+        for s in ([size] * (p + 1) if isinstance(size, int) else size[:p + 1]):
+            bounds.append(bounds[-1] + s)
+        out = n.output[0]
+        for part, v in (("starts", bounds[p]), ("ends", bounds[p + 1]), ("axes", axis)):
+            nodes.append(helper.make_node("Constant", [], [f"{out}_{part}"],
+                                          value=helper.make_tensor(f"{out}_{part}", TensorProto.INT64, [1], [v])))
+        nodes.append(helper.make_node("Slice", [split.input[0], f"{out}_starts", f"{out}_ends", f"{out}_axes"],
+                                      [out], name=f"{out}_slice"))
+        done += 1
+    used = {i for n in nodes for i in n.input} | {o.name for o in model.graph.output}
+    nodes = [n for n in nodes if n.op_type != "Constant" or n.output[0] in used]
+    del model.graph.node[:]
+    model.graph.node.extend(nodes)
+    return done
 
 
 SCALE_OPS = {"Div", "Mul", "Add", "Cast"}     # what may sit between q k^T and its Softmax (SAM divides by sqrt(d))
@@ -162,7 +227,9 @@ def main() -> None:
     ap.add_argument("--checkpoint", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--calib", type=Path, default=None, help="make_refs.py calib's output (the int8 step)")
-    ap.add_argument("--only", nargs="*", default=None, help="these steps only (base fp16 fused int8); default all")
+    ap.add_argument("--only", nargs="*", default=None,
+                    help="these steps only (base fp16 fused int8); default all. slices: sequences_to_slices on the "
+                         "DINOv3 files exported before export_base applied it (P2), never in the default")
     args = ap.parse_args()
     steps = set(args.only or ["base", "fp16", "fused", "int8"])
     if "int8" in steps and args.calib is None:
@@ -197,6 +264,12 @@ def main() -> None:
         for b in graphs.DINO_BATCHES:
             record(out / f"dino_b{b}.opt.onnx", f"dino_b{b}", "fp32 ORT-fused",
                    **fuse(out / f"dino_b{b}.onnx", out / f"dino_b{b}.opt.onnx"))
+    if "slices" in steps:
+        dino = [f"dino_b{b}{v}.onnx" for b in graphs.DINO_BATCHES for v in ("", ".fp16")]
+        for f in dino + ["dino_b8.fp16_blanket.onnx"]:
+            m = manifest[f]
+            kept = {k: v for k, v in m.items() if k not in ("file", "graph", "variant", "opset", "ops", "files")}
+            record(out / f, m["graph"], m["variant"], sequence_slices=slice_sequences(out / f), **kept)
     if "int8" in steps:
         record(out / "encoder.int8.onnx", "encoder", "int8 QDQ",
                **int8_encoder(out / "encoder.onnx", out / "encoder.int8.onnx", args.calib))

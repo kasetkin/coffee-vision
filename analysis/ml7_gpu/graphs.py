@@ -63,8 +63,14 @@ class MatmulResize(nn.Module):
         self.register_buffer("a_h", bicubic_matrix(in_hw[0], out_hw[0]))
         self.register_buffer("a_w_t", bicubic_matrix(in_hw[1], out_hw[1]).T.contiguous())
 
+    constant_right = False   # litert_gpu_forms: A_h @ x as (x^T @ A_h^T)^T
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.matmul(torch.matmul(self.a_h, x), self.a_w_t)
+        if self.constant_right:
+            x = torch.matmul(x.transpose(-1, -2), self.a_h.T).transpose(-1, -2)
+        else:
+            x = torch.matmul(self.a_h, x)
+        return torch.matmul(x, self.a_w_t)
 
 
 def _set_submodule(root: nn.Module, name: str, module: nn.Module) -> None:
@@ -100,6 +106,36 @@ def matmul_neck(root: nn.Module, example) -> list[dict]:
         _set_submodule(root, name, nn.Identity() if in_hw == out_hw else MatmulResize(in_hw, out_hw))
         replaced.append({"layer": name, "in_hw": in_hw, "out_hw": out_hw})
     return replaced
+
+
+def _relu_linear_att_concat(self, qkv: torch.Tensor) -> torch.Tensor:
+    """efficientvit's LiteMLA.relu_linear_att (fp32) with v's row of ones concatenated rather than padded in:
+    LiteRT's WebGPU delegate refuses the pad (PADV2), and takes the concatenation."""
+    B, _, H, W = list(qkv.size())
+    qkv = torch.reshape(qkv, (B, -1, 3 * self.dim, H * W))
+    q, k, v = qkv[:, :, 0:self.dim], qkv[:, :, self.dim:2 * self.dim], qkv[:, :, 2 * self.dim:]
+    q, k = self.kernel_func(q), self.kernel_func(k)
+    v = torch.cat([v, torch.ones_like(v[:, :, :1])], dim=2)
+    out = torch.matmul(torch.matmul(v, k.transpose(-1, -2)), q)
+    out = out[:, :, :-1] / (out[:, :, -1:] + self.eps)
+    return torch.reshape(out, (B, -1, H, W))
+
+
+def litert_gpu_forms(encoder: nn.Module) -> dict[str, int]:
+    """The segmenter in forms LiteRT's WebGPU delegate places on the GPU (probed on yappy, plan P2): each
+    MatmulResize with its constants on the right, each LiteMLA's ones concatenated. The same model at float
+    rounding; LiteRT's conversion only (ORT's WebGPU provider runs the plain graph whole). Counts what changed."""
+    from efficientvit.models.nn.ops import LiteMLA
+
+    n = {"linear_attention": 0, "resize": 0}
+    for m in encoder.modules():
+        if isinstance(m, MatmulResize):
+            m.constant_right = True
+            n["resize"] += 1
+        elif isinstance(m, LiteMLA):
+            m.relu_linear_att = types.MethodType(_relu_linear_att_concat, m)
+            n["linear_attention"] += 1
+    return n
 
 
 # -------------------------------------------------------------------------------------------------- DINOv3

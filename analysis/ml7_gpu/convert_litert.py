@@ -4,7 +4,8 @@
         --checkpoint models/allrigs_dino3b16_segxl0v3_country_s42.pt --out-dir analysis/ml7_gpu/artifacts/tflite
 
 The same wrappers and rewrites as the ONNX export (graphs.prepare), at the same fixed shapes: dino_b8, dino_b40,
-encoder, decoder, each <name>.tflite. manifest.json records, per file: the op histogram, every tensor above 4-D
+encoder, decoder, each <name>.tflite. The encoder also takes graphs.litert_gpu_forms (plan P2), the forms LiteRT's
+WebGPU delegate places on the GPU. manifest.json records, per file: the op histogram, every tensor above 4-D
 (these fall back to the CPU on LiteRT's GPU, ticket 2.4), the file size and sha256.
 """
 from __future__ import annotations
@@ -50,9 +51,10 @@ def main() -> None:
     names = args.only or [f"dino_b{b}" for b in graphs.DINO_BATCHES] + ["encoder", "decoder"]
     for name in names:
         module, ex = g[name]
+        forms = graphs.litert_gpu_forms(module) if name == "encoder" else {}
         path = out / f"{name}.tflite"
         litert_torch.convert(module.eval(), ex).export(str(path))
-        manifest[path.name] = describe(path, name)
+        manifest[path.name] = describe(path, name) | ({"litert_gpu_forms": forms} if forms else {})
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
         d = manifest[path.name]
         print(f"{path.name}: {d['bytes'] / 2**20:.0f} MiB, {sum(d['ops'].values())} ops, "

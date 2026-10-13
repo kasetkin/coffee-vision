@@ -11,6 +11,8 @@
 # Every run sees only Intel's Vulkan driver (VK_ICD_FILENAMES), so llvmpipe is not on offer; each run's record
 # proves the GPU computed (cellrun.gpu_proof). An ORT cell that refuses a graph with CPU fallback off is run once
 # more with --fallback, as <name>__diag, for diagnosis only: never a cell's result (plan P2).
+#
+# With arguments, one cell only, for a rerun after a file is replaced: p2_cells.sh ort dino_b8.onnx <name>.
 set -u
 cd "$(dirname "$0")"
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json
@@ -48,6 +50,9 @@ litert() {   # litert <file> <precision> <name>
     --threads $THREADS --out "$OUT/$3.npz" || echo "=== litert vulkan $1 $2 FAILED"
 }
 
+if [[ $# -gt 0 ]]; then   # one cell, rerun on its own: p2_cells.sh ort dino_b8.onnx ort_webgpu_fp32_dino_b8
+  echo "=== rerun $* $(date -Is)"; sha256sum cellrun.py run_ort.py run_litert.py; "$@"; exit
+fi
 echo "=== start $(date -Is) $(git -C . rev-parse --short HEAD 2>/dev/null || true)"
 sha256sum cellrun.py run_ort.py run_litert.py
 for f in decoder encoder dino_b8 dino_b40; do      # the order the files arrive in

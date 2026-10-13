@@ -5,10 +5,16 @@ outputs for parity.py and a record of the cell (cellrun.measure). Run with the v
         --file dino_b8.onnx --provider webgpu --threads 4 --out <name>.npz
 
   --provider cpu      ORT's default CPU provider (convert_onnx's venv; P1)
-  --provider webgpu   the onnxruntime-ep-webgpu plugin: Dawn on Vulkan (run_ort_webgpu's venv; P2). The session
-                      fails rather than half-running on the CPU (session.disable_cpu_ep_fallback=1) unless
-                      --fallback is given, for diagnosis only; thread spinning is off, so a GPU run does not take
-                      the N100's shared power budget for busy waits.
+  --provider webgpu   the onnxruntime-ep-webgpu plugin: Dawn on Vulkan (run_ort_webgpu's venv; P2).
+  --provider openvino_gpu, openvino_cpu
+                      the OpenVINO execution provider (run_ort_openvino's venv; P3): Intel's GPU plugin on NEO's
+                      OpenCL, or its CPU plugin at --threads, computing at --precision (INFERENCE_PRECISION_HINT;
+                      fp16 is the GPU's information run, ticket D12). --cache-dir is OpenVINO's compiled-model
+                      cache: give an empty one to time a cold start that compiles everything.
+
+On every provider but cpu the session fails rather than half-running on ORT's CPU provider
+(session.disable_cpu_ep_fallback=1) unless --fallback is given, for diagnosis only; thread spinning is off, so a
+GPU run does not take the N100's shared power budget for busy waits.
 
 --graph dino runs each photo's 40 patches at the file's batch; encoder each photo's image; decoder each photo's
 PyTorch embedding (refs) with its box. <name>.json holds the record: providers, timing (cold, warm), CPU time
@@ -27,10 +33,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cellrun  # noqa: E402
 
-GPU_PATH = {"webgpu": "vulkan"}
+GPU_PATH = {"webgpu": "vulkan", "openvino_gpu": "opencl"}
 
 
-def make_session(path: Path, provider: str, threads: int, fallback: bool):
+def make_session(path: Path, provider: str, threads: int, fallback: bool, precision: str = "fp32",
+                 cache_dir: Path | None = None):
     import onnxruntime as ort
     so = ort.SessionOptions()
     so.intra_op_num_threads = threads
@@ -48,6 +55,13 @@ def make_session(path: Path, provider: str, threads: int, fallback: bool):
             raise SystemExit("run_ort: no WebGPU device")
         so.add_provider_for_devices([device], {})
         return ort.InferenceSession(str(path), sess_options=so)
+    if provider in ("openvino_gpu", "openvino_cpu"):
+        device = provider.split("_")[1].upper()
+        options = {"device_type": device, "precision": precision.upper(), "num_of_threads": str(threads),
+                   "load_config": json.dumps({device: {"INFERENCE_PRECISION_HINT": precision.replace("fp", "f")}})}
+        if cache_dir is not None:
+            options["cache_dir"] = str(cache_dir)
+        return ort.InferenceSession(str(path), so, providers=[("OpenVINOExecutionProvider", options)])
     raise SystemExit(f"run_ort: unknown provider {provider}")
 
 
@@ -72,7 +86,9 @@ def main() -> None:
     ap.add_argument("--refs", type=Path, default=None)
     ap.add_argument("--graph", choices=("dino", "encoder", "decoder"), required=True)
     ap.add_argument("--file", required=True)
-    ap.add_argument("--provider", choices=("cpu", "webgpu"), required=True)
+    ap.add_argument("--provider", choices=("cpu", "webgpu", "openvino_gpu", "openvino_cpu"), required=True)
+    ap.add_argument("--precision", choices=("fp32", "fp16"), default="fp32", help="OpenVINO's (the file's otherwise)")
+    ap.add_argument("--cache-dir", type=Path, default=None, help="OpenVINO's compiled-model cache")
     ap.add_argument("--threads", type=int, required=True)
     ap.add_argument("--fallback", action="store_true", help="allow CPU fallback (diagnosis only, never a result)")
     ap.add_argument("--out", type=Path, required=True)
@@ -88,7 +104,8 @@ def main() -> None:
     sessions = []
 
     def make():
-        sessions.append(make_session(path, args.provider, args.threads, args.fallback))
+        sessions.append(make_session(path, args.provider, args.threads, args.fallback, args.precision,
+                                     args.cache_dir))
         return sessions[0]
     try:
         outs, record = cellrun.measure(make, call, items, sampler, GPU_PATH.get(args.provider))
@@ -102,11 +119,12 @@ def main() -> None:
         out = {"low_masks": np.stack([o[0][0] for o in outs]), "ious": np.stack([o[1][0] for o in outs])}
     record.update(runtime="onnxruntime", onnxruntime=ort.__version__, provider=args.provider,
                   providers=sessions[0].get_providers(), fallback=args.fallback, graph=args.graph, file=args.file,
+                  precision=args.precision, cache_dir=str(args.cache_dir) if args.cache_dir else None,
                   batch=sessions[0].get_inputs()[0].shape[0], threads=args.threads)
     np.savez(args.out, **out)
     args.out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
     t = record["timing"]
-    print(json.dumps({"file": args.file, "provider": args.provider, "cold_s": t["cold_s"],
+    print(json.dumps({"file": args.file, "provider": args.provider, "precision": args.precision, "cold_s": t["cold_s"],
                       "warm_median_s": t["warm"]["median"], "cpu_over_wall": record["cpu_over_wall"],
                       "gpu_proof": record.get("gpu_proof", {}).get("ok"), "providers": record["providers"]}))
 

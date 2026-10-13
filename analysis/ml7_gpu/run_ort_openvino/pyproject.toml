@@ -1,0 +1,15 @@
+# ML-7 P3: ONNX Runtime with its OpenVINO execution provider (Intel's GPU plugin on NEO's OpenCL, and its CPU
+# plugin), plan P3's venv_ort_openvino. onnxruntime-openvino replaces onnxruntime; the two never share a venv.
+#     uv lock --project analysis/ml7_gpu/run_ort_openvino
+#     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/run_ort_openvino/.venv uv sync --locked --project analysis/ml7_gpu/run_ort_openvino
+# Set UV_PROJECT_ENVIRONMENT every time: the devcontainer points it at the training venv.
+[project]
+name = "ml7-run-ort-openvino"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = ["onnxruntime-openvino", "numpy"]
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

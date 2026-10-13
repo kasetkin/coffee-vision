@@ -10,6 +10,8 @@ outputs for parity.py and a record of the cell (cellrun.measure). The run_litert
                       back. The GPU library comes from --runtime-dir, which holds libLiteRt.so and exactly one GPU
                       library (rt_vulkan: the wheel's libLiteRtWebGpuAccelerator.so; plan P2). --precision fp32
                       sets GpuOptions(enforce_f32=True): without it LiteRT's GPU computes in fp16 (ticket 2.4, D12).
+                      The record keeps the delegate's own report (delegate_report): the ops it refused, its
+                      GPU/CPU split.
 
 Options are passed in full: the hardware_accel= shortcut silently sets one CPU thread. --graph dino runs each
 photo's 40 patches at the file's batch; encoder each photo's image; decoder each photo's PyTorch embedding
@@ -20,7 +22,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -57,6 +62,48 @@ class Graph:
             shape = [int(d) for d in self.outputs[name]["shape"]]
             out.append(buf.read(int(np.prod(shape)), np.float32).reshape(shape))
         return out
+
+
+SPLIT = re.compile(r"(\d+) operations will run on the GPU, and the remaining (\d+) operations will run on the CPU")
+
+
+def delegate_report(log: str) -> dict:
+    """The GPU delegate's own placement report, read from LiteRT's log: the ops it refused and its split. No
+    split line after a GPU environment was created means the delegate took the whole graph. is_fully_accelerated()
+    is not trusted: it said True for a graph the delegate had split (probed on yappy, plan P2)."""
+    lines = log.splitlines()
+    refused = []
+    if "ERROR: Following operations are not supported by GPU delegate:" in lines:
+        for line in lines[lines.index("ERROR: Following operations are not supported by GPU delegate:") + 1:]:
+            if SPLIT.search(line) or not re.match(r"[A-Z0-9_]+: ", line):
+                break
+            refused.append(line)
+    m = SPLIT.search(log)
+    gpu_env = "Created LiteRT GpuEnvironment" in log
+    return {"gpu_environment": gpu_env, "refused": refused,
+            "gpu_ops": int(m.group(1)) if m else None, "cpu_ops": int(m.group(2)) if m else None,
+            "all_on_gpu": gpu_env and m is None and not refused}
+
+
+class CapturedStderr:
+    """fd 2 into a temporary file while open, then written on to the real stderr; .text holds it. LiteRT reports
+    from C++, below Python's sys.stderr."""
+
+    def __enter__(self):
+        sys.stderr.flush()
+        self._saved, self._tmp = os.dup(2), tempfile.TemporaryFile()
+        os.dup2(self._tmp.fileno(), 2)
+        return self
+
+    def __exit__(self, *exc):
+        sys.stderr.flush()
+        os.dup2(self._saved, 2)
+        os.close(self._saved)
+        self._tmp.seek(0)
+        self.text = self._tmp.read().decode(errors="replace")
+        self._tmp.close()
+        sys.stderr.write(self.text)
+        sys.stderr.flush()
 
 
 def gpu_path(runtime_dir: Path) -> str:
@@ -112,7 +159,8 @@ def main() -> None:
                             args.runtime_dir))
         return graphs[0]
     try:
-        outs, record = cellrun.measure(make, call, items, sampler, path)
+        with CapturedStderr() as err:
+            outs, record = cellrun.measure(make, call, items, sampler, path)
     finally:
         sampler.stop()
     if args.graph == "dino":
@@ -124,14 +172,17 @@ def main() -> None:
     record.update(runtime="litert", ai_edge_litert=getattr(ai_edge_litert, "__version__", "?"),
                   accelerator=args.accelerator, path=path, precision=args.precision,
                   runtime_dir=str(args.runtime_dir) if args.runtime_dir else None,
-                  fully_accelerated=bool(graphs[0].model.is_fully_accelerated()), graph=args.graph, file=args.file,
+                  fully_accelerated=bool(graphs[0].model.is_fully_accelerated()),
+                  delegate=delegate_report(err.text) if args.accelerator == "gpu" else None,
+                  graph=args.graph, file=args.file,
                   batch=graphs[0].input_shapes[0][0], threads=args.threads)
     np.savez(args.out, **out)
     args.out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
     t = record["timing"]
     print(json.dumps({"file": args.file, "accelerator": args.accelerator, "precision": args.precision,
                       "cold_s": t["cold_s"], "warm_median_s": t["warm"]["median"],
-                      "fully_accelerated": record["fully_accelerated"], "cpu_over_wall": record["cpu_over_wall"],
+                      "fully_accelerated": record["fully_accelerated"],
+                      "delegate_all_on_gpu": (record["delegate"] or {}).get("all_on_gpu"), "cpu_over_wall": record["cpu_over_wall"],
                       "gpu_proof": record.get("gpu_proof", {}).get("ok")}))
 
 
