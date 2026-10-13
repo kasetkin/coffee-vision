@@ -1,0 +1,2368 @@
+{
+  "ticket": "ML-7 P0",
+  "instrument_sha256": "f89b1a13db3307b0060a7f3741bf4a69131747d6c64ba1a6fc3fb213c7a77d45",
+  "release": "20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42",
+  "build": {
+    "model_sha": "6aeca508f8d03090",
+    "model_dvc_md5": "771b35ac4171af1626e437a6d7667540",
+    "backbone_sha": "73cec8be7427c865",
+    "ood_reference_sha": "bd0362fe62a560f6",
+    "ood_probe_sha": "8f7e4aaeacae79ac",
+    "ood_threshold": 0.5,
+    "tta": false,
+    "crop_method": "segment",
+    "segmenter_sha": "9bc2f87bd23d6e6d",
+    "seg_decoder_sha": "4b21ed7beeb20b12",
+    "code": {
+      "commit": "b1bc9c9588ada5f1381337d8f8e99cf209b26817",
+      "dirty": false,
+      "source": "BUILD_INFO.json"
+    }
+  },
+  "checkpoint": "allrigs_dino3b16_segxl0v3_country_s42.pt",
+  "segmenter": {
+    "weights": "efficientvit_sam/efficientvit_sam_xl0.pt",
+    "weights_sha256": "9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8",
+    "decoder_sha256": "4b21ed7beeb20b12eabe8b8afc078d45011ed1d6fa71855638b1c6947da9ae22"
+  },
+  "python": "3.12.14",
+  "torch": "2.14.0+cpu",
+  "torch_threads": 4,
+  "cpu": "Intel(R) N100",
+  "passes": 2,
+  "photos": 13,
+  "summary_over": "passes 2+",
+  "boot": {
+    "whole_ms": 5817.95,
+    "stages": {
+      "imports": 2797.129,
+      "load_dino": 1646.598,
+      "load_guard": 5.842,
+      "load_segmenter": 1199.711
+    },
+    "check": {
+      "sum_ms": 5649.28,
+      "unexplained_ms": 168.67,
+      "unexplained_frac": 0.029,
+      "ok": true
+    },
+    "peak_rss_mb": 1594,
+    "mem_available_mb_before": 6392,
+    "mem_available_mb_after": 5190,
+    "host": {
+      "samples": 53,
+      "cpu_mhz_median": 2175,
+      "cpu_mhz_min": 1121,
+      "temp_c_max": 64.0,
+      "mem_available_mb_min": 4937
+    }
+  },
+  "requests": [
+    {
+      "photo": "PXL_20260825_193325070.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 5207.44,
+        "stages": {
+          "decode": 102.254,
+          "resize": 85.763,
+          "encoder": 4734.535,
+          "decoder": 164.282,
+          "upsample": 18.716,
+          "fill_crop": 34.923,
+          "mask_png": 45.218
+        },
+        "check": {
+          "sum_ms": 5185.691,
+          "unexplained_ms": 21.749,
+          "unexplained_frac": 0.0042,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 5195,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 52,
+          "cpu_mhz_median": 2177.5,
+          "cpu_mhz_min": 2108,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4946
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 22139.722,
+        "stages": {
+          "decode": 104.246,
+          "resize": 85.529,
+          "encoder": 4628.163,
+          "decoder": 151.053,
+          "upsample": 17.797,
+          "fill_crop": 36.048,
+          "pitch": 98.208,
+          "sampling": 45.788,
+          "transform": 105.027,
+          "dino_b32": 12201.3,
+          "dino_b8": 4410.567,
+          "guard": 5.091
+        },
+        "check": {
+          "sum_ms": 21888.817,
+          "unexplained_ms": 250.905,
+          "unexplained_frac": 0.0113,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 22136,
+          "decode_ms": 104,
+          "crop_detect_ms": 4919,
+          "inference_ms": 16721
+        },
+        "host": {
+          "samples": 220,
+          "cpu_mhz_median": 2137.0,
+          "cpu_mhz_min": 1325,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4860
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260809_130838005.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7132.021,
+        "stages": {
+          "decode": 179.996,
+          "resize": 136.083,
+          "encoder": 6428.793,
+          "decoder": 206.463,
+          "upsample": 36.454,
+          "fill_crop": 48.411,
+          "mask_png": 70.888
+        },
+        "check": {
+          "sum_ms": 7107.088,
+          "unexplained_ms": 24.933,
+          "unexplained_frac": 0.0035,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7125,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 71,
+          "cpu_mhz_median": 1531,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 56.0,
+          "mem_available_mb_min": 4782
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29232.539,
+        "stages": {
+          "decode": 171.682,
+          "resize": 128.315,
+          "encoder": 6412.835,
+          "decoder": 208.506,
+          "upsample": 33.982,
+          "fill_crop": 48.69,
+          "pitch": 286.91,
+          "sampling": 118.945,
+          "transform": 105.366,
+          "dino_b32": 16862.07,
+          "dino_b8": 4244.006,
+          "guard": 15.208
+        },
+        "check": {
+          "sum_ms": 28636.515,
+          "unexplained_ms": 596.024,
+          "unexplained_frac": 0.0204,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29225,
+          "decode_ms": 172,
+          "crop_detect_ms": 6833,
+          "inference_ms": 21216
+        },
+        "host": {
+          "samples": 290,
+          "cpu_mhz_median": 1439.0,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 61.0,
+          "mem_available_mb_min": 4759
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260809_201618.JPG",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7251.853,
+        "stages": {
+          "decode": 293.663,
+          "resize": 184.237,
+          "encoder": 6257.641,
+          "decoder": 240.266,
+          "upsample": 45.7,
+          "fill_crop": 83.381,
+          "mask_png": 103.043
+        },
+        "check": {
+          "sum_ms": 7207.931,
+          "unexplained_ms": 43.922,
+          "unexplained_frac": 0.0061,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7240,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1558.0,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 57.0,
+          "mem_available_mb_min": 4785
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30788.634,
+        "stages": {
+          "decode": 243.611,
+          "resize": 160.823,
+          "encoder": 6191.652,
+          "decoder": 238.367,
+          "upsample": 43.82,
+          "fill_crop": 82.286,
+          "pitch": 375.825,
+          "sampling": 153.761,
+          "transform": 104.898,
+          "dino_b32": 16968.752,
+          "dino_b8": 4244.627,
+          "guard": 5.071
+        },
+        "check": {
+          "sum_ms": 28813.493,
+          "unexplained_ms": 1975.141,
+          "unexplained_frac": 0.0642,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30778,
+          "decode_ms": 244,
+          "crop_detect_ms": 6717,
+          "inference_ms": 21324
+        },
+        "host": {
+          "samples": 305,
+          "cpu_mhz_median": 1443,
+          "cpu_mhz_min": 887,
+          "temp_c_max": 59.0,
+          "mem_available_mb_min": 4777
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "IMG_6258D.HEIC",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7508.142,
+        "stages": {
+          "decode": 663.936,
+          "resize": 124.512,
+          "encoder": 6293.703,
+          "decoder": 204.993,
+          "upsample": 29.705,
+          "fill_crop": 63.11,
+          "mask_png": 79.093
+        },
+        "check": {
+          "sum_ms": 7459.052,
+          "unexplained_ms": 49.09,
+          "unexplained_frac": 0.0065,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7498,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 74,
+          "cpu_mhz_median": 1563.5,
+          "cpu_mhz_min": 893,
+          "temp_c_max": 57.0,
+          "mem_available_mb_min": 4781
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29571.218,
+        "stages": {
+          "decode": 626.111,
+          "resize": 121.831,
+          "encoder": 6286.749,
+          "decoder": 204.384,
+          "upsample": 29.909,
+          "fill_crop": 63.648,
+          "pitch": 167.738,
+          "sampling": 47.669,
+          "transform": 104.052,
+          "dino_b32": 16984.822,
+          "dino_b8": 4337.358,
+          "guard": 4.772
+        },
+        "check": {
+          "sum_ms": 28979.043,
+          "unexplained_ms": 592.175,
+          "unexplained_frac": 0.02,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29561,
+          "decode_ms": 626,
+          "crop_detect_ms": 6707,
+          "inference_ms": 21431
+        },
+        "host": {
+          "samples": 293,
+          "cpu_mhz_median": 1463,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 60.0,
+          "mem_available_mb_min": 4705
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260825_195610599.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7124.123,
+        "stages": {
+          "decode": 156.951,
+          "resize": 136.886,
+          "encoder": 6428.788,
+          "decoder": 205.724,
+          "upsample": 29.151,
+          "fill_crop": 63.118,
+          "mask_png": 87.098
+        },
+        "check": {
+          "sum_ms": 7107.716,
+          "unexplained_ms": 16.407,
+          "unexplained_frac": 0.0023,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7119,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 71,
+          "cpu_mhz_median": 1576,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 58.0,
+          "mem_available_mb_min": 4699
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29511.326,
+        "stages": {
+          "decode": 152.956,
+          "resize": 126.79,
+          "encoder": 6469.965,
+          "decoder": 198.274,
+          "upsample": 28.349,
+          "fill_crop": 61.309,
+          "pitch": 160.041,
+          "sampling": 37.433,
+          "transform": 109.39,
+          "dino_b32": 17577.532,
+          "dino_b8": 4277.416,
+          "guard": 4.728
+        },
+        "check": {
+          "sum_ms": 29204.183,
+          "unexplained_ms": 307.143,
+          "unexplained_frac": 0.0104,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29506,
+          "decode_ms": 153,
+          "crop_detect_ms": 6885,
+          "inference_ms": 21969
+        },
+        "host": {
+          "samples": 292,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 58.0,
+          "mem_available_mb_min": 4782
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260807_072408172.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7029.77,
+        "stages": {
+          "decode": 185.062,
+          "resize": 133.625,
+          "encoder": 6294.286,
+          "decoder": 218.03,
+          "upsample": 33.058,
+          "fill_crop": 45.883,
+          "mask_png": 75.646
+        },
+        "check": {
+          "sum_ms": 6985.59,
+          "unexplained_ms": 44.18,
+          "unexplained_frac": 0.0063,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7013,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 70,
+          "cpu_mhz_median": 1561.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 58.0,
+          "mem_available_mb_min": 4713
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29133.796,
+        "stages": {
+          "decode": 177.69,
+          "resize": 129.425,
+          "encoder": 6432.988,
+          "decoder": 199.582,
+          "upsample": 30.446,
+          "fill_crop": 46.005,
+          "pitch": 53.93,
+          "sampling": 15.514,
+          "transform": 118.76,
+          "dino_b32": 17374.296,
+          "dino_b8": 4338.615,
+          "guard": 5.033
+        },
+        "check": {
+          "sum_ms": 28922.284,
+          "unexplained_ms": 211.512,
+          "unexplained_frac": 0.0073,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29128,
+          "decode_ms": 178,
+          "crop_detect_ms": 6839,
+          "inference_ms": 21838
+        },
+        "host": {
+          "samples": 289,
+          "cpu_mhz_median": 1466,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 59.0,
+          "mem_available_mb_min": 4740
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260809_135958599.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7183.215,
+        "stages": {
+          "decode": 179.74,
+          "resize": 134.98,
+          "encoder": 6477.953,
+          "decoder": 207.847,
+          "upsample": 32.978,
+          "fill_crop": 48.55,
+          "mask_png": 71.918
+        },
+        "check": {
+          "sum_ms": 7153.966,
+          "unexplained_ms": 29.249,
+          "unexplained_frac": 0.0041,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7177,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 71,
+          "cpu_mhz_median": 1565,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 59.0,
+          "mem_available_mb_min": 4760
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29948.962,
+        "stages": {
+          "decode": 173.052,
+          "resize": 129.325,
+          "encoder": 6476.209,
+          "decoder": 203.393,
+          "upsample": 30.852,
+          "fill_crop": 46.689,
+          "pitch": 287.096,
+          "sampling": 100.007,
+          "transform": 105.771,
+          "dino_b32": 17449.668,
+          "dino_b8": 4346.534,
+          "guard": 4.593
+        },
+        "check": {
+          "sum_ms": 29353.189,
+          "unexplained_ms": 595.773,
+          "unexplained_frac": 0.0199,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29943,
+          "decode_ms": 173,
+          "crop_detect_ms": 6887,
+          "inference_ms": 21907
+        },
+        "host": {
+          "samples": 297,
+          "cpu_mhz_median": 1466,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4702
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "IMG_6291D.HEIC",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7552.657,
+        "stages": {
+          "decode": 628.0,
+          "resize": 124.92,
+          "encoder": 6362.398,
+          "decoder": 213.396,
+          "upsample": 33.751,
+          "fill_crop": 64.857,
+          "mask_png": 81.679
+        },
+        "check": {
+          "sum_ms": 7509.001,
+          "unexplained_ms": 43.656,
+          "unexplained_frac": 0.0058,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7534,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 75,
+          "cpu_mhz_median": 1570,
+          "cpu_mhz_min": 1325,
+          "temp_c_max": 60.0,
+          "mem_available_mb_min": 4687
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30344.816,
+        "stages": {
+          "decode": 622.436,
+          "resize": 122.075,
+          "encoder": 6423.431,
+          "decoder": 203.43,
+          "upsample": 28.967,
+          "fill_crop": 62.992,
+          "pitch": 135.037,
+          "sampling": 39.662,
+          "transform": 104.608,
+          "dino_b32": 17452.297,
+          "dino_b8": 4344.18,
+          "guard": 5.17
+        },
+        "check": {
+          "sum_ms": 29544.285,
+          "unexplained_ms": 800.531,
+          "unexplained_frac": 0.0264,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30335,
+          "decode_ms": 622,
+          "crop_detect_ms": 6842,
+          "inference_ms": 21906
+        },
+        "host": {
+          "samples": 301,
+          "cpu_mhz_median": 1466,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4689
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260809_202937.JPG",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7399.559,
+        "stages": {
+          "decode": 290.133,
+          "resize": 183.768,
+          "encoder": 6405.613,
+          "decoder": 246.848,
+          "upsample": 45.218,
+          "fill_crop": 81.593,
+          "mask_png": 101.428
+        },
+        "check": {
+          "sum_ms": 7354.601,
+          "unexplained_ms": 44.958,
+          "unexplained_frac": 0.0061,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7387,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 74,
+          "cpu_mhz_median": 1561.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 61.0,
+          "mem_available_mb_min": 4717
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30515.845,
+        "stages": {
+          "decode": 272.716,
+          "resize": 179.934,
+          "encoder": 6433.718,
+          "decoder": 239.134,
+          "upsample": 54.785,
+          "fill_crop": 82.889,
+          "pitch": 391.559,
+          "sampling": 150.614,
+          "transform": 105.515,
+          "dino_b32": 17476.856,
+          "dino_b8": 4331.42,
+          "guard": 4.865
+        },
+        "check": {
+          "sum_ms": 29724.005,
+          "unexplained_ms": 791.84,
+          "unexplained_frac": 0.0259,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30504,
+          "decode_ms": 273,
+          "crop_detect_ms": 6991,
+          "inference_ms": 21918
+        },
+        "host": {
+          "samples": 302,
+          "cpu_mhz_median": 1466.0,
+          "cpu_mhz_min": 1025,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4679
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260827_185019541.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7221.995,
+        "stages": {
+          "decode": 176.937,
+          "resize": 135.876,
+          "encoder": 6486.923,
+          "decoder": 203.943,
+          "upsample": 28.775,
+          "fill_crop": 90.99,
+          "mask_png": 73.749
+        },
+        "check": {
+          "sum_ms": 7197.193,
+          "unexplained_ms": 24.802,
+          "unexplained_frac": 0.0034,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7215,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1559.5,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 60.0,
+          "mem_available_mb_min": 4721
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30106.209,
+        "stages": {
+          "decode": 159.768,
+          "resize": 126.824,
+          "encoder": 6551.663,
+          "decoder": 213.368,
+          "upsample": 27.789,
+          "fill_crop": 87.653,
+          "pitch": 244.207,
+          "sampling": 92.356,
+          "transform": 104.948,
+          "dino_b32": 17268.885,
+          "dino_b8": 4320.519,
+          "guard": 5.038
+        },
+        "check": {
+          "sum_ms": 29203.018,
+          "unexplained_ms": 903.191,
+          "unexplained_frac": 0.03,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30099,
+          "decode_ms": 160,
+          "crop_detect_ms": 7007,
+          "inference_ms": 21699
+        },
+        "host": {
+          "samples": 298,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4724
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260830_200129.JPG",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7414.889,
+        "stages": {
+          "decode": 275.155,
+          "resize": 186.317,
+          "encoder": 6419.016,
+          "decoder": 256.147,
+          "upsample": 60.329,
+          "fill_crop": 81.778,
+          "mask_png": 102.064
+        },
+        "check": {
+          "sum_ms": 7380.806,
+          "unexplained_ms": 34.083,
+          "unexplained_frac": 0.0046,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7405,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 73,
+          "cpu_mhz_median": 1560,
+          "cpu_mhz_min": 1149,
+          "temp_c_max": 61.0,
+          "mem_available_mb_min": 4703
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30215.147,
+        "stages": {
+          "decode": 245.552,
+          "resize": 181.21,
+          "encoder": 6389.448,
+          "decoder": 238.012,
+          "upsample": 46.493,
+          "fill_crop": 80.091,
+          "pitch": 372.622,
+          "sampling": 155.467,
+          "transform": 105.57,
+          "dino_b32": 17255.735,
+          "dino_b8": 4362.18,
+          "guard": 4.814
+        },
+        "check": {
+          "sum_ms": 29437.194,
+          "unexplained_ms": 777.953,
+          "unexplained_frac": 0.0257,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30207,
+          "decode_ms": 246,
+          "crop_detect_ms": 6936,
+          "inference_ms": 21728
+        },
+        "host": {
+          "samples": 300,
+          "cpu_mhz_median": 1466.0,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4693
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260924_123010061.jpg",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7278.129,
+        "stages": {
+          "decode": 193.543,
+          "resize": 133.389,
+          "encoder": 6531.322,
+          "decoder": 230.187,
+          "upsample": 33.076,
+          "fill_crop": 48.409,
+          "mask_png": 71.53
+        },
+        "check": {
+          "sum_ms": 7241.456,
+          "unexplained_ms": 36.673,
+          "unexplained_frac": 0.005,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7270,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1578.0,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 60.0,
+          "mem_available_mb_min": 4721
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30069.281,
+        "stages": {
+          "decode": 190.675,
+          "resize": 128.504,
+          "encoder": 6550.212,
+          "decoder": 221.731,
+          "upsample": 32.516,
+          "fill_crop": 46.999,
+          "pitch": 279.655,
+          "sampling": 120.634,
+          "transform": 105.548,
+          "dino_b32": 17477.022,
+          "dino_b8": 4320.888,
+          "guard": 4.965
+        },
+        "check": {
+          "sum_ms": 29479.349,
+          "unexplained_ms": 589.932,
+          "unexplained_frac": 0.0196,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30062,
+          "decode_ms": 191,
+          "crop_detect_ms": 6980,
+          "inference_ms": 21909
+        },
+        "host": {
+          "samples": 298,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 65.0,
+          "mem_available_mb_min": 4721
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260924_150009.JPG",
+      "pass": 1,
+      "crop": {
+        "whole_ms": 7570.895,
+        "stages": {
+          "decode": 321.884,
+          "resize": 178.206,
+          "encoder": 6524.848,
+          "decoder": 237.517,
+          "upsample": 44.963,
+          "fill_crop": 82.036,
+          "mask_png": 101.476
+        },
+        "check": {
+          "sum_ms": 7490.93,
+          "unexplained_ms": 79.965,
+          "unexplained_frac": 0.0106,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7553,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 75,
+          "cpu_mhz_median": 1577,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 62.0,
+          "mem_available_mb_min": 4705
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30812.374,
+        "stages": {
+          "decode": 301.537,
+          "resize": 174.242,
+          "encoder": 6572.58,
+          "decoder": 264.675,
+          "upsample": 47.759,
+          "fill_crop": 80.668,
+          "pitch": 369.125,
+          "sampling": 155.636,
+          "transform": 103.831,
+          "dino_b32": 17377.522,
+          "dino_b8": 4351.524,
+          "guard": 5.783
+        },
+        "check": {
+          "sum_ms": 29804.882,
+          "unexplained_ms": 1007.492,
+          "unexplained_frac": 0.0327,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30797,
+          "decode_ms": 302,
+          "crop_detect_ms": 7140,
+          "inference_ms": 21838
+        },
+        "host": {
+          "samples": 306,
+          "cpu_mhz_median": 1465.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 65.0,
+          "mem_available_mb_min": 4637
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260825_193325070.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7110.895,
+        "stages": {
+          "decode": 156.257,
+          "resize": 136.404,
+          "encoder": 6425.016,
+          "decoder": 204.578,
+          "upsample": 29.732,
+          "fill_crop": 61.198,
+          "mask_png": 79.553
+        },
+        "check": {
+          "sum_ms": 7092.738,
+          "unexplained_ms": 18.157,
+          "unexplained_frac": 0.0026,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7105,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 70,
+          "cpu_mhz_median": 1560.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 60.0,
+          "mem_available_mb_min": 4712
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29452.171,
+        "stages": {
+          "decode": 147.232,
+          "resize": 127.497,
+          "encoder": 6463.865,
+          "decoder": 201.714,
+          "upsample": 29.022,
+          "fill_crop": 59.481,
+          "pitch": 155.446,
+          "sampling": 38.193,
+          "transform": 110.868,
+          "dino_b32": 17406.608,
+          "dino_b8": 4336.489,
+          "guard": 4.78
+        },
+        "check": {
+          "sum_ms": 29081.195,
+          "unexplained_ms": 370.976,
+          "unexplained_frac": 0.0126,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29447,
+          "decode_ms": 147,
+          "crop_detect_ms": 6882,
+          "inference_ms": 21859
+        },
+        "host": {
+          "samples": 292,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4697
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260809_130838005.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7169.905,
+        "stages": {
+          "decode": 189.782,
+          "resize": 135.205,
+          "encoder": 6464.015,
+          "decoder": 203.838,
+          "upsample": 33.526,
+          "fill_crop": 47.405,
+          "mask_png": 70.71
+        },
+        "check": {
+          "sum_ms": 7144.481,
+          "unexplained_ms": 25.424,
+          "unexplained_frac": 0.0035,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7163,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 71,
+          "cpu_mhz_median": 1562,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 61.0,
+          "mem_available_mb_min": 4686
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29983.936,
+        "stages": {
+          "decode": 173.356,
+          "resize": 128.483,
+          "encoder": 6479.368,
+          "decoder": 206.784,
+          "upsample": 32.812,
+          "fill_crop": 48.683,
+          "pitch": 280.585,
+          "sampling": 121.212,
+          "transform": 105.662,
+          "dino_b32": 17448.6,
+          "dino_b8": 4361.729,
+          "guard": 4.839
+        },
+        "check": {
+          "sum_ms": 29392.113,
+          "unexplained_ms": 591.823,
+          "unexplained_frac": 0.0197,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29978,
+          "decode_ms": 173,
+          "crop_detect_ms": 6897,
+          "inference_ms": 21921
+        },
+        "host": {
+          "samples": 297,
+          "cpu_mhz_median": 1465,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 65.0,
+          "mem_available_mb_min": 4682
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260809_201618.JPG",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7437.383,
+        "stages": {
+          "decode": 286.731,
+          "resize": 184.63,
+          "encoder": 6448.53,
+          "decoder": 239.211,
+          "upsample": 47.672,
+          "fill_crop": 83.058,
+          "mask_png": 102.359
+        },
+        "check": {
+          "sum_ms": 7392.191,
+          "unexplained_ms": 45.192,
+          "unexplained_frac": 0.0061,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7425,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 74,
+          "cpu_mhz_median": 1563.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4724
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 31614.017,
+        "stages": {
+          "decode": 264.587,
+          "resize": 176.757,
+          "encoder": 6524.537,
+          "decoder": 237.41,
+          "upsample": 61.835,
+          "fill_crop": 78.458,
+          "pitch": 378.214,
+          "sampling": 155.543,
+          "transform": 106.243,
+          "dino_b32": 17405.771,
+          "dino_b8": 4336.38,
+          "guard": 5.184
+        },
+        "check": {
+          "sum_ms": 29730.919,
+          "unexplained_ms": 1883.098,
+          "unexplained_frac": 0.0596,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 31603,
+          "decode_ms": 265,
+          "crop_detect_ms": 7079,
+          "inference_ms": 21853
+        },
+        "host": {
+          "samples": 313,
+          "cpu_mhz_median": 1465,
+          "cpu_mhz_min": 1100,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4676
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "IMG_6258D.HEIC",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7663.017,
+        "stages": {
+          "decode": 671.104,
+          "resize": 125.479,
+          "encoder": 6456.889,
+          "decoder": 198.181,
+          "upsample": 30.278,
+          "fill_crop": 62.694,
+          "mask_png": 78.757
+        },
+        "check": {
+          "sum_ms": 7623.382,
+          "unexplained_ms": 39.635,
+          "unexplained_frac": 0.0052,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7653,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 76,
+          "cpu_mhz_median": 1565.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4721
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30130.892,
+        "stages": {
+          "decode": 618.367,
+          "resize": 124.815,
+          "encoder": 6432.317,
+          "decoder": 202.101,
+          "upsample": 27.744,
+          "fill_crop": 61.823,
+          "pitch": 159.044,
+          "sampling": 47.716,
+          "transform": 104.145,
+          "dino_b32": 17391.961,
+          "dino_b8": 4369.758,
+          "guard": 5.207
+        },
+        "check": {
+          "sum_ms": 29544.998,
+          "unexplained_ms": 585.894,
+          "unexplained_frac": 0.0194,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30121,
+          "decode_ms": 618,
+          "crop_detect_ms": 6849,
+          "inference_ms": 21871
+        },
+        "host": {
+          "samples": 298,
+          "cpu_mhz_median": 1464.0,
+          "cpu_mhz_min": 1000,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4701
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260825_195610599.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7209.268,
+        "stages": {
+          "decode": 157.6,
+          "resize": 137.842,
+          "encoder": 6523.163,
+          "decoder": 197.433,
+          "upsample": 30.913,
+          "fill_crop": 60.925,
+          "mask_png": 82.68
+        },
+        "check": {
+          "sum_ms": 7190.556,
+          "unexplained_ms": 18.712,
+          "unexplained_frac": 0.0026,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7204,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1561.0,
+          "cpu_mhz_min": 1150,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4707
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29200.988,
+        "stages": {
+          "decode": 143.1,
+          "resize": 125.331,
+          "encoder": 6435.029,
+          "decoder": 197.387,
+          "upsample": 29.649,
+          "fill_crop": 62.233,
+          "pitch": 168.477,
+          "sampling": 34.484,
+          "transform": 109.747,
+          "dino_b32": 17283.66,
+          "dino_b8": 4293.841,
+          "guard": 4.943
+        },
+        "check": {
+          "sum_ms": 28887.881,
+          "unexplained_ms": 313.107,
+          "unexplained_frac": 0.0107,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29196,
+          "decode_ms": 143,
+          "crop_detect_ms": 6850,
+          "inference_ms": 21692
+        },
+        "host": {
+          "samples": 289,
+          "cpu_mhz_median": 1464,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4672
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260807_072408172.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7195.211,
+        "stages": {
+          "decode": 195.491,
+          "resize": 135.619,
+          "encoder": 6468.207,
+          "decoder": 217.182,
+          "upsample": 35.467,
+          "fill_crop": 44.833,
+          "mask_png": 74.416
+        },
+        "check": {
+          "sum_ms": 7171.215,
+          "unexplained_ms": 23.996,
+          "unexplained_frac": 0.0033,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7189,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1578.0,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 63.0,
+          "mem_available_mb_min": 4711
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29243.378,
+        "stages": {
+          "decode": 176.469,
+          "resize": 125.87,
+          "encoder": 6353.962,
+          "decoder": 226.001,
+          "upsample": 32.365,
+          "fill_crop": 47.169,
+          "pitch": 56.732,
+          "sampling": 17.024,
+          "transform": 123.06,
+          "dino_b32": 17489.29,
+          "dino_b8": 4378.107,
+          "guard": 4.865
+        },
+        "check": {
+          "sum_ms": 29030.914,
+          "unexplained_ms": 212.464,
+          "unexplained_frac": 0.0073,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29237,
+          "decode_ms": 176,
+          "crop_detect_ms": 6786,
+          "inference_ms": 21995
+        },
+        "host": {
+          "samples": 289,
+          "cpu_mhz_median": 1465,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4706
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260809_135958599.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7174.349,
+        "stages": {
+          "decode": 181.819,
+          "resize": 133.43,
+          "encoder": 6479.969,
+          "decoder": 196.521,
+          "upsample": 32.234,
+          "fill_crop": 47.322,
+          "mask_png": 71.478
+        },
+        "check": {
+          "sum_ms": 7142.773,
+          "unexplained_ms": 31.576,
+          "unexplained_frac": 0.0044,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7169,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1573.5,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4716
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29932.921,
+        "stages": {
+          "decode": 171.508,
+          "resize": 130.285,
+          "encoder": 6509.51,
+          "decoder": 205.842,
+          "upsample": 30.738,
+          "fill_crop": 46.637,
+          "pitch": 288.02,
+          "sampling": 100.125,
+          "transform": 104.555,
+          "dino_b32": 17397.436,
+          "dino_b8": 4353.992,
+          "guard": 4.758
+        },
+        "check": {
+          "sum_ms": 29343.406,
+          "unexplained_ms": 589.515,
+          "unexplained_frac": 0.0197,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29928,
+          "decode_ms": 172,
+          "crop_detect_ms": 6923,
+          "inference_ms": 21861
+        },
+        "host": {
+          "samples": 296,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 67.0,
+          "mem_available_mb_min": 4609
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "IMG_6291D.HEIC",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7808.511,
+        "stages": {
+          "decode": 684.64,
+          "resize": 124.645,
+          "encoder": 6585.427,
+          "decoder": 198.821,
+          "upsample": 32.72,
+          "fill_crop": 62.854,
+          "mask_png": 81.312
+        },
+        "check": {
+          "sum_ms": 7770.419,
+          "unexplained_ms": 38.092,
+          "unexplained_frac": 0.0049,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7798,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 78,
+          "cpu_mhz_median": 1580.0,
+          "cpu_mhz_min": 1025,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4732
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30426.277,
+        "stages": {
+          "decode": 636.842,
+          "resize": 122.748,
+          "encoder": 6532.494,
+          "decoder": 204.328,
+          "upsample": 30.957,
+          "fill_crop": 64.755,
+          "pitch": 146.333,
+          "sampling": 44.276,
+          "transform": 104.149,
+          "dino_b32": 17362.719,
+          "dino_b8": 4369.206,
+          "guard": 5.227
+        },
+        "check": {
+          "sum_ms": 29624.034,
+          "unexplained_ms": 802.243,
+          "unexplained_frac": 0.0264,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30417,
+          "decode_ms": 637,
+          "crop_detect_ms": 6956,
+          "inference_ms": 21841
+        },
+        "host": {
+          "samples": 301,
+          "cpu_mhz_median": 1464,
+          "cpu_mhz_min": 1000,
+          "temp_c_max": 67.0,
+          "mem_available_mb_min": 4649
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260809_202937.JPG",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7394.672,
+        "stages": {
+          "decode": 278.051,
+          "resize": 183.817,
+          "encoder": 6406.855,
+          "decoder": 238.753,
+          "upsample": 60.579,
+          "fill_crop": 82.263,
+          "mask_png": 101.594
+        },
+        "check": {
+          "sum_ms": 7351.912,
+          "unexplained_ms": 42.76,
+          "unexplained_frac": 0.0058,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7383,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 74,
+          "cpu_mhz_median": 1558.0,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4667
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30476.99,
+        "stages": {
+          "decode": 273.597,
+          "resize": 178.577,
+          "encoder": 6461.589,
+          "decoder": 238.675,
+          "upsample": 45.677,
+          "fill_crop": 80.845,
+          "pitch": 376.722,
+          "sampling": 156.829,
+          "transform": 104.974,
+          "dino_b32": 17386.833,
+          "dino_b8": 4373.138,
+          "guard": 4.689
+        },
+        "check": {
+          "sum_ms": 29682.145,
+          "unexplained_ms": 794.845,
+          "unexplained_frac": 0.0261,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30466,
+          "decode_ms": 274,
+          "crop_detect_ms": 7006,
+          "inference_ms": 21870
+        },
+        "host": {
+          "samples": 302,
+          "cpu_mhz_median": 1464.0,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 69.0,
+          "mem_available_mb_min": 4669
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260827_185019541.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7283.427,
+        "stages": {
+          "decode": 166.299,
+          "resize": 134.3,
+          "encoder": 6550.481,
+          "decoder": 201.837,
+          "upsample": 30.398,
+          "fill_crop": 91.674,
+          "mask_png": 73.098
+        },
+        "check": {
+          "sum_ms": 7248.087,
+          "unexplained_ms": 35.34,
+          "unexplained_frac": 0.0049,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7276,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1561.0,
+          "cpu_mhz_min": 900,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4691
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30246.089,
+        "stages": {
+          "decode": 164.09,
+          "resize": 127.815,
+          "encoder": 6557.395,
+          "decoder": 194.295,
+          "upsample": 27.708,
+          "fill_crop": 89.615,
+          "pitch": 253.833,
+          "sampling": 82.98,
+          "transform": 105.757,
+          "dino_b32": 17308.401,
+          "dino_b8": 4415.728,
+          "guard": 4.846
+        },
+        "check": {
+          "sum_ms": 29332.463,
+          "unexplained_ms": 913.626,
+          "unexplained_frac": 0.0302,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30239,
+          "decode_ms": 164,
+          "crop_detect_ms": 6997,
+          "inference_ms": 21835
+        },
+        "host": {
+          "samples": 300,
+          "cpu_mhz_median": 1465.0,
+          "cpu_mhz_min": 950,
+          "temp_c_max": 69.0,
+          "mem_available_mb_min": 4607
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260830_200129.JPG",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7406.987,
+        "stages": {
+          "decode": 266.902,
+          "resize": 186.524,
+          "encoder": 6436.366,
+          "decoder": 242.026,
+          "upsample": 58.245,
+          "fill_crop": 82.582,
+          "mask_png": 102.87
+        },
+        "check": {
+          "sum_ms": 7375.515,
+          "unexplained_ms": 31.472,
+          "unexplained_frac": 0.0042,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7398,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 74,
+          "cpu_mhz_median": 1570.0,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4645
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30265.823,
+        "stages": {
+          "decode": 256.453,
+          "resize": 179.448,
+          "encoder": 6410.034,
+          "decoder": 231.854,
+          "upsample": 58.366,
+          "fill_crop": 81.141,
+          "pitch": 356.558,
+          "sampling": 199.929,
+          "transform": 105.522,
+          "dino_b32": 17265.7,
+          "dino_b8": 4342.372,
+          "guard": 4.959
+        },
+        "check": {
+          "sum_ms": 29492.336,
+          "unexplained_ms": 773.487,
+          "unexplained_frac": 0.0256,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30257,
+          "decode_ms": 256,
+          "crop_detect_ms": 6961,
+          "inference_ms": 21718
+        },
+        "host": {
+          "samples": 300,
+          "cpu_mhz_median": 1464.0,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 66.0,
+          "mem_available_mb_min": 4628
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PXL_20260924_123010061.jpg",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7264.217,
+        "stages": {
+          "decode": 190.656,
+          "resize": 133.854,
+          "encoder": 6545.253,
+          "decoder": 205.205,
+          "upsample": 32.548,
+          "fill_crop": 47.606,
+          "mask_png": 70.438
+        },
+        "check": {
+          "sum_ms": 7225.56,
+          "unexplained_ms": 38.657,
+          "unexplained_frac": 0.0053,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7256,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 72,
+          "cpu_mhz_median": 1560.0,
+          "cpu_mhz_min": 1141,
+          "temp_c_max": 64.0,
+          "mem_available_mb_min": 4658
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 29826.465,
+        "stages": {
+          "decode": 179.643,
+          "resize": 151.237,
+          "encoder": 6527.588,
+          "decoder": 199.755,
+          "upsample": 30.639,
+          "fill_crop": 46.849,
+          "pitch": 287.732,
+          "sampling": 110.994,
+          "transform": 143.594,
+          "dino_b32": 17259.355,
+          "dino_b8": 4298.889,
+          "guard": 4.904
+        },
+        "check": {
+          "sum_ms": 29241.179,
+          "unexplained_ms": 585.286,
+          "unexplained_frac": 0.0196,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 29819,
+          "decode_ms": 180,
+          "crop_detect_ms": 6957,
+          "inference_ms": 21706
+        },
+        "host": {
+          "samples": 296,
+          "cpu_mhz_median": 1464.0,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 67.0,
+          "mem_available_mb_min": 4658
+        },
+        "verdict": "predicted"
+      }
+    },
+    {
+      "photo": "PIC_20260924_150009.JPG",
+      "pass": 2,
+      "crop": {
+        "whole_ms": 7577.27,
+        "stages": {
+          "decode": 299.412,
+          "resize": 185.561,
+          "encoder": 6528.648,
+          "decoder": 270.796,
+          "upsample": 56.465,
+          "fill_crop": 69.985,
+          "mask_png": 100.061
+        },
+        "check": {
+          "sum_ms": 7510.928,
+          "unexplained_ms": 66.342,
+          "unexplained_frac": 0.0088,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 7559,
+          "decode_ms": null,
+          "crop_detect_ms": null,
+          "inference_ms": null
+        },
+        "host": {
+          "samples": 75,
+          "cpu_mhz_median": 1559,
+          "cpu_mhz_min": 925,
+          "temp_c_max": 65.0,
+          "mem_available_mb_min": 4605
+        },
+        "verdict": null
+      },
+      "classify": {
+        "whole_ms": 30945.517,
+        "stages": {
+          "decode": 298.947,
+          "resize": 174.49,
+          "encoder": 6565.258,
+          "decoder": 284.396,
+          "upsample": 55.831,
+          "fill_crop": 76.823,
+          "pitch": 371.972,
+          "sampling": 149.954,
+          "transform": 104.641,
+          "dino_b32": 17461.372,
+          "dino_b8": 4389.793,
+          "guard": 4.799
+        },
+        "check": {
+          "sum_ms": 29938.276,
+          "unexplained_ms": 1007.241,
+          "unexplained_frac": 0.0325,
+          "ok": true
+        },
+        "log": {
+          "latency_ms": 30929,
+          "decode_ms": 299,
+          "crop_detect_ms": 7157,
+          "inference_ms": 21960
+        },
+        "host": {
+          "samples": 307,
+          "cpu_mhz_median": 1464,
+          "cpu_mhz_min": 975,
+          "temp_c_max": 67.0,
+          "mem_available_mb_min": 4677
+        },
+        "verdict": "predicted"
+      }
+    }
+  ],
+  "summary": {
+    "crop": {
+      "whole_ms": {
+        "n": 13,
+        "min": 7110.895,
+        "median": 7283.427,
+        "p90": 7645.868,
+        "max": 7808.511
+      },
+      "stages_ms": {
+        "decode": {
+          "n": 13,
+          "min": 156.257,
+          "median": 195.491,
+          "p90": 596.766,
+          "max": 684.64
+        },
+        "decoder": {
+          "n": 13,
+          "min": 196.521,
+          "median": 204.578,
+          "p90": 241.463,
+          "max": 270.796
+        },
+        "encoder": {
+          "n": 13,
+          "min": 6406.855,
+          "median": 6468.207,
+          "p90": 6549.435,
+          "max": 6585.427
+        },
+        "fill_crop": {
+          "n": 13,
+          "min": 44.833,
+          "median": 62.694,
+          "p90": 82.963,
+          "max": 91.674
+        },
+        "mask_png": {
+          "n": 13,
+          "min": 70.438,
+          "median": 79.553,
+          "p90": 102.206,
+          "max": 102.87
+        },
+        "resize": {
+          "n": 13,
+          "min": 124.645,
+          "median": 135.619,
+          "p90": 185.375,
+          "max": 186.524
+        },
+        "upsample": {
+          "n": 13,
+          "min": 29.732,
+          "median": 32.72,
+          "p90": 57.889,
+          "max": 60.579
+        }
+      },
+      "unexplained_ms": {
+        "n": 13,
+        "min": 18.157,
+        "median": 35.34,
+        "p90": 44.706,
+        "max": 66.342
+      },
+      "checks_failed": 0
+    },
+    "classify": {
+      "whole_ms": {
+        "n": 13,
+        "min": 29200.988,
+        "median": 30130.892,
+        "p90": 30851.812,
+        "max": 31614.017
+      },
+      "stages_ms": {
+        "decode": {
+          "n": 13,
+          "min": 143.1,
+          "median": 179.643,
+          "p90": 554.483,
+          "max": 636.842
+        },
+        "decoder": {
+          "n": 13,
+          "min": 194.295,
+          "median": 205.842,
+          "p90": 238.422,
+          "max": 284.396
+        },
+        "dino_b32": {
+          "n": 13,
+          "min": 17259.355,
+          "median": 17391.961,
+          "p90": 17458.818,
+          "max": 17489.29
+        },
+        "dino_b8": {
+          "n": 13,
+          "min": 4293.841,
+          "median": 4361.729,
+          "p90": 4387.456,
+          "max": 4415.728
+        },
+        "encoder": {
+          "n": 13,
+          "min": 6353.962,
+          "median": 6479.368,
+          "p90": 6552.415,
+          "max": 6565.258
+        },
+        "fill_crop": {
+          "n": 13,
+          "min": 46.637,
+          "median": 62.233,
+          "p90": 81.082,
+          "max": 89.615
+        },
+        "guard": {
+          "n": 13,
+          "min": 4.689,
+          "median": 4.865,
+          "p90": 5.202,
+          "max": 5.227
+        },
+        "pitch": {
+          "n": 13,
+          "min": 56.732,
+          "median": 280.585,
+          "p90": 375.772,
+          "max": 378.214
+        },
+        "resize": {
+          "n": 13,
+          "min": 122.748,
+          "median": 128.483,
+          "p90": 178.213,
+          "max": 179.448
+        },
+        "sampling": {
+          "n": 13,
+          "min": 17.024,
+          "median": 100.125,
+          "p90": 156.572,
+          "max": 199.929
+        },
+        "transform": {
+          "n": 13,
+          "min": 104.145,
+          "median": 105.662,
+          "p90": 120.622,
+          "max": 143.594
+        },
+        "upsample": {
+          "n": 13,
+          "min": 27.708,
+          "median": 30.957,
+          "p90": 57.859,
+          "max": 61.835
+        }
+      },
+      "unexplained_ms": {
+        "n": 13,
+        "min": 212.464,
+        "median": 591.823,
+        "p90": 988.518,
+        "max": 1883.098
+      },
+      "checks_failed": 0
+    },
+    "photo_ms": {
+      "n": 13,
+      "min": 36410.256,
+      "median": 37529.516,
+      "p90": 38465.187,
+      "max": 39051.4
+    },
+    "model_share": {
+      "photos": [
+        {
+          "photo": "PXL_20260825_193325070.jpg",
+          "whole_ms": 36563.066,
+          "encoder_ms": 12888.881,
+          "decoder_ms": 406.292,
+          "dinov3_ms": 21743.097,
+          "model_ms": 35038.27,
+          "share": 0.9582968233572099,
+          "shares": {
+            "encoder": 0.3525109464288361,
+            "decoder": 0.011112087810141525,
+            "dinov3": 0.5946737891182321
+          }
+        },
+        {
+          "photo": "PXL_20260809_130838005.jpg",
+          "whole_ms": 37153.841,
+          "encoder_ms": 12943.383,
+          "decoder_ms": 410.622,
+          "dinov3_ms": 21810.329,
+          "model_ms": 35164.334,
+          "share": 0.9464521851186262,
+          "shares": {
+            "encoder": 0.34837267565418073,
+            "decoder": 0.01105193942128352,
+            "dinov3": 0.5870275700431619
+          }
+        },
+        {
+          "photo": "PIC_20260809_201618.JPG",
+          "whole_ms": 39051.4,
+          "encoder_ms": 12973.067,
+          "decoder_ms": 476.621,
+          "dinov3_ms": 21742.151,
+          "model_ms": 35191.839,
+          "share": 0.9011671540584972,
+          "shares": {
+            "encoder": 0.3322049145485181,
+            "decoder": 0.012204965763071233,
+            "dinov3": 0.556757273746908
+          }
+        },
+        {
+          "photo": "IMG_6258D.HEIC",
+          "whole_ms": 37793.909,
+          "encoder_ms": 12889.206,
+          "decoder_ms": 400.282,
+          "dinov3_ms": 21761.719,
+          "model_ms": 35051.207,
+          "share": 0.9274300522869967,
+          "shares": {
+            "encoder": 0.34103923994736823,
+            "decoder": 0.01059117753604159,
+            "dinov3": 0.575799634803587
+          }
+        },
+        {
+          "photo": "PXL_20260825_195610599.jpg",
+          "whole_ms": 36410.256,
+          "encoder_ms": 12958.192,
+          "decoder_ms": 394.82,
+          "dinov3_ms": 21577.501,
+          "model_ms": 34930.513,
+          "share": 0.9593591706688357,
+          "shares": {
+            "encoder": 0.35589400964387613,
+            "decoder": 0.010843648009505892,
+            "dinov3": 0.5926215130154536
+          }
+        },
+        {
+          "photo": "PXL_20260807_072408172.jpg",
+          "whole_ms": 36438.589,
+          "encoder_ms": 12822.169,
+          "decoder_ms": 443.183,
+          "dinov3_ms": 21867.397,
+          "model_ms": 35132.749,
+          "share": 0.9641632665853226,
+          "shares": {
+            "encoder": 0.3518843443690973,
+            "decoder": 0.012162463261132312,
+            "dinov3": 0.6001164589550929
+          }
+        },
+        {
+          "photo": "PXL_20260809_135958599.jpg",
+          "whole_ms": 37107.27,
+          "encoder_ms": 12989.479,
+          "decoder_ms": 402.363,
+          "dinov3_ms": 21751.428,
+          "model_ms": 35143.27,
+          "share": 0.9470723661428071,
+          "shares": {
+            "encoder": 0.35005213264139345,
+            "decoder": 0.010843239074176031,
+            "dinov3": 0.5861769944272376
+          }
+        },
+        {
+          "photo": "IMG_6291D.HEIC",
+          "whole_ms": 38234.788,
+          "encoder_ms": 13117.921,
+          "decoder_ms": 403.149,
+          "dinov3_ms": 21731.925,
+          "model_ms": 35252.995,
+          "share": 0.9220136123155699,
+          "shares": {
+            "encoder": 0.3430886291301,
+            "decoder": 0.01054403649367691,
+            "dinov3": 0.5683809466917928
+          }
+        },
+        {
+          "photo": "PIC_20260809_202937.JPG",
+          "whole_ms": 37871.662,
+          "encoder_ms": 12868.444,
+          "decoder_ms": 477.428,
+          "dinov3_ms": 21759.971,
+          "model_ms": 35105.843,
+          "share": 0.9269686395067636,
+          "shares": {
+            "encoder": 0.33979084414093047,
+            "decoder": 0.012606470769621887,
+            "dinov3": 0.5745713245962112
+          }
+        },
+        {
+          "photo": "PXL_20260827_185019541.jpg",
+          "whole_ms": 37529.516,
+          "encoder_ms": 13107.876,
+          "decoder_ms": 396.132,
+          "dinov3_ms": 21724.129,
+          "model_ms": 35228.137,
+          "share": 0.9386781593453004,
+          "shares": {
+            "encoder": 0.3492684531289985,
+            "decoder": 0.010555212062953328,
+            "dinov3": 0.5788544941533486
+          }
+        },
+        {
+          "photo": "PIC_20260830_200129.JPG",
+          "whole_ms": 37672.81,
+          "encoder_ms": 12846.4,
+          "decoder_ms": 473.88,
+          "dinov3_ms": 21608.072,
+          "model_ms": 34928.352,
+          "share": 0.9271501648005551,
+          "shares": {
+            "encoder": 0.3409992511840768,
+            "decoder": 0.012578833381422835,
+            "dinov3": 0.5735720802350555
+          }
+        },
+        {
+          "photo": "PXL_20260924_123010061.jpg",
+          "whole_ms": 37090.682,
+          "encoder_ms": 13072.841,
+          "decoder_ms": 404.96,
+          "dinov3_ms": 21558.244,
+          "model_ms": 35036.045,
+          "share": 0.9446050358416165,
+          "shares": {
+            "encoder": 0.35245620449901677,
+            "decoder": 0.010918106062325843,
+            "dinov3": 0.5812307252802739
+          }
+        },
+        {
+          "photo": "PIC_20260924_150009.JPG",
+          "whole_ms": 38522.787,
+          "encoder_ms": 13093.906,
+          "decoder_ms": 555.192,
+          "dinov3_ms": 21851.165,
+          "model_ms": 35500.263,
+          "share": 0.9215393216487686,
+          "shares": {
+            "encoder": 0.3399002777239352,
+            "decoder": 0.014412041371773024,
+            "dinov3": 0.5672270025530605
+          }
+        }
+      ],
+      "median_share": 0.9386781593453004,
+      "stage_shares": {
+        "encoder": 0.34837267565418073,
+        "decoder": 0.01105193942128352,
+        "dinov3": 0.5788544941533486
+      },
+      "stop": false
+    }
+  },
+  "peak_rss_mb": 1992,
+  "host": {
+    "samples": 9600,
+    "cpu_mhz_median": 1470.0,
+    "cpu_mhz_min": 887,
+    "temp_c_max": 69.0,
+    "mem_available_mb_min": 4605
+  },
+  "live_model": "allrigs_dino3b16_segxl0v3_country_s42.pt",
+  "live_comparison": {
+    "crop": {
+      "fixtures_median_ms": 7283.427,
+      "live": {
+        "n": 2,
+        "min": 5027,
+        "median": 5162.0,
+        "p90": 5270.0,
+        "max": 5297
+      },
+      "within_range": false,
+      "ratio_to_live_median": 1.411
+    },
+    "classify": {
+      "fixtures_median_ms": 30130.892,
+      "live": {
+        "n": 6,
+        "min": 20146,
+        "median": 23440.0,
+        "p90": 26065.0,
+        "max": 26656
+      },
+      "within_range": false,
+      "ratio_to_live_median": 1.285
+    }
+  }
+}

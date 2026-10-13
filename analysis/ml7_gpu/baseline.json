@@ -1,0 +1,78 @@
+{
+  "ticket": "ML-7 P0",
+  "files": [
+    "app.jsonl"
+  ],
+  "bad_lines": 0,
+  "model": "allrigs_dino3b16_segxl0v3_country_s42.pt",
+  "models_seen": {
+    "allrigs_dino3b16_segxl0_country_s123.pt": 6,
+    "allrigs_dino3b16_segxl0v3_country_s42.pt": 8
+  },
+  "first": "2026-10-13T11:03:53.302+00:00",
+  "last": "2026-10-13T11:21:31.943+00:00",
+  "endpoints": {
+    "/crop": {
+      "n": 2,
+      "latency_ms": {
+        "n": 2,
+        "min": 5027,
+        "median": 5162.0,
+        "p90": 5270.0,
+        "max": 5297
+      },
+      "decode_ms": {
+        "n": 0,
+        "min": null,
+        "median": null,
+        "p90": null,
+        "max": null
+      },
+      "crop_detect_ms": {
+        "n": 0,
+        "min": null,
+        "median": null,
+        "p90": null,
+        "max": null
+      },
+      "inference_ms": {
+        "n": 0,
+        "min": null,
+        "median": null,
+        "p90": null,
+        "max": null
+      }
+    },
+    "/classify": {
+      "n": 6,
+      "latency_ms": {
+        "n": 6,
+        "min": 20146,
+        "median": 23440.0,
+        "p90": 26065.0,
+        "max": 26656
+      },
+      "decode_ms": {
+        "n": 6,
+        "min": 94,
+        "median": 98.5,
+        "p90": 106.5,
+        "max": 109
+      },
+      "crop_detect_ms": {
+        "n": 6,
+        "min": 4859,
+        "median": 4892.0,
+        "p90": 4930.0,
+        "max": 4951
+      },
+      "inference_ms": {
+        "n": 6,
+        "min": 14730,
+        "median": 18084.0,
+        "p90": 20714.5,
+        "max": 21310
+      }
+    }
+  }
+}
