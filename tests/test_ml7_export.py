@@ -203,6 +203,27 @@ class SequencesToSlices(unittest.TestCase):
             export_onnx.sequences_to_slices(m)
 
 
+@unittest.skipUnless(_have("onnx") and _have("onnxruntime"), "onnx and onnxruntime: the convert_onnx environment")
+class RetypeCasts(unittest.TestCase):
+    """onnxconverter-common typed a Cast's output fp16 and left the Cast at float (the fp16 decoder would not load;
+    plan P2): the Cast follows the type its consumers were converted for."""
+
+    def test_a_cast_left_at_float_feeding_fp16_is_retyped(self):
+        import onnxruntime as ort
+        from onnx import TensorProto, helper
+        g = helper.make_graph(
+            [helper.make_node("Constant", [], ["two"], value=helper.make_tensor("two", TensorProto.INT64, [], [2])),
+             helper.make_node("Cast", ["two"], ["two_f"], to=TensorProto.FLOAT),
+             helper.make_node("Mul", ["x", "two_f"], ["y"])], "g",
+            [helper.make_tensor_value_info("x", TensorProto.FLOAT16, [3])],
+            [helper.make_tensor_value_info("y", TensorProto.FLOAT16, [3])],
+            value_info=[helper.make_tensor_value_info("two_f", TensorProto.FLOAT16, [])])
+        m = helper.make_model(g, opset_imports=[helper.make_opsetid("", 20)], ir_version=10)
+        self.assertEqual(export_onnx.retype_casts(m), ["two_f"])
+        s = ort.InferenceSession(m.SerializeToString(), providers=["CPUExecutionProvider"])
+        np.testing.assert_array_equal(s.run(None, {"x": np.ones(3, np.float16)})[0], np.full(3, 2, np.float16))
+
+
 class Measures(unittest.TestCase):
     def test_least_cosine_over_every_patch(self):
         a = np.ones((2, 3, 4), np.float32)

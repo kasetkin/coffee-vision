@@ -215,7 +215,8 @@
       "ReduceMean",
       "Softmax"
     ],
-    "kept_fp32_attention_matmuls": 12
+    "kept_fp32_attention_matmuls": 12,
+    "retyped_casts": 0
   },
   "dino_b40.fp16.onnx": {
     "file": "dino_b40.fp16.onnx",
@@ -261,7 +262,8 @@
       "ReduceMean",
       "Softmax"
     ],
-    "kept_fp32_attention_matmuls": 12
+    "kept_fp32_attention_matmuls": 12,
+    "retyped_casts": 0
   },
   "encoder.fp16.onnx": {
     "file": "encoder.fp16.onnx",
@@ -311,7 +313,8 @@
       "Sqrt",
       "Sub"
     ],
-    "kept_fp32_attention_matmuls": 0
+    "kept_fp32_attention_matmuls": 0,
+    "retyped_casts": 0
   },
   "decoder.fp16.onnx": {
     "file": "decoder.fp16.onnx",
@@ -354,7 +357,7 @@
     "files": {
       "decoder.fp16.onnx": {
         "bytes": 1172788,
-        "sha256": "34e8eaa19f05f733bbf9a473a6e1959eabd958c5ac36047568bcc9b85eba1613"
+        "sha256": "a8acb6b7b8a0e5a62e9a67364eab602de473d51fee82284b3bf8c04eb617039d"
       },
       "decoder.fp16.onnx.data": {
         "bytes": 10186752,
@@ -370,7 +373,8 @@
       "Sqrt",
       "Sub"
     ],
-    "kept_fp32_attention_matmuls": 7
+    "kept_fp32_attention_matmuls": 7,
+    "retyped_casts": 4
   },
   "dino_b8.fp16_blanket.onnx": {
     "file": "dino_b8.fp16_blanket.onnx",
@@ -412,7 +416,8 @@
     },
     "sequence_slices": 132,
     "kept_fp32_ops": [],
-    "kept_fp32_attention_matmuls": 0
+    "kept_fp32_attention_matmuls": 0,
+    "retyped_casts": 0
   },
   "dino_b8.opt.onnx": {
     "file": "dino_b8.opt.onnx",

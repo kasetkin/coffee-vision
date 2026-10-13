@@ -95,6 +95,16 @@ def slice_sequences(path: Path) -> int:
     return n
 
 
+def repair_casts(path: Path) -> int:
+    """retype_casts on a saved .onnx, in place, the graph only (as slice_sequences)."""
+    import onnx
+    model = onnx.load(str(path), load_external_data=False)
+    n = len(retype_casts(model))
+    if n:
+        onnx.save_model(model, str(path))
+    return n
+
+
 def _constant_ints(model, name: str) -> list[int] | int | None:
     """An INT64 constant's value (a Constant node's or an initializer's): an int for a scalar, else a list."""
     from onnx import numpy_helper
@@ -181,9 +191,33 @@ def fp16_copy(src: Path, dst: Path, blanket: bool) -> dict:
                                                            "ReduceMean", "Sub", "Pow", "Sqrt", "Div"]
         kept_nodes = attention_score_matmuls(m)
     out = float16.convert_float_to_float16(m, keep_io_types=True, op_block_list=kept_ops, node_block_list=kept_nodes)
+    retyped = retype_casts(out)
     save(out, dst)
+    loads(dst)
     return {"kept_fp32_ops": sorted(set(kept_ops) & {n.op_type for n in m.graph.node}),
-            "kept_fp32_attention_matmuls": len(kept_nodes)}
+            "kept_fp32_attention_matmuls": len(kept_nodes), "retyped_casts": len(retyped)}
+
+
+def retype_casts(model) -> list[str]:
+    """Each Cast whose output the graph types otherwise, cast to that type: onnxconverter-common types a Cast's
+    output fp16 for its consumers and leaves the Cast at float (the fp16 decoder's scalar_tensor Casts of 1024,
+    2 and 1, exact in fp16), and the model does not load (plan P2). In place; the outputs retyped."""
+    typed = {v.name: v.type.tensor_type.elem_type for v in model.graph.value_info}
+    retyped = []
+    for n in model.graph.node:
+        if n.op_type != "Cast" or n.output[0] not in typed:
+            continue
+        to = next(a for a in n.attribute if a.name == "to")
+        if to.i != typed[n.output[0]]:
+            to.i = typed[n.output[0]]
+            retyped.append(n.output[0])
+    return retyped
+
+
+def loads(path: Path) -> None:
+    """An ORT CPU session is created from the file: its types check out (P1 had not loaded the fp16 copies)."""
+    import onnxruntime as ort
+    ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
 
 
 def fuse(src: Path, dst: Path) -> dict:
@@ -228,8 +262,9 @@ def main() -> None:
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--calib", type=Path, default=None, help="make_refs.py calib's output (the int8 step)")
     ap.add_argument("--only", nargs="*", default=None,
-                    help="these steps only (base fp16 fused int8); default all. slices: sequences_to_slices on the "
-                         "DINOv3 files exported before export_base applied it (P2), never in the default")
+                    help="these steps only (base fp16 fused int8); default all. repair: the P2 fixes, graph only, on "
+                         "files written before them (sequences_to_slices on DINOv3's, retype_casts on the fp16 "
+                         "copies), never in the default")
     args = ap.parse_args()
     steps = set(args.only or ["base", "fp16", "fused", "int8"])
     if "int8" in steps and args.calib is None:
@@ -264,12 +299,16 @@ def main() -> None:
         for b in graphs.DINO_BATCHES:
             record(out / f"dino_b{b}.opt.onnx", f"dino_b{b}", "fp32 ORT-fused",
                    **fuse(out / f"dino_b{b}.onnx", out / f"dino_b{b}.opt.onnx"))
-    if "slices" in steps:
-        dino = [f"dino_b{b}{v}.onnx" for b in graphs.DINO_BATCHES for v in ("", ".fp16")]
-        for f in dino + ["dino_b8.fp16_blanket.onnx"]:
+    if "repair" in steps:
+        for f in [f for f, m in manifest.items() if isinstance(m, dict) and m.get("variant", "").startswith("fp")]:
             m = manifest[f]
             kept = {k: v for k, v in m.items() if k not in ("file", "graph", "variant", "opset", "ops", "files")}
-            record(out / f, m["graph"], m["variant"], sequence_slices=slice_sequences(out / f), **kept)
+            if f.startswith("dino") and "ORT-fused" not in m["variant"]:
+                kept["sequence_slices"] = slice_sequences(out / f) or kept.get("sequence_slices", 0)
+            if "fp16" in m["variant"]:
+                kept["retyped_casts"] = repair_casts(out / f)
+            loads(out / f)
+            record(out / f, m["graph"], m["variant"], **kept)
     if "int8" in steps:
         record(out / "encoder.int8.onnx", "encoder", "int8 QDQ",
                **int8_encoder(out / "encoder.onnx", out / "encoder.int8.onnx", args.calib))

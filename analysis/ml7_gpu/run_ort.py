@@ -119,12 +119,13 @@ def main() -> None:
         out = {"low_masks": np.stack([o[0][0] for o in outs]), "ious": np.stack([o[1][0] for o in outs])}
     record.update(runtime="onnxruntime", onnxruntime=ort.__version__, provider=args.provider,
                   providers=sessions[0].get_providers(), fallback=args.fallback, graph=args.graph, file=args.file,
-                  precision=args.precision, cache_dir=str(args.cache_dir) if args.cache_dir else None,
+                  precision_hint=args.precision if args.provider.startswith("openvino") else None,
+                  cache_dir=str(args.cache_dir) if args.cache_dir else None,
                   batch=sessions[0].get_inputs()[0].shape[0], threads=args.threads)
     np.savez(args.out, **out)
     args.out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
     t = record["timing"]
-    print(json.dumps({"file": args.file, "provider": args.provider, "precision": args.precision, "cold_s": t["cold_s"],
+    print(json.dumps({"file": args.file, "provider": args.provider, "precision_hint": record["precision_hint"], "cold_s": t["cold_s"],
                       "warm_median_s": t["warm"]["median"], "cpu_over_wall": record["cpu_over_wall"],
                       "gpu_proof": record.get("gpu_proof", {}).get("ok"), "providers": record["providers"]}))
 
