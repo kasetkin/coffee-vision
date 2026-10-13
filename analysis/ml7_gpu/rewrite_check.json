@@ -1,0 +1,46 @@
+{
+  "neck": [
+    {
+      "layer": "image_encoder.neck.input_ops.0.op_list.1",
+      "in_hw": [
+        16,
+        16
+      ],
+      "out_hw": [
+        64,
+        64
+      ]
+    },
+    {
+      "layer": "image_encoder.neck.input_ops.1.op_list.1",
+      "in_hw": [
+        32,
+        32
+      ],
+      "out_hw": [
+        64,
+        64
+      ]
+    },
+    {
+      "layer": "image_encoder.neck.input_ops.2.op_list.1",
+      "in_hw": [
+        64,
+        64
+      ],
+      "out_hw": [
+        64,
+        64
+      ]
+    }
+  ],
+  "tolerance": 1e-05,
+  "graphs": {
+    "dino_b8": 5.294671723277133e-07,
+    "dino_b40": 5.294671723277133e-07,
+    "encoder": 1.5707636293882388e-06,
+    "decoder_low_masks": 0.0,
+    "decoder_ious": 0.0
+  },
+  "pass": true
+}

@@ -1,0 +1,16 @@
+# ML-7: LiteRT's runtime alone, as plan P2's venv_litert on yappy: the P1 CPU check and the P2/P4 runs use
+# this one lock, so the same runtime is measured everywhere.
+#     uv lock --project analysis/ml7_gpu/run_litert
+#     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/run_litert/.venv uv sync --locked --project analysis/ml7_gpu/run_litert
+# Set UV_PROJECT_ENVIRONMENT every time: the devcontainer points it at the training venv, so a plain
+# `uv sync --project` here would rewrite the training environment to this lock (it did once, in P1).
+[project]
+name = "ml7-run-litert"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = ["ai-edge-litert==2.3.0", "numpy"]
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

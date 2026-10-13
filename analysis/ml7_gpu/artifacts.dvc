@@ -1,0 +1,6 @@
+outs:
+- md5: 79b776030166f2d42d74990f4caba1dd.dir
+  size: 4672470982
+  nfiles: 46
+  hash: md5
+  path: artifacts

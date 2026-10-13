@@ -1,0 +1,572 @@
+{
+  "torch": "2.14.0+cpu",
+  "dino_b8.onnx": {
+    "file": "dino_b8.onnx",
+    "graph": "dino_b8",
+    "variant": "fp32",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 84,
+      "Cast": 147,
+      "CastLike": 24,
+      "Concat": 101,
+      "Constant": 396,
+      "Conv": 1,
+      "Expand": 2,
+      "Gather": 1,
+      "Gelu": 12,
+      "Identity": 12,
+      "LayerNormalization": 25,
+      "MatMul": 72,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 197,
+      "SequenceAt": 132,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 60,
+      "Transpose": 109
+    },
+    "files": {
+      "dino_b8.onnx": {
+        "bytes": 1718886,
+        "sha256": "cbf48f49adefde3b812e130aa303d655d7e96590fb0f20ce1dad66621e4e4499"
+      },
+      "dino_b8.onnx.data": {
+        "bytes": 342687744,
+        "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
+      }
+    }
+  },
+  "dino_b40.onnx": {
+    "file": "dino_b40.onnx",
+    "graph": "dino_b40",
+    "variant": "fp32",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 84,
+      "Cast": 147,
+      "CastLike": 24,
+      "Concat": 101,
+      "Constant": 396,
+      "Conv": 1,
+      "Expand": 2,
+      "Gather": 1,
+      "Gelu": 12,
+      "Identity": 12,
+      "LayerNormalization": 25,
+      "MatMul": 72,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 197,
+      "SequenceAt": 132,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 60,
+      "Transpose": 109
+    },
+    "files": {
+      "dino_b40.onnx": {
+        "bytes": 1719352,
+        "sha256": "8bcf39bc1475e74e4ac639e7cdb6fb85963dcb1033a5076960b83bf179b177d1"
+      },
+      "dino_b40.onnx.data": {
+        "bytes": 342687744,
+        "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
+      }
+    }
+  },
+  "encoder.onnx": {
+    "file": "encoder.onnx",
+    "graph": "encoder",
+    "variant": "fp32",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 32,
+      "BatchNormalization": 44,
+      "Cast": 90,
+      "CastLike": 62,
+      "Concat": 20,
+      "Constant": 263,
+      "Conv": 79,
+      "Div": 7,
+      "Expand": 124,
+      "Gelu": 30,
+      "MatMul": 16,
+      "Mul": 1,
+      "Pad": 6,
+      "Pow": 1,
+      "ReduceMean": 2,
+      "Relu": 12,
+      "Reshape": 106,
+      "Shape": 62,
+      "Slice": 30,
+      "Sqrt": 1,
+      "Sub": 1,
+      "Transpose": 6
+    },
+    "files": {
+      "encoder.onnx": {
+        "bytes": 2519914,
+        "sha256": "49dc44c3a7eab01cb89cd2c5008f6cb748aef7d2f37d7348c47b461fabb07a7a"
+      },
+      "encoder.onnx.data": {
+        "bytes": 451870720,
+        "sha256": "e485d09d2fb8ff6d7af41a3ab537e6e24b9cdf773061eca79ea8bd001bfc9de5"
+      }
+    }
+  },
+  "decoder.onnx": {
+    "file": "decoder.onnx",
+    "graph": "decoder",
+    "variant": "fp32",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 57,
+      "Cast": 13,
+      "CastLike": 4,
+      "Concat": 45,
+      "Constant": 178,
+      "ConvTranspose": 2,
+      "Cos": 1,
+      "Div": 10,
+      "Expand": 11,
+      "Gather": 15,
+      "Gelu": 2,
+      "Gemm": 15,
+      "Identity": 8,
+      "LayerNormalization": 9,
+      "MatMul": 48,
+      "Mul": 3,
+      "Pow": 1,
+      "ReduceMean": 2,
+      "Relu": 12,
+      "Reshape": 48,
+      "ScatterElements": 6,
+      "Shape": 10,
+      "Sin": 1,
+      "Slice": 3,
+      "Softmax": 7,
+      "Sqrt": 1,
+      "Sub": 3,
+      "Transpose": 70,
+      "Unsqueeze": 17
+    },
+    "files": {
+      "decoder.onnx": {
+        "bytes": 1121524,
+        "sha256": "b4f8f01ee8112ddeeed96055b2a1b262c63675460989b452dfccb623571fe3c6"
+      },
+      "decoder.onnx.data": {
+        "bytes": 20447232,
+        "sha256": "166369b0e16c2542c6b1d88bd135e7b5f9beb0f2e0fd228632d54186793a2781"
+      }
+    }
+  },
+  "dino_b8.fp16.onnx": {
+    "file": "dino_b8.fp16.onnx",
+    "graph": "dino_b8",
+    "variant": "fp16 mixed",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 84,
+      "Cast": 287,
+      "CastLike": 24,
+      "Concat": 101,
+      "Constant": 396,
+      "Conv": 1,
+      "Expand": 2,
+      "Gather": 1,
+      "Gelu": 12,
+      "Identity": 12,
+      "LayerNormalization": 25,
+      "MatMul": 72,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 197,
+      "SequenceAt": 132,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 60,
+      "Transpose": 109
+    },
+    "files": {
+      "dino_b8.fp16.onnx": {
+        "bytes": 1773391,
+        "sha256": "c3adbbaa71862f0d0dd2cdd7f0bec165efa714e5b0e8cfae64d6ccaddd449258"
+      },
+      "dino_b8.fp16.onnx.data": {
+        "bytes": 171332608,
+        "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
+      }
+    },
+    "kept_fp32_ops": [
+      "LayerNormalization",
+      "ReduceMean",
+      "Softmax"
+    ],
+    "kept_fp32_attention_matmuls": 12
+  },
+  "dino_b40.fp16.onnx": {
+    "file": "dino_b40.fp16.onnx",
+    "graph": "dino_b40",
+    "variant": "fp16 mixed",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 84,
+      "Cast": 287,
+      "CastLike": 24,
+      "Concat": 101,
+      "Constant": 396,
+      "Conv": 1,
+      "Expand": 2,
+      "Gather": 1,
+      "Gelu": 12,
+      "Identity": 12,
+      "LayerNormalization": 25,
+      "MatMul": 72,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 197,
+      "SequenceAt": 132,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 60,
+      "Transpose": 109
+    },
+    "files": {
+      "dino_b40.fp16.onnx": {
+        "bytes": 1773870,
+        "sha256": "0549e1cfed6ff3691ed00b40f75c9fa73e8e47d9a3ceeb24368d07c4f866472a"
+      },
+      "dino_b40.fp16.onnx.data": {
+        "bytes": 171332608,
+        "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
+      }
+    },
+    "kept_fp32_ops": [
+      "LayerNormalization",
+      "ReduceMean",
+      "Softmax"
+    ],
+    "kept_fp32_attention_matmuls": 12
+  },
+  "encoder.fp16.onnx": {
+    "file": "encoder.fp16.onnx",
+    "graph": "encoder",
+    "variant": "fp16 mixed",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 32,
+      "BatchNormalization": 44,
+      "Cast": 120,
+      "CastLike": 62,
+      "Concat": 20,
+      "Constant": 263,
+      "Conv": 79,
+      "Div": 7,
+      "Expand": 124,
+      "Gelu": 30,
+      "MatMul": 16,
+      "Mul": 1,
+      "Pad": 6,
+      "Pow": 1,
+      "ReduceMean": 2,
+      "Relu": 12,
+      "Reshape": 106,
+      "Shape": 62,
+      "Slice": 30,
+      "Sqrt": 1,
+      "Sub": 1,
+      "Transpose": 6
+    },
+    "files": {
+      "encoder.fp16.onnx": {
+        "bytes": 2566661,
+        "sha256": "75a2c9f02d70423c00c3a58f256add6e8f01a71d22eb010918a8b5374d143c38"
+      },
+      "encoder.fp16.onnx.data": {
+        "bytes": 225874624,
+        "sha256": "2ce5dec4be4039b1996ab28c20ccd458119788dce629793d121ac05a61a9ca60"
+      }
+    },
+    "kept_fp32_ops": [
+      "Div",
+      "Pow",
+      "ReduceMean",
+      "Sqrt",
+      "Sub"
+    ],
+    "kept_fp32_attention_matmuls": 0
+  },
+  "decoder.fp16.onnx": {
+    "file": "decoder.fp16.onnx",
+    "graph": "decoder",
+    "variant": "fp16 mixed",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 57,
+      "Cast": 95,
+      "CastLike": 4,
+      "Concat": 45,
+      "Constant": 178,
+      "ConvTranspose": 2,
+      "Cos": 1,
+      "Div": 10,
+      "Expand": 11,
+      "Gather": 15,
+      "Gelu": 2,
+      "Gemm": 15,
+      "Identity": 8,
+      "LayerNormalization": 9,
+      "MatMul": 48,
+      "Mul": 3,
+      "Pow": 1,
+      "ReduceMean": 2,
+      "Relu": 12,
+      "Reshape": 48,
+      "ScatterElements": 6,
+      "Shape": 10,
+      "Sin": 1,
+      "Slice": 3,
+      "Softmax": 7,
+      "Sqrt": 1,
+      "Sub": 3,
+      "Transpose": 70,
+      "Unsqueeze": 17
+    },
+    "files": {
+      "decoder.fp16.onnx": {
+        "bytes": 1170576,
+        "sha256": "a67a7daec1625a2c98be11a6910bd48841410cd8d1a0c4ea2c9585f72424dc8e"
+      },
+      "decoder.fp16.onnx.data": {
+        "bytes": 10186752,
+        "sha256": "ae5cffe6d760a346ecc348727c7b41c9cb01745be20efcab01162b881aebf841"
+      }
+    },
+    "kept_fp32_ops": [
+      "Div",
+      "LayerNormalization",
+      "Pow",
+      "ReduceMean",
+      "Softmax",
+      "Sqrt",
+      "Sub"
+    ],
+    "kept_fp32_attention_matmuls": 0
+  },
+  "dino_b8.fp16_blanket.onnx": {
+    "file": "dino_b8.fp16_blanket.onnx",
+    "graph": "dino_b8",
+    "variant": "fp16 blanket",
+    "opset": {
+      "ai.onnx": 20
+    },
+    "ops": {
+      "Add": 84,
+      "Cast": 149,
+      "CastLike": 24,
+      "Concat": 101,
+      "Constant": 396,
+      "Conv": 1,
+      "Expand": 2,
+      "Gather": 1,
+      "Gelu": 12,
+      "Identity": 12,
+      "LayerNormalization": 25,
+      "MatMul": 72,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 197,
+      "SequenceAt": 132,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 60,
+      "Transpose": 109
+    },
+    "files": {
+      "dino_b8.fp16_blanket.onnx": {
+        "bytes": 1739892,
+        "sha256": "ca026c0c1a58169933f417882c3e2005a43ca9a9ce04c14316cfb7f424b4ac34"
+      },
+      "dino_b8.fp16_blanket.onnx.data": {
+        "bytes": 171332608,
+        "sha256": "43236096f9de5972ec7288a441d0a59acb1fea300f45708ae216488b32a0f019"
+      }
+    },
+    "kept_fp32_ops": [],
+    "kept_fp32_attention_matmuls": 0
+  },
+  "dino_b8.opt.onnx": {
+    "file": "dino_b8.opt.onnx",
+    "graph": "dino_b8",
+    "variant": "fp32 ORT-fused",
+    "opset": {
+      "ai.onnx": 20,
+      "ai.onnx.ml": 5,
+      "ai.onnx.training": 1,
+      "ai.onnx.preview": 1,
+      "com.microsoft": 1,
+      "ai.onnx.preview.training": 1,
+      "com.microsoft.experimental": 1,
+      "com.microsoft.nchwc": 1,
+      "org.pytorch.aten": 1
+    },
+    "ops": {
+      "Add": 48,
+      "Concat": 50,
+      "Conv": 1,
+      "Gather": 1,
+      "Gelu": 12,
+      "Gemm": 36,
+      "LayerNormalization": 25,
+      "MatMul": 36,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 121,
+      "SequenceAt": 86,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 37,
+      "Transpose": 73
+    },
+    "files": {
+      "dino_b8.opt.onnx": {
+        "bytes": 128774,
+        "sha256": "53ae875c4ffd3a497794eeb193ec36833bf92591deb77efe9be9d700e3f3e420"
+      },
+      "dino_b8.opt.onnx.data": {
+        "bytes": 342772736,
+        "sha256": "00e5fb799f528f76a617777bca1f936655b4d378e40af37b08b3eba5e38f70f6"
+      }
+    },
+    "fusions": {
+      "Gelu": 12,
+      "LayerNormalization": 25
+    }
+  },
+  "dino_b40.opt.onnx": {
+    "file": "dino_b40.opt.onnx",
+    "graph": "dino_b40",
+    "variant": "fp32 ORT-fused",
+    "opset": {
+      "ai.onnx": 20,
+      "ai.onnx.ml": 5,
+      "ai.onnx.training": 1,
+      "ai.onnx.preview": 1,
+      "com.microsoft": 1,
+      "ai.onnx.preview.training": 1,
+      "com.microsoft.experimental": 1,
+      "com.microsoft.nchwc": 1,
+      "org.pytorch.aten": 1
+    },
+    "ops": {
+      "Add": 48,
+      "Concat": 50,
+      "Conv": 1,
+      "Gather": 1,
+      "Gelu": 12,
+      "Gemm": 36,
+      "LayerNormalization": 25,
+      "MatMul": 36,
+      "Mul": 84,
+      "Neg": 24,
+      "ReduceMean": 1,
+      "Reshape": 121,
+      "SequenceAt": 86,
+      "Slice": 49,
+      "Softmax": 12,
+      "SplitToSequence": 37,
+      "Transpose": 73
+    },
+    "files": {
+      "dino_b40.opt.onnx": {
+        "bytes": 128939,
+        "sha256": "34e57bfe13aaaa3c6607449419bca414c5f2720276dfe3c4ff73d5ba87bbdfad"
+      },
+      "dino_b40.opt.onnx.data": {
+        "bytes": 343264256,
+        "sha256": "b2e11e08623b82ee693751c1e3aadc6faa6de2ac658f2257bab8f4615fe210fb"
+      }
+    },
+    "fusions": {
+      "Gelu": 12,
+      "LayerNormalization": 25
+    }
+  },
+  "encoder.int8.onnx": {
+    "file": "encoder.int8.onnx",
+    "graph": "encoder",
+    "variant": "int8 QDQ",
+    "opset": {
+      "ai.onnx": 20,
+      "ai.onnx.ml": 5,
+      "ai.onnx.training": 1,
+      "ai.onnx.preview": 1,
+      "com.microsoft": 1,
+      "ai.onnx.preview.training": 1,
+      "com.microsoft.experimental": 1,
+      "com.microsoft.nchwc": 1,
+      "org.pytorch.aten": 1
+    },
+    "ops": {
+      "Add": 32,
+      "BatchNormalization": 44,
+      "Cast": 62,
+      "Concat": 6,
+      "Conv": 79,
+      "DequantizeLinear": 458,
+      "Div": 7,
+      "Expand": 62,
+      "Gelu": 30,
+      "MatMul": 16,
+      "Mul": 1,
+      "Pad": 6,
+      "Pow": 1,
+      "QuantizeLinear": 265,
+      "ReduceMean": 2,
+      "Reshape": 12,
+      "Slice": 30,
+      "Sqrt": 1,
+      "Sub": 1,
+      "Transpose": 6
+    },
+    "files": {
+      "encoder.int8.onnx": {
+        "bytes": 1130268,
+        "sha256": "b93ceb1148e79e98f9f1bc5f3086ad0bfc7eedcf7796366b963a5e346ef0ac61"
+      },
+      "encoder.int8.onnx.data": {
+        "bytes": 114083328,
+        "sha256": "6c5ea32be8617ef5301d67feb94fd1eccfb37eb1b67b1c2f01f23e7194478685"
+      }
+    },
+    "calibration_photos": 32,
+    "format": "QDQ",
+    "activations": "uint8",
+    "weights": "int8 per-channel"
+  }
+}

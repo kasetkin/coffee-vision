@@ -1,0 +1,6 @@
+# The conversion and runtime environments (uv projects here; each synced into its own .venv)
+/convert_onnx/.venv/
+/convert_litert/.venv/
+/run_litert/.venv/
+/scratch/
+/artifacts

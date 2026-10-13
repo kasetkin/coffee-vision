@@ -1,0 +1,49 @@
+# ML-7 P1: the LiteRT conversion and LiteRT's CPU (XNNPACK) check, apart from the training lock (ADR 0007;
+# plan P1). litert-torch requires torch below 2.14 and training is on 2.14, so the converter gets its own
+# torch here (ticket 2.3); the readouts are compared with torch 2.14's, which would show a difference.
+#     uv lock --project analysis/ml7_gpu/convert_litert
+#     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/convert_litert/.venv uv sync --locked --project analysis/ml7_gpu/convert_litert
+# Set UV_PROJECT_ENVIRONMENT every time: the devcontainer points it at the training venv, so a plain
+# `uv sync --project` here would rewrite the training environment to this lock (it did once, in P1).
+[project]
+name = "ml7-convert-litert"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = [
+  "torch==2.13.*",
+  "torchvision",
+  "timm==1.0.30",
+  "numpy",
+  "pyyaml",
+  "pillow",
+  # coffeecv.infer, which builds the models as serving does, imports the photo decoders: webapp/pyproject.toml's
+  "pillow-heif",
+  "pillow-avif-plugin==1.6.0",
+  "pillow-jxl-plugin==1.3.8",
+  "rawpy",
+  "opencv-python-headless",
+  "segment-anything==1.0",
+  # It brings the ai-edge-litert it was built against (below 2.3.0); the CPU check runs the 2.3.0 runtime
+  # that plan P2 takes to yappy, from ../run_litert.
+  "litert-torch==0.9.4",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+# As in the training pyproject: timm without huggingface_hub/safetensors.
+[[tool.uv.dependency-metadata]]
+name = "timm"
+version = "1.0.30"
+requires-dist = ["torch", "torchvision", "pyyaml"]
