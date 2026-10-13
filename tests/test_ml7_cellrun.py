@@ -9,6 +9,8 @@ import importlib.util
 import sys
 import unittest
 
+import numpy as np
+
 from coffeecv.config import REPO_ROOT
 
 _spec = importlib.util.spec_from_file_location("cellrun", REPO_ROOT / "analysis" / "ml7_gpu" / "cellrun.py")
@@ -86,6 +88,39 @@ class Timing(unittest.TestCase):
         self.assertEqual(t["cold_s"], 7.0)
         self.assertEqual(t["warm"]["n"], 4)
         self.assertEqual(t["warm"]["median"], 2.5)
+
+
+class _StubSampler:
+    gt = None
+
+    def between(self, t0, t1):
+        return {}
+
+
+class Measure(unittest.TestCase):
+    """P4's protocol (plan P4): one cold call, `warmup` untimed calls, then `timed` calls, cycling through the
+    items; every call's outputs checked for NaN and Inf; the first pass over the items kept."""
+
+    def test_cold_warmup_and_timed_calls_cycle_the_items(self):
+        seen = []
+        outs, rec = cr.measure(lambda: "s", lambda s, x: seen.append(x) or np.array([x], float),
+                               [0, 1, 2], _StubSampler(), None, warmup=3, timed=5)
+        self.assertEqual(seen, [0, 1, 2, 0, 1, 2, 0, 1, 2])
+        self.assertEqual([int(o[0]) for o in outs], [0, 1, 2])
+        self.assertEqual(rec["timing"]["warm"]["n"], 5)
+        self.assertEqual((rec["warmup"], rec["timed"]), (3, 5))
+        self.assertEqual(rec["nonfinite_calls"], 0)
+
+    def test_p2s_protocol_is_the_default(self):
+        outs, rec = cr.measure(lambda: "s", lambda s, x: np.array([x], float), [0, 1, 2], _StubSampler(), None)
+        self.assertEqual(len(outs), 3)
+        self.assertEqual(rec["timing"]["warm"]["n"], 2)
+
+    def test_a_nan_in_any_call_is_counted_even_past_the_first_pass(self):
+        calls = iter(range(100))
+        bad = lambda s, x: (np.array([np.nan]) if next(calls) == 4 else np.zeros(1), np.zeros(2))  # noqa: E731
+        _, rec = cr.measure(lambda: "s", bad, [0, 1, 2], _StubSampler(), None, warmup=1, timed=4)
+        self.assertEqual(rec["nonfinite_calls"], 1)
 
 
 class SamplerProcess(unittest.TestCase):

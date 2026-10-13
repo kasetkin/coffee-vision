@@ -24,6 +24,7 @@ Each rewritten graph is checked against the original on the fixtures (make_refs.
 """
 from __future__ import annotations
 
+import os
 import sys
 import types
 from pathlib import Path
@@ -32,7 +33,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-REPO = Path(__file__).resolve().parents[2]
+# The repo, or a release laid out like it (ML7_REPO; P4's torch cell runs the release's own code on yappy).
+REPO = Path(os.environ.get("ML7_REPO") or Path(__file__).resolve().parents[2])
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 

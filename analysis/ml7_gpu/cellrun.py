@@ -180,9 +180,10 @@ def gpu_proof(seen: dict, counters: dict, path: str) -> dict:
     return {"ok": not why, "why_not": why, "gpu_busy_frac": busy, "path": path}
 
 
-def timing(create_s: float, call_s: list[float]) -> dict:
-    """Cold: the session's creation and its first call (kernels compile there); warm: the calls after it."""
-    warm = sorted(call_s[1:])
+def timing(create_s: float, call_s: list[float], warmup: int = 0) -> dict:
+    """Cold: the session's creation and its first call (kernels compile there); warm: the calls after it and
+    after `warmup` more, which are not timed."""
+    warm = sorted(call_s[1 + warmup:])
     q = {"n": len(warm), "median": statistics.median(warm) if warm else None,
          "p90": warm[min(len(warm) - 1, int(0.9 * (len(warm) - 1) + 0.5))] if warm else None}
     return {"create_s": round(create_s, 3), "first_call_s": round(call_s[0], 3),
@@ -198,27 +199,54 @@ def peak_rss_mb() -> float:
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
 
 
-def measure(make, call, items: list, sampler: Sampler, path: str | None) -> tuple[list, dict]:
-    """One cell: make() the session, call(session, item) on every item in turn (the first is the cold call), and
-    record the timing, CPU time against wall time and the counters over the warm calls, peak RSS, what the
-    process loaded and, on a GPU `path` ("vulkan", "opencl"), gpu_proof. Returns (outputs, record)."""
+def finite(out) -> bool:
+    """No NaN or Inf in an output: an array, or a tuple or list of them."""
+    import numpy as np                       # here: the module is stdlib-only for the sampler's child
+    parts = out if isinstance(out, (tuple, list)) else (out,)
+    return all(bool(np.isfinite(np.asarray(p)).all()) for p in parts)
+
+
+def mem_available_mb() -> float | None:
+    for line in (_read(Path("/proc/meminfo")) or "").splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) / 1024
+    return None
+
+
+def measure(make, call, items: list, sampler: Sampler, path: str | None, warmup: int = 0,
+            timed: int | None = None) -> tuple[list, dict]:
+    """One cell: make() the session, then call(session, item) 1 + warmup + timed times, cycling through the
+    items: the first is the cold call, the warm-ups are not timed (timed: one pass over the items, P2's
+    protocol, unless given; P4 gives 3 and 20). Records the timing, CPU time against wall time and the counters
+    over the timed calls, the calls with a NaN or Inf in any output, peak RSS and the drop in MemAvailable,
+    what the process loaded and, on a GPU `path` ("vulkan", "opencl"), gpu_proof. Returns the outputs of the
+    first pass over the items, and the record."""
     probe = Probe()
+    mem0 = mem_available_mb()
     t0 = time.perf_counter()
     session = make()
     create_s = time.perf_counter() - t0
-    outputs, call_s, warm0, cpu0 = [], [], None, None
-    for i, item in enumerate(items):
-        if i == 1:
+    n = 1 + warmup + (len(items) - 1 if timed is None else timed)
+    outputs, call_s, warm0, cpu0, nonfinite = [], [], None, None, 0
+    for i in range(n):
+        if i == 1 + warmup:
             warm0, cpu0, rc6_0 = time.perf_counter(), cpu_seconds(), probe.rc6_ms()
         t = time.perf_counter()
-        outputs.append(call(session, item))
+        out = call(session, items[i % len(items)])
         call_s.append(time.perf_counter() - t)
+        nonfinite += not finite(out)
+        if i < len(items):
+            outputs.append(out)
     warm1, cpu1, rc6_1 = time.perf_counter(), cpu_seconds(), probe.rc6_ms()
     counters = sampler.between(warm0, warm1) if warm0 is not None else None
     if counters is not None and rc6_0 is not None and rc6_1 is not None:
         counters["rc6_ms_delta"] = rc6_1 - rc6_0     # cumulative: exact over the window, however few samples
     seen = loaded()
-    record = {"timing": timing(create_s, call_s), "calls_s": [round(c, 3) for c in call_s],
+    mem_min = (counters or {}).get("mem_available_mb_min")
+    record = {"timing": timing(create_s, call_s, warmup), "calls_s": [round(c, 3) for c in call_s],
+              "warmup": warmup, "timed": n - 1 - warmup, "nonfinite_calls": nonfinite,
+              "mem_available_mb_before": mem0,
+              "mem_available_drop_mb": round(mem0 - mem_min, 1) if mem0 is not None and mem_min is not None else None,
               "cpu_over_wall": round((cpu1 - cpu0) / (warm1 - warm0), 2) if warm0 is not None else None,
               "peak_rss_mb": peak_rss_mb(), "counters": counters, "loaded": seen, "gpu_sampler": sampler.gt}
     if path is not None:
