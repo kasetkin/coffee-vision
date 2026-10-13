@@ -537,7 +537,7 @@
       and verify it (<code>scripts/deploy_webapp.sh --verify</code>), unless Q3 says otherwise. Log both in the
       ticket's Activity.</span></li>
     <li><span class="box"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
-      the device or the CPU (ticket D2, D8), whether the int8 encoder may serve (D4), and whether D5 is
+      the device or the CPU (ticket D2), whether the int8 encoder may serve (D4), and whether D5 is
       revisited; P6 is not run. If none passes, the owner decides whether P6 runs
       (D10). The phases that move serving (export in the release route, the gates, the sandbox) are written into
       this plan only after that.</span></li>
@@ -641,6 +641,8 @@
       for now), D6 (a) and D7 (photos that change answer listed, not blocking). P1's check follows D7. P5 reports
       each cell's installed size and memory against the 5 GB preflight for D1 (b), and its stop now includes D4
       and a second look at D5.</div>
+    <div><div class="when">2026-10-13</div>Ticket D2 rewritten: at P5 the owner picks one passing cell, a runtime and
+      a device together, or keeps PyTorch; which GPU path serves (D8) is part of it.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
