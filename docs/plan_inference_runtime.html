@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 in progress, P3 and P4's tooling started 2026-10-13</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 next</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -369,7 +369,7 @@
 
   <h2>6. P2 &mdash; The Vulkan paths on <code>yappy</code></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-13</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-13: every fp32 graph whole on both Vulkan paths, passing D7, after three graph fixes</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
@@ -415,7 +415,7 @@
       result.</span></li>
     <li><span class="box done"></span><span>If LiteRT 2.3.0 crashes in WebGPU start-up (LiteRT #10446, fixed on
       2026-10-09 after 2.3.0), retry with the nightly wheel and note the version.</span></li>
-    <li><span class="box"></span><span>Checks: each of the eight files runs on its runtime's Vulkan path. For
+    <li><span class="box done"></span><span>Checks: each of the eight files runs on its runtime's Vulkan path. For
       each, the log records whether it ran fully on the GPU (if not, which ops fell back or why the session
       refused), the IoU and cosine against <code>refs.npz</code>, and one cold and one warm time. For ORT's
       WebGPU plugin, the readout's cosine shows whether it computes in fp32.</span></li>
@@ -423,27 +423,27 @@
 
   <h2>7. P3 &mdash; ORT's OpenVINO provider: the OpenCL path, and the CPU</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-13: OpenVINO runs on NEO 22.43; GPU and CPU pass D7 after the zero-bias fix</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>~/ml7/venv_ort_openvino</code> with <code>onnxruntime-openvino</code>,
+    <li><span class="box done"></span><span><code>~/ml7/venv_ort_openvino</code> with <code>onnxruntime-openvino</code>,
       which replaces <code>onnxruntime</code> in its venv. The <code>OpenVINOExecutionProvider</code> runs with
       <code>device_type="GPU"</code> and <code>load_config={"GPU": {"INFERENCE_PRECISION_HINT": "f32"}}</code>,
       and <code>session.disable_cpu_ep_fallback=1</code> and spinning off as in P2. Its kernel cache goes to
       <code>~/ml7/cache/openvino</code>, and its cold starts are measured with the cache empty.</span></li>
-    <li><span class="box"></span><span>Prove OpenCL ran: <code>strace</code> must show OpenVINO's GPU plugin,
+    <li><span class="box done"></span><span>Prove OpenCL ran: <code>strace</code> must show OpenVINO's GPU plugin,
       NEO's <code>libigdrcl.so</code> and <code>/dev/dri/renderD128</code>, and the i915 counters must show the
       GPU busy, as in P2.</span></li>
-    <li><span class="box"></span><span><b>The same provider on the CPU</b>, in the same venv:
+    <li><span class="box done"></span><span><b>The same provider on the CPU</b>, in the same venv:
       <code>device_type="CPU"</code>, <code>load_config={"CPU": {"INFERENCE_PRECISION_HINT": "f32"}}</code>,
       4 threads. OpenVINO's CPU plugin is usually the fastest fp32 path on Intel CPUs, and it costs no new
       package. It also runs the int8 encoder from P1, for information. Its outputs are checked against
       <code>refs.npz</code> like every other cell's.</span></li>
-    <li><span class="box"></span><span>If OpenVINO refuses driver 22.43, record the error and go to the owner. A
+    <li><span class="box done"></span><span>If OpenVINO refuses driver 22.43, record the error and go to the owner. A
       driver upgrade is out of scope (ticket), and P4 then runs without the GPU cell, saying so. The CPU cell does
       not depend on the driver.</span></li>
-    <li><span class="box"></span><span>Checks: the same as P2's, for the four <code>.onnx</code> files on the
+    <li><span class="box done"></span><span>Checks: the same as P2's, for the four <code>.onnx</code> files on the
       GPU and on the CPU.</span></li>
   </ol>
 
@@ -784,6 +784,37 @@
           (5.8 s); ORT's mixed copy does not (cosine 0.99976, 9.9 s), nor its blanket copy (0.99929); ORT's
           mixed fp16 encoder returns NaN.</li>
       </ul></div>
+    <div><div class="when">2026-10-13</div>P2 and P3 done on <code>yappy</code>. Every fp32 GPU path now runs every
+      graph whole on the iGPU, the GPU proven, and passes D7; the parity is in <code>parity_p2.json</code> and
+      <code>parity_p3.json</code>. Two more graph fixes after the progress entry above, both graph only:
+      <ul>
+        <li><b>The XL0 encoder's computed zero biases</b> (<code>36f2b50</code>): the exporter gives each of 62
+          bias-free Convs a zero bias computed at run time. OpenVINO's CPU plugin refused them (85 nodes left to
+          ORT's CPU), and its GPU plugin, given them, planned more than 8 GB of buffers and failed to allocate;
+          without them the GPU plan is 914 MB (bisected with OpenVINO's own API, which says the whole graph now
+          fits). <code>drop_zero_biases</code> removes them; a kernel may then order its sums differently, 1 ulp.</li>
+        <li><b>LiteRT's GPU forms</b> moved the whole encoder onto the GPU (the delegate's report: nothing refused).</li>
+      </ul>
+      Warm time per photo from the cells (short runs, the CPU at its boosted clock where it computes; P4 decides):
+      <ul>
+        <li><b>XL0 encoder:</b> LiteRT Vulkan 1.59 s (D7: IoU 0.999998), OpenVINO GPU 2.12 s, ORT WebGPU 4.77 s,
+          OpenVINO CPU 6.61 s; PyTorch 6.5 s (P0).</li>
+        <li><b>DINOv3, per photo:</b> LiteRT Vulkan 10.95 s at batch 8 (13.2 s at 40), OpenVINO GPU 13.3 s, ORT
+          WebGPU 13.5 s at batch 40 (13.8 s at 8), OpenVINO CPU 24.2 s; PyTorch 21.8 s. Least cosine 1.0000000 on
+          every GPU path.</li>
+        <li><b>Decoder:</b> 0.07&ndash;0.12 s everywhere.</li>
+        <li><b>The CPU while the GPU computes:</b> LiteRT and ORT WebGPU leave it idle (CPU/wall 0.01&ndash;0.07);
+          OpenVINO's GPU plugin keeps one core busy throughout (1.0).</li>
+        <li><b>Cold starts:</b> OpenVINO compiles at the first load (DINOv3 21.7 s, the encoder 11.9 s; from its
+          cache 14.3 s and 3.3 s); LiteRT 4.2&ndash;11.7 s; ORT WebGPU 6.0&ndash;14.6 s.</li>
+        <li><b>fp16, for information (D4, D12):</b> every fp16 cell fails D7. The encoder returns NaN on all three
+          GPU paths (LiteMLA's sum over 4,096 tokens); LiteRT's fp16 DINOv3 returns NaN, ORT's and OpenVINO's do
+          not (cosine 0.9998 and 0.9971). They are about twice as fast: OpenVINO's fp16 encoder 0.99 s, DINOv3
+          6.3 s.</li>
+        <li><b>int8 encoder on OpenVINO's CPU</b>, for information: 2.9 s, fails D7 (IoU 0.21), as on ORT's CPU in P1.</li>
+      </ul>
+      P4's tooling is written and was checked locally (<code>d749e70</code>, <code>23162bf</code>); its rehearsal
+      runs on <code>yappy</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
