@@ -82,6 +82,7 @@ def export_base(module, args, path: Path, kind: str) -> None:
     prog = torch.onnx.export(module, args, dynamo=True, input_names=ins, output_names=outs, optimize=False)
     prog.save(str(path), external_data=True)
     slice_sequences(path)
+    repair_biases(path)
 
 
 def slice_sequences(path: Path) -> int:
@@ -90,6 +91,54 @@ def slice_sequences(path: Path) -> int:
     import onnx
     model = onnx.load(str(path), load_external_data=False)
     n = sequences_to_slices(model)
+    if n:
+        onnx.save_model(model, str(path))
+    return n
+
+
+def drop_zero_biases(model) -> int:
+    """Each Conv whose bias is computed as zeros, the exporter's convolution without a bias
+    (Expand(CastLike(0) or Cast(0), Shape(weight)[:1])), without it: the same model (a kernel may order its sums
+    differently without a bias, 1 ulp on ORT's CPU), and a Conv
+    OpenVINO's CPU plugin takes (it refused 12 such, and their 73 helper nodes, in the encoder; plan P3). The nodes
+    left unread go too. In place, the graph only. Returns the number of biases dropped."""
+    from onnx import numpy_helper
+    produced = {o: n for n in model.graph.node for o in n.output}
+    initializers = {t.name for t in model.graph.initializer}
+    dropped = 0
+    for n in model.graph.node:
+        if n.op_type != "Conv" or len(n.input) < 3 or not n.input[2] or n.input[2] in initializers:
+            continue
+        src = produced.get(n.input[2])
+        if src is not None and src.op_type == "Expand":
+            src = produced.get(src.input[0])
+        if src is not None and src.op_type in ("CastLike", "Cast"):
+            src = produced.get(src.input[0])
+        if src is None or src.op_type != "Constant" or numpy_helper.to_array(src.attribute[0].t).any():
+            continue
+        del n.input[2]
+        dropped += 1
+    if dropped:
+        _drop_unread(model)
+    return dropped
+
+
+def _drop_unread(model) -> None:
+    """Remove the nodes none of whose outputs is read, until none is left."""
+    while True:
+        read = {i for n in model.graph.node for i in n.input} | {o.name for o in model.graph.output}
+        keep = [n for n in model.graph.node if any(o in read for o in n.output)]
+        if len(keep) == len(model.graph.node):
+            return
+        del model.graph.node[:]
+        model.graph.node.extend(keep)
+
+
+def repair_biases(path: Path) -> int:
+    """drop_zero_biases on a saved .onnx, in place, the graph only (as slice_sequences)."""
+    import onnx
+    model = onnx.load(str(path), load_external_data=False)
+    n = drop_zero_biases(model)
     if n:
         onnx.save_model(model, str(path))
     return n
@@ -264,7 +313,7 @@ def main() -> None:
     ap.add_argument("--only", nargs="*", default=None,
                     help="these steps only (base fp16 fused int8); default all. repair: the P2 fixes, graph only, on "
                          "files written before them (sequences_to_slices on DINOv3's, retype_casts on the fp16 "
-                         "copies), never in the default")
+                         "copies, drop_zero_biases on all), never in the default")
     args = ap.parse_args()
     steps = set(args.only or ["base", "fp16", "fused", "int8"])
     if "int8" in steps and args.calib is None:
@@ -300,13 +349,14 @@ def main() -> None:
             record(out / f"dino_b{b}.opt.onnx", f"dino_b{b}", "fp32 ORT-fused",
                    **fuse(out / f"dino_b{b}.onnx", out / f"dino_b{b}.opt.onnx"))
     if "repair" in steps:
-        for f in [f for f, m in manifest.items() if isinstance(m, dict) and m.get("variant", "").startswith("fp")]:
+        for f in [f for f, m in manifest.items() if isinstance(m, dict) and "variant" in m]:
             m = manifest[f]
             kept = {k: v for k, v in m.items() if k not in ("file", "graph", "variant", "opset", "ops", "files")}
             if f.startswith("dino") and "ORT-fused" not in m["variant"]:
                 kept["sequence_slices"] = slice_sequences(out / f) or kept.get("sequence_slices", 0)
             if "fp16" in m["variant"]:
                 kept["retyped_casts"] = repair_casts(out / f)
+            kept["zero_biases_dropped"] = repair_biases(out / f) or kept.get("zero_biases_dropped", 0)
             loads(out / f)
             record(out / f, m["graph"], m["variant"], **kept)
     if "int8" in steps:

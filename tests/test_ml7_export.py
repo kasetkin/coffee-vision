@@ -224,6 +224,42 @@ class RetypeCasts(unittest.TestCase):
         np.testing.assert_array_equal(s.run(None, {"x": np.ones(3, np.float16)})[0], np.full(3, 2, np.float16))
 
 
+@unittest.skipUnless(_have("onnx") and _have("onnxruntime"), "onnx and onnxruntime: the convert_onnx environment")
+class DropZeroBiases(unittest.TestCase):
+    """The exporter gives a Conv without a bias a computed zero bias, Expand(CastLike(0), Shape(w)[:1]), which
+    OpenVINO's CPU plugin refuses (plan P3): the Conv without it, the same model (ORT's Conv kernel orders its sums
+    differently with a bias: 1 ulp)."""
+
+    @staticmethod
+    def _model(bias_value):
+        from onnx import TensorProto, helper, numpy_helper
+        w = numpy_helper.from_array(np.arange(2 * 3, dtype=np.float32).reshape(2, 3, 1, 1), "w")
+        nodes = [helper.make_node("Constant", [], ["z"], value=helper.make_tensor("z", TensorProto.FLOAT, [],
+                                                                                [bias_value])),
+                 helper.make_node("CastLike", ["z", "x"], ["zc"]),
+                 helper.make_node("Shape", ["w"], ["ws"], start=0, end=1),
+                 helper.make_node("Expand", ["zc", "ws"], ["b"]),
+                 helper.make_node("Conv", ["x", "w", "b"], ["y"])]
+        g = helper.make_graph(nodes, "g", [helper.make_tensor_value_info("x", TensorProto.FLOAT, [1, 3, 2, 2])],
+                              [helper.make_tensor_value_info("y", TensorProto.FLOAT, [1, 2, 2, 2])], [w])
+        return helper.make_model(g, opset_imports=[helper.make_opsetid("", 20)], ir_version=10)
+
+    def test_a_computed_zero_bias_is_dropped_and_its_nodes_with_it(self):
+        import onnxruntime as ort
+        before, after = self._model(0.0), self._model(0.0)
+        self.assertEqual(export_onnx.drop_zero_biases(after), 1)
+        self.assertEqual([n.op_type for n in after.graph.node], ["Conv"])
+        x = np.random.default_rng(0).random((1, 3, 2, 2), dtype=np.float32)
+        run = lambda m: ort.InferenceSession(m.SerializeToString(), providers=["CPUExecutionProvider"]).run(  # noqa: E731
+            None, {"x": x})[0]
+        np.testing.assert_allclose(run(after), run(before), rtol=1e-6)
+
+    def test_a_nonzero_bias_is_kept(self):
+        m = self._model(1.0)
+        self.assertEqual(export_onnx.drop_zero_biases(m), 0)
+        self.assertEqual(len(m.graph.node), 5)
+
+
 class Measures(unittest.TestCase):
     def test_least_cosine_over_every_patch(self):
         a = np.ones((2, 3, 4), np.float32)

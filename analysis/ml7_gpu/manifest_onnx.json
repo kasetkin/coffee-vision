@@ -38,7 +38,8 @@
         "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
       }
     },
-    "sequence_slices": 132
+    "sequence_slices": 132,
+    "zero_biases_dropped": 0
   },
   "dino_b40.onnx": {
     "file": "dino_b40.onnx",
@@ -78,7 +79,8 @@
         "sha256": "21f6b8f34a51716adcdd78ef39a6bee5eabdb2b7a571b79981eeae778f4e56b4"
       }
     },
-    "sequence_slices": 132
+    "sequence_slices": 132,
+    "zero_biases_dropped": 0
   },
   "encoder.onnx": {
     "file": "encoder.onnx",
@@ -91,12 +93,10 @@
       "Add": 32,
       "BatchNormalization": 44,
       "Cast": 90,
-      "CastLike": 62,
       "Concat": 20,
-      "Constant": 263,
+      "Constant": 200,
       "Conv": 79,
       "Div": 7,
-      "Expand": 124,
       "Gelu": 30,
       "MatMul": 16,
       "Mul": 1,
@@ -105,7 +105,6 @@
       "ReduceMean": 2,
       "Relu": 12,
       "Reshape": 106,
-      "Shape": 62,
       "Slice": 30,
       "Sqrt": 1,
       "Sub": 1,
@@ -113,14 +112,15 @@
     },
     "files": {
       "encoder.onnx": {
-        "bytes": 2519914,
-        "sha256": "49dc44c3a7eab01cb89cd2c5008f6cb748aef7d2f37d7348c47b461fabb07a7a"
+        "bytes": 1585430,
+        "sha256": "be67910b299db0f9f654e4c9112e64c711d19dc798268249172b7291b410ff88"
       },
       "encoder.onnx.data": {
         "bytes": 451870720,
         "sha256": "e485d09d2fb8ff6d7af41a3ab537e6e24b9cdf773061eca79ea8bd001bfc9de5"
       }
-    }
+    },
+    "zero_biases_dropped": 62
   },
   "decoder.onnx": {
     "file": "decoder.onnx",
@@ -169,7 +169,8 @@
         "bytes": 20447232,
         "sha256": "166369b0e16c2542c6b1d88bd135e7b5f9beb0f2e0fd228632d54186793a2781"
       }
-    }
+    },
+    "zero_biases_dropped": 0
   },
   "dino_b8.fp16.onnx": {
     "file": "dino_b8.fp16.onnx",
@@ -216,7 +217,8 @@
       "Softmax"
     ],
     "kept_fp32_attention_matmuls": 12,
-    "retyped_casts": 0
+    "retyped_casts": 0,
+    "zero_biases_dropped": 0
   },
   "dino_b40.fp16.onnx": {
     "file": "dino_b40.fp16.onnx",
@@ -263,7 +265,8 @@
       "Softmax"
     ],
     "kept_fp32_attention_matmuls": 12,
-    "retyped_casts": 0
+    "retyped_casts": 0,
+    "zero_biases_dropped": 0
   },
   "encoder.fp16.onnx": {
     "file": "encoder.fp16.onnx",
@@ -275,13 +278,11 @@
     "ops": {
       "Add": 32,
       "BatchNormalization": 44,
-      "Cast": 120,
-      "CastLike": 62,
+      "Cast": 119,
       "Concat": 20,
-      "Constant": 263,
+      "Constant": 200,
       "Conv": 79,
       "Div": 7,
-      "Expand": 124,
       "Gelu": 30,
       "MatMul": 16,
       "Mul": 1,
@@ -290,7 +291,6 @@
       "ReduceMean": 2,
       "Relu": 12,
       "Reshape": 106,
-      "Shape": 62,
       "Slice": 30,
       "Sqrt": 1,
       "Sub": 1,
@@ -298,8 +298,8 @@
     },
     "files": {
       "encoder.fp16.onnx": {
-        "bytes": 2566661,
-        "sha256": "75a2c9f02d70423c00c3a58f256add6e8f01a71d22eb010918a8b5374d143c38"
+        "bytes": 1632067,
+        "sha256": "e6f120864fee880c671a040b5acb08b78d3ce5ef61d905c5b406f90282a6b396"
       },
       "encoder.fp16.onnx.data": {
         "bytes": 225874624,
@@ -314,7 +314,8 @@
       "Sub"
     ],
     "kept_fp32_attention_matmuls": 0,
-    "retyped_casts": 0
+    "retyped_casts": 0,
+    "zero_biases_dropped": 62
   },
   "decoder.fp16.onnx": {
     "file": "decoder.fp16.onnx",
@@ -374,7 +375,8 @@
       "Sub"
     ],
     "kept_fp32_attention_matmuls": 7,
-    "retyped_casts": 4
+    "retyped_casts": 0,
+    "zero_biases_dropped": 0
   },
   "dino_b8.fp16_blanket.onnx": {
     "file": "dino_b8.fp16_blanket.onnx",
@@ -417,7 +419,8 @@
     "sequence_slices": 132,
     "kept_fp32_ops": [],
     "kept_fp32_attention_matmuls": 0,
-    "retyped_casts": 0
+    "retyped_casts": 0,
+    "zero_biases_dropped": 0
   },
   "dino_b8.opt.onnx": {
     "file": "dino_b8.opt.onnx",
@@ -480,7 +483,8 @@
       "QOrderedGelu": 0,
       "QOrderedLayerNormalization": 0,
       "QOrderedMatMul": 0
-    }
+    },
+    "zero_biases_dropped": 0
   },
   "dino_b40.opt.onnx": {
     "file": "dino_b40.opt.onnx",
@@ -543,7 +547,8 @@
       "QOrderedGelu": 0,
       "QOrderedLayerNormalization": 0,
       "QOrderedMatMul": 0
-    }
+    },
+    "zero_biases_dropped": 0
   },
   "encoder.int8.onnx": {
     "file": "encoder.int8.onnx",
@@ -595,6 +600,7 @@
     "calibration_photos": 32,
     "format": "QDQ",
     "activations": "uint8",
-    "weights": "int8 per-channel"
+    "weights": "int8 per-channel",
+    "zero_biases_dropped": 0
   }
 }
