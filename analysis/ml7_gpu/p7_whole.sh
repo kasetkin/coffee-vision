@@ -6,6 +6,8 @@
 # MODELS holds tflite/{dino_b8,decoder,encoder}.tflite; run from ~/ml7/, alone on the host. CELL and GRAPHS for
 # the fp16 forms (graphs.fp16_forms, P7):
 #   MODELS=p7/fp16 OUT=p7/fp16_out CELL=litert_gpu_fp16 GRAPHS="decoder encoder dino_b8" ./p7_whole.sh
+# and the precision split (backends.litert_gpu_split: the encoder and decoder in fp32, DINOv3 in fp16):
+#   MODELS=p7/split OUT=p7/split_out CELL=litert_gpu_split GRAPHS="decoder encoder dino_b8" ./p7_whole.sh
 set -u
 cd "$(dirname "$0")"
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json PYTHONUNBUFFERED=1

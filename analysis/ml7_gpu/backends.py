@@ -14,7 +14,9 @@ The cells (plan P4) and the information-only variants (ticket D4, Q4), each run 
   ovcpu        ORT's OpenVINO provider, CPU             ovgpu        ORT's OpenVINO provider, GPU (OpenCL), fp32
   variants     ort_cpu_fused (DINOv3's ORT-fused graphs), ort_cpu_int8 and ovcpu_int8 (the int8 encoder),
                litert_gpu_fp16, webgpu_fp16 (the mixed fp16 copies), webgpu_fp16blanket (DINOv3 b8 with
-               nothing kept in fp32), ovgpu_fp16 (OpenVINO's f16 hint)
+               nothing kept in fp32), ovgpu_fp16 (OpenVINO's f16 hint), litert_gpu_split (P7: the segmenter's
+               encoder and decoder in fp32, DINOv3 in fp16, in one process; LiteRT sets the precision per
+               compiled model)
 
 Every cell runs at --threads CPU threads; the GPU cells refuse CPU fallback as in P2 and P3.
 """
@@ -36,6 +38,10 @@ class Cell(NamedTuple):
     variant: str = ""             # the .onnx file's: "", "fp16", "fp16_blanket", "opt", "int8"
     graphs: tuple = GRAPHS        # the graphs the cell has a file for
     path: str | None = None       # the GPU path cellrun.gpu_proof checks
+    fp16_graphs: tuple = ()       # the graphs run in fp16 whatever `precision` says (litert_gpu_split)
+
+    def precision_of(self, graph: str) -> str:
+        return "fp16" if graph in self.fp16_graphs else self.precision
 
 
 CELLS = {
@@ -50,6 +56,7 @@ CELLS = {
     "ort_cpu_int8": Cell("ort", "cpu", variant="int8", graphs=("encoder",)),
     "ovcpu_int8": Cell("ort", "openvino_cpu", variant="int8", graphs=("encoder",)),
     "litert_gpu_fp16": Cell("litert", "gpu", "fp16", path="vulkan"),
+    "litert_gpu_split": Cell("litert", "gpu", path="vulkan", fp16_graphs=("dino_b8", "dino_b40")),
     "webgpu_fp16": Cell("ort", "webgpu", variant="fp16", path="vulkan"),
     "ovgpu_fp16": Cell("ort", "openvino_gpu", "fp16", path="openvino"),
     "webgpu_fp16blanket": Cell("ort", "webgpu", variant="fp16_blanket", graphs=("dino_b8",), path="vulkan"),
@@ -95,8 +102,9 @@ def open_graph(cell_name: str, graph: str, model_dir: Path, threads: int, runtim
     if graph not in cell.graphs:
         raise SystemExit(f"backends: {cell_name} has no {graph}")
     kind = graph.split("_")[0]
+    precision = cell.precision_of(graph)
     info = {"cell": cell_name, "graph": graph, "runtime": cell.runtime, "device": cell.device,
-            "precision": cell.precision, "variant": cell.variant}
+            "precision": precision, "variant": cell.variant}
     if cell.runtime == "torch":
         mods = _torch or _torch_modules(threads)
         torch, module = mods["torch"], mods[kind]
@@ -111,7 +119,7 @@ def open_graph(cell_name: str, graph: str, model_dir: Path, threads: int, runtim
         from run_litert import Graph
         if cell.device == "gpu" and runtime_dir is None:
             raise SystemExit("backends: LiteRT's GPU needs runtime_dir (rt_vulkan)")
-        g = Graph(model_dir / "tflite" / f"{graph}.tflite", threads, cell.device, cell.precision == "fp32",
+        g = Graph(model_dir / "tflite" / f"{graph}.tflite", threads, cell.device, precision == "fp32",
                   runtime_dir if cell.device == "gpu" else None)
         info.update(file=f"{graph}.tflite", batch=g.input_shapes[0][0],
                     fully_accelerated=bool(g.model.is_fully_accelerated()))
@@ -120,7 +128,7 @@ def open_graph(cell_name: str, graph: str, model_dir: Path, threads: int, runtim
         return Model(lambda x: g(x)[0], info)
     from run_ort import make_session
     name = onnx_name(graph, cell.variant)
-    s = make_session(model_dir / "onnx" / name, cell.device, threads, False, cell.precision, cache_dir)
+    s = make_session(model_dir / "onnx" / name, cell.device, threads, False, precision, cache_dir)
     info.update(file=name, batch=s.get_inputs()[0].shape[0], providers=s.get_providers())
     if kind == "decoder":
         return Model(lambda e, b: tuple(s.run(None, {"embedding": e, "box": b})), info)
