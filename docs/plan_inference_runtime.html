@@ -616,20 +616,20 @@
     judged on answers on the validation photos. int8 is not pursued on this path: the GPU computes in float, and
     the int8 encoder broke (IoU 0.0005 and 0.21).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>Why fp16 overflows</b>, locally. Find where each model leaves fp16's
+    <li><span class="box done"></span><span><b>Why fp16 overflows</b>, locally. Find where each model leaves fp16's
       range, from activation ranges and an fp16 replay in PyTorch over the fixtures. Two suspects:
       <ul>
         <li>the encoder's LiteMLA, whose v&middot;relu(k)<sup>T</sup> sums 4,096 tokens (upstream casts it to fp32
           under autocast);</li>
         <li>DINOv3's high-norm activations, squared in LayerNorm. q is already scaled before q&middot;k<sup>T</sup>.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><b>Exact forms against it</b>, in <code>graphs.py</code>, each checked
+    <li><span class="box done"></span><span><b>Exact forms against it</b>, in <code>graphs.py</code>, each checked
       against the plain model in fp32 at float rounding. LiteMLA's ratio with relu(k) and eps scaled by
       2<sup>&minus;12</sup>; LayerNorm on a power-of-two-scaled input with eps scaled to match; whatever the
       diagnosis finds. Converted, then run on <code>yappy</code> in fp16. If one model stays short, the
       per-model precision split: LiteRT sets the precision per compiled model, so an fp32 encoder can run beside an
       fp16 DINOv3.</span></li>
-    <li><span class="box"></span><span><b>Wholly on the GPU:</b> forms that remove DINOv3's BROADCAST_TO and the
+    <li><span class="box done"></span><span><b>Wholly on the GPU:</b> forms that remove DINOv3's BROADCAST_TO and the
       decoder's SELECT_V2, checked exact, confirmed by the delegate's report, timed.</span></li>
     <li><span class="box"></span><span><b>On <code>yappy</code>, with the current files:</b>
       <ul>
@@ -988,6 +988,69 @@
       back only if it fails. The site stays down for now. P7 added for the track: why fp16 overflows, and exact
       export forms against it; the graphs wholly on the GPU; serving-shaped measurements on <code>yappy</code>.
       P6 is not needed.</div>
+    <div><div class="when">2026-10-14</div>P7, first results on <code>yappy</code> (LiteRT GPU, batch 8; site down;
+      records in <code>artifacts/outputs_p7/</code>). Code: <code>c6a69ad</code> (the forms), <code>601c8da</code>,
+      <code>629c3fe</code>, <code>3242cc3</code> (the scripts).
+      <ul>
+        <li><b>Soak</b>, 520 photos in 2 h 12 min: no NaN, no failure, the GPU proven throughout. Memory is flat:
+          <code>MemAvailable</code> 2.92&ndash;2.95 GB, RSS 2.40 GB, from minute 1 to minute 132. The median photo is
+          15.25 s: 15.20 s over the first quarter, 15.53 s in the last stretch, which overlapped two uploads
+          (their CPU shares the package's power limit with the GPU). The power-limit throttle held throughout.</li>
+        <li><b>Cold start</b>, 3 trials each with Mesa's shader cache empty and warm: 19&ndash;21 s to the first
+          answer either way. The time is LiteRT and Dawn's own set-up, not the driver's compilation.</li>
+        <li><b>torch in the serving worker</b> (D5 (a)): its imports take 351 MB RSS, 0.25 GB of
+          <code>MemAvailable</code> and 2.5 s.</li>
+        <li><b>Wholly on the GPU</b> (<code>litert_gpu_forms</code>):
+          <ul>
+            <li>What changed: DINOv3's class and register tokens are held tiled, and SAM's box prompt is written
+              without writes into a tensor.</li>
+            <li>The delegate now refuses nothing in DINOv3 or the decoder. The replay's CPU/wall fell from 0.08 to
+              0.00&ndash;0.02.</li>
+            <li>On a quiet host: DINOv3 batch 8 takes 2.04 s against 2.23 s (&minus;9%), the decoder 0.074 s
+              against 0.086 s.</li>
+            <li>The replay median is 14.61 s (p90 14.68 s), against 14.89 s (14.95 s) in P4.</li>
+            <li>D7 passes: least cosine 0.99999999996, least IoU 0.999996, no answer changed.</li>
+          </ul></li>
+        <li><b>Why fp16 gave NaN</b> (a sub-agent, on the fixtures):
+          <ul>
+            <li>LiteMLA's 0/0, since eps of 1e-15 is 0 in fp16: up to 1,024 tokens a photo have relu(q) all zero.</li>
+            <li>Its v&middot;relu(k)<sup>T</sup> overflows: 4&times;10<sup>5</sup>.</li>
+            <li>DINOv3's block-0 attention score of 1.3&times;10<sup>5</sup>.</li>
+            <li>DINOv3's register tokens reach 1.5&times;10<sup>4</sup>, so 19 of 25 LayerNorm variances overflow.</li>
+            <li>The encoder's last LayerNorm2d overflows too.</li>
+          </ul></li>
+        <li><b>The fp16 forms</b> (<code>fp16_forms</code>), the same functions in real arithmetic:
+          <ul>
+            <li>LiteMLA with relu(k)&middot;2<sup>&minus;6</sup> and relu(q)&middot;2<sup>6</sup>, and a
+              denominator plus [den = 0];</li>
+            <li>LayerNorm on x / max|x| per token;</li>
+            <li>attention scores made at 2<sup>&minus;4</sup> and shifted by the row's max.</li>
+          </ul>
+          The converted files pass D7 in fp32 on the CPU.</li>
+        <li><b>The fp16 cell on the GPU</b>, with both sets of forms:
+          <ul>
+            <li>Every output is finite.</li>
+            <li>Time: replay median 7.85 s (p90 7.86 s), &minus;46% against the fp32 cell; DINOv3 batch 8 1.17 s,
+              the encoder 0.91 s, the decoder 0.079 s.</li>
+            <li>Memory: <code>MemAvailable</code> drop 2.41 GB against 4.17 GB, RSS 2.06 GB.</li>
+            <li>First answer 12.3 s. No power-limit throttle; the GPU at 750 MHz.</li>
+            <li>D7 fails, as fp16 must on the cosine bar. DINOv3's least cosine is 0.99977; the largest change in a
+              class probability 0.004, in a guard score 1.4e-10.</li>
+            <li>The masks drift: least IoU 0.967, 6 of 13 photos below 0.999.</li>
+            <li>No top-1 class, guard verdict or fallback changed on the 13 fixtures.</li>
+          </ul></li>
+        <li><b>The range scan</b> (<code>p7_ranges.py</code>, interim): 663 photos in, all 584 true negatives
+          included.
+          <ul>
+            <li>Each site's largest value comes from a negative, with positives within about 15%.</li>
+            <li>After the forms' scales the tightest headroom is 3.4&times;: LiteMLA's numerator, 1.9&times;10<sup>4</sup>.
+              DINOv3's LayerNorm input reaches 1.6&times;10<sup>4</sup>, LiteMLA's v&middot;k<sup>T</sup>
+              5.6&times;10<sup>5</sup>, the attention scores 1.4&times;10<sup>5</sup>.</li>
+            <li>LiteMLA's least nonzero denominator is 4.6&times;10<sup>&minus;8</sup>, below fp16's smallest
+              subnormal. With fp16 accumulation over 1,024 tokens, it is the likely source of the masks'
+              drift.</li>
+          </ul></li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
