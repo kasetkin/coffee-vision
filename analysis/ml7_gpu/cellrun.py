@@ -223,12 +223,13 @@ def mem_available_mb() -> float | None:
 
 
 def measure(make, call, items: list, sampler: Sampler, path: str | None, warmup: int = 0,
-            timed: int | None = None) -> tuple[list, dict]:
+            timed: int | None = None, progress=None) -> tuple[list, dict]:
     """One cell: make() the session, then call(session, item) 1 + warmup + timed times, cycling through the
     items: the first is the cold call, the warm-ups are not timed (timed: one pass over the items, P2's
     protocol, unless given; P4 gives 3 and 20). Records the timing, CPU time against wall time and the counters
     over the timed calls, the calls with a NaN or Inf in any output, peak RSS and the drop in MemAvailable,
-    what the process loaded and, on a GPU `path` (a DRIVERS key), gpu_proof. Returns the outputs of the
+    what the process loaded and, on a GPU `path` (a DRIVERS key), gpu_proof. progress(i, n, phase, seconds), if
+    given, hears of each call as it ends (phase: cold, warm-up or timed), for a log line. Returns the outputs of the
     first pass over the items, and the record."""
     probe = Probe()
     mem0 = mem_available_mb()
@@ -243,6 +244,8 @@ def measure(make, call, items: list, sampler: Sampler, path: str | None, warmup:
         t = time.perf_counter()
         out = call(session, items[i % len(items)])
         call_s.append(time.perf_counter() - t)
+        if progress is not None:
+            progress(i, n, "cold" if i == 0 else "warm-up" if i <= warmup else "timed", call_s[-1])
         nonfinite += not finite(out)
         if i < len(items):
             outputs.append(out)

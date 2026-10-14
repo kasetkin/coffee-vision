@@ -85,6 +85,13 @@ def items_and_call(graph: str, inputs: dict, refs: dict | None):
             lambda s, eb: s.run(None, {"embedding": eb[0], "box": eb[1]}))
 
 
+def print_photo(photos):
+    """A log line per photo, as its call ends."""
+    def progress(i: int, n: int, phase: str, seconds: float) -> None:
+        print(f"photo {i + 1}/{n} {photos[i % len(photos)]} {phase} {seconds:.3f} s", flush=True)
+    return progress
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--onnx-dir", type=Path, required=True)
@@ -114,7 +121,8 @@ def main() -> None:
                                      args.cache_dir))
         return sessions[0]
     try:
-        outs, record = cellrun.measure(make, call, items, sampler, GPU_PATH.get(args.provider))
+        outs, record = cellrun.measure(make, call, items, sampler, GPU_PATH.get(args.provider),
+                                       progress=print_photo(inputs["photos"]))
     finally:
         sampler.stop()
     if args.graph == "dino":
@@ -131,7 +139,8 @@ def main() -> None:
     np.savez(args.out, **out)
     args.out.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n")
     t = record["timing"]
-    print(json.dumps({"file": args.file, "provider": args.provider, "precision_hint": record["precision_hint"], "cold_s": t["cold_s"],
+    print(json.dumps({"file": args.file, "provider": args.provider, "precision_hint": record["precision_hint"],
+                      "cold_s": t["cold_s"],
                       "warm_median_s": t["warm"]["median"], "cpu_over_wall": record["cpu_over_wall"],
                       "gpu_proof": record.get("gpu_proof", {}).get("ok"), "providers": record["providers"]}))
 

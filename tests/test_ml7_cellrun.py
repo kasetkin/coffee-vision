@@ -158,6 +158,12 @@ class Measure(unittest.TestCase):
         self.assertEqual((rec["warmup"], rec["timed"]), (3, 5))
         self.assertEqual(rec["nonfinite_calls"], 0)
 
+    def test_progress_hears_of_every_call_as_it_ends(self):
+        heard = []
+        cr.measure(lambda: "s", lambda s, x: np.array([x], float), [0, 1, 2], _StubSampler(), None, warmup=1,
+                   timed=2, progress=lambda i, n, phase, s: heard.append((i, n, phase)))
+        self.assertEqual(heard, [(0, 4, "cold"), (1, 4, "warm-up"), (2, 4, "timed"), (3, 4, "timed")])
+
     def test_p2s_protocol_is_the_default(self):
         outs, rec = cr.measure(lambda: "s", lambda s, x: np.array([x], float), [0, 1, 2], _StubSampler(), None)
         self.assertEqual(len(outs), 3)

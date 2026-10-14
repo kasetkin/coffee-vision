@@ -50,8 +50,11 @@ run() {   # run <cell> <record> <script> <args...>: one process, logged; the tor
   local log="$OUT/r$R/logs/${cell}__${label// /_}.log" rc
   mkdir -p "$OUT/r$R/logs"
   echo "=== r$R $cell $label $(date -Is)"
-  env "${env[@]}" "$(python_of "$cell")" "$@" "${args[@]}" > "$log" 2>&1   # the whole output kept, per process
-  rc=$?
+  # The whole output kept, per process; its progress lines (a line per call, per loaded replay, per photo)
+  # passed on to this log as they come.
+  env "${env[@]}" "$(python_of "$cell")" "$@" "${args[@]}" 2>&1 | tee "$log" \
+    | grep --line-buffered -E '^(call|loaded|photo) '
+  rc=${PIPESTATUS[0]}
   grep -E '^\{|Traceback|Error:|error:' "$log" | grep -v kLiteRtStatusErrorNotFound | tail -n 5
   if (( rc != 0 )); then
     echo "=== r$R $cell $label FAILED exit=$rc$( ((rc > 128)) && echo " (signal $((rc - 128)))") $log"

@@ -136,6 +136,13 @@ def items_and_call(graph: str, inputs: dict, refs: dict | None):
     return list(zip(refs["embeddings"], inputs["boxes"])), lambda g, eb: g(eb[0], eb[1])
 
 
+def print_photo(photos):
+    """A log line per photo, as its call ends."""
+    def progress(i: int, n: int, phase: str, seconds: float) -> None:
+        print(f"photo {i + 1}/{n} {photos[i % len(photos)]} {phase} {seconds:.3f} s", flush=True)
+    return progress
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model-dir", type=Path, required=True)
@@ -167,7 +174,8 @@ def main() -> None:
         return graphs[0]
     try:
         with CapturedStderr() as err:
-            outs, record = cellrun.measure(make, call, items, sampler, path)
+            outs, record = cellrun.measure(make, call, items, sampler, path,
+                                           progress=print_photo(inputs["photos"]))
     finally:
         sampler.stop()
     if args.graph == "dino":
@@ -189,7 +197,8 @@ def main() -> None:
     print(json.dumps({"file": args.file, "accelerator": args.accelerator, "precision": args.precision,
                       "cold_s": t["cold_s"], "warm_median_s": t["warm"]["median"],
                       "fully_accelerated": record["fully_accelerated"],
-                      "delegate_all_on_gpu": (record["delegate"] or {}).get("all_on_gpu"), "cpu_over_wall": record["cpu_over_wall"],
+                      "delegate_all_on_gpu": (record["delegate"] or {}).get("all_on_gpu"),
+                      "cpu_over_wall": record["cpu_over_wall"],
                       "gpu_proof": record.get("gpu_proof", {}).get("ok")}))
 
 

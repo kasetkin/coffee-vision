@@ -1,5 +1,6 @@
 """ML-7 P4: the photo replay of one cell (plan P4), in a fresh process that loads the encoder, the decoder and
-DINOv3 together, at the DINOv3 batch the cell ran faster. For each photo, as serving runs it: encoder and decoder
+DINOv3 together, at the DINOv3 batch the cell ran faster. It prints a line when the graphs are loaded and one per
+photo as it is answered. For each photo, as serving runs it: encoder and decoder
 (the /crop pass), encoder and decoder again (/classify; OPS-7 would remove one), then the photo's 40 patches.
 --passes passes over the photos. The decoder reads the replay's own embedding, so the outputs are the cell's end
 to end. Pre- and post-processing stay out: they are the same for every cell, and P0 has their times.
@@ -70,7 +71,9 @@ def main() -> None:
                                                   args.cache_dir, _torch=mods)
                               for g in ("encoder", "decoder", f"dino_b{args.batch}"))
             loaded_s = time.perf_counter() - t_load
+            print(f"loaded {args.cell} (encoder, decoder, dino_b{args.batch}) in {loaded_s:.1f} s", flush=True)
             photo_s, outs, nonfinite, first_answer_s = [], [], 0, None
+            total = args.passes * len(inputs["photos"])
             w0, cpu0, rc6_0 = time.perf_counter(), cellrun.cpu_seconds(), probe.rc6_ms()
             for p in range(args.passes):
                 for i in range(len(inputs["photos"])):
@@ -80,6 +83,8 @@ def main() -> None:
                     photo_s.append(time.perf_counter() - t)
                     if first_answer_s is None:
                         first_answer_s = time.perf_counter() - t_load
+                    print(f"photo {len(photo_s)}/{total} pass {p + 1} {inputs['photos'][i]} {photo_s[-1]:.2f} s "
+                          f"(elapsed {time.perf_counter() - t_load:.0f} s)", flush=True)
                     nonfinite += not cellrun.finite(out)
                     if p == 0:
                         outs.append(out)

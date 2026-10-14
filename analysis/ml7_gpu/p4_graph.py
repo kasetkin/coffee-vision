@@ -34,6 +34,11 @@ def items_for(graph: str, inputs: dict, refs: dict) -> list:
     return list(zip(refs["embeddings"], inputs["boxes"]))
 
 
+def print_call(i: int, n: int, phase: str, seconds: float) -> None:
+    """A log line per call, as it ends (p4_run.sh passes it on to its own log)."""
+    print(f"call {i + 1}/{n} {phase} {seconds:.3f} s", flush=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cell", choices=sorted(backends.CELLS), required=True)
@@ -65,7 +70,7 @@ def main() -> None:
     try:
         with CapturedStderr(args.out.parent / (args.out.name + ".stderr")) as err:
             _, record = cellrun.measure(make, lambda m, item: m(*item), items, sampler, cell.path,
-                                        warmup=args.warmup, timed=args.timed)
+                                        warmup=args.warmup, timed=args.timed, progress=print_call)
     finally:
         sampler.stop()
     record.update(opened[0].info, threads=args.threads, calls_per_photo=len(items) // len(inputs["photos"]))
