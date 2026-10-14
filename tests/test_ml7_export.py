@@ -6,6 +6,7 @@ ticket D7 means (owner 2026-10-13: the cosine bar holds for every patch). Random
 """
 from __future__ import annotations
 
+import copy
 import importlib.util
 import sys
 import unittest
@@ -108,6 +109,191 @@ class LiteRtGpuForms(unittest.TestCase):
             self.assertFalse("constant_pad_nd" in name and n.args[2:3] == (1.0,), n.format_node())
             if "matmul" in name or "bmm" in name or name.endswith("mm.default"):
                 self.assertNotIn(getattr(n.args[0], "name", None), consts, n.format_node())
+
+
+def _layer_norm_as_lowered(x, weight, bias, eps):
+    """LayerNorm as litert-torch's graph computes it (MEAN, SQUARED_DIFFERENCE, MEAN, ADD, RSQRT, ...), each step
+    stored in x's dtype: torch's own half LayerNorm computes in fp32 inside, and would hide the overflow."""
+    mean = x.mean(-1, keepdim=True)
+    var = ((x - mean) ** 2).mean(-1, keepdim=True)
+    return (x - mean) * torch.rsqrt(var + eps) * weight + bias
+
+
+class Fp16Forms(unittest.TestCase):
+    """LiteRT's GPU in fp16 returned NaN for both models (plan P7): the forms that keep every tensor inside fp16's
+    range, the same functions at float rounding in fp32, finite in fp16 where the plain forms are not."""
+
+    @staticmethod
+    def _mla():
+        """A LiteMLA and a qkv for it, shaped like stage 4's second block: in head 0, k large and q small, so
+        relu(k)'s sum over 1,024 tokens is above 65504 while the denominators stay in range; and one token whose
+        relu(q) is all zero in head 0 (its denominator 0)."""
+        from efficientvit.models.nn.ops import LiteMLA
+        torch.manual_seed(0)
+        m = LiteMLA(in_channels=32, out_channels=32, dim=8, scales=(5,)).eval()
+        qkv = torch.randn(1, 2 * 3 * 32, 32, 32)               # 8 heads of [q 8, k 8, v 8], 1,024 tokens
+        qkv[:, 8:16] = qkv[:, 8:16].abs() * 100                  # head 0's k: sum over the tokens about 8e4
+        qkv[:, 0:8] *= 0.01                                      # head 0's q
+        qkv[:, 0:8, 0, 0] = -1.0                                 # head 0's q at token 0: relu all zero
+        return m, qkv
+
+    def test_linear_attention_same_as_upstream_in_fp32_with_a_zero_denominator(self):
+        m, qkv = self._mla()
+        want = m.relu_linear_att(qkv)
+        graphs.fp16_forms(m)
+        got = m.relu_linear_att(qkv)
+        self.assertEqual(float(want[0, 0:8, 0, 0].abs().max()), 0.0)  # upstream's 0/(0 + eps)
+        torch.testing.assert_close(got, want, rtol=1e-6, atol=0)
+
+    def test_linear_attention_finite_in_fp16_where_the_concat_form_is_not(self):
+        m, qkv = self._mla()
+        want = m.relu_linear_att(qkv)
+        plain = graphs._relu_linear_att_concat(m, qkv.half())
+        self.assertFalse(torch.isfinite(plain).all())
+        got = graphs._relu_linear_att_fp16(m, qkv.half())
+        self.assertTrue(torch.isfinite(got).all())
+        self.assertLess(_rel_err(got.float(), want), 1e-2)
+
+    def test_layer_norm_same_in_fp32_and_close_in_fp16_where_the_plain_form_is_not(self):
+        torch.manual_seed(0)
+        ln = torch.nn.LayerNorm(768).eval()
+        with torch.no_grad():
+            ln.weight.uniform_(0.5, 1.5)
+            ln.bias.uniform_(-0.1, 0.1)
+        x = torch.randn(2, 9, 768)
+        x[0, 1, [377, 630]] = torch.tensor([1.5e4, -9.6e3])     # a register token's massive activations
+        with torch.no_grad():
+            want = ln(x)
+            plain = _layer_norm_as_lowered(x.half(), ln.weight.half(), ln.bias.half(), ln.eps).float()
+            self.assertGreater(_rel_err(plain, want), 0.5)       # the variance inf: the token becomes the bias
+            self.assertEqual(graphs.fp16_forms(ln), {"linear_attention": 0, "attention": 0, "layer_norm": 1})
+            self.assertLess(_rel_err(ln(x), want), 1e-6)
+            got = ln.half()(x.half()).float()
+        self.assertTrue(torch.isfinite(got).all())
+        self.assertLess(_rel_err(got, want), 1e-2)
+
+    def test_layer_norm_2d_same_in_fp32(self):
+        from efficientvit.models.nn.norm import LayerNorm2d
+        torch.manual_seed(0)
+        ln = LayerNorm2d(256).eval()
+        x = torch.randn(1, 256, 8, 8) * 300                      # the encoder's last norm: (x - mean)^2 to 1.2e5
+        with torch.no_grad():
+            want = ln(x)
+            self.assertEqual(graphs.fp16_forms(ln)["layer_norm"], 1)
+            self.assertLess(_rel_err(ln(x), want), 1e-6)
+
+    @staticmethod
+    def _attention():
+        """An EvaAttention after four_d_attention, with a token whose score with itself is about 1.3e5."""
+        from timm.models.eva import EvaAttention
+        torch.manual_seed(0)
+        m = torch.nn.Module()
+        m.attn = EvaAttention(64, num_heads=2, qkv_bias=False, scale_norm=False).eval()
+        graphs.four_d_attention(m)
+        with torch.no_grad():
+            m.attn.qkv.weight[64:128] = m.attn.qkv.weight[0:64]      # k's weights q's: a score with itself > 0
+        x = torch.randn(2, 10, 64)
+        x[0, 3] *= 250.0
+        return m.attn, x
+
+    def test_attention_same_in_fp32_and_finite_in_fp16(self):
+        a, x = self._attention()
+        with torch.no_grad():
+            want = a(x)
+            self.assertFalse(torch.isfinite(copy.deepcopy(a).half()(x.half())).all())
+            self.assertEqual(graphs.fp16_forms(a)["attention"], 1)
+            self.assertLess(_rel_err(a(x), want), 1e-6)
+            got = a.half()(x.half()).float()
+        self.assertTrue(torch.isfinite(got).all())
+        self.assertLess(_rel_err(got, want), 1e-2)
+
+    def test_attention_not_rewritten_is_refused(self):
+        from timm.models.eva import EvaAttention
+        with self.assertRaises(ValueError):
+            graphs.fp16_forms(EvaAttention(64, num_heads=2, qkv_bias=False, scale_norm=False))
+
+    def test_no_pad_with_ones(self):
+        m = LiteRtGpuForms._encoder_like()
+        graphs.litert_gpu_forms(m)
+        self.assertEqual(graphs.fp16_forms(m)["linear_attention"], 1)
+        ep = torch.export.export(m, (torch.randn(1, 32, 32, 32),))
+        for n in ep.graph.nodes:
+            self.assertFalse("constant_pad_nd" in str(n.target) and n.args[2:3] == (1.0,), n.format_node())
+
+
+class LiteRtGpuFormsDino(unittest.TestCase):
+    """DINOv3's class and register tokens, expanded to the batch at every call, are LiteRT's BROADCAST_TO, which
+    the WebGPU delegate refuses (yappy 2026-10-14, plan P7): held tiled to the batch, the same model exactly."""
+
+    @staticmethod
+    def _dino_like():
+        from timm.models.eva import Eva
+        torch.manual_seed(0)
+        return Eva(img_size=32, patch_size=16, embed_dim=32, depth=1, num_heads=2, num_reg_tokens=4, num_classes=0,
+                   use_abs_pos_emb=False, use_rot_pos_emb=True).eval()
+
+    def test_same_model_exactly(self):
+        m, x = self._dino_like(), torch.randn(3, 3, 32, 32)
+        with torch.no_grad():
+            want = m.forward_features(x)
+            self.assertEqual(graphs.litert_gpu_forms(m, batch=3), {"prefix_tokens": 2})
+            got = m.forward_features(x)
+        torch.testing.assert_close(got, want, rtol=0, atol=0)
+
+    def test_no_expand_that_changes_a_shape(self):
+        m = self._dino_like()
+        graphs.litert_gpu_forms(m, batch=3)
+        ep = torch.export.export(m, (torch.randn(3, 3, 32, 32),))
+        for n in ep.graph.nodes:
+            if n.op == "call_function" and "expand" in str(n.target):
+                self.assertEqual(n.args[0].meta["val"].shape, n.meta["val"].shape, n.format_node())
+
+    def test_tiled_again_for_another_batch_and_refusing_the_one_it_is_not(self):
+        m, x = self._dino_like(), torch.randn(5, 3, 32, 32)
+        with torch.no_grad():
+            want = m.forward_features(x)
+            graphs.litert_gpu_forms(m, batch=3)
+            with self.assertRaises(RuntimeError):
+                m.forward_features(x)
+            graphs.litert_gpu_forms(m, batch=5)
+            torch.testing.assert_close(m.forward_features(x), want, rtol=0, atol=0)
+
+    def test_a_dinov3_needs_its_batch(self):
+        with self.assertRaises(ValueError):
+            graphs.litert_gpu_forms(self._dino_like())
+
+
+class LiteRtGpuFormsBoxPrompt(unittest.TestCase):
+    """SAM's prompt encoder writes the box corners in place (coordinates divided per axis, an embedding added per
+    corner), which LiteRT turns into SELECT_V2, refused by the WebGPU delegate (yappy 2026-10-14, plan P7): the
+    same arithmetic on whole tensors, exactly."""
+
+    @staticmethod
+    def _decoder_like():
+        from segment_anything.modeling.prompt_encoder import PromptEncoder
+        torch.manual_seed(0)
+        m = torch.nn.Module()          # a wide frame, so a swapped width and height shows
+        m.prompt_encoder = PromptEncoder(embed_dim=32, image_embedding_size=(16, 16), input_image_size=(48, 80),
+                                         mask_in_chans=4)
+        m.forward = lambda box: m.prompt_encoder(points=None, boxes=box, masks=None)
+        return m.eval()
+
+    def test_same_model_exactly(self):
+        m, box = self._decoder_like(), torch.tensor([[3.0, 7.0, 71.0, 40.0]])
+        with torch.no_grad():
+            want = m(box)
+            self.assertEqual(graphs.litert_gpu_forms(m), {"box_prompt": 1})
+            got = m(box)
+        for g, w in zip(got, want):
+            torch.testing.assert_close(g, w, rtol=0, atol=0)
+
+    def test_no_write_into_a_tensor(self):
+        m = self._decoder_like()
+        graphs.litert_gpu_forms(m)
+        ep = torch.export.export(m, (torch.tensor([[3.0, 7.0, 71.0, 40.0]]),)).run_decompositions()
+        writes = [n.format_node() for n in ep.graph.nodes if n.op == "call_function" and any(
+            w in str(n.target) for w in ("where", "scatter", "index_put", "copy"))]
+        self.assertEqual(writes, [])
 
 
 @real_data   # builds a DINOv3 ViT-S (random weights) and traces it: a few seconds

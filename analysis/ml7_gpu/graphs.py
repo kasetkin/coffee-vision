@@ -21,6 +21,11 @@ Exact rewrites, applied by `prepare` to both formats (plan P1, ticket D14):
                      once, by timm's own function, and kept as a buffer.
 
 Each rewritten graph is checked against the original on the fixtures (make_refs.py).
+
+fp16_forms (plan P7), for LiteRT's GPU in fp16, which returned NaN for both models: forms whose every tensor fits
+fp16, the same functions in real arithmetic. LiteMLA's relu(k) and relu(q) scaled by 2^-6 and 2^6 with a
+denominator that is never 0/0; LayerNorm on x / max|x| per token; DINOv3's attention scores made at 2^-4 and shifted
+by their row's max before the softmax.
 """
 from __future__ import annotations
 
@@ -123,27 +128,12 @@ def _relu_linear_att_concat(self, qkv: torch.Tensor) -> torch.Tensor:
     return torch.reshape(out, (B, -1, H, W))
 
 
-def litert_gpu_forms(encoder: nn.Module) -> dict[str, int]:
-    """The segmenter in forms LiteRT's WebGPU delegate places on the GPU (probed on yappy, plan P2): each
-    MatmulResize with its constants on the right, each LiteMLA's ones concatenated. The same model at float
-    rounding; LiteRT's conversion only (ORT's WebGPU provider runs the plain graph whole). Counts what changed."""
-    from efficientvit.models.nn.ops import LiteMLA
-
-    n = {"linear_attention": 0, "resize": 0}
-    for m in encoder.modules():
-        if isinstance(m, MatmulResize):
-            m.constant_right = True
-            n["resize"] += 1
-        elif isinstance(m, LiteMLA):
-            m.relu_linear_att = types.MethodType(_relu_linear_att_concat, m)
-            n["linear_attention"] += 1
-    return n
-
-
 # -------------------------------------------------------------------------------------------------- DINOv3
 def _attention_4d(self, x, rope=None, attn_mask=None, is_causal=False):
     """timm's EvaAttention.forward for this model's configuration (no qkv bias, no gate, identity norms), with
-    the qkv split in 4-D and the attention written out."""
+    the qkv split in 4-D and the attention written out. With `score_shift` (fp16_forms) the scores are made at
+    2^-shift and their row's max subtracted before they are scaled back: the softmax is the same for any shift of a
+    row, and the shifted scores are <= 0 (those below -65504 become -inf in fp16, where exp of either is 0)."""
     if attn_mask is not None or is_causal:
         raise ValueError("the export graph has no attention mask")
     B, N, _ = x.shape
@@ -155,7 +145,12 @@ def _attention_4d(self, x, rope=None, attn_mask=None, is_causal=False):
         half = getattr(self, "rotate_half", False)
         q = torch.cat([q[:, :, :npt, :], apply_rot_embed_cat(q[:, :, npt:, :], rope, half=half)], dim=2).type_as(v)
         k = torch.cat([k[:, :, :npt, :], apply_rot_embed_cat(k[:, :, npt:, :], rope, half=half)], dim=2).type_as(v)
-    attn = torch.matmul(q * self.scale, k.transpose(-2, -1)).softmax(dim=-1)
+    shift = getattr(self, "score_shift", 0)    # fp16_forms
+    if shift:
+        s = torch.matmul(q * (self.scale * 2.0 ** -shift), k.transpose(-2, -1))
+        attn = ((s - s.amax(dim=-1, keepdim=True)) * 2.0 ** shift).softmax(dim=-1)
+    else:
+        attn = torch.matmul(q * self.scale, k.transpose(-2, -1)).softmax(dim=-1)
     x = torch.matmul(attn, v).transpose(1, 2).reshape(B, N, -1)
     return self.proj(self.norm(x))
 
@@ -187,6 +182,96 @@ def constant_rope(model: nn.Module, grid_hw: tuple[int, int]) -> None:
             raise ValueError(f"constant RoPE table is for grid {grid_hw}, not {tuple(shape)}")
         return self.ml7_table
     rope.get_embed = types.MethodType(get_embed, rope)
+
+
+# ------------------------------------------------------------------------------------------- fp16's range
+LITEMLA_SHIFT = 6       # relu(k) by 2^-6, relu(q) by 2^6
+SCORE_SHIFT = 4         # DINOv3's attention scores made at 2^-4
+
+
+def _relu_linear_att_fp16(self, qkv: torch.Tensor) -> torch.Tensor:
+    """_relu_linear_att_concat inside fp16's range (plan P7). relu(k) by 2^-6 and relu(q) by 2^6: v relu(k)^T and
+    relu(k)'s sum over the tokens (4.1e5 and 8.5e4 on the fixtures, stage 4's second block) shrink by 64, and the
+    numerator and denominator are the same numbers. eps (1e-15) is 0 in fp16, so the denominator also gets
+    [den == 0]: it is 0 only where the numerator is 0 too (relu(q) all zero in a head: 1,024 tokens a photo in
+    that block), and the output there stays 0 rather than 0/0."""
+    B, _, H, W = list(qkv.size())
+    qkv = torch.reshape(qkv, (B, -1, 3 * self.dim, H * W))
+    q, k, v = qkv[:, :, 0:self.dim], qkv[:, :, self.dim:2 * self.dim], qkv[:, :, 2 * self.dim:]
+    q, k = self.kernel_func(q) * 2.0 ** LITEMLA_SHIFT, self.kernel_func(k) * 2.0 ** -LITEMLA_SHIFT
+    v = torch.cat([v, torch.ones_like(v[:, :, :1])], dim=2)
+    out = torch.matmul(torch.matmul(v, k.transpose(-1, -2)), q)
+    den = out[:, :, -1:]
+    out = out[:, :, :-1] / (den + self.eps + (den == 0).to(den.dtype))
+    return torch.reshape(out, (B, -1, H, W))
+
+
+def _layer_norm_scaled(x: torch.Tensor, dim: int, weight, bias, eps: float) -> torch.Tensor:
+    """LayerNorm over `dim` of x / max|x| per token, with eps / max|x|^2: the same function, as LayerNorm does not
+    change when its input and sqrt(eps) are scaled together (plan P7). Every entry is then in [-1, 1]. DINOv3's
+    register tokens carry entries to 1.5e4, so (x - mean)^2 reaches 2.3e8 and the variance 5.1e5 (the encoder's last
+    norm: 1.2e5 and 5.0e3). One power of two for every token does not fit: the variances span 2^20 and the sum over
+    768 channels 2^10 more, fp16's whole normal range."""
+    r = 1.0 / x.abs().amax(dim=dim, keepdim=True)
+    y = x * r
+    y = y - y.mean(dim=dim, keepdim=True)
+    y = y * torch.rsqrt((y * y).mean(dim=dim, keepdim=True) + eps * r * r)
+    y = y if weight is None else y * weight
+    return y if bias is None else y + bias
+
+
+def _layer_norm_fp16(self, x: torch.Tensor) -> torch.Tensor:
+    return _layer_norm_scaled(x, -1, self.weight, self.bias, self.eps)
+
+
+def _layer_norm_2d_fp16(self, x: torch.Tensor) -> torch.Tensor:
+    """efficientvit's LayerNorm2d (over the channels) as _layer_norm_scaled."""
+    w, b = (None if t is None else t.view(1, -1, 1, 1) for t in (self.weight, self.bias))
+    return _layer_norm_scaled(x, 1, w, b, self.eps)
+
+
+def fp16_forms(model: nn.Module) -> dict[str, int]:
+    """Both models in forms whose every tensor fits fp16 (plan P7; measured on the fixtures in fp32): each LiteMLA
+    as _relu_linear_att_fp16, each LayerNorm as _layer_norm_scaled, and each 4-D attention's scores made at
+    2^-SCORE_SHIFT and shifted by their row's max before the softmax (DINOv3's block 0 has a score of 1.3e5). The
+    same functions in real arithmetic, at float rounding in fp32. Applied after the P1 rewrites (an EvaAttention
+    still on timm's own forward is refused); counts what changed."""
+    from efficientvit.models.nn.norm import LayerNorm2d
+    from efficientvit.models.nn.ops import LiteMLA
+    from timm.models.eva import EvaAttention
+
+    n = {"linear_attention": 0, "attention": 0, "layer_norm": 0}
+    for name, m in model.named_modules():
+        if isinstance(m, LiteMLA):
+            m.relu_linear_att = types.MethodType(_relu_linear_att_fp16, m)
+            n["linear_attention"] += 1
+        elif isinstance(m, EvaAttention):
+            if getattr(m.forward, "__func__", None) is not _attention_4d:
+                raise ValueError(f"{name}: not rewritten by four_d_attention; the score shift lives in _attention_4d")
+            m.score_shift = SCORE_SHIFT
+            n["attention"] += 1
+        elif isinstance(m, LayerNorm2d):
+            m.forward = types.MethodType(_layer_norm_2d_fp16, m)
+            n["layer_norm"] += 1
+        elif isinstance(m, nn.LayerNorm):
+            if len(m.normalized_shape) != 1:
+                raise ValueError(f"{name}: LayerNorm over {m.normalized_shape}; _layer_norm_scaled covers one dim")
+            m.forward = types.MethodType(_layer_norm_fp16, m)
+            n["layer_norm"] += 1
+    return n
+
+
+def tiled_prefix_tokens(model: nn.Module, batch: int) -> int:
+    """Hold DINOv3's class and register tokens already tiled to `batch`: timm expands each to the batch at every
+    call (LiteRT's BROADCAST_TO), and an expand to the size a tensor has is no op. The same values; afterwards the
+    model takes this batch only (another one fails the expand), until tiled again. The number of tensors tiled."""
+    n = 0
+    for name in ("cls_token", "reg_token"):
+        t = getattr(model, name, None)
+        if t is not None:
+            setattr(model, name, nn.Parameter(t.detach()[:1].repeat(batch, 1, 1), requires_grad=False))
+            n += 1
+    return n
 
 
 class DinoReadout(nn.Module):
@@ -223,6 +308,45 @@ class SegDecoder(nn.Module):
         return self.mask_decoder(image_embeddings=embedding, image_pe=self.image_pe,
                                  sparse_prompt_embeddings=sparse, dense_prompt_embeddings=dense,
                                  multimask_output=True)
+
+
+def _embed_boxes_whole(self, boxes: torch.Tensor) -> torch.Tensor:
+    """segment_anything's PromptEncoder._embed_boxes without its writes into a tensor (LiteRT's SELECT_V2): the
+    corners' x and y divided by the frame's width and height in one division, and both corners' embeddings added
+    in one addition. The same operations on the same numbers."""
+    h, w = self.input_image_size
+    coords = (boxes + 0.5).reshape(-1, 2, 2) / torch.tensor([w, h], dtype=boxes.dtype, device=boxes.device)
+    corners = torch.cat([self.point_embeddings[2].weight, self.point_embeddings[3].weight])
+    return self.pe_layer._pe_encoding(coords) + corners
+
+
+# -------------------------------------------------------------------------------------- LiteRT's GPU forms
+def litert_gpu_forms(model: nn.Module, batch: int | None = None) -> dict[str, int]:
+    """A graph in forms LiteRT's WebGPU delegate places whole on the GPU (probed on yappy, plans P2 and P7): each
+    MatmulResize with its constants on the right, each LiteMLA's ones concatenated, DINOv3's prefix tokens tiled
+    to `batch` (the batch the graph is converted at; required for DINOv3), SAM's box prompt without writes. The
+    same model at float rounding or exactly; LiteRT's conversion only (ORT's WebGPU provider runs the plain graphs
+    whole). Counts what changed, by form; a form with nothing to change is left out."""
+    from efficientvit.models.nn.ops import LiteMLA
+    from segment_anything.modeling.prompt_encoder import PromptEncoder
+    from timm.models.eva import Eva
+
+    n = {"linear_attention": 0, "resize": 0, "prefix_tokens": 0, "box_prompt": 0}
+    for m in model.modules():
+        if isinstance(m, MatmulResize):
+            m.constant_right = True
+            n["resize"] += 1
+        elif isinstance(m, LiteMLA):
+            m.relu_linear_att = types.MethodType(_relu_linear_att_concat, m)
+            n["linear_attention"] += 1
+        elif isinstance(m, Eva):
+            if batch is None:
+                raise ValueError("DINOv3's prefix tokens are tiled to the graph's batch: pass batch")
+            n["prefix_tokens"] += tiled_prefix_tokens(m, batch)
+        elif isinstance(m, PromptEncoder):
+            m._embed_boxes = types.MethodType(_embed_boxes_whole, m)
+            n["box_prompt"] += 1
+    return {k: v for k, v in n.items() if v}
 
 
 # ------------------------------------------------------------------------------------------------- loading
