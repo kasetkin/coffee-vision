@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 open (P4's length)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -231,7 +231,8 @@
         rehearsal's own times. Most of it is the stability run: 100 calls at the faster DINOv3 batch, which for
         PyTorch, LiteRT's CPU and OpenVINO's CPU is batch 40, a whole photo a call (40&ndash;61 min per cell, every
         round). Shrink it?</td>
-        <td><span class="pill sm open">Open</span> <strong>Recommendation:</strong> keep what decides D15, the
+        <td><span class="pill sm ok">Answered 2026-10-14</span> <strong>Owner:</strong> "as recommended".
+          <strong>Recommendation:</strong> keep what decides D15, the
           replay (two passes, three rounds, for the spread between rounds), and run once, in round 1, the per-graph
           timing and the stability run, the latter at batch 8 for every cell (100 calls, about 4&ndash;12 min a
           cell): about 7.8 h. The plan as written: 19.5 h. Three rounds of everything with the stability run at
@@ -459,9 +460,12 @@
 
   <h2>8. P4 &mdash; The comparison run</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-14, protocol per Q6</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
   </div>
+  <p><b>Protocol as amended by Q6 (owner, 2026-10-14):</b> every round replays each cell's photos; the per-graph
+    timing, the stability run (100 calls at batch 8 for every cell) and the information-only variants run once,
+    in round 1. The paragraphs below give the original protocol; where they differ, Q6 holds.</p>
   <p>One session on <code>yappy</code>, with the webapp and nginx stopped and nothing else running. The cells are
     run in rotation, three rounds, so that clock speed and heat fall on all of them alike. Each cell is a fresh
     process: one cold start, 3 warm-ups, then 20 timed runs per graph. Then each cell replays whole photos (the
@@ -860,6 +864,9 @@
       and outputs, <code>728a589</code>) to <code>dvcnewremote</code> ended at 01:56 UTC, after 5 h 7 min over
       <code>yappy</code>'s link; verified by testing every object of the directory's listing on the remote (127,
       none missing), per <code>docs/agents/dvc.md</code>. P4 now waits only for Q6.</div>
+    <div><div class="when">2026-10-14</div>Owner answers Q6: "as recommended". P4 replays every cell in three
+      rounds; per-graph timing, the stability run at batch 8 and the variants run once, in round 1 (about 7.8 h).
+      P4 started on <code>yappy</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

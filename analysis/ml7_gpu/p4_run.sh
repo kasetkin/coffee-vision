@@ -6,10 +6,12 @@
 # and logs/, every process's whole output (a crash leaves its exit code in this log and its output there).
 #
 # Each round runs every cell in turn, the order rotated between rounds so that clock speed and heat fall on all
-# of them alike; every graph and every replay is a fresh process (p4_graph.py, p4_replay.py). Per cell: the
-# decoder, the encoder, DINOv3 at batch 8 and 40 (WARMUP warm-ups, TIMED timed calls), the stability run
-# (STAB calls) at the faster DINOv3 batch, then the photo replay at that batch (PASSES passes). The CPU cell's
-# DINOv3 also runs ORT-fused; the information-only variants (fp16 GPU copies, the int8 encoder) run in round 1.
+# of them alike; every graph and every replay is a fresh process (p4_graph.py, p4_replay.py). Every round, per
+# cell: the photo replay (PASSES passes) at the cell's faster DINOv3 batch, which decides D15. Round 1 only (Q6,
+# answered by the owner 2026-10-14), before each replay: the decoder, the encoder, DINOv3 at batch 8 and 40
+# (WARMUP warm-ups, TIMED timed calls), which choose that batch, and the stability run, STAB calls at batch 8 for
+# every cell; the CPU cell's DINOv3 ORT-fused too; and, after the cells, the information-only variants (fp16
+# GPU copies, the int8 encoder).
 # OpenVINO's cache is emptied before each of its processes, so each cold start compiles.
 #
 # The cells come from backends.P4_CELLS and P4_VARIANTS. The replay's DINOv3 batch is the faster one in round 1,
@@ -73,18 +75,20 @@ for b, f in zip((8, 40), sys.argv[1:]):
 print(min(per, key=per.get) if per else 8)
 PY
 }
-cell() {   # cell <cell>: the four graphs, the stability run and the replay
+cell() {   # cell <cell>: in round 1 the four graphs and the stability run (Q6); every round, the replay
   local c=$1 g b
-  for g in decoder encoder dino_b8 dino_b40; do graph "$c" "$g" "$TIMED" ""; done
+  if (( R == 1 )); then
+    for g in decoder encoder dino_b8 dino_b40; do graph "$c" "$g" "$TIMED" ""; done
+    graph "$c" dino_b8 "$STAB" "__stability"
+    if [[ $c == ort_cpu ]]; then
+      for g in dino_b8 dino_b40; do graph ort_cpu_fused "$g" "$TIMED" ""; done
+    fi
+  fi
   # The replay batch is chosen once, in round 1, so every round replays at it (D15's spread between rounds).
   [[ -s "$OUT/batch_$c" ]] || faster "$c" > "$OUT/batch_$c"
   b=$(< "$OUT/batch_$c")
-  graph "$c" "dino_b$b" "$STAB" "__stability"
   run "$c" "replay" p4_replay.py --batch "$b" --passes "$PASSES" ${PHOTOS:+--photos "$PHOTOS"} \
     --out "$OUT/r$R/${c}__replay"
-  if [[ $c == ort_cpu ]]; then
-    for g in dino_b8 dino_b40; do graph ort_cpu_fused "$g" "$TIMED" ""; done
-  fi
 }
 
 mkdir -p "$OUT"
