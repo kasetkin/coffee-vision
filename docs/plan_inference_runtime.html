@@ -856,6 +856,10 @@
       One cell shows why the replay batch is now fixed in round 1: LiteRT's CPU chose batch 40 in the first
       rehearsal and batch 8 in this one (0.02% apart a patch). P4 is ready to run; it waits for Q6 and for the DVC
       push to <code>dvcnewremote</code> to end.</div>
+    <div><div class="when">2026-10-14</div>The DVC push of <code>analysis/ml7_gpu/artifacts</code> (P1&ndash;P3's files
+      and outputs, <code>728a589</code>) to <code>dvcnewremote</code> ended at 01:56 UTC, after 5 h 7 min over
+      <code>yappy</code>'s link; verified by testing every object of the directory's listing on the remote (127,
+      none missing), per <code>docs/agents/dvc.md</code>. P4 now waits only for Q6.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
