@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs' DVC push waits)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -460,7 +460,7 @@
 
   <h2>8. P4 &mdash; The comparison run</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-14, protocol per Q6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-14, protocol per Q6; the raw outputs not yet in DVC</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
   </div>
   <p><b>Protocol as amended by Q6 (owner, 2026-10-14):</b> every round replays each cell's photos; the per-graph
@@ -489,7 +489,7 @@
     </tbody>
   </table></div>
   <ol class="tasks">
-    <li><span class="box"></span><span>For each cell and graph (DINOv3 at batch 8 and 40, encoder, decoder),
+    <li><span class="box done"></span><span>For each cell and graph (DINOv3 at batch 8 and 40, encoder, decoder),
       record:
       <ul>
         <li>whether it ran fully on its device;</li>
@@ -501,7 +501,7 @@
         <li>a 100-call stability run on the faster DINOv3 batch;</li>
         <li>the sampler's CPU and GPU clocks, and whether the power-limit throttle fired.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><b>The photo replay</b>, per cell, in one process that loads the encoder,
+    <li><span class="box done"></span><span><b>The photo replay</b>, per cell, in one process that loads the encoder,
       the decoder and DINOv3 together, at the DINOv3 batch that cell ran faster. For each of the 13 photos, as
       serving runs them: encoder and decoder (the <code>/crop</code> pass), encoder and decoder again
       (<code>/classify</code>; OPS-7 would remove one), then the 40 patches. Two passes over the photos. Record:
@@ -515,11 +515,11 @@
       The baseline's replay is the same sequence through the release's PyTorch modules. Pre- and post-processing
       stay out, as they are the same for every cell; P0 has their times, and the report adds them back to set each
       cell beside the live latency.</span></li>
-    <li><span class="box"></span><span>Parity is computed locally from the saved outputs with the repo's code,
+    <li><span class="box done"></span><span>Parity is computed locally from the saved outputs with the repo's code,
       against <code>refs.npz</code>, per photo: D7's measures and the continuous measures from P1.</span></li>
     <li><span class="box"></span><span>Results go to <code>analysis/ml7_gpu/results.json</code> and the
       scripts to <code>analysis/ml7_gpu/</code>, committed. The raw outputs go to DVC.</span></li>
-    <li><span class="box"></span><span>Checks: every cell either has its numbers or is marked failed, with the
+    <li><span class="box done"></span><span>Checks: every cell either has its numbers or is marked failed, with the
       error. No GPU cell counts unless P2's or P3's proof of the GPU held in that session.</span></li>
   </ol>
 
@@ -602,7 +602,7 @@
       the fused and int8 variants reported pass or fail.</span></li>
     <li><span class="box"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
       by <code>strace</code> and the i915 counters, not by "no error".</span></li>
-    <li><span class="box"></span><span>P4: every cell measured or marked failed, per graph and in the photo replay;
+    <li><span class="box done"></span><span>P4: every cell measured or marked failed, per graph and in the photo replay;
       parity computed with the repo's code.</span></li>
     <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test with Q5's margin; the site
       answers on the domain again.</span></li>
@@ -867,6 +867,48 @@
     <div><div class="when">2026-10-14</div>Owner answers Q6: "as recommended". P4 replays every cell in three
       rounds; per-graph timing, the stability run at batch 8 and the variants run once, in round 1 (about 7.8 h).
       P4 started on <code>yappy</code>.</div>
+    <div><div class="when">2026-10-14</div>P4 done on <code>yappy</code>, 07:12&ndash;14:35 (7 h 22 min): no process
+      failed, the inputs verified against <code>SHA256SUMS</code>, every cell measured. The photo replay, the models
+      only, s per photo: the median of the three rounds (its p90; the spread of the median between rounds):
+      <ul>
+        <li>LiteRT Vulkan 14.89 (14.95; 0.2%), batch 8; OpenVINO GPU 17.17 (17.26; 1.5%), batch 8; ORT WebGPU
+          22.36 (22.37; 0.0%), batch 40.</li>
+        <li>PyTorch 36.00 (36.29; 1.2%), batch 40.</li>
+        <li>OpenVINO CPU 36.80 (36.88; 2.6%), ORT CPU 38.19 (38.39; 2.1%), LiteRT CPU 47.78 (47.95; 0.4%).</li>
+      </ul>
+      Against PyTorch's p90, the GPU cells are 58.8%, 52.5% and 38.4% lower; the CPU cells 1.6%, 5.8% and 32.1%
+      higher. P5 marks each cell by D15.
+      <ul>
+        <li><b>Parity:</b> every cell passes D7 in every round, with the same values each round. Least cosine
+          0.99999999992 or higher, least mask IoU 0.999996 or higher; no answer or guard verdict changes; no NaN or Inf.
+          Every GPU cell proved its GPU in every round.</li>
+        <li><b>Where parity was computed:</b> on <code>yappy</code>, with the release's code and checkpoint and
+          <code>refs.npz</code> less its embeddings (which the comparison does not read). That kept the 269 MB of
+          arrays off the link. The 15 arrays already fetched give identical reports, every photo and measure, with
+          the repo's code locally.</li>
+        <li><b>Cold start to the first answer:</b> LiteRT Vulkan 20 s, WebGPU 24&ndash;25 s, OpenVINO GPU
+          43&ndash;45 s (it compiles, its cache emptied), PyTorch 42&ndash;44 s.</li>
+        <li><b>Memory:</b> the drop in <code>MemAvailable</code> over the replay is 4.2 GB on LiteRT Vulkan, 3.1 GB
+          on OpenVINO GPU, 2.7 GB on WebGPU and 1.7 GB on PyTorch. <code>yappy</code> has 7.7 GB.</li>
+        <li><b>Clocks:</b> the power-limit throttle fired in the replays of LiteRT Vulkan and OpenVINO GPU (the GPU's
+          median 700 and 500 MHz of 750; the CPU 700&ndash;850 MHz), not in WebGPU's. The times above are under
+          that limit, as serving would be.</li>
+        <li><b>Per graph</b> (round 1), DINOv3 per photo: LiteRT Vulkan 11.17 s at batch 8, OpenVINO GPU 12.94 s,
+          WebGPU 13.50 s at batch 40, PyTorch 21.86 s.</li>
+        <li><b>The encoder:</b> 1.78 s, 2.04 s, 4.30 s and 6.49 s, in the same order.</li>
+        <li><b>Stability:</b> the 100-call run is within 0.4% of the 20-call median in every cell.</li>
+        <li><b>LiteRT's delegate</b> leaves 5 of DINOv3's 976 ops (BROADCAST_TO) and 38 of the decoder's 374
+          (SELECT_V2) on the CPU. CPU/wall is 0.08.</li>
+        <li><b>Fused DINOv3:</b> ORT's fused copy is 1% slower than the plain one on the CPU.</li>
+        <li><b>fp16 variants, for information:</b> the GPU copies run DINOv3 about twice as fast (per photo:
+          LiteRT 5.74 s, OpenVINO 6.18 s, WebGPU 9.73 s, the blanket copy 9.41 s). The fp16 encoder still returns
+          NaN on all three paths, and LiteRT's fp16 DINOv3 does too.</li>
+        <li><b>int8 encoder, for information:</b> on the CPU it takes 2.75 s (ORT) and 2.84 s (OpenVINO); it fails
+          D7, as in P1 and P3.</li>
+      </ul>
+      <code>results.json</code> is committed. The records and logs are in <code>artifacts/outputs_p4/</code>. The
+      raw arrays are on <code>yappy</code>, 6 of 21 not yet fetched; their DVC push waits for the owner, since it
+      crosses the same link twice.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
