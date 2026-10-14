@@ -1051,6 +1051,19 @@
               drift.</li>
           </ul></li>
       </ul></div>
+    <div><div class="when">2026-10-14</div>P7, the precision split on <code>yappy</code>
+      (<code>litert_gpu_split</code>, <code>aafee7a</code>). The encoder and decoder run in fp32 (the whole-on-GPU
+      files) and DINOv3 in fp16 (the forms' file), in one process.
+      <ul>
+        <li>Time: replay median 9.21 s (p90 9.25 s), &minus;37% against the fp32 cell's 14.61 s. The photo upload
+          ran beside it, so this is an upper bound.</li>
+        <li>Memory: <code>MemAvailable</code> drop 3.62 GB, RSS 2.22 GB. First answer 14.4 s.</li>
+        <li>Masks exact: least IoU 0.999996, 10 pixels at most, as fp32.</li>
+        <li>DINOv3 as in the fp16 cell: least cosine 0.99977, the largest change in a class probability 0.0039.</li>
+        <li>No top-1 class, guard verdict or fallback changed on the fixtures.</li>
+        <li>D7 fails only on DINOv3's cosine bar, which fp16 cannot meet. Whether that matters is for the owner,
+          on the answer check over 782 photos (584 true negatives) now being prepared.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
