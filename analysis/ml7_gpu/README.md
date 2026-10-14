@@ -3,10 +3,14 @@
 The report of plan P5 (`docs/plan_inference_runtime.html`, ticket `docs/ticket_inference_runtime.html`). Every
 number comes from a committed record in this directory; the raw outputs are in DVC (`artifacts.dvc`).
 
-**In short:** three cells pass D10's test with D15's margin, all of them on the N100's iGPU. They are LiteRT on
-Vulkan, ORT's OpenVINO provider on the GPU and ORT's WebGPU plugin. LiteRT on Vulkan is the fastest: a photo's
+**In short:** three cells pass D10's test with D15's margin, all of them on the N100's iGPU. They are:
+- LiteRT running the `.tflite` files through WebGPU (Dawn) on Vulkan;
+- ONNX Runtime running the `.onnx` files through OpenVINO on OpenCL;
+- ONNX Runtime running the `.onnx` files through its WebGPU plugin (Dawn) on Vulkan.
+
+LiteRT on WebGPU/Vulkan is the fastest: a photo's
 models take 14.9 s instead of PyTorch's 36.0 s, with parity at float rounding. No CPU cell beats PyTorch. The
-GPU's price is memory, and LiteRT's is the highest: 4.1 GB of `MemAvailable` against PyTorch's 1.7 GB. The owner
+GPU's price is memory, and LiteRT's is the highest: 4.2 GB of `MemAvailable` against PyTorch's 1.7 GB. The owner
 chooses under D2, D4 and D5. P6 is not needed.
 
 ## 1. Where a photo's time goes today (P0)
@@ -29,6 +33,20 @@ sustained state, where `/classify` alone sits at gunicorn's 30 s timeout.
 
 ## 2. The seven cells
 
+The cells, as installed on `yappy`. Both WebGPU paths run Dawn, Chrome's WebGPU engine, which turns WebGPU
+into Vulkan calls on Mesa's Intel Vulkan driver (ANV). OpenVINO's GPU plugin runs on OpenCL instead, on Intel's
+NEO driver. Each GPU cell was proven by the libraries it loaded and by the i915 counters.
+
+| Cell | Model format | Runtime | Device, and how the GPU is driven |
+|---|---|---|---|
+| Baseline | PyTorch `.pt` | the release's own venv and code, torch 2.14 | CPU, 4 threads |
+| LiteRT CPU | `.tflite` | LiteRT (`ai-edge-litert` 2.3.0) | CPU: XNNPACK, 4 threads |
+| ORT CPU | `.onnx` | ONNX Runtime 1.31 | CPU: the default provider (MLAS), 4 threads |
+| OpenVINO CPU | `.onnx` | ONNX Runtime with the OpenVINO provider (`onnxruntime-openvino` 1.24.1, OpenVINO 2025.4.1) | CPU: OpenVINO's CPU plugin, 4 threads |
+| LiteRT GPU | `.tflite` | LiteRT, its WebGPU accelerator (`libLiteRtWebGpuAccelerator.so`, from the wheel) | iGPU: WebGPU (Dawn) on Vulkan, Mesa 22.3.6 ANV (`libvulkan_intel.so`) |
+| OpenVINO GPU | `.onnx` | ONNX Runtime with the OpenVINO provider, as above | iGPU: OpenCL, Intel NEO 22.43 (`libigdrcl.so`) via OpenVINO's GPU plugin |
+| ORT WebGPU | `.onnx` | ONNX Runtime 1.31 with the WebGPU provider plugin (`onnxruntime-ep-webgpu` 0.4.0) | iGPU: WebGPU (Dawn) on Vulkan, Mesa 22.3.6 ANV (`libvulkan_intel.so`) |
+
 Each cell is one runtime on one device, fp32, 4 CPU threads. P4 ran three rounds on `yappy` with the site down
 (`results.json`). Two kinds of measure:
 
@@ -38,7 +56,7 @@ Each cell is one runtime on one device, fp32, 4 CPU threads. P4 ran three rounds
 
 Time per photo in seconds, warm median (cold start: session creation plus the first call):
 
-| | PyTorch | LiteRT CPU | ORT CPU | OpenVINO CPU | **LiteRT Vulkan** | **OpenVINO GPU** | **ORT WebGPU** |
+| | PyTorch `.pt`<br>CPU | LiteRT `.tflite`<br>CPU: XNNPACK | ONNX Runtime `.onnx`<br>CPU: default provider | ONNX Runtime + OpenVINO `.onnx`<br>CPU | **LiteRT `.tflite`<br>GPU: WebGPU on Vulkan** | **ONNX Runtime + OpenVINO `.onnx`<br>GPU: OpenCL** | **ONNX Runtime `.onnx`<br>GPU: WebGPU on Vulkan** |
 |---|---|---|---|---|---|---|---|
 | Encoder | 6.49 (12.1) | 6.91 (7.3) | 4.88 (6.1) | 6.40 (7.8) | 1.78 (4.8) | 2.04 (11.7) | 4.30 (5.5) |
 | Decoder | 0.10 (7.5) | 0.10 (0.2) | 0.09 (0.3) | 0.09 (0.9) | 0.09 (0.7) | 0.08 (5.3) | 0.12 (0.5) |
@@ -70,13 +88,13 @@ render node were mapped, and the i915 counters showed the GPU busy for 97–100%
 
 | Variant | Time per photo | D7 |
 |---|---|---|
-| fp16, LiteRT Vulkan | DINOv3 5.74 s, encoder 0.91 s | fail: NaN in DINOv3 and the encoder; decoder IoU 0.9927 |
-| fp16, OpenVINO GPU | DINOv3 6.18 s, encoder 0.96 s | fail: encoder NaN; DINOv3 cosine 0.9971; decoder IoU 0.9966 |
-| fp16, ORT WebGPU | DINOv3 9.73 s, encoder 2.89 s | fail: encoder NaN; DINOv3 cosine 0.99976; decoder IoU 0.9917 |
-| fp16 blanket DINOv3, ORT WebGPU | DINOv3 9.41 s | fail: cosine 0.9993 |
-| ORT's fused DINOv3, CPU | 24.30 s (batch 8) | pass; 1% slower than the plain graph |
-| int8 encoder, ORT CPU | 2.75 s | fail: IoU 0.0005, 4 answers changed (P1) |
-| int8 encoder, OpenVINO CPU | 2.84 s | fail: IoU 0.21 (P3) |
+| fp16, LiteRT `.tflite`, GPU: WebGPU on Vulkan | DINOv3 5.74 s, encoder 0.91 s | fail: NaN in DINOv3 and the encoder; decoder IoU 0.9927 |
+| fp16, ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL | DINOv3 6.18 s, encoder 0.96 s | fail: encoder NaN; DINOv3 cosine 0.9971; decoder IoU 0.9966 |
+| fp16, ONNX Runtime `.onnx`, GPU: WebGPU on Vulkan | DINOv3 9.73 s, encoder 2.89 s | fail: encoder NaN; DINOv3 cosine 0.99976; decoder IoU 0.9917 |
+| fp16 blanket DINOv3, ONNX Runtime `.onnx`, GPU: WebGPU on Vulkan | DINOv3 9.41 s | fail: cosine 0.9993 |
+| fused DINOv3, ONNX Runtime `.onnx`, CPU: default provider | 24.30 s (batch 8) | pass; 1% slower than the plain graph |
+| int8 encoder, ONNX Runtime `.onnx`, CPU: default provider | 2.75 s | fail: IoU 0.0005, 4 answers changed (P1) |
+| int8 encoder, ONNX Runtime + OpenVINO `.onnx`, CPU | 2.84 s | fail: IoU 0.21 (P3) |
 
 The parity figures come from P1–P3 (`parity_p1_cpu.json`, `parity_p2.json`, `parity_p3.json`) and the times
 from P4. fp16 would roughly halve DINOv3's time on the GPU, but no fp16 graph passes D7. The XL0 encoder
@@ -89,12 +107,12 @@ than both cells' spread between rounds.
 
 | Cell | p90 | Against PyTorch | D7 | Verdict |
 |---|---|---|---|---|
-| LiteRT Vulkan | 14.95 s | 58.8% lower | pass | **pass** |
-| OpenVINO GPU | 17.26 s | 52.5% lower | pass | **pass** |
-| ORT WebGPU | 22.37 s | 38.4% lower | pass | **pass** |
-| OpenVINO CPU | 36.88 s | 1.6% higher | pass | fail: not faster |
-| ORT CPU | 38.39 s | 5.8% higher | pass | fail: not faster |
-| LiteRT CPU | 47.95 s | 32.1% higher | pass | fail: slower |
+| LiteRT `.tflite`, GPU: WebGPU (Dawn) on Vulkan | 14.95 s | 58.8% lower | pass | **pass** |
+| ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL | 17.26 s | 52.5% lower | pass | **pass** |
+| ONNX Runtime `.onnx`, GPU: WebGPU (Dawn) on Vulkan | 22.37 s | 38.4% lower | pass | **pass** |
+| ONNX Runtime + OpenVINO `.onnx`, CPU | 36.88 s | 1.6% higher | pass | fail: not faster |
+| ONNX Runtime `.onnx`, CPU: default provider | 38.39 s | 5.8% higher | pass | fail: not faster |
+| LiteRT `.tflite`, CPU: XNNPACK | 47.95 s | 32.1% higher | pass | fail: slower |
 
 Each passing cell's gap is more than 30 times the larger of its own spread and PyTorch's (1.2%). D2's preference for a CPU cell does not
 apply, because none passes. P6, LiteRT on OpenCL, runs only if no cell passes (D10), so it is not needed.
@@ -107,15 +125,15 @@ median plus 2.3 s.
 
 | Cell | `/crop` | `/classify` | Photo | OPS-7 would save |
 |---|---|---|---|---|
-| PyTorch | 7.2 s | 30.1 s | 38.3 s | 6.6 s (17%) |
-| LiteRT Vulkan | 2.5 s | 14.7 s | 17.2 s | 1.9 s (11%) |
-| OpenVINO GPU | 2.7 s | 16.8 s | 19.5 s | 2.1 s (11%) |
-| ORT WebGPU | 5.0 s | 19.6 s | 24.7 s | 4.4 s (18%) |
+| PyTorch `.pt`, CPU | 7.2 s | 30.1 s | 38.3 s | 6.6 s (17%) |
+| LiteRT `.tflite`, GPU: WebGPU (Dawn) on Vulkan | 2.5 s | 14.7 s | 17.2 s | 1.9 s (11%) |
+| ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL | 2.7 s | 16.8 s | 19.5 s | 2.1 s (11%) |
+| ONNX Runtime `.onnx`, GPU: WebGPU (Dawn) on Vulkan | 5.0 s | 19.6 s | 24.7 s | 4.4 s (18%) |
 
 - P0 measured PyTorch's photo directly at 37.5 s; it ran DINOv3 as batches of 32 and 8, where these rows use
   P4's batch 40. The 0.8 s difference is the error bar on these rows.
 - On a passing cell, `/classify` falls from the 30 s timeout to 15–20 s, in the sustained state.
-- The GPU cells' clocks were limited too. LiteRT Vulkan and OpenVINO GPU hit the package's power limit (PL1)
+- The GPU cells' clocks were limited too. LiteRT GPU and OpenVINO GPU hit the package's power limit (PL1)
   during the replay: the GPU's median clock was 700 and 500 MHz of its 750, and the CPU's 700–850 MHz. Their
   times are under that limit, as serving would be.
 - "OPS-7 would save" is one encoder and decoder pass, which OPS-7 would remove.
@@ -127,13 +145,13 @@ guard verdict or its mask's fallback. The continuous measures (D14), the worst p
 
 | Cell | Least cosine | Largest class-probability change | Largest guard-score change | Least mask IoU | Mask pixels differing | Largest low-res logit change |
 |---|---|---|---|---|---|---|
-| PyTorch (release) | 0.999999999995 | 1.8e-7 | 4e-15 | 0.9999998 | 1 | 3.7e-5 |
-| LiteRT CPU | 0.999999999953 | 4.8e-7 | 2e-14 | 0.9999974 | 8 | 2.8e-4 |
-| ORT CPU | 0.999999999988 | 3.0e-7 | 3e-14 | 0.9999995 | 3 | 8.1e-5 |
-| OpenVINO CPU | 0.999999999956 | 3.0e-7 | 4e-14 | 0.9999995 | 4 | 7.7e-5 |
-| LiteRT Vulkan | 0.999999999987 | 2.4e-7 | 9e-16 | 0.9999964 | 8 | 5.1e-4 |
-| OpenVINO GPU | 0.999999999992 | 3.0e-7 | 1e-14 | 0.9999979 | 7 | 2.9e-4 |
-| ORT WebGPU | 0.999999999921 | 3.0e-7 | 2e-14 | 0.9999990 | 9 | 3.6e-4 |
+| PyTorch `.pt`, CPU (release) | 0.999999999995 | 1.8e-7 | 4e-15 | 0.9999998 | 1 | 3.7e-5 |
+| LiteRT `.tflite`, CPU: XNNPACK | 0.999999999953 | 4.8e-7 | 2e-14 | 0.9999974 | 8 | 2.8e-4 |
+| ONNX Runtime `.onnx`, CPU: default provider | 0.999999999988 | 3.0e-7 | 3e-14 | 0.9999995 | 3 | 8.1e-5 |
+| ONNX Runtime + OpenVINO `.onnx`, CPU | 0.999999999956 | 3.0e-7 | 4e-14 | 0.9999995 | 4 | 7.7e-5 |
+| LiteRT `.tflite`, GPU: WebGPU (Dawn) on Vulkan | 0.999999999987 | 2.4e-7 | 9e-16 | 0.9999964 | 8 | 5.1e-4 |
+| ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL | 0.999999999992 | 3.0e-7 | 1e-14 | 0.9999979 | 7 | 2.9e-4 |
+| ONNX Runtime `.onnx`, GPU: WebGPU (Dawn) on Vulkan | 0.999999999921 | 3.0e-7 | 2e-14 | 0.9999990 | 9 | 3.6e-4 |
 
 The guard is the linear probe. Every fixture scores about 0, well inside the distribution and 0.5 from the
 threshold, so a change of 1e-14 cannot flip a verdict. The fixtures don't test a photo near the threshold; the
@@ -151,10 +169,10 @@ locally with the repo's code on the 15 arrays first fetched, it gives identical 
 
 | Cell | Replay peak RSS | `MemAvailable` drop | Least `MemAvailable` | Runtime added to the release | Model files |
 |---|---|---|---|---|---|
-| PyTorch | 2.25 GB | 1.66 GB | 4.77 GB | (torch 769 MB, in the 1.2 GB venv) | 790 MB |
-| LiteRT Vulkan | 2.40 GB | 4.18 GB | 2.25 GB | `ai-edge-litert` 58 MB | 815 MB |
-| OpenVINO GPU | 2.11 GB | 3.05 GB | 3.37 GB | `onnxruntime-openvino` 252 MB | 815 MB |
-| ORT WebGPU | 1.00 GB | 2.67 GB | 3.74 GB | `onnxruntime` 63 MB + `onnxruntime-ep-webgpu` 16 MB | 815 MB |
+| PyTorch `.pt`, CPU | 2.25 GB | 1.66 GB | 4.77 GB | (torch 769 MB, in the 1.2 GB venv) | 790 MB |
+| LiteRT `.tflite`, GPU: WebGPU (Dawn) on Vulkan | 2.40 GB | 4.18 GB | 2.25 GB | `ai-edge-litert` 58 MB | 815 MB |
+| ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL | 2.11 GB | 3.05 GB | 3.37 GB | `onnxruntime-openvino` 252 MB | 815 MB |
+| ONNX Runtime `.onnx`, GPU: WebGPU (Dawn) on Vulkan | 1.00 GB | 2.67 GB | 3.74 GB | `onnxruntime` 63 MB + `onnxruntime-ep-webgpu` 16 MB | 815 MB |
 
 - **GPU memory is host memory.** The GPU cells' buffers don't show in RSS but do come out of `MemAvailable`.
 - **What the drops leave:** LiteRT's drop leaves about 2.2 GB free with nothing else running. The others leave
@@ -170,21 +188,21 @@ post-processing ported and checked against torch under D7. It is the larger savi
 
 ## 7. What each cell costs to keep
 
-- **LiteRT Vulkan:**
+- **LiteRT GPU** (`.tflite`, WebGPU on Vulkan):
   - Comes with the `ai-edge-litert` wheel. Its WebGPU accelerator library is used from the wheel, unbuilt.
   - Needs Mesa's Vulkan driver (22.3.6 on `yappy`).
   - Keeps the LiteRT conversion environment (`convert_litert/`), pinned below the torch that training uses.
   - Keeps the GPU forms (`graphs.litert_gpu_forms`) in the export.
   - The delegate's reports have to be read on every upgrade, because `is_fully_accelerated()` is not
     trustworthy.
-- **OpenVINO GPU:**
+- **OpenVINO GPU** (`.onnx`, ONNX Runtime + OpenVINO on OpenCL):
   - A separate ORT build, `onnxruntime-openvino`, which bundles OpenVINO 2025.4.
   - Needs Intel's NEO OpenCL driver (22.43 on `yappy`).
   - Holds one CPU core busy while the GPU works.
   - Compiles at every cold start: its first answer comes 26 s later than a warm photo would. Its cache cut
     DINOv3's load from 21.7 s to 14.3 s in P3.
   - Needs the zero-bias fix in the export.
-- **ORT WebGPU:**
+- **ORT WebGPU** (`.onnx`, ONNX Runtime's WebGPU plugin on Vulkan):
   - Two pip packages, `onnxruntime` and the plugin `onnxruntime-ep-webgpu` (0.4.0, young).
   - Needs Mesa's Vulkan driver.
   - Needs the sequence-to-slice fix in the export.
@@ -202,10 +220,10 @@ bit-identical answers from PyTorch (R4).
 
   | Cell | Load | First answer | Warm photo |
   |---|---|---|---|
-  | LiteRT Vulkan | 3.8 s | 20 s | 14.9 s |
-  | ORT WebGPU | 1.3–2.4 s | 24–25 s | 22.4 s |
-  | OpenVINO GPU, cache emptied | 26–28 s | 43–45 s | 17.2 s |
-  | PyTorch | 6–8 s | 42–44 s | 36.0 s |
+  | LiteRT `.tflite`, GPU: WebGPU on Vulkan | 3.8 s | 20 s | 14.9 s |
+  | ONNX Runtime `.onnx`, GPU: WebGPU on Vulkan | 1.3–2.4 s | 24–25 s | 22.4 s |
+  | ONNX Runtime + OpenVINO `.onnx`, GPU: OpenCL, cache emptied | 26–28 s | 43–45 s | 17.2 s |
+  | PyTorch `.pt`, CPU | 6–8 s | 42–44 s | 36.0 s |
 
   Serving must warm both models at worker start and measure the boot time. OpenVINO should keep its model cache
   on disk.
