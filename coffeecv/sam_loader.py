@@ -13,9 +13,6 @@ from __future__ import annotations
 
 import sys
 
-import torch
-
-from coffeecv.backbones import MODELS_PRETRAINED, verify_weights
 from coffeecv.config import REPO_ROOT
 
 EFFICIENTVIT_DIR = REPO_ROOT / "third_party" / "efficientvit"
@@ -54,6 +51,9 @@ def build_sam(weights: str):
     so a file whose content is another variant's fails here rather than half-loading. The encoder's input
     side is model.image_size[1] (512 for L*, 1024 for XL*); prompts are in model.image_size[0], 1024 for all.
     """
+    import torch     # here, not at the top: serving imports the names above and runs the segmenter on LiteRT
+
+    from coffeecv.backbones import MODELS_PRETRAINED, verify_weights
     digest = verify_weights(weights)
     create, Predictor = _import_efficientvit_sam()
     model = create(f"efficientvit-sam-{variant_of(weights)}", pretrained=False)

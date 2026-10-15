@@ -63,7 +63,8 @@ class Context:
     @classmethod
     def load(cls, checkpoint: Path) -> "Context":
         from coffeecv.class_list import load_classes
-        from coffeecv.infer import config_for_checkpoint, load_model, load_ood_probe, load_ood_reference, segmenter_for
+        from coffeecv.infer import (config_for_checkpoint, embedding_dim_of, load_model, load_ood_probe,
+                                    load_ood_reference, segmenter_for)
 
         checkpoint = graphs.repo_path(checkpoint)
         cfg, _ = config_for_checkpoint(checkpoint, None)
@@ -71,7 +72,8 @@ class Context:
         model, head = load_model(checkpoint, cfg.model_name, len(classes.keys), cfg.dropout)
         weights = {"weight": head.weight.detach().numpy(), "bias": head.bias.detach().numpy()}
         return cls(checkpoint, cfg, list(classes.keys), dict(classes.labels), model, head, weights,
-                   load_ood_reference(checkpoint, head), load_ood_probe(checkpoint, head=head), segmenter_for(cfg))
+                   load_ood_reference(checkpoint, embedding_dim_of(head)),
+                   load_ood_probe(checkpoint, embedding_dim=embedding_dim_of(head)), segmenter_for(cfg))
 
 
 def read_list(list_file: Path) -> list[Path]:
@@ -107,7 +109,8 @@ def pack_masks(masks: list[np.ndarray]) -> np.ndarray:
 @torch.no_grad()
 def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
     from coffeecv.dataset import load_rgb_image
-    from coffeecv.infer import classify_one, forward_with_embeddings, inference_tta_for, patches_for_photo, sig12
+    from coffeecv.infer import (TorchClassifier, classify_one, forward_with_embeddings, inference_tta_for,
+                                patches_for_photo, sig12)
     from coffeecv.segment_beans import segment_and_crop
     from coffeecv.transforms import build_eval_transform
 
@@ -120,7 +123,8 @@ def make_refs(ctx: Context, photos: list[Path]) -> tuple[dict, dict]:
     ref = {k: [] for k in ("readouts", "embeddings", "low_masks", "ious", "masks", "probs", "fallback", "top1",
                            "guard_score", "refused")}
     for path in photos:
-        entry = classify_one(path, ctx.cfg, ctx.class_ids, ctx.class_labels, ctx.model, ctx.head_module, ctx.ref,
+        entry = classify_one(path, ctx.cfg, ctx.class_ids, ctx.class_labels, TorchClassifier(ctx.model, ctx.head_module),
+                             ctx.ref,
                              n_patches=40, tta=tta, probe=ctx.probe)
         patches, _ = patches_for_photo(path, ctx.cfg, 40, [42, 0])     # classify_one's own seed key
         tensors = torch.stack([transform(p) for p in patches])

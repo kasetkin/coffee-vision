@@ -58,22 +58,19 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
 from PIL import Image
 
+from coffeecv import model_io
 from coffeecv.bean_scale import estimate_bean_pitch, pitch_kwargs
 from coffeecv.class_list import load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.crop_tray import locate_bean_crop
-from coffeecv.dataset import load_rgb_image
 from coffeecv.geometry import (compute_valid_region_rect, sample_bean_unit_patch_boxes,
                               sample_masked_bean_unit_boxes)
-from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
-from coffeecv.model import build_model
-from coffeecv.transforms import build_eval_transform
+from coffeecv.photo_io import load_rgb_image
 
-DEVICE = torch.device("cpu")
+# torch is imported only by the PyTorch model's functions (load_model, forward_with_embeddings, TorchClassifier,
+# embedding_dim_of): the web service runs its models on LiteRT and imports no torch (ticket ML-7 D5 (b)).
 
 # Appended to config_for_checkpoint's source description for a config written before ticket ML-1.
 LEGACY_CONFIG_NOTE = (" [pre-ML-1 config: `train_rigs` read as `train_capture_dirs`; trained on the old "
@@ -114,22 +111,23 @@ def reference_path_for(checkpoint: Path) -> Path:
     return checkpoint.with_suffix(".ood_reference.json")
 
 
-def embedding_dim_of(head: torch.nn.Module) -> int:
+def embedding_dim_of(head) -> int:
     """Width of the vector this model feeds its classifier: the final Linear's in_features. That vector
     is the embedding every OOD artifact (reference, probe) lives in."""
+    import torch
     *_, last = (m for m in head.modules() if isinstance(m, torch.nn.Linear))
     return last.in_features
 
 
-def _check_embedding_dim(kind: str, path: Path, artifact: dict, head: torch.nn.Module | None) -> None:
+def _check_embedding_dim(kind: str, path: Path, artifact: dict, embedding_dim: int | None) -> None:
     dim = artifact.get("embedding_dim")
-    if head is not None and dim is not None and dim != embedding_dim_of(head):
+    if embedding_dim is not None and dim is not None and dim != embedding_dim:
         raise SystemExit(
-            f"OOD {kind} {path} is {dim}-d but this model emits {embedding_dim_of(head)}-d embeddings; "
+            f"OOD {kind} {path} is {dim}-d but this model emits {embedding_dim}-d embeddings; "
             f"rebuild it for these weights.")
 
 
-def load_ood_reference(checkpoint: Path, head: torch.nn.Module | None = None,
+def load_ood_reference(checkpoint: Path, embedding_dim: int | None = None,
                        explicit: Path | None = None) -> dict | None:
     """Load and check the centroid reference beside a checkpoint, or None if there is none.
 
@@ -148,7 +146,7 @@ def load_ood_reference(checkpoint: Path, head: torch.nn.Module | None = None,
             f"({ref['checkpoint_sha']} vs {_sha(checkpoint)}). Centroids live in the embedding space of "
             f"one specific set of weights and mean nothing against another -- rebuild it with "
             f"`python -m coffeecv.build_ood_reference --checkpoint {checkpoint}`.")
-    _check_embedding_dim("reference", path, ref, head)
+    _check_embedding_dim("reference", path, ref, embedding_dim)
     return ref
 
 
@@ -165,7 +163,7 @@ def probe_path_for(checkpoint: Path) -> Path:
 
 
 def load_ood_probe(checkpoint: Path, explicit: Path | None = None,
-                   head: torch.nn.Module | None = None) -> dict | None:
+                   embedding_dim: int | None = None) -> dict | None:
     """Load and sha-check the probe beside a checkpoint, or None if there is none.
 
     Refuses a mismatched pairing rather than falling back quietly: a probe from
@@ -182,7 +180,7 @@ def load_ood_probe(checkpoint: Path, explicit: Path | None = None,
             f"OOD probe {path} was fitted on a different checkpoint "
             f"({probe['checkpoint_sha']} vs {_sha(checkpoint)}); refit it with "
             f"`python -m coffeecv.fit_ood_probe --checkpoint {checkpoint}`.")
-    _check_embedding_dim("probe", path, probe, head)
+    _check_embedding_dim("probe", path, probe, embedding_dim)
     probe["_path"] = str(path)
     return probe
 
@@ -290,15 +288,19 @@ def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: flo
     """(model, head_module) for any checkpoint this project ships. A frozen DINO checkpoint is a head
     plus the identity of the backbone it was fitted on (coffeecv.dino_classifier); its head is the
     Linear the model calls, so forward_with_embeddings' pre-hook captures the readout vector."""
+    import torch
+
+    from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
+    from coffeecv.model import build_model
     if is_frozen_model(model_name):
-        model = load_frozen_checkpoint(checkpoint, model_name, num_classes).to(DEVICE).eval()
+        model = load_frozen_checkpoint(checkpoint, model_name, num_classes).eval()
         return model, model.head
     # No ImageNet init: the strict load below overwrites every parameter and buffer, and the served
     # process cannot see ~/.cache/torch (ProtectHome=true).
     model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout,
                               pretrained=False)
-    model.load_state_dict(torch.load(checkpoint, map_location=DEVICE), strict=True)
-    model.to(DEVICE).eval()
+    model.load_state_dict(torch.load(checkpoint, map_location="cpu"), strict=True)
+    model.eval()
     return model, head
 
 
@@ -315,11 +317,11 @@ def inference_tta_for(checkpoint: Path, model_name: str) -> bool:
         tta = (json.loads(card.read_text()).get("inference_defaults") or {}).get("tta")
         if tta is not None:
             return bool(tta)
+    from coffeecv.dino_classifier import is_frozen_model
     return not is_frozen_model(model_name)
 
 
-@torch.no_grad()
-def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int = 32,
+def forward_with_embeddings(model, head, tensors, batch_size: int = 32,
                             tta: bool = False, return_logits: bool = False):
     """(probs, embeddings) in one pass.
 
@@ -341,6 +343,9 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
     passes; averaging embeddings over orientations would move points inside that
     space and silently invalidate every distance measured against it.
     """
+    import torch
+    import torch.nn.functional as F
+
     captured: list[torch.Tensor] = []
 
     def hook(_module, inputs):
@@ -349,10 +354,11 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
     handle = head.register_forward_pre_hook(hook)
     try:
         probs, logits = [], []
-        for i in range(0, len(tensors), batch_size):
-            out = model(tensors[i:i + batch_size].to(DEVICE))
-            logits.append(out.cpu().numpy())
-            probs.append(F.softmax(out, dim=1).cpu().numpy())
+        with torch.no_grad():
+            for i in range(0, len(tensors), batch_size):
+                out = model(tensors[i:i + batch_size])
+                logits.append(out.cpu().numpy())
+                probs.append(F.softmax(out, dim=1).cpu().numpy())
     finally:
         handle.remove()
     probs = np.concatenate(probs, axis=0)
@@ -374,13 +380,27 @@ def forward_with_embeddings(model, head, tensors: torch.Tensor, batch_size: int 
                     b = torch.rot90(tensors[i:i + batch_size], k, dims=(2, 3))
                     if flip:
                         b = torch.flip(b, dims=(3,))
-                    out.append(F.softmax(model(b.to(DEVICE)), dim=1).cpu().numpy())
+                    with torch.no_grad():
+                        out.append(F.softmax(model(b), dim=1).cpu().numpy())
                 acc += np.concatenate(out, axis=0)
                 n += 1
         probs = acc / n
     if return_logits:
         return probs, embeds, raw_logits
     return probs, embeds
+
+
+class TorchClassifier:
+    """A PyTorch model behind the interface classify_one calls, as coffeecv.litert.LiteRtClassifier is for
+    serving: model_io.eval_patch arrays in, (probabilities, embeddings) out, through forward_with_embeddings."""
+
+    def __init__(self, model, head):
+        self.model, self.head = model, head
+        self.embedding_dim = embedding_dim_of(head)
+
+    def probs_and_embeddings(self, x: np.ndarray, tta: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        import torch
+        return forward_with_embeddings(self.model, self.head, torch.from_numpy(x), tta=tta)
 
 
 def crop_to_bean_region(rgb: np.ndarray) -> tuple[np.ndarray, dict | None]:
@@ -425,25 +445,26 @@ def segmenter_for(cfg: RunConfig):
     return _segmenter(seg_params(cfg))
 
 
-def _segment(rgb: np.ndarray, cfg: RunConfig):
+def _segment(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
     """`segment_and_crop` and its crop_info, shaped like `crop_to_bean_region`'s (None when the whole photo is
-    used): the one place `segment_bean_region` and `bean_region_preview` get their box from."""
+    used): the one place `segment_bean_region` and `bean_region_preview` get their box from. `segmenter` is the
+    caller's BeanSegmenter (the web service's runs on LiteRT); None is `segmenter_for(cfg)`, PyTorch's."""
     from coffeecv.segment_beans import segment_and_crop
-    crop = segment_and_crop(rgb, segmenter_for(cfg))
+    crop = segment_and_crop(rgb, segmenter or segmenter_for(cfg))
     i = crop.info
     return crop, None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
 
 
-def bean_region_preview(rgb: np.ndarray, cfg: RunConfig):
+def bean_region_preview(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
     """What the web app's /crop shows (ticket OPS-6 D7): (the whole photo's bool bean mask, or None on a D18
     fallback; crop_info, as `segment_bean_region` gives it; whether the fallback fired). The same segmentation
     as `segment_bean_region`, through the same helper, so the two cannot disagree on the box; display only."""
-    crop, crop_info = _segment(rgb, cfg)
+    crop, crop_info = _segment(rgb, cfg, segmenter)
     fallback = crop.info["fallback"]
     return (None if fallback else crop.photo_mask), crop_info, fallback
 
 
-def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False):
+def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False, segmenter=None):
     """Ticket ML-2 §3 steps 2-3 live: `segment_and_crop`, the function the segcrop training stage runs.
     Returns (rgb to sample from, its bean mask or None, crop_info, diagnostics). crop_info is shaped like
     `crop_to_bean_region`'s: None when the whole photo is used.
@@ -454,7 +475,7 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
     if skip_crop:
         return rgb, None, None, {"mask_area_frac": None, "bean_frac_in_crop": None, "retained_frac": None,
                                  "seg_fallback": None, "seg_mask_empty": None}
-    crop, crop_info = _segment(rgb, cfg)
+    crop, crop_info = _segment(rgb, cfg, segmenter)
     i = crop.info
 
     def r4(x):
@@ -467,7 +488,7 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
 
 
 def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],
-                       skip_crop: bool = False):
+                       skip_crop: bool = False, segmenter=None):
     """Sample patches the way training does. Returns (patches, diagnostics).
 
     skip_crop is a user override, not an automatic decision: the live crop
@@ -488,7 +509,7 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     crop_info, mask, seg_diag = None, None, {}
     segment = cfg.crop_method == "segment"
     if segment:
-        rgb, mask, crop_info, seg_diag = segment_bean_region(rgb, cfg, skip_crop)
+        rgb, mask, crop_info, seg_diag = segment_bean_region(rgb, cfg, skip_crop, segmenter)
     elif cfg.crop_method != "tray_heuristic":
         raise ValueError(f"unknown crop_method {cfg.crop_method!r}")
     elif not skip_crop:
@@ -619,10 +640,10 @@ def ood_scores(embeddings: np.ndarray, ref: dict) -> tuple[np.ndarray, list[str]
 
 
 def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str],
-                  model, head, ref: dict | None, n_patches: int = 40,
+                  classifier, ref: dict | None, n_patches: int = 40,
                   seed_key: list[int] | None = None, tta: bool = True,
                   skip_crop: bool = False, probe: dict | None = None,
-                  ood_method: str = "auto") -> dict:
+                  ood_method: str = "auto", segmenter=None) -> dict:
     """Classify a single photo. One call = exactly one iteration of the CLI's batch
     loop below, extracted so the CLI and any other caller (the web service) are
     provably running one code path rather than two that can silently drift
@@ -630,12 +651,15 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
 
     No printing here -- that's presentation, kept in `_print_cli_verdict` below so a
     non-CLI caller isn't stuck with stdout lines meant for a terminal.
+
+    `classifier` is a TorchClassifier or the web service's coffeecv.litert.LiteRtClassifier; `segmenter` likewise
+    the BeanSegmenter it runs (None: segmenter_for(cfg)).
     """
     if seed_key is None:
         seed_key = [42, 0]
 
     try:
-        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key, skip_crop=skip_crop)
+        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key, skip_crop=skip_crop, segmenter=segmenter)
     except (ValueError, OSError) as exc:
         return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
 
@@ -643,10 +667,9 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
     # service) even though nothing gates on it -- see the module docstring.
     entry = {**diag}
 
-    transform = build_eval_transform(cfg.patch_resize)
+    x = np.stack([model_io.eval_patch(p, cfg.patch_resize) for p in patches])
     t_infer0 = time.monotonic()
-    probs, embeds = forward_with_embeddings(
-        model, head, torch.stack([transform(x) for x in patches]), tta=tta)
+    probs, embeds = classifier.probs_and_embeddings(x, tta=tta)
     entry["timing_ms"]["inference"] = round((time.monotonic() - t_infer0) * 1000)
     mean = probs.mean(axis=0)
     ranked = sorted(zip(class_ids, mean), key=lambda t: -t[1])
@@ -725,6 +748,30 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
         return entry
     entry["verdict"] = "predicted"
     return entry
+
+
+def warm_up(photo: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str], classifier,
+            ref: dict | None, probe: dict | None, segmenter, n_patches: int = 40) -> dict:
+    """The web service's /crop and /classify path on `photo`, once, before its first request (ADR 0021): every graph
+    set up at its served batch and precision. An error, or a non-finite answer, raises SystemExit, so it fails the
+    worker's boot rather than a visitor's request. Returns what the boot log records."""
+    t0 = time.monotonic()
+    if not photo.is_file():
+        raise SystemExit(f"warm-up photo {photo} is missing (ADR 0021)")
+    rgb = load_rgb_image(photo)
+    if segmenter is not None:
+        bean_region_preview(rgb, cfg, segmenter)
+    else:
+        crop_to_bean_region(rgb)
+    entry = classify_one(photo, cfg, class_ids, class_labels, classifier, ref, n_patches=n_patches, tta=False,
+                         probe=probe, segmenter=segmenter)
+    if "ranked" not in entry:
+        raise SystemExit(f"warm-up on {photo.name} gave no answer: {entry.get('verdict')} {entry.get('error', '')}")
+    scores = [p for _, _, p in entry["ranked"]] + [v for v in (entry.get("ood") or {}).values()
+                                                  if isinstance(v, float)]
+    if not all(np.isfinite(scores)):
+        raise SystemExit(f"warm-up on {photo.name} gave a non-finite answer: {entry['ranked']} {entry.get('ood')}")
+    return {"photo": photo.name, "warm_up_s": round(time.monotonic() - t0, 2), "verdict": entry["verdict"]}
 
 
 def _print_cli_verdict(name: str, entry: dict, ref: dict | None) -> None:
@@ -810,11 +857,11 @@ def main() -> None:
 
     classes = load_classes(REPO_ROOT / cfg.classes_file)
     class_ids, class_labels = list(classes.keys), dict(classes.labels)
-    model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
+    classifier = TorchClassifier(*load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout))
     tta = False if args.no_tta else inference_tta_for(Path(args.checkpoint), cfg.model_name)
 
     ref_path = Path(args.ood_reference) if args.ood_reference else reference_path_for(Path(args.checkpoint))
-    ref = load_ood_reference(Path(args.checkpoint), head, ref_path)
+    ref = load_ood_reference(Path(args.checkpoint), classifier.embedding_dim, ref_path)
     if ref is None:
         print(f"OOD guard UNAVAILABLE: no reference at {ref_path}. Build one with "
               f"`python -m coffeecv.build_ood_reference`. Predictions below are unguarded.")
@@ -822,7 +869,7 @@ def main() -> None:
     probe = None
     if args.ood_method != "centroid":
         probe = load_ood_probe(Path(args.checkpoint),
-                               Path(args.ood_probe) if args.ood_probe else None, head)
+                               Path(args.ood_probe) if args.ood_probe else None, classifier.embedding_dim)
     if probe is not None:
         print(f"OOD guard: linear_probe from {probe['_path']} "
               f"(refusing above a fixed {PROBE_THRESHOLD}, ADR 0016)")
@@ -841,7 +888,7 @@ def main() -> None:
         # window, unreadable, not really beans. That is a refusal for this photo,
         # not a reason to abandon the batch, and it must not surface as a stack
         # trace to someone holding a phone.
-        entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
+        entry = classify_one(path, cfg, class_ids, class_labels, classifier, ref,
                               n_patches=args.n_patches, seed_key=[args.seed, idx], tta=tta,
                               probe=probe, ood_method=args.ood_method)
         results[path.name] = entry

@@ -74,9 +74,9 @@ class TestProbeRunsOnCropAndWholeFrame(unittest.TestCase):
     def classify(self, mask: np.ndarray, probe: dict, skip_crop: bool = False) -> dict:
         with mock.patch.object(infer, "segmenter_for", return_value=StubSegmenter(mask)), \
                 mock.patch.object(infer, "estimate_bean_pitch", return_value=60.0):
-            return infer.classify_one(self.photo, CFG, ["a", "b"], {"a": "A", "b": "B"}, self.model,
-                                      self.model.head, REF, n_patches=8, tta=False, skip_crop=skip_crop,
-                                      probe=probe)
+            return infer.classify_one(self.photo, CFG, ["a", "b"], {"a": "A", "b": "B"},
+                                      infer.TorchClassifier(self.model, self.model.head), REF, n_patches=8,
+                                      tta=False, skip_crop=skip_crop, probe=probe)
 
     CASES = {"crop": (PILE, False), "D18 fallback": (EMPTY, False), "full-photo override": (PILE, True)}
 

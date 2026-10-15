@@ -46,8 +46,9 @@ dependencies = [
 
 [dependency-groups]
 # Synced by default (uv's `dev` group). flask: tests/test_release_manifest.py imports webapp.app.
-# ruff: the linter.
-dev = ["flask", "ruff"]
+# ruff: the linter. ai-edge-litert: the serving runtime (ticket ML-7 plan P8), for coffeecv.litert's tests on the
+# CPU; pinned at the webapp's version. Training never imports it.
+dev = ["flask", "ruff", "ai-edge-litert==2.3.0"]
 
 [tool.uv]
 package = false

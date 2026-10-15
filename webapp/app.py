@@ -7,6 +7,11 @@ Model, config, class labels and the OOD reference are all loaded once here, at
 import time -- gunicorn is run with a single sync worker (see
 `webapp/deploy/coffee-cv-web.service`), so "once at import" means once for the
 life of the process, not once per request.
+
+The models run on LiteRT (ticket ML-7, ADR 0019), from the converted model beside the checkpoint
+(coffeecv.litert), on the accelerator and at the precisions its manifest names; this process imports no
+torch. Before the first request the worker runs a fixed photo through /crop's and /classify's whole path
+(ADR 0021), and logs how long its boot took and the memory it holds.
 """
 from __future__ import annotations
 
@@ -15,6 +20,7 @@ import io
 import json
 import logging
 import os
+import resource
 import subprocess
 import tempfile
 import time
@@ -29,12 +35,16 @@ from flask import Flask, Response, g, jsonify, request
 from PIL import Image
 from werkzeug.exceptions import HTTPException
 
-from coffeecv.config import REPO_ROOT
-from coffeecv.class_list import load_classes
-from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
-from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint, crop_to_bean_region,
-                            PROBE_THRESHOLD, inference_tta_for, load_model, load_ood_probe, load_ood_reference, probe_path_for,
-                            reference_path_for, segmenter_for, sig12)
+BOOT_T0 = time.monotonic()
+
+from coffeecv.config import REPO_ROOT  # noqa: E402 -- after BOOT_T0, so the boot's time includes the imports
+from coffeecv.class_list import load_classes  # noqa: E402
+from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint,  # noqa: E402
+                            crop_to_bean_region, PROBE_THRESHOLD, inference_tta_for, load_ood_probe,
+                            load_ood_reference, probe_path_for, reference_path_for, sig12, warm_up)
+from coffeecv.litert import litert_dir_for, load_models  # noqa: E402
+from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image  # noqa: E402
+from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +52,12 @@ logger = logging.getLogger(__name__)
 # The shipped model. COFFEE_CV_CHECKPOINT (a path relative to the repo) overrides it without a code
 # edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
 CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_dino3b16_seg_country_s123.pt")
+# Its converted model (coffeecv.litert): beside it unless COFFEE_CV_LITERT_DIR (relative to the repo) names another,
+# for the same smoke tests. COFFEE_CV_LITERT_RUNTIME is LiteRT's GPU accelerator directory, set by the service on a
+# GPU host and unset on a CPU one; COFFEE_CV_WARMUP_PHOTO the boot's warm-up photo (ADR 0021).
+LITERT_DIR = REPO_ROOT / os.environ["COFFEE_CV_LITERT_DIR"] if "COFFEE_CV_LITERT_DIR" in os.environ \
+    else litert_dir_for(CHECKPOINT)
+LITERT_RUNTIME = Path(os.environ["COFFEE_CV_LITERT_RUNTIME"]) if os.environ.get("COFFEE_CV_LITERT_RUNTIME") else None
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
@@ -59,15 +75,23 @@ logger.info("loaded checkpoint config from %s", cfg_source)
 # countries after it. class_ids is in output order.
 classes = load_classes(REPO_ROOT / cfg.classes_file)
 class_ids, class_labels = list(classes.keys), dict(classes.labels)
-model, head = load_model(CHECKPOINT, cfg.model_name, len(class_ids), cfg.dropout)
+models = load_models(LITERT_DIR, LITERT_RUNTIME)
+if models.manifest["checkpoint_sha256"][:16] != _sha(CHECKPOINT):
+    raise SystemExit(f"{LITERT_DIR} was converted from checkpoint {models.manifest['checkpoint_sha256'][:16]}, "
+                     f"not {CHECKPOINT.name}")
+classifier = models.classifier
+logger.info("LiteRT model %s: %s", LITERT_DIR.name,
+            json.dumps({g: {k: spec[k] for k in ("file", "accelerator", "precision", "batch")}
+                        for g, spec in models.manifest["graphs"].items()}))
 # Dihedral TTA is a property of the model, read from its card (on for ResNet18; off for a frozen ViT,
-# where 8 views would cost ~46 s per photo -- docs/dinov3_integration_plan.md §6.2).
+# where 8 views would cost ~46 s per photo -- docs/dinov3_integration_plan.md §6.2). LiteRT serves none.
 TTA = inference_tta_for(CHECKPOINT, cfg.model_name)
-logger.info("model %s (%s), %d classes, TTA %s", CHECKPOINT.name, cfg.model_name, len(class_ids),
-            "on" if TTA else "off")
+if TTA:
+    raise SystemExit(f"{CHECKPOINT.name}'s card asks for TTA, which the LiteRT service does not serve")
+logger.info("model %s (%s), %d classes, TTA off", CHECKPOINT.name, cfg.model_name, len(class_ids))
 
 ref_path = reference_path_for(CHECKPOINT)
-ref = load_ood_reference(CHECKPOINT, head)
+ref = load_ood_reference(CHECKPOINT, classifier.embedding_dim)
 if ref is None:
     logger.warning("OOD guard unavailable: no reference at %s -- predictions below will be unguarded", ref_path)
 
@@ -76,16 +100,17 @@ if ref is None:
 # it means copying one file next to the weights; rolling back means removing it,
 # with no code change and no restart-time flag to get wrong. A mismatched probe
 # raises here, at import, rather than serving confident nonsense per request.
-probe = load_ood_probe(CHECKPOINT, head=head)
+probe = load_ood_probe(CHECKPOINT, embedding_dim=classifier.embedding_dim)
 if probe is None:
     logger.info("OOD guard: centroid metric (no probe beside %s)", CHECKPOINT.name)
 else:
     logger.info("OOD guard: linear_probe from %s, refusing above a fixed %.1f (ADR 0016)",
                 probe["_path"], PROBE_THRESHOLD)
 
-# Ticket ML-2: a crop_method "segment" model finds the bean region with the segmenter it was trained with,
-# loaded here at import so missing or mismatched segmenter weights fail the boot, not the first request.
-segmenter = segmenter_for(cfg) if cfg.crop_method == "segment" else None
+# Ticket ML-2: a crop_method "segment" model finds the bean region with the segmenter it was trained with, here
+# its converted graphs; BeanSegmenter refuses graphs whose weights or decoder are not the config's, at import, so
+# a mismatch fails the boot, not the first request.
+segmenter = BeanSegmenter(seg_params(cfg), engine=models.sam) if cfg.crop_method == "segment" else None
 if segmenter is not None:
     logger.info("bean region: segmenter %s + decoder %s", segmenter.weights_sha256[:16],
                 (segmenter.decoder_sha256 or "pretrained")[:16])
@@ -132,7 +157,9 @@ def _code_identity() -> dict:
 BUILD = {
     "model_sha": _file_sha(CHECKPOINT),
     "model_dvc_md5": _dvc_md5(CHECKPOINT),
-    "backbone_sha": (model.backbone.weights_sha256[:16] if hasattr(model, "backbone") else None),
+    "backbone_sha": models.manifest["backbone"]["weights_sha256"][:16],
+    "litert": {"manifest_sha": _file_sha(LITERT_DIR / "manifest.json"),
+               **{g: f"{spec['accelerator']} {spec['precision']}" for g, spec in models.manifest["graphs"].items()}},
     "ood_reference_sha": _file_sha(ref_path),
     "ood_probe_sha": _file_sha(probe_path_for(CHECKPOINT)) if probe is not None else None,
     "ood_threshold": PROBE_THRESHOLD if probe is not None else None,
@@ -428,8 +455,8 @@ def classify():
     g.skip_crop = skip_crop
 
     with _saved_upload(upload) as path:
-        entry = classify_one(path, cfg, class_ids, class_labels, model, head, ref,
-                              n_patches=N_PATCHES, tta=TTA, skip_crop=skip_crop, probe=probe)
+        entry = classify_one(path, cfg, class_ids, class_labels, classifier, ref, n_patches=N_PATCHES, tta=TTA,
+                             skip_crop=skip_crop, probe=probe, segmenter=segmenter)
 
     body, status = _entry_to_response(entry)
     _log_classify_fields(entry, body)
@@ -465,7 +492,7 @@ def crop():
     mask, seg_fallback = None, False
     if segmenter is not None:
         # The same segmentation /classify runs, so a preview costs a second segmenter pass per upload.
-        mask, crop_info, seg_fallback = bean_region_preview(rgb, cfg)
+        mask, crop_info, seg_fallback = bean_region_preview(rgb, cfg, segmenter)
     else:
         _, crop_info = crop_to_bean_region(rgb)
     mask_b64 = None if mask is None else _mask_png_b64(mask)
@@ -530,6 +557,33 @@ def preview():
     buf = io.BytesIO()
     thumb.save(buf, format="JPEG", quality=85)
     return Response(buf.getvalue(), mimetype="image/jpeg")
+
+
+def _mem_available_mb() -> float | None:
+    for line in Path("/proc/meminfo").read_text().splitlines():
+        if line.startswith("MemAvailable:"):
+            return round(int(line.split()[1]) / 1024, 1)
+    return None
+
+
+def warm_up_photo() -> Path:
+    """COFFEE_CV_WARMUP_PHOTO (relative to the repo, or absolute), else the deploy's smoke fixture where the repo
+    has it (a checkout, not a release). The same photo every boot, so every boot does the same work (ADR 0021)."""
+    if os.environ.get("COFFEE_CV_WARMUP_PHOTO"):
+        return REPO_ROOT / os.environ["COFFEE_CV_WARMUP_PHOTO"]
+    fixtures = REPO_ROOT / "webapp" / "deploy" / "fixtures.txt"
+    smoke = [ln.split()[2] for ln in fixtures.read_text().splitlines() if ln.startswith("smoke ")] \
+        if fixtures.exists() else []
+    if not smoke:
+        raise SystemExit("no warm-up photo: set COFFEE_CV_WARMUP_PHOTO (ADR 0021)")
+    return REPO_ROOT / smoke[0]
+
+
+WARM_UP = warm_up(warm_up_photo(), cfg, class_ids, class_labels, classifier, ref, probe, segmenter, N_PATCHES)
+WARM_UP.update(boot_s=round(time.monotonic() - BOOT_T0, 2),
+               peak_rss_mb=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1),
+               mem_available_mb=_mem_available_mb())
+logger.info("boot %s", json.dumps(WARM_UP))
 
 
 if __name__ == "__main__":

@@ -64,6 +64,7 @@ class TestOodLoaders(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         _, cls.head = load_model(DEPLOYED, "dinov3_vitb16", 10, 0.0)
+        cls.dim = embedding_dim_of(cls.head)
 
     def _copy_with(self, tmp: Path, suffix: str, **overrides) -> Path:
         ckpt = tmp / DEPLOYED.name
@@ -77,8 +78,8 @@ class TestOodLoaders(unittest.TestCase):
 
     def test_deployed_pairing_loads(self):
         self.assertEqual(embedding_dim_of(self.head), 1536)
-        self.assertEqual(load_ood_reference(DEPLOYED, self.head)["embedding_dim"], 1536)
-        self.assertEqual(load_ood_probe(DEPLOYED, head=self.head)["embedding_dim"], 1536)
+        self.assertEqual(load_ood_reference(DEPLOYED, self.dim)["embedding_dim"], 1536)
+        self.assertEqual(load_ood_probe(DEPLOYED, embedding_dim=self.dim)["embedding_dim"], 1536)
 
     def test_width_mismatch_refused(self):
         # A ResNet18 (512-d) reference beside this DINOv3 ViT-B/16 cls_mean model: the artifact's width is
@@ -86,22 +87,22 @@ class TestOodLoaders(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             ckpt = self._copy_with(Path(d), ".ood_reference.json", embedding_dim=512)
             with self.assertRaisesRegex(SystemExit, "512-d but this model emits 1536-d"):
-                load_ood_reference(ckpt, self.head)
+                load_ood_reference(ckpt, self.dim)
             ckpt = self._copy_with(Path(d), ".ood_probe.json", embedding_dim=512)
             with self.assertRaisesRegex(SystemExit, "512-d but this model emits 1536-d"):
-                load_ood_probe(ckpt, head=self.head)
+                load_ood_probe(ckpt, embedding_dim=self.dim)
 
     def test_other_checkpoint_refused(self):
         with tempfile.TemporaryDirectory() as d:
             ckpt = self._copy_with(Path(d), ".ood_reference.json", checkpoint_sha="0000000000000000")
             with self.assertRaisesRegex(SystemExit, "different checkpoint"):
-                load_ood_reference(ckpt, self.head)
+                load_ood_reference(ckpt, self.dim)
 
     def test_absent_reference_is_none(self):
         with tempfile.TemporaryDirectory() as d:
             ckpt = Path(d) / "x.pt"
             ckpt.write_bytes(b"")
-            self.assertIsNone(load_ood_reference(ckpt, self.head))
+            self.assertIsNone(load_ood_reference(ckpt, self.dim))
 
 
 class TestLegacyTrainRigsAlias(unittest.TestCase):

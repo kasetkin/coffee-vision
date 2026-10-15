@@ -8,7 +8,6 @@ from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 import numpy as np
-import torch
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -260,6 +259,7 @@ class RunConfig:
 
 
 def set_seed(seed: int) -> None:
+    import torch     # here, not at the top: the web service imports this module and no torch (ML-7 P8)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -272,6 +272,7 @@ def build_env_block() -> dict:
         ).decode().strip()
     except Exception:
         git_commit = None
+    import torch
     import torchvision
 
     return {

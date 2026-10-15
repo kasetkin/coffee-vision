@@ -81,14 +81,14 @@ def classify(photos: list[Path]) -> None:
     app = _import_release_app()
     entries = {}
     for photo in photos:
-        entry = app.classify_one(photo, app.cfg, app.class_ids, app.class_labels, app.model, app.head, app.ref,
-                                 n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe)
+        entry = app.classify_one(photo, app.cfg, app.class_ids, app.class_labels, app.classifier, app.ref,
+                                 n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe, segmenter=app.segmenter)
         entry.pop("timing_ms", None)   # wall-clock, the one field that legitimately differs
         entries[photo.name] = entry
     import numpy
-    import torch
+    from importlib.metadata import version
     _emit({"build": app.BUILD, "entries": entries, "python": sys.version.split()[0],
-           "numpy": numpy.__version__, "torch": torch.__version__, "torch_threads": torch.get_num_threads()})
+           "numpy": numpy.__version__, "ai_edge_litert": version("ai-edge-litert")})
 
 
 def read_fixtures(list_file: Path, role: str, photo_dir: Path) -> list[Path]:
@@ -235,8 +235,10 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
 
 def compare_classify(a_file: Path, b_file: Path, tol: float) -> None:
     a, b = _probe_line(a_file.read_text()), _probe_line(b_file.read_text())
-    print(f"  A: python {a['python']}, torch {a['torch']}, numpy {a['numpy']}, {a['torch_threads']} threads")
-    print(f"  B: python {b['python']}, torch {b['torch']}, numpy {b['numpy']}, {b['torch_threads']} threads")
+    for name, r in (("A", a), ("B", b)):
+        runtime = f"ai-edge-litert {r['ai_edge_litert']}" if "ai_edge_litert" in r \
+            else f"torch {r.get('torch')}, {r.get('torch_threads')} threads"       # a release from before ML-7 P8
+        print(f"  {name}: python {r['python']}, {runtime}, numpy {r['numpy']}")
     if a["build"]["model_sha"] != b["build"]["model_sha"]:
         raise SystemExit(f"  different models: {a['build']['model_sha']} vs {b['build']['model_sha']}")
     identical = a["entries"] == b["entries"]

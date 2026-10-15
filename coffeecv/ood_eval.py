@@ -39,7 +39,7 @@ from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
 from coffeecv.infer import (LEGACY_CONFIG_NOTE, PROBE_THRESHOLD, _sha, config_for_checkpoint,
-                            forward_with_embeddings, inference_tta_for, load_model, load_ood_probe,
+                            embedding_dim_of, forward_with_embeddings, inference_tta_for, load_model, load_ood_probe,
                             patches_for_photo, probe_path_for, probe_score)
 from coffeecv.repo_files import sha256_file
 from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset
@@ -323,7 +323,7 @@ def main() -> None:
     _, classes_file = cfg.resolve_paths()
     classes = load_classes(classes_file)
     model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
-    probe = load_ood_probe(checkpoint, Path(args.probe) if args.probe else None, head)
+    probe = load_ood_probe(checkpoint, Path(args.probe) if args.probe else None, embedding_dim_of(head))
     if probe is None:
         sys.exit(f"No OOD probe at {args.probe or probe_path_for(checkpoint)}; fit one with coffeecv.fit_ood_probe")
     ckpt_sha = _sha(checkpoint)
