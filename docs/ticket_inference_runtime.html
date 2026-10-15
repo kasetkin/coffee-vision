@@ -16,7 +16,7 @@
     numbers; every other decision is made. Planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13; plan P1 done 2026-10-13 (both formats pass D7 on the CPU); plan P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7; P4 next); plan P4 done 2026-10-14 (the three GPU cells 38&ndash;59% below PyTorch's replay p90, every cell passing D7; P5 next); plan P5's report written 2026-10-14 (<code>analysis/ml7_gpu/README.md</code>; D2, D4 and D5 for the owner); D2 decided 2026-10-14 (LiteRT on Vulkan, the main track); the site stays down for now</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13; plan P1 done 2026-10-13 (both formats pass D7 on the CPU); plan P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7; P4 next); plan P4 done 2026-10-14 (the three GPU cells 38&ndash;59% below PyTorch's replay p90, every cell passing D7; P5 next); plan P5's report written 2026-10-14 (<code>analysis/ml7_gpu/README.md</code>; D2, D4 and D5 for the owner); D2 decided 2026-10-14 (LiteRT on Vulkan, the main track); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases (plan P8&ndash;P12) and ADRs 0019&ndash;0022 written 2026-10-15</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
@@ -386,7 +386,7 @@
           kernel compilation at every start (R6); a LiteRT cell keeps a conversion environment pinned below the
           torch that training uses. Recommendation: prefer a CPU cell unless a GPU cell's replay p90 is at least
           10% lower, beyond the spread between rounds.</td>
-        <td><strong>(a), owner 2026-10-14:</strong> LiteRT on Vulkan (WebGPU through Dawn) is the main track; the other passing cells are discussed only if it fails for any reason.</td></tr>
+        <td><strong>(a), owner 2026-10-14:</strong> LiteRT on Vulkan (WebGPU through Dawn) is the main track; the other passing cells are discussed only if it fails for any reason. Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>, <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>.</td></tr>
       <tr><td class="id">D3</td><td>Do the training paths move to the runtime too?</td>
         <td>(a) Yes, as ML-2 Q4 required: segcrop, embeddings, head, reference and probe on the runtime, with a
           re-crop and retrain. (b) No: training stays on PyTorch, and the shipped model is converted for
@@ -394,7 +394,7 @@
         <td><strong>(b), owner 2026-10-13.</strong> Both models keep training on PyTorch; the ticket is about
           inference only. A model is trained, then converted and deployed. This replaces ML-2 Q4's rule that a
           runtime change switches both ends together. Parity between training and serving now rests on D7's check
-          of each export. Recorded in an ADR together with D2 (section 7).</td></tr>
+          of each export. Recorded in an ADR together with D2 (section 7). Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>.</td></tr>
       <tr><td class="id">D4</td><td>Precision?</td>
         <td>(a) fp32 only. (b) fp32 first, then dynamic int8 as a separate step. Under D3, int8 serving would feed
           the head and the probe embeddings they were not fitted on. That is "an accurate method offline with a
@@ -424,7 +424,7 @@
             <li><b>D7's cosine bar</b> (0.99999) cannot hold for an fp16 DINOv3 (0.99977 on the fixtures). Its bar
               is open for the owner.</li>
             <li>The int8 encoder does not serve: it fails D7.</li>
-          </ul></td></tr>
+          </ul> Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>, <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>.</td></tr>
       <tr><td class="id">D5</td><td>Does torch stay in the release environment?</td>
         <td>(a) Keep it for pre- and post-processing (torchvision transforms, bilinear mask upsampling), so serving
           shares that code with training and the parity risks stay few. (b) Port those to numpy, PIL and OpenCV,
@@ -468,7 +468,7 @@
             <li>top-1 changed on at most 1% of the served photos;</li>
             <li>p95 of the largest class-probability change over the served photos &le; 0.05.</li>
           </ul>
-          Measured in P7: cosine 0.99962, 0 of 782 verdicts, 0.64% of top-1 answers, p95 0.023.</td></tr>
+          Measured in P7: cosine 0.99962, 0 of 782 verdicts, 0.64% of top-1 answers, p95 0.023. Recorded in <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>.</td></tr>
       <tr><td class="id">D8</td><td>How is LiteRT on <code>yappy</code>'s iGPU tested?</td>
         <td>The owner asked for OpenCL (2026-10-13). The wheel offers only WebGPU (2.4). Options:
           <ul>
@@ -530,7 +530,7 @@
           gains P0 (the baseline on <code>yappy</code>, with a stop if the models are under half of the time), the
           OpenVINO provider on the CPU, ORT's fused DINOv3 graph, an int8 encoder for information, the exact
           rewrites, mixed-precision fp16, GPU proof by the i915 counters, the photo replay and the continuous
-          measures. The margin of D10's test was plan Q5, now D15.</td></tr>
+          measures. The margin of D10's test was plan Q5, now D15. Recorded in <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>, <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>.</td></tr>
       <tr><td class="id">D15</td><td>What gain makes a cell pass D10's test? (plan Q5)</td>
         <td>Without a margin, any cell that meets D7 and is faster at all passes, so a 3% win would justify a new
           runtime, a new parity regime and its upgrades. Recommendation: a per-photo replay p90 (plan P4, the
@@ -738,6 +738,18 @@
         <li>a public <code>/classify</code> answering (top-1 Colombia).</li>
       </ul>
       The LiteRT cell does not serve yet: the serving phases come next.</div>
+    <div><div class="when">2026-10-15</div>The serving and deploying phases are in the plan (P8&ndash;P12), at the
+      owner's request. Four ADRs record the decisions and the findings to keep:
+      <ul>
+        <li><a href="adr/0019-serving-runs-litert-on-the-igpu.md">0019</a>: serving on LiteRT through the iGPU, the
+          segmenter in fp32 and DINOv3 in fp16;</li>
+        <li><a href="adr/0020-converted-models-pass-d7-before-they-serve.md">0020</a>: D7's gate against PyTorch
+          and the GPU proven;</li>
+        <li><a href="adr/0021-serving-warms-models-at-worker-boot.md">0021</a>: every model warmed at worker boot,
+          and the boot measured;</li>
+        <li><a href="adr/0022-export-forms-are-exact.md">0022</a>: exact export forms, fp16's scales sized over
+          every photo.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

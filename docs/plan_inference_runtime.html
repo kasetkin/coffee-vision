@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass; the site's restart waits for the owner)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass); D2 decided 2026-10-14 and P7 run (LiteRT on Vulkan, fp16 forms, answer check); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases P8&ndash;P12 and ADRs 0019&ndash;0022 written 2026-10-15</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -170,6 +170,15 @@
         <td>local, owner</td><td>no</td></tr>
       <tr><td class="id">P7</td><td>The main track, LiteRT on Vulkan (D2): why fp16 overflows and exact export
         forms against it, the graphs whole on the GPU, serving-shaped measurements</td><td>local, <code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P8</td><td>LiteRT in the serving code, behind a release switch; warmed at worker boot
+        (ADR 0021)</td><td>local</td><td>no: tests only</td></tr>
+      <tr><td class="id">P9</td><td>The converted files in the release route: export, forms, manifest, DVC</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P10</td><td>The release's environment and the service unit: the wheel, the GPU's render
+        node, memory</td><td>local, smoke-test unit on <code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P11</td><td>The deploy gates: D7's bars against PyTorch and the GPU proof (ADR 0020)</td><td>local,
+        <code>yappy</code></td><td>no</td></tr>
+      <tr><td class="id">P12</td><td>Smoke test, then the live deploy <span class="pill sm open">stop</span></td><td><code>yappy</code></td><td>yes, with
+        the owner's go</td></tr>
       <tr><td class="id">P6</td><td>Last resort, only under D10: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></td>
         <td>devcontainer (Q1), then <code>yappy</code></td><td>no</td></tr>
     </tbody>
@@ -642,7 +651,124 @@
       photos.</span></li>
   </ol>
 
-  <h2>12. Verification</h2>
+  <h2>12. P8 &mdash; LiteRT in the serving code, behind a release switch</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D2, D4, D7 decided</span></span></div>
+  </div>
+  <p>The serving cell is <code>litert_gpu_split</code> (ADR 0019): the encoder and decoder in fp32, and DINOv3 at
+    batch 8 in fp16, on LiteRT's GPU through WebGPU on Vulkan. Training stays on PyTorch (D3), and pre- and
+    post-processing stay on torch (D5 (a)).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>A LiteRT backend in <code>coffeecv</code>:</b>
+      <ul>
+        <li>It loads the release's three files, each at the precision its manifest gives (P9).</li>
+        <li>It runs the encoder and decoder for <code>/crop</code> and <code>/classify</code>, and DINOv3 on the
+          40 patches as 5 calls of 8.</li>
+        <li>It fails loudly, never quietly falling back to the CPU, when the GPU accelerator does not load or the
+          delegate places an op on the CPU. The delegate's report is read, not
+          <code>is_fully_accelerated()</code> (ADR 0020).</li>
+        <li>A setting in <code>release.env</code> chooses LiteRT or PyTorch, so a release can go back to PyTorch
+          without a code change. Training never takes it.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><b>Warm-up at worker boot</b> (ADR 0021):
+      <ul>
+        <li>the worker runs a fixed photo, shipped with the release, through the whole <code>/crop</code> and
+          <code>/classify</code> path before it accepts a request;</li>
+        <li>it logs the boot's duration, peak RSS and <code>MemAvailable</code>;</li>
+        <li>a failure or a non-finite output fails the boot.</li>
+      </ul>
+      The PyTorch path gets the same warm-up.</span></li>
+    <li><span class="box"></span><span><b>Tests:</b> the backend on the devcontainer's CPU (LiteRT's XNNPACK, all
+      fp32) against PyTorch on the fixtures, within D7's fp32 bars; the switch; the warm-up and its failure. The
+      GPU's checks are P11's.</span></li>
+  </ol>
+
+  <h2>13. P9 &mdash; The converted files in the release route</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8 (the manifest's fields)</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>An export step</b> for the shipped checkpoint, run in the pinned conversion
+      environment (<code>analysis/ml7_gpu/convert_litert/</code>, moved somewhere permanent):
+      <ul>
+        <li>the encoder and decoder with <code>litert_gpu_forms</code>;</li>
+        <li>DINOv3 b8 with <code>litert_gpu_forms</code> and <code>fp16_forms</code> (ADR 0022);</li>
+        <li>a manifest: each file's sha256, its forms, its precision, and the torch and litert-torch versions.</li>
+      </ul>
+      The export code that serving needs moves from <code>analysis/</code> into the repo's tooling, with its
+      tests.</span></li>
+    <li><span class="box"></span><span><b>The files in DVC, and in the release beside the checkpoint,</b> so a
+      release carries its own converted model, as it carries its probe (ADR 0008).</span></li>
+    <li><span class="box"></span><span><b>ADR 0022's rule:</b> a checkpoint of the same architecture keeps the
+      forms. A different architecture, or a new runtime version, reruns <code>p7_ranges.py</code> and the forms'
+      checks first.</span></li>
+  </ol>
+
+  <h2>14. P10 &mdash; The release's environment and the service unit</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8, P9</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>The environment:</b> <code>ai-edge-litert</code> 2.3.0 pinned in the
+      webapp's environment. Its WebGPU accelerator library comes from the wheel, as in P2's
+      <code>rt_vulkan</code>. The release's size is recorded against today's (D1 (b)).</span></li>
+    <li><span class="box"></span><span><b>The service unit</b> (<code>coffee-cv-web.service.template</code>):
+      <ul>
+        <li>the service user in the <code>render</code> group for <code>/dev/dri/renderD128</code>;</li>
+        <li><code>VK_ICD_FILENAMES</code> for Intel's ICD;</li>
+        <li>a check that <code>ProtectSystem=strict</code> and <code>ProtectHome</code> leave Dawn and Mesa
+          working. A shader cache they cannot write is no loss: P7's cold start did not change with it.</li>
+      </ul>
+      Tried first in the smoke-test unit (R6).</span></li>
+    <li><span class="box"></span><span><b>Memory</b> (R5): the worker's boot and a replay measured with torch
+      imported. P7 measured 3.6 GB of <code>MemAvailable</code> for the cell and 0.25 GB for torch's imports. The
+      deploy preflight's 5 GB is checked against them.</span></li>
+  </ol>
+
+  <h2>15. P11 &mdash; The deploy gates</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8&ndash;P10</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>Gates against PyTorch, not bit for bit</b> (ADR 0020, R4):
+      <code>deploy_webapp.sh --compare</code> and <code>release_probe.py</code> check the release's answers within
+      D7's bars, the segmenter's fp32 bars and DINOv3's fp16 bar. The fixtures are checked at every deploy. P7's
+      answer check (782 photos, <code>p7_answers.py</code>) runs when the model, the runtime or the driver
+      changes.</span></li>
+    <li><span class="box"></span><span><b>The GPU proof at deploy:</b> the worker maps Intel's Vulkan driver and
+      LiteRT's accelerator, never llvmpipe; the delegate places every op on the GPU; the i915 counters show it
+      busy. Each is read from the worker's boot log and the host.</span></li>
+  </ol>
+
+  <h2>16. P12 &mdash; Smoke test, then the live deploy <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P11, and the owner's go</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>The smoke-test unit on <code>yappy</code></b> with the new release:
+      <ul>
+        <li>the boot's duration and memory;</li>
+        <li>the GPU proof;</li>
+        <li>the fixtures within D7;</li>
+        <li>a timed run of photos through the endpoints.</li>
+      </ul>
+      P7 expects about 9.2 s a photo for the models and about 2.3 s of pre- and post-processing, against about
+      38 s today.</span></li>
+    <li><span class="box"></span><span><b>Stop for the owner</b> with those numbers. On the owner's go:
+      <ul>
+        <li>deploy with <code>scripts/deploy_webapp.sh</code>;</li>
+        <li><code>--verify</code> on the domain;</li>
+        <li>the live log's latencies read after the first requests.</li>
+      </ul>
+      Rollback is the previous release (PyTorch), per ADR 0008. Logged in the ticket's Activity.</span></li>
+  </ol>
+
+  <h2>17. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
       whole paths within 10%, set beside the live log's aggregates.</span></li>
@@ -655,14 +781,18 @@
       parity computed with the repo's code.</span></li>
     <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test with Q5's margin; the site
       answers on the domain again.</span></li>
+    <li><span class="box"></span><span>P8&ndash;P12: the served answers within D7's bars against PyTorch on the
+      fixtures; the GPU proven at deploy; the boot warmed and measured; the site live on the domain with the LiteRT
+      release, and the previous release one switch away.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
   <ul>
     <li>Everything in the ticket's "Out of scope".</li>
-    <li>Any change to <code>coffeecv</code>, the webapp, its environment or its service unit, or to the training
-      lock. The serving phases come after P5.</li>
+    <li>Any change to <code>coffeecv</code>, the webapp, its environment or its service unit outside P8&ndash;P12,
+      which the owner's choices (D2, D4, D7) opened; and any change to the training lock or to training's PyTorch
+      path (D3).</li>
     <li>LiteRT on OpenCL, unless D10's condition is met (P6).</li>
     <li>OpenVINO's own runtime without ORT. It reaches the same driver as ORT's OpenVINO cell.</li>
     <li>Upgrading <code>yappy</code>'s Mesa or NEO driver.</li>
@@ -1177,6 +1307,23 @@
       &le; 1%; p95 probability change 0.023 against &le; 0.05.</div>
     <div><div class="when">2026-10-15</div>P5: the site restarted on the current PyTorch release, with the owner's
       go-ahead, and verified live (<code>deploy_webapp.sh --verify</code>, every check passed; ticket Activity).</div>
+    <div><div class="when">2026-10-15</div>The serving phases P8&ndash;P12 written, at the owner's request:
+      <ul>
+        <li>LiteRT in the serving code behind a release switch, warmed at boot;</li>
+        <li>the converted files in the release route;</li>
+        <li>the release's environment and the service unit;</li>
+        <li>the deploy gates;</li>
+        <li>a smoke test, then the live deploy, which stops for the owner.</li>
+      </ul>
+      Four ADRs record the decisions and the findings to keep:
+      <ul>
+        <li>0019: serving on LiteRT through the iGPU, the segmenter in fp32 and DINOv3 in fp16, with the departure
+          from the train/inference parity rule;</li>
+        <li>0020: D7's bars against PyTorch and the GPU proven, not bit-identical answers;</li>
+        <li>0021: every model warmed at worker boot, and the boot measured;</li>
+        <li>0022: export forms exact in real arithmetic, and fp16's scales sized over every photo, true negatives
+          included.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
