@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-import torch
 
+from coffeecv import model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam, variant_of, weights_for
 
@@ -132,6 +132,7 @@ def mask_and_crop(rgb: np.ndarray, mask: np.ndarray, p: SegParams) -> BeanCrop:
 def load_decoder(model, path: str, base_sha256: str) -> str:
     """Load a seg_finetune decoder ({"mask_decoder": state_dict, "base_weights_sha256": ...}) into `model`,
     strictly, after checking it was fine-tuned from the weights `model` was built with. Returns the file's sha256."""
+    import torch
     f = REPO_ROOT / path
     digest = hashlib.sha256(f.read_bytes()).hexdigest()
     ckpt = torch.load(f, map_location="cpu", weights_only=True)
@@ -144,36 +145,78 @@ def load_decoder(model, path: str, base_sha256: str) -> str:
     return digest
 
 
-class BeanSegmenter:
-    """The segmenter (any variant, by its weights) loaded once; one photo in, one full-resolution bool mask out."""
+class TorchSam:
+    """The segmenter's networks on PyTorch, for training and the review tools: the encoder and the prompt
+    encoder and mask decoder, behind the engine interface BeanSegmenter calls (coffeecv.litert.LiteRtSam is
+    serving's). Inputs and outputs are numpy, already through coffeecv.model_io's ports:
+
+        image_side, frame    the encoder's input side (512 for L*, 1024 for XL*); the prompt and mask frame (1024)
+        set_image(x)         x float32 [1, 3, image_side, image_side]
+        decode(box, points, labels, multimask)
+                             box float32 [1, 4] or None, points [1, N, 2] or None, labels [1, N], all in the frame;
+                             returns low-resolution logits [C, 256, 256] and predicted IoUs [C]
+    """
 
     def __init__(self, p: SegParams):
-        self.p = p
         self.predictor, self.weights_sha256 = build_sam(p.weights)
+        self.model = self.predictor.model
+        self.decoder_sha256 = load_decoder(self.model, p.decoder, self.weights_sha256) if p.decoder else None
+        self.frame, self.image_side = (int(s) for s in self.model.image_size)
+        self.features = None
+
+    def set_image(self, x: np.ndarray) -> None:
+        import torch
+        with torch.inference_mode():
+            self.features = self.model.image_encoder(torch.from_numpy(x))
+
+    def decode(self, box, points, labels, multimask: bool) -> tuple[np.ndarray, np.ndarray]:
+        """SamPredictor.predict_torch up to the low-resolution masks; their upsampling is model_io's."""
+        import torch
+
+        def t(a, dtype):
+            return None if a is None else torch.from_numpy(np.asarray(a, dtype=dtype))
+
+        pe = self.model.prompt_encoder
+        points = None if points is None else (t(points, np.float32), t(labels, np.int32))
+        with torch.inference_mode():
+            sparse, dense = pe(points=points, boxes=t(box, np.float32), masks=None)
+            low, iou = self.model.mask_decoder(image_embeddings=self.features, image_pe=pe.get_dense_pe(),
+                                               sparse_prompt_embeddings=sparse, dense_prompt_embeddings=dense,
+                                               multimask_output=multimask)
+        return low[0].numpy(), iou[0].numpy()
+
+
+class BeanSegmenter:
+    """The segmenter (any variant, by its weights) loaded once; one photo in, one full-resolution bool mask out.
+    The image, prompt and mask processing are coffeecv.model_io's ports; `engine` runs the networks: TorchSam,
+    built from `p`, unless serving passes its LiteRT engine (ticket ML-7 plan P8)."""
+
+    def __init__(self, p: SegParams, engine=None):
+        self.p = p
+        self.engine = engine if engine is not None else TorchSam(p)
+        self.weights_sha256, self.decoder_sha256 = self.engine.weights_sha256, self.engine.decoder_sha256
         if p.weights_sha256 and p.weights_sha256 != self.weights_sha256:
             raise ValueError(f"models_pretrained/{p.weights} is {self.weights_sha256[:12]}, "
                              f"not the {p.weights_sha256[:12]} expected")
-        self.model = self.predictor.model
-        self.decoder_sha256 = load_decoder(self.model, p.decoder, self.weights_sha256) if p.decoder else None
         if p.decoder_sha256 and p.decoder_sha256 != self.decoder_sha256:
             raise ValueError(f"{p.decoder} is {(self.decoder_sha256 or 'absent')[:12]}, "
                              f"not the {p.decoder_sha256[:12]} expected")
+        # The PyTorch model, for the tools and tests that reach into it; None on another engine.
+        self.predictor = getattr(self.engine, "predictor", None)
+        self.model = getattr(self.engine, "model", None)
+        self.original_size: tuple[int, int] | None = None
+        self.input_size: tuple[int, int] | None = None
         self.timing_ms: dict[str, float] = {}
         self.pred_iou: float | None = None
 
-    @torch.inference_mode()
     def _encode(self, rgb: np.ndarray) -> None:
         """EfficientViTSamPredictor.set_image, split so the resize and the encoder time apart."""
-        from segment_anything.utils.transforms import ResizeLongestSide
         t0 = time.perf_counter()
-        x = self.model.transform(rgb).unsqueeze(0)
+        x, _ = model_io.sam_input(rgb, self.engine.image_side)
         t1 = time.perf_counter()
-        pr = self.predictor
-        pr.reset_image()
-        pr.original_size = rgb.shape[:2]
-        pr.input_size = ResizeLongestSide.get_preprocess_shape(*rgb.shape[:2], self.model.image_size[0])
-        pr.features = self.model.image_encoder(x)
-        pr.is_image_set = True
+        self.original_size = rgb.shape[:2]
+        self.input_size = model_io.sam_preprocess_shape(*rgb.shape[:2], self.engine.frame)
+        self.engine.set_image(x)
         t2 = time.perf_counter()
         self.timing_ms.update(resize=(t1 - t0) * 1e3, encoder=(t2 - t1) * 1e3)
 
@@ -199,27 +242,25 @@ class BeanSegmenter:
                 pts = [[fx * (w - 1), fy * (h - 1)] for fy in f for fx in f]
         return {"box": box, "points": [[float(x), float(y)] for x, y in pts], "labels": [1] * len(pts)}
 
-    @torch.inference_mode()
-    def _decode(self, h: int, w: int, multimask: bool) -> tuple[torch.Tensor, torch.Tensor]:
-        """Low-res logits (C x 256 x 256) and predicted IoUs (C) for the fixed D5 prompt."""
-        pr = self.predictor
-        g = self.prompt_geometry(h, w)
-        box = pr.apply_boxes_torch(torch.tensor([g["box"]], dtype=torch.float)) if g["box"] else None
-        pts = labels = None
-        if g["points"]:
-            pts = pr.apply_coords_torch(torch.tensor([g["points"]], dtype=torch.float))
-            labels = torch.tensor([g["labels"]], dtype=torch.int)
-        _, iou, low = pr.predict_torch(point_coords=pts, point_labels=labels, boxes=box,
-                                       multimask_output=multimask, return_logits=True)
-        return low[0], iou[0]
+    def _prompt(self, box, points, labels):
+        """A prompt in photo pixels to the engine's frame (model_io.sam_box: apply_boxes_torch, apply_coords_torch)."""
+        size = (self.original_size, self.input_size)
+        b = model_io.sam_box(box, *size) if box else None
+        pts = lab = None
+        if points:
+            pts = model_io.sam_coords(points, *size)[None]
+            lab = np.asarray([labels], dtype=np.int32)
+        return b, pts, lab
 
-    @torch.inference_mode()
-    def _upsample(self, low: torch.Tensor) -> np.ndarray:
-        """SAM's own postprocess on one channel: to the padded 1024 frame, drop the bottom/right
-        padding, resize to the photo, threshold at 0."""
-        pr = self.predictor
-        logits = self.model.postprocess_masks(low[None, None], pr.input_size, pr.original_size)
-        return (logits[0, 0] > self.model.mask_threshold).numpy()
+    def _decode(self, h: int, w: int, multimask: bool) -> tuple[np.ndarray, np.ndarray]:
+        """Low-res logits (C x 256 x 256) and predicted IoUs (C) for the fixed D5 prompt."""
+        g = self.prompt_geometry(h, w)
+        return self.engine.decode(*self._prompt(g["box"], g["points"], g["labels"]), multimask)
+
+    def _upsample(self, low: np.ndarray) -> np.ndarray:
+        """SAM's own postprocess on one channel (model_io.upsample_mask): to the padded frame, drop the
+        bottom/right padding, resize to the photo, threshold at 0."""
+        return model_io.upsample_mask(low, self.input_size, self.original_size, self.engine.frame)
 
     def predict_mask(self, rgb: np.ndarray) -> np.ndarray:
         h, w = rgb.shape[:2]
@@ -240,22 +281,17 @@ class BeanSegmenter:
         page encodes each photo once, so a click reruns only the decoder). The encoder is frozen in every
         fine-tune (ML-2 D7), so any segmenter on the same weights can decode it."""
         self._encode(rgb)
-        pr = self.predictor
-        return {"features": pr.features, "original_size": list(pr.original_size),
-                "input_size": list(pr.input_size), "weights_sha256": self.weights_sha256}
+        return {"features": self.engine.features, "original_size": list(self.original_size),
+                "input_size": list(self.input_size), "weights_sha256": self.weights_sha256}
 
     def set_encoding(self, enc: dict) -> None:
         """Make `enc` (from `encode`, on these weights) the encoded image that the next decode reads."""
         if enc["weights_sha256"] != self.weights_sha256:
             raise ValueError(f"encoding made with weights {enc['weights_sha256'][:12]}, not the "
                              f"{self.weights_sha256[:12]} loaded")
-        pr = self.predictor
-        pr.reset_image()
-        pr.original_size, pr.input_size = tuple(enc["original_size"]), tuple(enc["input_size"])
-        pr.features = enc["features"]
-        pr.is_image_set = True
+        self.original_size, self.input_size = tuple(enc["original_size"]), tuple(enc["input_size"])
+        self.engine.features = enc["features"]
 
-    @torch.inference_mode()
     def predict_with_points(self, rgb: np.ndarray, include: list[tuple[float, float]],
                             exclude: list[tuple[float, float]], output: str = "single") -> tuple[np.ndarray, float]:
         """Whole-image box plus include/exclude points (the D6 correction prompt; no points = the box alone).
@@ -264,22 +300,16 @@ class BeanSegmenter:
         self._encode(rgb)
         return self.decode_points(include, exclude, output)
 
-    @torch.inference_mode()
     def decode_points(self, include: list[tuple[float, float]], exclude: list[tuple[float, float]],
                       output: str = "single") -> tuple[np.ndarray, float]:
         """`predict_with_points` on the image already encoded (by `encode`, `set_encoding` or a predict call)."""
-        pr = self.predictor
-        h, w = pr.original_size
+        h, w = self.original_size
         xy = [[fx * (w - 1), fy * (h - 1)] for fx, fy in [*include, *exclude]]
         labels = [1] * len(include) + [0] * len(exclude)
-        box = pr.apply_boxes_torch(torch.tensor([[0, 0, w - 1, h - 1]], dtype=torch.float))
-        pts = pr.apply_coords_torch(torch.tensor([xy], dtype=torch.float)) if xy else None
-        lab = torch.tensor([labels], dtype=torch.int) if xy else None
         multimask = output != "single"
         k = int(output[-1]) - 1 if multimask else 0
-        _, iou, low = pr.predict_torch(point_coords=pts, point_labels=lab, boxes=box,
-                                       multimask_output=multimask, return_logits=True)
-        return self._upsample(low[0, k]), float(iou[0, k])
+        low, iou = self.engine.decode(*self._prompt([0, 0, w - 1, h - 1], xy, labels), multimask)
+        return self._upsample(low[k]), float(iou[k])
 
     def candidates(self, rgb: np.ndarray) -> dict[str, tuple[np.ndarray, float]]:
         """Every box-prompt output at full resolution: {name: (mask, predicted IoU)}."""
@@ -348,6 +378,7 @@ def segment_and_crop(rgb: np.ndarray, seg: BeanSegmenter) -> BeanCrop:
 
 def _time(photos: list[Path], p: SegParams, runs: int) -> dict:
     from coffeecv.dataset import load_rgb_image
+    import torch
     seg = BeanSegmenter(p)
     report = {"variant": p.variant, "threads": torch.get_num_threads(), "runs": runs, "prompt": p.prompt, "mask_select": p.mask_select,
               "weights_sha256": seg.weights_sha256, "photos": {}}
@@ -411,6 +442,7 @@ def main() -> None:
     ap.add_argument("--out", type=Path, help="write the --time report as JSON")
     args = ap.parse_args()
     if args.threads:
+        import torch
         torch.set_num_threads(args.threads)
     photos = [REPO_ROOT / s for line in args.list.read_text().splitlines()
               if (s := line.split("#", 1)[0].strip())]

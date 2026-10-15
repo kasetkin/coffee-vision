@@ -21,8 +21,7 @@ import torch
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
 
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
+from coffeecv.model_io import IMAGENET_MEAN, IMAGENET_STD, eval_patch
 
 
 class RandomRightAngleRotation:
@@ -115,9 +114,17 @@ def build_train_transform(
     return T.Compose(steps)
 
 
-def build_eval_transform(resize: int) -> T.Compose:
-    return T.Compose([
-        T.Resize((resize, resize), interpolation=T.InterpolationMode.BILINEAR),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-    ])
+class EvalTransform:
+    """A patch to the model's input tensor: `model_io.eval_patch`, the port serving calls without torch (ticket
+    ML-7 D5 (b)), so training's eval patches and serving's are one implementation. Bit-identical to the
+    torchvision Resize, ToTensor and Normalize it replaced (tests/test_model_io.py)."""
+
+    def __init__(self, resize: int):
+        self.resize = resize
+
+    def __call__(self, patch) -> torch.Tensor:
+        return torch.from_numpy(eval_patch(patch, self.resize))
+
+
+def build_eval_transform(resize: int) -> EvalTransform:
+    return EvalTransform(resize)

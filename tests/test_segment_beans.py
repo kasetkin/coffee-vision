@@ -156,9 +156,8 @@ class TestSegmenter(unittest.TestCase):
         """480x640 photo: SAM resizes to 768x1024 and pads the bottom to 1024x1024, so the low-res frame's
         rows 0-191 are the photo and 192-255 padding. A logit map positive on the photo's left half only
         must come back as exactly the photo's left half, not shifted or stretched by the padding."""
-        pr = self.seg.predictor
-        pr.original_size, pr.input_size = (480, 640), (768, 1024)
-        low = torch.full((256, 256), -10.0)
+        self.seg.original_size, self.seg.input_size = (480, 640), (768, 1024)
+        low = np.full((256, 256), -10.0, dtype=np.float32)
         low[:192, :128] = 10.0
         low[192:, :] = 10.0                                    # padding: must not leak into the photo
         m = self.seg._upsample(low)

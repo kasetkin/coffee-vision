@@ -99,9 +99,9 @@ def check_transforms(ref_name: str) -> None:
         assert not torch.equal(_apply(active, patches), baseline), f"{kw} had no effect"
         print(f"  {list(kw)[0]:<24} enabled -> changes output")
 
-    assert [type(s).__name__ for s in new.build_eval_transform(224).transforms] == \
-           [type(s).__name__ for s in ref.build_eval_transform(224).transforms], "eval transform changed"
-    print("  eval transform unchanged")
+    assert torch.equal(_apply(new.build_eval_transform(224), patches),
+                       _apply(ref.build_eval_transform(224), patches)), "eval transform changed"
+    print("  eval transform bit-exact")
 
 
 def check_rotation_jitter() -> None:

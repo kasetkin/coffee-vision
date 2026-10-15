@@ -65,6 +65,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
+from coffeecv import model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.repo_files import read_csv, sha256_file
@@ -237,19 +238,18 @@ def load_pair(r: dict) -> tuple[np.ndarray, np.ndarray]:
 
 class TrainSet:
     """The training photos (train, neg_train) and their labels, loaded once and held in memory at the encoder's
-    frame; `pos` and `neg` index them. `sample` augments one as it is drawn. `resize` is serving's
-    (model.transform's SamResize, `resize.size` the frame), so the encoder's own transform leaves the photo as it
-    is."""
+    frame; `pos` and `neg` index them. `sample` augments one as it is drawn. The resize is serving's
+    (model_io.sam_resize to `frame`), so the encoder's input port leaves the photo as it is."""
 
-    def __init__(self, rows: list[dict], resize):
-        self.frame = int(resize.size)
+    def __init__(self, rows: list[dict], frame: int):
+        self.frame = frame
         self.items: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
         self.pos, self.neg = [], []
         for r in rows:
             if r["role"] not in TRAIN_ROLES:
                 continue
             rgb, mask = load_pair(r)
-            small = np.ascontiguousarray(resize(rgb))
+            small = np.ascontiguousarray(model_io.sam_resize(rgb, frame))
             (self.pos if r["role"] == "train" else self.neg).append(len(self.items))
             self.items.append((small, label_at(mask, small.shape[:2]), whole_box(*rgb.shape[:2])))
 
@@ -268,8 +268,8 @@ class TrainSet:
 
 @torch.no_grad()
 def encode(model, rgb: np.ndarray) -> torch.Tensor:
-    """The frozen encoder's embedding (1 x 256 x 64 x 64) of a photo, as at serving (model.transform)."""
-    return model.image_encoder(model.transform(rgb).unsqueeze(0))
+    """The frozen encoder's embedding (1 x 256 x 64 x 64) of a photo, as at serving (model_io.sam_input)."""
+    return model.image_encoder(torch.from_numpy(model_io.sam_input(rgb, encoder_frame(model))[0]))
 
 
 class Selection:
@@ -401,7 +401,7 @@ def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict]) -> dict:
     model = predictor.model
     frame = encoder_frame(model)
     t0 = time.perf_counter()
-    data, sel = TrainSet(rows, model.transform.transforms[0]), Selection(rows, model)
+    data, sel = TrainSet(rows, encoder_frame(model)), Selection(rows, model)
     print(f"loaded {len(data.pos)} positives and {len(data.neg)} negatives to train on, encoded {len(sel.val)} + "
           f"{len(sel.neg)} validation photos: {time.perf_counter() - t0:.0f} s", flush=True)
     aug = build_augment(p.augment, seed)

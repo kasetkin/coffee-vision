@@ -76,8 +76,10 @@ class AgainstTheAnalysis(unittest.TestCase):
             o = old[(r["path"], r["model"], r["output"])]
             for k in ("n_points", "replay_empty"):
                 self.assertEqual(int(r[k]), int(o[k]), (r["path"], k))
+            # Not to 9 places since ML-7 P8: the rows were made with torch's mask upsampling, and its port
+            # (model_io.upsample_mask, OpenCV) rounds differently, which can move a pixel at the threshold.
             for k in ("replay_iou", "click0", "click1", "click2", "click3"):
-                self.assertAlmostEqual(float(r[k]), float(o[k]), places=9, msg=(r["path"], r["model"], k))
+                self.assertAlmostEqual(float(r[k]), float(o[k]), delta=1e-5, msg=(r["path"], r["model"], k))
 
 
 if __name__ == "__main__":

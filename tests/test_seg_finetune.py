@@ -24,7 +24,6 @@ import torch
 import yaml
 from PIL import Image
 
-from coffeecv import sam_loader
 from coffeecv import seg_finetune as ft
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
@@ -175,13 +174,6 @@ class Augment(unittest.TestCase):
                 ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "augment": spec}))
 
 
-def serving_resize(size: int):
-    """SamResize, the first step of an EfficientViT-SAM model's transform, without building a model."""
-    sam_loader._import_efficientvit_sam()
-    from efficientvit.models.efficientvit.sam import SamResize
-    return SamResize(size)
-
-
 class Stream(unittest.TestCase):
     """ML-6 D12: an epoch's batches are drawn and augmented as training goes; one seed gives one stream."""
 
@@ -191,7 +183,7 @@ class Stream(unittest.TestCase):
         cls.addClassCleanup(cls.tmp.cleanup)
         rows = toy_rows(Path(cls.tmp.name), [("train", 300, 400), ("train", 200, 300), ("train", 400, 300),
                                              ("neg_train", 300, 300), ("val", 300, 400)])
-        cls.data = ft.TrainSet(rows, serving_resize(256))
+        cls.data = ft.TrainSet(rows, 256)
         cls.p = ft.FtParams.from_config(RunConfig.from_params_yaml())
         cls.p = ft.FtParams(**{**ft.asdict(cls.p), "batch_size": 2})
 
