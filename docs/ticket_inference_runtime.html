@@ -405,7 +405,26 @@
           for information (D14); this decision still says whether anything serves in int8.</td>
         <td><strong>Decided after the measurements, owner 2026-10-13</strong> (option (c): fp32 now, then
           whether an int8 XL0 encoder that passes D7 may serve, on plan P4's numbers). DINOv3 stays fp32. The owner
-          decides at plan P5, beside D2.</td></tr>
+          decides at plan P5, beside D2. <strong>Owner 2026-10-15: "go with fp32 segmenter and fp16 DINOv3"</strong> (plan P7's
+          <code>litert_gpu_split</code>). This replaces "DINOv3 stays fp32".
+          <ul>
+            <li><b>The evidence</b> (plan P7):
+              <ul>
+                <li>9.2 s a photo against 14.6 s in fp32, and 3.6 GB of memory against 4.2 GB;</li>
+                <li>the masks exact;</li>
+                <li>over 157 served photos and 4 patch seeds, fp16 flips 0.48% of top-1 answers and no guard
+                  verdict;</li>
+                <li>its class-probability changes are about a quarter of patch sampling's own (p95 0.023 against
+                  0.099).</li>
+              </ul></li>
+            <li><b>A departure from <code>CODING_STANDARDS.md</code>'s train/inference parity rule</b>, recorded so:
+              training's metrics are measured with fp32 DINOv3 and serving answers with fp16. The rule rejects that,
+              because it inflates every reported metric, here by the margin above. To go into the ADR with D2 and
+              D3.</li>
+            <li><b>D7's cosine bar</b> (0.99999) cannot hold for an fp16 DINOv3 (0.99977 on the fixtures). Its bar
+              is open for the owner.</li>
+            <li>The int8 encoder does not serve: it fails D7.</li>
+          </ul></td></tr>
       <tr><td class="id">D5</td><td>Does torch stay in the release environment?</td>
         <td>(a) Keep it for pre- and post-processing (torchvision transforms, bilinear mask upsampling), so serving
           shares that code with training and the parity risks stay few. (b) Port those to numpy, PIL and OpenCV,
@@ -689,6 +708,11 @@
       will discuss other options only if main track fails for any reason." Also: "For now keep the site down, we
       will start it later", so P5's restart waits. D4 and D5 stay open; the owner asks next whether fp16 or int8
       can be made to pass on this path, through the export or training.</div>
+    <div><div class="when">2026-10-15</div>Owner decides D4: "go with fp32 segmenter and fp16 DINOv3". The plan's
+      P7 measured it on <code>yappy</code>'s GPU: 9.2 s a photo, the masks exact, and over 157 served photos and 4
+      patch seeds 0.48% of top-1 answers flipped by fp16, against 0.85% by patch sampling alone; no guard verdict
+      changed. It departs from <code>CODING_STANDARDS.md</code>'s train/inference parity rule by that margin; the
+      record says so (D4), for the ADR. D7 needs a bar for an fp16 DINOv3 (open). The site stays down for now.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

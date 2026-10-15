@@ -1162,6 +1162,18 @@
           answer. It adds a little instability on close calls on top of it. Whether DINOv3 may serve in fp16 is the
           owner's decision (D4).</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>Owner decides ticket D4: "go with fp32 segmenter and fp16 DINOv3". The
+      serving cell is <code>litert_gpu_split</code>:
+      <ul>
+        <li>the encoder and decoder in fp32, with <code>litert_gpu_forms</code>;</li>
+        <li>DINOv3 b8 in fp16, with <code>litert_gpu_forms</code> and <code>fp16_forms</code>.</li>
+      </ul>
+      Before the serving phases:
+      <ul>
+        <li>D7's bar for an fp16 DINOv3, for the owner;</li>
+        <li>the ADR for D2, D3 and D4, including the departure from the train/inference parity rule;</li>
+        <li>the site's restart.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
