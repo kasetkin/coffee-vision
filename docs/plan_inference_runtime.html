@@ -1103,6 +1103,30 @@
           levels: the segmenter's float rounding on the two CPUs moves a mask-edge pixel. PyTorch's readouts for
           those 48 are computed on <code>yappy</code> from its own patches.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>P7, the answer check (<code>p7_answers.json</code>): 782 photos, 584 of
+      them true negatives. DINOv3 b8 ran on LiteRT's GPU in fp32 (<code>litert_gpu</code>, whole) and fp16
+      (<code>litert_gpu_fp16</code>), and PyTorch ran in fp32, all three on the same inputs. No errors, the GPU proven
+      in both runs.
+      <ul>
+        <li><b>fp32 on the GPU against PyTorch:</b> no top-1 or guard verdict changed on any photo. The least cosine
+          is 1.00000000 and the largest class-probability change 2.4e-6. D7 holds on 782 photos, not only the 13
+          fixtures.</li>
+        <li><b>The guard</b> refuses all 584 negatives and all 39 label photos in every set. No verdict changed in
+          fp16; the largest score change is 0.0086, against a closest distance from the threshold of 0.175.</li>
+        <li><b>fp16 against fp32, over all 782 photos:</b> 2 top-1 flips, one on a refused negative and one on a
+          served segmenter positive. The least cosine reaches 0.974 (p1 0.993, median 0.9996). The worst are
+          refused negatives whose segmentation fell back to the whole photo.</li>
+        <li><b>fp16 against fp32, on the 157 photos the guard accepts:</b>
+          <ul>
+            <li>the least cosine is 0.99962;</li>
+            <li>class probabilities move by up to 0.040 (p95 0.026), and the top-1 margin by up to about 0.08;</li>
+            <li>one answer flips (1 of 157): a photo whose fp32 margin was 0.076, Colombia over Brazil, goes to
+              Brazil by 0.003.</li>
+          </ul>
+          So fp16's small cosine loss reaches the head as answer changes of a few percent in probability. The
+          owner sets the bar (D4). How large patch sampling's own variation is would put these numbers in
+          context.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
