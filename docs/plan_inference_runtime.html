@@ -660,8 +660,8 @@
     <code>yappy</code>: <code>litert_gpu_split</code>, the encoder and decoder in fp32 and DINOv3 at batch 8 in fp16,
     on the GPU through WebGPU on Vulkan. The site may move back to a CPU-only VM with AVX-512. There, LiteRT runs on
     XNNPACK at precisions measured on that host, or PyTorch serves if LiteRT loses to it (P4: LiteRT on XNNPACK was
-    33% slower on the N100). Training stays on PyTorch (D3), and pre- and post-processing stay on torch
-    (D5 (a)).</p>
+    33% slower on the N100). Training stays on PyTorch (D3). Torch leaves the release (D5 (b), owner 2026-10-15):
+    pre- and post-processing move to numpy, PIL or OpenCV, in functions that training calls too.</p>
   <ol class="tasks">
     <li><span class="box"></span><span><b>A LiteRT backend in <code>coffeecv</code>:</b>
       <ul>
@@ -674,6 +674,12 @@
         <li>A setting in <code>release.env</code> chooses LiteRT or PyTorch, so a release can go back to PyTorch
           without a code change. Training never takes it.</li>
       </ul></span></li>
+    <li><span class="box"></span><span><b>Pre- and post-processing without torch</b> (D5 (b)): port the eval
+      transform, the segmenter's resize and normalisation, the mask's upsampling and threshold, and the guard and
+      head arithmetic to numpy, PIL or OpenCV. Training and serving both call the ports, so
+      <code>CODING_STANDARDS.md</code>'s train/inference parity rule keeps one implementation. Each port is checked
+      against the torch code it replaces on the fixtures and the answer-check photos, under D7's bars, and serving
+      imports no torch.</span></li>
     <li><span class="box"></span><span><b>Warm-up at worker boot</b> (ADR 0021):
       <ul>
         <li>the worker runs a fixed photo, shipped with the release, through the whole <code>/crop</code> and
@@ -717,7 +723,8 @@
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><b>The environment:</b> <code>ai-edge-litert</code> 2.3.0 pinned in the
-      webapp's environment. Its WebGPU accelerator library comes from the wheel, as in P2's
+      webapp's environment; torch, torchvision, timm, segment-anything and efficientvit out of it (D5 (b)), with
+      training's environment unchanged. Its WebGPU accelerator library comes from the wheel, as in P2's
       <code>rt_vulkan</code>. The release's size is recorded against today's (D1 (b)).</span></li>
     <li><span class="box"></span><span><b>The service unit</b> (<code>coffee-cv-web.service.template</code>), on a GPU
       host only (a CPU host needs none of it):
@@ -730,7 +737,7 @@
       Tried first in the smoke-test unit (R6).</span></li>
     <li><span class="box"></span><span><b>Memory</b> (R5): the worker's boot and a replay measured with torch
       imported. P7 measured 3.6 GB of <code>MemAvailable</code> for the cell and 0.25 GB for torch's imports. The
-      deploy preflight's 5 GB is checked against them.</span></li>
+      deploy preflight's 5 GB is checked against them; the worker should then hold no torch at all.</span></li>
   </ol>
 
   <h2>15. P11 &mdash; The deploy gates</h2>
@@ -1339,6 +1346,10 @@
       runtime, and the accelerator and each graph's precision are chosen for the host and named in the release. The
       GPU cell stands for <code>yappy</code>. A CPU host is measured first: on the N100, LiteRT on XNNPACK was 33%
       slower than PyTorch. ADR 0020 and P8&ndash;P11 now take the accelerator from the release.</div>
+    <div><div class="when">2026-10-15</div>Owner decides ticket D5: (b), torch leaves the release. P8 gains the
+      port of pre- and post-processing to numpy/PIL/OpenCV functions shared with training, each checked against
+      torch's. P10's environment drops torch and its model libraries. The branch is pushed; work continues on it,
+      no PR or merge for now.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
