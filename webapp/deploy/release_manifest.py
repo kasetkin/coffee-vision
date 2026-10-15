@@ -6,7 +6,7 @@ running app with an audit hook and fails if it opens a repo file outside this li
 the other direction, that a staged release holds nothing beyond it. Stdlib only: the deploy runs it
 before any environment exists.
 
-    python webapp/deploy/release_manifest.py --model allrigs_dino3b16_seg_country_s123 [--ref <sha>]
+    python webapp/deploy/release_manifest.py --model allrigs_dino3b16_segxl0v3_country_s42 [--ref <sha>]
 
 prints the manifest as JSON, reading the model card and pointers from the ref (default: the working
 tree).
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Callable
@@ -28,65 +29,30 @@ APP = [
     "webapp/pyproject.toml",
     "webapp/uv.lock",
 ]
-# ML-7 P8 added model_io, photo_io and litert, which serving now imports. The torch-side modules it no longer opens,
-# the vendored segmenter and the pretrained weights leave in P10, with the converted model's directory coming in.
+# What webapp/app.py imports, found with an import trace and checked by tests/test_release_manifest.py. Since
+# ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
+# weights; the converted model's directory instead.
 LIBRARY = [f"coffeecv/{m}.py" for m in (
-    "__init__", "backbones", "bean_scale", "class_list", "config", "crop_tray", "dataset", "dino_classifier",
-    "geometry", "infer", "litert", "model", "model_io", "photo_io", "transforms")]
-# Ticket ML-2: a segmenter model (card crop_method "segment") also ships the segmenter's loader and the
-# vendored EfficientViT files that building L0 imports, found with an import trace (plan §9) and checked
-# by tests/test_release_manifest.py, plus the vendored copy's license and its patch notes.
-SEG_LIBRARY = ["coffeecv/sam_loader.py", "coffeecv/segment_beans.py",
-               "third_party/efficientvit/LICENSE", "third_party/efficientvit/PATCHES.md"]
-SEG_VENDORED = [f"third_party/efficientvit/efficientvit/{m}" for m in (
-    "__init__.py",
-    "apps/__init__.py",
-    "apps/data_provider/__init__.py",
-    "apps/data_provider/augment/__init__.py",
-    "apps/data_provider/augment/bbox.py",
-    "apps/data_provider/augment/color_aug.py",
-    "apps/data_provider/base.py",
-    "apps/data_provider/random_resolution/__init__.py",
-    "apps/data_provider/random_resolution/controller.py",
-    "apps/trainer/__init__.py",
-    "apps/trainer/base.py",
-    "apps/trainer/run_config.py",
-    "apps/utils/__init__.py",
-    "apps/utils/dist.py",
-    "apps/utils/ema.py",
-    "apps/utils/export.py",
-    "apps/utils/image.py",
-    "apps/utils/init.py",
-    "apps/utils/lr.py",
-    "apps/utils/metric.py",
-    "apps/utils/misc.py",
-    "apps/utils/opt.py",
-    "models/__init__.py",
-    "models/efficientvit/__init__.py",
-    "models/efficientvit/backbone.py",
-    "models/efficientvit/cls.py",
-    "models/efficientvit/sam.py",
-    "models/efficientvit/seg.py",
-    "models/nn/__init__.py",
-    "models/nn/act.py",
-    "models/nn/drop.py",
-    "models/nn/norm.py",
-    "models/nn/ops.py",
-    "models/utils/__init__.py",
-    "models/utils/list.py",
-    "models/utils/network.py",
-    "models/utils/random.py",
-    "sam_model_zoo.py",
-)]
+    "__init__", "bean_scale", "class_list", "config", "crop_tray", "geometry", "infer", "litert", "model_io",
+    "photo_io", "sam_loader", "segment_beans")]
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them
 # (a model without a probe runs the centroid guard -- the probe file's presence is the switch).
 MODEL_REQUIRED = (".pt.dvc", ".json")
 MODEL_OPTIONAL = (".classes.txt", ".ood_reference.json", ".ood_probe.json")
-PRETRAINED_MANIFEST = "models_pretrained/manifest.json"
+# The converted model (coffeecv.litert): the dvc.yaml stage litert_export's output, every file of it by md5.
+LITERT_STAGE = "litert_export@{model}"
+# The export's own records, which serving never opens: they stay in DVC, not in a release.
+LITERT_RECORDS = {"convert.json", "check.json"}
+FIXTURES = "webapp/deploy/fixtures.txt"
 # Written by the deploy into the release, not taken from git.
 GENERATED = ["webapp/BUILD_INFO.json", "release.env"]
 # Built on the VM: the venv, its marker, and compileall's bytecode beside the release's own modules.
 BUILT_TOP = [".venv", ".complete"]
+# LiteRT's GPU accelerator directory inside the release's venv: the wheel's own, which holds libLiteRt.so and one GPU
+# library, the WebGPU one (ML-7 P2). Read by webapp/app.py from release.env, relative to the release.
+LITERT_RUNTIME = ".venv/lib/python3.12/site-packages/ai_edge_litert"
+# Vulkan's driver on a GPU host: yappy's Intel iGPU through Mesa's ANV (ML-7 P2), as every P2-P8 GPU run set it.
+VK_ICD = "/usr/share/vulkan/icd.d/intel_icd.x86_64.json"
 
 
 def dvc_md5(pointer_text: str) -> str:
@@ -97,8 +63,38 @@ def dvc_md5(pointer_text: str) -> str:
     raise ValueError("no md5 in .dvc pointer")
 
 
-def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str], bool]) -> dict:
-    """{git: [paths], dvc: {path: md5}, pretrained: {path: sha256}, generated: [paths]} for `model`."""
+def _dvc_cache(md5: str) -> Path:
+    return REPO / ".dvc" / "cache" / "files" / "md5" / md5[:2] / md5[2:]
+
+
+def litert_files(model: str, lock_text: str, read_object: Callable[[str], str]) -> dict[str, str]:
+    """{path: md5} for every file of the model's converted directory, from dvc.lock's record of the litert_export
+    stage and the directory's listing (`<md5>.dir`, from the DVC cache by default)."""
+    stage = LITERT_STAGE.format(model=model)
+    m = re.search(rf"^  {re.escape(stage)}:\n((?:    .*\n?)*)", lock_text, re.MULTILINE)
+    if m is None or "outs:" not in m.group(1):
+        raise ValueError(f"dvc.lock has no {stage} stage: run `dvc repro -s {stage}` (ML-7 D6)")
+    outs = m.group(1).split("outs:", 1)[1]
+    path = md5 = None
+    for line in outs.splitlines():
+        t = line.strip()
+        if t.startswith("- path:"):
+            path = t.split(":", 1)[1].strip()
+        elif t.startswith("md5:") and path == f"models/{model}.litert":
+            md5 = t.split(":", 1)[1].strip()
+            break
+    if md5 is None or not md5.endswith(".dir"):
+        raise ValueError(f"dvc.lock's {stage} has no directory output models/{model}.litert")
+    return {f"models/{model}.litert/{e['relpath']}": e["md5"] for e in json.loads(read_object(md5))
+            if e["relpath"] not in LITERT_RECORDS}
+
+
+def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str], bool],
+             read_object: Callable[[str], str] = lambda md5: _dvc_cache(md5).read_text()) -> dict:
+    """{git: [paths], dvc: {path: md5}, pinned: {path: sha256}, env: {name: value}, generated: [paths]} for `model`:
+    a frozen DINOv3 model with the segmenter (crop_method "segment"), served on LiteRT. `env` is what the deploy
+    writes into release.env beside COFFEE_CV_CHECKPOINT. `read_object` reads a DVC object by md5 (the converted
+    directory's listing and its manifest.json, which say whether a graph runs on the GPU)."""
     stem = f"models/{model}"
     git = APP + LIBRARY
     for suffix in MODEL_REQUIRED:
@@ -106,43 +102,31 @@ def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str]
             raise FileNotFoundError(f"{stem}{suffix} is not in the ref")
         git.append(stem + suffix)
     git += [stem + s for s in MODEL_OPTIONAL if exists(stem + s)]
-
-    dvc = {f"{stem}.pt": dvc_md5(read_text(f"{stem}.pt.dvc"))}
-
-    # Files pinned by sha256 rather than by a .dvc pointer: pretrained weights, and a segmenter's decoder.
-    pretrained = {}
     card = json.loads(read_text(f"{stem}.json"))
     training = card.get("training_config", {})
-    model_name = training.get("model_name", "")
-    crop_method = training.get("crop_method", "tray_heuristic")
-    if model_name.startswith("dinov3") or crop_method == "segment":
-        entries = {e["path"]: e for e in json.loads(read_text(PRETRAINED_MANIFEST))}
-    if model_name.startswith("dinov3"):
-        # A frozen model's .pt holds only the head; the backbone comes from models_pretrained/, checked
-        # against the manifest's sha256 (coffeecv.backbones.verify_weights) at every start.
-        weights = card["dino"]["weights"]
-        pretrained[f"models_pretrained/{weights}"] = entries[weights]["sha256"]
-    if crop_method == "segment":
-        # Ticket ML-2: the segmenter the model was trained with, as its card pins it (seg_* fields).
-        weights, decoder = training["seg_weights"], training["seg_decoder"]
-        if entries[weights]["sha256"] != training["seg_weights_sha256"]:
-            raise ValueError(f"{model}'s card pins {weights} at sha256 {training['seg_weights_sha256'][:16]}..., "
-                             f"but {PRETRAINED_MANIFEST} has {entries[weights]['sha256'][:16]}...")
-        pretrained[f"models_pretrained/{weights}"] = training["seg_weights_sha256"]
-        if decoder:
-            pretrained[decoder] = training["seg_decoder_sha256"]
-        git += SEG_LIBRARY + SEG_VENDORED
-    elif crop_method != "tray_heuristic":
-        raise ValueError(f"{model} uses crop_method {crop_method!r}, which has no release shape")
-    if pretrained:
-        git.append(PRETRAINED_MANIFEST)
-    return {"model": model, "model_name": model_name, "git": git, "dvc": dvc,
-            "pretrained": pretrained, "generated": list(GENERATED)}
+    if not training.get("model_name", "").startswith("dinov3") or training.get("crop_method") != "segment":
+        raise ValueError(f"{model} is {training.get('model_name')!r} with crop_method {training.get('crop_method')!r}, "
+                         f"which has no release shape: the service runs a frozen DINOv3 model with the segmenter, on "
+                         f"LiteRT (ML-7)")
+    litert = litert_files(model, read_text("dvc.lock"), read_object)
+    dvc = {f"{stem}.pt": dvc_md5(read_text(f"{stem}.pt.dvc")), **litert}
+    converted = json.loads(read_object(litert[f"{stem}.litert/manifest.json"]))
+    # The boot's warm-up photo (ADR 0021): the deploy's smoke fixture, pinned by the sha256 fixtures.txt gives it.
+    smoke = [ln.split() for ln in read_text(FIXTURES).splitlines() if ln.startswith("smoke ")]
+    if len(smoke) != 1:
+        raise ValueError(f"{FIXTURES} must name exactly one smoke photo")
+    _, sha, photo = smoke[0]
+    env = {"COFFEE_CV_WARMUP_PHOTO": photo}
+    if any(g["accelerator"] == "gpu" for g in converted["graphs"].values()):
+        # LiteRT's WebGPU library from the release venv, and Vulkan pointed at Intel's driver (the host's, ADR 0019).
+        env |= {"COFFEE_CV_LITERT_RUNTIME": LITERT_RUNTIME, "VK_ICD_FILENAMES": VK_ICD}
+    return {"model": model, "model_name": training["model_name"], "git": git, "dvc": dvc, "pinned": {photo: sha},
+            "env": env, "generated": list(GENERATED)}
 
 
 def all_files(m: dict) -> set[str]:
     """Every file path a staged release may hold outside .venv/ and __pycache__/."""
-    return set(m["git"]) | set(m["dvc"]) | set(m["pretrained"]) | set(m["generated"])
+    return set(m["git"]) | set(m["dvc"]) | set(m["pinned"]) | set(m["generated"])
 
 
 def unexpected(m: dict, staged: list[str]) -> list[str]:

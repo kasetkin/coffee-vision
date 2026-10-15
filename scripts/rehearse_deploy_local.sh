@@ -20,7 +20,8 @@
 # coffee-cv, nginx, and the public-site checks.
 #
 # Runs from a clone whose `origin` is this repository, so the deploy's "commit must be on origin/main"
-# check is real: commit to main here first. Needs the DVC-tracked models and the DINOv3 backbone locally.
+# check is real: commit to main here first. Needs the DVC-tracked model and its LiteRT export locally (ML-7 P10:
+# both deploys must be of commits that have the export; until a merge to main, origin/main does not).
 set -euo pipefail
 
 SRC=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -33,13 +34,9 @@ mkdir -p "$R"/{opt,log,state,stubs,scratch} "$R"/sys/{etc/systemd/system,run/sys
 # ------------------------------------------------------------------------------------------ the clone
 git clone -q "$SRC" "$R/clone"
 C="$R/clone"
+# The checkpoint and its LiteRT export (ticket ML-7) come from the DVC cache by md5; a release needs no pretrained
+# weights since P10.
 ln -s "$SRC/.dvc/cache" "$C/.dvc/cache"
-mkdir -p "$C/models_pretrained/dinov3"
-ln -s "$SRC/models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth" "$C/models_pretrained/dinov3/"
-# The segmenter models' L0 encoder and fine-tuned decoder (ticket ML-2): DVC-tracked, so the clone has only
-# their .dvc files, and the deploy reads both from the working tree (the release manifest's `pretrained`).
-ln -s "$SRC/models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt" "$C/models_pretrained/efficientvit_sam/"
-ln -s "$SRC/models/seg/ft_s123.pt" "$C/models/seg/"
 while read -r photo; do
   mkdir -p "$C/$(dirname "$photo")"; ln -s "$SRC/$photo" "$C/$photo"
 done < <(awk '!/^#/ && NF {print $3}' "$SRC/webapp/deploy/fixtures.txt")
@@ -105,7 +102,9 @@ start() {
   envs=$(sed -n 's/^Environment=//p' "$f"); exe=$(sed -n 's/^ExecStart=//p' "$f")
   od -An -N8 -tx8 /dev/urandom | tr -d ' ' > "$ST/$u.inv"
   echo "=== invocation $(cat "$ST/$u.inv")" >> "$ST/$u.log"
-  ( cd "$wd" && set -a && . "$envf" && set +a && exec env $envs setsid $exe ) >> "$ST/$u.log" 2>&1 &
+  # COFFEE_CV_LITERT_ON_CPU: a GPU release's graphs on this machine's CPU (ML-7 P10); the GPU runs only on the host.
+  ( cd "$wd" && set -a && . "$envf" && set +a && exec env $envs COFFEE_CV_LITERT_ON_CPU=1 setsid $exe ) \
+    >> "$ST/$u.log" 2>&1 &
   echo $! > "$ST/$u.pid"
 }
 cmd=$1; shift

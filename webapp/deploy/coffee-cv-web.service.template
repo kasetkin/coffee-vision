@@ -14,6 +14,10 @@ After=network.target
 Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_USER
+# Ticket ML-7 (ADR 0019): the models run on the host's GPU through Vulkan, which opens /dev/dri/renderD128 (group
+# render). release.env sets VK_ICD_FILENAMES and LiteRT's accelerator directory when the release's graphs run on the
+# GPU. Not PrivateDevices: that hides /dev/dri.
+SupplementaryGroups=render
 WorkingDirectory=$RELEASE_DIR
 # The model is chosen inside the release (COFFEE_CV_CHECKPOINT=models/<name>.pt), so code and model
 # switch -- and roll back -- together.

@@ -6,7 +6,8 @@ For each shippable model, a fresh interpreter imports webapp.app under a Python 
 photo to all three endpoints (/classify, /crop, /preview) and reports every file under the repo it
 opened. Anything outside webapp/deploy/release_manifest.py fails the test: a release built from that
 list would crash, or silently fall back, in production (docs/ops1_release_isolation_plan.html §4.2).
-Needs the DVC-tracked .pt files, the DINOv3 backbone and one raw photo; skips with a reason otherwise.
+Needs the DVC-tracked .pt, the model's LiteRT export and the smoke photo; skips with a reason otherwise. The app runs
+its graphs on the CPU here (COFFEE_CV_LITERT_ON_CPU), which opens the same files the GPU would.
 """
 from __future__ import annotations
 
@@ -20,15 +21,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
-from release_manifest import SEG_LIBRARY, SEG_VENDORED, all_files, manifest  # noqa: E402
+from release_manifest import LITERT_RUNTIME, VK_ICD, all_files, manifest  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
 
-# The one model in models/: every older one was retired on 2026-10-06 (their release shape, tray heuristic
-# included, is still covered by TestSegmenterRelease's synthetic cards).
-MODELS = ("allrigs_dino3b16_seg_country_s123",)
-# Shipped beside the code they describe, never opened by it.
-DOCS = {"third_party/efficientvit/LICENSE", "third_party/efficientvit/PATCHES.md"}
+# The model the live release serves, the one with a LiteRT export (dvc.yaml's litert_export, ticket ML-7 P9).
+MODELS = ("allrigs_dino3b16_segxl0v3_country_s42",)
 # The deploy's smoke photo, from the same list the deploy uses.
 PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.txt").read_text().splitlines()
                     if line.startswith("smoke "))
@@ -69,12 +67,12 @@ def _have(model: str) -> str | None:
     if not (REPO / f"models/{model}.json").is_file():
         return f"models/{model}.json is not present"
     if not (REPO / f"models/{model}.litert/manifest.json").is_file():
-        return f"models/{model}.litert/ is not present: the app serves LiteRT (ML-7 P8), converted in plan P9"
+        return f"models/{model}.litert/ is not present: dvc pull it, or dvc repro -s litert_export@{model} (ML-7 P9)"
     m = manifest(model, lambda p: (REPO / p).read_text(), lambda p: (REPO / p).is_file())
-    for p in [*m["dvc"], *m["pretrained"]]:
+    for p in [*m["dvc"], *m["pinned"]]:
         if not (REPO / p).is_file():
             return f"{p} is not present"
-    return None if PHOTO.is_file() else f"{PHOTO} is not present"
+    return None
 
 
 class TestReleaseManifest(unittest.TestCase):
@@ -87,8 +85,9 @@ class TestReleaseManifest(unittest.TestCase):
                     self.skipTest(missing)
                 m = manifest(model, lambda p: (REPO / p).read_text(), lambda p: (REPO / p).is_file())
                 with tempfile.TemporaryDirectory() as logs:
-                    env = {**os.environ, "COFFEE_CV_CHECKPOINT": f"models/{model}.pt",
-                           "COFFEE_CV_LOG_DIR": logs, "PYTHONDONTWRITEBYTECODE": "1"}
+                    env = {**os.environ, "COFFEE_CV_CHECKPOINT": f"models/{model}.pt", "COFFEE_CV_LOG_DIR": logs,
+                           "PYTHONDONTWRITEBYTECODE": "1", "COFFEE_CV_LITERT_ON_CPU": "1",
+                           "COFFEE_CV_WARMUP_PHOTO": m["env"]["COFFEE_CV_WARMUP_PHOTO"]}
                     out = subprocess.run([sys.executable, "-c", TRACE, str(REPO), str(PHOTO)], cwd=REPO,
                                          env=env, capture_output=True, text=True, timeout=900)
                 self.assertEqual(out.returncode, 0, out.stderr[-3000:])
@@ -100,104 +99,76 @@ class TestReleaseManifest(unittest.TestCase):
                 # The other direction: the manifest names no code or model file the app never needs.
                 # (pyproject/uv.lock build the venv and index.html is nginx's; neither is opened in-process.)
                 unused = sorted(all_files(m) - set(trace["opened"]) - set(m["generated"])
-                                - {"webapp/pyproject.toml", "webapp/uv.lock", "webapp/static/index.html"} - DOCS)
+                                - {"webapp/pyproject.toml", "webapp/uv.lock", "webapp/static/index.html"})
                 self.assertEqual(unused, [], f"{model}: manifest lists files the app never opened")
 
 
-SEG_TRACE = r"""
-import json, sys
-from dataclasses import replace
-from pathlib import Path
-import numpy as np
-repo = Path(sys.argv[1]).resolve()
-opened = set()
-
-def hook(event, args):
-    if event == "open" and isinstance(args[0], (str, bytes, Path)):
-        p = Path(args[0].decode() if isinstance(args[0], bytes) else args[0])
-        try:
-            rel = p.resolve().relative_to(repo)
-        except (ValueError, OSError):
-            return
-        parts = rel.parts
-        if len(parts) >= 2 and parts[-2] == "__pycache__":
-            rel = Path(*parts[:-2], parts[-1].split(".", 1)[0] + ".py")
-        opened.add(rel.as_posix())
-
-from coffeecv.config import RunConfig
-cfg = replace(RunConfig.from_params_yaml(), crop_method="segment")
-sys.addaudithook(hook)
-from coffeecv import infer
-infer.segmenter_for(cfg)
-rgb = (np.random.default_rng(0).random((600, 800, 3)) * 255).astype(np.uint8)
-infer.segment_bean_region(rgb, cfg)
-print("TRACE " + json.dumps(sorted(opened)))
+LOCK = """stages:
+  litert_export@m:
+    cmd: convert
+    deps:
+    - path: models/m.pt
+      hash: md5
+      md5: 1
+    outs:
+    - path: models/m.litert
+      hash: md5
+      md5: abc.dir
+      nfiles: 7
+  other:
+    cmd: x
 """
+LISTING = [{"relpath": f, "md5": f"md5-{f}"} for f in
+           ("check.json", "convert.json", "decoder.tflite", "dino_b8.tflite", "encoder.tflite", "head.npz",
+            "manifest.json")]
+FIXTURES_TXT = "# comment\nsmoke 0123 dataset/s/smoke.jpg\ncompare 4567 dataset/s/other.jpg\n"
 
 
-def _seg_card(**over) -> dict:
-    from coffeecv.config import RunConfig
-    cfg = RunConfig.from_params_yaml()
-    training = {"model_name": "dinov3_vitb16", "crop_method": "segment", "seg_weights": cfg.seg_weights,
-                "seg_weights_sha256": cfg.seg_weights_sha256, "seg_decoder": cfg.seg_decoder,
-                "seg_decoder_sha256": cfg.seg_decoder_sha256, **over}
-    return {"training_config": training, "dino": {"weights": "dinov3/w.pth"}}
+def _synthetic(card: dict, accelerators=("gpu", "gpu", "gpu"), lock: str = LOCK) -> dict:
+    """The manifest of a synthetic model `m`, with its export's listing and converted manifest as DVC objects."""
+    files = {"models/m.pt.dvc": "outs:\n- md5: 0\n", "models/m.json": json.dumps(card), "dvc.lock": lock,
+             "webapp/deploy/fixtures.txt": FIXTURES_TXT}
+    converted = {"graphs": {g: {"accelerator": a} for g, a in zip(("encoder", "decoder", "dino"), accelerators)}}
+    objects = {"abc.dir": json.dumps(LISTING), "md5-manifest.json": json.dumps(converted)}
+    return manifest("m", files.__getitem__, files.__contains__, objects.__getitem__)
 
 
-def _seg_manifest(card: dict) -> dict:
-    pretrained = json.loads((REPO / "models_pretrained/manifest.json").read_text())
-    pretrained.append({"path": "dinov3/w.pth", "sha256": "d" * 64})
-    files = {"models/m.pt.dvc": "outs:\n- md5: 0\n", "models/m.json": json.dumps(card),
-             "models_pretrained/manifest.json": json.dumps(pretrained)}
-    return manifest("m", files.__getitem__, files.__contains__)
+CARD = {"training_config": {"model_name": "dinov3_vitb16", "crop_method": "segment"}}
 
 
-class TestSegmenterRelease(unittest.TestCase):
-    """Ticket ML-2 P6: a crop_method "segment" model's release adds the segmenter's code, the vendored
-    EfficientViT files L0 imports, and the encoder and decoder weights its card pins by sha256."""
+class TestLiteRtRelease(unittest.TestCase):
+    """ML-7 P10: a release holds the serving code, the checkpoint and its LiteRT export, and the warm-up photo; no
+    torch-side module, no vendored segmenter and no pretrained weights."""
 
     def test_shape(self):
-        from coffeecv.config import RunConfig
-        cfg = RunConfig.from_params_yaml()
-        m = _seg_manifest(_seg_card())
-        self.assertTrue(set(SEG_LIBRARY + SEG_VENDORED) <= set(m["git"]))
-        self.assertEqual(m["pretrained"][f"models_pretrained/{cfg.seg_weights}"], cfg.seg_weights_sha256)
-        self.assertEqual(m["pretrained"][cfg.seg_decoder], cfg.seg_decoder_sha256)
-        self.assertEqual(m["pretrained"]["models_pretrained/dinov3/w.pth"], "d" * 64)
+        m = _synthetic(CARD)
+        self.assertFalse(any(p.startswith(("third_party/", "models_pretrained/")) for p in m["git"]))
+        self.assertFalse(any(p.endswith(("backbones.py", "dino_classifier.py", "model.py", "transforms.py",
+                                         "dataset.py")) for p in m["git"]))
+        self.assertEqual(sorted(p for p in m["dvc"] if ".litert/" in p),
+                         [f"models/m.litert/{f}" for f in ("decoder.tflite", "dino_b8.tflite", "encoder.tflite",
+                                                           "head.npz", "manifest.json")])
+        self.assertEqual(m["dvc"]["models/m.litert/encoder.tflite"], "md5-encoder.tflite")
+        self.assertEqual(m["pinned"], {"dataset/s/smoke.jpg": "0123"})
 
-    def test_encoder_digest_must_match_the_pretrained_manifest(self):
-        with self.assertRaisesRegex(ValueError, "pins"):
-            _seg_manifest(_seg_card(seg_weights_sha256="0" * 64))
+    def test_a_gpu_release_names_its_runtime_and_driver(self):
+        self.assertEqual(_synthetic(CARD)["env"], {"COFFEE_CV_WARMUP_PHOTO": "dataset/s/smoke.jpg",
+                                                   "COFFEE_CV_LITERT_RUNTIME": LITERT_RUNTIME,
+                                                   "VK_ICD_FILENAMES": VK_ICD})
 
-    def test_unknown_crop_method_refused(self):
-        with self.assertRaisesRegex(ValueError, "no release shape"):
-            _seg_manifest(_seg_card(crop_method="mystery"))
+    def test_a_cpu_release_names_neither(self):
+        self.assertEqual(_synthetic(CARD, ("cpu", "cpu", "cpu"))["env"],
+                         {"COFFEE_CV_WARMUP_PHOTO": "dataset/s/smoke.jpg"})
 
-    def test_tray_model_unchanged(self):
-        """A card without crop_method (every model before ML-2 P3) is a tray-heuristic model: no segmenter."""
-        for name, card in (("resnet18", {"training_config": {"model_name": "resnet18"}}),
-                           ("dinov3", {"training_config": {"model_name": "dinov3_vitb16"},
-                                       "dino": {"weights": "dinov3/w.pth"}})):
-            m = _seg_manifest(card)
-            self.assertFalse(any(p.startswith("third_party/") for p in m["git"]), name)
-            self.assertNotIn(SEG_LIBRARY[0], m["git"], name)
+    def test_a_model_without_an_export_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "no litert_export@m stage"):
+            _synthetic(CARD, lock="stages:\n  other:\n    cmd: x\n")
 
-    @real_data
-    def test_segmenter_opens_only_manifest_files(self):
-        """The import trace behind SEG_VENDORED, rerun: building L0 and segmenting one photo opens no
-        repo file the segmenter release lacks. Runs before any segmenter model is shipped."""
-        from coffeecv.config import RunConfig
-        cfg = RunConfig.from_params_yaml()
-        for p in (f"models_pretrained/{cfg.seg_weights}", cfg.seg_decoder):
-            if not (REPO / p).is_file():
-                self.skipTest(f"{p} is not present")
-        out = subprocess.run([sys.executable, "-c", SEG_TRACE, str(REPO)], cwd=REPO, capture_output=True,
-                             text=True, timeout=900, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
-        self.assertEqual(out.returncode, 0, out.stderr[-3000:])
-        opened = set(json.loads(next(line[6:] for line in out.stdout.splitlines() if line.startswith("TRACE "))))
-        m = _seg_manifest(_seg_card())
-        self.assertEqual(sorted(opened - all_files(m)), [])
-        self.assertEqual(sorted(set(SEG_VENDORED) - opened), [], "SEG_VENDORED lists files L0 never imports")
+    def test_models_the_service_cannot_run_are_refused(self):
+        for name, card in (("tray resnet18", {"training_config": {"model_name": "resnet18"}}),
+                           ("tray dinov3", {"training_config": {"model_name": "dinov3_vitb16"}})):
+            with self.subTest(name), self.assertRaisesRegex(ValueError, "no release shape"):
+                _synthetic(card)
 
 
 if __name__ == "__main__":

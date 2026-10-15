@@ -1,8 +1,8 @@
 # The web service's environment, and nothing else's: exactly what the release modules import
-# (webapp/app.py + the coffeecv modules in webapp/deploy/release_manifest.py, and for a segmenter model
-# the vendored efficientvit files), at the versions the production venv ran them with (pip freeze of
-# ~/coffee-vision-venv, 2026-09-27); torch, torchvision and timm moved to the training lock's versions
-# for ML-2 P6 (plan F4), since every head is now fitted under timm 1.0.30. Locked in
+# (webapp/app.py + the coffeecv modules in webapp/deploy/release_manifest.py), at the versions the production
+# venv ran them with (pip freeze of ~/coffee-vision-venv, 2026-09-27). Since ticket ML-7 (D5 (b), plan P10) the
+# models run on LiteRT (ai-edge-litert) and the release holds no torch, torchvision, timm or segment-anything:
+# serving's pre- and post-processing are coffeecv.model_io's ports, shared with training. Locked in
 # webapp/uv.lock; every release's .venv is built from that lock with `uv sync --locked`, which
 # verifies each artifact's hash and refuses a lock that no longer matches this file.
 #
@@ -27,39 +27,18 @@ dependencies = [
   # Headless: the service never opens a window, and the GUI build needs libGL. Same version as the
   # production venv (which has both builds installed); --compare proves the outputs are identical.
   "opencv-python-headless==5.0.0.93",
-  "torch==2.14.0",
-  "torchvision==0.29.1",
-  # Pinned exactly: a timm upgrade is an architecture change (coffeecv.dino_classifier refuses a
-  # checkpoint fitted under another timm version).
-  "timm==1.0.30",
-  # Ticket ML-2: the bean segmenter (EfficientViT-SAM-L0, vendored in third_party/efficientvit) imports its
-  # MaskDecoder, PromptEncoder and ResizeLongestSide. PyTorch runtime only, no onnx (D23).
-  "segment-anything==1.0",
+  # Ticket ML-7 (ADR 0019): the serving runtime, at the version P2-P8 measured. Its WebGPU accelerator library
+  # (ai_edge_litert/libLiteRtWebGpuAccelerator.so) is what the service's GPU runs; a version change is a new
+  # measurement (ADR 0020's checks on the serving host).
+  "ai-edge-litert==2.3.0",
 ]
 
 [tool.uv]
 package = false
 required-version = "==0.12.19"
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
-# Everything pulled in transitively, held to the production freeze too.
+# Everything pulled in transitively, held to the production freeze too (torch's own dependencies left with it).
 constraint-dependencies = [
-  "blinker==1.9.0", "click==8.4.2", "filelock==3.29.0", "fsspec==2026.4.0", "itsdangerous==2.2.0",
-  "jinja2==3.1.6", "markupsafe==3.0.3", "mpmath==1.3.0", "networkx==3.6.1", "packaging==26.3",
-  "setuptools==78.1.0", "sympy==1.14.0", "typing-extensions==4.15.0", "werkzeug==3.1.8",
+  "blinker==1.9.0", "click==8.4.2", "itsdangerous==2.2.0", "jinja2==3.1.6", "markupsafe==3.0.3",
+  "packaging==26.3", "typing-extensions==4.15.0", "werkzeug==3.1.8",
 ]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-torchvision = { index = "pytorch-cpu" }
-
-# timm without huggingface_hub/safetensors: they exist only to download pretrained weights, and this
-# service builds with pretrained=False and loads its own sha256-checked file from models_pretrained/.
-[[tool.uv.dependency-metadata]]
-name = "timm"
-version = "1.0.30"
-requires-dist = ["torch", "torchvision", "pyyaml"]

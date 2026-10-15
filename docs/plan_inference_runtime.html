@@ -774,11 +774,11 @@
 
   <h2>13. P9 &mdash; The converted files in the release route</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-15: <code>62bdb60</code>; the shipped model's export passes D7 on the CPU; DVC push under way</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P8 (it reads the manifest whose fields P8 lists)</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>An export step</b> for the shipped checkpoint, run in the pinned conversion
+    <li><span class="box done"></span><span><b>An export step</b> for the shipped checkpoint, run in the pinned conversion
       environment (<code>analysis/ml7_gpu/convert_litert/</code>, moved somewhere permanent):
       <ul>
         <li>the encoder and decoder with <code>litert_gpu_forms</code>;</li>
@@ -787,12 +787,31 @@
       </ul>
       The export code that serving needs moves from <code>analysis/</code> into the repo's tooling, with its
       tests.</span></li>
-    <li><span class="box"></span><span><b>The files in DVC, and in the release beside the checkpoint,</b> so a
+    <li><span class="box done"></span><span><b>The files in DVC, and in the release beside the checkpoint,</b> so a
       release carries its own converted model, as it carries its probe (ADR 0008).</span></li>
-    <li><span class="box"></span><span><b>ADR 0022's rule:</b> a checkpoint of the same architecture keeps the
+    <li><span class="box done"></span><span><b>ADR 0022's rule:</b> a checkpoint of the same architecture keeps the
       forms. A different architecture, or a new runtime version, reruns <code>p7_ranges.py</code> and the forms'
       checks first.</span></li>
   </ol>
+  <h3>Results</h3>
+  <ul>
+    <li><b>Where things are:</b> the forms in <code>coffeecv/litert_forms.py</code> (<code>analysis/ml7_gpu/graphs.py</code>
+      is now an alias of it, so P1&ndash;P7's scripts run as before); the conversion environment in
+      <code>convert/</code>, its lock unchanged but for the project's name; the export in
+      <code>coffeecv/export_litert.py</code> (<code>convert</code> in <code>convert/.venv</code>, then <code>finish</code>
+      in the training environment); the dvc.yaml stage <code>litert_export@allrigs_dino3b16_segxl0v3_country_s42</code>,
+      with yappy's profile <code>gpu_split</code> in its command. Its output, <code>models/&lt;name&gt;.litert/</code>, holds
+      the three graphs, <code>head.npz</code>, <code>manifest.json</code>, and the records <code>convert.json</code> and
+      <code>check.json</code>.</li>
+    <li><b>The check</b> (<code>finish</code>, D7's fp32 bars on the CPU against PyTorch, the 13 fixtures): mask IoU 1.0
+      on every photo, least readout cosine 0.9999998, no verdict or top-1 change. A model that fails loses its
+      manifest.</li>
+    <li><b>Against P7's measured files:</b> not byte-identical (the encoder 9 KB larger; tensor names and metadata),
+      but the same ops and tensors, and bit-identical outputs on the CPU for all three graphs. P7's GPU measurements
+      therefore stand for these files; P11's checks on <code>yappy</code> confirm it.</li>
+    <li><b>Not done here:</b> <code>RunConfig</code> refuses an unknown <code>params.yaml</code> key, so the profile is
+      in the stage's command, not in <code>params.yaml</code>; a new host edits it there.</li>
+  </ul>
 
   <h2>14. P10 &mdash; The release's environment and the service unit</h2>
   <div class="fields">

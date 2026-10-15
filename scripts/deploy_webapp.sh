@@ -229,15 +229,16 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   done < <(jq -r '.dvc | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
 
   while read -r path sha; do
-    [[ -f "$REPO/$path" ]] || die "$path is missing -- see models_pretrained/README.md (a segmenter decoder: dvc pull it)"
+    [[ -f "$REPO/$path" ]] || die "$path is missing (the warm-up photo: dvc pull it)"
     [[ "$(sha256sum < "$REPO/$path" | cut -c1-64)" == "$sha" ]] \
       || die "$path does not match the sha256 its release manifest pins at $SHA"
     install -D -m 0644 "$REPO/$path" "$STAGE/$path"
     note "$path (sha256 ${sha:0:16}...)"
-  done < <(jq -r '.pretrained | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
+  done < <(jq -r '.pinned | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
 
   "$LOCAL_PY" "$DEPLOY_DIR/write_build_info.py" --ref "$SHA" --model "$model" --out "$STAGE/webapp/BUILD_INFO.json" >/dev/null
-  printf 'COFFEE_CV_CHECKPOINT=models/%s.pt\n' "$model" > "$STAGE/release.env"
+  { printf 'COFFEE_CV_CHECKPOINT=models/%s.pt\n' "$model"
+    jq -r '.env | to_entries[] | "\(.key)=\(.value)"' <<<"$MANIFEST"; } > "$STAGE/release.env"
   (cd "$STAGE" && find . -type f -printf '%P\n') \
     | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --model "$model" --check-staged - \
     || die "the staged tree does not match the manifest"
@@ -245,7 +246,9 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   check_fixtures
   note "expected smoke answers: the staged tree's own webapp.app, locally"
   local logs; logs=$(mktemp -d)
+  # The models on this machine's CPU (COFFEE_CV_LITERT_ON_CPU): the release's accelerator is the host's (ML-7 P10).
   (cd "$STAGE" && COFFEE_CV_CHECKPOINT="models/$model.pt" COFFEE_CV_LOG_DIR="$logs" PYTHONDONTWRITEBYTECODE=1 \
+      COFFEE_CV_LITERT_ON_CPU=1 COFFEE_CV_WARMUP_PHOTO="$REPO/$(fixtures smoke)" \
       "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$REPO/$(fixtures smoke)" 2>"$logs/stderr") \
       > "$SCRATCH/$ID.expected.json" || { tail -20 "$logs/stderr"; die "the staged tree failed locally"; }
   rm -rf "$logs"
@@ -276,7 +279,7 @@ send_fixtures() {
 stage() {
   say "Stage $ID on $HOST"
   local cur expect
-  expect=$(jq -r '(.dvc + .pretrained) | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
+  expect=$(jq -r '(.dvc + .pinned) | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
   send_fixtures
   to_vm -a --chmod=F644 "$SCRATCH/$ID.expected.json" "$FIX/expected/$ID.json"
   if [[ -n "$REUSE" ]]; then

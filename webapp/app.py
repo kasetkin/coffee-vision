@@ -53,11 +53,13 @@ logger = logging.getLogger(__name__)
 # edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
 CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_dino3b16_seg_country_s123.pt")
 # Its converted model (coffeecv.litert): beside it unless COFFEE_CV_LITERT_DIR (relative to the repo) names another,
-# for the same smoke tests. COFFEE_CV_LITERT_RUNTIME is LiteRT's GPU accelerator directory, set by the service on a
-# GPU host and unset on a CPU one; COFFEE_CV_WARMUP_PHOTO the boot's warm-up photo (ADR 0021).
+# for the same smoke tests. COFFEE_CV_LITERT_RUNTIME is LiteRT's accelerator directory (release.env names the
+# release venv's ai_edge_litert/, which holds the WebGPU library) and COFFEE_CV_WARMUP_PHOTO the boot's warm-up
+# photo (ADR 0021); both relative to the release, or absolute.
 LITERT_DIR = REPO_ROOT / os.environ["COFFEE_CV_LITERT_DIR"] if "COFFEE_CV_LITERT_DIR" in os.environ \
     else litert_dir_for(CHECKPOINT)
-LITERT_RUNTIME = Path(os.environ["COFFEE_CV_LITERT_RUNTIME"]) if os.environ.get("COFFEE_CV_LITERT_RUNTIME") else None
+LITERT_RUNTIME = REPO_ROOT / os.environ["COFFEE_CV_LITERT_RUNTIME"] if os.environ.get("COFFEE_CV_LITERT_RUNTIME") \
+    else None
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
@@ -75,7 +77,9 @@ logger.info("loaded checkpoint config from %s", cfg_source)
 # countries after it. class_ids is in output order.
 classes = load_classes(REPO_ROOT / cfg.classes_file)
 class_ids, class_labels = list(classes.keys), dict(classes.labels)
-models = load_models(LITERT_DIR, LITERT_RUNTIME)
+# COFFEE_CV_LITERT_ON_CPU=1: every graph on this machine's CPU at fp32 whatever the manifest names, for runs off the
+# serving host (the deploy's local expected answers, ML-7 P10). Never set by the service.
+models = load_models(LITERT_DIR, LITERT_RUNTIME, on_cpu=os.environ.get("COFFEE_CV_LITERT_ON_CPU") == "1")
 if models.manifest["checkpoint_sha256"][:16] != _sha(CHECKPOINT):
     raise SystemExit(f"{LITERT_DIR} was converted from checkpoint {models.manifest['checkpoint_sha256'][:16]}, "
                      f"not {CHECKPOINT.name}")
