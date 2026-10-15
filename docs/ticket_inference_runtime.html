@@ -727,6 +727,17 @@
       changed, negatives included; top-1 changed on at most 1% of the served photos; p95 of the largest
       class-probability change &le; 0.05. P7 measured 0.99962, 0, 0.64% and 0.023. The segmenter keeps D7's
       original bars.</div>
+    <div><div class="when">2026-10-15</div>Site restarted with the owner's go-ahead ("go ahead and restart site as it
+      is now"): the current release, PyTorch, unchanged (<code>20261013T1058Z-b1bc9c9-allrigs_dino3b16_segxl0v3_country_s42</code>).
+      <code>systemctl start nginx coffee-cv-web</code> on <code>yappy</code> at 10:55 MSK, both active.
+      <code>scripts/deploy_webapp.sh --verify</code> passed every check:
+      <ul>
+        <li>the backend's routes;</li>
+        <li>the startup line's commit and model sha;</li>
+        <li>the public page equal to the release's;</li>
+        <li>a public <code>/classify</code> answering (top-1 Colombia).</li>
+      </ul>
+      The LiteRT cell does not serve yet: the serving phases come next.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

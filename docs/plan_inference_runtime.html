@@ -552,7 +552,7 @@
           at every start. Serving must warm both models at worker start,
           and the boot time is measured.</li>
       </ul></span></li>
-    <li><span class="box"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
+    <li><span class="box done"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
       and verify it (<code>scripts/deploy_webapp.sh --verify</code>), unless Q3 says otherwise. Log both in the
       ticket's Activity.</span></li>
     <li><span class="box"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
@@ -1171,11 +1171,12 @@
       Before the serving phases:
       <ul>
         <li>the ADR for D2, D3 and D4, including the departure from the train/inference parity rule;</li>
-        <li>the site's restart.</li>
       </ul></div>
     <div><div class="when">2026-10-15</div>Owner sets D7's bar for an fp16 DINOv3 (ticket D7). P7's measurements
       pass it: no NaN; least cosine 0.99962 against &ge; 0.999; no verdict changed; 0.64% of top-1 answers against
       &le; 1%; p95 probability change 0.023 against &le; 0.05.</div>
+    <div><div class="when">2026-10-15</div>P5: the site restarted on the current PyTorch release, with the owner's
+      go-ahead, and verified live (<code>deploy_webapp.sh --verify</code>, every check passed; ticket Activity).</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
