@@ -16,7 +16,7 @@ An fp16 form's scales are sized from a range scan of every module's values in fp
 
 ## Consequences
 
-- No clamp, approximation or retraining is used to make a runtime fit. A form that is not exact has to be justified as a departure, like fp16 itself ([ADR 0019](0019-serving-runs-litert-on-the-igpu.md)).
+- No clamp, approximation or retraining is used to make a runtime fit. A form that is not exact has to be justified as a departure, like fp16 itself ([ADR 0019](0019-serving-runs-litert-accelerator-per-host.md)).
 - A new model, a new checkpoint of a different architecture, or a new runtime version reruns the range scan and the forms' checks before conversion.
 - Split sums cost graph size: the encoder grew from 65 convolutions to 612 at 128 channels, and to 2,420 at 32, where it lost fp16's speed.
 

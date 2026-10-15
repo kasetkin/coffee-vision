@@ -386,7 +386,9 @@
           kernel compilation at every start (R6); a LiteRT cell keeps a conversion environment pinned below the
           torch that training uses. Recommendation: prefer a CPU cell unless a GPU cell's replay p90 is at least
           10% lower, beyond the spread between rounds.</td>
-        <td><strong>(a), owner 2026-10-14:</strong> LiteRT on Vulkan (WebGPU through Dawn) is the main track; the other passing cells are discussed only if it fails for any reason. Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>, <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>.</td></tr>
+        <td><strong>(a), owner 2026-10-14:</strong> LiteRT on Vulkan (WebGPU through Dawn) is the main track; the other passing cells are discussed only if it fails for any reason. <strong>Owner 2026-10-15:</strong> the site may move back to a CPU-only VM with AVX-512 within weeks; the
+          LiteRT backend stays, with the accelerator chosen for the host (XNNPACK or another), measured there against
+          PyTorch first. Recorded in <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>, <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>.</td></tr>
       <tr><td class="id">D3</td><td>Do the training paths move to the runtime too?</td>
         <td>(a) Yes, as ML-2 Q4 required: segcrop, embeddings, head, reference and probe on the runtime, with a
           re-crop and retrain. (b) No: training stays on PyTorch, and the shipped model is converted for
@@ -394,7 +396,7 @@
         <td><strong>(b), owner 2026-10-13.</strong> Both models keep training on PyTorch; the ticket is about
           inference only. A model is trained, then converted and deployed. This replaces ML-2 Q4's rule that a
           runtime change switches both ends together. Parity between training and serving now rests on D7's check
-          of each export. Recorded in an ADR together with D2 (section 7). Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>.</td></tr>
+          of each export. Recorded in an ADR together with D2 (section 7). Recorded in <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>.</td></tr>
       <tr><td class="id">D4</td><td>Precision?</td>
         <td>(a) fp32 only. (b) fp32 first, then dynamic int8 as a separate step. Under D3, int8 serving would feed
           the head and the probe embeddings they were not fitted on. That is "an accurate method offline with a
@@ -424,7 +426,7 @@
             <li><b>D7's cosine bar</b> (0.99999) cannot hold for an fp16 DINOv3 (0.99977 on the fixtures). Its bar
               is open for the owner.</li>
             <li>The int8 encoder does not serve: it fails D7.</li>
-          </ul> Recorded in <a href="adr/0019-serving-runs-litert-on-the-igpu.md">ADR 0019</a>, <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>.</td></tr>
+          </ul> Recorded in <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>, <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>.</td></tr>
       <tr><td class="id">D5</td><td>Does torch stay in the release environment?</td>
         <td>(a) Keep it for pre- and post-processing (torchvision transforms, bilinear mask upsampling), so serving
           shares that code with training and the parity risks stay few. (b) Port those to numpy, PIL and OpenCV,
@@ -741,7 +743,7 @@
     <div><div class="when">2026-10-15</div>The serving and deploying phases are in the plan (P8&ndash;P12), at the
       owner's request. Four ADRs record the decisions and the findings to keep:
       <ul>
-        <li><a href="adr/0019-serving-runs-litert-on-the-igpu.md">0019</a>: serving on LiteRT through the iGPU, the
+        <li><a href="adr/0019-serving-runs-litert-accelerator-per-host.md">0019</a>: serving on LiteRT through the iGPU, the
           segmenter in fp32 and DINOv3 in fp16;</li>
         <li><a href="adr/0020-converted-models-pass-d7-before-they-serve.md">0020</a>: D7's gate against PyTorch
           and the GPU proven;</li>
@@ -750,6 +752,10 @@
         <li><a href="adr/0022-export-forms-are-exact.md">0022</a>: exact export forms, fp16's scales sized over
           every photo.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>Owner: the serving host may change, back to the CPU-only VM with AVX-512,
+      in a few weeks. LiteRT stays the backend, and the accelerator follows the host. ADR 0019 now says so
+      (renamed <code>0019-serving-runs-litert-accelerator-per-host.md</code>), with the caveat that LiteRT on
+      XNNPACK was 33% slower than PyTorch on the N100, so a CPU host is measured before LiteRT serves there.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

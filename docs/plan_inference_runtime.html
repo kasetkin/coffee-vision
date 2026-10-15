@@ -656,18 +656,21 @@
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D2, D4, D7 decided</span></span></div>
   </div>
-  <p>The serving cell is <code>litert_gpu_split</code> (ADR 0019): the encoder and decoder in fp32, and DINOv3 at
-    batch 8 in fp16, on LiteRT's GPU through WebGPU on Vulkan. Training stays on PyTorch (D3), and pre- and
-    post-processing stay on torch (D5 (a)).</p>
+  <p>LiteRT is the serving runtime (ADR 0019); the accelerator and each graph's precision are the host's. On
+    <code>yappy</code>: <code>litert_gpu_split</code>, the encoder and decoder in fp32 and DINOv3 at batch 8 in fp16,
+    on the GPU through WebGPU on Vulkan. The site may move back to a CPU-only VM with AVX-512. There, LiteRT runs on
+    XNNPACK at precisions measured on that host, or PyTorch serves if LiteRT loses to it (P4: LiteRT on XNNPACK was
+    33% slower on the N100). Training stays on PyTorch (D3), and pre- and post-processing stay on torch
+    (D5 (a)).</p>
   <ol class="tasks">
     <li><span class="box"></span><span><b>A LiteRT backend in <code>coffeecv</code>:</b>
       <ul>
-        <li>It loads the release's three files, each at the precision its manifest gives (P9).</li>
+        <li>It loads the release's three files on the accelerator the release names (GPU or CPU), each at the
+          precision its manifest gives (P9). Nothing about the accelerator is fixed in code.</li>
         <li>It runs the encoder and decoder for <code>/crop</code> and <code>/classify</code>, and DINOv3 on the
           40 patches as 5 calls of 8.</li>
-        <li>It fails loudly, never quietly falling back to the CPU, when the GPU accelerator does not load or the
-          delegate places an op on the CPU. The delegate's report is read, not
-          <code>is_fully_accelerated()</code> (ADR 0020).</li>
+        <li>It fails loudly when the named accelerator does not load. On the GPU it never falls back to the CPU
+          quietly: the delegate's report is read, not <code>is_fully_accelerated()</code> (ADR 0020).</li>
         <li>A setting in <code>release.env</code> chooses LiteRT or PyTorch, so a release can go back to PyTorch
           without a code change. Training never takes it.</li>
       </ul></span></li>
@@ -680,8 +683,8 @@
       </ul>
       The PyTorch path gets the same warm-up.</span></li>
     <li><span class="box"></span><span><b>Tests:</b> the backend on the devcontainer's CPU (LiteRT's XNNPACK, all
-      fp32) against PyTorch on the fixtures, within D7's fp32 bars; the switch; the warm-up and its failure. The
-      GPU's checks are P11's.</span></li>
+      fp32) against PyTorch on the fixtures, within D7's fp32 bars; the switch; the accelerator setting; the warm-up
+      and its failure. The GPU's checks are P11's.</span></li>
   </ol>
 
   <h2>13. P9 &mdash; The converted files in the release route</h2>
@@ -695,7 +698,8 @@
       <ul>
         <li>the encoder and decoder with <code>litert_gpu_forms</code>;</li>
         <li>DINOv3 b8 with <code>litert_gpu_forms</code> and <code>fp16_forms</code> (ADR 0022);</li>
-        <li>a manifest: each file's sha256, its forms, its precision, and the torch and litert-torch versions.</li>
+        <li>a manifest: each file's sha256, its forms, its precision, the accelerator it is for, and the torch
+          and litert-torch versions.</li>
       </ul>
       The export code that serving needs moves from <code>analysis/</code> into the repo's tooling, with its
       tests.</span></li>
@@ -715,7 +719,8 @@
     <li><span class="box"></span><span><b>The environment:</b> <code>ai-edge-litert</code> 2.3.0 pinned in the
       webapp's environment. Its WebGPU accelerator library comes from the wheel, as in P2's
       <code>rt_vulkan</code>. The release's size is recorded against today's (D1 (b)).</span></li>
-    <li><span class="box"></span><span><b>The service unit</b> (<code>coffee-cv-web.service.template</code>):
+    <li><span class="box"></span><span><b>The service unit</b> (<code>coffee-cv-web.service.template</code>), on a GPU
+      host only (a CPU host needs none of it):
       <ul>
         <li>the service user in the <code>render</code> group for <code>/dev/dri/renderD128</code>;</li>
         <li><code>VK_ICD_FILENAMES</code> for Intel's ICD;</li>
@@ -739,9 +744,13 @@
       D7's bars, the segmenter's fp32 bars and DINOv3's fp16 bar. The fixtures are checked at every deploy. P7's
       answer check (782 photos, <code>p7_answers.py</code>) runs when the model, the runtime or the driver
       changes.</span></li>
-    <li><span class="box"></span><span><b>The GPU proof at deploy:</b> the worker maps Intel's Vulkan driver and
+    <li><span class="box"></span><span><b>The accelerator proven at deploy</b> (ADR 0020). On a GPU host: the worker maps Intel's Vulkan driver and
       LiteRT's accelerator, never llvmpipe; the delegate places every op on the GPU; the i915 counters show it
-      busy. Each is read from the worker's boot log and the host.</span></li>
+      busy. On a CPU host: the delegate's report of what XNNPACK takes. Each is read from the worker's boot log and
+      the host.</span></li>
+    <li><span class="box"></span><span><b>A new serving host</b> (the VM, if the site moves back) gets ML-7 P4's
+      photo replay against PyTorch on that host, D7's checks on its accelerator, and P7's answer check before a
+      LiteRT release serves there (ADR 0019).</span></li>
   </ol>
 
   <h2>16. P12 &mdash; Smoke test, then the live deploy <span class="pill sm open">stop</span></h2>
@@ -1324,6 +1333,12 @@
         <li>0022: export forms exact in real arithmetic, and fp16's scales sized over every photo, true negatives
           included.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>Owner: "few weeks later we maybe will return to the previous remote VM
+      without iGPU but with AVX-512 support, so LiteRT backend will probably stay, but Vulkan will be changed for
+      XNNPACK or something else". ADR 0019 rewritten in place, written the same day: LiteRT is the serving
+      runtime, and the accelerator and each graph's precision are chosen for the host and named in the release. The
+      GPU cell stands for <code>yappy</code>. A CPU host is measured first: on the N100, LiteRT on XNNPACK was 33%
+      slower than PyTorch. ADR 0020 and P8&ndash;P11 now take the accelerator from the release.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
