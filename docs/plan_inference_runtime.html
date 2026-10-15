@@ -1170,10 +1170,12 @@
       </ul>
       Before the serving phases:
       <ul>
-        <li>D7's bar for an fp16 DINOv3, for the owner;</li>
         <li>the ADR for D2, D3 and D4, including the departure from the train/inference parity rule;</li>
         <li>the site's restart.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>Owner sets D7's bar for an fp16 DINOv3 (ticket D7). P7's measurements
+      pass it: no NaN; least cosine 0.99962 against &ge; 0.999; no verdict changed; 0.64% of top-1 answers against
+      &le; 1%; p95 probability change 0.023 against &le; 0.05.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

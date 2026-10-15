@@ -459,7 +459,16 @@
           blocking: readout cosine &ge; 0.99999 and mask IoU &ge; 0.999 gate an export; a photo whose top-1 or
           guard verdict changes is listed for the owner to accept, and the continuous measures are reported
           beside them. <strong>Owner 2026-10-13:</strong> the cosine bar holds for every patch (the least
-          cosine over all patches of all photos), not on average; the IoU bar for every photo.</td></tr>
+          cosine over all patches of all photos), not on average; the IoU bar for every photo. <strong>Owner 2026-10-15: a bar for an fp16 DINOv3</strong> (D4: fp32 segmenter, fp16 DINOv3; plan
+          P7). The segmenter keeps the bars above. DINOv3 in fp16 is gated on answers, against PyTorch fp32:
+          <ul>
+            <li>no NaN or Inf in any output;</li>
+            <li>least patch cosine &ge; 0.999 on the served photos (those the guard accepts);</li>
+            <li>no guard verdict changed on the answer-check photos, true negatives included;</li>
+            <li>top-1 changed on at most 1% of the served photos;</li>
+            <li>p95 of the largest class-probability change over the served photos &le; 0.05.</li>
+          </ul>
+          Measured in P7: cosine 0.99962, 0 of 782 verdicts, 0.64% of top-1 answers, p95 0.023.</td></tr>
       <tr><td class="id">D8</td><td>How is LiteRT on <code>yappy</code>'s iGPU tested?</td>
         <td>The owner asked for OpenCL (2026-10-13). The wheel offers only WebGPU (2.4). Options:
           <ul>
@@ -713,6 +722,11 @@
       patch seeds 0.48% of top-1 answers flipped by fp16, against 0.85% by patch sampling alone; no guard verdict
       changed. It departs from <code>CODING_STANDARDS.md</code>'s train/inference parity rule by that margin; the
       record says so (D4), for the ADR. D7 needs a bar for an fp16 DINOv3 (open). The site stays down for now.</div>
+    <div><div class="when">2026-10-15</div>Owner sets D7's bar for an fp16 DINOv3, as proposed, with the
+      probability change at 5%: no NaN or Inf; least patch cosine &ge; 0.999 on the served photos; no guard verdict
+      changed, negatives included; top-1 changed on at most 1% of the served photos; p95 of the largest
+      class-probability change &le; 0.05. P7 measured 0.99962, 0, 0.64% and 0.023. The segmenter keeps D7's
+      original bars.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a
