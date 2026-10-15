@@ -21,6 +21,17 @@ one line per photo; a photo that fails is kept by name and the run goes on:
            least cosine's distribution, the photos nearest the guard's threshold and how far their score moved,
            the photos with the smallest top-1 margin and whether the order held. A JSON (paths under the repo
            and under ~/ml7 only) and a short summary on stdout.
+  seeds    release venv. Patch sampling's spread against fp16's drift, over runs whose patches were cut with other
+           seeds (patches --seed-key 42 k, each in its own OUT; p7_served_photos.txt): per readout set, every
+           pair of seeds compared photo by photo (top-1, verdict, largest probability change, margin change);
+           fp16 against fp32 per seed; then the two pooled side by side (flip counts with Wilson intervals) and,
+           for each photo fp16 flipped, whether its top-1 also changes between seeds. Photos: those every run of
+           a set answered. E.g. on yappy:
+
+    ML7_REPO=/opt/coffee-cv/current /opt/coffee-cv/current/.venv/bin/python p7_answers.py seeds \\
+        --checkpoint models/allrigs_dino3b16_segxl0v3_country_s42.pt --runs seed0=p7/answers seed1=p7/seed1 \\
+        seed2=p7/seed2 seed3=p7/seed3 --base seed0 --sets litert_gpu litert_gpu_fp16 --fp32 litert_gpu \\
+        --fp16 litert_gpu_fp16 --json p7/seeds.json
 
 On yappy, from ~/ml7 (p7_answers.sh runs them in order); the photos under p7/photos/<path in the list>:
 
@@ -156,21 +167,28 @@ def answer_view(ans: dict) -> dict:
     return v
 
 
-def pair_measures(ref_readouts: np.ndarray, got_readouts: np.ndarray, ref_ans: dict, got_ans: dict) -> dict:
-    """One photo, one set (got) against another (ref): the least patch cosine, NaN or Inf in got, whether top-1,
-    the first two in order and the guard's verdict held, the largest class-probability change, both margins, and
-    the guard's score change beside the reference's distance from the threshold."""
+def answer_change(ref_ans: dict, got_ans: dict) -> dict:
+    """One photo's answer under one set (got) against another (ref): whether top-1, the first two in order and the
+    guard's verdict held, the largest class-probability change, both margins, the margin's change (the reference's
+    top-1 followed: its lead over the best other class in got, less its lead in ref, so a flip is a change past
+    -ref_margin), and the guard's score change beside the reference's distance from the threshold."""
     a, b = answer_view(ref_ans), answer_view(got_ans)
-    m = {"least_cosine": parity.least_cosine(got_readouts, ref_readouts),
-         "nonfinite": not bool(np.isfinite(got_readouts).all()),
-         "top1_same": a["top1"] == b["top1"], "top2_same": (a["top1"], a["top2"]) == (b["top1"], b["top2"]),
-         "prob_max_change": float(np.abs(np.asarray(got_ans["probs"], np.float64)
-                                         - np.asarray(ref_ans["probs"], np.float64)).max()),
-         "ref_margin": a["margin"], "got_margin": b["margin"]}
+    ref_p, got_p = np.asarray(ref_ans["probs"], np.float64), np.asarray(got_ans["probs"], np.float64)
+    lead = float(got_p[a["top1"]] - np.delete(got_p, a["top1"]).max())
+    m = {"top1_same": a["top1"] == b["top1"], "top2_same": (a["top1"], a["top2"]) == (b["top1"], b["top2"]),
+         "prob_max_change": float(np.abs(got_p - ref_p).max()),
+         "ref_margin": a["margin"], "got_margin": b["margin"], "margin_change": lead - a["margin"]}
     if "score" in a and "score" in b:
         m.update(ref_score=a["score"], distance_from_threshold=a["score"] - a["threshold"],
                  score_change=b["score"] - a["score"], verdict_same=a["refused"] == b["refused"])
     return m
+
+
+def pair_measures(ref_readouts: np.ndarray, got_readouts: np.ndarray, ref_ans: dict, got_ans: dict) -> dict:
+    """One photo, one set (got) against another (ref) on the same patches: the least patch cosine, NaN or Inf in
+    got, and the answer's change (answer_change)."""
+    return {"least_cosine": parity.least_cosine(got_readouts, ref_readouts),
+            "nonfinite": not bool(np.isfinite(got_readouts).all()), **answer_change(ref_ans, got_ans)}
 
 
 def pair_key(ref: str, got: str) -> str:
@@ -185,11 +203,11 @@ def pairs_for(sets: list[str], base: str) -> list[tuple[str, str]]:
     return out
 
 
-def _dist(values: list[float]) -> dict | None:
+def _dist(values: list[float], percentiles: tuple = PERCENTILES) -> dict | None:
     if not values:
         return None
     v = np.asarray(values, dtype=np.float64)
-    return {"min": float(v.min()), **{f"p{p:g}": float(np.percentile(v, p)) for p in PERCENTILES},
+    return {"min": float(v.min()), **{f"p{p:g}": float(np.percentile(v, p)) for p in percentiles},
             "max": float(v.max())}
 
 
@@ -266,6 +284,90 @@ def summarise_sets(rows: list[dict]) -> dict:
             b["photos"] += 1
             b["refused"] += int(bool(v.get("refused")))
     return {s: dict(sorted(v.items())) for s, v in sorted(out.items())}
+
+
+# ------------------------------------------------------------------------------ patch sampling's spread (pure)
+SEED_PERCENTILES = (50, 95)
+WILSON_Z = 1.959964                                # 95 %
+
+
+def seed_pairs(names: list[str]) -> list[tuple[str, str]]:
+    """(ref, got): every pair of runs once, in the order given (no seed is the truth; base first)."""
+    return [(a, b) for i, a in enumerate(names) for b in names[i + 1:]]
+
+
+def wilson(k: int, n: int, z: float = WILSON_Z) -> list[float] | None:
+    """Wilson's score interval for k events in n trials (95 % by default); None for no trials."""
+    if n == 0:
+        return None
+    p, z2 = k / n, z * z
+    centre, half = (p + z2 / (2 * n)) / (1 + z2 / n), z * np.sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / (1 + z2 / n)
+    return [max(0.0, float(centre - half)), min(1.0, float(centre + half))]
+
+
+def summarise_changes(ms: list[dict]) -> dict:
+    """answer_change measures pooled: the top-1 flips (count, rate, Wilson 95 %), the verdict flips, and the
+    distributions of the largest class-probability change and of the margin's change, in absolute value."""
+    n, k = len(ms), sum(not m["top1_same"] for m in ms)
+    return {"photos": n, "top1_flips": k, "top1_flip_rate": k / n if n else None,
+            "top1_flip_wilson95": wilson(k, n), "verdict_flips": sum(not m.get("verdict_same", True) for m in ms),
+            "prob_max_change": _dist([m["prob_max_change"] for m in ms], SEED_PERCENTILES),
+            "margin_change_abs": _dist([abs(m["margin_change"]) for m in ms], SEED_PERCENTILES)}
+
+
+def sampling_spread(answers: dict[str, dict[str, dict]], photos: list[str]) -> dict:
+    """One readout set's answers under each seed's patches ({run: {photo: parity._answers}}), over the photos
+    given: every pair of seeds compared photo by photo (answer_change), summarised per pair and pooled over pairs,
+    and how many photos' top-1 is not the same under every seed."""
+    pairs = seed_pairs(list(answers))
+    per_photo = {p: {pair_key(a, b): answer_change(answers[a][p], answers[b][p]) for a, b in pairs} for p in photos}
+    return {"pairs": {pair_key(a, b): summarise_changes([per_photo[p][pair_key(a, b)] for p in photos])
+                      for a, b in pairs},
+            "pooled": summarise_changes([m for by_pair in per_photo.values() for m in by_pair.values()]),
+            "photos_top1_not_unanimous": sum(len({answer_view(answers[r][p])["top1"] for r in answers}) > 1
+                                             for p in photos),
+            "per_photo": per_photo}
+
+
+def precision_drift(fp32: dict[str, dict[str, dict]], fp16: dict[str, dict[str, dict]], photos: list[str]) -> dict:
+    """fp16 against fp32 on the same patches, per seed (the runs that have both sets) and pooled over seeds."""
+    runs = [r for r in fp32 if r in fp16]
+    per_photo = {p: {r: answer_change(fp32[r][p], fp16[r][p]) for r in runs} for p in photos}
+    return {"per_seed": {r: summarise_changes([per_photo[p][r] for p in photos]) for r in runs},
+            "pooled": summarise_changes([m for by_run in per_photo.values() for m in by_run.values()]),
+            "per_photo": per_photo}
+
+
+def comparison(spread: dict, drift: dict, fp32: dict[str, dict[str, dict]], fp16: dict[str, dict[str, dict]],
+               photos: list[str], ids: list | None = None) -> dict:
+    """Sampling's spread (fp32's, between seeds) beside fp16's drift (against fp32, per seed): the pooled flip
+    counts and rates with their intervals, the probability changes side by side, and each photo fp16 flipped under
+    any seed: fp32's top-1 and margin per seed, fp16's margin change, and whether its fp32 top-1 also changes
+    between seeds ([pairs flipped, pairs]), i.e. whether fp16 only flips calls that sampling already flips."""
+    def name(i):
+        return ids[i] if ids else i
+    keys = ("photos", "top1_flips", "top1_flip_rate", "top1_flip_wilson95", "verdict_flips")
+    flipped = []
+    for p in photos:
+        in_runs = [r for r, m in drift["per_photo"][p].items() if not m["top1_same"]]
+        if not in_runs:
+            continue
+        s = list(spread["per_photo"][p].values())
+        k = sum(not m["top1_same"] for m in s)
+        flipped.append({
+            "photo": p, "fp16_flipped_in": in_runs,
+            "fp32_top1": {r: name(answer_view(fp32[r][p])["top1"]) for r in drift["per_photo"][p]},
+            "fp16_top1": {r: name(answer_view(fp16[r][p])["top1"]) for r in drift["per_photo"][p]},
+            "fp32_margin": {r: m["ref_margin"] for r, m in drift["per_photo"][p].items()},
+            "fp16_margin_change": {r: m["margin_change"] for r, m in drift["per_photo"][p].items()},
+            "sampling_pairs_flipped": [k, len(s)], "sampling_flips": k > 0})
+    return {"sampling": {k: spread["pooled"][k] for k in keys}, "fp16": {k: drift["pooled"][k] for k in keys},
+            "prob_max_change": {"sampling": spread["pooled"]["prob_max_change"],
+                                "fp16": drift["pooled"]["prob_max_change"]},
+            "margin_change_abs": {"sampling": spread["pooled"]["margin_change_abs"],
+                                  "fp16": drift["pooled"]["margin_change_abs"]},
+            "fp16_flipped": flipped,
+            "fp16_flipped_photos_sampling_also_flips": [sum(f["sampling_flips"] for f in flipped), len(flipped)]}
 
 
 # ------------------------------------------------------------------------------------------------- patches
@@ -504,6 +606,149 @@ def print_summary(out: dict) -> None:
                   f"{'held' if n['top2_same'] else 'reordered'}")
 
 
+# --------------------------------------------------------------------------------------------------- seeds
+def read_answers(out: Path, s: str, index: dict[str, dict], ctx) -> tuple[dict[str, dict], list[str]]:
+    """One run's answers under one readout set, by photo sha256, read as compare reads them (a photo with an error,
+    or no readouts, is left out); and the photos whose readouts were not made from this run's patches."""
+    rdir, got, mismatch = out / "readouts", {}, []
+    rows = last_rows(rdir / f"{s}.jsonl")
+    for sha, p in index.items():
+        sr, npy = rows.get(sha), rdir / s / f"{sha}.npy"
+        if "error" in p or sr is None or "error" in sr or not npy.exists():
+            continue
+        if sr.get("input_sha256") != p["patch_sha256"]:
+            mismatch.append(p["path"])
+            continue
+        got[sha] = parity._answers(np.load(npy, allow_pickle=False), ctx.head, ctx.ref, ctx.probe)
+    return got, mismatch
+
+
+def seeds(args) -> None:
+    import graphs  # noqa: F401  (the repo, or the release under ML7_REPO, on sys.path)
+    from make_refs import Context
+
+    runs = {}
+    for spec in args.runs:
+        name, _, path = spec.partition("=")
+        if not path:
+            raise SystemExit(f"p7_answers: --runs takes name=OUT, not {spec}")
+        runs[name] = Path(path)
+    if args.base not in runs:
+        raise SystemExit(f"p7_answers: --base {args.base} is not among --runs")
+    names = [args.base] + [n for n in runs if n != args.base]
+    index = {n: last_rows(runs[n] / "patches.jsonl") for n in names}
+    rdir = runs[args.base] / "readouts"
+    sets = list(dict.fromkeys((args.sets or sorted(p.name for p in rdir.iterdir() if p.is_dir()))
+                              + [s for s in (args.fp32, args.fp16) if s]))
+    ctx = Context.load(args.checkpoint)
+    answers: dict[str, dict[str, dict]] = {s: {} for s in sets}
+    mismatch = []
+    for n in names:
+        for s in sets:
+            got, bad = read_answers(runs[n], s, index[n], ctx)
+            mismatch += [{"run": n, "set": s, "photo": p} for p in bad]
+            if got:                                               # a run without the set is left out of it
+                answers[s][n] = got
+    meta = {sha: p for n in reversed(names) for sha, p in index[n].items()}     # the base's row wins
+    order = list(dict.fromkeys(sha for n in names for sha in index[n]))
+    photos = {s: [sha for sha in order if a and all(sha in by_photo for by_photo in a.values())]
+              for s, a in answers.items()}
+    guard = next(({"method": a["method"], "threshold": float(a["threshold"])} for by_run in answers.values()
+                  for by_photo in by_run.values() for a in by_photo.values() if "method" in a), None)
+    spread = {s: sampling_spread(answers[s], photos[s]) for s in sets if len(answers[s]) > 1}
+    drift = cmp = None
+    if args.fp32 in sets and args.fp16 in sets and answers[args.fp32] and answers[args.fp16]:
+        common = [sha for sha in photos[args.fp32] if sha in set(photos[args.fp16])]
+        drift = precision_drift(answers[args.fp32], answers[args.fp16], common)
+        if len(answers[args.fp32]) > 1:
+            cmp = comparison(sampling_spread(answers[args.fp32], common), drift, answers[args.fp32],
+                             answers[args.fp16], common, ctx.class_ids)
+            for f in cmp["fp16_flipped"]:
+                f["photo"] = meta[f["photo"]]["path"]
+    same = {pair_key(a, b): k for a, b in seed_pairs(names)
+            if (k := sum(p.get("patch_sha256") is not None and index[b].get(sha, {}).get("patch_sha256")
+                         == p["patch_sha256"] for sha, p in index[a].items()))}
+
+    def g6(x):
+        return float(f"{x:.6g}")
+
+    def view(a):
+        v = answer_view(a)
+        return {"top1": ctx.class_ids[v["top1"]], "margin": g6(v["margin"]),
+                **({"refused": v["refused"]} if "refused" in v else {})}
+
+    def brief(m):
+        return {"top1_same": m["top1_same"], **({"verdict_same": m["verdict_same"]} if "verdict_same" in m else {}),
+                "prob_max_change": g6(m["prob_max_change"]), "margin_change": g6(m["margin_change"])}
+    per_photo = []
+    for sha in order:
+        in_sets = [s for s in sets if sha in set(photos[s])]
+        if not in_sets:
+            continue
+        rec = {"path": meta[sha]["path"], "role": meta[sha]["role"],
+               "sets": {s: {n: view(a[sha]) for n, a in answers[s].items()} for s in in_sets},
+               "spread": {s: {k: brief(m) for k, m in spread[s]["per_photo"][sha].items()}
+                          for s in in_sets if s in spread}}
+        if drift and sha in drift["per_photo"]:
+            rec["drift"] = {n: brief(m) for n, m in drift["per_photo"][sha].items()}
+        per_photo.append(rec)
+    out = {
+        "what": "ML-7 P7: patch sampling's spread (every pair of seeds, per readout set) against fp16's drift "
+                "(fp16 against fp32 on the same patches, per seed) (p7_answers.py seeds). Pooled rates count "
+                "photo-pairs, which share photos: their Wilson intervals are indicative only",
+        "checkpoint": _rel(args.checkpoint), "guard": guard, "base": args.base, "fp32": args.fp32, "fp16": args.fp16,
+        "runs": {n: {"out": _rel(runs[n]),
+                     "seed_key": next((p.get("seed_key", SEED_KEY) for p in index[n].values()), None),
+                     "photos": len(index[n]), "patch_errors": sum("error" in p for p in index[n].values()),
+                     "answered": {s: len(answers[s].get(n, {})) for s in sets}} for n in names},
+        "same_patches": same, "input_mismatch": mismatch,
+        "sets": {s: {"runs": list(answers[s]), "photos": len(photos[s])} for s in sets},
+        "spread": {s: {k: v for k, v in sp.items() if k != "per_photo"} for s, sp in spread.items()},
+        "drift": drift and {k: v for k, v in drift.items() if k != "per_photo"},
+        "comparison": cmp, "per_photo": per_photo,
+    }
+    args.json.parent.mkdir(parents=True, exist_ok=True)
+    args.json.write_text(dumps(out))
+    print_seeds(out)
+
+
+def _changes_line(s: dict) -> str:
+    p, m = s["prob_max_change"] or {}, s["margin_change_abs"] or {}
+    ci = s["top1_flip_wilson95"]
+    return (f"top-1 flips {s['top1_flips']}/{s['photos']}"
+            + (f" ({s['top1_flip_rate']:.2%}, 95% {ci[0]:.2%}-{ci[1]:.2%})" if ci else "")
+            + f", verdict flips {s['verdict_flips']}"
+            + (f"; prob change p50 {p['p50']:.4f} p95 {p['p95']:.4f} max {p['max']:.4f}" if p else "")
+            + (f"; |margin change| p50 {m['p50']:.4f} p95 {m['p95']:.4f} max {m['max']:.4f}" if m else ""))
+
+
+def print_seeds(out: dict) -> None:
+    print("runs: " + ", ".join(f"{n} {r['seed_key']} ({r['photos']} photos)" for n, r in out["runs"].items())
+          + f"; {len(out['input_mismatch'])} input mismatches; same patches {out['same_patches'] or 'none'}")
+    for s, sp in out["spread"].items():
+        print(f"sampling, {s}: {out['sets'][s]['photos']} photos in {', '.join(out['sets'][s]['runs'])}; "
+              f"top-1 not the same under every seed: {sp['photos_top1_not_unanimous']}")
+        for k, v in sp["pairs"].items():
+            print(f"  {k}: {_changes_line(v)}")
+        print(f"  pooled: {_changes_line(sp['pooled'])}")
+    if out["drift"]:
+        print(f"precision, {out['fp16']} vs {out['fp32']}:")
+        for n, v in out["drift"]["per_seed"].items():
+            print(f"  {n}: {_changes_line(v)}")
+        print(f"  pooled: {_changes_line(out['drift']['pooled'])}")
+    c = out["comparison"]
+    if c:
+        for side, label in (("sampling", f"sampling ({out['fp32']}, seed pairs)"), ("fp16", "fp16 (per seed)")):
+            dists = {k: c[k][side] for k in ("prob_max_change", "margin_change_abs")}
+            print(f"comparison, {label}: {_changes_line(c[side] | dists)}")
+        k, n = c["fp16_flipped_photos_sampling_also_flips"]
+        print(f"  photos fp16 flipped: {n}, of which sampling also flips {k}")
+        for f in c["fp16_flipped"]:
+            print(f"  {Path(f['photo']).name}: fp16 flipped in {', '.join(f['fp16_flipped_in'])}; fp32 top-1 "
+                  + ", ".join(f"{r} {t} by {f['fp32_margin'][r]:.3f}" for r, t in f["fp32_top1"].items())
+                  + f"; seed pairs flipped {f['sampling_pairs_flipped'][0]}/{f['sampling_pairs_flipped'][1]}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -531,8 +776,16 @@ def main() -> None:
     c.add_argument("--sets", nargs="+", default=None, help="readout sets (default: every one under OUT/readouts)")
     c.add_argument("--base", default="litert_gpu", help="the fp32 set the others are compared against")
     c.add_argument("--json", type=Path, required=True)
+    d = sub.add_parser("seeds")
+    d.add_argument("--checkpoint", type=Path, required=True)
+    d.add_argument("--runs", nargs="+", required=True, help="name=OUT per seed's run (patches --seed-key ...)")
+    d.add_argument("--base", required=True, help="the run with serving's seed (its photo order and rows)")
+    d.add_argument("--sets", nargs="+", default=None, help="readout sets (default: every one under base's readouts)")
+    d.add_argument("--fp32", default=None, help="the fp32 set fp16 is compared against (litert_gpu)")
+    d.add_argument("--fp16", default=None, help="the fp16 set (litert_gpu_fp16)")
+    d.add_argument("--json", type=Path, required=True)
     args = ap.parse_args()
-    {"patches": patches, "run": run, "compare": compare}[args.cmd](args)
+    {"patches": patches, "run": run, "compare": compare, "seeds": seeds}[args.cmd](args)
 
 
 if __name__ == "__main__":

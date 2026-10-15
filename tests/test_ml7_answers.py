@@ -203,6 +203,145 @@ class Record(unittest.TestCase):
         self.assertEqual(json.loads(pa.dumps({"per_photo": []})), {"per_photo": []})
 
 
+class AnswerChange(unittest.TestCase):
+    def test_the_reference_top1s_lead_is_followed_through_a_flip(self):
+        c = pa.answer_change(_ans([0.5, 0.3, 0.2], 0.2), _ans([0.4, 0.45, 0.15], 0.6))
+        self.assertFalse(c["top1_same"] or c["verdict_same"])
+        self.assertAlmostEqual(c["ref_margin"], 0.2)
+        self.assertAlmostEqual(c["got_margin"], 0.05)            # the got set's own top-1 (class 1) over class 0
+        self.assertAlmostEqual(c["margin_change"], -0.25)        # class 0's lead went from +0.2 to -0.05
+        self.assertAlmostEqual(c["prob_max_change"], 0.15)
+
+    def test_without_a_flip_the_margin_change_is_the_margins_difference(self):
+        c = pa.answer_change(_ans([0.6, 0.3, 0.1]), _ans([0.55, 0.35, 0.1]))
+        self.assertTrue(c["top1_same"])
+        self.assertAlmostEqual(c["margin_change"], c["got_margin"] - c["ref_margin"])
+        self.assertNotIn("verdict_same", c)
+
+    def test_pair_measures_carries_the_answer_change(self):
+        r = _readouts()
+        ref, got = _ans([0.5, 0.3, 0.2], 0.2), _ans([0.4, 0.45, 0.15], 0.6)
+        self.assertEqual({k: v for k, v in pa.pair_measures(r, r, ref, got).items()
+                          if k not in ("least_cosine", "nonfinite")}, pa.answer_change(ref, got))
+
+
+class Wilson(unittest.TestCase):
+    def test_no_events_reaches_zero_and_the_rule_of_three_region(self):
+        lo, hi = pa.wilson(0, 10)
+        self.assertEqual(lo, 0.0)
+        self.assertAlmostEqual(hi, 1.959964 ** 2 / (10 + 1.959964 ** 2), places=6)
+
+    def test_half_is_symmetric(self):
+        lo, hi = pa.wilson(5, 10)
+        self.assertAlmostEqual(lo, 0.236593, places=5)
+        self.assertAlmostEqual(lo + hi, 1.0)
+
+    def test_one_in_157(self):
+        lo, hi = pa.wilson(1, 157)
+        self.assertTrue(0.001 < lo < 0.0013 and 0.034 < hi < 0.036)
+
+    def test_nothing_counted_is_no_interval(self):
+        self.assertIsNone(pa.wilson(0, 0))
+
+
+def _fake_runs(probs_by_run: dict, scores: dict | None = None) -> dict:
+    """{run: {photo: answer}} from {run: {photo: probs}}, a guard score per (run, photo) if given."""
+    scores = scores or {}
+    return {run: {p: _ans(v, scores.get((run, p))) for p, v in by_photo.items()}
+            for run, by_photo in probs_by_run.items()}
+
+
+class SeedPairs(unittest.TestCase):
+    def test_every_pair_once_in_the_given_order(self):
+        self.assertEqual(pa.seed_pairs(["s0", "s1", "s2"]), [("s0", "s1"), ("s0", "s2"), ("s1", "s2")])
+
+    def test_one_run_has_no_pair(self):
+        self.assertEqual(pa.seed_pairs(["s0"]), [])
+
+
+class SummariseChanges(unittest.TestCase):
+    def test_counts_rate_interval_and_distributions(self):
+        ms = [pa.answer_change(_ans([0.6, 0.4], 0.2), _ans([0.6, 0.4], 0.2)),
+              pa.answer_change(_ans([0.6, 0.4], 0.2), _ans([0.4, 0.6], 0.7)),
+              pa.answer_change(_ans([0.7, 0.3], 0.2), _ans([0.8, 0.2], 0.2)),
+              pa.answer_change(_ans([0.9, 0.1], 0.2), _ans([0.9, 0.1], 0.2))]
+        s = pa.summarise_changes(ms)
+        self.assertEqual((s["photos"], s["top1_flips"], s["verdict_flips"]), (4, 1, 1))
+        self.assertEqual(s["top1_flip_rate"], 0.25)
+        self.assertEqual(s["top1_flip_wilson95"], pa.wilson(1, 4))
+        self.assertAlmostEqual(s["prob_max_change"]["max"], 0.2)
+        self.assertAlmostEqual(s["prob_max_change"]["p50"], 0.05)
+        self.assertIn("p95", s["prob_max_change"])
+        self.assertAlmostEqual(s["margin_change_abs"]["max"], 0.4)  # +0.2 lead to -0.2
+        json.dumps(s)
+
+    def test_nothing_is_an_empty_summary(self):
+        s = pa.summarise_changes([])
+        self.assertEqual((s["photos"], s["top1_flips"], s["top1_flip_rate"], s["prob_max_change"]), (0, 0, None, None))
+
+
+class SamplingSpread(unittest.TestCase):
+    RUNS = {"s0": {"a": [0.6, 0.4], "b": [0.9, 0.1], "c": [0.52, 0.48]},
+            "s1": {"a": [0.6, 0.4], "b": [0.85, 0.15], "c": [0.47, 0.53]},
+            "s2": {"a": [0.65, 0.35], "b": [0.9, 0.1], "c": [0.51, 0.49]}}
+
+    def test_every_pair_and_pooled(self):
+        sp = pa.sampling_spread(_fake_runs(self.RUNS), ["a", "b", "c"])
+        self.assertEqual(list(sp["pairs"]), ["s1_vs_s0", "s2_vs_s0", "s2_vs_s1"])
+        self.assertEqual([sp["pairs"][k]["top1_flips"] for k in sp["pairs"]], [1, 0, 1])
+        self.assertEqual((sp["pooled"]["photos"], sp["pooled"]["top1_flips"]), (9, 2))
+        self.assertEqual(sp["photos_top1_not_unanimous"], 1)        # only c
+        self.assertFalse(sp["per_photo"]["c"]["s1_vs_s0"]["top1_same"])
+        self.assertAlmostEqual(sp["per_photo"]["b"]["s1_vs_s0"]["prob_max_change"], 0.05)
+
+    def test_only_the_photos_given(self):
+        sp = pa.sampling_spread(_fake_runs(self.RUNS), ["a", "b"])
+        self.assertEqual((sp["pooled"]["photos"], sp["pooled"]["top1_flips"]), (6, 0))
+        self.assertNotIn("c", sp["per_photo"])
+
+
+class PrecisionDrift(unittest.TestCase):
+    def test_per_seed_and_pooled(self):
+        fp32 = _fake_runs({"s0": {"a": [0.6, 0.4], "c": [0.52, 0.48]}, "s1": {"a": [0.6, 0.4], "c": [0.47, 0.53]}})
+        fp16 = _fake_runs({"s0": {"a": [0.59, 0.41], "c": [0.49, 0.51]}, "s1": {"a": [0.6, 0.4], "c": [0.48, 0.52]}})
+        d = pa.precision_drift(fp32, fp16, ["a", "c"])
+        self.assertEqual(list(d["per_seed"]), ["s0", "s1"])
+        self.assertEqual((d["per_seed"]["s0"]["top1_flips"], d["per_seed"]["s1"]["top1_flips"]), (1, 0))
+        self.assertEqual((d["pooled"]["photos"], d["pooled"]["top1_flips"]), (4, 1))
+        self.assertFalse(d["per_photo"]["c"]["s0"]["top1_same"])
+
+    def test_a_run_without_the_fp16_set_is_left_out(self):
+        fp32 = _fake_runs({"s0": {"a": [0.6, 0.4]}, "s1": {"a": [0.6, 0.4]}})
+        d = pa.precision_drift(fp32, _fake_runs({"s0": {"a": [0.6, 0.4]}}), ["a"])
+        self.assertEqual(list(d["per_seed"]), ["s0"])
+
+
+class Comparison(unittest.TestCase):
+    def test_fp16s_flips_beside_samplings_and_whether_sampling_flips_them_too(self):
+        fp32 = _fake_runs({"s0": {"a": [0.6, 0.4], "c": [0.52, 0.48], "d": [0.55, 0.45]},
+                           "s1": {"a": [0.6, 0.4], "c": [0.47, 0.53], "d": [0.56, 0.44]}})
+        fp16 = _fake_runs({"s0": {"a": [0.6, 0.4], "c": [0.49, 0.51], "d": [0.49, 0.51]},
+                           "s1": {"a": [0.6, 0.4], "c": [0.47, 0.53], "d": [0.55, 0.45]}})
+        photos = ["a", "c", "d"]
+        sp, d = pa.sampling_spread(fp32, photos), pa.precision_drift(fp32, fp16, photos)
+        c = pa.comparison(sp, d, fp32, fp16, photos, ids=["Brazil", "Peru"])
+        self.assertEqual((c["sampling"]["top1_flips"], c["sampling"]["photos"]), (1, 3))
+        self.assertEqual((c["fp16"]["top1_flips"], c["fp16"]["photos"]), (2, 6))
+        self.assertEqual(c["fp16"]["top1_flip_wilson95"], pa.wilson(2, 6))
+        self.assertEqual(set(c["prob_max_change"]), {"sampling", "fp16"})
+        flipped = {f["photo"]: f for f in c["fp16_flipped"]}
+        self.assertEqual(list(flipped), ["c", "d"])
+        self.assertTrue(flipped["c"]["sampling_flips"])          # c's top-1 also changes between seeds
+        self.assertEqual(flipped["c"]["sampling_pairs_flipped"], [1, 1])
+        self.assertFalse(flipped["d"]["sampling_flips"])
+        self.assertEqual(flipped["d"]["fp32_top1"], {"s0": "Brazil", "s1": "Brazil"})
+        self.assertEqual(flipped["d"]["fp16_flipped_in"], ["s0"])
+        self.assertAlmostEqual(flipped["d"]["fp32_margin"]["s0"], 0.1)
+        self.assertAlmostEqual(flipped["d"]["fp16_margin_change"]["s0"], -0.12)
+        self.assertEqual(c["fp16_flipped_photos_sampling_also_flips"], [1, 2])
+        json.dumps(c)
+
+
 class Files(unittest.TestCase):
     def test_the_last_row_per_photo_wins(self):
         with tempfile.TemporaryDirectory() as d:
