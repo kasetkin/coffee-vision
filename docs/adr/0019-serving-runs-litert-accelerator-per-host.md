@@ -1,6 +1,6 @@
 # Serving runs both models on LiteRT, with the accelerator and each graph's precision chosen for the host
 
-Both models train on PyTorch and are converted for serving only (ML-7 D3). The live site runs the converted `.tflite` files on LiteRT (`ai-edge-litert`). Pre- and post-processing stay on torch (D5 (a)).
+Both models train on PyTorch and are converted for serving only (ML-7 D3). The live site runs the converted `.tflite` files on LiteRT (`ai-edge-litert`). Pre- and post-processing are ported to numpy, PIL and OpenCV, and training calls the same ports, so the release holds no torch (D5 (b)).
 
 The accelerator, and each graph's precision, are chosen for the host serving them, measured there against PyTorch, and named in the release, not in code. The serving host is not fixed: the site may move back to a CPU-only VM with AVX-512.
 
@@ -26,7 +26,7 @@ ONNX Runtime's CPU, OpenVINO and WebGPU cells were measured too; no CPU cell bea
 
 LiteRT stays, with XNNPACK on the CPU or whatever accelerator that host offers, but nothing carries over from `yappy` without measuring:
 
-- **Speed:** LiteRT on XNNPACK was 33% slower than PyTorch on the N100's AVX2. Whether AVX-512 changes that is unknown, so on a new host LiteRT is timed against PyTorch with ML-7 P4's photo replay. If it loses, D2's option (b), PyTorch, serves on that host.
+- **Speed:** LiteRT on XNNPACK was 33% slower than PyTorch on the N100's AVX2. Whether AVX-512 changes that is unknown, so on a new host LiteRT is timed against PyTorch with ML-7 P4's photo replay. If it loses, D2's option (b), PyTorch, serves on that host. Serving holds one runtime, so that is a code change, which the owner accepts (2026-10-15).
 - **Precision:** fp16 on the CPU needs hardware fp16 arithmetic (AVX512-FP16); without it XNNPACK runs fp32. The precisions chosen for the GPU do not carry over: each graph's precision is decided again, under D7's bars.
 - **The forms:** the GPU's placement forms are harmless on the CPU (exact, ADR 0022). Their speed cost there is measured.
 

@@ -439,7 +439,9 @@
           ported to numpy, PIL or OpenCV. Training calls the same ported functions, so the train/inference parity
           rule keeps one implementation. Each port is checked against today's torch code under D7's bars before it
           serves. The release then drops torch, torchvision, timm, segment-anything and efficientvit (about 0.8 GB,
-          about 2.5 s of boot, and torch's 0.25 GB of memory). Plan P8 and P10.</td></tr>
+          about 2.5 s of boot, and torch's 0.25 GB of memory). Plan P8 and P10. <strong>Owner 2026-10-15:</strong>
+          serving holds LiteRT only, with no switch back to PyTorch, which may take a code change; the previous release
+          is the rollback. Training keeps PyTorch for its models and calls the same ports for its processing.</td></tr>
       <tr><td class="id">D6</td><td>Where are the exported files made and kept?</td>
         <td>(a) A DVC stage exports them from the shipped checkpoints in the training environment and runs D7's
           check. The cards record each file's sha256, the exporter, the opset and the runtime version, and the
@@ -765,6 +767,12 @@
       post-processing move to numpy/PIL/OpenCV functions that training also calls, each checked against the torch
       code it replaces. Planned in P8 and P10. The branch is to be pushed and development continues on it; no PR or
       merge for now.</div>
+    <div><div class="when">2026-10-15</div>Owner, on plan P8's review: going back to PyTorch may take a code change, so
+      serving holds one runtime and no switch; training keeps PyTorch for its models and calls the shared ports for its
+      processing. P8 rewritten: the port mapping (PIL, numpy, OpenCV) at each torch call site, serving without torch,
+      the backend moved from <code>analysis/</code>, the manifest's fields, the accelerator's directory, the warm-up
+      photo (the smoke fixture) and the tests' environment (<code>ai-edge-litert</code> in training's
+      <code>dev</code> group). ADR 0019 now says D5 (b).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

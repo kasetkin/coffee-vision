@@ -170,8 +170,8 @@
         <td>local, owner</td><td>no</td></tr>
       <tr><td class="id">P7</td><td>The main track, LiteRT on Vulkan (D2): why fp16 overflows and exact export
         forms against it, the graphs whole on the GPU, serving-shaped measurements</td><td>local, <code>yappy</code></td><td>no</td></tr>
-      <tr><td class="id">P8</td><td>LiteRT in the serving code, behind a release switch; warmed at worker boot
-        (ADR 0021)</td><td>local</td><td>no: tests only</td></tr>
+      <tr><td class="id">P8</td><td>LiteRT in the serving code, no runtime switch; the processing ported off torch and shared with
+        training (D5 (b)); warmed at worker boot (ADR 0021)</td><td>local</td><td>no: tests only</td></tr>
       <tr><td class="id">P9</td><td>The converted files in the release route: export, forms, manifest, DVC</td><td>local</td><td>no</td></tr>
       <tr><td class="id">P10</td><td>The release's environment and the service unit: the wheel, the GPU's render
         node, memory</td><td>local, smoke-test unit on <code>yappy</code></td><td>no</td></tr>
@@ -651,52 +651,98 @@
       photos.</span></li>
   </ol>
 
-  <h2>12. P8 &mdash; LiteRT in the serving code, behind a release switch</h2>
+  <h2>12. P8 &mdash; LiteRT in the serving code, and the processing shared with training</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D2, D4, D7 decided</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15; revised 2026-10-15 (no runtime switch; the ports shared with training)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D2, D4, D5, D7 decided</span></span></div>
   </div>
   <p>LiteRT is the serving runtime (ADR 0019); the accelerator and each graph's precision are the host's. On
     <code>yappy</code>: <code>litert_gpu_split</code>, the encoder and decoder in fp32 and DINOv3 at batch 8 in fp16,
     on the GPU through WebGPU on Vulkan. The site may move back to a CPU-only VM with AVX-512. There, LiteRT runs on
-    XNNPACK at precisions measured on that host, or PyTorch serves if LiteRT loses to it (P4: LiteRT on XNNPACK was
-    33% slower on the N100). Training stays on PyTorch (D3). Torch leaves the release (D5 (b), owner 2026-10-15):
-    pre- and post-processing move to numpy, PIL or OpenCV, in functions that training calls too.</p>
+    XNNPACK at precisions measured on that host (P4: LiteRT on XNNPACK was 33% slower than PyTorch on the N100).</p>
+  <p><b>One runtime in serving, no switch</b> (owner 2026-10-15): going back to PyTorch may take a code change. The
+    webapp runs LiteRT only. The PyTorch model path stays in <code>coffeecv</code> for training, the CLI and the
+    deploy gates' reference, and the previous release is the rollback (ADR 0008). <b>Training keeps PyTorch for its
+    models</b> (D3) <b>and calls the same ports for its processing</b> (D5 (b), owner 2026-10-15): one implementation
+    of each step, so <code>CODING_STANDARDS.md</code>'s train/inference parity rule holds.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>A LiteRT backend in <code>coffeecv</code>:</b>
+    <li><span class="box"></span><span><b>The ports</b> (D5 (b)), each replacing the torch code at its call site, in
+      training and serving alike:
       <ul>
-        <li>It loads the release's three files on the accelerator the release names (GPU or CPU), each at the
-          precision its manifest gives (P9). Nothing about the accelerator is fixed in code.</li>
-        <li>It runs the encoder and decoder for <code>/crop</code> and <code>/classify</code>, and DINOv3 on the
-          40 patches as 5 calls of 8.</li>
-        <li>It fails loudly when the named accelerator does not load. On the GPU it never falls back to the CPU
-          quietly: the delegate's report is read, not <code>is_fully_accelerated()</code> (ADR 0020).</li>
-        <li>A setting in <code>release.env</code> chooses LiteRT or PyTorch, so a release can go back to PyTorch
-          without a code change. Training never takes it.</li>
+        <li><b>The eval transform</b> (<code>transforms.build_eval_transform</code>): PIL's bilinear resize, called
+          directly, since torchvision calls the same PIL resize on a PIL image; then ToTensor and Normalize in
+          numpy float32. Training's eval patches wrap the array in a tensor. Its augmentations stay on
+          torchvision.</li>
+        <li><b>The segmenter's input</b> (EfficientViT-SAM's <code>transform</code>, called in
+          <code>BeanSegmenter._encode</code>): SamResize is already PIL and is called directly; Normalize and the
+          corner pad to 1024 in numpy.</li>
+        <li><b>The box prompt</b> (<code>apply_boxes_torch</code> in <code>_decode</code>): numpy.</li>
+        <li><b>The mask</b> (<code>postprocess_masks</code> and the threshold in <code>_upsample</code>): bilinear to
+          the padded 1024 frame, cropped, bilinear to the photo, thresholded at 0, with OpenCV's
+          <code>cv2.resize(INTER_LINEAR)</code> (5.0.0, already in both environments).</li>
+        <li><b>The head and its softmax</b> (<code>forward_with_embeddings</code>'s Linear on DINOv3's readout):
+          numpy.</li>
+      </ul>
+      Each port is checked against the torch code it replaces, on the fixtures and P7's 782 answer-check photos.
+      The resize, normalisation, pad, box and head are expected bit-identical; the mask within D7's IoU bar, since
+      float rounding can move a pixel at the threshold. <code>segment_beans.py</code> is a dependency of six DVC
+      stages. Where the ports are bit-identical for a stage, one stage is rerun byte-identical and the rest are
+      recorded with <code>dvc commit</code>, as ML-6 P6 did. <b>If the mask's port moves stored mask bits, the
+      owner hears how many before any stage is rerun or committed.</b></span></li>
+    <li><span class="box"></span><span><b>Serving imports no torch.</b> <code>webapp.app</code> and what it imports
+      (<code>infer</code>'s serving functions, <code>config</code>, the photo decoder in <code>dataset</code>,
+      <code>segment_beans</code>) are split from their torch-using neighbours or import torch lazily. The PyTorch model
+      loading stays, for training and the CLI. A test imports <code>webapp.app</code> with torch made
+      unimportable.</span></li>
+    <li><span class="box"></span><span><b>The LiteRT backend in <code>coffeecv</code></b>, moved from
+      <code>analysis/ml7_gpu/run_litert.py</code> with its tests:
+      <ul>
+        <li>It reads the converted model's manifest beside the checkpoint, checks each file's sha256, and loads
+          each graph on the manifest's accelerator at its precision: <code>GpuOptions(enforce_f32=True)</code> for an
+          fp32 graph on the GPU. LiteRT's options are passed in full, since the <code>hardware_accel=</code>
+          shortcut sets one CPU thread.</li>
+        <li><b>On the GPU,</b> LiteRT is given a directory holding <code>libLiteRt.so</code> and only the WebGPU
+          accelerator library (P2: with the wheel's whole directory it may load another accelerator). The release
+          builds that directory (P10) and the service names it in its environment, with
+          <code>VK_ICD_FILENAMES</code>.</li>
+        <li>It fails the load when the accelerator does not load, or when the delegate's own report, read from
+          LiteRT's stderr, puts any op of a GPU graph on the CPU. Not <code>is_fully_accelerated()</code>
+          (ADR 0020).</li>
+        <li>The encoder and decoder sit behind the segmenter's <code>predict_mask</code>, so <code>/crop</code>,
+          <code>/classify</code> and training's segcrop stage keep one <code>segment_and_crop</code>. DINOv3 runs the 40
+          patches as 5 calls of 8 (the file's batch); the head and softmax run in numpy on its readout. TTA is
+          refused: the frozen DINOv3 model is served without it.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><b>Pre- and post-processing without torch</b> (D5 (b)): port the eval
-      transform, the segmenter's resize and normalisation, the mask's upsampling and threshold, and the guard and
-      head arithmetic to numpy, PIL or OpenCV. Training and serving both call the ports, so
-      <code>CODING_STANDARDS.md</code>'s train/inference parity rule keeps one implementation. Each port is checked
-      against the torch code it replaces on the fixtures and the answer-check photos, under D7's bars, and serving
-      imports no torch.</span></li>
+    <li><span class="box"></span><span><b>The manifest</b>, which P8 reads and P9 writes: a format id; the checkpoint's
+      sha256; per graph (encoder, decoder, DINOv3), its file, sha256, input and output shapes, batch, precision,
+      accelerator and forms; the head (weight, bias and readout, as an <code>.npz</code>, since serving cannot read
+      the <code>.pt</code>) and its sha256; and the torch, litert-torch and ai-edge-litert versions. P8's tests write
+      manifests for P7's files.</span></li>
     <li><span class="box"></span><span><b>Warm-up at worker boot</b> (ADR 0021):
       <ul>
-        <li>the worker runs a fixed photo, shipped with the release, through the whole <code>/crop</code> and
-          <code>/classify</code> path before it accepts a request;</li>
+        <li>the worker runs the deploy's smoke fixture (<code>webapp/deploy/fixtures.txt</code>, role
+          <code>smoke</code>) through the whole <code>/crop</code> and <code>/classify</code> path before it accepts
+          a request. The deploy keeps fixtures outside a release today, so P10 ships this one photo in it;</li>
         <li>it logs the boot's duration, peak RSS and <code>MemAvailable</code>;</li>
-        <li>a failure or a non-finite output fails the boot.</li>
+        <li>an error or a non-finite output fails the boot.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span><b>Tests,</b> in the training venv, with <code>ai-edge-litert</code> 2.3.0 added
+      to its <code>dev</code> group, test-only (about 60 MB; the webapp's lock changes in P10):
+      <ul>
+        <li>each port against its torch code;</li>
+        <li>the backend on the devcontainer's CPU (XNNPACK, all fp32) against PyTorch on the fixtures, within
+          D7's fp32 bars, with P7's files from DVC (<code>artifacts/tflite/encoder.tflite</code>,
+          <code>p7_whole/</code>, <code>p7_fp16w/</code>);</li>
+        <li>the manifest's refusals (a wrong sha256, a missing graph); a GPU load refused on a split, from a recorded
+          delegate log; the warm-up and its failure; serving without torch.</li>
       </ul>
-      The PyTorch path gets the same warm-up.</span></li>
-    <li><span class="box"></span><span><b>Tests:</b> the backend on the devcontainer's CPU (LiteRT's XNNPACK, all
-      fp32) against PyTorch on the fixtures, within D7's fp32 bars; the switch; the accelerator setting; the warm-up
-      and its failure. The GPU's checks are P11's.</span></li>
+      The GPU's checks are P11's.</span></li>
   </ol>
 
   <h2>13. P9 &mdash; The converted files in the release route</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P8 (the manifest's fields)</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8 (it reads the manifest whose fields P8 lists)</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><b>An export step</b> for the shipped checkpoint, run in the pinned conversion
@@ -704,8 +750,7 @@
       <ul>
         <li>the encoder and decoder with <code>litert_gpu_forms</code>;</li>
         <li>DINOv3 b8 with <code>litert_gpu_forms</code> and <code>fp16_forms</code> (ADR 0022);</li>
-        <li>a manifest: each file's sha256, its forms, its precision, the accelerator it is for, and the torch
-          and litert-torch versions.</li>
+        <li>the manifest P8 lists, with the head's <code>.npz</code>.</li>
       </ul>
       The export code that serving needs moves from <code>analysis/</code> into the repo's tooling, with its
       tests.</span></li>
@@ -807,8 +852,10 @@
   <ul>
     <li>Everything in the ticket's "Out of scope".</li>
     <li>Any change to <code>coffeecv</code>, the webapp, its environment or its service unit outside P8&ndash;P12,
-      which the owner's choices (D2, D4, D7) opened; and any change to the training lock or to training's PyTorch
-      path (D3).</li>
+      which the owner's choices (D2, D4, D5, D7) opened. Training's models stay on PyTorch (D3); its eval
+      transform and the segmenter's pre- and post-processing become P8's shared ports, and its augmentations are
+      untouched. The training lock changes only by <code>ai-edge-litert</code> in its <code>dev</code> group, for
+      P8's tests.</li>
     <li>LiteRT on OpenCL, unless D10's condition is met (P6).</li>
     <li>OpenVINO's own runtime without ORT. It reaches the same driver as ORT's OpenVINO cell.</li>
     <li>Upgrading <code>yappy</code>'s Mesa or NEO driver.</li>
@@ -1362,6 +1409,13 @@
           Every object of the listing was found on the remote (699, none missing), per
           <code>docs/agents/dvc.md</code>.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>P8 reviewed against the ticket before it starts. Owner: no runtime switch
+      (going back to PyTorch may take a code change), and training calls the same ports. P8 rewritten from the serving
+      code's own torch call sites: the ports, serving without torch, the backend from <code>run_litert.py</code>, the
+      manifest's fields (P9 writes them), the GPU's accelerator directory, the smoke fixture as the warm-up photo,
+      and the tests in training's venv with <code>ai-edge-litert</code> in its <code>dev</code> group. Found while
+      reading: <code>segment_beans.py</code> is a dependency of six DVC stages, so a mask port that moves stored bits
+      stops for the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
