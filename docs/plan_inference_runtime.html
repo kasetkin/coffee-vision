@@ -653,7 +653,7 @@
 
   <h2>12. P8 &mdash; LiteRT in the serving code, and the processing shared with training</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15; revised 2026-10-15 (no runtime switch; the ports shared with training)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-15: <code>c434d11</code>, <code>0f7617a</code>, <code>a9c6480</code>; every port and the backend within D7 on the CPU and on <code>yappy</code>'s GPU; one question for the owner (the DVC stages, below)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D2, D4, D5, D7 decided</span></span></div>
   </div>
   <p>LiteRT is the serving runtime (ADR 0019); the accelerator and each graph's precision are the host's. On
@@ -666,7 +666,7 @@
     models</b> (D3) <b>and calls the same ports for its processing</b> (D5 (b), owner 2026-10-15): one implementation
     of each step, so <code>CODING_STANDARDS.md</code>'s train/inference parity rule holds.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>The ports</b> (D5 (b)), each replacing the torch code at its call site, in
+    <li><span class="box done"></span><span><b>The ports</b> (D5 (b)), each replacing the torch code at its call site, in
       training and serving alike:
       <ul>
         <li><b>The eval transform</b> (<code>transforms.build_eval_transform</code>): PIL's bilinear resize, called
@@ -689,12 +689,12 @@
       stages. Where the ports are bit-identical for a stage, one stage is rerun byte-identical and the rest are
       recorded with <code>dvc commit</code>, as ML-6 P6 did. <b>If the mask's port moves stored mask bits, the
       owner hears how many before any stage is rerun or committed.</b></span></li>
-    <li><span class="box"></span><span><b>Serving imports no torch.</b> <code>webapp.app</code> and what it imports
+    <li><span class="box done"></span><span><b>Serving imports no torch.</b> <code>webapp.app</code> and what it imports
       (<code>infer</code>'s serving functions, <code>config</code>, the photo decoder in <code>dataset</code>,
       <code>segment_beans</code>) are split from their torch-using neighbours or import torch lazily. The PyTorch model
       loading stays, for training and the CLI. A test imports <code>webapp.app</code> with torch made
       unimportable.</span></li>
-    <li><span class="box"></span><span><b>The LiteRT backend in <code>coffeecv</code></b>, moved from
+    <li><span class="box done"></span><span><b>The LiteRT backend in <code>coffeecv</code></b>, moved from
       <code>analysis/ml7_gpu/run_litert.py</code> with its tests:
       <ul>
         <li>It reads the converted model's manifest beside the checkpoint, checks each file's sha256, and loads
@@ -713,12 +713,12 @@
           patches as 5 calls of 8 (the file's batch); the head and softmax run in numpy on its readout. TTA is
           refused: the frozen DINOv3 model is served without it.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><b>The manifest</b>, which P8 reads and P9 writes: a format id; the checkpoint's
+    <li><span class="box done"></span><span><b>The manifest</b>, which P8 reads and P9 writes: a format id; the checkpoint's
       sha256; per graph (encoder, decoder, DINOv3), its file, sha256, input and output shapes, batch, precision,
       accelerator and forms; the head (weight, bias and readout, as an <code>.npz</code>, since serving cannot read
       the <code>.pt</code>) and its sha256; and the torch, litert-torch and ai-edge-litert versions. P8's tests write
       manifests for P7's files.</span></li>
-    <li><span class="box"></span><span><b>Warm-up at worker boot</b> (ADR 0021):
+    <li><span class="box done"></span><span><b>Warm-up at worker boot</b> (ADR 0021):
       <ul>
         <li>the worker runs the deploy's smoke fixture (<code>webapp/deploy/fixtures.txt</code>, role
           <code>smoke</code>) through the whole <code>/crop</code> and <code>/classify</code> path before it accepts
@@ -726,7 +726,7 @@
         <li>it logs the boot's duration, peak RSS and <code>MemAvailable</code>;</li>
         <li>an error or a non-finite output fails the boot.</li>
       </ul></span></li>
-    <li><span class="box"></span><span><b>Tests,</b> in the training venv, with <code>ai-edge-litert</code> 2.3.0 added
+    <li><span class="box done"></span><span><b>Tests,</b> in the training venv, with <code>ai-edge-litert</code> 2.3.0 added
       to its <code>dev</code> group, test-only (about 60 MB; the webapp's lock changes in P10):
       <ul>
         <li>each port against its torch code;</li>
@@ -738,6 +738,37 @@
       </ul>
       The GPU's checks are P11's.</span></li>
   </ol>
+  <h3>Results</h3>
+  <ul>
+    <li><b>The ports</b> (<code>coffeecv/model_io.py</code>): the eval patch, the segmenter's resize, normalisation and
+      pad, and the box and point prompts are bit-identical to the torch code they replace, on synthetic images and the
+      fixtures; the segmenter's input on all 782 answer-check photos too. No ordering of a numpy bilinear reproduced
+      torch's <code>F.interpolate</code> bits, so the mask's port is OpenCV's, held to D7.</li>
+    <li><b>The mask's port on P7's 782 answer-check photos</b> (584 true negatives; <code>p8_ports.py</code>,
+      <code>p8_ports.json</code>), same machine, same decoder outputs: 165 photos have 1&ndash;17 pixels moved (104 of
+      them negatives); no D18 fallback and no D4 box changes. Two IoUs fall under 0.999 (0.981, 0.9988): tiny masks on
+      negatives that fall back either way, where one pixel is the difference. <b>So the port moves stored mask bits,
+      and the six DVC stages that depend on <code>segment_beans.py</code> are left as they are, for the owner.</b></li>
+    <li><b>LiteRT on the devcontainer's CPU</b> (XNNPACK, fp32, P7's served files), the 13 fixtures
+      (<code>p8_compare.py</code>, <code>p8_compare.json</code>): no verdict, top-1 or box change against PyTorch; the
+      largest probability change 6e-7. About as fast as PyTorch there (7.5 s against 8.4 s a photo).</li>
+    <li><b>On <code>yappy</code>'s GPU</b> (<code>p8_yappy.py</code>, <code>p8_yappy.json</code>): this branch's
+      <code>webapp.app</code> with torch unimportable, in a torch-free venv of the webapp's pins plus
+      <code>ai-edge-litert</code> (350 MB, against today's release venv of 1.2 GB), outside the live service, with the
+      site serving beside it.
+      <ul>
+        <li>Every graph wholly on the GPU by the delegate's report; the process mapped Intel's Vulkan driver and LiteRT's
+          WebGPU library, never Mesa's CPU renderer.</li>
+        <li>The boot: 19.7 s, of which the warm-up 10.3 s (ADR 0021 expected 15&ndash;20 s); peak RSS 1.8 GB.</li>
+        <li>The 13 fixtures, two passes: <code>/classify</code> median 9.3 s (8.2&ndash;11.2 s), <code>/crop</code>
+          2.0 s, against about 38 s today.</li>
+        <li>Against PyTorch: no verdict or top-1 change; the largest probability change 0.004 (D7's fp16 bar: 0.05);
+          every mask's area and fallback identical; the guard's score within 1.5e-10.</li>
+      </ul></li>
+    <li><b>gunicorn 26.2.0 cannot time out a booting worker:</b> its heartbeat file starts with a wall-clock mtime, far
+      ahead of the monotonic clock it is compared with, so <code>--timeout 30</code> starts at the first heartbeat, after
+      the app's import and warm-up.</li>
+  </ul>
 
   <h2>13. P9 &mdash; The converted files in the release route</h2>
   <div class="fields">
@@ -780,6 +811,12 @@
           working. A shader cache they cannot write is no loss: P7's cold start did not change with it.</li>
       </ul>
       Tried first in the smoke-test unit (R6).</span></li>
+    <li><span class="box"></span><span><b>The release's files</b> (<code>webapp/deploy/release_manifest.py</code>):
+      the converted model's directory in (a DVC directory, which the deploy has not shipped before); out go the
+      modules serving no longer opens (<code>backbones</code>, <code>dataset</code>, <code>dino_classifier</code>,
+      <code>model</code>, <code>transforms</code>), the vendored EfficientViT and the pretrained <code>.pt</code>
+      weights. <code>tests/test_release_manifest.py</code>'s app trace then runs again (P8 left it waiting for a
+      converted directory). The warm-up photo ships in the release.</span></li>
     <li><span class="box"></span><span><b>Memory</b> (R5): the worker's boot and a replay measured with torch
       imported. P7 measured 3.6 GB of <code>MemAvailable</code> for the cell and 0.25 GB for torch's imports. The
       deploy preflight's 5 GB is checked against them; the worker should then hold no torch at all.</span></li>
@@ -1416,6 +1453,12 @@
       and the tests in training's venv with <code>ai-edge-litert</code> in its <code>dev</code> group. Found while
       reading: <code>segment_beans.py</code> is a dependency of six DVC stages, so a mask port that moves stored bits
       stops for the owner.</div>
+    <div><div class="when">2026-10-15</div>P8 done (Results in &sect;12). The ports, the LiteRT backend, serving
+      without torch and the warm-up, with tests; the full suite passes. On <code>yappy</code>'s GPU, this branch's app
+      boots in 19.7 s and answers <code>/classify</code> in a median 9.3 s, within D7 of PyTorch, outside the live
+      service. The mask's port moves 1&ndash;17 pixels on 165 of 782 photos, so the DVC stages that depend on
+      <code>segment_beans.py</code> wait for the owner. Not deployed: P9&ndash;P11 are not built, and the deploy takes
+      <code>origin/main</code> only.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

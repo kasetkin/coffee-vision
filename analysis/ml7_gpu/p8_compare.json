@@ -1,0 +1,1294 @@
+{
+ "answers": {
+  "torch": {
+   "PXL_20260825_193325070.jpg": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.992637038230896,
+     "Kenya": 0.003107210621237755,
+     "Guatemala": 0.0017834088066592813,
+     "Ethiopia": 0.0014967590104788542,
+     "CostaRica": 0.0008013010956346989,
+     "Peru": 9.743303235154599e-05,
+     "Indonesia": 3.927886064047925e-05,
+     "Vietnam": 2.997090996359475e-05,
+     "Rwanda": 6.871412097098073e-06,
+     "Brazil": 9.390752211402287e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.404,
+    "box": [
+     347,
+     1027,
+     2288,
+     2022
+    ]
+   },
+   "PXL_20260809_130838005.jpg": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.9787915945053101,
+     "Colombia": 0.01289319433271885,
+     "Kenya": 0.005795671138912439,
+     "CostaRica": 0.0014262314653024077,
+     "Guatemala": 0.0009268393623642623,
+     "Peru": 8.805868856143206e-05,
+     "Brazil": 4.444802107173018e-05,
+     "Vietnam": 1.624207288841717e-05,
+     "Indonesia": 1.2495676855905913e-05,
+     "Rwanda": 5.257594239083119e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     51,
+     38,
+     3978,
+     2996
+    ]
+   },
+   "PIC_20260809_201618.JPG": {
+    "verdict": "predicted",
+    "top1": "Kenya",
+    "probs": {
+     "Kenya": 0.9916881322860718,
+     "Guatemala": 0.0034561180509626865,
+     "Colombia": 0.00336768408305943,
+     "Brazil": 0.0007809837115928531,
+     "Ethiopia": 0.0003976253792643547,
+     "Vietnam": 0.00010621194815030321,
+     "Indonesia": 9.615891030989587e-05,
+     "CostaRica": 6.439757999032736e-05,
+     "Peru": 3.37094024871476e-05,
+     "Rwanda": 8.986485227069352e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "IMG_6258D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.9971281886100769,
+     "Guatemala": 0.0015955310082063079,
+     "Ethiopia": 0.0009856424294412136,
+     "CostaRica": 0.00017662103346083313,
+     "Kenya": 6.927474896656349e-05,
+     "Vietnam": 1.9198003428755328e-05,
+     "Peru": 1.5690489817643538e-05,
+     "Indonesia": 4.793798325408716e-06,
+     "Brazil": 3.5605910397862317e-06,
+     "Rwanda": 1.3874598607799271e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.42,
+    "box": [
+     317,
+     816,
+     2354,
+     2079
+    ]
+   },
+   "PXL_20260825_195610599.jpg": {
+    "verdict": "predicted",
+    "top1": "CostaRica",
+    "probs": {
+     "CostaRica": 0.9787203669548035,
+     "Colombia": 0.011053219437599182,
+     "Guatemala": 0.008439160883426666,
+     "Brazil": 0.000882533029653132,
+     "Vietnam": 0.0002960717829409987,
+     "Indonesia": 0.00022863142658025026,
+     "Ethiopia": 0.00020035463967360556,
+     "Kenya": 7.159771485021338e-05,
+     "Peru": 5.6385564676020294e-05,
+     "Rwanda": 5.181764208828099e-05
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.3974,
+    "box": [
+     358,
+     1003,
+     2276,
+     2023
+    ]
+   },
+   "PXL_20260807_072408172.jpg": {
+    "verdict": "predicted",
+    "top1": "Guatemala",
+    "probs": {
+     "Guatemala": 0.9519480466842651,
+     "Kenya": 0.014295367524027824,
+     "Colombia": 0.014150346629321575,
+     "Brazil": 0.011047663167119026,
+     "Ethiopia": 0.005799663253128529,
+     "CostaRica": 0.0013467258540913463,
+     "Peru": 0.0013350883964449167,
+     "Indonesia": 6.020323053235188e-05,
+     "Rwanda": 1.05428707684041e-05,
+     "Vietnam": 6.308919637376675e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.1544,
+    "box": [
+     957,
+     1215,
+     1118,
+     1662
+    ]
+   },
+   "PXL_20260809_135958599.jpg": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.9844399690628052,
+     "Ethiopia": 0.013591659255325794,
+     "Kenya": 0.0010927992407232523,
+     "Guatemala": 0.000450854713562876,
+     "CostaRica": 0.00039241433842107654,
+     "Vietnam": 1.3184455383452587e-05,
+     "Rwanda": 1.1988663572992664e-05,
+     "Indonesia": 6.284750270424411e-06,
+     "Colombia": 6.23126311438682e-07,
+     "Peru": 4.7472593678321573e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     50,
+     38,
+     3980,
+     2996
+    ]
+   },
+   "IMG_6291D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.9810947179794312,
+     "Guatemala": 0.016544576734304428,
+     "CostaRica": 0.00164203776512295,
+     "Kenya": 0.0005653992993757129,
+     "Colombia": 8.500814146827906e-05,
+     "Vietnam": 4.528273711912334e-05,
+     "Ethiopia": 1.8218246623291634e-05,
+     "Rwanda": 2.7052885798184434e-06,
+     "Peru": 1.0496568165763165e-06,
+     "Indonesia": 9.600134944776073e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.4152,
+    "box": [
+     316,
+     1011,
+     2344,
+     2072
+    ]
+   },
+   "PIC_20260809_202937.JPG": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.8121461868286133,
+     "Guatemala": 0.06359263509511948,
+     "CostaRica": 0.05412262678146362,
+     "Indonesia": 0.043851494789123535,
+     "Vietnam": 0.018059594556689262,
+     "Brazil": 0.0026000032667070627,
+     "Colombia": 0.0025896108709275723,
+     "Kenya": 0.001913651591166854,
+     "Rwanda": 0.0010347624775022268,
+     "Peru": 8.937625534599647e-05
+    },
+    "guard": 1.21228289565e-10,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "PXL_20260827_185019541.jpg": {
+    "verdict": "predicted",
+    "top1": "Vietnam",
+    "probs": {
+     "Vietnam": 0.999597430229187,
+     "CostaRica": 0.00020054956257808954,
+     "Rwanda": 0.00015559392340946943,
+     "Indonesia": 2.9244070901768282e-05,
+     "Kenya": 1.5720370356575586e-05,
+     "Brazil": 6.454210392803361e-07,
+     "Peru": 4.816116074835008e-07,
+     "Colombia": 2.0185488835977594e-07,
+     "Ethiopia": 1.9453698030247324e-07,
+     "Guatemala": 1.0029848951376152e-08
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.8834,
+    "box": [
+     423,
+     57,
+     3477,
+     2906
+    ]
+   },
+   "PIC_20260830_200129.JPG": {
+    "verdict": "predicted",
+    "top1": "Indonesia",
+    "probs": {
+     "Indonesia": 0.9372707605361938,
+     "Ethiopia": 0.05738213658332825,
+     "Brazil": 0.0030967474449425936,
+     "Rwanda": 0.0014215026749297976,
+     "Guatemala": 0.0007292500813491642,
+     "CostaRica": 6.181123171700165e-05,
+     "Peru": 2.2095202439231798e-05,
+     "Vietnam": 1.5285604604287073e-05,
+     "Colombia": 4.381208782433532e-07,
+     "Kenya": 4.3311235153886685e-10
+    },
+    "guard": 1.5060235848e-09,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "PXL_20260924_123010061.jpg": {
+    "verdict": "predicted",
+    "top1": "Peru",
+    "probs": {
+     "Peru": 0.9959837794303894,
+     "Colombia": 0.002850156044587493,
+     "Guatemala": 0.0008054951322264969,
+     "Rwanda": 0.00020132598001509905,
+     "Indonesia": 0.00013708524056710303,
+     "Brazil": 1.0559117981756572e-05,
+     "Ethiopia": 6.0402262533898465e-06,
+     "Vietnam": 2.5944043500203406e-06,
+     "Kenya": 2.5550446025590645e-06,
+     "CostaRica": 2.0302070424804697e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     38,
+     51,
+     2996,
+     3978
+    ]
+   },
+   "PIC_20260924_150009.JPG": {
+    "verdict": "predicted",
+    "top1": "Rwanda",
+    "probs": {
+     "Rwanda": 0.9974784851074219,
+     "Guatemala": 0.0008149122004397213,
+     "Indonesia": 0.0006281835376285017,
+     "Peru": 0.0004914415767416358,
+     "Vietnam": 0.00020653630781453103,
+     "Brazil": 0.0001718816056381911,
+     "Colombia": 9.243337990483269e-05,
+     "Kenya": 9.005265746964142e-05,
+     "Ethiopia": 1.8072638340527192e-05,
+     "CostaRica": 8.034883649088442e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   }
+  },
+  "litert_cpu": {
+   "PXL_20260825_193325070.jpg": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.9926369786262512,
+     "Kenya": 0.00310723134316504,
+     "Guatemala": 0.0017834367463365197,
+     "Ethiopia": 0.0014967727474868298,
+     "CostaRica": 0.0008012892794795334,
+     "Peru": 9.743448754306883e-05,
+     "Indonesia": 3.927865327568725e-05,
+     "Vietnam": 2.9970877221785486e-05,
+     "Rwanda": 6.871464393043425e-06,
+     "Brazil": 9.390789159624546e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.404,
+    "box": [
+     347,
+     1027,
+     2288,
+     2022
+    ]
+   },
+   "PXL_20260809_130838005.jpg": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.9787914156913757,
+     "Colombia": 0.012893348932266235,
+     "Kenya": 0.005795688834041357,
+     "CostaRica": 0.0014262355398386717,
+     "Guatemala": 0.0009268514695577323,
+     "Peru": 8.805999823380262e-05,
+     "Brazil": 4.444781370693818e-05,
+     "Vietnam": 1.624205833650194e-05,
+     "Indonesia": 1.24957732623443e-05,
+     "Rwanda": 5.2575751396943815e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     51,
+     38,
+     3978,
+     2996
+    ]
+   },
+   "PIC_20260809_201618.JPG": {
+    "verdict": "predicted",
+    "top1": "Kenya",
+    "probs": {
+     "Kenya": 0.9916881322860718,
+     "Guatemala": 0.003456202568486333,
+     "Colombia": 0.0033676873426884413,
+     "Brazil": 0.0007810013485141098,
+     "Ethiopia": 0.000397631898522377,
+     "Vietnam": 0.00010621268302202225,
+     "Indonesia": 9.615944145480171e-05,
+     "CostaRica": 6.439864228013903e-05,
+     "Peru": 3.371020284248516e-05,
+     "Rwanda": 8.986716238723602e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "IMG_6258D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.9971281886100769,
+     "Guatemala": 0.0015955427661538124,
+     "Ethiopia": 0.0009856538381427526,
+     "CostaRica": 0.00017662259051576257,
+     "Kenya": 6.927519279997796e-05,
+     "Vietnam": 1.9198329027858563e-05,
+     "Peru": 1.5690728105255403e-05,
+     "Indonesia": 4.793864263774594e-06,
+     "Brazil": 3.5607258723757695e-06,
+     "Rwanda": 1.3874865771867917e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.42,
+    "box": [
+     317,
+     816,
+     2354,
+     2079
+    ]
+   },
+   "PXL_20260825_195610599.jpg": {
+    "verdict": "predicted",
+    "top1": "CostaRica",
+    "probs": {
+     "CostaRica": 0.9787200093269348,
+     "Colombia": 0.011053335852921009,
+     "Guatemala": 0.00843927450478077,
+     "Brazil": 0.0008825364639051259,
+     "Vietnam": 0.00029606936732307076,
+     "Indonesia": 0.00022863250342197716,
+     "Ethiopia": 0.00020035661873407662,
+     "Kenya": 7.159724918892607e-05,
+     "Peru": 5.638655420625582e-05,
+     "Rwanda": 5.181777669349685e-05
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.3974,
+    "box": [
+     358,
+     1003,
+     2276,
+     2023
+    ]
+   },
+   "PXL_20260807_072408172.jpg": {
+    "verdict": "predicted",
+    "top1": "Guatemala",
+    "probs": {
+     "Guatemala": 0.9519486427307129,
+     "Kenya": 0.014295287430286407,
+     "Colombia": 0.014150132425129414,
+     "Brazil": 0.011047511361539364,
+     "Ethiopia": 0.005799624603241682,
+     "CostaRica": 0.0013467061799019575,
+     "Peru": 0.0013350837398320436,
+     "Indonesia": 6.020280488883145e-05,
+     "Rwanda": 1.0542900781729259e-05,
+     "Vietnam": 6.308864158199867e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.1544,
+    "box": [
+     957,
+     1215,
+     1118,
+     1662
+    ]
+   },
+   "PXL_20260809_135958599.jpg": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.9844397306442261,
+     "Ethiopia": 0.0135917067527771,
+     "Kenya": 0.0010928140254691243,
+     "Guatemala": 0.00045085427700541914,
+     "CostaRica": 0.0003924129414372146,
+     "Vietnam": 1.318460090260487e-05,
+     "Rwanda": 1.1988827282038983e-05,
+     "Indonesia": 6.284882601903519e-06,
+     "Colombia": 6.231317684068927e-07,
+     "Peru": 4.747300295093737e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     50,
+     38,
+     3980,
+     2996
+    ]
+   },
+   "IMG_6291D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.9810949563980103,
+     "Guatemala": 0.016544407233595848,
+     "CostaRica": 0.0016420262400060892,
+     "Kenya": 0.0005653937114402652,
+     "Colombia": 8.500736294081435e-05,
+     "Vietnam": 4.528297722572461e-05,
+     "Ethiopia": 1.821800287871156e-05,
+     "Rwanda": 2.7052872155763907e-06,
+     "Peru": 1.0496626146050403e-06,
+     "Indonesia": 9.600237262930023e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.4152,
+    "box": [
+     316,
+     1011,
+     2344,
+     2072
+    ]
+   },
+   "PIC_20260809_202937.JPG": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.8121465444564819,
+     "Guatemala": 0.06359255313873291,
+     "CostaRica": 0.054122548550367355,
+     "Indonesia": 0.04385155811905861,
+     "Vietnam": 0.01805945299565792,
+     "Brazil": 0.0026000135112553835,
+     "Colombia": 0.002589575247839093,
+     "Kenya": 0.0019136440241709352,
+     "Rwanda": 0.0010347629431635141,
+     "Peru": 8.937650272855535e-05
+    },
+    "guard": 1.21225837294e-10,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "PXL_20260827_185019541.jpg": {
+    "verdict": "predicted",
+    "top1": "Vietnam",
+    "probs": {
+     "Vietnam": 0.9995972514152527,
+     "CostaRica": 0.0002005518472287804,
+     "Rwanda": 0.00015559665916953236,
+     "Indonesia": 2.9244800316519104e-05,
+     "Kenya": 1.572042310726829e-05,
+     "Brazil": 6.454368985941983e-07,
+     "Peru": 4.81628717352578e-07,
+     "Colombia": 2.0185566995678528e-07,
+     "Ethiopia": 1.9453959509974084e-07,
+     "Guatemala": 1.0030175801034602e-08
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 0.8834,
+    "box": [
+     423,
+     57,
+     3477,
+     2906
+    ]
+   },
+   "PIC_20260830_200129.JPG": {
+    "verdict": "predicted",
+    "top1": "Indonesia",
+    "probs": {
+     "Indonesia": 0.9372703433036804,
+     "Ethiopia": 0.05738241225481033,
+     "Brazil": 0.003096755128353834,
+     "Rwanda": 0.00142151047475636,
+     "Guatemala": 0.0007292652735486627,
+     "CostaRica": 6.181096250656992e-05,
+     "Peru": 2.2095347958384082e-05,
+     "Vietnam": 1.5285504559869878e-05,
+     "Colombia": 4.381313374324236e-07,
+     "Kenya": 4.3311057518202745e-10
+    },
+    "guard": 1.50597399356e-09,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   },
+   "PXL_20260924_123010061.jpg": {
+    "verdict": "predicted",
+    "top1": "Peru",
+    "probs": {
+     "Peru": 0.9959837794303894,
+     "Colombia": 0.002850142540410161,
+     "Guatemala": 0.0008054987411014736,
+     "Rwanda": 0.00020132548524998128,
+     "Indonesia": 0.0001370862009935081,
+     "Brazil": 1.0558956091699656e-05,
+     "Ethiopia": 6.040237622073619e-06,
+     "Vietnam": 2.5943782020476647e-06,
+     "Kenya": 2.555034598117345e-06,
+     "CostaRica": 2.030215853210393e-07
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     38,
+     51,
+     2996,
+     3978
+    ]
+   },
+   "PIC_20260924_150009.JPG": {
+    "verdict": "predicted",
+    "top1": "Rwanda",
+    "probs": {
+     "Rwanda": 0.9974783658981323,
+     "Guatemala": 0.0008149213972501457,
+     "Indonesia": 0.0006281828973442316,
+     "Peru": 0.0004914263263344765,
+     "Vietnam": 0.00020653553656302392,
+     "Brazil": 0.00017188195488415658,
+     "Colombia": 9.243191016139463e-05,
+     "Kenya": 9.005266474559903e-05,
+     "Ethiopia": 1.807252920116298e-05,
+     "CostaRica": 8.034889106056653e-06
+    },
+    "guard": 9.35762296884e-14,
+    "mask_area_frac": 1.0,
+    "box": [
+     63,
+     47,
+     4930,
+     3698
+    ]
+   }
+  },
+  "litert_gpu": {
+   "IMG_6258D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.9966066479682922,
+     "Guatemala": 0.0018557157600298524,
+     "Ethiopia": 0.0011913070920854807,
+     "CostaRica": 0.0001945889089256525,
+     "Kenya": 9.422978473594412e-05,
+     "Vietnam": 2.5189612642861903e-05,
+     "Peru": 1.9301985958009027e-05,
+     "Indonesia": 5.635859452013392e-06,
+     "Brazil": 5.5910381888679694e-06,
+     "Rwanda": 1.725348170111829e-06
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "IMG_6291D.HEIC": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.983654797077179,
+     "Guatemala": 0.014194635674357414,
+     "CostaRica": 0.0014747465029358864,
+     "Kenya": 0.0005455643404275179,
+     "Colombia": 6.514791311929002e-05,
+     "Vietnam": 4.424999133334495e-05,
+     "Ethiopia": 1.6317633708240464e-05,
+     "Rwanda": 2.621253315737704e-06,
+     "Peru": 1.0136965329365921e-06,
+     "Indonesia": 9.092758546103141e-07
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PIC_20260809_201618.JPG": {
+    "verdict": "predicted",
+    "top1": "Kenya",
+    "probs": {
+     "Kenya": 0.9924540519714355,
+     "Guatemala": 0.0032173197250813246,
+     "Colombia": 0.002695760689675808,
+     "Brazil": 0.0008912814082577825,
+     "Ethiopia": 0.00041838083416223526,
+     "Vietnam": 0.00011063423880841583,
+     "Indonesia": 9.668122947914526e-05,
+     "CostaRica": 7.129181176424026e-05,
+     "Peru": 3.42636885761749e-05,
+     "Rwanda": 1.0334780199627858e-05
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PIC_20260809_202937.JPG": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.8151780962944031,
+     "Guatemala": 0.06270547211170197,
+     "CostaRica": 0.054409582167863846,
+     "Indonesia": 0.041471436619758606,
+     "Vietnam": 0.0184941403567791,
+     "Brazil": 0.0028055848088115454,
+     "Colombia": 0.001983510795980692,
+     "Kenya": 0.0018708035349845886,
+     "Rwanda": 0.001005082973279059,
+     "Peru": 7.635743531864136e-05
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PIC_20260830_200129.JPG": {
+    "verdict": "predicted",
+    "top1": "Indonesia",
+    "probs": {
+     "Indonesia": 0.9346283674240112,
+     "Ethiopia": 0.059447962790727615,
+     "Brazil": 0.0036500722635537386,
+     "Rwanda": 0.0014392470475286245,
+     "Guatemala": 0.0007319749565795064,
+     "CostaRica": 6.278172077145427e-05,
+     "Peru": 2.2963497031014413e-05,
+     "Vietnam": 1.620738476049155e-05,
+     "Colombia": 4.4435464019443316e-07,
+     "Kenya": 4.2380640663530755e-10
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PIC_20260924_150009.JPG": {
+    "verdict": "predicted",
+    "top1": "Rwanda",
+    "probs": {
+     "Rwanda": 0.9976927638053894,
+     "Guatemala": 0.0007242363062687218,
+     "Indonesia": 0.000587769434787333,
+     "Peru": 0.0004338519647717476,
+     "Vietnam": 0.00019331896328367293,
+     "Brazil": 0.00017762204515747726,
+     "Kenya": 8.800061914371327e-05,
+     "Colombia": 7.591298344777897e-05,
+     "Ethiopia": 1.9063989384449087e-05,
+     "CostaRica": 7.371135325229261e-06
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260807_072408172.jpg": {
+    "verdict": "predicted",
+    "top1": "Guatemala",
+    "probs": {
+     "Guatemala": 0.9559646844863892,
+     "Kenya": 0.013289498165249825,
+     "Colombia": 0.011251209303736687,
+     "Brazil": 0.010814700275659561,
+     "Ethiopia": 0.005971281323581934,
+     "CostaRica": 0.001373318606056273,
+     "Peru": 0.0012674105819314718,
+     "Indonesia": 4.9812653742264956e-05,
+     "Rwanda": 1.169944789580768e-05,
+     "Vietnam": 6.306284831225639e-06
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260809_130838005.jpg": {
+    "verdict": "predicted",
+    "top1": "Ethiopia",
+    "probs": {
+     "Ethiopia": 0.982110321521759,
+     "Colombia": 0.009561988525092602,
+     "Kenya": 0.005874519236385822,
+     "CostaRica": 0.001454672310501337,
+     "Guatemala": 0.0008405441185459495,
+     "Peru": 8.0212063039653e-05,
+     "Brazil": 4.5581320591736585e-05,
+     "Vietnam": 1.5716585039626807e-05,
+     "Indonesia": 1.0960871804854833e-05,
+     "Rwanda": 5.415338364400668e-06
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260809_135958599.jpg": {
+    "verdict": "predicted",
+    "top1": "Brazil",
+    "probs": {
+     "Brazil": 0.9854675531387329,
+     "Ethiopia": 0.012460502795875072,
+     "Kenya": 0.001184568041935563,
+     "Guatemala": 0.00046421881415881217,
+     "CostaRica": 0.00039015774382278323,
+     "Vietnam": 1.3137371752236504e-05,
+     "Rwanda": 1.2949732081324328e-05,
+     "Indonesia": 5.824106210639002e-06,
+     "Colombia": 4.681209588852653e-07,
+     "Peru": 4.613198996139545e-07
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260825_193325070.jpg": {
+    "verdict": "predicted",
+    "top1": "Colombia",
+    "probs": {
+     "Colombia": 0.991552472114563,
+     "Kenya": 0.003775661112740636,
+     "Guatemala": 0.0018409381154924631,
+     "Ethiopia": 0.0016814876580610871,
+     "CostaRica": 0.0009440019493922591,
+     "Peru": 0.00011439429363235831,
+     "Indonesia": 4.372025796328671e-05,
+     "Vietnam": 3.7907193473074585e-05,
+     "Rwanda": 8.379094651900232e-06,
+     "Brazil": 1.0946320117000141e-06
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260825_195610599.jpg": {
+    "verdict": "predicted",
+    "top1": "CostaRica",
+    "probs": {
+     "CostaRica": 0.9800402522087097,
+     "Colombia": 0.01144772581756115,
+     "Guatemala": 0.006824237294495106,
+     "Brazil": 0.0008229375816881657,
+     "Vietnam": 0.00029488030122593045,
+     "Indonesia": 0.00022539147175848484,
+     "Ethiopia": 0.00017815970932133496,
+     "Kenya": 6.208179547684267e-05,
+     "Peru": 5.723793219658546e-05,
+     "Rwanda": 4.7138080844888464e-05
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260827_185019541.jpg": {
+    "verdict": "predicted",
+    "top1": "Vietnam",
+    "probs": {
+     "Vietnam": 0.9995900392532349,
+     "CostaRica": 0.00020511788898147643,
+     "Rwanda": 0.00015947110659908503,
+     "Indonesia": 2.8673777705989778e-05,
+     "Kenya": 1.5119489034987055e-05,
+     "Brazil": 7.068255172271165e-07,
+     "Peru": 5.036138759351161e-07,
+     "Ethiopia": 2.196040185253878e-07,
+     "Colombia": 1.5813066056580283e-07,
+     "Guatemala": 9.667657785428219e-09
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   },
+   "PXL_20260924_123010061.jpg": {
+    "verdict": "predicted",
+    "top1": "Peru",
+    "probs": {
+     "Peru": 0.9962618947029114,
+     "Colombia": 0.002578723942860961,
+     "Guatemala": 0.0007738569984212518,
+     "Rwanda": 0.0002304936060681939,
+     "Indonesia": 0.0001308703504037112,
+     "Brazil": 1.2042821253999136e-05,
+     "Ethiopia": 6.884154572617263e-06,
+     "Vietnam": 2.585842139524175e-06,
+     "Kenya": 2.4093840238492703e-06,
+     "CostaRica": 1.9574540033318044e-07
+    },
+    "guard": null,
+    "mask_area_frac": null,
+    "box": null
+   }
+  }
+ },
+ "against_torch": {
+  "litert_cpu": {
+   "photos": 13,
+   "verdict_changes": 0,
+   "top1_changes": 0,
+   "box_changes": 0,
+   "max_prob_change_p95": 4.887580871582029e-07,
+   "max_prob_change_max": 5.960464477539062e-07,
+   "rows": [
+    {
+     "photo": "PXL_20260825_193325070.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 5.960464477539063e-08,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.404,
+      0.404
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260809_130838005.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 1.7881393432617188e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PIC_20260809_201618.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 8.451752364635468e-08,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "IMG_6258D.HEIC",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 1.1757947504520416e-08,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.42,
+      0.42
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260825_195610599.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 3.5762786865234375e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.3974,
+      0.3974
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260807_072408172.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 5.960464477539062e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.1544,
+      0.1544
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260809_135958599.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 2.384185791015625e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "IMG_6291D.HEIC",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 2.384185791015625e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.4152,
+      0.4152
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PIC_20260809_202937.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 3.5762786865234375e-07,
+     "guard": [
+      1.21225837294e-10,
+      1.21228289565e-10
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260827_185019541.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 1.7881393432617188e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      0.8834,
+      0.8834
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PIC_20260830_200129.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 4.172325134277344e-07,
+     "guard": [
+      1.50597399356e-09,
+      1.5060235848e-09
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PXL_20260924_123010061.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 1.3504177331924438e-08,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    },
+    {
+     "photo": "PIC_20260924_150009.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 1.1920928955078125e-07,
+     "guard": [
+      9.35762296884e-14,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      1.0,
+      1.0
+     ],
+     "box_same": true
+    }
+   ]
+  },
+  "litert_gpu": {
+   "photos": 13,
+   "verdict_changes": 0,
+   "top1_changes": 0,
+   "box_changes": 0,
+   "max_prob_change_p95": 0.0036053786054253568,
+   "max_prob_change_max": 0.0040166378021240234,
+   "rows": [
+    {
+     "photo": "PXL_20260825_193325070.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0010845661163330078,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.404
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260809_130838005.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0033312058076262474,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PIC_20260809_201618.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0007659196853637695,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "IMG_6258D.HEIC",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.000521540641784668,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.42
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260825_195610599.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0016149235889315605,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.3974
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260807_072408172.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0040166378021240234,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.1544
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260809_135958599.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0011311564594507217,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "IMG_6291D.HEIC",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0025600790977478027,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.4152
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PIC_20260809_202937.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.003031909465789795,
+     "guard": [
+      null,
+      1.21228289565e-10
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260827_185019541.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 7.3909759521484375e-06,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      0.8834
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PIC_20260830_200129.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.002642393112182617,
+     "guard": [
+      null,
+      1.5060235848e-09
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PXL_20260924_123010061.jpg",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.00027811527252197266,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    },
+    {
+     "photo": "PIC_20260924_150009.JPG",
+     "verdict_same": true,
+     "top1_same": true,
+     "max_prob_change": 0.0002142786979675293,
+     "guard": [
+      null,
+      9.35762296884e-14
+     ],
+     "mask_area_frac": [
+      null,
+      1.0
+     ],
+     "box_same": null
+    }
+   ],
+   "note": "box, mask and guard not in the web response: compared from the run's request log (mask_area_frac identical on all 13, seg_fallback false on all 13, probe score within 1.5e-10)"
+  }
+ }
+}

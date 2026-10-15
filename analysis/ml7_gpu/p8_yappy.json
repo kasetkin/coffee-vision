@@ -1,0 +1,1826 @@
+{
+ "boot": {
+  "import_s": 20.36,
+  "photo": "PXL_20260825_193325070.jpg",
+  "warm_up_s": 10.33,
+  "verdict": "predicted",
+  "boot_s": 19.73,
+  "peak_rss_mb": 1828.1,
+  "mem_available_mb": 2411.0
+ },
+ "build": {
+  "model_sha": "6aeca508f8d03090",
+  "model_dvc_md5": null,
+  "backbone_sha": "73cec8be7427c865",
+  "litert": {
+   "manifest_sha": "0ff95813efecfbc1",
+   "encoder": "gpu fp32",
+   "decoder": "gpu fp32",
+   "dino": "gpu fp16"
+  },
+  "ood_reference_sha": "bd0362fe62a560f6",
+  "ood_probe_sha": "8f7e4aaeacae79ac",
+  "ood_threshold": 0.5,
+  "tta": false,
+  "crop_method": "segment",
+  "segmenter_sha": "9bc2f87bd23d6e6d",
+  "seg_decoder_sha": "4b21ed7beeb20b12",
+  "code": {
+   "commit": null,
+   "dirty": null,
+   "source": "unknown"
+  }
+ },
+ "reports": {
+  "encoder": {
+   "gpu_environment": true,
+   "refused": [],
+   "gpu_ops": null,
+   "cpu_ops": null,
+   "all_on_gpu": true
+  },
+  "decoder": {
+   "gpu_environment": true,
+   "refused": [],
+   "gpu_ops": null,
+   "cpu_ops": null,
+   "all_on_gpu": true
+  },
+  "dino": {
+   "gpu_environment": true,
+   "refused": [],
+   "gpu_ops": null,
+   "cpu_ops": null,
+   "all_on_gpu": true
+  }
+ },
+ "maps": {
+  "libvulkan_intel": true,
+  "libvulkan_lvp": false,
+  "webgpu_accelerator": true
+ },
+ "manifest": {
+  "encoder": {
+   "file": "encoder.tflite",
+   "accelerator": "gpu",
+   "precision": "fp32",
+   "batch": 1
+  },
+  "decoder": {
+   "file": "decoder.tflite",
+   "accelerator": "gpu",
+   "precision": "fp32",
+   "batch": 1
+  },
+  "dino": {
+   "file": "dino_b8.tflite",
+   "accelerator": "gpu",
+   "precision": "fp16",
+   "batch": 8
+  }
+ },
+ "rows": [
+  {
+   "pass": 0,
+   "photo": "IMG_6258D.HEIC",
+   "/crop": {
+    "status": 200,
+    "s": 2.474
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.805
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.9966066479682922
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0018557157600298524
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.0011913070920854807
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0001945889089256525
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 9.422978473594412e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 2.5189612642861903e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 1.9301985958009027e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 5.635859452013392e-06
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 5.5910381888679694e-06
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.725348170111829e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "IMG_6291D.HEIC",
+   "/crop": {
+    "status": 200,
+    "s": 2.455
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.949
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.983654797077179
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.014194635674357414
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0014747465029358864
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.0005455643404275179
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 6.514791311929002e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 4.424999133334495e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 1.6317633708240464e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 2.621253315737704e-06
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 1.0136965329365921e-06
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 9.092758546103141e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PIC_20260809_201618.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.193
+   },
+   "/classify": {
+    "status": 200,
+    "s": 10.261
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.9924540519714355
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0032173197250813246
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.002695760689675808
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0008912814082577825
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.00041838083416223526
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00011063423880841583
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 9.668122947914526e-05
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 7.129181176424026e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 3.42636885761749e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.0334780199627858e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PIC_20260809_202937.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.171
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.379
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.8151780962944031
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.06270547211170197
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.054409582167863846
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.041471436619758606
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.0184941403567791
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0028055848088115454
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.001983510795980692
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.0018708035349845886
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.001005082973279059
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 7.635743531864136e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PIC_20260830_200129.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.147
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.541
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.9346283674240112
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.059447962790727615
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0036500722635537386
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.0014392470475286245
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007319749565795064
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 6.278172077145427e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 2.2963497031014413e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.620738476049155e-05
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 4.4435464019443316e-07
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 4.2380640663530755e-10
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PIC_20260924_150009.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.224
+   },
+   "/classify": {
+    "status": 200,
+    "s": 10.125
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.9976927638053894
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007242363062687218
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.000587769434787333
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.0004338519647717476
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00019331896328367293
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.00017762204515747726
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 8.800061914371327e-05
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 7.591298344777897e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 1.9063989384449087e-05
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 7.371135325229261e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260807_072408172.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.004
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.173
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.9559646844863892
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.013289498165249825
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.011251209303736687
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.010814700275659561
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.005971281323581934
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.001373318606056273
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.0012674105819314718
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 4.9812653742264956e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.169944789580768e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 6.306284831225639e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260809_130838005.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 1.995
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.186
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.982110321521759
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.009561988525092602
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.005874519236385822
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.001454672310501337
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0008405441185459495
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 8.0212063039653e-05
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 4.5581320591736585e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.5716585039626807e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 1.0960871804854833e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 5.415338364400668e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260809_135958599.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 1.982
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.261
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.9854675531387329
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.012460502795875072
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.001184568041935563
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.00046421881415881217
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.00039015774382278323
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.3137371752236504e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.2949732081324328e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 5.824106210639002e-06
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 4.681209588852653e-07
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 4.613198996139545e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260825_193325070.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 1.998
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.415
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.991552472114563
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.003775661112740636
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0018409381154924631
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.0016814876580610871
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0009440019493922591
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.00011439429363235831
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 4.372025796328671e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 3.7907193473074585e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 8.379094651900232e-06
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 1.0946320117000141e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260825_195610599.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.005
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.379
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.9800402522087097
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.01144772581756115
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.006824237294495106
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0008229375816881657
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00029488030122593045
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.00022539147175848484
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.00017815970932133496
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 6.208179547684267e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 5.723793219658546e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 4.7138080844888464e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260827_185019541.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.026
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.336
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.9995900392532349
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.00020511788898147643
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.00015947110659908503
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 2.8673777705989778e-05
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 1.5119489034987055e-05
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 7.068255172271165e-07
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 5.036138759351161e-07
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 2.196040185253878e-07
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 1.5813066056580283e-07
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 9.667657785428219e-09
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 0,
+   "photo": "PXL_20260924_123010061.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.006
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.297
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.9962618947029114
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.002578723942860961
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007738569984212518
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.0002304936060681939
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.0001308703504037112
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 1.2042821253999136e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 6.884154572617263e-06
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 2.585842139524175e-06
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 2.4093840238492703e-06
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 1.9574540033318044e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "IMG_6258D.HEIC",
+   "/crop": {
+    "status": 200,
+    "s": 2.469
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.253
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.9966066479682922
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0018557157600298524
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.0011913070920854807
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0001945889089256525
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 9.422978473594412e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 2.5189612642861903e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 1.9301985958009027e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 5.635859452013392e-06
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 5.5910381888679694e-06
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.725348170111829e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "IMG_6291D.HEIC",
+   "/crop": {
+    "status": 200,
+    "s": 2.488
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.517
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.983654797077179
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.014194635674357414
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0014747465029358864
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.0005455643404275179
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 6.514791311929002e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 4.424999133334495e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 1.6317633708240464e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 2.621253315737704e-06
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 1.0136965329365921e-06
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 9.092758546103141e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PIC_20260809_201618.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.231
+   },
+   "/classify": {
+    "status": 200,
+    "s": 11.231
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.9924540519714355
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0032173197250813246
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.002695760689675808
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0008912814082577825
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.00041838083416223526
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00011063423880841583
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 9.668122947914526e-05
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 7.129181176424026e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 3.42636885761749e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.0334780199627858e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PIC_20260809_202937.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.183
+   },
+   "/classify": {
+    "status": 200,
+    "s": 10.016
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.8151780962944031
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.06270547211170197
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.054409582167863846
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.041471436619758606
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.0184941403567791
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0028055848088115454
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.001983510795980692
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.0018708035349845886
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.001005082973279059
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 7.635743531864136e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PIC_20260830_200129.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.176
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.966
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.9346283674240112
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.059447962790727615
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0036500722635537386
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.0014392470475286245
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007319749565795064
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 6.278172077145427e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 2.2963497031014413e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.620738476049155e-05
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 4.4435464019443316e-07
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 4.2380640663530755e-10
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PIC_20260924_150009.JPG",
+   "/crop": {
+    "status": 200,
+    "s": 2.214
+   },
+   "/classify": {
+    "status": 200,
+    "s": 10.196
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.9976927638053894
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007242363062687218
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.000587769434787333
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.0004338519647717476
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00019331896328367293
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.00017762204515747726
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 8.800061914371327e-05
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 7.591298344777897e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 1.9063989384449087e-05
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 7.371135325229261e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260807_072408172.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.0
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.181
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.9559646844863892
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.013289498165249825
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.011251209303736687
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.010814700275659561
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.005971281323581934
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.001373318606056273
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.0012674105819314718
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 4.9812653742264956e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.169944789580768e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 6.306284831225639e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260809_130838005.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.006
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.412
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.982110321521759
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.009561988525092602
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.005874519236385822
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.001454672310501337
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0008405441185459495
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 8.0212063039653e-05
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 4.5581320591736585e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.5716585039626807e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 1.0960871804854833e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 5.415338364400668e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260809_135958599.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.005
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.275
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.9854675531387329
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.012460502795875072
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.001184568041935563
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.00046421881415881217
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.00039015774382278323
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 1.3137371752236504e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 1.2949732081324328e-05
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 5.824106210639002e-06
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 4.681209588852653e-07
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 4.613198996139545e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260825_193325070.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 1.988
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.441
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.991552472114563
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 0.003775661112740636
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0018409381154924631
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.0016814876580610871
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.0009440019493922591
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.00011439429363235831
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 4.372025796328671e-05
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 3.7907193473074585e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 8.379094651900232e-06
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 1.0946320117000141e-06
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260825_195610599.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.007
+   },
+   "/classify": {
+    "status": 200,
+    "s": 8.419
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.9800402522087097
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.01144772581756115
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.006824237294495106
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 0.0008229375816881657
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.00029488030122593045
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.00022539147175848484
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 0.00017815970932133496
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 6.208179547684267e-05
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 5.723793219658546e-05
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 4.7138080844888464e-05
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260827_185019541.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.043
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.347
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 0.9995900392532349
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 0.00020511788898147643
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.00015947110659908503
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 2.8673777705989778e-05
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 1.5119489034987055e-05
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 7.068255172271165e-07
+     },
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 5.036138759351161e-07
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 2.196040185253878e-07
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 1.5813066056580283e-07
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 9.667657785428219e-09
+     }
+    ],
+    "verdict": "predicted"
+   }
+  },
+  {
+   "pass": 1,
+   "photo": "PXL_20260924_123010061.jpg",
+   "/crop": {
+    "status": 200,
+    "s": 2.009
+   },
+   "/classify": {
+    "status": 200,
+    "s": 9.332
+   },
+   "classify": {
+    "ranked": [
+     {
+      "id": "Peru",
+      "label": "Peru",
+      "score": 0.9962618947029114
+     },
+     {
+      "id": "Colombia",
+      "label": "Colombia",
+      "score": 0.002578723942860961
+     },
+     {
+      "id": "Guatemala",
+      "label": "Guatemala",
+      "score": 0.0007738569984212518
+     },
+     {
+      "id": "Rwanda",
+      "label": "Rwanda",
+      "score": 0.0002304936060681939
+     },
+     {
+      "id": "Indonesia",
+      "label": "Indonesia",
+      "score": 0.0001308703504037112
+     },
+     {
+      "id": "Brazil",
+      "label": "Brazil",
+      "score": 1.2042821253999136e-05
+     },
+     {
+      "id": "Ethiopia",
+      "label": "Ethiopia",
+      "score": 6.884154572617263e-06
+     },
+     {
+      "id": "Vietnam",
+      "label": "Vietnam",
+      "score": 2.585842139524175e-06
+     },
+     {
+      "id": "Kenya",
+      "label": "Kenya",
+      "score": 2.4093840238492703e-06
+     },
+     {
+      "id": "CostaRica",
+      "label": "CostaRica",
+      "score": 1.9574540033318044e-07
+     }
+    ],
+    "verdict": "predicted"
+   }
+  }
+ ]
+}
