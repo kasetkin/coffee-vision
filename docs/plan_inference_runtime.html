@@ -1137,6 +1137,31 @@
       </ul>
       Finer slices do not close the gap, and they cost fp16's gain. The remaining error is not in long sums over
       channels. The fp16 encoder stops here: the segmenter stays in fp32.</div>
+    <div><div class="when">2026-10-15</div>P7, fp16's drift against patch sampling's own spread (owner: "run A and B
+      as recommended"; <code>p7_seeds_gpu.json</code>, <code>p7_seeds_torch.json</code>, <code>3357d49</code>). The
+      157 served photos, with patches cut at seed keys [42, 0], the serving default, and [42, 1], [42, 2], [42, 3].
+      PyTorch ran locally; fp32 and fp16 ran on <code>yappy</code>'s GPU. No errors; fp32 on the GPU gives exactly
+      PyTorch's spread.
+      <ul>
+        <li><b>Patch sampling alone, fp32</b>, over every pair of seeds:
+          <ul>
+            <li>top-1 flips 8 of 942 (0.85%, 95% 0.43&ndash;1.67%), no verdict flip;</li>
+            <li>class-probability change median 0.019, p95 0.099, max 0.25;</li>
+            <li>2 photos change answer between seeds.</li>
+          </ul></li>
+        <li><b>fp16 against fp32, at each seed:</b>
+          <ul>
+            <li>top-1 flips 3 of 628 (0.48%, 95% 0.16&ndash;1.39%), no verdict flip;</li>
+            <li>class-probability change median 0.0029, p95 0.023, max 0.040: about one sixth of sampling's at the
+              median, a quarter at p95.</li>
+          </ul></li>
+        <li><b>Which photos fp16 flips:</b> 2, both close calls at that draw (fp32 margins 0.075, 0.031 and 0.028),
+          neither of them one that sampling flips in fp32. Under fp16, sampling's own flip rate rises to 15 of 942
+          (1.59%, 95% 0.97&ndash;2.61%), against 0.85% in fp32. The intervals overlap.</li>
+        <li><b>Reading:</b> fp16's drift is a fraction of the variation patch sampling already puts into every
+          answer. It adds a little instability on close calls on top of it. Whether DINOv3 may serve in fp16 is the
+          owner's decision (D4).</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
