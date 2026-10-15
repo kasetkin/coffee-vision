@@ -1,12 +1,14 @@
-# ML-7 P1: the LiteRT conversion, apart from the training lock (ADR 0007; plan P1); the CPU check runs from
-# ../run_litert. litert-torch requires torch below 2.14 and training is on 2.14, so the converter gets its own
-# torch here (ticket 2.3); the readouts are compared with torch 2.14's, which would show a difference.
-#     uv lock --project analysis/ml7_gpu/convert_litert
-#     UV_PROJECT_ENVIRONMENT=analysis/ml7_gpu/convert_litert/.venv uv sync --locked --project analysis/ml7_gpu/convert_litert
+# The LiteRT conversion environment (ticket ML-7 D6, plan P9): coffeecv.export_litert's `convert` step runs here,
+# from the dvc.yaml stage litert_export. Apart from the training lock (ADR 0007): litert-torch requires torch below
+# 2.14 and training is on 2.14, so the converter gets its own torch (ticket 2.3). The converted files are checked
+# against training's torch 2.14 under D7 (export_litert's `finish` step, in the training environment).
+# Moved from analysis/ml7_gpu/convert_litert/ in P9, unchanged; P1-P7 converted with this lock.
+#     uv lock --project convert
+#     UV_PROJECT_ENVIRONMENT=convert/.venv uv sync --locked --project convert
 # Set UV_PROJECT_ENVIRONMENT every time: the devcontainer points it at the training venv, so a plain
 # `uv sync --project` here would rewrite the training environment to this lock (it did once, in P1).
 [project]
-name = "ml7-convert-litert"
+name = "coffee-cv-convert"
 version = "0"
 requires-python = "==3.12.*"
 dependencies = [

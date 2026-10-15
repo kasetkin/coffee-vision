@@ -263,12 +263,15 @@ def write_manifest(model_dir: Path, graphs: dict[str, dict], head: dict, checkpo
     return out
 
 
-def load_models(model_dir: Path, runtime_dir: Path | None = None) -> LiteRtModels:
-    """Every graph the manifest names, on its accelerator at its precision, checked (load_manifest, open_graph)."""
+def load_models(model_dir: Path, runtime_dir: Path | None = None, on_cpu: bool = False) -> LiteRtModels:
+    """Every graph the manifest names, on its accelerator at its precision, checked (load_manifest, open_graph).
+    `on_cpu` puts every graph on XNNPACK at fp32 whatever the manifest names, for checks off the serving host
+    (export_litert's finish): exact forms, so an fp16 graph's file at fp32 is held to the fp32 bars."""
     m = load_manifest(model_dir)
     graphs, reports = {}, {}
     for name in GRAPHS:
-        graphs[name], reports[name] = open_graph(model_dir, m["graphs"][name], runtime_dir)
+        spec = {**m["graphs"][name], "accelerator": "cpu", "precision": "fp32"} if on_cpu else m["graphs"][name]
+        graphs[name], reports[name] = open_graph(model_dir, spec, runtime_dir)
     with np.load(model_dir / m["head"]["file"]) as z:
         head = {"weight": z["weight"].astype(np.float32), "bias": z["bias"].astype(np.float32)}
     seg = m["segmenter"]

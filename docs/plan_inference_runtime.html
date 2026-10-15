@@ -748,7 +748,9 @@
       <code>p8_ports.json</code>), same machine, same decoder outputs: 165 photos have 1&ndash;17 pixels moved (104 of
       them negatives); no D18 fallback and no D4 box changes. Two IoUs fall under 0.999 (0.981, 0.9988): tiny masks on
       negatives that fall back either way, where one pixel is the difference. <b>So the port moves stored mask bits,
-      and the six DVC stages that depend on <code>segment_beans.py</code> are left as they are, for the owner.</b></li>
+      and the six DVC stages that depend on <code>segment_beans.py</code> are left as they are, for the owner.</b>
+      <b>Owner 2026-10-15: rerun them at the next retraining;</b> until then <code>dvc status</code> shows them
+      changed.</li>
     <li><b>LiteRT on the devcontainer's CPU</b> (XNNPACK, fp32, P7's served files), the 13 fixtures
       (<code>p8_compare.py</code>, <code>p8_compare.json</code>): no verdict, top-1 or box change against PyTorch; the
       largest probability change 6e-7. About as fast as PyTorch there (7.5 s against 8.4 s a photo).</li>

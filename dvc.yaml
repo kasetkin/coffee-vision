@@ -446,3 +446,26 @@ stages:
             - seg_mask_select
       outs:
         - data/seg_masks_ml5/${item}
+
+  # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
+  # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the
+  # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
+  # accelerator and precision per graph (ADR 0019): gpu_split is yappy's; a new host is measured, then named here.
+  litert_export:
+    foreach: [allrigs_dino3b16_segxl0v3_country_s42]
+    do:
+      cmd: >-
+        convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${item}.pt --profile gpu_split
+        && python -m coffeecv.export_litert finish --checkpoint models/${item}.pt --profile gpu_split
+      deps:
+        - coffeecv/export_litert.py
+        - coffeecv/litert_forms.py
+        - coffeecv/litert.py
+        - convert/uv.lock
+        - models/${item}.pt
+        - models/${item}.json
+        - models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+        - models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+        - models/seg/xl0_v3.pt
+      outs:
+        - models/${item}.litert

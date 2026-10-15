@@ -1,4 +1,4 @@
-"""ML-7 P1: the export rewrites (analysis/ml7_gpu/graphs.py) and the parity measures (analysis/ml7_gpu/parity.py).
+"""ML-7 P1: the export rewrites (coffeecv/litert_forms.py, analysis/ml7_gpu/graphs.py before P9) and the parity measures (analysis/ml7_gpu/parity.py).
 Each rewrite must be the same model at float rounding (plan P1; ticket §4), and the measures must say what
 ticket D7 means (owner 2026-10-13: the cosine bar holds for every patch). Random weights, no real data.
 
@@ -30,7 +30,9 @@ def _load(name):
     return mod
 
 
-graphs = _load("graphs")
+from coffeecv import litert_forms as graphs  # noqa: E402 -- analysis/ml7_gpu/graphs.py until ML-7 P9
+
+sys.modules["graphs"] = graphs     # parity and export_onnx import it by that name
 parity = _load("parity")
 export_onnx = _load("export_onnx")
 
