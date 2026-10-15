@@ -166,7 +166,8 @@ class Fp16Forms(unittest.TestCase):
             want = ln(x)
             plain = _layer_norm_as_lowered(x.half(), ln.weight.half(), ln.bias.half(), ln.eps).float()
             self.assertGreater(_rel_err(plain, want), 0.5)       # the variance inf: the token becomes the bias
-            self.assertEqual(graphs.fp16_forms(ln), {"linear_attention": 0, "attention": 0, "layer_norm": 1})
+            self.assertEqual(graphs.fp16_forms(ln), {"linear_attention": 0, "attention": 0, "layer_norm": 1,
+                                                     "split_conv": 0})
             self.assertLess(_rel_err(ln(x), want), 1e-6)
             got = ln.half()(x.half()).float()
         self.assertTrue(torch.isfinite(got).all())
@@ -219,6 +220,93 @@ class Fp16Forms(unittest.TestCase):
         ep = torch.export.export(m, (torch.randn(1, 32, 32, 32),))
         for n in ep.graph.nodes:
             self.assertFalse("constant_pad_nd" in str(n.target) and n.args[2:3] == (1.0,), n.format_node())
+
+
+class _Fp16Accumulation(torch.overrides.TorchFunctionMode):
+    """A GPU's half accumulator in a 1x1 convolution: each input channel's products added to the running fp16 sum,
+    which is rounded after every addition (torch's own half conv sums in fp32 inside, and would hide the drift)."""
+
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs or {}
+        if func is F.conv2d and args[1].shape[-2:] == (1, 1):
+            x, w = args[0], args[1]
+            b = args[2] if len(args) > 2 else kwargs.get("bias")
+            s = torch.zeros(x.shape[0], w.shape[0], *x.shape[2:], dtype=x.dtype)
+            for c in range(x.shape[1]):
+                s = s + x[:, c:c + 1] * w[:, c].view(1, -1, 1, 1)
+            return s if b is None else s + b.view(1, -1, 1, 1)
+        return func(*args, **kwargs)
+
+
+class Fp16SplitSums(unittest.TestCase):
+    """LiteRT's GPU at fp16 accumulates a convolution's products in fp16 (plan P7): over the encoder's 4,096 and
+    12,288 input channels (the downsampling point_convs of stages 4 and 5) the running sum wanders far above the
+    output, which its folded BatchNorm bias brings back near 0, and the masks drift. The sum over slices of the
+    channels, added in pairs, is the same function, and the fp16 running sums are short."""
+
+    @staticmethod
+    def _point_conv():
+        """A ConvLayer like stage 4's downsampling point_conv: 4,096 inputs mostly > 0 (after a GELU), weights with a
+        per-channel lean, so the running sum drifts, and a BatchNorm whose running mean takes the conv's large mean
+        back off, so the output is small."""
+        from efficientvit.models.nn.ops import ConvLayer
+        torch.manual_seed(0)
+        m = ConvLayer(4096, 16, 1, norm="bn2d", act_func=None).eval()
+        x = F.gelu(torch.randn(1, 4096, 4, 4) + 0.5)
+        with torch.no_grad():
+            m.conv.weight.normal_(0.0, 0.05).add_(0.01 * torch.randn(16, 1, 1, 1).sign())
+            y = m.conv(x)
+            m.norm.running_mean.copy_(y.mean((0, 2, 3)))
+            m.norm.running_var.copy_(y.var((0, 2, 3)))
+            m.norm.weight.fill_(0.4)
+        return m, x
+
+    def test_same_as_the_conv_in_fp64_and_at_float_rounding_in_fp32(self):
+        m, x = self._point_conv()
+        m64 = copy.deepcopy(m).double()
+        with torch.no_grad():
+            want, want64 = m(x), m64(x.double())
+            self.assertEqual(graphs.split_sums(m), 1)
+            self.assertIsNone(m.norm)                                  # folded into the slices' conv
+            self.assertEqual(len(m.conv.weights), 4096 // graphs.SPLIT_CHANNELS)
+            graphs.split_sums(m64)
+            got, got64 = m(x), m64(x.double())
+        self.assertLess(_rel_err(got64, want64), 1e-12)
+        # fp32's own rounding here is about 1e-6 of the output (the BatchNorm cancels a sum 20 times larger): the
+        # slices' sum is no further from fp64 than the conv itself
+        self.assertLessEqual(_rel_err(got.double(), want64), max(_rel_err(want.double(), want64), 1e-6))
+
+    def test_closer_with_fp16_accumulation_than_the_plain_conv(self):
+        from torch.nn.utils.fusion import fuse_conv_bn_eval
+        m, x = self._point_conv()
+        with torch.no_grad():
+            want = m(x)
+            plain = copy.deepcopy(m)
+            plain.conv, plain.norm = fuse_conv_bn_eval(plain.conv, plain.norm), None    # as LiteRT folds it
+            graphs.split_sums(m)
+            with _Fp16Accumulation():
+                err_plain = _rel_err(plain.half()(x.half()).float(), want)
+                err_split = _rel_err(m.half()(x.half()).float(), want)
+        self.assertGreater(err_plain, 0.1)
+        self.assertLess(err_split, err_plain / 10)
+
+    def test_short_or_grouped_convs_are_left_alone(self):
+        m = torch.nn.Sequential(torch.nn.Conv2d(256, 8, 1), torch.nn.Conv2d(512, 512, 3, groups=512),
+                                torch.nn.Conv2d(512, 8, 3, padding=1))
+        self.assertEqual(graphs.split_sums(m, channels=256), 1)
+        self.assertIs(type(m[0]), torch.nn.Conv2d)
+        self.assertIs(type(m[1]), torch.nn.Conv2d)
+        x = torch.randn(1, 512, 5, 5)
+        self.assertEqual(m[2](x).shape, (1, 8, 5, 5))
+
+    def test_in_fp16_forms_and_exported_without_a_slice_of_a_constant(self):
+        m, x = self._point_conv()
+        self.assertEqual(graphs.fp16_forms(m)["split_conv"], 1)
+        ep = torch.export.export(m, (x,))
+        consts = set(ep.graph_signature.inputs_to_buffers) | set(ep.graph_signature.inputs_to_parameters)
+        for n in ep.graph.nodes:
+            if n.op == "call_function" and "slice" in str(n.target):
+                self.assertNotIn(getattr(n.args[0], "name", None), consts, n.format_node())
 
 
 class LiteRtGpuFormsDino(unittest.TestCase):

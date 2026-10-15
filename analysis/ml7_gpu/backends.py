@@ -16,7 +16,7 @@ The cells (plan P4) and the information-only variants (ticket D4, Q4), each run 
                litert_gpu_fp16, webgpu_fp16 (the mixed fp16 copies), webgpu_fp16blanket (DINOv3 b8 with
                nothing kept in fp32), ovgpu_fp16 (OpenVINO's f16 hint), litert_gpu_split (P7: the segmenter's
                encoder and decoder in fp32, DINOv3 in fp16, in one process; LiteRT sets the precision per
-               compiled model)
+               compiled model), litert_gpu_fp16dec32 (P7: the encoder and DINOv3 in fp16, the decoder in fp32)
 
 Every cell runs at --threads CPU threads; the GPU cells refuse CPU fallback as in P2 and P3.
 """
@@ -57,6 +57,7 @@ CELLS = {
     "ovcpu_int8": Cell("ort", "openvino_cpu", variant="int8", graphs=("encoder",)),
     "litert_gpu_fp16": Cell("litert", "gpu", "fp16", path="vulkan"),
     "litert_gpu_split": Cell("litert", "gpu", path="vulkan", fp16_graphs=("dino_b8", "dino_b40")),
+    "litert_gpu_fp16dec32": Cell("litert", "gpu", path="vulkan", fp16_graphs=("encoder", "dino_b8", "dino_b40")),
     "webgpu_fp16": Cell("ort", "webgpu", variant="fp16", path="vulkan"),
     "ovgpu_fp16": Cell("ort", "openvino_gpu", "fp16", path="openvino"),
     "webgpu_fp16blanket": Cell("ort", "webgpu", variant="fp16_blanket", graphs=("dino_b8",), path="vulkan"),

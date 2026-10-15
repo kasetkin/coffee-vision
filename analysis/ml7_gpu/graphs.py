@@ -25,7 +25,10 @@ Each rewritten graph is checked against the original on the fixtures (make_refs.
 fp16_forms (plan P7), for LiteRT's GPU in fp16, which returned NaN for both models: forms whose every tensor fits
 fp16, the same functions in real arithmetic. LiteMLA's relu(k) and relu(q) scaled by 2^-6 and 2^6 with a
 denominator that is never 0/0; LayerNorm on x / max|x| per token; DINOv3's attention scores made at 2^-4 and shifted
-by their row's max before the softmax.
+by their row's max before the softmax. And, for fp16's precision rather than its range: each convolution over more
+than 128 input channels as the pairwise sum of convolutions over slices of 128 (SplitSumConv2d), since the GPU
+accumulates a convolution's products in fp16 and the encoder's 4,096- and 12,288-channel point_convs drifted its
+masks (least IoU 0.967).
 """
 from __future__ import annotations
 
@@ -230,17 +233,75 @@ def _layer_norm_2d_fp16(self, x: torch.Tensor) -> torch.Tensor:
     return _layer_norm_scaled(x, 1, w, b, self.eps)
 
 
-def fp16_forms(model: nn.Module) -> dict[str, int]:
+SPLIT_CHANNELS = 128    # a convolution's sum over its input channels, cut into slices of at most this many
+
+
+def _pairwise_sum(parts: list[torch.Tensor]) -> torch.Tensor:
+    """parts[0] + parts[1] + ..., added in pairs, level by level (log2 of the count additions in a row)."""
+    while len(parts) > 1:
+        parts = [parts[i] + parts[i + 1] if i + 1 < len(parts) else parts[i] for i in range(0, len(parts), 2)]
+    return parts[0]
+
+
+class SplitSumConv2d(nn.Module):
+    """An nn.Conv2d (groups 1) as the pairwise sum of convolutions over slices of its input channels, the bias added
+    last: the same function in real arithmetic (plan P7). LiteRT's GPU at fp16 accumulates a convolution's products
+    in fp16, one after another: over the encoder's 12,288 input channels (stage 5's downsampling point_conv; 4,096
+    in stage 4's) the running sum wanders to 30-60 while the output, once its folded BatchNorm bias is added, is
+    about 0.4, and the masks drift (least IoU 0.967 on the GPU). Cut into slices of `channels`, each running sum is
+    over that many products only, and the slices' sums meet in a tree of additions."""
+
+    def __init__(self, conv: nn.Conv2d, channels: int):
+        super().__init__()
+        if conv.groups != 1 or conv.padding_mode != "zeros" or isinstance(conv.padding, str):
+            raise ValueError(f"{conv}: groups, a padding mode or a padding string SplitSumConv2d does not cover")
+        self.stride, self.padding, self.dilation = conv.stride, conv.padding, conv.dilation
+        self.bounds = [(a, min(a + channels, conv.in_channels)) for a in range(0, conv.in_channels, channels)]
+        w = conv.weight.detach()
+        self.weights = nn.ParameterList([nn.Parameter(w[:, a:b].clone(), requires_grad=False) for a, b in self.bounds])
+        self.bias = None if conv.bias is None else nn.Parameter(conv.bias.detach().clone(), requires_grad=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = _pairwise_sum([F.conv2d(x[:, a:b], w, None, self.stride, self.padding, self.dilation)
+                           for (a, b), w in zip(self.bounds, self.weights)])
+        return y if self.bias is None else y + self.bias.view(1, -1, 1, 1)
+
+
+def split_sums(model: nn.Module, channels: int = SPLIT_CHANNELS) -> int:
+    """Every nn.Conv2d of groups 1 over more than `channels` input channels as its SplitSumConv2d; the number
+    replaced. An efficientvit ConvLayer's BatchNorm (eval) is folded into its conv first, as LiteRT's converter
+    folds it, which it cannot once the conv is a sum of slices."""
+    from efficientvit.models.nn.ops import ConvLayer
+    from torch.nn.utils.fusion import fuse_conv_bn_eval
+
+    def eligible(m):
+        return type(m) is nn.Conv2d and m.groups == 1 and m.in_channels > channels
+    n = 0
+    for layer in [m for m in model.modules() if isinstance(m, ConvLayer)]:
+        if eligible(layer.conv) and isinstance(layer.norm, nn.BatchNorm2d):
+            if layer.norm.training:
+                raise ValueError("a BatchNorm in training mode cannot be folded")
+            layer.conv, layer.norm = fuse_conv_bn_eval(layer.conv, layer.norm), None
+    for name in [name for name, m in model.named_modules() if eligible(m)]:
+        _set_submodule(model, name, SplitSumConv2d(model.get_submodule(name), channels))
+        n += 1
+    return n
+
+
+def fp16_forms(model: nn.Module, split_channels: int | None = SPLIT_CHANNELS) -> dict[str, int]:
     """Both models in forms whose every tensor fits fp16 (plan P7; measured on the fixtures in fp32): each LiteMLA
     as _relu_linear_att_fp16, each LayerNorm as _layer_norm_scaled, and each 4-D attention's scores made at
-    2^-SCORE_SHIFT and shifted by their row's max before the softmax (DINOv3's block 0 has a score of 1.3e5). The
-    same functions in real arithmetic, at float rounding in fp32. Applied after the P1 rewrites (an EvaAttention
-    still on timm's own forward is refused); counts what changed."""
+    2^-SCORE_SHIFT and shifted by their row's max before the softmax (DINOv3's block 0 has a score of 1.3e5); and,
+    for fp16's precision rather than its range, each convolution over more than `split_channels` input channels
+    as split_sums makes it (None: none; 53 in the encoder at 128, none in DINOv3). The same functions in real
+    arithmetic, at float rounding in fp32. Applied after the P1 rewrites (an EvaAttention still on timm's own
+    forward is refused); counts what changed."""
     from efficientvit.models.nn.norm import LayerNorm2d
     from efficientvit.models.nn.ops import LiteMLA
     from timm.models.eva import EvaAttention
 
     n = {"linear_attention": 0, "attention": 0, "layer_norm": 0}
+    n["split_conv"] = split_sums(model, split_channels) if split_channels else 0
     for name, m in model.named_modules():
         if isinstance(m, LiteMLA):
             m.relu_linear_att = types.MethodType(_relu_linear_att_fp16, m)

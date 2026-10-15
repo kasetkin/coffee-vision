@@ -75,6 +75,14 @@ class LiteRtPrecision(unittest.TestCase):
     def test_split_cell_is_on_vulkan(self):
         self.assertEqual(bk.CELLS["litert_gpu_split"].path, "vulkan")
 
+    def test_fp16dec32_cell_keeps_only_the_decoder_in_fp32(self):
+        expected = {"encoder": False, "decoder": True, "dino_b8": False, "dino_b40": False}
+        for graph, fp32 in expected.items():
+            with self.subTest(graph=graph):
+                args, info = _open("litert_gpu_fp16dec32", graph)
+                self.assertIs(args["fp32"], fp32)
+                self.assertEqual(info["precision"], "fp32" if fp32 else "fp16")
+
 
 class OrtPrecision(unittest.TestCase):
     def test_ort_cells_pass_the_cell_precision_as_before(self):
