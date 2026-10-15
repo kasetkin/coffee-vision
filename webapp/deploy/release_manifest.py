@@ -28,9 +28,11 @@ APP = [
     "webapp/pyproject.toml",
     "webapp/uv.lock",
 ]
+# ML-7 P8 added model_io, photo_io and litert, which serving now imports. The torch-side modules it no longer opens,
+# the vendored segmenter and the pretrained weights leave in P10, with the converted model's directory coming in.
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "backbones", "bean_scale", "class_list", "config", "crop_tray", "dataset", "dino_classifier",
-    "geometry", "infer", "model", "transforms")]
+    "geometry", "infer", "litert", "model", "model_io", "photo_io", "transforms")]
 # Ticket ML-2: a segmenter model (card crop_method "segment") also ships the segmenter's loader and the
 # vendored EfficientViT files that building L0 imports, found with an import trace (plan §9) and checked
 # by tests/test_release_manifest.py, plus the vendored copy's license and its patch notes.

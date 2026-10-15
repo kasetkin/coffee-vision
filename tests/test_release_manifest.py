@@ -68,6 +68,8 @@ print("TRACE " + json.dumps({"opened": sorted(opened), "status": status}))
 def _have(model: str) -> str | None:
     if not (REPO / f"models/{model}.json").is_file():
         return f"models/{model}.json is not present"
+    if not (REPO / f"models/{model}.litert/manifest.json").is_file():
+        return f"models/{model}.litert/ is not present: the app serves LiteRT (ML-7 P8), converted in plan P9"
     m = manifest(model, lambda p: (REPO / p).read_text(), lambda p: (REPO / p).is_file())
     for p in [*m["dvc"], *m["pretrained"]]:
         if not (REPO / p).is_file():

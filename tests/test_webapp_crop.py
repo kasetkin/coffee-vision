@@ -6,6 +6,9 @@ Sends real photos to webapp.app's /crop through Flask's test client. webapp.app 
 loads the shipped model at import, so the import happens in setUpClass with COFFEE_CV_LOG_DIR pointed at a
 temporary directory. Needs the DVC-tracked model, the pretrained weights and the deploy's smoke photo; skips
 with a reason otherwise.
+
+The app serves LiteRT (ticket ML-7 P8). Until a model ships its converted directory (plan P9), the test serves
+ML-7 P7's files on the CPU for their checkpoint (tests.test_litert.build_cpu_dir).
 """
 from __future__ import annotations
 
@@ -64,15 +67,24 @@ class TestCropMask(unittest.TestCase):
                 raise unittest.SkipTest(f"{p.relative_to(REPO)} is not present (dvc pull)")
         logs = tempfile.mkdtemp(prefix="test_webapp_crop.")
         cls.addClassCleanup(shutil.rmtree, logs, ignore_errors=True)
-        old = os.environ.get("COFFEE_CV_LOG_DIR")
-        os.environ["COFFEE_CV_LOG_DIR"] = logs
+        env = {"COFFEE_CV_LOG_DIR": logs}
+        if not MODEL.with_suffix(".litert").is_dir():
+            from tests import test_litert
+            missing = test_litert._have_served()
+            if missing:
+                raise unittest.SkipTest(missing)
+            test_litert.build_cpu_dir(Path(logs))
+            env.update(COFFEE_CV_CHECKPOINT=str(test_litert.CHECKPOINT.relative_to(REPO)), COFFEE_CV_LITERT_DIR=logs)
+        old = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
         try:
             import webapp.app as app
         finally:
-            if old is None:
-                os.environ.pop("COFFEE_CV_LOG_DIR")
-            else:
-                os.environ["COFFEE_CV_LOG_DIR"] = old
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k)
+                else:
+                    os.environ[k] = v
         cls.app = app
         cls.client = app.app.test_client()
         cls.photo = PHOTO.read_bytes()
