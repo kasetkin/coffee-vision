@@ -47,6 +47,8 @@ def main() -> None:
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--only", nargs="*", default=None, help="these graphs only; default all four")
     ap.add_argument("--fp16-forms", action="store_true", help="graphs.fp16_forms on DINOv3 and the encoder (P7)")
+    ap.add_argument("--split-channels", type=int, default=graphs.SPLIT_CHANNELS,
+                    help="fp16_forms' convolution slices, input channels each (P7)")
     args = ap.parse_args()
     import litert_torch
 
@@ -60,7 +62,7 @@ def main() -> None:
     for name in names:
         module, ex = g[name]
         forms = graphs.litert_gpu_forms(module, batch=ex[0].shape[0])   # dino_b8 and dino_b40 share a module
-        fp16 = graphs.fp16_forms(module) if args.fp16_forms and name != "decoder" else {}
+        fp16 = graphs.fp16_forms(module, args.split_channels) if args.fp16_forms and name != "decoder" else {}
         path = out / f"{name}.tflite"
         litert_torch.convert(module.eval(), ex).export(str(path))
         manifest[path.name] = (describe(path, name) | ({"litert_gpu_forms": forms} if forms else {})

@@ -1064,6 +1064,45 @@
         <li>D7 fails only on DINOv3's cosine bar, which fp16 cannot meet. Whether that matters is for the owner,
           on the answer check over 782 photos (584 true negatives) now being prepared.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>P7 overnight (owner: "You have 9 hours, run any experiment you see
+      necessary").
+      <ul>
+        <li><b>The range scan is complete</b> (<code>p7_ranges.json</code>, <code>2c9927e</code>): 2,027 photos, no
+          errors.
+          <ul>
+            <li>After the fp16 forms' scales the tightest headroom is about 3&times;: the encoder's largest module
+              output, 2.2&times;10<sup>4</sup>.</li>
+            <li>The negatives reach every maximum; the pool photos come within about 15%.</li>
+          </ul></li>
+        <li><b>The split cell on a quiet host:</b> 9.22 s a photo, as before.</li>
+        <li><b>Why the fp16 encoder's masks drift</b> (a sub-agent, <code>d255684</code>):
+          <ul>
+            <li>The GPU accumulates a convolution's products in fp16. Stage 4's and 5's downsampling point_convs sum
+              over 4,096 and 12,288 channels, and their running sums reach 30&ndash;60 for an output of about 0.4.</li>
+            <li>An emulation of that accumulation reproduces the GPU's six failing photos, within 0.008 IoU.
+              Storage rounding, LiteMLA's matmuls and subnormals do not.</li>
+            <li>The fix, <code>SplitSumConv2d</code>: each convolution over more than 128 input channels becomes a
+              pairwise sum of 128-channel slices, exact in real arithmetic.</li>
+            <li>The fp16 decoder's own share (IoU 0.990 on one photo) is avoided by keeping it in fp32, which costs
+              no time.</li>
+          </ul></li>
+        <li><b>On the GPU</b> (<code>litert_gpu_fp16dec32</code>: the encoder with the split sums and DINOv3 in
+          fp16, the decoder in fp32):
+          <ul>
+            <li>8.05 s a photo; <code>MemAvailable</code> drop 2.64 GB; the encoder 1.04 s against 0.91 s
+              without the split sums.</li>
+            <li>The masks improved tenfold: least IoU 0.9976 against 0.967, the largest low-res logit change 0.56
+              against 5.7.</li>
+            <li>5 of 13 photos are still below D7's 0.999 (0.9976&ndash;0.9989). The emulation predicted 0.99935,
+              so the GPU accumulates more than modelled. A 32-channel split, which also reaches the shorter
+              convolutions, is being tested.</li>
+          </ul></li>
+        <li><b>The answer check's inputs:</b> patches cut on <code>yappy</code> (the release's code) and here (the
+          repo's, the same <code>coffeecv</code> files byte for byte) are identical for 734 of 782 photos. In the
+          other 48 (35 of them negatives), 27&ndash;50 of 6 million input values differ, by at most one or two grey
+          levels: the segmenter's float rounding on the two CPUs moves a mask-edge pixel. PyTorch's readouts for
+          those 48 are computed on <code>yappy</code> from its own patches.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
