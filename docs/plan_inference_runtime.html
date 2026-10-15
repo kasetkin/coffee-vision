@@ -1350,6 +1350,18 @@
       port of pre- and post-processing to numpy/PIL/OpenCV functions shared with training, each checked against
       torch's. P10's environment drops torch and its model libraries. The branch is pushed; work continues on it,
       no PR or merge for now.</div>
+    <div><div class="when">2026-10-15</div>Clean-up and DVC, with the owner's go-ahead.
+      <ul>
+        <li><b>On <code>yappy</code></b>, about 33 GB deleted, so <code>~/ml7</code> went from 41 GB to 7.8 GB:
+          the answer and seed checks' patches and photo copies, P4's outputs (already in DVC), the readouts, the
+          rehearsals and the OpenVINO cache. The experiments' queue runner is stopped.</li>
+        <li><b>Locally</b>, the seed patches, P2's compressed copies, the merged agent worktree and three superseded
+          encoders were deleted. The encoders can be rebuilt from their commits; hashes in <code>4bd07cb</code>.</li>
+        <li><b><code>artifacts</code></b> (733 files, now with <code>p7_whole</code>, <code>p7_fp16w</code> and
+          <code>outputs_p7</code>) pushed to <code>dvcnewremote</code> by explicit target: 431 files, no warning.
+          Every object of the listing was found on the remote (699, none missing), per
+          <code>docs/agents/dvc.md</code>.</li>
+      </ul></div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
