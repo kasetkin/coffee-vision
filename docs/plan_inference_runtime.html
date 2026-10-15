@@ -1127,6 +1127,16 @@
           owner sets the bar (D4). How large patch sampling's own variation is would put these numbers in
           context.</li>
       </ul></div>
+    <div><div class="when">2026-10-15</div>P7, the 32-channel split
+      (<code>convert_litert.py --split-channels 32</code>: 2,420 convolutions, 7,781 ops; D7 passes in fp32 on the
+      CPU, IoU 1.000000), on the GPU in <code>litert_gpu_fp16dec32</code>:
+      <ul>
+        <li>The encoder takes 1.59 s, as slow as fp32's 1.60 s; the photo 9.21 s.</li>
+        <li>The masks barely move: least IoU 0.9979 against 0.9976 at 128 channels, 3 of 13 photos still below
+          0.999.</li>
+      </ul>
+      Finer slices do not close the gap, and they cost fp16's gain. The remaining error is not in long sums over
+      channels. The fp16 encoder stops here: the segmenter stays in fp32.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
