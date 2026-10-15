@@ -300,12 +300,12 @@ def patches(args) -> None:
             path, npy = args.root / rel, pdir / f"{sha}.npy"
             error = None
             if not npy.exists():
-                row: dict = {"sha256": sha, "role": role, "path": rel}
+                row: dict = {"sha256": sha, "role": role, "path": rel, "seed_key": args.seed_key}
                 try:
                     if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
                         raise ValueError("the photo does not match its sha256 in the list")
                     with torch.no_grad():
-                        crops, info = patches_for_photo(path, ctx.cfg, N_PATCHES, SEED_KEY)
+                        crops, info = patches_for_photo(path, ctx.cfg, N_PATCHES, args.seed_key)
                         x = torch.stack([transform(c) for c in crops]).numpy().astype(np.float32, copy=False)
                     if x.shape != (N_PATCHES, 3, 224, 224):
                         raise ValueError(f"patches of shape {x.shape}")
@@ -515,6 +515,8 @@ def main() -> None:
     p.add_argument("--torch", action="store_true", help="PyTorch's readouts too (slow: ~22 s a photo on yappy)")
     p.add_argument("--threads", type=int, default=4)
     p.add_argument("--limit", type=int, default=None, help="the first N photos only (a rehearsal)")
+    p.add_argument("--seed-key", type=int, nargs=2, default=SEED_KEY,
+                   help="patch sampling's seed (serving: 42 0); another one, in its own --out, for sampling's spread")
     r = sub.add_parser("run")
     r.add_argument("--cell", required=True, help="a backends.CELLS name: litert_gpu, litert_gpu_fp16, ...")
     r.add_argument("--graph", default="dino_b8")

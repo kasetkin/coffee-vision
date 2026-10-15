@@ -13,11 +13,13 @@
 #   ./p7_answers.sh                          # the whole check, ~5.5 h
 #   N=3 OUT=p7/answers_rehearsal ./p7_answers.sh   # a rehearsal on the first 3 photos
 #   ./p7_answers.sh split compare            # later, the split cell
+#   LIST=p7_served_photos.txt SEED="42 1" OUT=p7/seed1 ./p7_answers.sh patches fp32 fp16   # another seed
 set -u
 cd "$(dirname "$0")"
 export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/intel_icd.x86_64.json PYTHONUNBUFFERED=1
 RELEASE=/opt/coffee-cv/current; CKPT=models/allrigs_dino3b16_segxl0v3_country_s42.pt
 OUT=${OUT:-p7/answers}; PHOTOS=${PHOTOS:-p7/photos}; N=${N:-}; TORCH=${TORCH:-}
+LIST=${LIST:-p7_answer_photos.txt}; SEED=${SEED:-42 0}   # the photo list; patch sampling's seed key
 FP32_MODELS=${FP32_MODELS:-p7/whole}; FP16_MODELS=${FP16_MODELS:-p7/fp16}; SPLIT_MODELS=${SPLIT_MODELS:-p7/split}
 STEPS=("$@"); [ ${#STEPS[@]} -eq 0 ] && STEPS=(patches fp32 fp16 compare)
 limit=(); [ -n "$N" ] && limit=(--limit "$N")
@@ -34,7 +36,8 @@ for step in "${STEPS[@]}"; do
   log=$OUT/logs/$step.log
   echo "=== $step $(date -Is)"
   case $step in
-    patches) release_py patches --checkpoint $CKPT --root "$PHOTOS" --out "$OUT" --threads 4 "${limit[@]}" \
+    patches) release_py patches --checkpoint $CKPT --photos "$LIST" --seed-key $SEED --root "$PHOTOS" --out "$OUT" \
+               --threads 4 "${limit[@]}" \
                ${TORCH:+--torch} >> "$log" 2>&1 ;;
     fp32)    cell litert_gpu "$FP32_MODELS" >> "$log" 2>&1 ;;
     fp16)    cell litert_gpu_fp16 "$FP16_MODELS" >> "$log" 2>&1 ;;
