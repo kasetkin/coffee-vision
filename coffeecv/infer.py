@@ -447,21 +447,12 @@ def segmenter_for(cfg: RunConfig):
 
 def _segment(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
     """`segment_and_crop` and its crop_info, shaped like `crop_to_bean_region`'s (None when the whole photo is
-    used): the one place `segment_bean_region` and `bean_region_preview` get their box from. `segmenter` is the
-    caller's BeanSegmenter (the web service's runs on LiteRT); None is `segmenter_for(cfg)`, PyTorch's."""
+    used). `segmenter` is the caller's BeanSegmenter (the web service's runs on LiteRT); None is
+    `segmenter_for(cfg)`, PyTorch's."""
     from coffeecv.segment_beans import segment_and_crop
     crop = segment_and_crop(rgb, segmenter or segmenter_for(cfg))
     i = crop.info
     return crop, None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
-
-
-def bean_region_preview(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
-    """What the web app's /crop shows (ticket OPS-6 D7): (the whole photo's bool bean mask, or None on a D18
-    fallback; crop_info, as `segment_bean_region` gives it; whether the fallback fired). The same segmentation
-    as `segment_bean_region`, through the same helper, so the two cannot disagree on the box; display only."""
-    crop, crop_info = _segment(rgb, cfg, segmenter)
-    fallback = crop.info["fallback"]
-    return (None if fallback else crop.photo_mask), crop_info, fallback
 
 
 def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False, segmenter=None):
@@ -528,6 +519,14 @@ def segment_photo(path: Path, cfg: RunConfig, skip_crop: bool = False, segmenter
     segmentation."""
     t0 = time.monotonic()
     photo = load_rgb_image(path)
+    return segment_decoded(photo, cfg, skip_crop, segmenter, decode_ms=round((time.monotonic() - t0) * 1000))
+
+
+def segment_decoded(photo: np.ndarray, cfg: RunConfig, skip_crop: bool = False, segmenter=None,
+                    decode_ms: int | None = None) -> SegmentedPhoto:
+    """`segment_photo` on a photo already decoded by `load_rgb_image` (`decode_ms` is how long that took): for a
+    caller that has to tell a photo it cannot read from an error after the decode, as the web app's /analyze
+    does (a 400 against a 500)."""
     t1 = time.monotonic()
     rgb, crop_info, mask, photo_mask, seg_diag = photo, None, None, None, {}
     if cfg.crop_method == "segment":
@@ -538,7 +537,7 @@ def segment_photo(path: Path, cfg: RunConfig, skip_crop: bool = False, segmenter
         rgb, crop_info = crop_to_bean_region(photo)
     t2 = time.monotonic()
     return SegmentedPhoto(photo, rgb, mask, photo_mask, crop_info, seg_diag,
-                          {"decode": round((t1 - t0) * 1000), "crop_detect": round((t2 - t1) * 1000)})
+                          {"decode": decode_ms, "crop_detect": round((t2 - t1) * 1000)})
 
 
 def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],

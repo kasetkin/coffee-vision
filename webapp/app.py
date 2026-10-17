@@ -1,7 +1,10 @@
 """Public web service for the shipped coffee-bean classifier -- one endpoint, one
-model, no state. Wraps `coffeecv.infer.classify_one` rather than reimplementing
-any of its scale/OOD logic, so this service and the CLI can never silently drift
-on what counts as a refusal (see `coffeecv/infer.py`'s own docstring on parity).
+model, no state. /analyze runs `coffeecv.infer.classify_one`'s two steps,
+`segment_decoded` and `classify_segmented`, rather than reimplementing any of
+its scale/OOD logic, so this service and the CLI can never silently drift on
+what counts as a refusal (see `coffeecv/infer.py`'s own docstring on parity).
+Its answer streams back in two parts, the preview and then the classification
+(ticket OPS-7, ADR 0023).
 
 Model, config, class labels and the OOD reference are all loaded once here, at
 import time -- gunicorn is run with a single sync worker (see
@@ -10,8 +13,7 @@ life of the process, not once per request.
 
 The models run on LiteRT (ticket ML-7, ADR 0019), from the converted model beside the checkpoint
 (coffeecv.litert), on the accelerator and at the precisions its manifest names; this process imports no
-torch. Before the first request the worker runs a fixed photo through /crop's and /classify's whole path
-(ADR 0021), and logs how long its boot took and the memory it holds. On the GPU, the warm-up is also ADR 0020's proof
+torch. Before the first request the worker runs a fixed photo through /analyze's whole path (ADR 0021), and logs how long its boot took and the memory it holds. On the GPU, the warm-up is also ADR 0020's proof
 that the GPU ran it: a worker that cannot show it does not serve.
 """
 from __future__ import annotations
@@ -32,7 +34,7 @@ from logging.handlers import WatchedFileHandler
 from pathlib import Path
 
 import numpy as np
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, jsonify, request, stream_with_context
 from PIL import Image
 from werkzeug.exceptions import HTTPException
 
@@ -40,9 +42,9 @@ BOOT_T0 = time.monotonic()
 
 from coffeecv.config import REPO_ROOT  # noqa: E402 -- after BOOT_T0, so the boot's time includes the imports
 from coffeecv.class_list import load_classes  # noqa: E402
-from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint,  # noqa: E402
-                            crop_to_bean_region, PROBE_THRESHOLD, inference_tta_for, load_ood_probe,
-                            load_ood_reference, probe_path_for, reference_path_for, sig12, warm_up)
+from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PROBE_THRESHOLD,  # noqa: E402
+                            inference_tta_for, load_ood_probe, load_ood_reference, probe_path_for,
+                            reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
@@ -66,7 +68,7 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
 PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
 
 # static_folder=None: this app serves exactly one route. nginx serves the static
-# page and only proxies /classify here -- disabling Flask's own default
+# page and only proxies /analyze here -- disabling Flask's own default
 # static-file route removes that surface even in-process, redundantly with nginx
 # never routing to it.
 app = Flask(__name__, static_folder=None)
@@ -191,7 +193,8 @@ class _JsonFormatter(logging.Formatter):
     """
 
     _FIELDS = (
-        "request_id", "endpoint", "status", "latency_ms", "model", "build", "verdict",
+        "request_id", "endpoint", "status", "latency_ms", "preview_ms", "outcome", "parts_sent", "model", "build",
+        "verdict",
         "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
         "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
@@ -283,15 +286,24 @@ def _log_request(response):
     # is what lets nginx's access log (docs/logging_plan.html phase 2) capture
     # the same id via $upstream_http_x_request_id, joining its line to this one.
     response.headers["X-Request-Id"] = g.request_id
+    # A streamed answer is still being computed here: its own generator writes the line when it ends (OPS-7 R2).
+    if not getattr(g, "stream_logs_itself", False):
+        _write_request_line(response.status_code)
+    return response
+
+
+def _write_request_line(status: int) -> None:
+    """The request's one line in the request log, from the fields its route set on flask.g."""
     extra = {
         "request_id": g.request_id,
         "endpoint": request.path,
-        "status": response.status_code,
+        "status": status,
         "latency_ms": round((time.monotonic() - g.t0) * 1000),
         "model": CHECKPOINT.name,
         "build": BUILD,
     }
-    for field in ("verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
+    for field in ("preview_ms", "outcome", "parts_sent",
+                  "verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
                   "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
                   "decoded_w", "decoded_h", "decode_ms", "crop_detect_ms", "inference_ms",
@@ -301,7 +313,6 @@ def _log_request(response):
         if value is not None:
             extra[field] = value
     request_logger.info("request", extra=extra)
-    return response
 
 
 @app.errorhandler(Exception)
@@ -310,13 +321,17 @@ def _log_unhandled(exc):
     # them return normally instead of flattening every one into a 500.
     if isinstance(exc, HTTPException):
         return exc
+    _log_exception(exc)
+    return jsonify(error="internal error"), 500
+
+
+def _log_exception(exc: Exception) -> None:
     request_logger.error("unhandled exception", exc_info=exc, extra={
         "request_id": getattr(g, "request_id", None),
         "endpoint": request.path,
         "exc_type": type(exc).__name__,
         "ua_category": _coarse_user_agent(request.headers.get("User-Agent", "")),
     })
-    return jsonify(error="internal error"), 500
 
 
 def _entry_to_response(entry: dict) -> tuple[dict, int]:
@@ -447,81 +462,11 @@ def _saved_upload(upload):
         os.unlink(tmp_path)
 
 
-@app.post("/classify")
-def classify():
-    upload = request.files.get("photo")
-    if upload is None or upload.filename == "":
-        return jsonify(error="no photo uploaded"), 400
-
-    # User override for a live crop they don't trust (see /crop) -- the
-    # server never takes the *box* from the client, only this one bit, and
-    # classify_one() still does its own detection unless told to skip it.
-    skip_crop = request.form.get("skip_crop") == "1"
-    g.skip_crop = skip_crop
-
-    with _saved_upload(upload) as path:
-        entry = classify_one(path, cfg, class_ids, class_labels, classifier, ref, n_patches=N_PATCHES, tta=TTA,
-                             skip_crop=skip_crop, probe=probe, segmenter=segmenter)
-
-    body, status = _entry_to_response(entry)
-    _log_classify_fields(entry, body)
-    return jsonify(body), status
-
-
-@app.post("/crop")
-def crop():
-    """Detect (not apply) the live-inference crop, so the frontend can preview
-    it before /classify. Advisory only: classify_one() always recomputes its
-    own crop server-side from the uploaded bytes via patches_for_photo, so
-    nothing returned here is ever trusted back -- a client could send any box
-    it wants and it would change nothing about what actually gets classified.
-
-    Ticket OPS-6 D7: a segmenter model also answers the photo's bean region,
-    `mask` (`_mask_png_b64`; null on a fallback) and `seg_fallback` (the ML-2
-    D18 whole-photo fallback fired, so the whole photo will be classified). A
-    tray-heuristic model has no mask: `mask` null, `seg_fallback` false.
-    """
-    upload = request.files.get("photo")
-    if upload is None or upload.filename == "":
-        return jsonify(error="no photo uploaded"), 400
-
-    with _saved_upload(upload) as path:
-        try:
-            rgb = load_rgb_image(path)
-        except (ValueError, OSError) as exc:
-            _log_decode_failure(exc)
-            return jsonify(error=f"could not read this as an image: {exc}"), 400
-
-    h, w = rgb.shape[:2]
-    g.decoded_w, g.decoded_h = w, h
-    mask, seg_fallback = None, False
-    if segmenter is not None:
-        # The same segmentation /classify runs, so a preview costs a second segmenter pass per upload.
-        mask, crop_info, seg_fallback = bean_region_preview(rgb, cfg, segmenter)
-    else:
-        _, crop_info = crop_to_bean_region(rgb)
-    mask_b64 = None if mask is None else _mask_png_b64(mask)
-    if crop_info is None:
-        return jsonify(cropped=False, box=None, needs_review=False, mask=mask_b64, seg_fallback=seg_fallback)
-
-    x, y, bw, bh = crop_info["box"]
-    return jsonify(
-        cropped=True,
-        # Fractions of the full decoded image (x0, y0, x1, y1), not thumbnail
-        # pixels -- keeps this independent of /preview's PREVIEW_MAX_DIM, so
-        # the frontend can scale it against whatever it's actually displaying.
-        box=[x / w, y / h, (x + bw) / w, (y + bh) / h],
-        needs_review=crop_info["needs_review"],
-        mask=mask_b64,
-        seg_fallback=seg_fallback,
-    )
-
-
 def _mask_png_b64(mask: np.ndarray) -> str:
-    """The whole photo's bool mask as /crop sends it (ticket OPS-6 D7): scaled to long side <= PREVIEW_MAX_DIM,
+    """The whole photo's bool mask as the preview part sends it (ticket OPS-6 D7): scaled to long side <= PREVIEW_MAX_DIM,
     aspect kept, never up (area average, then >= 0.5), as a 1-bit palette PNG, index 0 (not bean) transparent
     and index 1 (bean) white, base64. The page stretches it to the photo's displayed rect, as it does the
-    box's fractions, so its size need not equal /preview's thumbnail to the pixel."""
+    box's fractions, so its size need not equal the thumbnail's to the pixel."""
     h, w = mask.shape
     scale = min(1.0, PREVIEW_MAX_DIM / max(h, w))
     size = (max(1, round(w * scale)), max(1, round(h * scale)))
@@ -535,33 +480,87 @@ def _mask_png_b64(mask: np.ndarray) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-@app.post("/preview")
-def preview():
-    """Decode any format this app accepts and re-encode as a JPEG thumbnail.
+@app.post("/analyze")
+def analyze():
+    """One photo, one upload, one answer in two parts (ticket OPS-7, ADR 0023): `application/x-ndjson`, one JSON
+    object per line. The photo is decoded and segmented once, before the answer starts, so an unreadable photo is
+    still a plain 400 and a segmenter error the error handler's 500. Then the stream: the preview part
+    (`_preview_part`), then the classification part, `_entry_to_response`'s body, or an error part if the
+    classification fails, since the 200 has gone out with the preview (R4).
 
-    Exists so the browser never needs native decode support for HEIC/AVIF/JXL
-    to show a preview -- Pillow already has to decode these to classify them
-    (`load_rgb_image` is the same function `classify_one` uses under the hood),
-    so reusing that here for a universally-displayable preview is free, and
-    guaranteed to agree with what the model actually sees.
+    skip_crop=1 is the user's override (D1, "Use full photo instead"): the segmenter does not run and the whole
+    photo is classified -- the server never takes a box from the client, only this one bit. Its preview has no
+    mask and no box (D9).
     """
     upload = request.files.get("photo")
     if upload is None or upload.filename == "":
         return jsonify(error="no photo uploaded"), 400
+    skip_crop = request.form.get("skip_crop") == "1"
+    g.skip_crop = skip_crop
 
     with _saved_upload(upload) as path:
+        t0 = time.monotonic()
         try:
-            rgb = load_rgb_image(path)
+            photo = load_rgb_image(path)
         except (ValueError, OSError) as exc:
             _log_decode_failure(exc)
             return jsonify(error=f"could not read this as an image: {exc}"), 400
+    g.decoded_h, g.decoded_w = photo.shape[:2]
+    seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter,
+                          decode_ms=round((time.monotonic() - t0) * 1000))
+    preview = _preview_part(seg)
+    g.stream_logs_itself = True
+    return Response(stream_with_context(_analyze_stream(seg, preview)), mimetype="application/x-ndjson",
+                    # Both nginx servers stream it only if asked to; ours passes the header on (OPS-7 D11).
+                    headers={"X-Accel-Buffering": "no"})
 
-    g.decoded_h, g.decoded_w = rgb.shape[:2]
-    thumb = Image.fromarray(rgb)
+
+def _analyze_stream(seg, preview: dict):
+    """/analyze's two lines, and its one request-log line when the stream ends, however it ends (OPS-7 R2, D19):
+    `outcome` is complete, error, or client_gone (the generator closed at a yield: the client left, or the server
+    gave up writing to it), and `parts_sent` counts the lines handed to the server."""
+    g.parts_sent, g.outcome = 0, "client_gone"
+    try:
+        g.parts_sent, g.preview_ms = 1, round((time.monotonic() - g.t0) * 1000)   # D13: when the preview went out
+        yield json.dumps(preview) + "\n"
+        try:
+            entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref, n_patches=N_PATCHES,
+                                       tta=TTA, probe=probe)
+            body, _ = _entry_to_response(entry)   # the status went out with the preview
+            _log_classify_fields(entry, body)
+            line, ending = {"part": "classification", **body}, "complete"
+        except Exception as exc:   # any failure after the 200 is an error part, logged as the handler logs one
+            _log_exception(exc)
+            line, ending = {"part": "error", "message": "Something went wrong -- try a different photo."}, "error"
+        g.parts_sent = 2
+        yield json.dumps(line) + "\n"
+        g.outcome = ending
+    finally:
+        _write_request_line(200)
+
+
+def _preview_part(seg) -> dict:
+    """The answer's first part (ticket OPS-7 D8): the photo as a JPEG thumbnail, so the browser never needs to
+    decode HEIC/AVIF/JXL/RAW itself, and guaranteed to be the pixels the model sees (`load_rgb_image`'s); the
+    whole photo's bean mask (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model);
+    `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. Display only: nothing here is
+    ever trusted back from the client.
+    """
+    thumb = Image.fromarray(seg.photo)
     thumb.thumbnail((PREVIEW_MAX_DIM, PREVIEW_MAX_DIM))
     buf = io.BytesIO()
     thumb.save(buf, format="JPEG", quality=85)
-    return Response(buf.getvalue(), mimetype="image/jpeg")
+    part = {"part": "preview", "thumbnail": base64.b64encode(buf.getvalue()).decode("ascii"),
+            "mask": None if seg.photo_mask is None else _mask_png_b64(seg.photo_mask),
+            "seg_fallback": seg.seg_fallback}
+    if seg.crop_info is None:
+        return {**part, "cropped": False, "box": None, "needs_review": False}
+    h, w = seg.photo.shape[:2]
+    x, y, bw, bh = seg.crop_info["box"]
+    # Fractions of the full decoded photo (x0, y0, x1, y1), not thumbnail pixels -- keeps this independent of
+    # PREVIEW_MAX_DIM, so the page can scale it against whatever it is actually displaying.
+    return {**part, "cropped": True, "box": [x / w, y / h, (x + bw) / w, (y + bh) / h],
+            "needs_review": seg.crop_info["needs_review"]}
 
 
 def _mem_available_mb() -> float | None:

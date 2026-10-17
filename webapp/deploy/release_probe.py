@@ -91,10 +91,11 @@ def smoke(photo: Path) -> None:
 
 def classify(photos: list[Path]) -> None:
     app = _import_release_app()
+    from coffeecv.infer import classify_one   # the release's own: _import_release_app checked where coffeecv came from
     entries = {}
     for photo in photos:
-        entry = app.classify_one(photo, app.cfg, app.class_ids, app.class_labels, app.classifier, app.ref,
-                                 n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe, segmenter=app.segmenter)
+        entry = classify_one(photo, app.cfg, app.class_ids, app.class_labels, app.classifier, app.ref,
+                             n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe, segmenter=app.segmenter)
         entry.pop("timing_ms", None)   # wall-clock, the one field that legitimately differs
         entries[photo.name] = entry
     import numpy

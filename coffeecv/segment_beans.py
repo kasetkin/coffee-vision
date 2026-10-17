@@ -76,7 +76,7 @@ class BeanCrop:
     mask: np.ndarray | None            # bool, aligned with rgb; None = fallback (accept every patch)
     info: dict = field(default_factory=dict)
     # The whole photo's bool mask as predicted, before the fill and the crop, on both branches. Only the web
-    # app's /crop preview reads it (ticket OPS-6 D7); it stays out of `info`, which reaches classify_one's entry.
+    # app's /analyze preview reads it (ticket OPS-6 D7); it stays out of `info`, which reaches classify_one's entry.
     photo_mask: np.ndarray | None = None
 
 
