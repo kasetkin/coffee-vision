@@ -68,7 +68,7 @@
     color: var(--accent-fg);
     text-align: center;
   }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:disabled, .file-btn.disabled { opacity: 0.5; cursor: not-allowed; }
   input[type=file] { display: none; }
   .formats-hint {
     display: flex;
@@ -132,10 +132,12 @@
        box is display-only today); converting the user's edited on-screen
        rect back to fractional image coordinates (invert renderOverlay's
        contain-fit math); and a new field alongside the existing `skip_crop`
-       form field on POST /classify (e.g. `crop_box`) for classify_one() to
+       form field on POST /analyze (e.g. `crop_box`) for classify_one() to
        apply -- same trust boundary as today: the server decides what "apply
        this box" means, the client only ever supplies numbers, same as
-       skip_crop is one bit today, not a box. */
+       skip_crop is one bit today, not a box. The server holds no photo
+       between requests (ADR 0023), so an edited box is a second upload of
+       the photo, carrying the edit, as "Use full photo instead" is. */
   }
   #outline-label {
     display: none;
@@ -166,7 +168,20 @@
     flex: none;
     min-width: 0;
   }
-  #status { margin-top: 0.75rem; color: var(--muted); font-size: 0.95rem; text-align: center; }
+  /* The rotating progress circle (ticket OPS-7 D3): from the pick until the
+     preview, then under the preview until the classification. */
+  #spinner {
+    display: none;
+    width: 2rem;
+    height: 2rem;
+    margin: 1rem auto 0;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #spinner { animation-duration: 2.5s; } }
   .result-box {
     padding: 0.9rem 1rem;
     border-radius: 0.5rem;
@@ -190,8 +205,7 @@
 
   <div class="card">
     <div class="controls">
-      <label class="file-btn" for="photo-input">Choose Photo</label>
-      <button id="classify-btn" disabled>Classify</button>
+      <label id="photo-label" class="file-btn" for="photo-input">Choose Photo</label>
     </div>
     <div class="formats-hint">
       <span>JPG</span><span>PNG</span><span>WEBP</span><span>HEIC/HEIF</span>
@@ -211,7 +225,7 @@
     <label id="outline-label"><input id="outline-toggle" type="checkbox" checked> Show outline</label>
     <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
-    <div id="status"></div>
+    <div id="spinner" role="status" aria-label="Working"></div>
   </div>
 
   <div id="result"></div>
@@ -229,32 +243,43 @@ const outlineToggle = document.getElementById('outline-toggle');
 const cropOverlay = document.getElementById('crop-overlay');
 const cropNote = document.getElementById('crop-note');
 const cropToggleBtn = document.getElementById('crop-toggle-btn');
-const classifyBtn = document.getElementById('classify-btn');
-const statusEl = document.getElementById('status');
+const photoLabel = document.getElementById('photo-label');
+const spinner = document.getElementById('spinner');
 const resultEl = document.getElementById('result');
 
-let previewUrl = null;
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
-// The photo's bean region from /crop (ticket OPS-6 D7): the decoded mask
-// image, opaque on bean pixels and transparent elsewhere, covering the whole
-// photo; or null (no mask, or not decoded yet).
+// The photo's bean region from the preview part (ticket OPS-6 D7): the decoded
+// mask image, opaque on bean pixels and transparent elsewhere, covering the
+// whole photo; or null (no mask, or not decoded yet).
 let lastMask = null;
-// User override: the detector found a box, but they don't trust it. Only
-// meaningful when lastCropBox is set -- there's nothing to override on a
-// photo the detector left untouched.
-let useFullPhoto = false;
+// The photo on the page, for "Use full photo instead" (ticket OPS-7 D1), which
+// uploads it again: the server keeps nothing between requests (ADR 0023).
+let lastFile = null;
+
+const UNREACHABLE = 'Could not reach the server -- check your connection and try again.';
+const BUSY = 'The server is busy with another photo -- try again in a few seconds.';
+// Ticket OPS-7 plan Q1 (open; the plan assumes its recommendation): nginx
+// answers 503 at once while another visitor's photo is in flight, so a 503
+// is retried after these waits, the circle spinning, before BUSY shows.
+const BUSY_RETRY_S = [3, 6, 12];
 
 function hide(...elements) {
   for (const el of elements) el.style.display = 'none';
 }
 
-function updateCropToggleBtn() {
-  cropToggleBtn.textContent = useFullPhoto ? 'Use detected crop' : 'Use full photo instead';
-}
+// "Use full photo instead" (ticket OPS-7 D1, D14): shown after a
+// classification of a cropped photo; it classifies the whole photo, with one
+// more upload, and does not come back. Going back to the cropped answer means
+// picking the photo again.
+cropToggleBtn.textContent = 'Use full photo instead';
 cropToggleBtn.addEventListener('click', () => {
-  useFullPhoto = !useFullPhoto;
-  updateCropToggleBtn();
+  if (!lastFile) return;
+  resultEl.innerHTML = '';
+  lastCropBox = null;
+  lastMask = null;
   renderOverlay();
+  hide(cropToggleBtn, cropNote);
+  analyze(lastFile, true);
 });
 
 // The overlay is positioned in *displayed* pixels, but #preview uses
@@ -265,10 +290,10 @@ cropToggleBtn.addEventListener('click', () => {
 // #image-clip is sized to exactly the rendered photo's own rect (not the
 // wrapper's) so the tint, the outline and the box only ever cover actual
 // photo pixels, never the letterbox margin around it. The one place that
-// draws: it runs on the preview's load, on the /crop answer and on resize,
+// draws: it runs on the preview's load, on the preview part and on resize,
 // and draws the bean region only once both the preview and the mask loaded.
 function renderOverlay() {
-  if (!lastCropBox || !preview.naturalWidth || useFullPhoto) {
+  if (!lastCropBox || !preview.naturalWidth) {
     hide(imageClip, outlineLabel);
     return;
   }
@@ -354,160 +379,153 @@ function drawBeanRegion(dispW, dispH) {
   outline.globalCompositeOperation = 'source-over';
 }
 
-// Ticket OPS-6 D13: each pick of a photo is a new upload. The file input
-// stays enabled while /preview and /crop run, so an answer can arrive after
-// the user picked another photo; the handler checks its upload is still the
-// current one after every wait and drops a stale answer before it touches
-// the preview, the box, the canvases, the note or the status.
+// Ticket OPS-6 D13: each upload has a token, and an answer for an upload
+// that is no longer the current one is dropped before it touches the page.
+// Choose Photo is disabled while a photo is in flight (OPS-7 D4), so this is a
+// guard, not the main defence.
 let currentUpload = 0;
 
-fileInput.addEventListener('change', async () => {
-  const upload = ++currentUpload;
-  const isStale = () => upload !== currentUpload;
+fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
+  currentUpload++;
   resultEl.innerHTML = '';
   hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
-  classifyBtn.disabled = true;
   lastCropBox = null;
   lastMask = null;
-  useFullPhoto = false;
-  if (previewUrl) {
-    URL.revokeObjectURL(previewUrl);
-    previewUrl = null;
-  }
-  if (!file) {
-    statusEl.textContent = '';
-    return;
-  }
+  lastFile = file || null;
+  if (file) analyze(file, false);
+});
 
-  // Always converted server-side to JPEG (POST /preview), not shown directly
-  // from the file the browser was given -- some formats this app accepts
-  // (HEIC/HEIF especially) aren't natively decodable by most browsers' <img>,
-  // only Safari can preview those directly. The server already has to decode
-  // every format to classify it, so reusing that here guarantees the preview
-  // always renders, in any browser, and shows exactly what the model sees.
-  statusEl.textContent = 'Loading preview...';
+// While a photo is in flight (OPS-7 D3, D4): the circle spins and Choose
+// Photo is disabled, since the single worker keeps running a photo even when
+// the page gives up on it, so a second pick could only meet a 503.
+function setBusy(busy) {
+  fileInput.disabled = busy;
+  photoLabel.classList.toggle('disabled', busy);
+  spinner.style.display = busy ? 'block' : 'none';
+}
+
+// One upload to POST /analyze (ticket OPS-7, ADR 0023); its answer streams
+// back as one JSON object per line: the preview part, then the classification
+// part, or an error part (D8).
+async function analyze(file, skipCrop) {
+  const upload = ++currentUpload;
+  const isStale = () => upload !== currentUpload;
+  setBusy(true);
   try {
-    const previewData = new FormData();
-    previewData.append('photo', file);
-    const res = await fetch('/preview', { method: 'POST', body: previewData });
+    const res = await postAnalyze(file, skipCrop, isStale);
     if (isStale()) return;
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      // Before the stream: nginx's 503 (an HTML page), or the app's 400 with
+      // a JSON error (an unreadable photo).
+      const data = res.status === 503 ? {} : await res.json().catch(() => ({}));
       if (isStale()) return;
-      statusEl.textContent = '';
-      renderRefused(data.error || "Could not read this photo.");
+      renderRefused(res.status === 503 ? BUSY : (data.error || 'Something went wrong -- try a different photo.'));
       return;
     }
-    const blob = await res.blob();
-    if (isStale()) return;
-    previewUrl = URL.createObjectURL(blob);
-    preview.onload = renderOverlay;
-    preview.src = previewUrl;
-    previewWrap.style.display = 'block';
-
-    // /crop runs after /preview, not alongside it: the backend is a single
-    // gunicorn worker with a server-wide cap of one in-flight request (see
-    // webapp/deploy/coffee-cv.nginx.conf.template), so firing both at once
-    // would just queue or 503 the second one. Sequential also reads better --
-    // the photo appears immediately, the framing outline fades in a moment
-    // after. Classify stays disabled until this settles, for the same
-    // concurrency-cap reason: clicking it while /crop is still in flight
-    // would race it for that single slot and get an HTML 503 error page back
-    // instead of JSON, which then fails to parse client-side. A /crop
-    // failure still degrades to "no overlay" rather than blocking Classify
-    // forever -- /preview already succeeding means the photo itself is
-    // readable, and classify_one() recomputes its own crop regardless of
-    // whatever this call returns.
-    statusEl.textContent = 'Checking framing...';
-    try {
-      const cropData = new FormData();
-      cropData.append('photo', file);
-      const cropRes = await fetch('/crop', { method: 'POST', body: cropData });
+    let previewPart = null, answered = false;
+    for await (const part of readParts(res)) {
       if (isStale()) return;
-      if (cropRes.ok) {
-        const data = await cropRes.json();
+      if (part.part === 'preview') {
+        previewPart = part;
+        await showPreview(part, isStale);
         if (isStale()) return;
-        // The mask decodes first, so the box and the bean region appear
-        // together. An answer with no mask field (a page cached from this
-        // release against a rolled-back server, OPS-6 R6) or a mask that
-        // fails to decode shows the box only.
-        let mask = null;
-        if (data.mask) {
-          const img = new Image();
-          img.src = `data:image/png;base64,${data.mask}`;
-          try {
-            await img.decode();
-            mask = img;
-          } catch (err) {
-            // box only
-          }
-          if (isStale()) return;
-        }
-        lastCropBox = data.cropped ? data.box : null;
-        lastMask = mask;
-        if (lastCropBox) {
-          updateCropToggleBtn();
+      } else if (part.part === 'classification') {
+        answered = true;
+        render(part);
+        // D1: only if the whole photo was not already used.
+        if (!skipCrop && previewPart && previewPart.cropped && !previewPart.seg_fallback) {
           cropToggleBtn.style.display = 'block';
         }
-        renderOverlay();
-        // The two notes cannot fire together: a segmenter model's
-        // needs_review is always false (coffeecv/infer.py).
-        if (data.seg_fallback) {
-          // ML-2 D18: no usable mask, so the whole photo is classified. A
-          // note, not a refusal (OPS-6 D5).
-          cropNote.textContent = 'No coffee beans found -- the whole photo will be classified.';
-          cropNote.style.display = 'block';
-        } else if (data.needs_review) {
-          cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
-          cropNote.style.display = 'block';
-        }
+      } else if (part.part === 'error') {
+        answered = true;
+        renderRefused(part.message);
       }
-    } catch (err) {
-      if (isStale()) return;
-      // no overlay, no warning -- Classify is unaffected either way
     }
-    classifyBtn.disabled = false;
-    statusEl.textContent = '';
+    // R4: a stream cut before its second part (a dropped connection, the
+    // worker killed at 30 s) is not left waiting.
+    if (!answered && !isStale()) renderRefused(UNREACHABLE);
   } catch (err) {
-    if (isStale()) return;
-    statusEl.textContent = '';
-    renderRefused('Could not reach the server -- check your connection and try again.');
-  }
-});
-
-classifyBtn.addEventListener('click', async () => {
-  const file = fileInput.files[0];
-  if (!file) return;
-
-  classifyBtn.disabled = true;
-  fileInput.disabled = true;
-  resultEl.innerHTML = '';
-  statusEl.textContent = 'Analyzing... (this takes several seconds)';
-
-  const formData = new FormData();
-  formData.append('photo', file);
-  if (useFullPhoto) {
-    formData.append('skip_crop', '1');
-  }
-
-  try {
-    const res = await fetch('/classify', { method: 'POST', body: formData });
-    const data = await res.json();
-    statusEl.textContent = '';
-    if (!res.ok) {
-      renderRefused(data.error || 'Something went wrong -- try a different photo.');
-    } else {
-      render(data);
-    }
-  } catch (err) {
-    statusEl.textContent = '';
-    renderRefused('Could not reach the server -- check your connection and try again.');
+    if (!isStale()) renderRefused(UNREACHABLE);
   } finally {
-    classifyBtn.disabled = false;
-    fileInput.disabled = false;
+    if (!isStale()) setBusy(false);
   }
-});
+}
+
+// The upload, sent again after each of BUSY_RETRY_S's waits while nginx
+// answers 503 (plan Q1); the last answer, whatever it is, goes back.
+async function postAnalyze(file, skipCrop, isStale) {
+  for (let attempt = 0; ; attempt++) {
+    const form = new FormData();
+    form.append('photo', file);
+    if (skipCrop) form.append('skip_crop', '1');
+    const res = await fetch('/analyze', { method: 'POST', body: form });
+    if (res.status !== 503 || attempt >= BUSY_RETRY_S.length || isStale()) return res;
+    await new Promise(resolve => setTimeout(resolve, BUSY_RETRY_S[attempt] * 1000));
+    if (isStale()) return res;
+  }
+}
+
+// The answer's lines as they arrive. A line can span chunks, and a character
+// can span two, hence the streaming decoder and the carried-over remainder.
+async function* readParts(res) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    pending += done ? decoder.decode() : decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = pending.indexOf('\n')) >= 0) {
+      const line = pending.slice(0, nl);
+      pending = pending.slice(nl + 1);
+      if (line.trim()) yield JSON.parse(line);
+    }
+    if (done) break;
+  }
+  if (pending.trim()) yield JSON.parse(pending);
+}
+
+// The preview part (D8): the server's JPEG thumbnail, never the file itself
+// -- browsers other than Safari cannot show a HEIC, and none a RAW -- and the
+// photo's bean region. Both decode first, so the photo, the box and the bean
+// region appear together. A mask that fails to decode shows the box only; on
+// skip_crop the mask and the box are null and the overlay stays hidden (D9).
+async function showPreview(part, isStale) {
+  const src = `data:image/jpeg;base64,${part.thumbnail}`;
+  const thumb = new Image();
+  thumb.src = src;
+  await thumb.decode();
+  let mask = null;
+  if (part.mask) {
+    const img = new Image();
+    img.src = `data:image/png;base64,${part.mask}`;
+    try {
+      await img.decode();
+      mask = img;
+    } catch (err) {
+      // box only
+    }
+  }
+  if (isStale()) return;
+  lastCropBox = part.cropped ? part.box : null;
+  lastMask = mask;
+  preview.onload = renderOverlay;
+  preview.src = src;
+  previewWrap.style.display = 'block';
+  renderOverlay();
+  // The two notes cannot fire together: a segmenter model's needs_review is
+  // always false (coffeecv/infer.py).
+  if (part.seg_fallback) {
+    // ML-2 D18: no usable mask, so the whole photo is classified. A note,
+    // not a refusal (OPS-6 D5; wording OPS-7 D14).
+    cropNote.textContent = 'No coffee beans found -- the whole photo is classified.';
+    cropNote.style.display = 'block';
+  } else if (part.needs_review) {
+    cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
+    cropNote.style.display = 'block';
+  }
+}
 
 function renderRefused(message) {
   resultEl.innerHTML = `<div class="result-box refused">${escapeHtml(message)}</div>`;

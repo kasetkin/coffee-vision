@@ -1,0 +1,70 @@
+<title>A Release Carries Its Site</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-9 · coffee-vision · deploy</div>
+  <h1>Stub: a release carries its own nginx site, so a deploy and a rollback switch the site, the page and the backend together</h1>
+  <p class="lede">A placeholder, not a ticket yet. A release holds its page and its backend (<a
+    href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>), but the nginx site lives outside it, so a
+    rollback keeps the newest site. <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> is the first
+    release a rollback cannot undo because of this (OPS-7 R8, D10). The owner wants the site and the ML part shipped
+    as one release. To be researched and written later; nothing here is decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-17; not researched, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Deploy: release contents and rollback</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>scripts/deploy_webapp.sh</code>, <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>scripts/rehearse_deploy_local.sh</code>, <code>docs/agents/deploy.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-17</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until written. Today, after OPS-7, a <code>--rollback</code> (by hand, or the deploy's own on a failed verify) to a release from before OPS-7 leaves the site down.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">found while planning OPS-7; matters from OPS-7's deploy on</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decision, 2026-10-17 (OPS-7 D10).</strong> Ignore the rollback problem in OPS-7; fix it later
+      in a separate ticket and combine the site and the ML part as one release. OPS-7 D16 and D17 follow from it:
+      no undo procedure for OPS-7 and no local rehearsal until this ticket ships.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. A deploy installs the nginx site rendered from the release it deploys, but a rollback switches only the
+    <code>current</code> and <code>previous</code> links, so the site stays the newest one. That holds while every
+    release serves the same paths. OPS-7 changes the paths (<code>/preview</code>, <code>/crop</code>,
+    <code>/classify</code> become <code>/analyze</code>), and from there a rollback runs the old app behind a site
+    that does not route its endpoints. Nothing is proposed yet.</p>
+
+  <h2>2. Background</h2>
+  <p>Read at <code>6c45b78</code>; to be checked when the ticket is written.</p>
+  <ul>
+    <li><b>The site is rendered at deploy, not kept per release.</b> <code>render_production</code> renders
+      <code>webapp/deploy/coffee-cv.nginx.conf.template</code> from the deployed commit and installs it as
+      <code>/etc/nginx/conf.d/coffee-cv.conf</code> when it changed; <code>rollback_links</code> swaps the links and
+      restarts the service, with no nginx step (<code>scripts/deploy_webapp.sh</code>). The page already switches
+      with the release, since nginx's <code>root</code> follows <code>current</code>.</li>
+    <li><b>The deploy's own rollback.</b> A failed <code>verify</code> after a flip calls
+      <code>on_verify_failure</code>, which rolls back the same way, and then verifies again.</li>
+    <li><b>Verify speaks one API.</b> <code>verify</code> runs from the deploying checkout and posts to that
+      checkout's endpoint, so after a rollback it checks the previous release with the new release's requests.</li>
+    <li><b>The rehearsal.</b> <code>scripts/rehearse_deploy_local.sh</code> deploys <code>origin/main~1</code>, then
+      <code>origin/main</code>, then rolls back and forward; it stubs nginx, so it never exercises the site. Across
+      OPS-7 its rollback step cannot pass (OPS-7 D17).</li>
+    <li><b>Ideas raised, not assessed.</b> Keep the rendered site inside each release and point nginx at
+      <code>current</code>'s copy (reload on every flip and rollback); or have the site route every path the kept
+      releases serve; let <code>verify</code> read the release's own expected answer to pick its requests.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-17</div>Stub created at the owner's request while planning OPS-7 (D10), which
+      found the gap (R8). Not researched, not written.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (R8, D10, D16, D17),
+    <a href="ticket_webapp_release_isolation.html">OPS-1</a>, <a href="adr/0008-webapp-serves-immutable-releases.md">ADR
+    0008</a>, <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>

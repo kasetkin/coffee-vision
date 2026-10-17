@@ -53,7 +53,7 @@ import argparse
 import functools
 import json
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import cv2
@@ -447,21 +447,12 @@ def segmenter_for(cfg: RunConfig):
 
 def _segment(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
     """`segment_and_crop` and its crop_info, shaped like `crop_to_bean_region`'s (None when the whole photo is
-    used): the one place `segment_bean_region` and `bean_region_preview` get their box from. `segmenter` is the
-    caller's BeanSegmenter (the web service's runs on LiteRT); None is `segmenter_for(cfg)`, PyTorch's."""
+    used). `segmenter` is the caller's BeanSegmenter (the web service's runs on LiteRT); None is
+    `segmenter_for(cfg)`, PyTorch's."""
     from coffeecv.segment_beans import segment_and_crop
     crop = segment_and_crop(rgb, segmenter or segmenter_for(cfg))
     i = crop.info
     return crop, None if i["fallback"] else {"box": i["box"], "needs_review": False, "note": None}
-
-
-def bean_region_preview(rgb: np.ndarray, cfg: RunConfig, segmenter=None):
-    """What the web app's /crop shows (ticket OPS-6 D7): (the whole photo's bool bean mask, or None on a D18
-    fallback; crop_info, as `segment_bean_region` gives it; whether the fallback fired). The same segmentation
-    as `segment_bean_region`, through the same helper, so the two cannot disagree on the box; display only."""
-    crop, crop_info = _segment(rgb, cfg, segmenter)
-    fallback = crop.info["fallback"]
-    return (None if fallback else crop.photo_mask), crop_info, fallback
 
 
 def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False, segmenter=None):
@@ -472,9 +463,15 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
     The mask is None on a D18 fallback (empty or tiny mask: the whole original photo, unfilled, every patch
     accepted) and on skip_crop, the user's override, which now means exactly that fallback, chosen by hand;
     the segmenter does not run then, so its diagnostics are None."""
+    return _segment_region(rgb, cfg, skip_crop, segmenter)[:4]
+
+
+def _segment_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool, segmenter):
+    """`segment_bean_region`'s four values, then the whole photo's bool bean mask from the same segmentation, or
+    None when the whole photo is used (a D18 fallback, skip_crop): what the web app's preview draws (OPS-6 D7)."""
     if skip_crop:
         return rgb, None, None, {"mask_area_frac": None, "bean_frac_in_crop": None, "retained_frac": None,
-                                 "seg_fallback": None, "seg_mask_empty": None}
+                                 "seg_fallback": None, "seg_mask_empty": None}, None
     crop, crop_info = _segment(rgb, cfg, segmenter)
     i = crop.info
 
@@ -484,12 +481,31 @@ def segment_bean_region(rgb: np.ndarray, cfg: RunConfig, skip_crop: bool = False
     return crop.rgb, crop.mask, crop_info, {
         "mask_area_frac": r4(i["mask_area_frac"]), "bean_frac_in_crop": r4(i["bean_frac_in_crop"]),
         "retained_frac": r4(i["retained_frac"]), "seg_fallback": i["fallback"],
-        "seg_mask_empty": i["mask_area_frac"] == 0}      # unrounded: ood_eval's empty-mask rate (ML-5 D9)
+        "seg_mask_empty": i["mask_area_frac"] == 0,      # unrounded: ood_eval's empty-mask rate (ML-5 D9)
+    }, None if i["fallback"] else crop.photo_mask
 
 
-def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],
-                       skip_crop: bool = False, segmenter=None):
-    """Sample patches the way training does. Returns (patches, diagnostics).
+@dataclass(frozen=True)
+class SegmentedPhoto:
+    """A photo decoded and its bean region found, once (ticket OPS-7 P1): what `segment_photo` gives
+    `classify_segmented`, and what the web app's /analyze builds its preview from in between."""
+    photo: np.ndarray                  # the whole decoded photo, RGB uint8
+    rgb: np.ndarray                    # what patches are sampled from: the crop, or the whole photo
+    mask: np.ndarray | None            # bool, aligned with `rgb`; None = every patch accepted
+    photo_mask: np.ndarray | None      # bool, aligned with `photo`: the bean region, None when the whole photo is used
+    crop_info: dict | None             # crop_to_bean_region's shape: None when the whole photo is used
+    seg_diag: dict                     # segmenter models only (ML-2), else empty
+    timing_ms: dict                    # decode, crop_detect
+
+    @property
+    def seg_fallback(self) -> bool:
+        """ML-2 D18's whole-photo fallback fired (never on skip_crop, where the segmenter does not run)."""
+        return bool(self.seg_diag.get("seg_fallback"))
+
+
+def segment_photo(path: Path, cfg: RunConfig, skip_crop: bool = False, segmenter=None) -> SegmentedPhoto:
+    """Decode the photo and find its bean region: the first half of `patches_for_photo`. Raises
+    `load_rgb_image`'s ValueError / OSError on a photo it cannot read.
 
     skip_crop is a user override, not an automatic decision: the live crop
     detector is a heuristic (coffeecv.crop_tray.locate_bean_crop), and a
@@ -499,22 +515,47 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
     than silently living with a bad detection.
 
     A crop_method "segment" checkpoint finds the bean region with the segmenter instead
-    (`segment_bean_region`) and places patches by the D17 rule against its mask, as its training
-    pools did (dataset.MultiPhotoPatchDataset with bean_share_rule).
-    """
+    (`segment_bean_region`), once: the crop to sample from and the whole photo's mask come from the same
+    segmentation."""
     t0 = time.monotonic()
-    rgb = load_rgb_image(path)
+    photo = load_rgb_image(path)
+    return segment_decoded(photo, cfg, skip_crop, segmenter, decode_ms=round((time.monotonic() - t0) * 1000))
+
+
+def segment_decoded(photo: np.ndarray, cfg: RunConfig, skip_crop: bool = False, segmenter=None,
+                    decode_ms: int | None = None) -> SegmentedPhoto:
+    """`segment_photo` on a photo already decoded by `load_rgb_image` (`decode_ms` is how long that took): for a
+    caller that has to tell a photo it cannot read from an error after the decode, as the web app's /analyze
+    does (a 400 against a 500)."""
     t1 = time.monotonic()
-    decoded_h, decoded_w = rgb.shape[:2]
-    crop_info, mask, seg_diag = None, None, {}
-    segment = cfg.crop_method == "segment"
-    if segment:
-        rgb, mask, crop_info, seg_diag = segment_bean_region(rgb, cfg, skip_crop, segmenter)
+    rgb, crop_info, mask, photo_mask, seg_diag = photo, None, None, None, {}
+    if cfg.crop_method == "segment":
+        rgb, mask, crop_info, seg_diag, photo_mask = _segment_region(photo, cfg, skip_crop, segmenter)
     elif cfg.crop_method != "tray_heuristic":
         raise ValueError(f"unknown crop_method {cfg.crop_method!r}")
     elif not skip_crop:
-        rgb, crop_info = crop_to_bean_region(rgb)
+        rgb, crop_info = crop_to_bean_region(photo)
     t2 = time.monotonic()
+    return SegmentedPhoto(photo, rgb, mask, photo_mask, crop_info, seg_diag,
+                          {"decode": decode_ms, "crop_detect": round((t2 - t1) * 1000)})
+
+
+def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list[int],
+                       skip_crop: bool = False, segmenter=None):
+    """Sample patches the way training does. Returns (patches, diagnostics): `segment_photo`, then
+    `sample_patches`."""
+    return sample_patches(segment_photo(path, cfg, skip_crop, segmenter), cfg, n_patches, seed_key)
+
+
+def sample_patches(seg: SegmentedPhoto, cfg: RunConfig, n_patches: int, seed_key: list[int]):
+    """The second half of `patches_for_photo`: the bean pitch and the patches, sampled the way training does.
+    Returns (patches, diagnostics); raises ValueError when the pitch cannot be measured.
+
+    A crop_method "segment" checkpoint places patches by the D17 rule against its mask, as its training
+    pools did (dataset.MultiPhotoPatchDataset with bean_share_rule)."""
+    rgb, mask, seg_diag = seg.rgb, seg.mask, dict(seg.seg_diag)
+    decoded_h, decoded_w = seg.photo.shape[:2]
+    segment = cfg.crop_method == "segment"
     h, w = rgb.shape[:2]
     region = compute_valid_region_rect(h, w, cfg.safety_margin)
     pitch = estimate_bean_pitch(grayscale_like_training(rgb), **pitch_kwargs(cfg))
@@ -542,7 +583,7 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
 
     room = min(region.width, region.height)
     return patches, {
-        "crop": crop_info,
+        "crop": seg.crop_info,
         "bean_pitch_px": round(pitch, 1),
         # How many beans span the usable short side -- the quantity that decides
         # whether the trained patch range is reachable at all in this frame.
@@ -553,7 +594,7 @@ def patches_for_photo(path: Path, cfg: RunConfig, n_patches: int, seed_key: list
         # Diagnostic only, for the web service's request logging -- never used
         # for any pass/fail decision, so it can't become a parity concern.
         # crop_detect is the bean-region step of either crop_method (segmenter + fill + crop).
-        "timing_ms": {"decode": round((t1 - t0) * 1000), "crop_detect": round((t2 - t1) * 1000)},
+        "timing_ms": dict(seg.timing_ms),
         # Segmenter only (ML-2): mask_area_frac, bean_frac_in_crop, retained_frac, seg_fallback
         # (D18) and patches_below_share (D17). Logged per request; nothing gates on them (D9).
         **seg_diag,
@@ -654,12 +695,29 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
 
     `classifier` is a TorchClassifier or the web service's coffeecv.litert.LiteRtClassifier; `segmenter` likewise
     the BeanSegmenter it runs (None: segmenter_for(cfg)).
+
+    Two steps, `segment_photo` then `classify_segmented`, which the web app's /analyze runs one at a time with
+    the preview sent in between (ticket OPS-7 R3), so the two callers still run one code path.
     """
+    try:
+        seg = segment_photo(path, cfg, skip_crop=skip_crop, segmenter=segmenter)
+    except (ValueError, OSError) as exc:
+        return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
+    return classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref, n_patches=n_patches,
+                              seed_key=seed_key, tta=tta, probe=probe, ood_method=ood_method)
+
+
+def classify_segmented(seg: SegmentedPhoto, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str],
+                       classifier, ref: dict | None, n_patches: int = 40, seed_key: list[int] | None = None,
+                       tta: bool = True, probe: dict | None = None, ood_method: str = "auto") -> dict:
+    """`classify_one`'s second step, on a photo `segment_photo` has decoded and segmented: the patches, the model
+    and the OOD guard. A photo whose bean pitch cannot be measured is "REFUSED (unmeasurable)", as in
+    `classify_one`."""
     if seed_key is None:
         seed_key = [42, 0]
 
     try:
-        patches, diag = patches_for_photo(path, cfg, n_patches, seed_key, skip_crop=skip_crop, segmenter=segmenter)
+        patches, diag = sample_patches(seg, cfg, n_patches, seed_key)
     except (ValueError, OSError) as exc:
         return {"verdict": "REFUSED (unmeasurable)", "error": str(exc)}
 
@@ -752,17 +810,14 @@ def classify_one(path: Path, cfg: RunConfig, class_ids: list[str], class_labels:
 
 def warm_up(photo: Path, cfg: RunConfig, class_ids: list[str], class_labels: dict[str, str], classifier,
             ref: dict | None, probe: dict | None, segmenter, n_patches: int = 40) -> dict:
-    """The web service's /crop and /classify path on `photo`, once, before its first request (ADR 0021): every graph
-    set up at its served batch and precision. An error, or a non-finite answer, raises SystemExit, so it fails the
-    worker's boot rather than a visitor's request. Returns what the boot log records."""
+    """The web service's /analyze path on `photo`, once, before its first request (ADR 0021): every graph set up at
+    its served batch and precision. `classify_one` is that whole path: /analyze runs its two steps, and the preview
+    between them reads the segmentation the first step already made, so no graph runs outside it (ticket OPS-7
+    P1). An error, or a non-finite answer, raises SystemExit, so it fails the worker's boot rather than a visitor's
+    request. Returns what the boot log records."""
     t0 = time.monotonic()
     if not photo.is_file():
         raise SystemExit(f"warm-up photo {photo} is missing (ADR 0021)")
-    rgb = load_rgb_image(photo)
-    if segmenter is not None:
-        bean_region_preview(rgb, cfg, segmenter)
-    else:
-        crop_to_bean_region(rgb)
     entry = classify_one(photo, cfg, class_ids, class_labels, classifier, ref, n_patches=n_patches, tta=False,
                          probe=probe, segmenter=segmenter)
     if "ranked" not in entry:

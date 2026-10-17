@@ -10,25 +10,29 @@ running the thing that serves it.
 
 ```
 Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate limit)
-                      |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html
-                      |-- POST /preview    -> proxy_pass -> gunicorn (127.0.0.1:8000)
-                      |                                     -> Flask app -> coffeecv.dataset.load_rgb_image
-                      \-- POST /classify   -> proxy_pass -> gunicorn (127.0.0.1:8000)
-                                                              -> Flask app -> coffeecv.infer
+                      |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
+                      \-- POST /analyze    -> proxy_pass -> gunicorn (127.0.0.1:8000)
+                                                -> Flask app -> coffeecv.infer -> a streamed answer:
+                                                   preview line, then classification line
 ```
 
-- `app.py` -- the Flask app. Loads the model once at import time; `classify_one`
-  from `coffeecv/infer.py` does the actual work, so this service and the CLI
-  can never silently disagree about what counts as a refusal. `/preview`
-  decodes whatever format was uploaded and re-encodes it as a JPEG thumbnail --
-  it exists so the browser never needs native decode support for HEIC/AVIF/JXL
-  to show a picture; the frontend calls it on every file selection, before
-  `/classify` is ever hit. `/crop`, called right after it, runs the segmenter and
-  answers what the preview draws: `cropped`, `box` (the crop as fractions of the
-  decoded photo), `needs_review`, `mask` (the photo's bean region: a 1-bit palette
-  PNG of the whole photo, long side <= 1024 px, index 0 transparent, base64; null
-  on a fallback) and `seg_fallback` (no usable mask, so the whole photo will be
-  classified). All advisory: `/classify` segments again and takes nothing from it.
+- `app.py` -- the Flask app. Loads the model once at import time; `classify_one`'s
+  two steps from `coffeecv/infer.py` do the actual work, so this service and the
+  CLI can never silently disagree about what counts as a refusal. One endpoint,
+  `POST /analyze` (ticket OPS-7, ADR 0023): the page sends the photo once (form
+  field `photo`, and `skip_crop=1` for "Use full photo instead"), the server
+  decodes and segments it once, and answers `application/x-ndjson`, one JSON
+  object per line. First `{"part": "preview"}`: `thumbnail` (a base64 JPEG, long
+  side <= 1024 px, so the browser never needs native HEIC/AVIF/JXL/RAW decoding),
+  `cropped`, `box` (the crop as fractions of the decoded photo), `needs_review`,
+  `mask` (the photo's bean region: a 1-bit palette PNG of the whole photo, long
+  side <= 1024 px, index 0 transparent, base64; null on a fallback and on
+  `skip_crop`) and `seg_fallback` (no usable mask, so the whole photo is
+  classified). Then `{"part": "classification"}` with the verdict and the ranked
+  classes, or `{"part": "error", "message": ...}` if the classification fails
+  after the 200 has gone out. An unreadable photo is a plain 400 before any line.
+  The app sends `X-Accel-Buffering: no`, so both nginx servers pass the preview
+  on before the classification is done.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
 - `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
@@ -141,13 +145,14 @@ photo; `BUILD_INFO.json` + `release.env`; the expected smoke answers from the st
 CPU) -> **stage**
 (rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **smoke**
 (the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
-sandbox; `/classify`, `/crop`, `/preview` must match the local answers: same verdict and top-1, scores within
-ML-7 D7's 0.05, the mask's IoU at least 0.999, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
+sandbox; `/analyze`'s two parts must match the local answer: same verdict and top-1, scores within
+ML-7 D7's 0.05, the preview's mask IoU at least 0.999 and its thumbnail a JPEG of the same size, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
 ADR 0020) -> **render** the unit and nginx site from the commit (installed only if changed;
 `nginx -t` failure restores the old site and stops) -> **flip** (`previous` <- `current`, `current` <-
 the new release, each an atomic rename) -> **restart only if enabled** -> **verify** (backend `GET /`
--> 404, `GET /classify` -> 405, the startup journal line's commit and `model_sha`; public page = the
-release's `index.html`; public `/classify` top-1 as expected; on failure it rolls back, or stops the
+-> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
+release's `index.html`; public `/analyze` answers both parts with the top-1 expected, and the time each part
+arrived is reported, not checked (OPS-7 D11); on failure it rolls back, or stops the
 service if there is nothing to roll back to) -> **prune** to `current` + `previous`.
 
 **The deploy never enables the service.** If `coffee-cv-web` is disabled it stops after the flip and
@@ -172,9 +177,10 @@ PIDs and log size before its first host step and after its last. Never during a 
 host's checkout, reboots.
 
 **Keeping the site on during a sweep** is fine for the frozen DINOv3 model: measured 2026-09-27/28,
-`/classify` takes 12.5 s mean and 13.7 s max server-side during a ResNet18 sweep, against 7.0 s idle, well inside
+the old `/classify` took 12.5 s mean and 13.7 s max server-side during a ResNet18 sweep, against 7.0 s idle, well inside
 gunicorn's and nginx's 30 s. The site and the sweep share the CPU with no priority between them. Compare
-latencies with `latency_ms` in `app.jsonl`: end-to-end times from a slow uplink include several seconds of upload.
+latencies with `latency_ms` in `app.jsonl` (and `/analyze`'s `preview_ms`, when its preview went out):
+end-to-end times from a slow uplink include several seconds of upload.
 
 ### After changing a dependency
 
@@ -193,8 +199,14 @@ tail -f /var/log/coffee-cv/app.jsonl   # per-request logs: verdicts, timing, err
                                         # see docs/logging_plan.html)
 tail -f /var/log/nginx/coffee-cv.access  # nginx side of the same requests --
                                         # no client IP, joined to the line
-                                        # above by request id
+                                        # above by request id; its last field,
+                                        # the bytes nginx got from the app,
+                                        # shows an /analyze answer cut short
 ```
+
+A streamed `/analyze` answer has its status before it is done, so its `app.jsonl` line also says how it ended
+(ticket OPS-7 D19): `outcome` is `complete`, `error` (an error part) or `client_gone` (the client left before the
+end), and `parts_sent` counts the lines handed to the server.
 
 ## What lives outside git, and where
 
@@ -241,7 +253,7 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   real throughput. Serializing behind one worker, backed by nginx's
   `limit_conn` (below), is the better trade for a low-traffic endpoint.
 - **Rate limiting is keyed by connection, not IP** (NAT can put many real
-  users behind one IP) -- `limit_conn` caps total *concurrent* `/classify`
+  users behind one IP) -- `limit_conn` caps total *concurrent* `/analyze`
   requests at exactly 1, matching the single gunicorn worker. A request takes
   about 7 s server-side (12-14 s while a sweep trains), so this alone already enforces well under "1 request/sec"; a
   separate rate-limit zone would just re-enforce a limit this already

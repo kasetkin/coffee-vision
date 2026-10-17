@@ -9,6 +9,7 @@
 # $REHEARSE_PREV_REF (default origin/main~1), deploy 2 at origin/main, so the rollback switches between two releases
 # of it. Until 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
+# Since ticket OPS-7 the deploy speaks /analyze only (D10), so REHEARSE_PREV_REF must also be from OPS-7 on.
 #
 # Last passed 2026-10-17 (ticket ML-7 P11): deploy 1 at 176727e, deploy 2 at b87eb8c, both the LiteRT model
 # allrigs_dino3b16_segxl0v3_country_s42 on the CPU, --compare within D7 of PyTorch, and a rollback and back. Run with

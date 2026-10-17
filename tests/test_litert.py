@@ -416,7 +416,7 @@ class TestAgainstPyTorch(unittest.TestCase):
 
 @real_data
 class TestServiceBoots(unittest.TestCase):
-    """webapp.app on LiteRT with torch unimportable: it boots, warms up (ADR 0021) and answers /classify and /crop."""
+    """webapp.app on LiteRT with torch unimportable: it boots, warms up (ADR 0021) and answers /analyze."""
 
     def test_boot_and_answer(self):
         missing = _have_served()
@@ -430,10 +430,9 @@ from pathlib import Path
 import webapp.app as app
 photo = Path(sys.argv[1]).read_bytes()
 out = {"warm_up": app.WARM_UP}
-for endpoint in ("/classify", "/crop"):
-    r = app.app.test_client().post(endpoint, data={"photo": (io.BytesIO(photo), "photo.jpg")},
-                                   content_type="multipart/form-data")
-    out[endpoint] = [r.status_code, sorted(r.get_json())]
+r = app.app.test_client().post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jpg")},
+                               content_type="multipart/form-data")
+out["/analyze"] = [r.status_code, [json.loads(line)["part"] for line in r.get_data(as_text=True).splitlines()]]
 print("RESULT " + json.dumps(out))
 """
             env = {**os.environ, "COFFEE_CV_CHECKPOINT": str(CHECKPOINT.relative_to(REPO_ROOT)),
@@ -445,8 +444,7 @@ print("RESULT " + json.dumps(out))
         self.assertEqual(res["warm_up"]["photo"], Path(FIXTURE_PHOTOS[0]).name)
         for k in ("boot_s", "warm_up_s", "peak_rss_mb", "mem_available_mb"):
             self.assertIn(k, res["warm_up"])
-        self.assertEqual(res["/classify"][0], 200)
-        self.assertEqual(res["/crop"][0], 200)
+        self.assertEqual(res["/analyze"], [200, ["preview", "classification"]])
 
 
 if __name__ == "__main__":

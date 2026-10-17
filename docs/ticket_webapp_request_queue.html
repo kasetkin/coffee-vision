@@ -1,0 +1,84 @@
+<title>Several Visitors at Once</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-8 · coffee-vision · webapp</div>
+  <h1>Stub: serve several visitors at once, with a queue or batch processing, instead of turning the second away</h1>
+  <p class="lede">A placeholder, not a ticket yet. The service handles one photo at a time and answers a second visitor
+    with an immediate 503. After <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>, every photo holds
+    the worker for a whole classification. Split out of OPS-7's planning (D12). To be researched and written later;
+    nothing here is decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-17; not researched, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: serving capacity</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/deploy/coffee-cv-web.service.template</code>, <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>webapp/static/index.html</code>, <code>coffeecv/litert.py</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-17</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">research can start any time; easier to measure after OPS-7 is live</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-17.</strong> While planning OPS-7: create a ticket for implementing a queue (or
+      maybe even batch processing) for multiple users in parallel. Facts and a stub only, not a full ticket yet.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. The question is how the service should handle a second visitor while a first visitor's photo is in
+    flight: queue them, run them side by side, or batch their photos through the models together. Nothing is
+    proposed yet.</p>
+
+  <h2>2. Background</h2>
+  <p>Read at <code>6c45b78</code>; to be checked when the ticket is written.</p>
+  <ul>
+    <li><b>One worker, one request.</b> gunicorn runs one sync worker with <code>--timeout 30</code>
+      (<code>webapp/deploy/coffee-cv-web.service.template</code>). nginx caps the backend at one request in flight
+      server-wide (<code>limit_conn</code> 1) and gives a second request an immediate 503
+      (<code>webapp/deploy/coffee-cv.nginx.conf.template</code>). After OPS-7 the page shows a busy message for it
+      (OPS-7 D12).</li>
+    <li><b>How long the worker is busy.</b> After OPS-7, every pick costs a full classification in one request:
+      about 9.4 s median and 11.4 s max server-side on <code>yappy</code>'s GPU (ML-7 P10, 13 fixtures,
+      <code>/classify</code>, segmenter included). Before OPS-7, a visitor who stopped at the mask held it for
+      about 2 s (OPS-7 R6).</li>
+    <li><b>The models are loaded per worker.</b> Each worker loads and warms every graph at boot (<a
+      href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>), and on the GPU it must prove the GPU ran
+      the warm-up (<a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>). A second worker
+      means a second copy of the models and its own GPU context; its memory on <code>yappy</code> has not been
+      measured.</li>
+    <li><b>Batching.</b> A photo is 40 patches through DINOv3, run at the batch its LiteRT manifest names. The
+      converted graphs are built for that batch (<a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>), so
+      batching patches from several photos means fitting them to that batch or converting again. The segmenter
+      runs one photo at a time.</li>
+    <li><b>Constraints.</b> No state between requests (<a
+      href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>); no containers on the server
+      (<code>.out-of-scope/containerised-serving.md</code>); the request log records <code>latency_ms</code> and,
+      after OPS-7, <code>preview_ms</code>, which show how busy the worker is.</li>
+  </ul>
+
+  <h2>3. Questions to research</h2>
+  <ul>
+    <li>A queue in front of the one worker (in nginx, or in the app) against more workers; which one stays inside
+      gunicorn's and nginx's 30 s timeouts with several visitors waiting.</li>
+    <li>The GPU and host memory a second worker costs on <code>yappy</code>.</li>
+    <li>Whether DINOv3, and the segmenter, can batch photos from several visitors, and what that does to each
+      visitor's wait.</li>
+    <li>What the page shows while a photo is queued (its place in the queue, or the progress circle only).</li>
+    <li>How much traffic there is: the request log's rate of 503s and of overlapping requests.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-17</div>Stub created at the owner's request while planning OPS-7 (D12), which
+      leaves more workers and the nginx cap out of scope. Not researched, not written.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (R6, D12),
+    <a href="ticket_inference_runtime.html">ML-7</a> (live times), <a href="agents/deploy.md">deploy.md</a>,
+    <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>.</footer>
+</main>

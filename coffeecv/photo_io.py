@@ -35,8 +35,8 @@ def load_rgb_image(path: Path) -> np.ndarray:
         except rawpy.LibRawError as exc:
             # Normalized to OSError so this joins the same "can't read this
             # photo" handling every other decode failure already gets
-            # (patches_for_photo's try/except, webapp's /preview and
-            # /classify) -- rawpy's own exceptions aren't OSError/ValueError.
+            # (classify_one's try/except, webapp's /analyze) -- rawpy's own
+            # exceptions aren't OSError/ValueError.
             # Message is fixed rather than str(exc): LibRaw's own messages
             # come through as a bytes-repr ("b'Input/output error'"), which
             # would look broken surfaced straight to a user.

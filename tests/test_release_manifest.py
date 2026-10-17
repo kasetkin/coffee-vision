@@ -3,7 +3,7 @@
     python -m unittest discover -s tests -p 'test_release_manifest.py'
 
 For each shippable model, a fresh interpreter imports webapp.app under a Python audit hook, sends a real
-photo to all three endpoints (/classify, /crop, /preview) and reports every file under the repo it
+photo to /analyze, reads its whole streamed answer, and reports every file under the repo it
 opened. Anything outside webapp/deploy/release_manifest.py fails the test: a release built from that
 list would crash, or silently fall back, in production (docs/ops1_release_isolation_plan.html §4.2).
 Needs the DVC-tracked .pt, the model's LiteRT export and the smoke photo; skips with a reason otherwise. The app runs
@@ -54,12 +54,9 @@ sys.addaudithook(hook)
 import io
 import webapp.app as app
 client = app.app.test_client()
-status = {}
-for endpoint in ("/classify", "/crop", "/preview"):
-    r = client.post(endpoint, data={"photo": (io.BytesIO(photo), "photo.jpg")},
-                    content_type="multipart/form-data")
-    status[endpoint] = r.status_code
-print("TRACE " + json.dumps({"opened": sorted(opened), "status": status}))
+r = client.post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jpg")}, content_type="multipart/form-data")
+parts = [json.loads(line)["part"] for line in r.get_data(as_text=True).splitlines()]   # runs the whole stream
+print("TRACE " + json.dumps({"opened": sorted(opened), "status": {"/analyze": [r.status_code, parts]}}))
 """
 
 
@@ -93,7 +90,7 @@ class TestReleaseManifest(unittest.TestCase):
                 self.assertEqual(out.returncode, 0, out.stderr[-3000:])
                 trace = json.loads(next(line[6:] for line in out.stdout.splitlines()
                                         if line.startswith("TRACE ")))
-                self.assertEqual(trace["status"], {"/classify": 200, "/crop": 200, "/preview": 200})
+                self.assertEqual(trace["status"], {"/analyze": [200, ["preview", "classification"]]})
                 outside = sorted(set(trace["opened"]) - all_files(m))
                 self.assertEqual(outside, [], f"{model} opened repo files outside the manifest")
                 # The other direction: the manifest names no code or model file the app never needs.
