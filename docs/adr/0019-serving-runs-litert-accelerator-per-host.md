@@ -32,6 +32,14 @@ LiteRT stays, with XNNPACK on the CPU or whatever accelerator that host offers, 
 
 ## Consequences
 
+- **What it changes in earlier decisions.** ML-2 Q4 chose "PyTorch runtime for now, at both ends", with a later
+  runtime to switch at both ends together, training pools rebuilt, because two runtimes would break parity. Here
+  the runtimes differ: training stays on PyTorch and serving runs the converted models. Parity is kept another way:
+  the processing around the models is one code path, the ports in `coffeecv/model_io.py` that training calls too,
+  and each converted model is held to D7's bars against its PyTorch original on the serving host
+  ([ADR 0020](0020-converted-models-pass-d7-before-they-serve.md)). [ADR 0015](0015-xl0-segmenter-owner-judged-labels.md)'s
+  "the same code in training and serving" holds in that sense for the segmenter: the same processing, and the same
+  weights converted, within D7.
 - **A departure from the train/inference parity rule** in `CODING_STANDARDS.md` ("an accurate method offline with a cheap one live is rejected"), wherever a graph serves in lower precision than it trains. On `yappy`: training's metrics are measured with fp32 DINOv3, and serving answers with fp16. Over 157 served photos and 4 patch seeds, fp16 changes 0.48% of top-1 answers and no guard verdict. That is the margin by which reported metrics overstate the live ones. Patch sampling alone changes 0.85% between seeds, and fp16's probability changes are about a quarter of sampling's at p95 (0.023 against 0.099).
 - **Kept for each converted model:**
   - **A pinned conversion environment:** `litert-torch`, below the torch that training uses.

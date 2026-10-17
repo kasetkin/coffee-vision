@@ -124,6 +124,15 @@ DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` ser
 DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previous, restart, verify
 ```
 
+**The host's GPU is a deploy dependency** (ticket ML-7, ADR 0019). A release whose converted model runs on the
+GPU (`yappy`'s Intel N100 iGPU today) needs on the host: Mesa's Vulkan driver for Intel (ANV,
+`/usr/share/vulkan/icd.d/intel_icd.x86_64.json`, which `release.env`'s `VK_ICD_FILENAMES` names), the render node
+`/dev/dri/renderD128` (the unit's `SupplementaryGroups=render`), and i915's counters in sysfs for the GPU proof.
+LiteRT's WebGPU accelerator comes from the release's own venv (the `ai-edge-litert` wheel). The sandbox leaves
+no writable home, so no shader cache persists: shaders compile at each boot, within its 20 s (ML-7 P7 measured no
+cold-start change with a cache). A worker that cannot prove the GPU refuses to serve (ADR 0020), so a driver upgrade or a
+lost render group shows as a failed smoke test or a service that does not start, never as silent CPU serving.
+
 A full deploy: **preflight** (>= 5 GB available memory, >= 10 GB free on /opt, pinned uv; records the
 sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
 the manifest; the `.pt` from the working tree or the local DVC cache, refused unless its md5 matches the

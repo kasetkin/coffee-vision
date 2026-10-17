@@ -16,7 +16,7 @@
     numbers; every other decision is made. Planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13; plan P1 done 2026-10-13 (both formats pass D7 on the CPU); plan P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7; P4 next); plan P4 done 2026-10-14 (the three GPU cells 38&ndash;59% below PyTorch's replay p90, every cell passing D7; P5 next); plan P5's report written 2026-10-14 (<code>analysis/ml7_gpu/README.md</code>; D2, D4 and D5 for the owner); D2 decided 2026-10-14 (LiteRT on Vulkan, the main track); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases (plan P8&ndash;P12) and ADRs 0019&ndash;0022 written 2026-10-15; plan P8 done 2026-10-15 (LiteRT in the serving code, no torch; one owner question on the DVC stages); plan P9&ndash;P11 done 2026-10-17; deployed 2026-10-17 (plan P12: LiteRT live on <code>yappy</code>'s GPU, <code>/classify</code> 8.2 s on the server); closing is the owner's</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-10-17 by the owner; written 2026-10-13; D3 decided 2026-10-13 (inference only); iGPU test added 2026-10-13, D8 (c) decided; <a href="plan_inference_runtime.html">planned</a> 2026-10-13 (the GPU comparison, P1&ndash;P5); ORT added to it (D9); LiteRT on OpenCL the last resort (D10); site down through the comparison (D11); fp16 measured too (D12); a last-resort build in the devcontainer (D13); review findings folded in (D14: a baseline phase P0, the OpenVINO CPU cell, a photo replay); pass margin set (D15); D1 (a and b), D5 (a, for now), D6 (a) and D7 decided, D4 left to P5, 2026-10-13; D2 options rewritten for the cells (D8 folded in); plan P0 done 2026-10-13 (the models 94% of each photo's time on <code>yappy</code>; no stop; P1 next); D7's cosine per patch 2026-10-13; plan P1 done 2026-10-13 (both formats pass D7 on the CPU); plan P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7; P4 next); plan P4 done 2026-10-14 (the three GPU cells 38&ndash;59% below PyTorch's replay p90, every cell passing D7; P5 next); plan P5's report written 2026-10-14 (<code>analysis/ml7_gpu/README.md</code>; D2, D4 and D5 for the owner); D2 decided 2026-10-14 (LiteRT on Vulkan, the main track); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases (plan P8&ndash;P12) and ADRs 0019&ndash;0022 written 2026-10-15; plan P8 done 2026-10-15 (LiteRT in the serving code, no torch; one owner question on the DVC stages); plan P9&ndash;P11 done 2026-10-17; deployed 2026-10-17 (plan P12: LiteRT live on <code>yappy</code>'s GPU, <code>/classify</code> 8.2 s on the server)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model and infrastructure: inference runtime</span></div>
@@ -562,34 +562,34 @@
       <span class="result">2026-10-13, on <code>yappy</code> at 4 threads: each photo 37.5 s under sustained load
       (encoder 6.5 s per pass, DINOv3 21.8 s), the models 94% of it; peak RSS 2.0 GB. A lone upload runs about
       27 s at the boosted clock, as the live log shows (plan P0, <code>analysis/ml7_gpu/</code>).</span></span></li>
-    <li><span class="box"></span><span>LiteRT on <code>yappy</code>'s iGPU is tested by D8's route as D10
+    <li><span class="box done"></span><span>LiteRT on <code>yappy</code>'s iGPU is tested by D8's route as D10
       narrowed it: Vulkan in plan P2&ndash;P4, OpenCL only if P6 runs. Both models run in fp32, with fp16 beside
       it on the GPU (D12), and the report records whether each is fully accelerated, D7's parity, warm and cold-start
-      times and peak RSS, beside the CPU numbers.</span></li>
-    <li><span class="box"></span><span>Both shipped models are exported and pass D7's parity in the cell D2
-      chooses, on its runtime and device. Times on the live host are recorded beside the baseline.</span></li>
-    <li><span class="box"></span><span>The owner chooses the runtime (D2). One ADR records D2 and D3, since they
+      times and peak RSS, beside the CPU numbers. <span class="result">Plan P2&ndash;P4 and P7, <code>analysis/ml7_gpu/README.md</code>; OpenCL not needed (P6 not run).</span></span></li>
+    <li><span class="box done"></span><span>Both shipped models are exported and pass D7's parity in the cell D2
+      chooses, on its runtime and device. Times on the live host are recorded beside the baseline. <span class="result">The served model's encoder, decoder and DINOv3 pass D7 on <code>yappy</code>'s GPU (plan P7, P11); the replay at 9.2 s a photo against PyTorch's 36.0 s (P4, P7).</span></span></li>
+    <li><span class="box done"></span><span>The owner chooses the runtime (D2). One ADR records D2 and D3, since they
       bind later tickets: models train on PyTorch and are served as checked exports on that runtime. It names
       what it changes in ML-2 Q4 and in <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>'s
       "same code in training and serving", and <code>CODING_STANDARDS.md</code>'s parity rule is updated to
-      match.</span></li>
-    <li><span class="box"></span><span>The export and its check run as a DVC stage from the shipped checkpoints
+      match. <span class="result">D2 decided 2026-10-14. ADR 0019 records D2 and D3 and names what it changes in ML-2 Q4 and ADR 0015, which points back to it; the parity rule names the converted models and D7 (2026-10-17).</span></span></li>
+    <li><span class="box done"></span><span>The export and its check run as a DVC stage from the shipped checkpoints
       (D6). The serving path in <code>coffeecv/infer.py</code> runs the exports, and the PyTorch path stays for
       training. <code>tests/test_seg_parity.py</code> compares the two at D7's tolerance, and the
-      <code>onnx</code> import test and <code>PATCHES.md</code> row 3 are updated.</span></li>
-    <li><span class="box"></span><span><a href="agents/experiments.md">experiments.md</a> and <a
+      <code>onnx</code> import test and <code>PATCHES.md</code> row 3 are updated. <span class="result">The <code>litert_export</code> stage (plan P9). Serving runs the exports through <code>coffeecv.litert</code>; the PyTorch path stays for training. The comparison at D7 is <code>tests/test_litert.py</code>'s <code>TestAgainstPyTorch</code> (masks and readouts), not <code>test_seg_parity.py</code>, which keeps checking training's crops against serving's processing. <code>test_sam_loader.py</code>'s onnx block still holds (no onnx in training); <code>PATCHES.md</code> row 3's reason updated.</span></span></li>
+    <li><span class="box done"></span><span><a href="agents/experiments.md">experiments.md</a> and <a
       href="agents/deploy.md">deploy.md</a> name the conversion step between shipping a candidate and deploying
       it. The deploy gates (<code>--compare</code>, <code>release_probe.py</code>) check the release against the
-      runtime path and against PyTorch (R4).</span></li>
-    <li><span class="box"></span><span>If the iGPU is chosen, the service unit gets the GPU device and the
+      runtime path and against PyTorch (R4). <span class="result">Both runbooks name the conversion; <code>--compare</code> holds the release on the host to D7 against PyTorch, and the smoke test checks the GPU proof (plan P11).</span></span></li>
+    <li><span class="box done"></span><span>If the iGPU is chosen, the service unit gets the GPU device and the
       <code>render</code> group, and its kernel caches go to a writable directory or are turned off. Every other
-      sandbox line stays. <code>webapp/README.md</code> names the host's GPU driver as a deploy dependency.</span></li>
-    <li><span class="box"></span><span>The serving path loads and warms both models at worker start. Both load
+      sandbox line stays. <code>webapp/README.md</code> names the host's GPU driver as a deploy dependency. <span class="result"><code>SupplementaryGroups=render</code>, every other sandbox line kept. The sandbox leaves no writable home, so no shader cache persists, at no measured cost (P7: 19&ndash;21 s to the first answer with the cache empty or warm). The README names Mesa's Vulkan driver, the render node and i915's counters.</span></span></li>
+    <li><span class="box done"></span><span>The serving path loads and warms both models at worker start. Both load
       there today (<code>webapp/app.py</code>), but neither is warmed, so the first request pays the first
       inference's set-up. The worker's boot time, kernel compilation included, is
-      reported against gunicorn's timeout.</span></li>
-    <li><span class="box"></span><span>The current model's converted copy is deployed and the gates pass. The
-      <code>latency_ms</code> from the app's log is reported before and after.</span></li>
+      reported against gunicorn's timeout. <span class="result">The worker warms on the smoke photo at boot (ADR 0021): 19.5 s in production, inside gunicorn's 30 s, whose heartbeat does not run before the worker's first notify.</span></span></li>
+    <li><span class="box done"></span><span>The current model's converted copy is deployed and the gates pass. The
+      <code>latency_ms</code> from the app's log is reported before and after. <span class="result">Deployed 2026-10-17 (plan P12), every gate passing. <code>/classify</code> <code>latency_ms</code>: PyTorch 20,306&ndash;23,316 (median about 20,900) over 10 requests on 2026-10-16/17; LiteRT 8,067&ndash;9,078 over the first 4.</span></span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -793,6 +793,11 @@
       verified on the domain. The first live <code>/classify</code> took 8.2 s on the server, against 20.9 s for the
       PyTorch release the same morning; the worker boots in 19.5 s with the GPU proven. Rollback is
       <code>--rollback</code>, to the PyTorch release <code>b1bc9c9</code>.</div>
+    <div><div class="when">2026-10-17</div>Closed by the owner, after the last acceptance items: ADR 0019 names what
+      it changes in ML-2 Q4 and ADR 0015, the parity rule and both runbooks name the converted models and the
+      conversion step, and the webapp README names the host's GPU stack. Live so far: <code>/classify</code> 8.1&ndash;9.1 s
+      on the server over the first 4 photos, no errors; two <code>refused_ood</code> verdicts on photos outside the
+      fixtures, not yet compared with PyTorch. Not done: a DINOv3 batch sweep (plan P7), a possible later gain.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a
