@@ -1,64 +1,310 @@
-<title>Photos and answers between the page and the backend</title>
+<title>One Upload per Photo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="tickets.css">
 
 <main>
   <div class="eyebrow">Ticket OPS-7 · coffee-vision · webapp</div>
-  <h1>Stub: what the page and the backend pass to each other, and how often each photo is uploaded</h1>
-  <p class="lede">A placeholder, not a ticket yet. Today each photo is uploaded in full three times, once each for
-    <code>/preview</code>, <code>/crop</code> and <code>/classify</code>, and decoded three times. Split out of
-    <a href="ticket_webapp_mask_overlay.html">OPS-6</a>'s web review so that ticket stays about the overlay. To be
-    researched and written later; nothing here is decided.</p>
+  <h1>One step per photo: choosing a photo uploads it once, and the page gets the mask first and the classification after it</h1>
+  <p class="lede">Today a photo goes through three stages, each with its own upload: a preview, the mask, and a
+    Classify button. After this ticket the user presses Choose Photo and nothing else. The photo is uploaded once,
+    the segmenter runs once, and the backend answers in two parts: the preview with its mask after about 2 s, then
+    the classification, which starts on its own. A button to classify the whole photo appears after the answer
+    (D1). Written from the 2026-10-07 stub; D1&ndash;D6 decided; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; not researched, not written, not planned</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
-    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D6 decided 2026-10-17; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>webapp/deploy/coffee-cv.nginx.conf.template</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>coffeecv/infer.py</code> (<code>classify_one</code> split in two), <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>webapp/deploy/release_probe.py</code>, <code>webapp/deploy/fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code>, tests, <code>webapp/README.md</code>, release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
-    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the deploy go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">touches the same code as OPS-6; research can start any time</span></span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until the deploy (D6). After it, the page has one button, <code>/preview</code>, <code>/crop</code> and <code>/classify</code> give way to one endpoint with a streamed answer (D2), <code>index.html</code> is served with <code>Cache-Control: no-cache</code> (D5), and the classification's answer is unchanged.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D6 answered 2026-10-17</span></span></div>
   </div>
 
   <div class="callout info">
     <p><strong>Owner request, 2026-10-07.</strong> Create a stub for photos-and-answers optimization: a placeholder
       to research and write later.</p>
+    <p><strong>Owner request, 2026-10-17.</strong> Replace the web app's three stages (preview, crop, classify)
+      with one. The user presses one button, Choose Photo. Once a photo is chosen it is uploaded to the server and
+      the segmenter makes the mask. The preview with the mask applied comes back to the user as the first part of
+      the answer; that takes about 2 s, which is no big problem. Classification starts on the server right after
+      the segmenter's answer, with no command from the user. When its answer is ready it goes to the user as the
+      second part of the answer.</p>
+    <p><strong>Owner decision, 2026-10-17 (D1).</strong> "Use full photo instead" appears only after the
+      classification's answer arrives, and only if the whole photo was not already used. Pressing it uploads the
+      photo again with <code>skip_crop=1</code>, which just runs the classification again.</p>
+    <p><strong>Owner decisions, 2026-10-17 (D2&ndash;D6).</strong> One request with a streamed two-part answer
+      (D2). The user sees just a rotating progress circle while waiting; no upload measurement (D3). Choose Photo is
+      disabled while a photo is in flight (D4). <code>index.html</code> gets <code>no-cache</code> and the old
+      endpoints go in this release (D5). A deploy phase that stops for the owner's go (D6). All as recommended but
+      D3.</p>
   </div>
 
   <h2>1. Summary</h2>
-  <p>Stub. The question is what the page and the backend should pass to each other for one photo, and how many
-    times the photo should travel. Nothing is proposed yet.</p>
+  <p>Today the page sends the original file three times, to <code>/preview</code>, <code>/crop</code> and, on a
+    click, <code>/classify</code>. The backend decodes it three times and runs the segmenter twice. After this
+    ticket the page sends the file once to one endpoint. The backend decodes it once, runs the segmenter once and
+    uses that one result twice. It goes into the first part of the answer (the thumbnail, the mask, the box,
+    <code>seg_fallback</code>) and into the classification, which follows in the second part of the same answer.
+    The work splits into five parts:</p>
+  <ul>
+    <li><code>classify_one</code> split into a segment step and a classify step, which the CLI calls too.</li>
+    <li>The new endpoint and its streamed two-part answer (D2).</li>
+    <li>The page: one button, a progress circle while waiting (D3), Choose Photo disabled while a photo is in
+      flight (D4), and D1's button.</li>
+    <li>The deploy's probe, warm-up and tests moved to the new endpoint, with the page and server kept compatible
+      across a cached page and a rollback (D5).</li>
+    <li>The deploy (D6).</li>
+  </ul>
 
   <h2>2. Background</h2>
-  <p>Notes from OPS-6's web review, read at <code>214daa4</code>; to be checked when the ticket is written.</p>
+  <p>Read at <code>29f3006</code>.</p>
   <ul>
-    <li><b>Three uploads, three decodes.</b> The page sends the original file to <code>/preview</code>, then to
-      <code>/crop</code>, then to <code>/classify</code>. Each decodes it with <code>load_rgb_image</code>;
-      <code>/crop</code> and <code>/classify</code> each run the segmenter (<code>webapp/app.py</code>,
+    <li><b>Three uploads, three decodes, two segmenter passes.</b> On a pick, the page posts the file to
+      <code>/preview</code> (a JPEG thumbnail, long side &le; 1024 px), then to <code>/crop</code> (the box, the
+      mask, <code>seg_fallback</code>). Classify posts it a third time to <code>/classify</code>. Each decodes it
+      with <code>load_rgb_image</code>; <code>/crop</code> (<code>bean_region_preview</code>) and
+      <code>/classify</code> (<code>classify_one</code> &rarr; <code>patches_for_photo</code> &rarr;
+      <code>segment_bean_region</code>) both segment the photo, through the same <code>_segment</code> helper, so the
+      two give the same mask (<code>webapp/app.py</code>, <code>coffeecv/infer.py</code>,
       <code>webapp/static/index.html</code>).</li>
-    <li><b>Rough costs.</b> The segmenter takes about 1.7&ndash;2 s on one thread for a 12&ndash;19 MP photo
-      (<code>analysis/ml2_p0/timing_devcontainer_t1.json</code>). A <code>curl</code> from the devcontainer adds
-      about 7 s of upload to <code>/classify</code> (<a href="agents/deploy.md">deploy.md</a>). Phone upload times
-      are not measured.</li>
-    <li><b>Constraints.</b> The app keeps no state between requests (<code>webapp/app.py</code>'s docstring); the
-      request log keeps no image bytes (<code>docs/logging_plan.html</code>); nginx allows one request in flight
-      server-wide; a release ships its page and its backend together (<a
-      href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>).</li>
-    <li><b>Ideas raised, not assessed.</b> Merge <code>/preview</code> and <code>/crop</code> into one answer (one
-      upload fewer, but the photo shows only after the segmenter); hold the upload on the server for a short time
-      under a token (fewer uploads, but server-side state and a privacy question); send the EXIF orientation so
-      the page can show portrait photos upright.</li>
+    <li><b>Live times on <code>yappy</code>'s GPU</b> (ML-7 P10, 13 fixtures, second pass):
+      <code>/crop</code> median 2.0 s and <code>/classify</code> median 9.4 s (max 11.4 s), server side. The
+      segmenter's encoder is about 1.9 s of each (ML-7 P0's stage split, on the devcontainer;
+      <a href="plan_inference_runtime.html">plan</a>). One upload of the three to <code>/classify</code>, from
+      the devcontainer, adds about 7 s (<a href="agents/deploy.md">deploy.md</a>). Phone upload times are not
+      measured.</li>
+    <li><b><code>skip_crop</code> is the whole photo.</b> With <code>skip_crop=1</code> the segmenter does not
+      run and the whole original photo is classified, which is exactly ML-2 D18's fallback chosen by hand
+      (<code>segment_bean_region</code>'s docstring). On a fallback (<code>seg_fallback</code> true) the whole
+      photo is already what was classified.</li>
+    <li><b>OPS-6's page.</b> The overlay (tint, box, magenta outline, "Show outline") is drawn from
+      <code>/crop</code>'s mask by compositing (OPS-6 D3, D4, D9, D14). "Use full photo instead" appears with the
+      overlay, before Classify, hides it, and makes Classify send <code>skip_crop=1</code> (D6). A token per upload
+      drops a stale answer (D13).</li>
+    <li><b>One request at a time.</b> One sync gunicorn worker (<code>--timeout 30</code>); nginx caps the three
+      endpoints together at one request in flight server-wide and answers a second with an immediate 503, an HTML
+      page; <code>proxy_read_timeout 30s</code>. nginx buffers proxied answers by default; the template does not
+      turn it off.</li>
+    <li><b>The request log.</b> One JSON line per request, written by <code>_log_request</code> in Flask's
+      <code>after_request</code>, from fields the route set on <code>flask.g</code>; never image bytes
+      (<code>docs/logging_plan.html</code>). For a streamed answer, <code>after_request</code> runs before the
+      body is sent.</li>
+    <li><b>HTTP status carries the verdict's kind.</b> An unreadable photo is a 400; a scale or OOD refusal is a
+      200 with a verdict (<code>_entry_to_response</code>). A decode failure is found before any answer is
+      sent.</li>
+    <li><b>The deploy and the boot name the endpoints.</b> <code>release_probe.py</code>'s smoke and compare,
+      <code>fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code> and the tests post to <code>/crop</code>
+      and <code>/classify</code>; the smoke compares the mask by IoU &ge; 0.999 (OPS-6 D10). The worker's warm-up
+      runs <code>/crop</code>'s and <code>/classify</code>'s whole path (<a
+      href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>).</li>
+    <li><b>The page is cacheable.</b> nginx sets no Cache-Control on <code>index.html</code>, so a browser can
+      hold one release's page while the server runs another (OPS-6 R6). A release ships its page and backend
+      together (<a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>).</li>
+    <li><b>The orientation.</b> <code>load_rgb_image</code> ignores EXIF orientation, so the thumbnail and the
+      mask share the stored pixels; a browser's <code>&lt;img&gt;</code> applies it by default (OPS-6 R3).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Two buttons, Choose Photo and Classify.</li>
+        <li>Three uploads and three decodes per photo, two segmenter passes.</li>
+        <li>The thumbnail shows before the segmenter runs; the overlay a moment later.</li>
+        <li>"Use full photo instead" appears with the overlay, before classifying.</li>
+        <li>Endpoints <code>/preview</code>, <code>/crop</code>, <code>/classify</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>One button, Choose Photo.</li>
+        <li>One upload, one decode, one segmenter pass per photo.</li>
+        <li>A rotating progress circle until the thumbnail and the overlay come together in the answer's first part
+          (D3); the classification follows in the second part, with no click.</li>
+        <li>Choose Photo is disabled while a photo is in flight (D4).</li>
+        <li>"Use full photo instead" appears after the classification, unless the whole photo was already used; it
+          uploads once more with <code>skip_crop=1</code> (D1).</li>
+        <li>One endpoint, with a streamed two-part answer (D2); <code>index.html</code> served
+          <code>no-cache</code> (D5).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The classification.</strong> Same model, segmenter, crop rule and patches; the second part carries
+      the same verdicts and fields <code>/classify</code> answers today. <code>classify_one</code> is bit-identical
+      on the fixtures before and after its split (R3).</li>
+    <li><strong>The overlay.</strong> The mask's form (OPS-6 D7) and how the page draws it (D3, D4, D9, D14).</li>
+    <li><strong>No state between requests.</strong> The photo lives for one request; the full-photo run is a new
+      upload (D1). Nothing is held under a token.</li>
+    <li><strong>The request log's rules.</strong> No image bytes, no client IP, one line per request.</li>
+    <li><strong>One worker, one request in flight.</strong> The gunicorn and nginx caps and timeouts stay.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Both parts reach the page together, at the end.</strong></td>
+        <td>nginx buffers proxied answers by default, and the proxy in front of the domain may too. Mitigated by
+          turning buffering off for the endpoint (<code>proxy_buffering off</code> in the template, or the app's
+          <code>X-Accel-Buffering: no</code>), and by checking on the live domain that the first part arrives
+          before the classification ends.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The request log loses its classify fields and its latency.</strong></td>
+        <td>Flask's <code>after_request</code> runs before a streamed body is sent, so <code>_log_request</code>
+          would write its line before the classification has set its fields. Mitigated by writing the line when the
+          stream ends, with an app test that the line has the classify fields and the whole latency.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Splitting <code>classify_one</code> changes an answer, or the CLI and
+          the service drift.</strong></td>
+        <td><code>coffeecv/infer.py</code> is shared with the CLI and, through <code>segment_bean_region</code>,
+          with training. Mitigated by one segment step and one classify step that <code>classify_one</code> itself
+          calls, so the CLI and the service run the same code, and by checking <code>classify_one</code>
+          bit-identical on the fixtures (as OPS-6 R5).</td></tr>
+      <tr><td class="id">R4</td><td><strong>A failure after the first part has no HTTP status.</strong></td>
+        <td>The status goes out with the first part. An unreadable photo is still a 400, found before it. A later
+          error is sent as an error part; a stream that ends with no second part (a dropped connection, the
+          worker killed at 30 s) is shown as "could not reach the server", not left waiting.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The photo shows later than today.</strong></td>
+        <td>Today the thumbnail comes before the segmenter; after, the first thing shown waits for the upload,
+          the decode and about 2 s of segmenter. The 2 s is server time; the upload on a phone is not measured.
+          Accepted in D3: a rotating progress circle covers the wait, and the upload is not measured.</td></tr>
+      <tr><td class="id">R6</td><td><strong>The worker is busy longer for each photo.</strong></td>
+        <td>Every pick now costs a classification, about 9 s on the GPU, in one request, also when the user would
+          have stopped at the mask. A second visitor meets nginx's 503 for that long; the same visitor cannot pick
+          again until the answer is in (D4). Accepted at today's traffic; the request log shows it.</td></tr>
+      <tr><td class="id">R7</td><td><strong>A cached page meets a server with the other API.</strong></td>
+        <td>After the deploy, a cached old page posts to <code>/preview</code>; after a <code>--rollback</code>, a
+          cached new page posts to the new endpoint. Mitigated by D5: <code>Cache-Control: no-cache</code> makes the
+          browser revalidate the page on every load, so it always gets the page of the release the server
+          runs.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What happens to "Use full photo instead", now that classification starts on its
+          own?</td>
+        <td>(a) Dropped. (b) Shown after the classification's answer; pressing it uploads the photo again with
+          <code>skip_crop=1</code>, a second classification.</td>
+        <td>(b), 2026-10-17. Shown only after the classification's answer arrives, and only if the whole photo was
+          not already used: not after a <code>skip_crop=1</code> answer, and not on a fallback
+          (<code>seg_fallback</code>), where the whole photo is what was classified. Its answer replaces the
+          first, the overlay is hidden as in OPS-6 D6, and the button does not come back; going back to the
+          masked answer means picking the photo again.</td></tr>
+      <tr><td class="id">D2</td><td>How does one request answer in two parts?</td>
+        <td>(a) One <code>POST</code> whose answer is streamed as two JSON lines (NDJSON): the first with the
+          thumbnail, the mask, the box and <code>seg_fallback</code>; the second with the classification. No state
+          on the server. (b) Two requests: the first answers the mask and a token, the page then asks for the
+          classification by token, and the server holds the photo between them. (c) A WebSocket or server-sent
+          events.</td>
+        <td>(a), 2026-10-17, as recommended. It keeps the app stateless and the photo inside one request, which
+          (b) does not; (c) adds a protocol for one answer.</td></tr>
+      <tr><td class="id">D3</td><td>What does the user see before the first part arrives?</td>
+        <td>(a) A status line ("Uploading&hellip;", then "Finding the beans&hellip;") until the thumbnail and the
+          overlay arrive together. (b) The chosen file at once, shown by the browser where it can decode it (not
+          HEIC outside Safari, not RAW), with <code>image-orientation: none</code> so the mask lines up; the
+          server's thumbnail elsewhere. (c) A rotating progress circle.</td>
+        <td>(c), 2026-10-17: just a rotating progress circle, and no need to measure a phone upload. It shows from
+          the pick until the thumbnail and the overlay arrive together in the first part (R5). Amended 2026-10-17:
+          after the first part the circle keeps spinning under the preview until the classification arrives in the
+          second part.</td></tr>
+      <tr><td class="id">D4</td><td>What happens when the user picks another photo while one is in flight?</td>
+        <td>(a) Choose Photo is disabled from the upload until the second part arrives or fails. (b) It stays
+          enabled; nginx's 503 is shown as "busy, try again in a few seconds", and a stale answer is still dropped
+          (OPS-6 D13).</td>
+        <td>(a), 2026-10-17, as recommended. The worker keeps running the first photo even if the page aborts it,
+          so a second pick could only fail. The same holds for D1's button: disabled while its upload is in
+          flight, for the same reason (confirmed by the owner, 2026-10-17).</td></tr>
+      <tr><td class="id">D5</td><td>How do a cached page and a server from another release meet (R7)?</td>
+        <td>(a) <code>Cache-Control: no-cache</code> on <code>index.html</code> in the nginx template; the old
+          endpoints go in this release. (b) The old endpoints stay one release more. (c) Nothing.</td>
+        <td>(a), 2026-10-17, as recommended: add <code>no-cache</code>. It revalidates the page on every load, so
+          the page and the server switch together, rollback included.</td></tr>
+      <tr><td class="id">D6</td><td>Is the deploy part of the ticket?</td>
+        <td>(a) Yes, a last phase that stops for the owner's go. (b) No.</td>
+        <td>(a), 2026-10-17, as recommended, as OPS-6 D12. The deploy follows <a
+          href="agents/deploy.md">deploy.md</a>; "live" means checked on the live site with the smoke photo and one
+          frame-filling photo, on a phone.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The page has one button, Choose Photo; a pick uploads the photo once, and the
+      classification needs no click.</span></li>
+    <li><span class="box"></span><span>One decode and one segmenter pass per photo; <code>classify_one</code>
+      bit-identical on the fixtures before and after (R3).</span></li>
+    <li><span class="box"></span><span>The first part (thumbnail, mask, box, <code>seg_fallback</code>) reaches the
+      page before the classification ends, on the dev server and through nginx on the live domain (R1).</span></li>
+    <li><span class="box"></span><span>The overlay looks as after OPS-6; the second part's verdicts and fields are
+      <code>/classify</code>'s.</span></li>
+    <li><span class="box"></span><span>"Use full photo instead" as D1: after the answer, not after a
+      <code>skip_crop=1</code> answer or a fallback, and one more upload with <code>skip_crop=1</code>.</span></li>
+    <li><span class="box"></span><span>One request-log line per request, with the classify fields and the whole
+      latency (R2).</span></li>
+    <li><span class="box"></span><span>An error after the first part, and a stream cut before the second, each
+      show a message (R4).</span></li>
+    <li><span class="box"></span><span>A rotating progress circle shows from the pick until the first part, then
+      under the preview until the second part (D3).</span></li>
+    <li><span class="box"></span><span>Choose Photo, and D1's button, are disabled while a photo is in flight
+      (D4).</span></li>
+    <li><span class="box"></span><span><code>index.html</code> is served with <code>Cache-Control: no-cache</code>,
+      and <code>/preview</code>, <code>/crop</code> and <code>/classify</code> are gone (D5).</span></li>
+    <li><span class="box"></span><span>The deploy's smoke and compare, the fixtures, the warm-up (ADR 0021) and the
+      tests use the new endpoint; the smoke still compares the mask by IoU &ge; 0.999.</span></li>
+    <li><span class="box"></span><span><code>webapp/README.md</code> and <a href="agents/deploy.md">deploy.md</a>
+      name the new endpoint.</span></li>
+    <li><span class="box"></span><span>The owner has seen the page on the local dev server and accepted it.</span></li>
+    <li><span class="box"></span><span>Deployed and checked on the live site (D6).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Holding the photo on the server between requests (D2 (b)).</li>
+    <li>Measuring phone upload times (D3).</li>
+    <li>Shrinking or re-encoding the photo on the phone before upload: the classifier gets the original pixels
+      (the parity rule in <code>CODING_STANDARDS.md</code>).</li>
+    <li>Showing portrait photos upright (EXIF orientation), an idea from the stub.</li>
+    <li>Editing the mask or the crop box; the <code>TODO(crop editing)</code> in <code>index.html</code> stays, though
+      it assumed a box edited before classifying.</li>
+    <li>Going back from the whole photo's answer to the masked one without a new pick (D1).</li>
+    <li>More workers, or a different nginx cap.</li>
   </ul>
 
   <h2>Activity</h2>
   <div class="log">
     <div><div class="when">2026-10-07</div>Stub created at the owner's request during OPS-6's web review, which
       moved the three-uploads question out of OPS-6's scope. Not researched, not written.</div>
+    <div><div class="when">2026-10-17</div>Owner asks for one stage instead of three: one upload, the mask's
+      preview first, the classification after it with no click. Ticket written over the stub, from
+      <code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>coffeecv/infer.py</code>, the nginx
+      and systemd templates, OPS-6 and ML-7 at <code>29f3006</code>; the stub's ideas assessed in D2 and D3 and
+      Out of scope. The owner decides D1. D2&ndash;D6 open, with recommendations. Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-10-17</div>The owner decides D2&ndash;D6: D2, D4, D5 (<code>no-cache</code>) and D6
+      as recommended; D3 a rotating progress circle with no upload measurement, a new option (c). R5, R6 and R7
+      restated to match; R8 dropped, since no browser-drawn preview is left to misalign. Triage set to
+      ready-for-agent. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-17</div>The owner confirms that D4 covers D1's button too: it is disabled while
+      its own upload runs.</div>
+    <div><div class="when">2026-10-17</div>The owner amends D3: after the first part the progress circle keeps
+      spinning under the preview until the classification arrives. Scope's D3 line restated to match.</div>
   </div>
 
-  <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a>, <a href="agents/deploy.md">deploy.md</a>,
-    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>.</footer>
+  <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
+    <a href="ticket_segmentation_mask.html">ML-2</a> (D18, the fallback),
+    <a href="ticket_inference_runtime.html">ML-7</a> (live times), <a href="agents/deploy.md">deploy.md</a>,
+    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>,
+    <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>,
+    <code>docs/logging_plan.html</code>.</footer>
 </main>
