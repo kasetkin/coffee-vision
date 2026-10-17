@@ -907,6 +907,10 @@
       warm-up); the 12 compare fixtures with no verdict or top-1 change and a p95 largest change of 0.0036 (max
       0.0040) against PyTorch 2.14 here. Records: <code>analysis/ml7_gpu/p11_compare_torch.json</code>,
       <code>p11_compare_release.json</code>.</li>
+    <li><b>The deploy rehearsed</b> (<code>scripts/rehearse_deploy_local.sh</code>, passed): two LiteRT releases, the
+      refusals, <code>--compare</code> and a rollback. It found that a missing DVC object failed the release's manifest
+      with a traceback (now a refusal naming it) and that PyTorch's reference needs the checkpoint and pretrained
+      weights checked out.</li>
     <li><b>P7's answer check</b> (782 photos) is not rerun: the exported files compute bit-identically to P7's on the
       CPU (P9), on the same runtime and driver.</li>
   </ul>

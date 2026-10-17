@@ -10,8 +10,9 @@
 # of it. Until 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
 #
-# Last passed 2026-10-07 (ticket OPS-6 P2): deploy 1 at ebf6d55, deploy 2 at 8430c54, both the one model, and a
-# rollback between the two releases and back.
+# Last passed 2026-10-17 (ticket ML-7 P11): deploy 1 at 176727e, deploy 2 at b87eb8c, both the LiteRT model
+# allrigs_dino3b16_segxl0v3_country_s42 on the CPU, --compare within D7 of PyTorch, and a rollback and back. Run with
+# UV_PYTHON_DOWNLOADS and UV_PROJECT_ENVIRONMENT unset: the devcontainer sets them for training.
 #
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
 # its -E variables -- no sandbox, no caps), systemctl (starts the ExecStart of the rendered unit in the
