@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass); D2 decided 2026-10-14 and P7 run (LiteRT on Vulkan, fp16 forms, answer check); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases P8&ndash;P12 and ADRs 0019&ndash;0022 written 2026-10-15; P8 and P9 done 2026-10-15; P10 and P11 done 2026-10-17</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass); D2 decided 2026-10-14 and P7 run (LiteRT on Vulkan, fp16 forms, answer check); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases P8&ndash;P12 and ADRs 0019&ndash;0022 written 2026-10-15; P8 and P9 done 2026-10-15; P10 and P11 done 2026-10-17; P12 done 2026-10-17, LiteRT live on <code>yappy</code>'s GPU</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -917,11 +917,11 @@
 
 <h2>16. P12 &mdash; Smoke test, then the live deploy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17: release <code>20261017T1132Z-d88533d</code> live on <code>yappy</code>'s GPU, verified on the domain; the owner's go given 2026-10-17</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P11, and the owner's go</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>The smoke-test unit on <code>yappy</code></b> with the new release:
+    <li><span class="box done"></span><span><b>The smoke-test unit on <code>yappy</code></b> with the new release:
       <ul>
         <li>the boot's duration and memory;</li>
         <li>the GPU proof;</li>
@@ -930,7 +930,7 @@
       </ul>
       P7 expects about 9.2 s a photo for the models and about 2.3 s of pre- and post-processing, against about
       38 s today.</span></li>
-    <li><span class="box"></span><span><b>Stop for the owner</b> with those numbers. On the owner's go:
+    <li><span class="box done"></span><span><b>Stop for the owner</b> with those numbers. On the owner's go:
       <ul>
         <li>deploy with <code>scripts/deploy_webapp.sh</code>;</li>
         <li><code>--verify</code> on the domain;</li>
@@ -939,7 +939,32 @@
       Rollback is the previous release (PyTorch), per ADR 0008. Logged in the ticket's Activity.</span></li>
   </ol>
 
-  <h2>17. Verification</h2>
+  
+
+  <h3>Results</h3>
+  <ul>
+    <li><b>The owner's go</b> (2026-10-17): "commit changes, if everything else is ready then merge this branch to the
+      main, deploy after that". <code>main</code> was fast-forwarded to <code>d88533d</code> (the repo's convention is a
+      merge commit; noted for the next branch).</li>
+    <li><b>Stage</b> (<code>--stage-only</code>): the full check on <code>d88533d</code>; preflight at 5 GB available;
+      the upload 55 min (the converted model's 818 MB, sent once; a later release of the same model copies them on
+      the host), the venv 95 s.</li>
+    <li><b>Smoke,</b> in the production sandbox as <code>coffee-cv</code>: ready in 21.2 s (the warm-up 10.4 s), peak
+      RSS 1.84 GB, the GPU proven (busy 88% of the warm-up, Intel's Vulkan driver and the WebGPU accelerator mapped);
+      <code>/classify</code> 8.3 s, the same verdict and top-1 as the local CPU run, scores within 1.1e-3;
+      <code>/crop</code>'s mask IoU 0.999997. The sandbox (<code>ProtectSystem=strict</code>, <code>ProtectHome</code>,
+      the system-call filter) leaves Dawn and Mesa working. <code>MemoryPeak</code> reads empty on this host's
+      systemd; the boot record's peak RSS stands in.</li>
+    <li><b><code>--compare</code>:</b> the 12 fixtures on the GPU against PyTorch, no verdict or top-1 change, p95 of the
+      largest probability change 0.0036 (bar 0.05).</li>
+    <li><b>Live:</b> flipped and verified on the domain (backend, startup line's commit and model, public page,
+      public <code>/classify</code> top-1). The production worker booted in 19.5 s, GPU proven (busy 91%), with 3.7 GB
+      available after it. The first live <code>/classify</code> (the verify's): <code>latency_ms</code> 8228,
+      <code>inference_ms</code> 5876; the PyTorch release's last one, the same morning: 20876 and 15161.
+      <code>previous</code> is the PyTorch release <code>b1bc9c9</code>.</li>
+  </ul>
+
+<h2>17. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
       whole paths within 10%, set beside the live log's aggregates.</span></li>
@@ -1538,6 +1563,10 @@
       its 371 MB venv. <code>--compare</code> holds a release to D7 against PyTorch, and the worker proves the GPU at
       boot or does not serve; on <code>yappy</code> both pass. Owner: "continue with plan execution and deploying",
       so P12 follows from <code>main</code>.</div>
+    <div><div class="when">2026-10-17</div>P12 done (Results in &sect;16), on the owner's go: <code>main</code>
+      fast-forwarded to <code>d88533d</code>, staged, smoked in the production sandbox on the GPU, compared within D7,
+      deployed and verified on the domain. The first live <code>/classify</code> took 8.2 s on the server (the
+      PyTorch release: 20.9 s the same morning).</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,
