@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); Q1 open, blocks P4; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P3 done, P4 at its stop for the owner with Q1's recommendation assumed; not deployed</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -111,7 +111,7 @@
 
   <h2>3. P1 &mdash; the segment step and the classify step</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17, <code>1afe1df</code>: <code>classify_one</code> BIT-IDENTICAL on the 13 fixtures (CPU LiteRT), the whole-photo mask, crop_info and fallback equal <code>bean_region_preview</code>'s on all 13, the CLI's output unchanged</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p><code>coffeecv/infer.py</code> only. Today <code>classify_one</code> calls <code>patches_for_photo</code>, which
@@ -148,7 +148,7 @@
 
   <h2>4. P2 &mdash; <code>/analyze</code> and its streamed answer</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17, <code>6f88104</code>, review fixes <code>28c6031</code>: the route decodes itself and calls <code>infer.segment_decoded</code>, so a decode failure is a 400 and a later error the handler's 500; on the dev server the preview came at 1.85 s, the classification at 8.32 s</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>webapp/app.py</code>. One <code>POST /analyze</code> (D7), with the form fields <code>photo</code> and
@@ -203,7 +203,7 @@
 
   <h2>5. P3 &mdash; the deploy's smoke, verify, nginx site and docs</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17, <code>fd5cbc5</code>, review fixes <code>28c6031</code> (<code>proxy_pass</code> names <code>$PORT</code>): <code>nginx -t</code> also needed <code>proxy_buffers 4 1m</code> beside D18's <code>proxy_buffer_size 1m</code>; the check's control did not fail (see Activity)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <p>Everything the deploy runs moves to <code>/analyze</code>. The deploy only ever talks to releases from this
@@ -262,7 +262,7 @@
 
   <h2>6. P4 &mdash; the page <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-17, <code>6481c10</code>: built and checked in the harness (42 checks at 480 and 343 px), Q1's recommendation assumed; waiting at the stop for the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1</span></div>
   </div>
   <p><code>webapp/static/index.html</code>. One button, one upload, and the answer read as it streams in. The overlay's
@@ -365,6 +365,17 @@
       (<code>proxy_buffer_size 1m</code>, a two-nginx check in P3, the front nginx's config read in P5) and D19
       (<code>outcome</code>, <code>parts_sent</code>, <code>$upstream_bytes_received</code>), folded into P2, P3
       and P5. D10, D16 and D17 stay. Q1 (retry a 503 on the page) open; it blocks P4. Not implemented.</div>
+    <div><div class="when">2026-10-17</div>P1&ndash;P4 implemented on <code>ops7-one-upload</code>:
+      <code>1afe1df</code> (P1), <code>6f88104</code> (P2), <code>fd5cbc5</code> (P3), <code>6481c10</code> (P4) and
+      <code>28c6031</code> (review fixes). Q1 is still open; P4 assumes its recommendation, one constant in the page
+      (<code>BUSY_RETRY_S</code>). P3's two-nginx check, run under gunicorn (one sync worker, 30 s) behind our rendered
+      site and a stock nginx in front: the preview through both at 1.7 s and the classification at 7.8 s, the page
+      <code>no-cache</code>, verify's public lines green. Its control did not fail as this plan expected: a client
+      reading 20 KB/s, and one that hangs up after 35 s at 2 KB/s, held the worker neither with D18's buffer nor
+      without it, since on loopback the kernel's socket buffers take the whole 215 KB answer. D18 stays as decided, a
+      margin; whether R9 happens on the real path is not measured. The full suite (<code>check.sh --full</code>) is
+      green; a two-axis code review found no hard violation, and its fixes are <code>28c6031</code>. The owner's look
+      at the page (P4's stop) and P5 remain.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a

@@ -14,7 +14,7 @@
     href="plan_photos_and_answers_optimization.html">the plan</a>, one question open there (Q1); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D19 decided, plan Q1 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D19 decided, plan Q1 open; P1&ndash;P4 implemented 2026-10-17 on <code>ops7-one-upload</code>, P4 waiting for the owner's look at the page; not deployed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
@@ -216,7 +216,10 @@
           line is a few hundred KB (a 1024 px JPEG and a PNG, base64), so the sync worker blocks writing it until
           the phone has read most of it, and the classification starts only after that write. A client that stops
           reading keeps the worker until gunicorn's 30 s timeout kills it, and the next worker boots for about
-          20 s (ML-7). Today nginx buffers the whole answer, so neither happens. Mitigated by D18.</td></tr>
+          20 s (ML-7). Today nginx buffers the whole answer, so neither happens. Mitigated by D18. Measured
+          2026-10-17 in P3, on loopback through two nginx servers: the worker was not held with D18's buffer or
+          without it, since the kernel's socket buffers took the whole 215 KB answer; D18 stays as a margin, and the
+          real path (a phone, the proxy in front, our nginx) is not measured.</td></tr>
       <tr><td class="id">R10</td><td><strong>A streamed answer that fails looks like a success in the
           logs.</strong></td>
         <td>Found in review. The status goes out with the first part (R4), so the request log and nginx's access
@@ -430,6 +433,13 @@
       rollback works, is declined. The review's point that tabs already open run the old page against the new API
       (R7) is dismissed by the owner: there are none. A retry of nginx's 503 on the page (R6) is open as the plan's
       Q1. Not implemented.</div>
+    <div><div class="when">2026-10-17</div>P1&ndash;P4 implemented on <code>ops7-one-upload</code> (<code>1afe1df</code>,
+      <code>6f88104</code>, <code>fd5cbc5</code>, <code>6481c10</code>, review fixes <code>28c6031</code>), the full
+      suite green. <code>classify_one</code> bit-identical on the fixtures (R3); the preview arrives before the
+      classification on the dev server and through two local nginx servers (R1); D18's
+      <code>proxy_buffer_size 1m</code> needed <code>proxy_buffers 4 1m</code> beside it for <code>nginx -t</code>, and
+      R9 did not reproduce on loopback (R9). The page assumes Q1's recommendation, a 503 retried after 3, 6 and 12 s.
+      Waiting for the owner to look at the page (plan P4's stop); not deployed.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
