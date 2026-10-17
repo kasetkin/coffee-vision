@@ -21,7 +21,8 @@
 #
 # Runs from a clone whose `origin` is this repository, so the deploy's "commit must be on origin/main"
 # check is real: commit to main here first. Needs the DVC-tracked model and its LiteRT export locally (ML-7 P10:
-# both deploys must be of commits that have the export; until a merge to main, origin/main does not).
+# both deploys must be of commits that have the export), and for --compare the checkpoint and pretrained weights
+# checked out in the source (ML-7 P11).
 set -euo pipefail
 
 SRC=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -216,6 +217,11 @@ step "deploy 2: $MODEL at ${SHA:0:7} (service enabled: restart + verify, prune)"
 ls "$APP_ROOT/releases"
 
 step "--compare on the current release"
+# PyTorch's reference (ML-7 P11) runs the clone's coffeecv on the checkpoint and its pretrained weights, untracked
+# files the clone lacks: linked from the source checkout here, after the refusals, which write a fake .pt.
+while read -r f; do
+  mkdir -p "$C/$(dirname "$f")"; ln -sfn "$SRC/$f" "$C/$f"
+done < <(git -C "$SRC" ls-files -o -i --exclude-standard -- models models_pretrained)
 "$D" --compare "$(basename "$(readlink "$APP_ROOT/current")")"
 
 step "--rollback to ${PREV_SHA:0:7}, and back"
