@@ -10,11 +10,11 @@
     Classify button. After this ticket the user presses Choose Photo and nothing else. The photo is uploaded once,
     the segmenter runs once, and the backend answers in two parts: the preview with its mask after about 2 s, then
     the classification, which starts on its own. A button to classify the whole photo appears after the answer
-    (D1). Written from the 2026-10-07 stub; D1&ndash;D19 decided; planned in <a
-    href="plan_photos_and_answers_optimization.html">the plan</a>, one question open there (Q1); not implemented.</p>
+    (D1). Written from the 2026-10-07 stub; D1&ndash;D20 decided; planned in <a
+    href="plan_photos_and_answers_optimization.html">the plan</a>; P1&ndash;P4 implemented, not deployed.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D19 decided, plan Q1 open; P1&ndash;P4 implemented 2026-10-17 on <code>ops7-one-upload</code>, P4 waiting for the owner's look at the page; not deployed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D20 decided; P1&ndash;P4 implemented 2026-10-17 on <code>ops7-one-upload</code>, P4 waiting for the owner's look at the page; not deployed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
@@ -347,6 +347,11 @@
           nginx's <code>coffee_cv_minimal</code> format, so a worker killed mid-answer shows there as a short answer.
           (b) Status 200 and the latency only, as planned.</td>
         <td>(a), 2026-10-17, as recommended. Neither field is personal data.</td></tr>
+      <tr><td class="id">D20</td><td>Does the page retry nginx's 503 before it shows the busy message (R6, D12;
+          plan Q1)?</td>
+        <td>(a) Yes: retried after 3, 6 and 12 s while the progress circle spins, D12's message after the last. (b)
+          No: D12's message at once.</td>
+        <td>(a), 2026-10-17: "keep for now". One constant in the page, <code>BUSY_RETRY_S</code>.</td></tr>
     </tbody>
   </table></div>
 
@@ -440,6 +445,9 @@
       <code>proxy_buffer_size 1m</code> needed <code>proxy_buffers 4 1m</code> beside it for <code>nginx -t</code>, and
       R9 did not reproduce on loopback (R9). The page assumes Q1's recommendation, a 503 retried after 3, 6 and 12 s.
       Waiting for the owner to look at the page (plan P4's stop); not deployed.</div>
+    <div><div class="when">2026-10-17</div>The owner tries the page on the local stack, photos and "Use full photo
+      instead", and answers plan Q1 as D20: keep the 503 retry for now. P4 waits for the owner's acceptance of the
+      page; not deployed.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
