@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; no questions open (answered while planning, ticket D7&ndash;D17); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); Q1 open, blocks P4; not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -88,11 +88,26 @@
   </table></div>
 
   <h2>2. Questions for the owner</h2>
-  <p>None open. The questions reading the code raised were put to the owner while planning, on 2026-10-17, and are
+  <p>The questions reading the code raised were put to the owner while planning, on 2026-10-17, and are
     in the ticket as D7&ndash;D17: the endpoint's name (D7), its parts (D8), the <code>skip_crop</code> answer
     (D9), the rollback (D10), streaming and the live check (D11), the 503 (D12), <code>preview_ms</code> (D13),
     D1's button (D14), <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (D15), no
-    undo (D16) and no rehearsal (D17).</p>
+    undo (D16) and no rehearsal (D17). The review of this plan added D18 and D19 and one open question:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Should the page retry nginx's 503 before it shows the busy message (ticket R6,
+          D12)? <code>limit_conn</code> counts a request from the end of its headers, before its body is read, so
+          the slot is held for the phone's upload as well as the about 11 s of work, and every pick now costs a
+          classification. A second visitor's 503 window is the first visitor's upload plus about 11 s, not the
+          9 s R6 states.</td>
+        <td><span class="pill sm open">Open</span> Yes: on a 503 the page retries two or three times with backoff
+          (about 3, 6 and 12 s) while the progress circle spins, and shows D12's message only after the last. It
+          changes the page only. For <a href="ticket_webapp_request_queue.html">OPS-8</a>'s stub, a note that
+          <code>max_conns=1</code> on an <code>upstream</code> counts only time at the worker, since nginx reads the
+          body before it connects; open-source nginx returns 502, not a queue, when it is full.</td><td>P4</td></tr>
+    </tbody>
+  </table></div>
 
   <h2>3. P1 &mdash; the segment step and the classify step</h2>
   <div class="fields">
@@ -158,7 +173,11 @@
     <li><span class="box"></span><span><b>The log line</b> (R2, finding 4): for a streamed answer,
       <code>_log_request</code> only sets <code>X-Request-Id</code>. The generator's <code>finally</code> writes the
       one line, with status 200, the whole <code>latency_ms</code>, <code>preview_ms</code>, the classify fields and
-      <code>skip_crop</code>. <code>preview_ms</code> joins <code>_JsonFormatter._FIELDS</code> and the field list in
+      <code>skip_crop</code>. It also writes how the answer ended (ticket D19): <code>outcome</code> is
+      <code>complete</code> after the classification part, <code>error</code> after an error part, and
+      <code>client_gone</code> when the generator is closed before it finishes (<code>GeneratorExit</code>);
+      <code>parts_sent</code> counts the lines written. <code>preview_ms</code>, <code>outcome</code> and
+      <code>parts_sent</code> join <code>_JsonFormatter._FIELDS</code> and the field list in
       <code>_log_request</code>. The rules don't change: no image bytes, no client IP.</span></li>
     <li><span class="box"></span><span>Remove the <code>/preview</code>, <code>/crop</code> and
       <code>/classify</code> routes (D5), and <code>bean_region_preview</code> along with its import once nothing
@@ -172,7 +191,10 @@
       gives a preview with null mask and box, then a classification; an unreadable file gives a 400 JSON and no
       stream; no file gives a 400; a classify step that raises (mocked) gives an error line; one log line per
       request, with the classify fields, <code>preview_ms</code> &le; <code>latency_ms</code> and
-      <code>skip_crop</code>. <code>tests/test_release_manifest.py</code>'s trace posts <code>/analyze</code>.</span></li>
+      <code>skip_crop</code>; <code>outcome</code> and <code>parts_sent</code> are <code>complete</code>/2 on a
+      normal answer, <code>error</code>/2 on the mocked failure, and <code>client_gone</code>/1 when the test
+      client's unbuffered response is closed after the preview line (D19).
+      <code>tests/test_release_manifest.py</code>'s trace posts <code>/analyze</code>.</span></li>
     <li><span class="box"></span><span>Checks: the full suite is green, including <code>--full</code>. On the local
       dev server (<code>python -m webapp.app</code>, <code>COFFEE_CV_LITERT_ON_CPU=1</code>), <code>curl -N</code>
       with a timestamp per line shows the preview line arriving before the classification ends (ticket scope, R1
@@ -207,8 +229,14 @@
     <li><span class="box"></span><span><b>The nginx template</b>: one <code>location = /analyze</code> with the
       in-flight cap, <code>client_max_body_size 20m</code>, <code>proxy_read_timeout 30s</code>,
       <code>proxy_pass</code>, the two <code>proxy_set_header</code> lines and <code>proxy_pass_header
-      X-Accel-Buffering</code> (finding 5). The three old locations go. A <code>location = /index.html</code> with
-      <code>add_header Cache-Control "no-cache"</code> (D5, finding 7). The comments on the cap follow.</span></li>
+      X-Accel-Buffering</code> (finding 5), and <code>proxy_buffer_size 1m</code> with a comment on why (ticket D18,
+      R9): with buffering off, nginx still reads up to that much from the backend ahead of the client, so the whole
+      answer leaves the worker at once and a slow phone waits on nginx, not on gunicorn. The three old locations
+      go. A <code>location = /index.html</code> with <code>add_header Cache-Control "no-cache"</code> (D5,
+      finding 7). The comments on the cap follow. <code>coffee_cv_minimal</code> gains
+      <code>$upstream_bytes_received</code> at the end of the line (D19), so a worker killed mid-answer shows as a
+      200 with a short answer; nothing parses that log, and <code>webapp/README.md</code>'s log section names the
+      field.</span></li>
     <li><span class="box"></span><span><code>fixtures.txt</code>'s comment says the smoke photo goes to
       <code>/analyze</code>. <code>tests/test_release_probe.py</code> runs <code>compare_smoke</code> on synthetic
       two-part answers: the mask cases it has today, plus a thumbnail of the wrong size, a missing part and an error
@@ -220,15 +248,22 @@
     <li><span class="box"></span><span>Checks: the full suite is green. <code>bash -n
       scripts/deploy_webapp.sh</code>. The smoke's own <code>curl</code> lines, run against the local dev server,
       are compared by <code>compare_smoke</code> with <code>release_probe.py smoke</code>'s output from the same
-      checkout, which exercises the real parser on both sides. The rendered nginx template passes <code>nginx
-      -t</code> where nginx is installed. If it isn't, the deploy's <code>render_production</code> runs <code>nginx
-      -t</code> on the host and restores the old site if it fails.</span></li>
+      checkout, which exercises the real parser on both sides.</span></li>
+    <li><span class="box"></span><span><b>The stream through two nginx servers</b> (ticket D18, R1, R9). nginx is
+      installed in the devcontainer for this check only (it is not there now; not added to the image). Our template,
+      rendered with a throwaway self-signed certificate in place of the host's, sits in front of the dev server;
+      a second nginx with a stock <code>proxy_pass</code> stands in for the proxy in front of the domain. Both pass
+      <code>nginx -t</code>. Through both, <code>curl -N</code> with a timestamp per line shows the preview before
+      the classification. With <code>--limit-rate 20k</code> it still does, and the request log's
+      <code>latency_ms</code> minus <code>preview_ms</code> stays within the unthrottled run's spread over a few
+      runs; without <code>proxy_buffer_size 1m</code> the same run shows that gap growing, which proves the check
+      can fail. Nothing of this setup goes into the repo.</span></li>
   </ol>
 
   <h2>6. P4 &mdash; the page <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1</span></div>
   </div>
   <p><code>webapp/static/index.html</code>. One button, one upload, and the answer read as it streams in. The overlay's
     drawing (<code>renderOverlay</code>, <code>drawBeanRegion</code>, "Show outline") is unchanged (OPS-6 D3, D4,
@@ -272,6 +307,10 @@
     and no undo procedure (D16). A failed verify still triggers the script's own rollback, which leaves the site down
     (R8). The fix is to fix forward with a new deploy.</p>
   <ol class="tasks">
+    <li><span class="box"></span><span>Read the front nginx's config once, without changing it (ticket D18): it must
+      not list <code>X-Accel-Buffering</code> in <code>proxy_ignore_headers</code>, nor
+      <code>application/x-ndjson</code> (or <code>*</code>) in <code>gzip_types</code>, either of which holds the
+      answer back until it ends. Report what it says at the stop below.</span></li>
     <li><span class="box"></span><span>Stop for the owner's go (D6), stating again that a rollback from here takes
       the site down.</span></li>
     <li><span class="box"></span><span>Merge <code>ops7-one-upload</code> into <code>main</code> with a merge commit
@@ -283,8 +322,9 @@
     <li><span class="box"></span><span>Live (D6): the smoke photo and one frame-filling photo on a phone, through
       the domain. The preview shows with the circle under it before the classification. The page comes back
       <code>Cache-Control: no-cache</code>. The request log has one <code>/analyze</code> line per photo, with
-      <code>preview_ms</code> and <code>latency_ms</code>; those server-side numbers are what gets quoted
-      (deploy.md).</span></li>
+      <code>preview_ms</code> and <code>latency_ms</code> and <code>outcome</code> <code>complete</code>; those
+      server-side numbers are what gets quoted (deploy.md). nginx's access log ends those lines with
+      <code>$upstream_bytes_received</code> (D19).</span></li>
     <li><span class="box"></span><span>Record the release, the commit and the live times in the ticket's Status and
       Activity; the owner closes the ticket.</span></li>
   </ol>
@@ -295,9 +335,10 @@
       to <code>bean_region_preview</code>'s; the CLI unchanged.</span></li>
     <li><span class="box"></span><span>P2: two parts, preview first, on the test client and on the dev server; the
       classification part equal to the old <code>/classify</code> body; one log line with
-      <code>preview_ms</code>.</span></li>
+      <code>preview_ms</code>, <code>outcome</code> and <code>parts_sent</code>.</span></li>
     <li><span class="box"></span><span>P3: <code>compare_smoke</code> passes on the smoke's real <code>curl</code>
-      output against the dev server, and fails on each synthetic fault.</span></li>
+      output against the dev server, and fails on each synthetic fault; through two local nginx servers the preview
+      comes first and a throttled client does not lengthen the classification.</span></li>
     <li><span class="box"></span><span>P4: the harness cases pass; the owner accepts the page.</span></li>
     <li><span class="box"></span><span>P5: the deploy is verified, the two parts arrive separately through the
       domain, and the owner has checked it on a phone.</span></li>
@@ -320,6 +361,10 @@
       and writes this plan after two rounds of questions with the owner. Eight findings not in the ticket; the
       decisions they needed are ticket D7&ndash;D17, with ADR 0023 and stubs OPS-8 and OPS-9. No questions open. Not
       implemented.</div>
+    <div><div class="when">2026-10-17</div>Plan reviewed as a web and devops change. The owner decides ticket D18
+      (<code>proxy_buffer_size 1m</code>, a two-nginx check in P3, the front nginx's config read in P5) and D19
+      (<code>outcome</code>, <code>parts_sent</code>, <code>$upstream_bytes_received</code>), folded into P2, P3
+      and P5. D10, D16 and D17 stay. Q1 (retry a 503 on the page) open; it blocks P4. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a

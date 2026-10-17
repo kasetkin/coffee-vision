@@ -10,11 +10,11 @@
     Classify button. After this ticket the user presses Choose Photo and nothing else. The photo is uploaded once,
     the segmenter runs once, and the backend answers in two parts: the preview with its mask after about 2 s, then
     the classification, which starts on its own. A button to classify the whole photo appears after the answer
-    (D1). Written from the 2026-10-07 stub; D1&ndash;D17 decided; planned in <a
-    href="plan_photos_and_answers_optimization.html">the plan</a>; not implemented.</p>
+    (D1). Written from the 2026-10-07 stub; D1&ndash;D19 decided; planned in <a
+    href="plan_photos_and_answers_optimization.html">the plan</a>, one question open there (Q1); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D19 decided, plan Q1 open; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
@@ -23,7 +23,8 @@
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the deploy go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
     <div class="field"><span class="k">Production impact</span><span class="v">None until the deploy (D6). After it, the page has one button, <code>/preview</code>, <code>/crop</code> and <code>/classify</code> give way to one endpoint with a streamed answer (D2), <code>index.html</code> is served with <code>Cache-Control: no-cache</code> (D5), and the classification's answer is unchanged. From this release a <code>--rollback</code> to the one
-      before it leaves the site down (D10, R8).</span></div>
+      before it leaves the site down (D10, R8). nginx's access log gains a field at the end of each line,
+      <code>$upstream_bytes_received</code> (D19).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D6 answered 2026-10-17</span></span></div>
   </div>
 
@@ -50,6 +51,10 @@
       live check reporting, not gating (D11), a busy message on a 503 with queueing left to <a
       href="ticket_webapp_request_queue.html">OPS-8</a> (D12), <code>preview_ms</code> (D13), the page on D1's
       button (D14), an ADR for D2 (D15), no undo procedure (D16) and no rehearsal (D17).</p>
+    <p><strong>Owner decisions, 2026-10-17 (D18&ndash;D19).</strong> Settled after a review of the plan: nginx
+      holds the whole answer so the worker never waits on a slow phone, and the stream is checked through two local
+      nginx servers before the deploy (D18); the request log says how a streamed answer ended (D19). Both as
+      recommended. D10, D16 and D17 stay as decided.</p>
   </div>
 
   <h2>1. Summary</h2>
@@ -205,6 +210,18 @@
           backend that does not have it. This covers the deploy's own rollback on a failed verify too. Accepted
           (D10, D16): fixed forward by a new deploy if anything goes wrong; a release that carries its own nginx
           site is <a href="ticket_release_carries_nginx_site.html">OPS-9</a>.</td></tr>
+      <tr><td class="id">R9</td><td><strong>A slow phone holds the worker.</strong></td>
+        <td>Found in review. With <code>X-Accel-Buffering: no</code>, nginx reads the answer from the backend only
+          up to <code>proxy_buffer_size</code> (4k or 8k by default) ahead of what the client has taken. The preview
+          line is a few hundred KB (a 1024 px JPEG and a PNG, base64), so the sync worker blocks writing it until
+          the phone has read most of it, and the classification starts only after that write. A client that stops
+          reading keeps the worker until gunicorn's 30 s timeout kills it, and the next worker boots for about
+          20 s (ML-7). Today nginx buffers the whole answer, so neither happens. Mitigated by D18.</td></tr>
+      <tr><td class="id">R10</td><td><strong>A streamed answer that fails looks like a success in the
+          logs.</strong></td>
+        <td>Found in review. The status goes out with the first part (R4), so the request log and nginx's access
+          log both say 200 whether the answer completed, ended in an error part, or lost its client after the
+          preview. A worker killed at 30 s writes no request-log line at all. Mitigated by D19.</td></tr>
     </tbody>
   </table></div>
 
@@ -313,6 +330,20 @@
         <td>(a) Yes, both deploys at this ticket's commit. (b) No.</td>
         <td>(b), 2026-10-17: no rehearsal until the web app, the site and the ML code go as one release (OPS-9).
           A departure from deploy.md for this ticket; the runbook stays.</td></tr>
+      <tr><td class="id">D18</td><td>How is the worker kept from waiting on a slow phone, and how is the stream
+          checked before it goes live (R9, R1)?</td>
+        <td>(a) <code>proxy_buffer_size 1m</code> on <code>/analyze</code>, so nginx takes the whole answer from the
+          backend at once; the stream checked in P3 through two local nginx servers (ours and one standing in for
+          the proxy in front) with a throttled client; the front nginx's config read once before the deploy. (b) As
+          planned: <code>nginx -t</code> only, and the stream first seen through both nginx servers on the live
+          domain.</td>
+        <td>(a), 2026-10-17, as recommended.</td></tr>
+      <tr><td class="id">D19</td><td>Does the request log say how a streamed answer ended (R10)?</td>
+        <td>(a) <code>outcome</code> (<code>complete</code>, <code>error</code>, <code>client_gone</code>) and
+          <code>parts_sent</code> on the request-log line, and <code>$upstream_bytes_received</code> at the end of
+          nginx's <code>coffee_cv_minimal</code> format, so a worker killed mid-answer shows there as a short answer.
+          (b) Status 200 and the latency only, as planned.</td>
+        <td>(a), 2026-10-17, as recommended. Neither field is personal data.</td></tr>
     </tbody>
   </table></div>
 
@@ -329,7 +360,11 @@
     <li><span class="box"></span><span>"Use full photo instead" as D1: after the answer, not after a
       <code>skip_crop=1</code> answer or a fallback, and one more upload with <code>skip_crop=1</code>.</span></li>
     <li><span class="box"></span><span>One request-log line per request, with the classify fields, the whole
-      latency and <code>preview_ms</code> (R2, D13).</span></li>
+      latency and <code>preview_ms</code> (R2, D13), and <code>outcome</code> and <code>parts_sent</code>;
+      nginx's access log ends each line with <code>$upstream_bytes_received</code> (D19, R10).</span></li>
+    <li><span class="box"></span><span>nginx takes the whole answer from the backend at once
+      (<code>proxy_buffer_size 1m</code>): through two local nginx servers, a throttled client gets the preview
+      first and does not lengthen the classification (D18, R9).</span></li>
     <li><span class="box"></span><span>An error after the first part, and a stream cut before the second, each
       show a message (R4).</span></li>
     <li><span class="box"></span><span>A rotating progress circle shows from the pick until the first part, then
@@ -389,6 +424,12 @@
       planning; R1, R6 and R7 restated, R8 added (a rollback across this release takes the site down). ADR 0023
       written for D2; stubs <a href="ticket_webapp_request_queue.html">OPS-8</a> (D12) and <a
       href="ticket_release_carries_nginx_site.html">OPS-9</a> (D10) created. Not implemented.</div>
+    <div><div class="when">2026-10-17</div>Plan reviewed as a web and devops change. The owner decides D18 (a
+      slow phone and the two-nginx check, R9) and D19 (how a streamed answer ended, R10), as recommended. The
+      owner keeps D10, D16 and D17: the review's proposal of a site that routes the old paths too, so that a
+      rollback works, is declined. The review's point that tabs already open run the old page against the new API
+      (R7) is dismissed by the owner: there are none. A retry of nginx's 503 on the page (R6) is open as the plan's
+      Q1. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
