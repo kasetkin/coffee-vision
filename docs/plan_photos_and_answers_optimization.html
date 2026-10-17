@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P3 done, P4 at its stop for the owner; Q1 answered (ticket D20); not deployed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P4 done; Q1 answered (ticket D20); P5 under way</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -263,7 +263,7 @@
 
   <h2>6. P4 &mdash; the page <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-17, <code>6481c10</code>: built and checked in the harness (42 checks at 480 and 343 px), Q1's recommendation, kept by the owner (D20); the owner tried photos and the full-photo button on the local stack, waiting for the page's acceptance</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17, <code>6481c10</code>, accepted by the owner: built and checked in the harness (42 checks at 480 and 343 px), Q1's recommendation, kept by the owner (D20); the owner tried photos and the full-photo button on the local stack and accepted the page</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1</span></div>
   </div>
   <p><code>webapp/static/index.html</code>. One button, one upload, and the answer read as it streams in. The overlay's
@@ -380,6 +380,10 @@
     <div><div class="when">2026-10-17</div>The owner tries the page on the local stack: three photos (two that fall
       back, one predicted) and "Use full photo instead", each answered whole, the preview first. The owner answers Q1:
       keep the 503 retry for now (ticket D20). P4 waits for the owner's acceptance of the page.</div>
+    <div><div class="when">2026-10-17</div>The owner accepts the page (P4 done) and gives the go to deploy on
+      <code>webappremote</code> (P5). The front proxy's config could not be read before the go: there is no access to
+      that server from here, so D18's read is left to the owner, and verify's arrival times say whether it
+      streams.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a
