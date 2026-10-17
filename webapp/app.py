@@ -505,9 +505,9 @@ def analyze():
         except (ValueError, OSError) as exc:
             _log_decode_failure(exc)
             return jsonify(error=f"could not read this as an image: {exc}"), 400
+        decode_ms = round((time.monotonic() - t0) * 1000)
     g.decoded_h, g.decoded_w = photo.shape[:2]
-    seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter,
-                          decode_ms=round((time.monotonic() - t0) * 1000))
+    seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter, decode_ms=decode_ms)
     preview = _preview_part(seg)
     g.stream_logs_itself = True
     return Response(stream_with_context(_analyze_stream(seg, preview)), mimetype="application/x-ndjson",

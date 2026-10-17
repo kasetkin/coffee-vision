@@ -408,7 +408,7 @@ render_production() {   # installs the unit and nginx site from $SHA if they cha
   unit=$(render "$SHA" webapp/deploy/coffee-cv-web.service.template SERVICE_USER="$SERVICE_USER" \
            RELEASE_DIR="$APP_ROOT/current" PORT="$PORT" LOG_DIR="$LOG_ROOT")
   site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template DOMAIN="$DOMAIN" APP_ROOT="$APP_ROOT" \
-              PUBLIC_PORT="$PUBLIC_PORT")
+              PUBLIC_PORT="$PUBLIC_PORT" PORT="$PORT")
   out=$(vm '
     UNIT_F="$SYSTEM_ROOT/etc/systemd/system/coffee-cv-web.service"
     SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"

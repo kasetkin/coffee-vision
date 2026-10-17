@@ -49,11 +49,8 @@ def _parts(response) -> list[dict]:
     return [json.loads(line) for line in response.get_data(as_text=True).splitlines()]
 
 
-def _decode_mask(b64: str) -> Image.Image:
-    return Image.open(io.BytesIO(base64.b64decode(b64)))
-
-
-def _decode_thumbnail(b64: str) -> Image.Image:
+def _decode(b64: str) -> Image.Image:
+    """A base64 image of the preview part: its thumbnail (JPEG) or its mask (PNG)."""
     return Image.open(io.BytesIO(base64.b64decode(b64)))
 
 
@@ -124,7 +121,7 @@ class TestAnalyze(unittest.TestCase):
         a = self.preview
         self.assertIs(a["seg_fallback"], False)
         self.assertIs(a["cropped"], True)
-        img = _decode_mask(a["mask"])
+        img = _decode(a["mask"])
         rgb = load_rgb_image(PHOTO)
         h, w = rgb.shape[:2]
         self.assertNotEqual(h, w, "the test needs a non-square photo")
@@ -154,7 +151,7 @@ class TestAnalyze(unittest.TestCase):
         self.assertIs(self.preview["needs_review"], False)
 
     def test_preview_thumbnail_is_the_photo_scaled_down(self):
-        img = _decode_thumbnail(self.preview["thumbnail"])
+        img = _decode(self.preview["thumbnail"])
         self.assertEqual(img.format, "JPEG")
         w, h = Image.open(PHOTO).size
         tw, th = img.size
@@ -200,9 +197,9 @@ class TestAnalyze(unittest.TestCase):
         r = _post(self.client, tagged)
         self.assertEqual(r.status_code, 200)
         preview = _parts(r)[0]
-        mask_size = _decode_mask(preview["mask"]).size
+        mask_size = _decode(preview["mask"]).size
         self.assertLessEqual(max(mask_size), 1024, "the mask's long side (D7, D10)")
-        for name, (iw, ih) in (("mask", mask_size), ("thumbnail", _decode_thumbnail(preview["thumbnail"]).size)):
+        for name, (iw, ih) in (("mask", mask_size), ("thumbnail", _decode(preview["thumbnail"]).size)):
             with self.subTest(name):
                 self.assertLessEqual(abs(iw - w * ih / h), 1, ((iw, ih), (w, h)))
                 self.assertLessEqual(abs(ih - h * iw / w), 1, ((iw, ih), (w, h)))
@@ -229,8 +226,8 @@ class TestAnalyze(unittest.TestCase):
         self.assertEqual({k: preview[k] for k in ("part", "cropped", "box", "needs_review", "mask", "seg_fallback")},
                          {"part": "preview", "cropped": False, "box": None, "needs_review": False, "mask": None,
                           "seg_fallback": False})
-        self.assertEqual(_decode_thumbnail(preview["thumbnail"]).size,
-                         _decode_thumbnail(self.preview["thumbnail"]).size)
+        self.assertEqual(_decode(preview["thumbnail"]).size,
+                         _decode(self.preview["thumbnail"]).size)
         self.assertEqual(classification["part"], "classification")
         self.assertIs(self._log_lines(r)[0]["skip_crop"], True)
 

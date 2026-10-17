@@ -1,4 +1,4 @@
-# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN, $APP_ROOT and $PUBLIC_PORT (and
+# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN, $APP_ROOT, $PUBLIC_PORT and $PORT (and
 # nothing else -- every other $ here is nginx's own) and installs the result as
 # /etc/nginx/conf.d/coffee-cv.conf on the host -- this template stays domain-generic
 # so the real domain never enters git (see webapp/README.md).
@@ -67,7 +67,7 @@ server {
         limit_conn coffee_cv_inflight 1;
         client_max_body_size 20m;
         proxy_read_timeout 30s;
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:$PORT;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         # The app streams the answer, preview first, with X-Accel-Buffering: no, which turns off this nginx's
