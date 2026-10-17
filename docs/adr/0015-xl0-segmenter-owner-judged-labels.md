@@ -7,3 +7,5 @@ The learned segmentation stage of [ADR 0011](0011-learned-bean-segmentation-stag
 - **Fine-tuned on box and point prompts** (D15, D23): some batches add 1–3 points sampled from the error region of the box-only prediction, the box always kept, as SAM trains; those batches train the `multi3` output that box-only batches and serving use, and every redraw uses `multi3` too. Why: ML-2's box-only fine-tune stopped following points (it reproduced 17–35% of accepted masks from their own points and returned 35–48% empty, and did no better through `multi3`), and the labelling corrections depend on points. Serving and checkpoint selection stay box-only.
 
 Source: [ML-5](../ticket_segmenter_dataset.html) D14, D15, D17, D18, D23; supersedes [ADR 0011](0011-learned-bean-segmentation-stage.md) (ML-2 D1, D6, D15).
+
+Amended 2026-10-17 by [ADR 0019](0019-serving-runs-litert-accelerator-per-host.md) (ML-7): serving runs the segmenter converted to LiteRT, so "the same code in training and serving" means the same processing code and the same weights, converted and held to D7's bars against PyTorch.

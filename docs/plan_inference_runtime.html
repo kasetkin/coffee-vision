@@ -15,7 +15,7 @@
     serves. The phases that move serving onto a runtime are added after the owner chooses (ticket D2).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass); D2 decided 2026-10-14 and P7 run (LiteRT on Vulkan, fp16 forms, answer check); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases P8&ndash;P12 and ADRs 0019&ndash;0022 written 2026-10-15; P8 and P9 done 2026-10-15; P10 and P11 done 2026-10-17</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-13; ORT added 2026-10-13 (Q2 answered, ticket D9); LiteRT on OpenCL made the last resort 2026-10-13 (ticket D10); Q1, Q3 and Q4 answered (ticket D13, D11, D12); review findings folded in 2026-10-13 (ticket D14: P0, the OpenVINO CPU cell, the photo replay); Q5 answered (ticket D15); no Q open; P0 done 2026-10-13 (the models 94% of each photo's time; no stop); P1 done 2026-10-13 (both formats pass D7 on the CPU); P2 and P3 done 2026-10-13 (every fp32 GPU path whole and passing D7); P4 rehearsed 2026-10-13; Q6 answered and P4 started 2026-10-14; P4 done 2026-10-14 (every cell measured and passing D7; the raw outputs in DVC); P5's report written 2026-10-14 (three GPU cells pass); D2 decided 2026-10-14 and P7 run (LiteRT on Vulkan, fp16 forms, answer check); D4 and D7's fp16 bar decided 2026-10-15 (fp32 segmenter, fp16 DINOv3); site restarted on PyTorch 2026-10-15; serving phases P8&ndash;P12 and ADRs 0019&ndash;0022 written 2026-10-15; P8 and P9 done 2026-10-15; P10 and P11 done 2026-10-17; P12 done 2026-10-17, LiteRT live on <code>yappy</code>'s GPU; the ticket closed by the owner 2026-10-17</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_inference_runtime.html"><code>ticket_inference_runtime.html</code></a> (ML-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -536,7 +536,7 @@
 
   <h2>9. P5 &mdash; Report, the owner's choice, the site back <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">report written 2026-10-14; the restart and the owner's choice to come</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">report written 2026-10-14; the owner chose D2 2026-10-14 and D4 2026-10-15; the site restarted 2026-10-15</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <ol class="tasks">
@@ -564,7 +564,7 @@
     <li><span class="box done"></span><span>Restart the site (<code>sudo systemctl start nginx coffee-cv-web</code>)
       and verify it (<code>scripts/deploy_webapp.sh --verify</code>), unless Q3 says otherwise. Log both in the
       ticket's Activity.</span></li>
-    <li><span class="box"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
+    <li><span class="box done"></span><span>Stop for the owner. If any cell passes, the owner chooses the runtime and
       the device or the CPU (ticket D2), whether the int8 encoder may serve (D4), and whether D5 is
       revisited; P6 is not run. If none passes, the owner decides whether P6 runs
       (D10). The phases that move serving (export in the release route, the gates, the sandbox) are written into
@@ -573,7 +573,7 @@
 
   <h2>10. P6 &mdash; Last resort: LiteRT on OpenCL, built from source <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not needed: three cells pass (P5); runs only under D10</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">not run, and nothing left to run: not needed, since three cells passed (P5) and the owner chose LiteRT on Vulkan (D2); closed with the ticket 2026-10-17</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5 (no cell passes, and the owner says go)</span></div>
   </div>
   <p>Tried only if every other cell failed (ticket D10). It is the one cell that needs a source build, a library
@@ -606,7 +606,7 @@
 
   <h2>11. P7 &mdash; The main track: LiteRT on Vulkan</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-14, the owner's D2</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">started 2026-10-14, the owner's D2; the forms, the soak and the cold start 2026-10-14&ndash;15 (Activity); the batch sweep not run</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the site stays down (owner, 2026-10-14), so <code>yappy</code> is free</span></span></div>
   </div>
   <p>The owner chose LiteRT on Vulkan (WebGPU through Dawn) as the main track (ticket D2). P4 left it two things
@@ -640,7 +640,7 @@
       fp16 DINOv3.</span></li>
     <li><span class="box done"></span><span><b>Wholly on the GPU:</b> forms that remove DINOv3's BROADCAST_TO and the
       decoder's SELECT_V2, checked exact, confirmed by the delegate's report, timed.</span></li>
-    <li><span class="box"></span><span><b>On <code>yappy</code>, with the current files:</b>
+    <li><span class="box done"></span><span><b>On <code>yappy</code>, with the current files:</b>
       <ul>
         <li>cold start with Mesa's shader cache empty and warm (the restart cost after a deploy);</li>
         <li>torch's own footprint in the serving worker (D5 (a)), added to the replay's memory;</li>
@@ -648,7 +648,9 @@
       </ul></span></li>
     <li><span class="box"></span><span>Later, for the serving phases: a DINOv3 batch sweep (4, 10, 20); a
       serving-shaped worker in the service's sandbox with <code>/dev/dri</code>; D7 on the validation
-      photos.</span></li>
+      photos. <span class="result">The worker in the sandbox: P12's smoke unit. D7 on the photos: P7's answer check
+      (782 photos). The batch sweep was not run: batch 8 serves, faster than 40 on the GPU (P4, P7); a sweep is a
+      possible later gain, not a gap in what serves.</span></span></li>
   </ol>
 
   <h2>12. P8 &mdash; LiteRT in the serving code, and the processing shared with training</h2>
@@ -917,11 +919,11 @@
 
 <h2>16. P12 &mdash; Smoke test, then the live deploy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">planned 2026-10-15</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-17: release <code>20261017T1132Z-d88533d</code> live on <code>yappy</code>'s GPU, verified on the domain; the owner's go given 2026-10-17</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P11, and the owner's go</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>The smoke-test unit on <code>yappy</code></b> with the new release:
+    <li><span class="box done"></span><span><b>The smoke-test unit on <code>yappy</code></b> with the new release:
       <ul>
         <li>the boot's duration and memory;</li>
         <li>the GPU proof;</li>
@@ -930,7 +932,7 @@
       </ul>
       P7 expects about 9.2 s a photo for the models and about 2.3 s of pre- and post-processing, against about
       38 s today.</span></li>
-    <li><span class="box"></span><span><b>Stop for the owner</b> with those numbers. On the owner's go:
+    <li><span class="box done"></span><span><b>Stop for the owner</b> with those numbers. On the owner's go:
       <ul>
         <li>deploy with <code>scripts/deploy_webapp.sh</code>;</li>
         <li><code>--verify</code> on the domain;</li>
@@ -939,23 +941,52 @@
       Rollback is the previous release (PyTorch), per ADR 0008. Logged in the ticket's Activity.</span></li>
   </ol>
 
-  <h2>17. Verification</h2>
+  
+
+  <h3>Results</h3>
+  <ul>
+    <li><b>The owner's go</b> (2026-10-17): "commit changes, if everything else is ready then merge this branch to the
+      main, deploy after that". <code>main</code> was fast-forwarded to <code>d88533d</code> (the repo's convention is a
+      merge commit; noted for the next branch).</li>
+    <li><b>Stage</b> (<code>--stage-only</code>): the full check on <code>d88533d</code>; preflight at 5 GB available;
+      the upload 55 min (the converted model's 818 MB, sent once; a later release of the same model copies them on
+      the host), the venv 95 s.</li>
+    <li><b>Smoke,</b> in the production sandbox as <code>coffee-cv</code>: ready in 21.2 s (the warm-up 10.4 s), peak
+      RSS 1.84 GB, the GPU proven (busy 88% of the warm-up, Intel's Vulkan driver and the WebGPU accelerator mapped);
+      <code>/classify</code> 8.3 s, the same verdict and top-1 as the local CPU run, scores within 1.1e-3;
+      <code>/crop</code>'s mask IoU 0.999997. The sandbox (<code>ProtectSystem=strict</code>, <code>ProtectHome</code>,
+      the system-call filter) leaves Dawn and Mesa working. <code>MemoryPeak</code> reads empty on this host's
+      systemd; the boot record's peak RSS stands in.</li>
+    <li><b><code>--compare</code>:</b> the 12 fixtures on the GPU against PyTorch, no verdict or top-1 change, p95 of the
+      largest probability change 0.0036 (bar 0.05).</li>
+    <li><b>Live:</b> flipped and verified on the domain (backend, startup line's commit and model, public page,
+      public <code>/classify</code> top-1). The production worker booted in 19.5 s, GPU proven (busy 91%), with 3.7 GB
+      available after it. The first live <code>/classify</code> (the verify's): <code>latency_ms</code> 8228,
+      <code>inference_ms</code> 5876; the PyTorch release's last one, the same morning: 20876 and 15161.
+      <code>previous</code> is the PyTorch release <code>b1bc9c9</code>.</li>
+  </ul>
+
+<h2>17. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P0: a per-stage baseline on <code>yappy</code> whose stages add up to the
       whole paths within 10%, set beside the live log's aggregates.</span></li>
     <li><span class="box done"></span><span>P1: four <code>.tflite</code> and four <code>.onnx</code> files whose CPU
       outputs meet D7 against PyTorch 2.14 on the 13 fixtures; the two rewrites matching torch at float rounding;
       the fused and int8 variants reported pass or fail.</span></li>
-    <li><span class="box"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
-      by <code>strace</code> and the i915 counters, not by "no error".</span></li>
+    <li><span class="box done"></span><span>P2 and P3 (and P6 if it runs): each GPU cell proven to run on the iGPU,
+      by <code>strace</code> and the i915 counters, not by "no error". <span class="result"><code>strace</code> is not
+      on the host: the proof read the process's mapped libraries and open render nodes, the same evidence, with the
+      i915 counters (<code>cellrun.py</code>).</span></span></li>
     <li><span class="box done"></span><span>P4: every cell measured or marked failed, per graph and in the photo replay;
       parity computed with the repo's code.</span></li>
-    <li><span class="box"></span><span>P5: each cell marked pass or fail by D10's test with Q5's margin; the site
+    <li><span class="box done"></span><span>P5: each cell marked pass or fail by D10's test with Q5's margin; the site
       answers on the domain again.</span></li>
-    <li><span class="box"></span><span>P8&ndash;P12: the served answers within D7's bars against PyTorch on the
+    <li><span class="box done"></span><span>P8&ndash;P12: the served answers within D7's bars against PyTorch on the
       fixtures; the GPU proven at deploy; the boot warmed and measured; the site live on the domain with the LiteRT
       release, and the previous release one switch away.</span></li>
-    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit. <span class="result">Recorded at P8's
+      and P10's commits and at <code>d88533d</code>, the deployed commit (the deploy's full check); not for P0&ndash;P7,
+      whose code was analysis scripts with their own tests.</span></span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
@@ -1538,6 +1569,17 @@
       its 371 MB venv. <code>--compare</code> holds a release to D7 against PyTorch, and the worker proves the GPU at
       boot or does not serve; on <code>yappy</code> both pass. Owner: "continue with plan execution and deploying",
       so P12 follows from <code>main</code>.</div>
+    <div><div class="when">2026-10-17</div>P12 done (Results in &sect;16), on the owner's go: <code>main</code>
+      fast-forwarded to <code>d88533d</code>, staged, smoked in the production sandbox on the GPU, compared within D7,
+      deployed and verified on the domain. The first live <code>/classify</code> took 8.2 s on the server (the
+      PyTorch release: 20.9 s the same morning).</div>
+    <div><div class="when">2026-10-17</div>The owner closes ML-7. The ticket's remaining acceptance items done
+      first: ADR 0019 names what it changes in ML-2 Q4 and ADR 0015 (which gets a pointer back),
+      <code>CODING_STANDARDS.md</code>'s parity rule names the converted models and D7, <code>experiments.md</code>
+      and <code>deploy.md</code> name the conversion step and the new gates, <code>webapp/README.md</code> names the
+      host's GPU stack as a deploy dependency, and <code>PATCHES.md</code> row 3's reason is current. P5 and P7 marked
+      done, P6 not run. Left open: the DINOv3 batch sweep (P7), and the live latencies on real traffic, which the
+      first 4 photos put at 8.1&ndash;9.1 s on the server.</div>
   </div>
 
   <footer>Related: <a href="ticket_inference_runtime.html">ML-7 ticket</a>, <a href="agents/remote-sweeps.md">remote-sweeps.md</a>,

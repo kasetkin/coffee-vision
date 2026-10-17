@@ -24,6 +24,11 @@ A new segmenter decoder or tiny-mask threshold in `params.yaml` (`seg_decoder`, 
 1. Re-crop: `dvc repro -s` each `segcrop` and `merge_segcam_*` stage, never a plain `dvc repro`. Open a few crops at full size, every D18 fallback included.
 2. Regenerate the DINOv3 fixture: `python scripts/make_dinov3_fixture.py`. Its patches come from `data/segcropped/cam_iphone`, so after a re-crop `test_dino_backbone.test_matches_meta_reference` goes red until it is rerun. The script clones and runs Meta's dinov3 at a pinned commit: the owner runs it, or says Claude may. Commit the new `tests/fixtures/dinov3_vits16_reference.npz` beside the re-crop. Precedent: ML-3 P2b, ML-5 P11 (`f585d14`), ML-6 P8.
 3. Retrain the classifier as a recorded run (seeds 42/123/7) and compare against the previous segmenter's runs; refit the OOD probe on the shipped candidate.
+4. Convert the shipped candidate for serving (below).
+
+## Converting a candidate for serving
+
+The site serves LiteRT conversions, not the `.pt` ([ADR 0019](../adr/0019-serving-runs-litert-accelerator-per-host.md)). Between shipping a candidate (`models/<name>.pt`) and deploying it, add it to the `litert_export` stage's `foreach` in `dvc.yaml` and run `dvc repro -s litert_export@<name>`: it converts the encoder, the decoder and DINOv3 in `convert/.venv` (create it with `uv sync --project convert` if missing), then checks them against PyTorch at D7's fp32 bars on the deploy fixtures ([ADR 0020](../adr/0020-converted-models-pass-d7-before-they-serve.md)). A model that fails loses its manifest and cannot deploy. Push `models/<name>.litert` to the DVC remote and verify it, as for the checkpoint. A different architecture, or a new `litert-torch` or `ai-edge-litert`, reruns the forms' checks first ([ADR 0022](../adr/0022-export-forms-are-exact.md)), and on the serving host P7's answer check (`analysis/ml7_gpu/p7_answers.py`).
 
 ## Reading the record
 
