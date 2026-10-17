@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 136 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 146 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -28,6 +28,18 @@ The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by M
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-17: 10 grinder-hopper photos
+
+- **New photos** (batch `2026-10-17`): seven Pixel 9 Pro (`PXL_20261013_063118291.jpg` and six of 2026-10-14)
+  and three iPhone 15 (`IMG_6761.HEIC`..`IMG_6763.HEIC`, the rig's model), roasted beans in grinder hoppers on
+  counters, mostly wide framing with the surroundings in view. None is a byte copy of another photo under
+  `dataset/`.
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS, C2PA, the Apple and HDR+
+  maker notes, embedded thumbnails); 0 checks failing. Rows in `labels/ml3/strip_manifest.csv`.
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all ten, with 10 pool photos topping the draw
+  up to 146. The iPhone and Pixel shots of 2026-10-14 16:06-16:07 both record a UTC offset, so the 120 s rule
+  groups them without a split unit.
 
 ## 2026-10-11: 4 grinder-hopper photos
 
