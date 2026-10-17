@@ -4,7 +4,7 @@
 #   scripts/deploy_webapp.sh --bootstrap                     one-time VM setup (user, /opt, uv, logs)
 #   scripts/deploy_webapp.sh <git-ref> <model>               full deploy: stage, smoke, flip, verify
 #   scripts/deploy_webapp.sh --stage-only <git-ref> <model>  preflight, build, stage, smoke; no flip
-#   scripts/deploy_webapp.sh --compare <release-id>          same answers from the training venv and the release venv?
+#   scripts/deploy_webapp.sh --compare <release-id>          the release's answers within D7's bars of PyTorch's?
 #   scripts/deploy_webapp.sh --verify                        check what `current` serves
 #   scripts/deploy_webapp.sh --rollback                      switch back to `previous`
 #
@@ -53,7 +53,8 @@ UV_BIN=${UV_BIN:-/usr/local/bin/uv}
 # The releases' Python: a uv-managed CPython under $APP_ROOT/python, never the host's own (a Debian
 # host has no 3.12). --bootstrap installs it; the newest 3.12 uv $UV_VERSION offers.
 PY_VERSION=${PY_VERSION:-3.12.14}
-TRAIN_PY=${TRAIN_PY:-/home/$APP_USER/coffee-vision-venv/bin/python}
+# --compare's PyTorch reference (ADR 0020): this machine's training environment, which has torch.
+TORCH_PY=${TORCH_PY:-python}
 
 REPO=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 SCRATCH=${DEPLOY_SCRATCH:-${XDG_CACHE_HOME:-$HOME/.cache}/coffee-cv-deploy}
@@ -382,6 +383,8 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
     echo "SMOKE_CROP $(tail -1 <<<"$body") $(head -n -1 <<<"$body")"
     echo "SMOKE_PREVIEW $(curl -s -o /dev/null -w "%{http_code} %{content_type} %{size_download}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/preview")"
     echo "SMOKE_RSS $(systemctl show -p MemoryPeak --value "$U")"
+    # The boot record of the worker (ADR 0021): its time, memory and, on a GPU host, the GPU proof of ADR 0020.
+    echo "SMOKE_BOOT $($SUDO journalctl -u "$U" --no-pager -o cat | sed -n "s/^INFO:webapp.app:boot //p" | tail -1)"
     echo "SMOKE_LOG $(grep "\"endpoint\": \"/classify\"" "$LOG_ROOT/smoke/app.jsonl" | tail -1)"
   ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "$(fixtures smoke)")") || rc=$?
   printf '%s\n' "$out" > "$SCRATCH/$id.smoke.txt"
@@ -565,31 +568,39 @@ prune() {
     echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"'
 }
 
-compare() {   # compare <release id>: the staged code under the training venv vs its own venv
-  local id=$1
+compare() {   # compare <release id>: the release on the host, on its accelerator, against PyTorch here (ADR 0020)
+  local id=$1 sha model
+  sha=$(cut -d- -f2 <<<"$id"); model=$(cut -d- -f3- <<<"$id")
+  # PyTorch's reference runs this checkout's coffeecv, so it must be the release's (ML-7 P11).
+  git -C "$REPO" diff --quiet "$sha" -- coffeecv \
+    || die "coffeecv/ here is not the release's ($sha): check out $sha for PyTorch's reference"
   preflight
   check_fixtures
   send_fixtures
-  say "Compare $id: training venv ($TRAIN_PY -B) vs release venv, $(fixtures compare | wc -l) photos (capped: $CAP_CPU CPU)"
-  local run='
+  say "Compare $id: the release on $HOST against PyTorch here ($TORCH_PY), $(fixtures compare | wc -l) photos, ML-7 D7's bars"
+  mkdir -p "$SCRATCH"
+  local t0=$SECONDS photos=()
+  while read -r p; do photos+=("$REPO/$p"); done < <(fixtures compare)
+  (cd "$REPO" && "$TORCH_PY" -B "$DEPLOY_DIR/release_probe.py" classify-torch --checkpoint "models/$model.pt" \
+      "${photos[@]}" 2> >(tail -5 >&2)) > "$SCRATCH/$id.compare-torch.json" || die "PyTorch's reference run failed"
+  note "PyTorch here: $((SECONDS - t0)) s"; t0=$SECONDS
+  # The release as the service runs it: its venv, its release.env (the accelerator), capped.
+  vm '
     R="$APP_ROOT/releases/$ID"
     [[ -f "$R/.complete" ]] || { echo "$R is not a complete release"; exit 1; }
-    ckpt=$(sed -n "s/^COFFEE_CV_CHECKPOINT=//p" "$R/release.env")
-    capped "$CAP_CPU" "$R" -E COFFEE_CV_CHECKPOINT="$ckpt" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs \
-      -E PYTHONDONTWRITEBYTECODE=1 -E OMP_NUM_THREADS=1 \
-      "$PY" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.txt" \
-        --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)'
-  mkdir -p "$SCRATCH"
-  local t0=$SECONDS
-  vm "$run" ID="$id" PY="$TRAIN_PY" > "$SCRATCH/$id.compare-training.json" || die "the training-venv run failed"
-  note "training venv: $((SECONDS - t0)) s"; t0=$SECONDS
-  vm "$run" ID="$id" PY="$APP_ROOT/releases/$id/.venv/bin/python" > "$SCRATCH/$id.compare-release.json" || die "the release-venv run failed"
-  note "release venv: $((SECONDS - t0)) s"
+    envs=()
+    while IFS= read -r line; do [[ -n "$line" ]] && envs+=(-E "$line"); done < "$R/release.env"
+    capped "$CAP_CPU" "$R" "${envs[@]}" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs -E PYTHONDONTWRITEBYTECODE=1 \
+      "$R/.venv/bin/python" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.txt" \
+        --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)' ID="$id" \
+    > "$SCRATCH/$id.compare-release.json" || die "the release's run failed"
+  note "the release on $HOST: $((SECONDS - t0)) s"
   local rc=0
-  "$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" compare-classify "$SCRATCH/$id.compare-training.json" "$SCRATCH/$id.compare-release.json" || rc=$?
+  "$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" compare-classify --d7 "$SCRATCH/$id.compare-torch.json" \
+    "$SCRATCH/$id.compare-release.json" || rc=$?
   postflight
-  (( rc == 0 )) || die "the release venv does not reproduce the training venv bit for bit -- explain every difference before enabling the service"
-  say "Compare OK: bit-identical"
+  (( rc == 0 )) || die "the release's answers are outside ML-7 D7's bars against PyTorch (ADR 0020)"
+  say "Compare OK: within D7's bars against PyTorch"
 }
 
 # ----------------------------------------------------------------------------------------- bootstrap

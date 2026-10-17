@@ -185,6 +185,66 @@ def open_graph(model_dir: Path, spec: dict, runtime_dir: Path | None = None) -> 
     return g, report
 
 
+# The rest of ADR 0020's proof on a GPU host, read by the worker over its warm-up: no error and a delegate that took
+# every op still allow a Vulkan device that is a CPU behind it. Mesa's lavapipe (libvulkan_lvp) is one.
+SOFTWARE_VULKAN = "libvulkan_lvp"
+ACCELERATOR_LIBRARY = "libLiteRtWebGpuAccelerator.so"
+# The iGPU busy (out of RC6) for at least this share of the warm-up's wall time. The warm-up also decodes the photo
+# and runs pre- and post-processing on the CPU, about 2.3 s of about 11.5 s (ML-7 P7); a GPU left idle reads near 0.
+GPU_BUSY_MIN = 0.25
+
+
+def gpu_mapped() -> dict:
+    """The Vulkan drivers and LiteRT accelerator libraries this process has mapped, and the DRM render nodes it has
+    open."""
+    libs = set()
+    for line in Path("/proc/self/maps").read_text().splitlines():
+        parts = line.split()
+        name = Path(parts[5]).name if len(parts) >= 6 else ""
+        if name.startswith("libvulkan_") or (name.startswith("libLiteRt") and "Accelerator" in name):
+            libs.add(name)
+    nodes = set()
+    for fd in Path("/proc/self/fd").iterdir():
+        try:
+            target = os.readlink(fd)
+        except OSError:
+            continue
+        if target.startswith("/dev/dri/renderD"):
+            nodes.add(target)
+    return {"libraries": sorted(libs), "render_nodes": sorted(nodes)}
+
+
+def gpu_idle_ms() -> int | None:
+    """The iGPU's RC6 (idle) residency so far, from i915's counters in sysfs; None on a host without them."""
+    for f in sorted(Path("/sys/class/drm").glob("card*/gt/gt0/rc6_residency_ms")):
+        try:
+            return int(f.read_text())
+        except (OSError, ValueError):
+            return None
+    return None
+
+
+def gpu_proof(mapped: dict, idle_ms: float | None, wall_ms: float) -> dict:
+    """ADR 0020's GPU proof from gpu_mapped() and the RC6 idle time over a run of wall_ms: ok with every condition
+    met, else the reasons in why_not."""
+    libs = mapped["libraries"]
+    why = []
+    if ACCELERATOR_LIBRARY not in libs:
+        why.append(f"{ACCELERATOR_LIBRARY} not mapped")
+    if not any(n.startswith("libvulkan_") and not n.startswith(SOFTWARE_VULKAN) for n in libs):
+        why.append("no hardware Vulkan driver mapped")
+    if any(n.startswith(SOFTWARE_VULKAN) for n in libs):
+        why.append(f"{SOFTWARE_VULKAN} (Mesa's CPU renderer) mapped")
+    if not mapped["render_nodes"]:
+        why.append("no render node open")
+    busy = None if idle_ms is None or wall_ms <= 0 else round(1 - idle_ms / wall_ms, 3)
+    if busy is None:
+        why.append("no i915 counters")
+    elif busy < GPU_BUSY_MIN:
+        why.append(f"GPU busy for {busy:.0%} of the run (bar: {GPU_BUSY_MIN:.0%})")
+    return {"ok": not why, "why_not": why, "busy_frac": busy, **mapped}
+
+
 class LiteRtSam:
     """The segmenter's encoder and decoder graphs behind BeanSegmenter's engine interface (segment_beans.TorchSam's
     docstring). The decoder graph takes the box prompt alone and returns the three multimask outputs, as the served
@@ -237,6 +297,11 @@ class LiteRtModels:
     classifier: LiteRtClassifier
     manifest: dict
     reports: dict
+
+    @property
+    def on_gpu(self) -> bool:
+        """Whether any graph was opened on the GPU, so ADR 0020's GPU proof applies."""
+        return any(r["gpu_environment"] for r in self.reports.values())
 
 
 def save_head(path: Path, weight: np.ndarray, bias: np.ndarray) -> None:

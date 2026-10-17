@@ -83,6 +83,47 @@ class TestDelegateReport(unittest.TestCase):
         self.assertFalse(litert.delegate_report(NO_GPU_LOG)["all_on_gpu"])
 
 
+class TestGpuProof(unittest.TestCase):
+    """ADR 0020's proof beyond the delegate's report: the libraries mapped, the render node, the i915 counters."""
+    ON_INTEL = {"libraries": ["libLiteRtWebGpuAccelerator.so", "libvulkan_intel.so"],
+                "render_nodes": ["/dev/dri/renderD128"]}
+
+    def test_intels_driver_busy_is_proven(self):
+        p = litert.gpu_proof(self.ON_INTEL, idle_ms=3000, wall_ms=10000)
+        self.assertEqual((p["ok"], p["why_not"], p["busy_frac"]), (True, [], 0.7))
+
+    def test_lavapipe_is_refused_even_beside_a_hardware_driver(self):
+        mapped = {**self.ON_INTEL, "libraries": self.ON_INTEL["libraries"] + ["libvulkan_lvp.so"]}
+        self.assertIn("libvulkan_lvp (Mesa's CPU renderer) mapped", litert.gpu_proof(mapped, 3000, 10000)["why_not"])
+
+    def test_lavapipe_alone_is_no_hardware_driver(self):
+        mapped = {**self.ON_INTEL, "libraries": ["libLiteRtWebGpuAccelerator.so", "libvulkan_lvp.so"]}
+        self.assertIn("no hardware Vulkan driver mapped", litert.gpu_proof(mapped, 3000, 10000)["why_not"])
+
+    def test_no_accelerator_library(self):
+        mapped = {**self.ON_INTEL, "libraries": ["libvulkan_intel.so"]}
+        self.assertEqual(litert.gpu_proof(mapped, 3000, 10000)["why_not"],
+                         ["libLiteRtWebGpuAccelerator.so not mapped"])
+
+    def test_no_render_node(self):
+        p = litert.gpu_proof({**self.ON_INTEL, "render_nodes": []}, 3000, 10000)
+        self.assertEqual(p["why_not"], ["no render node open"])
+
+    def test_an_idle_gpu_is_refused(self):
+        p = litert.gpu_proof(self.ON_INTEL, idle_ms=9900, wall_ms=10000)
+        self.assertFalse(p["ok"])
+        self.assertEqual(p["busy_frac"], 0.01)
+
+    def test_no_counters_is_refused(self):
+        self.assertEqual(litert.gpu_proof(self.ON_INTEL, None, 10000)["why_not"], ["no i915 counters"])
+
+    def test_this_process_maps_no_vulkan(self):
+        """gpu_mapped reads this process: the test runner opens no GPU."""
+        mapped = litert.gpu_mapped()
+        self.assertEqual(set(mapped), {"libraries", "render_nodes"})
+        self.assertFalse(any(n.startswith("libvulkan_") for n in mapped["libraries"]))
+
+
 class FakeGraph:
     """Stands in for litert.Graph: prints `log` to fd 2 as LiteRT does from C++, and returns zeros."""
     log = WHOLE_LOG

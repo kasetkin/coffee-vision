@@ -783,6 +783,11 @@
     <div><div class="when">2026-10-15</div>Owner: the DVC stages built from the segmenter (their stored masks move by
       1&ndash;17 pixels on some photos under the mask's port) are rerun at the next retraining, not now; until then
       <code>dvc status</code> shows them changed. "Continue yourself": plan P9 started.</div>
+    <div><div class="when">2026-10-17</div>Plan P9&ndash;P11 done. The converted model is in DVC and in the release; the
+      release drops torch (venv 371 MB, was 1.2 GB) and on <code>yappy</code>'s GPU boots in 20 s, holds 3.5 GB and
+      answers <code>/classify</code> in a median 9.4 s, within D7 of PyTorch on the fixtures. The deploy's gates now
+      check D7 against PyTorch (R4) and the worker refuses to serve on an unproven GPU (ADR 0020). Owner: "continue
+      with plan execution and deploying": P12 deploys from <code>main</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmentation_mask.html">ML-2</a> (D23, R5) and <a

@@ -117,9 +117,9 @@ proxy that serves the domain on 80/443 and forwards to it; the site is `https://
 
 ```
 scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
-DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_seg_country_s123
+DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_segxl0v3_country_s42
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
-scripts/deploy_webapp.sh --compare <release-id>             # training venv vs release venv, 10 photos, must be bit-identical
+scripts/deploy_webapp.sh --compare <release-id>             # the release on the host vs PyTorch here, 12 photos, ML-7 D7's bars
 DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves, backend + public site
 DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previous, restart, verify
 ```
@@ -127,12 +127,14 @@ DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previo
 A full deploy: **preflight** (>= 5 GB available memory, >= 10 GB free on /opt, pinned uv; records the
 sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
 the manifest; the `.pt` from the working tree or the local DVC cache, refused unless its md5 matches the
-commit's `.pt.dvc`; the DINOv3 backbone, refused unless its sha256 matches `models_pretrained/manifest.json`;
-`BUILD_INFO.json` + `release.env`; the expected smoke answers from the staged tree itself) -> **stage**
+commit's `.pt.dvc`; its LiteRT export (`models/<name>.litert/`, ticket ML-7) by md5 from `dvc.lock`; the warm-up
+photo; `BUILD_INFO.json` + `release.env`; the expected smoke answers from the staged tree itself, on this machine's
+CPU) -> **stage**
 (rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **smoke**
 (the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
-sandbox; `/classify`, `/crop`, `/preview` must match the local answers: same top-1, scores within 1e-4,
-same `model_sha`) -> **render** the unit and nginx site from the commit (installed only if changed;
+sandbox; `/classify`, `/crop`, `/preview` must match the local answers: same verdict and top-1, scores within
+ML-7 D7's 0.05, the mask's IoU at least 0.999, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
+ADR 0020) -> **render** the unit and nginx site from the commit (installed only if changed;
 `nginx -t` failure restores the old site and stops) -> **flip** (`previous` <- `current`, `current` <-
 the new release, each an atomic rename) -> **restart only if enabled** -> **verify** (backend `GET /`
 -> 404, `GET /classify` -> 405, the startup journal line's commit and `model_sha`; public page = the

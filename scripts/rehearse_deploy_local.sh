@@ -5,9 +5,9 @@
 #
 #   scripts/rehearse_deploy_local.sh [scratch-dir]
 #
-# Both deploys use $REHEARSE_MODEL, by default the one model in models/: deploy 1 at $REHEARSE_PREV_REF
-# (default origin/main~1), deploy 2 at origin/main, so the rollback switches between two releases of it. Until
-# 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
+# Both deploys use $REHEARSE_MODEL, by default the served model (the one with a LiteRT export): deploy 1 at
+# $REHEARSE_PREV_REF (default origin/main~1), deploy 2 at origin/main, so the rollback switches between two releases
+# of it. Until 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
 #
 # Last passed 2026-10-07 (ticket OPS-6 P2): deploy 1 at ebf6d55, deploy 2 at 8430c54, both the one model, and a
@@ -71,7 +71,8 @@ while (( $# )); do
     *) break ;;
   esac
 done
-cd "$wd" && exec env "${envs[@]}" "$@"
+# COFFEE_CV_LITERT_ON_CPU, as for the service below: --compare runs the release here, on the CPU (ML-7 P11).
+cd "$wd" && exec env "${envs[@]}" COFFEE_CV_LITERT_ON_CPU=1 "$@"
 EOF
 cat > "$S/systemctl" <<'EOF'
 #!/usr/bin/env bash
@@ -154,14 +155,14 @@ chmod +x "$S"/*
 export HOST=local APP_ROOT="$R/opt/coffee-cv" APP_USER="$(id -un)" SERVICE_USER="$(id -un)"
 export SYSTEM_ROOT="$R/sys" LOG_ROOT="$R/log/coffee-cv" DOMAIN=rehearsal.invalid PUBLIC_URL=
 export UV_BIN="${UV_BIN:-$(command -v uv)}"   # the releases' Python: uv-managed, installed by --bootstrap
-export TRAIN_PY="${TRAIN_PY:-$(command -v python3)}" LOCAL_PY="${LOCAL_PY:-python3}"
+export TORCH_PY="${TORCH_PY:-$(command -v python)}" LOCAL_PY="${LOCAL_PY:-python3}"
 export STUB_PATH="$S" STUB_STATE="$R/state" DEPLOY_SCRATCH="$R/scratch"
 export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOKE_PORT=18001
 # The rehearsal tests the deploy machinery on a scratch clone without the data, not the code: skip the
 # deploy's full test suite (scripts/check.sh --full).
 export DEPLOY_SKIP_CHECK=1
 D="$C/scripts/deploy_webapp.sh"
-MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_seg_country_s123}
+MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_segxl0v3_country_s42}
 SHA=$(git -C "$C" rev-parse origin/main)
 PREV_SHA=$(git -C "$C" rev-parse "${REHEARSE_PREV_REF:-origin/main~1}")
 [[ "$PREV_SHA" != "$SHA" ]] || { echo "REHEARSE_PREV_REF resolves to origin/main itself"; exit 1; }

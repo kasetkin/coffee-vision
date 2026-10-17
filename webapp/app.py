@@ -11,7 +11,8 @@ life of the process, not once per request.
 The models run on LiteRT (ticket ML-7, ADR 0019), from the converted model beside the checkpoint
 (coffeecv.litert), on the accelerator and at the precisions its manifest names; this process imports no
 torch. Before the first request the worker runs a fixed photo through /crop's and /classify's whole path
-(ADR 0021), and logs how long its boot took and the memory it holds.
+(ADR 0021), and logs how long its boot took and the memory it holds. On the GPU, the warm-up is also ADR 0020's proof
+that the GPU ran it: a worker that cannot show it does not serve.
 """
 from __future__ import annotations
 
@@ -42,7 +43,7 @@ from coffeecv.class_list import load_classes  # noqa: E402
 from coffeecv.infer import (_sha, bean_region_preview, classify_one, config_for_checkpoint,  # noqa: E402
                             crop_to_bean_region, PROBE_THRESHOLD, inference_tta_for, load_ood_probe,
                             load_ood_reference, probe_path_for, reference_path_for, sig12, warm_up)
-from coffeecv.litert import litert_dir_for, load_models  # noqa: E402
+from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
@@ -583,11 +584,18 @@ def warm_up_photo() -> Path:
     return REPO_ROOT / smoke[0]
 
 
+_idle0, _t0 = gpu_idle_ms(), time.monotonic()
 WARM_UP = warm_up(warm_up_photo(), cfg, class_ids, class_labels, classifier, ref, probe, segmenter, N_PATCHES)
+if models.on_gpu:
+    _idle1 = gpu_idle_ms()
+    WARM_UP["gpu"] = gpu_proof(gpu_mapped(), None if None in (_idle0, _idle1) else _idle1 - _idle0,
+                               (time.monotonic() - _t0) * 1000)
 WARM_UP.update(boot_s=round(time.monotonic() - BOOT_T0, 2),
                peak_rss_mb=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1),
                mem_available_mb=_mem_available_mb())
 logger.info("boot %s", json.dumps(WARM_UP))
+if "gpu" in WARM_UP and not WARM_UP["gpu"]["ok"]:
+    raise SystemExit(f"the GPU is not proven to have run the warm-up (ADR 0020): {WARM_UP['gpu']['why_not']}")
 
 
 if __name__ == "__main__":
