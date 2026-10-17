@@ -67,6 +67,15 @@ def _dvc_cache(md5: str) -> Path:
     return REPO / ".dvc" / "cache" / "files" / "md5" / md5[:2] / md5[2:]
 
 
+def _read_dvc_object(md5: str) -> str:
+    """A small DVC object (a directory's listing, the converted model's manifest.json) from this machine's cache."""
+    path = _dvc_cache(md5)
+    if not path.is_file():
+        raise FileNotFoundError(f"DVC object {md5} is not in {REPO / '.dvc' / 'cache'}: `dvc fetch` the model's LiteRT "
+                                f"export (models/<name>.litert) first")
+    return path.read_text()
+
+
 def litert_files(model: str, lock_text: str, read_object: Callable[[str], str]) -> dict[str, str]:
     """{path: md5} for every file of the model's converted directory, from dvc.lock's record of the litert_export
     stage and the directory's listing (`<md5>.dir`, from the DVC cache by default)."""
@@ -90,7 +99,7 @@ def litert_files(model: str, lock_text: str, read_object: Callable[[str], str]) 
 
 
 def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str], bool],
-             read_object: Callable[[str], str] = lambda md5: _dvc_cache(md5).read_text()) -> dict:
+             read_object: Callable[[str], str] = _read_dvc_object) -> dict:
     """{git: [paths], dvc: {path: md5}, pinned: {path: sha256}, env: {name: value}, generated: [paths]} for `model`:
     a frozen DINOv3 model with the segmenter (crop_method "segment"), served on LiteRT. `env` is what the deploy
     writes into release.env beside COFFEE_CV_CHECKPOINT. `read_object` reads a DVC object by md5 (the converted

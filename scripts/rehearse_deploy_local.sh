@@ -184,9 +184,15 @@ git -C "$C" -c user.name=rehearsal -c user.email=rehearsal@invalid commit -q --a
 expect_fail "is not on origin/main" "$D" --stage-only HEAD "$MODEL"
 
 step "refusal: a .pt whose md5 does not match its .pt.dvc"
+# A stand-in cache without the .pt's object, but with the LiteRT export's listing and manifest, which the release's
+# manifest reads (ML-7 P10); the real cache is never touched.
 mv "$C/.dvc/cache" "$C/.dvc/cache.off"; printf 'not a model' > "$C/models/$MODEL.pt"
+lit=$(git -C "$C" show "$SHA:dvc.lock" | awk -v p="models/$MODEL.litert" '$0 ~ "- path: " p "$" {f = 1} f && /md5:/ {print $2; exit}')
+for md5 in "$lit" $(jq -r '.[] | select(.relpath == "manifest.json") | .md5' "$C/.dvc/cache.off/files/md5/${lit:0:2}/${lit:2}"); do
+  install -D -m 0644 "$C/.dvc/cache.off/files/md5/${md5:0:2}/${md5:2}" "$C/.dvc/cache/files/md5/${md5:0:2}/${md5:2}"
+done
 expect_fail "no copy in the working tree or the DVC cache has md5" "$D" --stage-only "$SHA" "$MODEL"
-rm "$C/models/$MODEL.pt"; mv "$C/.dvc/cache.off" "$C/.dvc/cache"
+rm -r "$C/models/$MODEL.pt" "$C/.dvc/cache"; mv "$C/.dvc/cache.off" "$C/.dvc/cache"
 
 step "deploy 1: $MODEL at ${PREV_SHA:0:7} (service disabled: flip, no restart)"
 "$D" "$PREV_SHA" "$MODEL"
