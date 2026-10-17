@@ -10,18 +10,20 @@
     Classify button. After this ticket the user presses Choose Photo and nothing else. The photo is uploaded once,
     the segmenter runs once, and the backend answers in two parts: the preview with its mask after about 2 s, then
     the classification, which starts on its own. A button to classify the whole photo appears after the answer
-    (D1). Written from the 2026-10-07 stub; D1&ndash;D6 decided; not planned, not implemented.</p>
+    (D1). Written from the 2026-10-07 stub; D1&ndash;D17 decided; planned in <a
+    href="plan_photos_and_answers_optimization.html">the plan</a>; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D6 decided 2026-10-17; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>coffeecv/infer.py</code> (<code>classify_one</code> split in two), <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>webapp/deploy/release_probe.py</code>, <code>webapp/deploy/fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code>, tests, <code>webapp/README.md</code>, release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/app.py</code>, <code>webapp/static/index.html</code>, <code>coffeecv/infer.py</code> (<code>classify_one</code> split in two), <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>webapp/deploy/release_probe.py</code>, <code>webapp/deploy/fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code>, tests, <code>webapp/README.md</code>, <code>docs/agents/deploy.md</code>, release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the deploy go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">None until the deploy (D6). After it, the page has one button, <code>/preview</code>, <code>/crop</code> and <code>/classify</code> give way to one endpoint with a streamed answer (D2), <code>index.html</code> is served with <code>Cache-Control: no-cache</code> (D5), and the classification's answer is unchanged.</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until the deploy (D6). After it, the page has one button, <code>/preview</code>, <code>/crop</code> and <code>/classify</code> give way to one endpoint with a streamed answer (D2), <code>index.html</code> is served with <code>Cache-Control: no-cache</code> (D5), and the classification's answer is unchanged. From this release a <code>--rollback</code> to the one
+      before it leaves the site down (D10, R8).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D6 answered 2026-10-17</span></span></div>
   </div>
 
@@ -42,6 +44,12 @@
       disabled while a photo is in flight (D4). <code>index.html</code> gets <code>no-cache</code> and the old
       endpoints go in this release (D5). A deploy phase that stops for the owner's go (D6). All as recommended but
       D3.</p>
+    <p><strong>Owner decisions, 2026-10-17 (D7&ndash;D17).</strong> Settled while planning: the endpoint's name and
+      its answer's parts (D7&ndash;D9), a rollback across this release left to <a
+      href="ticket_release_carries_nginx_site.html">OPS-9</a> (D10), streaming through both nginx servers with the
+      live check reporting, not gating (D11), a busy message on a 503 with queueing left to <a
+      href="ticket_webapp_request_queue.html">OPS-8</a> (D12), <code>preview_ms</code> (D13), the page on D1's
+      button (D14), an ADR for D2 (D15), no undo procedure (D16) and no rehearsal (D17).</p>
   </div>
 
   <h2>1. Summary</h2>
@@ -154,10 +162,11 @@
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>Both parts reach the page together, at the end.</strong></td>
-        <td>nginx buffers proxied answers by default, and the proxy in front of the domain may too. Mitigated by
-          turning buffering off for the endpoint (<code>proxy_buffering off</code> in the template, or the app's
-          <code>X-Accel-Buffering: no</code>), and by checking on the live domain that the first part arrives
-          before the classification ends.</td></tr>
+        <td>nginx buffers proxied answers by default, and the proxy in front of the domain may too. The proxy in front is
+          a second nginx on another server (owner, 2026-10-17). Mitigated as D11: the app sends
+          <code>X-Accel-Buffering: no</code> and our nginx passes it on (<code>proxy_pass_header</code>; nginx hides
+          <code>X-Accel-*</code> from the client by default), so both nginx servers stream the answer. The live
+          check reports when each part arrived; the owner judges it on a phone (D6).</td></tr>
       <tr><td class="id">R2</td><td><strong>The request log loses its classify fields and its latency.</strong></td>
         <td>Flask's <code>after_request</code> runs before a streamed body is sent, so <code>_log_request</code>
           would write its line before the classification has set its fields. Mitigated by writing the line when the
@@ -179,12 +188,23 @@
       <tr><td class="id">R6</td><td><strong>The worker is busy longer for each photo.</strong></td>
         <td>Every pick now costs a classification, about 9 s on the GPU, in one request, also when the user would
           have stopped at the mask. A second visitor meets nginx's 503 for that long; the same visitor cannot pick
-          again until the answer is in (D4). Accepted at today's traffic; the request log shows it.</td></tr>
+          again until the answer is in (D4). Accepted at today's traffic; the request log shows it (<code>preview_ms</code> and <code>latency_ms</code>,
+          D13), and the page says the server is busy (D12). A queue, or batching, for several visitors is <a
+          href="ticket_webapp_request_queue.html">OPS-8</a>.</td></tr>
       <tr><td class="id">R7</td><td><strong>A cached page meets a server with the other API.</strong></td>
         <td>After the deploy, a cached old page posts to <code>/preview</code>; after a <code>--rollback</code>, a
           cached new page posts to the new endpoint. Mitigated by D5: <code>Cache-Control: no-cache</code> makes the
           browser revalidate the page on every load, so it always gets the page of the release the server
-          runs.</td></tr>
+          runs. Not for a page cached before this deploy, which has no <code>no-cache</code> yet: until it is
+          reloaded, it answers "Could not read this photo." Accepted, once (2026-10-17).</td></tr>
+      <tr><td class="id">R8</td><td><strong>A rollback across this release takes the site down.</strong></td>
+        <td>Found while planning. The nginx site is not part of a release: <code>render_production</code> installs
+          it from the release being deployed, and <code>rollback_links</code> only switches the links
+          (<code>scripts/deploy_webapp.sh</code>). After this deploy the site routes <code>/analyze</code> only, so
+          the previous release's page fails behind it, and <code>--verify</code> posts <code>/analyze</code> to a
+          backend that does not have it. This covers the deploy's own rollback on a failed verify too. Accepted
+          (D10, D16): fixed forward by a new deploy if anything goes wrong; a release that carries its own nginx
+          site is <a href="ticket_release_carries_nginx_site.html">OPS-9</a>.</td></tr>
     </tbody>
   </table></div>
 
@@ -208,7 +228,8 @@
           classification by token, and the server holds the photo between them. (c) A WebSocket or server-sent
           events.</td>
         <td>(a), 2026-10-17, as recommended. It keeps the app stateless and the photo inside one request, which
-          (b) does not; (c) adds a protocol for one answer.</td></tr>
+          (b) does not; (c) adds a protocol for one answer. Recorded as <a
+          href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (D15).</td></tr>
       <tr><td class="id">D3</td><td>What does the user see before the first part arrives?</td>
         <td>(a) A status line ("Uploading&hellip;", then "Finding the beans&hellip;") until the thumbnail and the
           overlay arrive together. (b) The chosen file at once, shown by the browser where it can decode it (not
@@ -235,6 +256,63 @@
         <td>(a), 2026-10-17, as recommended, as OPS-6 D12. The deploy follows <a
           href="agents/deploy.md">deploy.md</a>; "live" means checked on the live site with the smoke photo and one
           frame-filling photo, on a phone.</td></tr>
+      <tr><td class="id">D7</td><td>What is the one endpoint called?</td>
+        <td>(a) A new path, <code>POST /analyze</code>. (b) <code>/classify</code>, with the new answer.</td>
+        <td>(a), 2026-10-17, as recommended. A cached page or a tool from the other API fails plainly, and the
+          request log's <code>/classify</code> lines keep one meaning for the whole year.</td></tr>
+      <tr><td class="id">D8</td><td>What are the answer's two parts, and how is each line shaped?</td>
+        <td>One JSON object per line, each with a <code>part</code>: <code>preview</code> (<code>thumbnail</code>,
+          a base64 JPEG, long side &le; 1024 px; <code>mask</code>, <code>box</code>, <code>cropped</code>,
+          <code>needs_review</code>, <code>seg_fallback</code>, as <code>/crop</code> answers them),
+          <code>classification</code> (the body <code>/classify</code> answers), or <code>error</code>
+          (<code>message</code>; R4).</td>
+        <td>As proposed, 2026-10-17. "The preview" means the first part, the thumbnail with its mask and box,
+          never the thumbnail alone; the old <code>/preview</code>'s sense goes with it.</td></tr>
+      <tr><td class="id">D9</td><td>What does a <code>skip_crop=1</code> request answer (D1's button)?</td>
+        <td>(a) The same two parts: a preview with the thumbnail, <code>mask</code> and <code>box</code> null,
+          then the classification. (b) The classification only.</td>
+        <td>(a), 2026-10-17. The page replaces its preview with the new one and clears the mask and the box, since
+          the whole photo is classified.</td></tr>
+      <tr><td class="id">D10</td><td>A rollback across this release (R8)?</td>
+        <td>(a) The new nginx site routes the old paths too, and <code>--verify</code> picks the endpoint per
+          release. (b) A rollback installs the previous release's own nginx site. (c) Not handled here.</td>
+        <td>(c), 2026-10-17: ignored in this ticket. Fixed later in a separate ticket, which ships the site and the
+          ML part as one release: <a href="ticket_release_carries_nginx_site.html">OPS-9</a>, a stub. The nginx
+          site routes <code>/analyze</code> only.</td></tr>
+      <tr><td class="id">D11</td><td>How does the answer stream through both nginx servers, and does the live check
+          gate on it (R1)?</td>
+        <td>The proxy in front is a separate nginx. The app sends <code>X-Accel-Buffering: no</code>; our nginx
+          passes it on with <code>proxy_pass_header</code>, so both honour it. <code>--verify</code> (a) fails
+          when the preview does not arrive well before the classification, or (b) reports both times.</td>
+        <td>(b), 2026-10-17, as recommended: a failed verify rolls back, which takes the site down (R8), so it
+          reports the times and gates on neither. The owner judges the two stages on a phone (D6).</td></tr>
+      <tr><td class="id">D12</td><td>What does the page show on nginx's 503 (another visitor's photo in
+          flight)?</td>
+        <td>(a) "The server is busy with another photo -- try again in a few seconds." (b) "Could not reach the
+          server", as today.</td>
+        <td>(a), 2026-10-17, as recommended; a failed connection keeps (b)'s message. A queue, or batch processing,
+          for several visitors at once is <a href="ticket_webapp_request_queue.html">OPS-8</a>, a stub.</td></tr>
+      <tr><td class="id">D13</td><td>Does the request log record when the preview went out?</td>
+        <td>(a) A new field, <code>preview_ms</code>: server time from the request's start to the preview line. (b)
+          <code>latency_ms</code> only.</td>
+        <td>(a), 2026-10-17, as recommended. A timing, not personal data.</td></tr>
+      <tr><td class="id">D14</td><td>What does the page do when D1's button is pressed?</td>
+        <td>Clear the result, hide the overlay and the button, keep the preview with the progress circle under it
+          until the classification arrives (D3), Choose Photo disabled (D4). The fallback note reads "No coffee
+          beans found -- the whole photo is classified."</td>
+        <td>As proposed, 2026-10-17.</td></tr>
+      <tr><td class="id">D15</td><td>Does D2 get an ADR?</td>
+        <td>(a) Yes. (b) No.</td>
+        <td>(a), 2026-10-17: <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR
+          0023</a>.</td></tr>
+      <tr><td class="id">D16</td><td>How is this release undone if it goes wrong?</td>
+        <td>(a) A written procedure: the previous commit's own <code>scripts/deploy_webapp.sh</code>, from a
+          worktree. (b) No undo.</td>
+        <td>(b), 2026-10-17: fixed forward, with a new deploy.</td></tr>
+      <tr><td class="id">D17</td><td>Is the deploy rehearsed locally (<a href="agents/deploy.md">deploy.md</a>)?</td>
+        <td>(a) Yes, both deploys at this ticket's commit. (b) No.</td>
+        <td>(b), 2026-10-17: no rehearsal until the web app, the site and the ML code go as one release (OPS-9).
+          A departure from deploy.md for this ticket; the runbook stays.</td></tr>
     </tbody>
   </table></div>
 
@@ -250,18 +328,21 @@
       <code>/classify</code>'s.</span></li>
     <li><span class="box"></span><span>"Use full photo instead" as D1: after the answer, not after a
       <code>skip_crop=1</code> answer or a fallback, and one more upload with <code>skip_crop=1</code>.</span></li>
-    <li><span class="box"></span><span>One request-log line per request, with the classify fields and the whole
-      latency (R2).</span></li>
+    <li><span class="box"></span><span>One request-log line per request, with the classify fields, the whole
+      latency and <code>preview_ms</code> (R2, D13).</span></li>
     <li><span class="box"></span><span>An error after the first part, and a stream cut before the second, each
       show a message (R4).</span></li>
     <li><span class="box"></span><span>A rotating progress circle shows from the pick until the first part, then
       under the preview until the second part (D3).</span></li>
     <li><span class="box"></span><span>Choose Photo, and D1's button, are disabled while a photo is in flight
       (D4).</span></li>
+    <li><span class="box"></span><span>A 503 shows the busy message (D12).</span></li>
     <li><span class="box"></span><span><code>index.html</code> is served with <code>Cache-Control: no-cache</code>,
-      and <code>/preview</code>, <code>/crop</code> and <code>/classify</code> are gone (D5).</span></li>
+      and <code>/preview</code>, <code>/crop</code> and <code>/classify</code> are gone (D5); the one endpoint is
+      <code>/analyze</code> (D7).</span></li>
     <li><span class="box"></span><span>The deploy's smoke and compare, the fixtures, the warm-up (ADR 0021) and the
-      tests use the new endpoint; the smoke still compares the mask by IoU &ge; 0.999.</span></li>
+      tests use the new endpoint; the smoke still compares the mask by IoU &ge; 0.999; <code>--verify</code> reports when each part arrived
+      through the domain (D11).</span></li>
     <li><span class="box"></span><span><code>webapp/README.md</code> and <a href="agents/deploy.md">deploy.md</a>
       name the new endpoint.</span></li>
     <li><span class="box"></span><span>The owner has seen the page on the local dev server and accepted it.</span></li>
@@ -278,7 +359,11 @@
     <li>Editing the mask or the crop box; the <code>TODO(crop editing)</code> in <code>index.html</code> stays, though
       it assumed a box edited before classifying.</li>
     <li>Going back from the whole photo's answer to the masked one without a new pick (D1).</li>
-    <li>More workers, or a different nginx cap.</li>
+    <li>More workers, or a different nginx cap; a queue or batching for several visitors (<a
+      href="ticket_webapp_request_queue.html">OPS-8</a>).</li>
+    <li>A rollback across this release, and a release that carries its nginx site (<a
+      href="ticket_release_carries_nginx_site.html">OPS-9</a>, D10); an undo procedure (D16); a local rehearsal
+      (D17).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -299,6 +384,11 @@
       its own upload runs.</div>
     <div><div class="when">2026-10-17</div>The owner amends D3: after the first part the progress circle keeps
       spinning under the preview until the classification arrives. Scope's D3 line restated to match.</div>
+    <div><div class="when">2026-10-17</div>Planned in <a href="plan_photos_and_answers_optimization.html">the
+      plan</a> (P1&ndash;P5) from a read of the code at <code>6c45b78</code>. The owner decides D7&ndash;D17 while
+      planning; R1, R6 and R7 restated, R8 added (a rollback across this release takes the site down). ADR 0023
+      written for D2; stubs <a href="ticket_webapp_request_queue.html">OPS-8</a> (D12) and <a
+      href="ticket_release_carries_nginx_site.html">OPS-9</a> (D10) created. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
@@ -306,5 +396,7 @@
     <a href="ticket_inference_runtime.html">ML-7</a> (live times), <a href="agents/deploy.md">deploy.md</a>,
     <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>,
     <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>,
-    <code>docs/logging_plan.html</code>.</footer>
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="plan_photos_and_answers_optimization.html">plan</a>, <a href="ticket_webapp_request_queue.html">OPS-8</a>,
+    <a href="ticket_release_carries_nginx_site.html">OPS-9</a>, <code>docs/logging_plan.html</code>.</footer>
 </main>
