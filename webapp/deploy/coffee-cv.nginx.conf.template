@@ -10,16 +10,18 @@
 # X-Request-Id response header, captured below via $upstream_http_x_request_id,
 # so the app stays the one source of truth for the id and nginx never needs
 # to originate or track one of its own.
-log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status "$request" ${request_time}s';
+# $upstream_bytes_received ends the line (ticket OPS-7 D19): /analyze's 200 goes out with its first part, so a
+# worker killed mid-answer still logs a 200 here, with fewer bytes than a whole answer.
+log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status "$request" ${request_time}s $upstream_bytes_received';
 
 # One shared, server-wide cap on concurrent requests to the Python backend --
 # keyed on a fixed value, not per-IP or per-connection, deliberately: NAT means
 # many real users can share one IP, and the goal here is protecting the single
 # gunicorn worker's capacity, not identifying any one client. Set to 1 to match
 # that single worker one-for-one: a second request while one is in flight gets
-# an immediate 503 instead of queueing toward gunicorn's 30s timeout. Shared
-# across /classify, /preview and /crop below -- they hit the same one worker,
-# so the cap has to be combined, not per-route, to mean what it says.
+# an immediate 503 instead of queueing toward gunicorn's 30s timeout. /analyze
+# is the one route to the worker (ticket OPS-7); a route added beside it would
+# have to share this zone, since they would hit the same one worker.
 limit_conn_zone $server_name zone=coffee_cv_inflight:1m;
 
 # One port, TLS only, behind the proxy that serves the domain on 80/443 and forwards here: no port-80
@@ -55,30 +57,29 @@ server {
         try_files $uri /index.html;
     }
 
-    location /classify {
-        limit_conn coffee_cv_inflight 1;
-        client_max_body_size 20m;
-        proxy_read_timeout 30s;
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+    # Both ways to the page (`index` and the `try_files` fallback) are internal redirects that land here, so every
+    # load revalidates it: the browser always holds the page of the release the server runs (ticket OPS-7 D5).
+    location = /index.html {
+        add_header Cache-Control "no-cache";
     }
 
-    location /preview {
+    location = /analyze {
         limit_conn coffee_cv_inflight 1;
         client_max_body_size 20m;
         proxy_read_timeout 30s;
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location /crop {
-        limit_conn coffee_cv_inflight 1;
-        client_max_body_size 20m;
-        proxy_read_timeout 30s;
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        # The app streams the answer, preview first, with X-Accel-Buffering: no, which turns off this nginx's
+        # buffering. nginx hides X-Accel-* from the client by default; passing it on turns off the proxy's in front
+        # of the domain too (ticket OPS-7 D11).
+        proxy_pass_header X-Accel-Buffering;
+        # With buffering off, nginx still reads up to this much from the app ahead of the client: the whole answer
+        # (a preview of a few hundred KB, then about 1 KB), so the single sync worker never waits on a slow phone,
+        # nor gets killed at gunicorn's 30 s timeout by one that stops reading (ticket OPS-7 D18, R9). nginx -t
+        # wants proxy_busy_buffers_size (2 x the largest buffer by default) below all proxy_buffers but one; the
+        # buffers are only used for an answer that is buffered, the app's 400s, and the cap allows one at a time.
+        proxy_buffer_size 1m;
+        proxy_buffers 4 1m;
     }
 }

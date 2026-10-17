@@ -253,7 +253,7 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
       "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$REPO/$(fixtures smoke)" 2>"$logs/stderr") \
       > "$SCRATCH/$ID.expected.json" || { tail -20 "$logs/stderr"; die "the staged tree failed locally"; }
   rm -rf "$logs"
-  jq -r '"   /classify \(.classify.body.verdict), top-1 \(.classify.body.ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
+  jq -r '"   /analyze \(.analyze.parts[1].verdict // .analyze.parts[1].part), top-1 \(.analyze.parts[1].ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
     < <(sed -n 's/^PROBE //p' "$SCRATCH/$ID.expected.json")
 }
 
@@ -376,24 +376,25 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
     fi
     echo "SMOKE_READY_S $(awk -v a="$(date +%s.%N)" -v b="$t0" "BEGIN {printf \"%.1f\", a - b}")"
     P="$APP_ROOT/fixtures/photos/$PHOTO"
-    body=$(curl -s -w "\n%{http_code} %{time_total}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/classify")
-    echo "SMOKE_CLASSIFY $(tail -1 <<<"$body" | cut -d" " -f1) $(head -n -1 <<<"$body")"
-    echo "SMOKE_LATENCY_S $(tail -1 <<<"$body" | cut -d" " -f2)"
-    body=$(curl -s -w "\n%{http_code}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/crop")
-    echo "SMOKE_CROP $(tail -1 <<<"$body") $(head -n -1 <<<"$body")"
-    echo "SMOKE_PREVIEW $(curl -s -o /dev/null -w "%{http_code} %{content_type} %{size_download}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/preview")"
+    # One upload to /analyze (ticket OPS-7): its status, time and type, then each line of its answer as a SMOKE_PART.
+    body=$(mktemp)
+    meta=$(curl -s -o "$body" -w "%{http_code} %{time_total} %{content_type}" -F "photo=@$P" "http://127.0.0.1:$SMOKE_PORT/analyze")
+    echo "SMOKE_ANALYZE $meta"
+    echo "SMOKE_LATENCY_S $(cut -d" " -f2 <<<"$meta")"
+    sed "s/^/SMOKE_PART /" "$body"
+    rm -f "$body"
     echo "SMOKE_RSS $(systemctl show -p MemoryPeak --value "$U")"
     # The boot record of the worker (ADR 0021): its time, memory and, on a GPU host, the GPU proof of ADR 0020.
     echo "SMOKE_BOOT $($SUDO journalctl -u "$U" --no-pager -o cat | sed -n "s/^INFO:webapp.app:boot //p" | tail -1)"
-    echo "SMOKE_LOG $(grep "\"endpoint\": \"/classify\"" "$LOG_ROOT/smoke/app.jsonl" | tail -1)"
+    echo "SMOKE_LOG $(grep "\"endpoint\": \"/analyze\"" "$LOG_ROOT/smoke/app.jsonl" | grep "\"msg\": \"request\"" | tail -1)"
   ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "$(fixtures smoke)")") || rc=$?
   printf '%s\n' "$out" > "$SCRATCH/$id.smoke.txt"
   if (( rc != 0 )); then
-    grep -v '^SMOKE_LOG ' <<<"$out" | sed 's/^/   /'
+    grep -v '^SMOKE_LOG \|^SMOKE_PART ' <<<"$out" | sed 's/^/   /'
     die "the smoke test failed"
   fi
   local rss; rss=$(sed -n 's/^SMOKE_RSS //p' <<<"$out"); [[ "$rss" =~ ^[0-9]+$ ]] || rss=0
-  note "ready in $(sed -n 's/^SMOKE_READY_S //p' <<<"$out") s; /classify $(sed -n 's/^SMOKE_LATENCY_S //p' <<<"$out") s; peak memory $(( ${rss:-0} / 1048576 )) MB"
+  note "ready in $(sed -n 's/^SMOKE_READY_S //p' <<<"$out") s; /analyze $(sed -n 's/^SMOKE_LATENCY_S //p' <<<"$out") s; peak memory $(( ${rss:-0} / 1048576 )) MB"
   note "(timings are under the caps; they gate nothing while a sweep may be running)"
   "$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" compare-smoke "$SCRATCH/$id.expected.json" "$SCRATCH/$id.smoke.txt" \
     || die "the smoke answers differ from the local ones"
@@ -475,7 +476,7 @@ verify() {   # returns non-zero on a failed check
         sleep 0.5
       done
       echo "GET_ROOT=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")"
-      echo "GET_CLASSIFY=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/classify")"
+      echo "GET_ANALYZE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/analyze")"
       inv=$(systemctl show -p InvocationID --value coffee-cv-web)
       echo "STARTUP=$($SUDO journalctl _SYSTEMD_INVOCATION_ID="$inv" -o cat --no-pager | grep -a "serving " | tail -1)"
     fi
@@ -490,7 +491,7 @@ verify() {   # returns non-zero on a failed check
 
   if [[ "$enabled" == enabled ]]; then
     check "backend GET /" "$(kv GET_ROOT "$out")" 404
-    check "backend GET /classify" "$(kv GET_CLASSIFY "$out")" 405
+    check "backend GET /analyze" "$(kv GET_ANALYZE "$out")" 405
     local startup; startup=$(kv STARTUP "$out")
     check "startup line: commit" "$(sed -n 's/^[^{]*//p' <<<"$startup" | jq -r '.code.commit' 2>/dev/null)" "$(kv COMMIT "$out")"
     check "startup line: model_sha" "$(sed -n 's/^[^{]*//p' <<<"$startup" | jq -r '.model_sha' 2>/dev/null)" "$(kv MODEL_SHA "$out")"
@@ -506,16 +507,30 @@ verify() {   # returns non-zero on a failed check
     code=$(curl -s -o "$body" -w '%{http_code}' "$PUBLIC_URL/")
     check "public GET /" "$code" 200
     check "public page = the release's index.html" "$(sha256sum < "$body" | cut -c1-64)" "$(kv INDEX_SHA "$out")"
-    local photo want
+    local photo want times hdr
     photo="$REPO/$(fixtures smoke)"
-    code=$(curl -s -o "$body" -w '%{http_code}' -F "photo=@$photo" "$PUBLIC_URL/classify")
-    if [[ "$code" == 503 ]]; then sleep 3; code=$(curl -s -o "$body" -w '%{http_code}' -F "photo=@$photo" "$PUBLIC_URL/classify"); fi
+    hdr=$(mktemp)
+    # /analyze streams its preview, then its classification (ticket OPS-7 D2): the answer goes to $body, and the
+    # seconds at which each of its lines arrived to $times (the upload included; through a proxy that buffers,
+    # the two are equal). Reported, not checked (D11). curl's own timers cannot say it: its start of transfer is
+    # the upload's.
+    post_analyze() {
+      times=$(curl -sN -D "$hdr" -F "photo=@$photo" "$PUBLIC_URL/analyze" | tee "$body" \
+              | "$LOCAL_PY" -c 'import sys, time; t0 = time.monotonic(); [print(f"{time.monotonic() - t0:.2f}", flush=True) for _ in sys.stdin.buffer]' \
+              | paste -sd' ')
+      code=$(awk '/^HTTP/ {c = $2} END {print c}' "$hdr")   # the last status line: a 100 Continue comes first
+    }
+    post_analyze
+    if [[ "$code" == 503 ]]; then sleep 3; post_analyze; fi
+    rm -f "$hdr"
     if [[ "$enabled" == enabled ]]; then
-      check "public POST /classify" "$code" 200
-      want=$(jq -r '.classify.body.ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
-      check "public /classify top-1" "$(jq -r '.ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
+      check "public POST /analyze" "$code" 200
+      check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "preview, classification"
+      want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
+      check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
+      note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
     else
-      check "public POST /classify (no backend yet)" "$code" 502
+      check "public POST /analyze (no backend yet)" "$code" 502
     fi
     rm -f "$body"
   fi
@@ -533,7 +548,7 @@ on_verify_failure() {
     die "verification failed; rolled back to previous"
   fi
   vm '$SUDO systemctl stop coffee-cv-web || true'
-  die "verification failed and there is no previous release: coffee-cv-web stopped (page up, /classify 502)"
+  die "verification failed and there is no previous release: coffee-cv-web stopped (page up, /analyze 502)"
 }
 
 rollback_links() {
@@ -680,7 +695,7 @@ if ! verify; then on_verify_failure; fi
 prune
 postflight
 if [[ -z "$ENABLED" ]]; then
-  say "Deployed $ID -- coffee-cv-web is NOT enabled, so nothing serves /classify yet. To serve it:"
+  say "Deployed $ID -- coffee-cv-web is NOT enabled, so nothing serves /analyze yet. To serve it:"
   note "sudo systemctl enable --now coffee-cv-web     (on $HOST)"
   note "DOMAIN=$DOMAIN scripts/deploy_webapp.sh --verify   (here)"
 else

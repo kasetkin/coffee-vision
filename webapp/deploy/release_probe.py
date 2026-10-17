@@ -2,7 +2,7 @@
 
 Run from inside a release directory (its cwd), with whichever interpreter is under test:
 
-    python -B release_probe.py smoke PHOTO          # /classify, /crop, /preview via Flask's test client
+    python -B release_probe.py smoke PHOTO          # /analyze's two parts via Flask's test client (ticket OPS-7)
     python -B release_probe.py classify --list fixtures.txt --role compare --dir PHOTOS_DIR
                                                     # classify_one's full entry per photo, for --compare
     python -B release_probe.py classify PHOTO...    # the same, on photos named directly
@@ -39,7 +39,7 @@ SCORE_TOL = 0.05
 # p95 of each photo's largest class-probability change at most 0.05.
 D7_TOP1_SHARE = 0.01
 D7_PROB_P95 = 0.05
-# The /crop mask's least IoU with the local one (ticket OPS-6 D10, R2). Masks differ across CPUs in about 1e-6
+# The preview mask's least IoU with the local one (ticket OPS-6 D10, R2). Masks differ across CPUs in about 1e-6
 # of their pixels (ML-2 P0); on the smoke photo's mask a one-pixel shift gives 0.993-0.996, 97 flipped
 # boundary pixels 0.9997 (OPS-6 P1). Measured on the smoke photo's mask only (768 x 1024, 41% bean): a smaller
 # or sparser mask has more boundary per bean pixel, so a one-pixel shift costs it more IoU, and so do the same
@@ -76,17 +76,12 @@ def _emit(payload: dict) -> None:
 
 def smoke(photo: Path) -> None:
     app = _import_release_app()
-    client = app.app.test_client()
-    data = photo.read_bytes()
-    out = {"build": app.BUILD, "python": sys.version.split()[0]}
-    for endpoint in ("/classify", "/crop", "/preview"):
-        r = client.post(endpoint, data={"photo": (io.BytesIO(data), photo.name)},
-                        content_type="multipart/form-data")
-        key = endpoint.strip("/")
-        out[key] = {"status": r.status_code, "content_type": r.content_type}
-        if r.is_json:
-            out[key]["body"] = r.get_json()
-    _emit(out)
+    r = app.app.test_client().post("/analyze", data={"photo": (io.BytesIO(photo.read_bytes()), photo.name)},
+                                   content_type="multipart/form-data")
+    body = r.get_data(as_text=True)
+    parts = [json.loads(line) for line in body.splitlines()] if r.mimetype == "application/x-ndjson" else []
+    _emit({"build": app.BUILD, "python": sys.version.split()[0],
+           "analyze": {"status": r.status_code, "content_type": r.mimetype, "parts": parts}})
 
 
 def classify(photos: list[Path]) -> None:
@@ -155,7 +150,7 @@ def _max_abs_diff(a, b, path="") -> tuple[float, list[str]]:
 
 
 def _mask_pixels(b64: str):
-    """A /crop mask (base64 of a 1-bit palette PNG, ticket OPS-6 D7) as a bool array: bean is palette index 1."""
+    """A preview mask (base64 of a 1-bit palette PNG, ticket OPS-6 D7) as a bool array: bean is palette index 1."""
     import numpy as np
     from PIL import Image
 
@@ -163,73 +158,91 @@ def _mask_pixels(b64: str):
 
 
 def _compare_masks(expected, served) -> tuple[str, list[str]]:
-    """How the served /crop mask differs from the expected one: (for the summary line, failures)."""
+    """How the served preview mask differs from the expected one: (for the summary line, failures)."""
     import numpy as np
 
     if expected is None and served is None:
         return "mask null", []
     if expected is None or served is None:
         seen = "null" if served is None else "present"
-        return f"mask {seen}", [f"/crop mask is {seen}, expected {'present' if served is None else 'null'}"]
+        return f"mask {seen}", [f"preview mask is {seen}, expected {'present' if served is None else 'null'}"]
     a, b = _mask_pixels(expected), _mask_pixels(served)
     if a.shape != b.shape:
         size = f"{b.shape[1]} x {b.shape[0]}, expected {a.shape[1]} x {a.shape[0]}"
-        return f"mask {size}", [f"/crop mask is {size}"]
+        return f"mask {size}", [f"preview mask is {size}"]
     union = np.count_nonzero(a | b)
     iou = np.count_nonzero(a & b) / union if union else 1.0
-    failures = [f"/crop mask IoU {iou:.6f} < {MASK_IOU_MIN}"] if iou < MASK_IOU_MIN else []
+    failures = [f"preview mask IoU {iou:.6f} < {MASK_IOU_MIN}"] if iou < MASK_IOU_MIN else []
     return f"mask IoU {iou:.6f}, {np.count_nonzero(a ^ b)} pixels differ", failures
 
 
+def _compare_thumbnails(expected: str, served: str) -> tuple[str, list[str]]:
+    """The served thumbnail against the local one: a JPEG of the same size, long side <= 1024 (OPS-7 P3). Not its
+    pixels: two machines' JPEG encoders, and the decoders before them, may differ in a few levels."""
+    from PIL import Image
+
+    a, b = (Image.open(io.BytesIO(base64.b64decode(x))) for x in (expected, served))
+    summary = f"thumbnail {b.size[0]} x {b.size[1]} {b.format}, {len(base64.b64decode(served))} bytes"
+    if b.format != "JPEG":
+        return summary, [f"preview thumbnail is a {b.format}, not a JPEG"]
+    if b.size != a.size:
+        return summary, [f"preview thumbnail is {b.size[0]} x {b.size[1]}, expected {a.size[0]} x {a.size[1]}"]
+    if max(b.size) > 1024:
+        return summary, [f"preview thumbnail's long side is {max(b.size)} > 1024"]
+    return summary, []
+
+
 def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
-    """The VM's smoke answers against the ones computed locally from the same staged tree. /crop's mask is
-    compared decoded, by IoU >= MASK_IOU_MIN, since the two machines' masks differ in a few pixels; the rest of
-    /crop's answer within 1e-3."""
+    """The VM's smoke answer against the one computed locally from the same staged tree: /analyze's two parts
+    (ticket OPS-7 D8). The classification by verdict, top-1 and scores within SCORE_TOL; the preview's mask
+    decoded, by IoU >= MASK_IOU_MIN, since the two machines' masks differ in a few pixels; its thumbnail by format
+    and size (`_compare_thumbnails`); the rest of the preview within 1e-3."""
     exp = _probe_line(expected_file.read_text())
-    got = {}
+    got, parts = {}, []
     for line in smoke_file.read_text().splitlines():
         tag, _, rest = line.partition(" ")
-        got[tag] = rest
+        if tag == "SMOKE_PART":
+            parts.append(json.loads(rest))
+        else:
+            got[tag] = rest
     failures = []
 
-    status, _, body = got.get("SMOKE_CLASSIFY", "").partition(" ")
-    if status != "200":
-        failures.append(f"/classify answered {status or 'nothing'}")
+    status, _, rest = got.get("SMOKE_ANALYZE", "").partition(" ")
+    seconds, _, content_type = rest.partition(" ")
+    names = [p.get("part") for p in parts]
+    if (status, content_type) != ("200", "application/x-ndjson"):
+        failures.append(f"/analyze answered {status or 'nothing'} {content_type}".rstrip())
+    elif names != ["preview", "classification"]:
+        error = next((f": {p.get('message')}" for p in parts if p.get("part") == "error"), "")
+        failures.append(f"/analyze answered the parts [{', '.join(map(str, names))}], expected "
+                        f"[preview, classification]{error}")
     else:
-        body = json.loads(body)
-        e = exp["classify"]["body"]
+        print(f"  /analyze        200 in {seconds} s, parts preview, classification")
+        preview, body = parts
+        exp_preview, e = exp["analyze"]["parts"]
         if body.get("verdict") != e.get("verdict"):
-            failures.append(f"/classify verdict {body.get('verdict')} != expected {e.get('verdict')}")
+            failures.append(f"classification verdict {body.get('verdict')} != expected {e.get('verdict')}")
         er, gr = e.get("ranked") or [], body.get("ranked") or []
         if (er and gr and er[0]["id"] != gr[0]["id"]) or bool(er) != bool(gr):
-            failures.append(f"/classify top-1 {gr[:1]} != expected {er[:1]}")
+            failures.append(f"classification top-1 {gr[:1]} != expected {er[:1]}")
         worst, bad = _max_abs_diff([r["score"] for r in er], [r["score"] for r in gr])
         failures += bad
         if worst > SCORE_TOL:
-            failures.append(f"/classify scores differ by up to {worst:.2e} (> {SCORE_TOL})")
-        print(f"  /classify  {body.get('verdict')}, top-1 {gr[0]['id'] if gr else '-'}, "
+            failures.append(f"classification scores differ by up to {worst:.2e} (> {SCORE_TOL})")
+        print(f"  classification  {body.get('verdict')}, top-1 {gr[0]['id'] if gr else '-'}, "
               f"max score diff vs local {worst:.1e}")
 
-    status, _, body = got.get("SMOKE_CROP", "").partition(" ")
-    if status != "200":
-        failures.append(f"/crop answered {status or 'nothing'}")
-    else:
-        body, e = json.loads(body), exp["crop"]["body"]
-        mask_summary = ""
-        if "mask" in e and "mask" in body:   # else neither is from OPS-6 on, or _max_abs_diff names the one
-            summary, bad = _compare_masks(e.pop("mask"), body.pop("mask"))
-            mask_summary, failures = f", {summary}", failures + bad
-        worst, bad = _max_abs_diff(e, body)
+        preview, e = dict(preview), dict(exp_preview)
+        thumb_summary, bad = _compare_thumbnails(e.pop("thumbnail"), preview.pop("thumbnail"))
+        failures += bad
+        mask_summary, bad = _compare_masks(e.pop("mask"), preview.pop("mask"))
+        failures += bad
+        worst, bad = _max_abs_diff(e, preview)
         failures += bad
         if worst > 1e-3:
-            failures.append(f"/crop box differs by up to {worst:.2e}")
-        print(f"  /crop      cropped={body.get('cropped')}, max box diff vs local {worst:.1e}{mask_summary}")
-
-    preview = got.get("SMOKE_PREVIEW", "").split()
-    if preview[:2] != ["200", "image/jpeg"]:
-        failures.append(f"/preview answered {' '.join(preview) or 'nothing'}")
-    else:
-        print(f"  /preview   200 image/jpeg, {preview[2]} bytes")
+            failures.append(f"preview box differs by up to {worst:.2e}")
+        print(f"  preview         cropped={preview.get('cropped')}, max box diff vs local {worst:.1e}, {mask_summary}, "
+              f"{thumb_summary}")
 
     log = json.loads(got.get("SMOKE_LOG", "{}") or "{}")
     served = (log.get("build") or {}).get("model_sha")

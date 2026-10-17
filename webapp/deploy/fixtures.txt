@@ -1,8 +1,8 @@
 # Fixed photos the deploy runs through every release (scripts/deploy_webapp.sh), pinned by sha256.
 # One line each: <role> <sha256> <path under the repo>. Read by the deploy, by --compare on the VM
 # (release_probe.py --list), by tests/test_release_manifest.py and by scripts/rehearse_deploy_local.sh.
-#   smoke    exactly one: sent to /classify, /crop and /preview on every deploy -- a photo the tray
-#            crop fires on, so the /crop box is compared too
+#   smoke    exactly one: sent to /analyze on every deploy -- a photo the segmenter crops, so the
+#            preview's mask and box are compared too
 #   compare  one per class folder 001-010 across six sessions and four cameras, two of them HEIC, plus
 #            a Peru and a Rwanda photo from seed 123's test split (ticket ML-3 Q7: the 2026-09-24
 #            sessions, a Pixel and a Sony; the first by name); the training venv and the release venv
