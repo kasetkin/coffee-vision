@@ -1,0 +1,81 @@
+<title>A Deploy Fits Beside the Live Worker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-10 · coffee-vision · deploy</div>
+  <h1>Stub: a deploy to webappremote fits its smoke worker beside the live GPU worker, or plans the outage when it cannot</h1>
+  <p class="lede">A placeholder, not a ticket yet. Since ML-7 the live worker runs its models on
+    <code>webappremote</code>'s GPU, whose memory is the host's, and holds about 3.5 GB. A deploy's smoke test starts
+    a second worker beside it, and the preflight asks for 5 GB available; the host, 7.7 GB in all, had 3.6 GB. So every
+    deploy there now stops at the preflight. <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>'s deploy
+    got through only by stopping the live service by hand first. To be researched and written later; nothing here is
+    decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-18; not researched, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Deploy: host memory and the smoke test</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>scripts/deploy_webapp.sh</code> (preflight, smoke, <code>--compare</code>), <code>webapp/deploy/coffee-cv-web.service.template</code>, <code>scripts/rehearse_deploy_local.sh</code>, <code>docs/agents/deploy.md</code>, <code>webapp/README.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-18</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until written. Today a deploy to <code>webappremote</code> stops at the preflight while the live service runs; stopping the service first, as OPS-7 did, takes photo answers down for the deploy's smoke and restart, about two minutes then. The page stays up.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">found in OPS-7's deploy (plan P5); matters for every deploy from now on</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decision, 2026-10-18 (OPS-7's deploy).</strong> Of the two ways past the preflight, (a) stop
+      the live service for the deploy, or (b) lower the bar and run the smoke worker beside the live one with about
+      0.1 GB to spare, the owner chose (a) for OPS-7.</p>
+    <p><strong>Owner request, 2026-10-18.</strong> Create a stub for the host's memory limit: a deploy's smoke test
+      no longer fits beside the live GPU worker.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. The deploy smokes a new release on the host, in production's own sandbox, while the live release keeps
+    serving, and its preflight guards that with 5 GB of available memory. That held while the live worker ran on
+    PyTorch. On the GPU a worker takes about 3.5 GB of the host's memory, so a second one no longer fits on
+    <code>webappremote</code>. Either the deploy makes room, with a planned and announced outage, or the host does. Nothing
+    is proposed yet.</p>
+
+  <h2>2. Background</h2>
+  <p>Measured 2026-10-18 during OPS-7's deploy, and from ML-7's record; to be checked when the ticket is written.</p>
+  <ul>
+    <li><b>The preflight.</b> <code>MIN_MEM_GB</code> (default 5) is checked against the host's
+      <code>MemAvailable</code> before anything runs there (<code>scripts/deploy_webapp.sh</code>, <code>preflight</code>).
+      The ML-6 deploy fell short once and was rerun at 4 GB (<code>6842b08</code>).</li>
+    <li><b>The smoke worker.</b> The release runs as <code>coffee-cv-smoke.service</code> on port 8001, beside the
+      live <code>coffee-cv-web</code>, capped by <code>SMOKE_CPU</code> and <code>CAP_MEM</code> (7G); it must prove the
+      GPU in its boot record (ADR 0020), so it cannot move to the CPU. <code>--compare</code> also runs the release's
+      models on the host; whether it meets the same limit is not checked.</li>
+    <li><b>The numbers.</b> ML-7 P10: a GPU worker takes 3.5 GB of <code>MemAvailable</code>, its GPU buffers
+      included (peak RSS 2.25 GB); the preflight's 5 GB held beside the PyTorch service (5.3 GB available). OPS-7's
+      deploy: 3.6 GB available beside the live GPU worker (RSS 1.9 GB, about 2.1 GB shared memory), 6.6 GB with it
+      stopped; the smoke worker booted in 17.7 s at a peak RSS of 1.8 GB. <code>webappremote</code> has 7.7 GB and 1 GB
+      of swap.</li>
+    <li><b>What OPS-7 did.</b> <code>sudo systemctl stop coffee-cv-web</code> at 02:35:01 UTC, then the deploy with
+      <code>DEPLOY_SKIP_CHECK=1</code> (its full check had passed on the same commit); the service stayed enabled, so the
+      deploy restarted it after the flip. Photo answers were down until about 02:36:50. Had the deploy failed before
+      the flip, the old release would have needed a start by hand.</li>
+    <li><b>Ideas raised, not assessed.</b> A deploy option that stops the live service just before the smoke and
+      starts it again on any failure before the flip, with the outage stated in <code>deploy.md</code>; the smoke
+      worker beside the live one with a lower bar, swap and the risk of the kernel's OOM killer; a host with more
+      memory.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-18</div>Stub created at the owner's request after OPS-7's deploy (plan P5), whose
+      first try stopped at the preflight. Not researched, not written.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (plan P5),
+    <a href="ticket_inference_runtime.html">ML-7</a> (P10, the GPU worker's memory),
+    <a href="ticket_webapp_release_isolation.html">OPS-1</a>,
+    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>,
+    <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>,
+    <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>
