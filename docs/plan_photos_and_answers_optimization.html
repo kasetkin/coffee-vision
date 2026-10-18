@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P4 done; Q1 answered (ticket D20); P5 under way</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P4 done; Q1 answered (ticket D20); deployed 2026-10-18, the owner's check on a phone remains</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -301,7 +301,7 @@
 
   <h2>7. P5 &mdash; deploy and check live <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-18: deployed and verified on the domain as <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code> (merge <code>51e7b9b</code>); the owner's check on a phone remains</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P4</span></div>
   </div>
   <p>Follows <a href="agents/deploy.md">deploy.md</a>, with two departures the owner chose: no local rehearsal (D17)
@@ -384,6 +384,21 @@
       <code>webappremote</code> (P5). The front proxy's config could not be read before the go: there is no access to
       that server from here, so D18's read is left to the owner, and verify's arrival times say whether it
       streams.</div>
+    <div><div class="when">2026-10-18</div>P5. Merged as <code>51e7b9b</code> (ADR 0017) and pushed. The first deploy
+      stopped at the read-only preflight: <code>webappremote</code> had 3.6 GB available against the 5 GB it wants,
+      since the live worker now runs on the GPU and holds about 3.5 GB (ML-7 P10), and the smoke worker would start
+      beside it. The owner chose to stop the live service for the deploy: <code>coffee-cv-web</code> stopped at 02:35:01
+      UTC (6.6 GB available), the deploy rerun with <code>DEPLOY_SKIP_CHECK=1</code>, its full check having passed on
+      the same commit an hour before. Smoke on the GPU: 200 in 8.4 s, both parts, top-1 Colombia within 1.1e-3 of the
+      local scores, mask IoU 0.999997, thumbnail 768 &times; 1024; boot 17.7 s, the GPU proven. The site passed
+      <code>nginx -t</code>; flip; verify green, its public lines arriving at 8.43 and 14.19 s from the upload's start,
+      so both nginx servers stream (R1, D11). Answers were down from 02:35:01 to about 02:36:50. Live, through the
+      domain: the page <code>no-cache</code> on <code>/</code> and a fallback path; the smoke photo's preview at 7.7 s
+      and classification at 13.6 s, a frame-filling photo's (Ethiopia) at 11.3 and 17.4 s, upload from here included.
+      Server side: <code>preview_ms</code> 2.1 s, <code>latency_ms</code> 8.4&ndash;8.9 s, <code>outcome</code>
+      complete; nginx's lines end with the bytes received (D19). Not done here: the owner's look on a phone (D6). A
+      deploy to <code>webappremote</code> no longer fits its smoke worker beside a GPU worker; a lasting fix is a
+      deploy ticket's.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a
