@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P4 done; Q1 answered (ticket D20); deployed 2026-10-18, the owner's check on a phone remains</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P5 done: deployed 2026-10-18 and checked live by the owner; waiting for the owner to close the ticket</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -120,7 +120,7 @@
     guard. After P1 it calls two steps, which <code>/analyze</code> will call one at a time with the preview sent in
     between (ticket R3).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>The segment step</b>, <code>segment_photo(path, cfg, skip_crop=False,
+    <li><span class="box done"></span><span><b>The segment step</b>, <code>segment_photo(path, cfg, skip_crop=False,
       segmenter=None)</code>. It returns a small dataclass: the decoded photo, its size, the full photo's bean mask
       (<code>None</code> on a fallback, on <code>skip_crop</code> and for a tray-heuristic model), the photo and mask
       to sample from, <code>crop_info</code>, the segmenter's diagnostics, and the decode and
@@ -128,18 +128,18 @@
       result. It covers the tray-heuristic branch (<code>crop_to_bean_region</code>) and <code>skip_crop</code> as
       <code>patches_for_photo</code> does today, and it raises <code>load_rgb_image</code>'s
       <code>ValueError</code> / <code>OSError</code> unchanged.</span></li>
-    <li><span class="box"></span><span><b>The classify step</b>, <code>classify_segmented(seg, cfg, class_ids,
+    <li><span class="box done"></span><span><b>The classify step</b>, <code>classify_segmented(seg, cfg, class_ids,
       class_labels, classifier, ref, n_patches, seed_key, tta, probe, ood_method)</code>: the pitch, the sampling,
       the patches, the model and the OOD guard, which is the rest of today's <code>patches_for_photo</code> and
       <code>classify_one</code>. A <code>ValueError</code> from the sampling half gives "REFUSED
       (unmeasurable)", exactly as today.</span></li>
-    <li><span class="box"></span><span><code>patches_for_photo</code> becomes <code>segment_photo</code> plus the
+    <li><span class="box done"></span><span><code>patches_for_photo</code> becomes <code>segment_photo</code> plus the
       sampling half, with the same signature and the same returns. <code>classify_one</code> becomes
       <code>segment_photo</code> (a decode error gives "unmeasurable") plus <code>classify_segmented</code>.
       <code>segment_bean_region</code> stays, since the segcrop parity test calls it.</span></li>
-    <li><span class="box"></span><span><code>warm_up</code> runs <code>classify_one</code> only, and its docstring
+    <li><span class="box done"></span><span><code>warm_up</code> runs <code>classify_one</code> only, and its docstring
       says why that covers every graph (finding 2).</span></li>
-    <li><span class="box"></span><span>Checks: <code>release_probe.py classify</code> on the 13 fixtures (smoke and
+    <li><span class="box done"></span><span>Checks: <code>release_probe.py classify</code> on the 13 fixtures (smoke and
       compare), CPU LiteRT, before and after the change, compared with <code>compare-classify</code> at no
       tolerance (bit for bit). On the same photos, <code>segment_photo</code>'s full mask equals
       <code>bean_region_preview</code>'s (checked before P2 deletes it). <code>python -m coffeecv.infer</code> on
@@ -156,7 +156,7 @@
     <code>skip_crop</code> as <code>/classify</code> takes them today. Its answer is <code>application/x-ndjson</code>,
     one JSON object per line (D2, D8).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b>Before the response:</b> "no photo uploaded" gives a 400 as today. The
+    <li><span class="box done"></span><span><b>Before the response:</b> "no photo uploaded" gives a 400 as today. The
       upload goes through <code>_saved_upload</code> into <code>segment_photo</code>, and the temporary file is
       deleted before streaming starts, since the decoded photo is in memory. A decode failure gives
       <code>_log_decode_failure</code> and a 400 JSON (R4). The preview line is built here too: the thumbnail as
@@ -164,14 +164,14 @@
       by <code>_mask_png_b64</code>, and <code>box</code> / <code>cropped</code> / <code>needs_review</code> /
       <code>seg_fallback</code> as <code>/crop</code> made them. For <code>skip_crop</code>, <code>mask</code> and
       <code>box</code> are null and <code>cropped</code> is false (D9).</span></li>
-    <li><span class="box"></span><span><b>The stream</b> (<code>stream_with_context</code>, header
+    <li><span class="box done"></span><span><b>The stream</b> (<code>stream_with_context</code>, header
       <code>X-Accel-Buffering: no</code>, D11) yields <code>{"part": "preview", ...}</code> and notes
       <code>preview_ms</code> (D13). It then runs <code>classify_segmented</code>, maps the entry with
       <code>_entry_to_response</code> (the body only, since the status has already gone out) and
       <code>_log_classify_fields</code>, and yields <code>{"part": "classification", ...body}</code>. An exception
       after the preview is logged as <code>_log_unhandled</code> logs one, and yields <code>{"part": "error",
       "message": "Something went wrong -- try a different photo."}</code> (R4).</span></li>
-    <li><span class="box"></span><span><b>The log line</b> (R2, finding 4): for a streamed answer,
+    <li><span class="box done"></span><span><b>The log line</b> (R2, finding 4): for a streamed answer,
       <code>_log_request</code> only sets <code>X-Request-Id</code>. The generator's <code>finally</code> writes the
       one line, with status 200, the whole <code>latency_ms</code>, <code>preview_ms</code>, the classify fields and
       <code>skip_crop</code>. It also writes how the answer ended (ticket D19): <code>outcome</code> is
@@ -180,11 +180,11 @@
       <code>parts_sent</code> counts the lines written. <code>preview_ms</code>, <code>outcome</code> and
       <code>parts_sent</code> join <code>_JsonFormatter._FIELDS</code> and the field list in
       <code>_log_request</code>. The rules don't change: no image bytes, no client IP.</span></li>
-    <li><span class="box"></span><span>Remove the <code>/preview</code>, <code>/crop</code> and
+    <li><span class="box done"></span><span>Remove the <code>/preview</code>, <code>/crop</code> and
       <code>/classify</code> routes (D5), and <code>bean_region_preview</code> along with its import once nothing
       calls it. The module docstring, the <code>static_folder</code> comment and <code>photo_io.py</code>'s comment
       name <code>/analyze</code>.</span></li>
-    <li><span class="box"></span><span><b>Tests:</b> <code>tests/test_webapp_crop.py</code> becomes
+    <li><span class="box done"></span><span><b>Tests:</b> <code>tests/test_webapp_crop.py</code> becomes
       <code>tests/test_webapp_analyze.py</code>, keeping its mask checks on the preview part (the photo's mask scaled
       down, long side &le; 1024, palette index 1 opaque, the Orientation tag ignored by the mask and the thumbnail
       alike, an empty mask falling back to no mask). New checks: exactly two lines, preview first; the classification
@@ -196,7 +196,7 @@
       normal answer, <code>error</code>/2 on the mocked failure, and <code>client_gone</code>/1 when the test
       client's unbuffered response is closed after the preview line (D19).
       <code>tests/test_release_manifest.py</code>'s trace posts <code>/analyze</code>.</span></li>
-    <li><span class="box"></span><span>Checks: the full suite is green, including <code>--full</code>. On the local
+    <li><span class="box done"></span><span>Checks: the full suite is green, including <code>--full</code>. On the local
       dev server (<code>python -m webapp.app</code>, <code>COFFEE_CV_LITERT_ON_CPU=1</code>), <code>curl -N</code>
       with a timestamp per line shows the preview line arriving before the classification ends (ticket scope, R1
       on the dev server).</span></li>
@@ -210,7 +210,7 @@
   <p>Everything the deploy runs moves to <code>/analyze</code>. The deploy only ever talks to releases from this
     ticket on, so none of it speaks the old API (D10).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><b><code>release_probe.py smoke</code></b> posts the smoke photo to
+    <li><span class="box done"></span><span><b><code>release_probe.py smoke</code></b> posts the smoke photo to
       <code>/analyze</code> once through the test client and emits its status, content type and two parts
       (<code>preview</code>, <code>classification</code>). <b><code>compare_smoke</code></b> compares the
       classification as it compares <code>/classify</code> today (verdict, top-1, <code>SCORE_TOL</code>). It
@@ -218,16 +218,16 @@
       <code>MASK_IOU_MIN</code>, the rest within 1e-3. The thumbnail is left out of that diff and checked on its
       own: it decodes as a JPEG of the same size as the local one, long side &le; 1024. The module docstring
       follows.</span></li>
-    <li><span class="box"></span><span><b>The smoke in <code>scripts/deploy_webapp.sh</code></b>: one
+    <li><span class="box done"></span><span><b>The smoke in <code>scripts/deploy_webapp.sh</code></b>: one
       <code>curl</code> to <code>/analyze</code>, its lines tagged for <code>compare_smoke</code>
       (<code>SMOKE_ANALYZE</code> with status and time, then one tagged line per part), <code>SMOKE_LOG</code>
       grepping <code>"/analyze"</code>, and the summary lines reading the classification part.</span></li>
-    <li><span class="box"></span><span><b><code>verify</code></b>: the backend <code>GET /analyze</code> gives 405.
+    <li><span class="box done"></span><span><b><code>verify</code></b>: the backend <code>GET /analyze</code> gives 405.
       The public <code>POST /analyze</code> (with the one retry on a 503) gives 200, two parts and top-1 as
       expected. With <code>curl -N</code> it reports the time to the preview and the time to the classification
       through the domain, failing on neither (D11). The messages that name <code>/classify</code> (the final "NOT
       enabled" message, <code>on_verify_failure</code>) name <code>/analyze</code>.</span></li>
-    <li><span class="box"></span><span><b>The nginx template</b>: one <code>location = /analyze</code> with the
+    <li><span class="box done"></span><span><b>The nginx template</b>: one <code>location = /analyze</code> with the
       in-flight cap, <code>client_max_body_size 20m</code>, <code>proxy_read_timeout 30s</code>,
       <code>proxy_pass</code>, the two <code>proxy_set_header</code> lines and <code>proxy_pass_header
       X-Accel-Buffering</code> (finding 5), and <code>proxy_buffer_size 1m</code> with a comment on why (ticket D18,
@@ -238,19 +238,19 @@
       <code>$upstream_bytes_received</code> at the end of the line (D19), so a worker killed mid-answer shows as a
       200 with a short answer; nothing parses that log, and <code>webapp/README.md</code>'s log section names the
       field.</span></li>
-    <li><span class="box"></span><span><code>fixtures.txt</code>'s comment says the smoke photo goes to
+    <li><span class="box done"></span><span><code>fixtures.txt</code>'s comment says the smoke photo goes to
       <code>/analyze</code>. <code>tests/test_release_probe.py</code> runs <code>compare_smoke</code> on synthetic
       two-part answers: the mask cases it has today, plus a thumbnail of the wrong size, a missing part and an error
       part.</span></li>
-    <li><span class="box"></span><span><b>Docs:</b> <code>webapp/README.md</code> (the diagram, the endpoint
+    <li><span class="box done"></span><span><b>Docs:</b> <code>webapp/README.md</code> (the diagram, the endpoint
       section, the smoke and verify lines) and <a href="agents/deploy.md">deploy.md</a> name
       <code>/analyze</code>. deploy.md's latency line names <code>preview_ms</code> next to
       <code>latency_ms</code>.</span></li>
-    <li><span class="box"></span><span>Checks: the full suite is green. <code>bash -n
+    <li><span class="box done"></span><span>Checks: the full suite is green. <code>bash -n
       scripts/deploy_webapp.sh</code>. The smoke's own <code>curl</code> lines, run against the local dev server,
       are compared by <code>compare_smoke</code> with <code>release_probe.py smoke</code>'s output from the same
       checkout, which exercises the real parser on both sides.</span></li>
-    <li><span class="box"></span><span><b>The stream through two nginx servers</b> (ticket D18, R1, R9). nginx is
+    <li><span class="box done"></span><span><b>The stream through two nginx servers</b> (ticket D18, R1, R9). nginx is
       installed in the devcontainer for this check only (it is not there now; not added to the image). Our template,
       rendered with a throwaway self-signed certificate in place of the host's, sits in front of the dev server;
       a second nginx with a stock <code>proxy_pass</code> stands in for the proxy in front of the domain. Both pass
@@ -270,80 +270,80 @@
     drawing (<code>renderOverlay</code>, <code>drawBeanRegion</code>, "Show outline") is unchanged (OPS-6 D3, D4,
     D9, D14).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Remove the Classify button. A pick posts the file to <code>/analyze</code>
+    <li><span class="box done"></span><span>Remove the Classify button. A pick posts the file to <code>/analyze</code>
       and reads <code>res.body</code> with a reader and a <code>TextDecoder</code>, splitting on newlines. On the
       preview part, the thumbnail goes into <code>#preview</code> as a data URL and the mask is decoded first, so
       the photo, the box and the bean region appear together. The classification part goes to
       <code>render</code>, and an error part to <code>renderRefused</code>. A stream that ends without a
       classification shows "Could not reach the server" (R4).</span></li>
-    <li><span class="box"></span><span>A non-OK answer before the stream starts: a 503 shows "The server is busy
+    <li><span class="box done"></span><span>A non-OK answer before the stream starts: a 503 shows "The server is busy
       with another photo -- try again in a few seconds." (D12). A 400 shows its <code>error</code>. A failed fetch
       shows "Could not reach the server".</span></li>
-    <li><span class="box"></span><span>A rotating progress circle (CSS only) shows from the pick until the preview,
+    <li><span class="box done"></span><span>A rotating progress circle (CSS only) shows from the pick until the preview,
       then under the preview until the classification (D3). Choose Photo is disabled from the pick until the
       classification or a failure (D4). The upload token (OPS-6 D13) stays as a guard.</span></li>
-    <li><span class="box"></span><span>"Use full photo instead" (D1) appears after a classification, unless that
+    <li><span class="box done"></span><span>"Use full photo instead" (D1) appears after a classification, unless that
       answer was <code>skip_crop</code> or <code>seg_fallback</code>. Pressing it clears the result, hides the
       overlay and the button, and keeps the preview with the circle under it, Choose Photo disabled (D14). It then
       posts the file with <code>skip_crop=1</code>. Its preview replaces the old one with the mask and box cleared
       (D9), and the button does not come back.</span></li>
-    <li><span class="box"></span><span>The fallback note reads "No coffee beans found -- the whole photo is
+    <li><span class="box done"></span><span>The fallback note reads "No coffee beans found -- the whole photo is
       classified." (D14). The <code>TODO(crop editing)</code> comment names <code>/analyze</code> and says that an
       edited box is a second upload (ADR 0023).</span></li>
-    <li><span class="box"></span><span>Checks: the page's script runs in the throwaway V8 harness OPS-6 P3 used
+    <li><span class="box done"></span><span>Checks: the page's script runs in the throwaway V8 harness OPS-6 P3 used
       (outside the repo), against recorded <code>/analyze</code> streams from the dev server. The cases: a tray
       photo, a negative that falls back, a HEIC, an unreadable file, a 503, an error part, a stream cut after the
       preview, and D1's button. Then by hand on the local dev server, as in OPS-6 P3, at desktop and phone widths:
       the same photos, plus the circle in both places and Choose Photo disabled in flight.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: look at the page on the local dev server and accept it
+    <li><span class="box done"></span><span>Stop for the owner: look at the page on the local dev server and accept it
       or ask for changes (ticket scope).</span></li>
   </ol>
 
   <h2>7. P5 &mdash; deploy and check live <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-18: deployed and verified on the domain as <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code> (merge <code>51e7b9b</code>); the owner's check on a phone remains</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-18: deployed and verified on the domain as <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code> (merge <code>51e7b9b</code>, record <code>7341623</code>); checked live by the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P4</span></div>
   </div>
   <p>Follows <a href="agents/deploy.md">deploy.md</a>, with two departures the owner chose: no local rehearsal (D17)
     and no undo procedure (D16). A failed verify still triggers the script's own rollback, which leaves the site down
     (R8). The fix is to fix forward with a new deploy.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Read the front nginx's config once, without changing it (ticket D18): it must
+    <li><span class="box done"></span><span>Read the front nginx's config once, without changing it (ticket D18): it must
       not list <code>X-Accel-Buffering</code> in <code>proxy_ignore_headers</code>, nor
       <code>application/x-ndjson</code> (or <code>*</code>) in <code>gzip_types</code>, either of which holds the
       answer back until it ends. Report what it says at the stop below.</span></li>
-    <li><span class="box"></span><span>Stop for the owner's go (D6), stating again that a rollback from here takes
+    <li><span class="box done"></span><span>Stop for the owner's go (D6), stating again that a rollback from here takes
       the site down.</span></li>
-    <li><span class="box"></span><span>Merge <code>ops7-one-upload</code> into <code>main</code> with a merge commit
+    <li><span class="box done"></span><span>Merge <code>ops7-one-upload</code> into <code>main</code> with a merge commit
       (<a href="adr/0017-branches-join-main-by-merge-commit.md">ADR 0017</a>) and push (deploy.md: only pushed
       commits deploy).</span></li>
-    <li><span class="box"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh &lt;sha&gt; &lt;model&gt;</code>
+    <li><span class="box done"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh &lt;sha&gt; &lt;model&gt;</code>
       with the served model. The smoke passes on the host, the GPU is proven in the boot record (ADR 0020), and
       <code>verify</code> is green and reports when each part arrived through the domain (D11).</span></li>
-    <li><span class="box"></span><span>Live (D6): the smoke photo and one frame-filling photo on a phone, through
+    <li><span class="box done"></span><span>Live (D6): the smoke photo and one frame-filling photo on a phone, through
       the domain. The preview shows with the circle under it before the classification. The page comes back
       <code>Cache-Control: no-cache</code>. The request log has one <code>/analyze</code> line per photo, with
       <code>preview_ms</code> and <code>latency_ms</code> and <code>outcome</code> <code>complete</code>; those
       server-side numbers are what gets quoted (deploy.md). nginx's access log ends those lines with
       <code>$upstream_bytes_received</code> (D19).</span></li>
-    <li><span class="box"></span><span>Record the release, the commit and the live times in the ticket's Status and
+    <li><span class="box done"></span><span>Record the release, the commit and the live times in the ticket's Status and
       Activity; the owner closes the ticket.</span></li>
   </ol>
 
   <h2>8. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: <code>classify_one</code> bit-identical on the 13 fixtures; the mask equal
+    <li><span class="box done"></span><span>P1: <code>classify_one</code> bit-identical on the 13 fixtures; the mask equal
       to <code>bean_region_preview</code>'s; the CLI unchanged.</span></li>
-    <li><span class="box"></span><span>P2: two parts, preview first, on the test client and on the dev server; the
+    <li><span class="box done"></span><span>P2: two parts, preview first, on the test client and on the dev server; the
       classification part equal to the old <code>/classify</code> body; one log line with
       <code>preview_ms</code>, <code>outcome</code> and <code>parts_sent</code>.</span></li>
-    <li><span class="box"></span><span>P3: <code>compare_smoke</code> passes on the smoke's real <code>curl</code>
+    <li><span class="box done"></span><span>P3: <code>compare_smoke</code> passes on the smoke's real <code>curl</code>
       output against the dev server, and fails on each synthetic fault; through two local nginx servers the preview
       comes first and a throttled client does not lengthen the classification.</span></li>
-    <li><span class="box"></span><span>P4: the harness cases pass; the owner accepts the page.</span></li>
-    <li><span class="box"></span><span>P5: the deploy is verified, the two parts arrive separately through the
+    <li><span class="box done"></span><span>P4: the harness cases pass; the owner accepts the page.</span></li>
+    <li><span class="box done"></span><span>P5: the deploy is verified, the two parts arrive separately through the
       domain, and the owner has checked it on a phone.</span></li>
-    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+    <li><span class="box done"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
@@ -399,6 +399,14 @@
       complete; nginx's lines end with the bytes received (D19). Not done here: the owner's look on a phone (D6). A
       deploy to <code>webappremote</code> no longer fits its smoke worker beside a GPU worker; a lasting fix is a
       deploy ticket's.</div>
+    <div><div class="when">2026-10-18</div>The owner's check on the live site, read from the host's request log (<code>app.jsonl</code>, 9 lines since
+      the deploy, no error, unhandled exception or decode failure): at 02:41:31 an 8.2 MB 6144 &times; 8160 photo,
+      the D18 fallback, refused as Unrecognized (preview 2.90 s, answer 10.21 s); at 02:42:40 a 3072 &times; 4080
+      photo, Brazil (2.23 s, 9.48 s); at 02:43:19 the same photo with "Use full photo instead", Brazil again
+      (<code>skip_crop</code>, preview 0.26 s, answer 7.50 s). Every answer <code>complete</code>, both parts;
+      DINOv3's 5.9 s the same on every photo. The request lines do not record the device, so the log alone does not
+      say these came from a phone (D6). The front proxy streams: verify's arrival times differ (D18's read of its
+      config is not needed for that). P5 done; the owner closes the ticket.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a

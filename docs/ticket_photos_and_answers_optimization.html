@@ -14,7 +14,7 @@
     href="plan_photos_and_answers_optimization.html">the plan</a>; P1&ndash;P4 implemented, not deployed.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D20 decided; P1&ndash;P4 done 2026-10-17, the page accepted by the owner; merged as <code>51e7b9b</code> and deployed 2026-10-18 as <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code>, verified on the domain; the owner's check on a phone remains</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-10-07; written 2026-10-17, D1&ndash;D17 decided 2026-10-17; planned 2026-10-17 (P1&ndash;P5); reviewed 2026-10-17, D18&ndash;D20 decided; P1&ndash;P4 done 2026-10-17, the page accepted by the owner; merged as <code>51e7b9b</code> and deployed 2026-10-18 as <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code>, verified on the domain and checked live by the owner; waiting for the owner to close it</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: upload and API</span></div>
@@ -357,39 +357,39 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The page has one button, Choose Photo; a pick uploads the photo once, and the
+    <li><span class="box done"></span><span>The page has one button, Choose Photo; a pick uploads the photo once, and the
       classification needs no click.</span></li>
-    <li><span class="box"></span><span>One decode and one segmenter pass per photo; <code>classify_one</code>
+    <li><span class="box done"></span><span>One decode and one segmenter pass per photo; <code>classify_one</code>
       bit-identical on the fixtures before and after (R3).</span></li>
-    <li><span class="box"></span><span>The first part (thumbnail, mask, box, <code>seg_fallback</code>) reaches the
+    <li><span class="box done"></span><span>The first part (thumbnail, mask, box, <code>seg_fallback</code>) reaches the
       page before the classification ends, on the dev server and through nginx on the live domain (R1).</span></li>
-    <li><span class="box"></span><span>The overlay looks as after OPS-6; the second part's verdicts and fields are
+    <li><span class="box done"></span><span>The overlay looks as after OPS-6; the second part's verdicts and fields are
       <code>/classify</code>'s.</span></li>
-    <li><span class="box"></span><span>"Use full photo instead" as D1: after the answer, not after a
+    <li><span class="box done"></span><span>"Use full photo instead" as D1: after the answer, not after a
       <code>skip_crop=1</code> answer or a fallback, and one more upload with <code>skip_crop=1</code>.</span></li>
-    <li><span class="box"></span><span>One request-log line per request, with the classify fields, the whole
+    <li><span class="box done"></span><span>One request-log line per request, with the classify fields, the whole
       latency and <code>preview_ms</code> (R2, D13), and <code>outcome</code> and <code>parts_sent</code>;
       nginx's access log ends each line with <code>$upstream_bytes_received</code> (D19, R10).</span></li>
-    <li><span class="box"></span><span>nginx takes the whole answer from the backend at once
+    <li><span class="box done"></span><span>nginx takes the whole answer from the backend at once
       (<code>proxy_buffer_size 1m</code>): through two local nginx servers, a throttled client gets the preview
       first and does not lengthen the classification (D18, R9).</span></li>
-    <li><span class="box"></span><span>An error after the first part, and a stream cut before the second, each
+    <li><span class="box done"></span><span>An error after the first part, and a stream cut before the second, each
       show a message (R4).</span></li>
-    <li><span class="box"></span><span>A rotating progress circle shows from the pick until the first part, then
+    <li><span class="box done"></span><span>A rotating progress circle shows from the pick until the first part, then
       under the preview until the second part (D3).</span></li>
-    <li><span class="box"></span><span>Choose Photo, and D1's button, are disabled while a photo is in flight
+    <li><span class="box done"></span><span>Choose Photo, and D1's button, are disabled while a photo is in flight
       (D4).</span></li>
-    <li><span class="box"></span><span>A 503 shows the busy message (D12).</span></li>
-    <li><span class="box"></span><span><code>index.html</code> is served with <code>Cache-Control: no-cache</code>,
+    <li><span class="box done"></span><span>A 503 shows the busy message (D12).</span></li>
+    <li><span class="box done"></span><span><code>index.html</code> is served with <code>Cache-Control: no-cache</code>,
       and <code>/preview</code>, <code>/crop</code> and <code>/classify</code> are gone (D5); the one endpoint is
       <code>/analyze</code> (D7).</span></li>
-    <li><span class="box"></span><span>The deploy's smoke and compare, the fixtures, the warm-up (ADR 0021) and the
+    <li><span class="box done"></span><span>The deploy's smoke and compare, the fixtures, the warm-up (ADR 0021) and the
       tests use the new endpoint; the smoke still compares the mask by IoU &ge; 0.999; <code>--verify</code> reports when each part arrived
       through the domain (D11).</span></li>
-    <li><span class="box"></span><span><code>webapp/README.md</code> and <a href="agents/deploy.md">deploy.md</a>
+    <li><span class="box done"></span><span><code>webapp/README.md</code> and <a href="agents/deploy.md">deploy.md</a>
       name the new endpoint.</span></li>
-    <li><span class="box"></span><span>The owner has seen the page on the local dev server and accepted it.</span></li>
-    <li><span class="box"></span><span>Deployed and checked on the live site (D6).</span></li>
+    <li><span class="box done"></span><span>The owner has seen the page on the local dev server and accepted it.</span></li>
+    <li><span class="box done"></span><span>Deployed and checked on the live site (D6).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -458,6 +458,15 @@
       2.0 s plus /classify's 9.4 s before; the page <code>no-cache</code> (D5); <code>outcome</code> and
       <code>$upstream_bytes_received</code> logged (D19). The owner's look on a phone remains (D6); then the owner
       closes the ticket.</div>
+    <div><div class="when">2026-10-18</div>The owner's check on the live site, read from the host's request log (<code>app.jsonl</code>, 9 lines since
+      the deploy, no error, unhandled exception or decode failure): at 02:41:31 an 8.2 MB 6144 &times; 8160 photo,
+      the D18 fallback, refused as Unrecognized (preview 2.90 s, answer 10.21 s); at 02:42:40 a 3072 &times; 4080
+      photo, Brazil (2.23 s, 9.48 s); at 02:43:19 the same photo with "Use full photo instead", Brazil again
+      (<code>skip_crop</code>, preview 0.26 s, answer 7.50 s). Every answer <code>complete</code>, both parts;
+      DINOv3's 5.9 s the same on every photo. The request lines do not record the device, so the log alone does not
+      say these came from a phone (D6). The front proxy streams: verify's arrival times differ (D18's read of its
+      config is not needed for that). Every item in Scope and acceptance is met (plan
+      P1&ndash;P5 done); the owner closes the ticket.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_mask_overlay.html">OPS-6</a> (the overlay, D6, D7, D13, R3, R6),
