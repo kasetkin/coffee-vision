@@ -407,6 +407,15 @@
       DINOv3's 5.9 s the same on every photo. The request lines do not record the device, so the log alone does not
       say these came from a phone (D6). The front proxy streams: verify's arrival times differ (D18's read of its
       config is not needed for that). P5 done; the owner closes the ticket.</div>
+    <div><div class="when">2026-10-18</div>The owner's check on a phone (D6), by the owner's word: the request
+      log's three lines after a page load at 03:43:00 UTC, each answered <code>complete</code> with both parts. At
+      03:43:29 a 3.4 MB JPEG, 3072 &times; 4080, its mask empty, so the whole photo, refused as Unrecognized (probe
+      0.9999); at 03:43:57 a 2.5 MB JPEG filled with beans (mask 93% of the photo), refused as Unrecognized (probe
+      1.0); at 03:44:17 a 0.9 MB HEIC, 3024 &times; 4032, cropped to its beans (mask 49%), predicted Guatemala (0.70).
+      Server side, the preview went out at 2.05&ndash;2.29 s and the answer ended at 8.47&ndash;9.05 s; nginx's
+      totals of 18.95, 17.50 and 10.23 s put the phone's upload at about 10.5, 8.5 and 1.3 s, the wait the progress
+      circle covers (D3). The two refusals are the guard's (ADR 0016), which this ticket does not change. The
+      02:41&ndash;02:43 requests recorded above were the owner's too, not from the phone.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a
