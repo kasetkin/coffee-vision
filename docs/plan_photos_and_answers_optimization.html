@@ -13,7 +13,7 @@
     bit-identical before anything uses it. No phase changes a classification number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P5 done: deployed 2026-10-18 and checked live by the owner; waiting for the owner to close the ticket</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">ticket closed 2026-10-18; written 2026-10-17; reviewed 2026-10-17 (ticket D18&ndash;D19); P1&ndash;P5 done: deployed 2026-10-18 and checked live by the owner; waiting for the owner to close the ticket</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_photos_and_answers_optimization.html"><code>ticket_photos_and_answers_optimization.html</code></a> (OPS-7)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -416,6 +416,14 @@
       totals of 18.95, 17.50 and 10.23 s put the phone's upload at about 10.5, 8.5 and 1.3 s, the wait the progress
       circle covers (D3). The two refusals are the guard's (ADR 0016), which this ticket does not change. The
       02:41&ndash;02:43 requests recorded above were the owner's too, not from the phone.</div>
+    <div><div class="when">2026-10-18</div>Closed by the owner. Live since 2026-10-18 as
+      <code>20261018T0235Z-51e7b9b-allrigs_dino3b16_segxl0v3_country_s42</code>, checked on the domain and on the owner's
+      phone. Left open elsewhere: a queue for several visitors (<a href="ticket_webapp_request_queue.html">OPS-8</a>),
+      a release that carries its nginx site so a rollback works across this one (<a
+      href="ticket_release_carries_nginx_site.html">OPS-9</a>, R8), and room on <code>webappremote</code> for a
+      deploy's smoke worker beside the live GPU worker (<a href="ticket_deploy_memory_headroom.html">OPS-10</a>). The
+      503 retry is kept for now (D20). Two of the owner's phone photos were refused by the guard (ADR 0016), not
+      compared with PyTorch.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7 ticket</a>, <a
