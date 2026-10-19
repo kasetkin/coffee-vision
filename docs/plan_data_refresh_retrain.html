@@ -167,7 +167,7 @@
 
   <h2>6. P4 &mdash; one re-crop, compared with ML-6's <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-19: re-cropped (16 <code>segcrop@*</code> stages, 58 min) and compared (<code>analysis/ml8/p4_recrop_report.txt</code>: on 1,256 photos no box or fallback changed, crop masks moved at most 7 px, no D17 patch box moved); waiting on the owner&#39;s verdict on the 20 new crops (D11)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Ticket D1 with D3 (b): every session cropped once by XL0-v3 and today's code. The comparison is R3's: what ML-7's
@@ -322,6 +322,15 @@
       a historical record, not a manifest; editing it would only make its frozen stages stale.
       <code>seg_ml5_predict@*</code> list the dataset file as a dep and were stale already from P1's append (new test
       negatives without stored masks); the segmenter is out of scope (D3).</div>
+    <div><div class="when">2026-10-19</div>P4 run: every <code>segcrop@&lt;session&gt;</code> stage once with XL0-v3 and
+      today's code at the pinned 4 threads (16 stages, 58 min, 16 GB free after). R3's comparison with P8's crops
+      (<code>analysis/ml8/p4_recrop_compare.py</code>, against a hard-linked copy of P8's outputs) on the 1,256 photos
+      both have: no crop box and no D18 fallback changed; 277 full-frame masks changed, the crop masks training reads by
+      at most 7 pixels; none of the 40 D17 patch boxes per photo moved. The re-crop changes what training sees only by
+      the 20 new photos. Their sheet (<code>analysis/ml8/p4_new_crops_sheet.py</code>; the images stay in
+      <code>outputs/ml8_p4/</code>, gitignored): three are D18 fallbacks (#2, #5, #8: a hopper on a window sill and a
+      plastic hopper, so the whole frame would train), #20's mask takes in a printed cup above the hopper (its patches
+      still land on beans). The stop: the owner accepts or declines each.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,

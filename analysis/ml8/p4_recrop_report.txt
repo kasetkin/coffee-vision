@@ -1,0 +1,328 @@
+ML-8 P4 (R3): the re-crop of 2026-10-19 against ML-6 P8's crops (0675f40), photos both have
+both: photos in both; box / fb / mask: crop box, D18 fallback, full-frame mask (its sha256) changed;
+max px: the most pixels changed in one photo's crop mask (the mask training reads: filled and cropped,
+compared in photo coordinates); p.mvd / boxes: photos whose 40 D17 patch boxes (one fixed
+RNG key, as dataset._extract_photo draws them) move, and how many boxes
+
+session                                   both   box    fb  mask   max px p.mvd  boxes
+--------------------------------------------------------------------------------------
+2026-08-07__box_pictures_all_classes       180     0     0    52        1     0      0
+2026-08-09__pixel_cam                      180     0     0     0        0     0      0
+2026-08-09__sony_cam                       180     0     0     2        1     0      0
+2026-08-25__iphone                          92     0     0    67        4     0      0
+2026-08-25__oneplus                         90     0     0    55        2     0      0
+2026-08-27__oneplus_flash                   90     0     0    56        3     0      0
+2026-08-30__oneplus                         40     0     0     0        0     0      0
+2026-08-30__pixel                           46     0     0     3        2     0      0
+2026-08-30__sony                            40     0     0     0        0     0      0
+2026-09-11__oneplus                         20     0     0     0        0     0      0
+2026-09-11__pixel                           20     0     0     1        0     0      0
+2026-09-11__sony                            20     0     0     0        0     0      0
+2026-09-24__oneplus                         70     0     0    12        2     0      0
+2026-09-24__pixel                           70     0     0     2        1     0      0
+2026-09-24__sony                            70     0     0    10        2     0      0
+random_date_raccoon                         48     0     0    17        7     0      0
+--------------------------------------------------------------------------------------
+all                                       1256     0     0   277        7     0      0
+
+photos only in the re-crop: 20
+  random_date_raccoon/class_013__Brazil_SulDeMinas/IMG_1906.heic
+  random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261016_081726673.jpg
+  random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261016_081731021.jpg
+  random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261016_081736734.jpg
+  random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261016_081741399.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/IMG_1902.heic
+  random_date_raccoon/class_014__Colombia_Excelso/IMG_1905.heic
+  random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120539.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120546.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/IMG_20261017_115345.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261016_062627445.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261016_062643080.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261017_062822476.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261017_062844156.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261017_062903006.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261017_065331935.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_040722671.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_041054730.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_041117629.jpg
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_041127921.jpg
+photos only in P8's crops: 0
+
+photos that changed (session, class, file, box changed, fallback changed, mask px, boxes moved):
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082313395.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082346924.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082450173.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082731372.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082756616.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082946398.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_083011690.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080325279.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080430515.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080528819.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080559361.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080814985.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080838463.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081048906.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081134287.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075017433.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075607565.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075650831.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075749266.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075815082.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075843091.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075944282.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_080007930.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_073854548.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_073957292.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074317801.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074400983.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074427129.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074630186.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074711151.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_072607816.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_070742209.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_070951591.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071336299.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071445562.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071551308.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071704928.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071821907.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065458893.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065558826.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_070321773.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_084642469.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_084902479.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_085057817.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_085153910.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_085224922.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083512755.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083612348.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083723300.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083745587.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_084017380.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_084107678.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204756.JPG  box=False fallback=False px=0 boxes=0
+  2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210742.JPG  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6301D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6302D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6303D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6305.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6306.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6307.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6308.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6310.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6279D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6280D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6281.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6283.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6286.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6287.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_002__Kenya_AA/IMG_6288.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6259D.HEIC  box=False fallback=False px=2 boxes=0
+  2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6263.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6264.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6265.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6269D.HEIC  box=False fallback=False px=3 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6271D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6272.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6273.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6274.HEIC  box=False fallback=False px=3 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6275.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6276.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6277D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6334D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6339.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6341.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6342.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6343.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6348.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6349.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6246.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6248.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6249.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6250.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6251.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6253.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6255.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6323D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6324.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6326D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6327.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6328.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6329.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6330.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6290D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6291D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6293.HEIC  box=False fallback=False px=2 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6294.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6295.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6296.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6297.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6298.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_007__Brazil_MonteCristo/IMG_6299D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6312D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6313D.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6315D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6316.HEIC  box=False fallback=False px=3 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6317.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6318.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6319.HEIC  box=False fallback=False px=0 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6320D.HEIC  box=False fallback=False px=1 boxes=0
+  2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6321D.HEIC  box=False fallback=False px=4 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194645103.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194655549.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194718341.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194728894.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194742428.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194754083.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194817290.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194828182.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194840042.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195301812.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195325779.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195336177.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195401482.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195427701.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195436655.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193337626-2.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193337626.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193353106.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193414164.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193428942-2.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193428942.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193454933.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193506555.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195557371.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195621315.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195653419.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195703553.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195715057.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195750500.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195806798.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194119468.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194128826.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194139695.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194150523.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194202477.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_005__Guatemala_Tata/PXL_20260825_194250056.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192721855.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192731410.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192742151.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_193638008.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_193646943.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_193658671.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195000034.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195010376.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195021017.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194354636.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194431524.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194441452.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194450881.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194503052.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194531201.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193813455.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193848883.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193943320.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185507859.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185539894.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185558837.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185625564.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185646907.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185239842.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185259307.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185316654.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185335018.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185408959.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_003__Colombia_PinkBourbon/PXL_20260827_184438209.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_003__Colombia_PinkBourbon/PXL_20260827_184450620.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_003__Colombia_PinkBourbon/PXL_20260827_184521145.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-27__oneplus_flash/class_003__Colombia_PinkBourbon/PXL_20260827_184532420.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183458045.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183538725.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183549809.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183630029.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183638804.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183648295.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183701541.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183711081.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183740310.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183749882.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_005__Guatemala_Tata/PXL_20260827_184731579.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_005__Guatemala_Tata/PXL_20260827_184829348.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_005__Guatemala_Tata/PXL_20260827_184848415.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_005__Guatemala_Tata/PXL_20260827_184900901.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184145714.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184233456.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184245809.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184255232.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_006__Brazil_Cerrado/PXL_20260827_184304045.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183846296.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183907500.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183926181.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183944048.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183954783.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184002853.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184019805.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184038418.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185807199.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185816195.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185825373.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185834704.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185847122.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185906609.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185917457.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185927522.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185019541.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185028343.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185036462.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185045420.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185054898.jpg  box=False fallback=False px=0 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185113995.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-27__oneplus_flash/class_009__Vietnam_Robusta/PXL_20260827_185122731.jpg  box=False fallback=False px=3 boxes=0
+  2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124028306.jpg  box=False fallback=False px=2 boxes=0
+  2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124035387.jpg  box=False fallback=False px=1 boxes=0
+  2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124324645.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-11__pixel/class_011__Peru_Minca/PXL_20260911_052519526.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174728798.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174814080.jpg  box=False fallback=False px=2 boxes=0
+  2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175043854.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175346603.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_180052927.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_102202898.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_102246984.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_102841212.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103336653.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103614873.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103804228.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103843746.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__pixel/class_011__Peru_Minca/PXL_20260924_123018340.jpg  box=False fallback=False px=0 boxes=0
+  2026-09-24__pixel/class_011__Peru_Minca/PXL_20260924_123310255.jpg  box=False fallback=False px=1 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_200435.JPG  box=False fallback=False px=1 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_200454.JPG  box=False fallback=False px=0 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_200809.JPG  box=False fallback=False px=1 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_200826.JPG  box=False fallback=False px=1 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201151.JPG  box=False fallback=False px=1 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201534.JPG  box=False fallback=False px=0 boxes=0
+  2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201633.JPG  box=False fallback=False px=0 boxes=0
+  2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_150617.JPG  box=False fallback=False px=2 boxes=0
+  2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_152141.JPG  box=False fallback=False px=0 boxes=0
+  2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_153053.JPG  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_001__Ethiopia_Sidamo/PXL_20260927_103241427.jpg  box=False fallback=False px=2 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_20261008_092817.jpg  box=False fallback=False px=2 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_20261008_092822.jpg  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_9267.HEIC  box=False fallback=False px=1 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_9268.HEIC  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_9271.HEIC  box=False fallback=False px=1 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/IMG_9273.HEIC  box=False fallback=False px=1 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/PXL_20261006_064901464.jpg  box=False fallback=False px=7 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/PXL_20261008_042435945.jpg  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/PXL_20261009_070731539.jpg  box=False fallback=False px=1 boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/PXL_20261009_095251707.jpg  box=False fallback=False px=None boxes=0
+  random_date_raccoon/class_005__Guatemala_Tata/PXL_20261009_095300716.jpg  box=False fallback=False px=1 boxes=0
+  random_date_raccoon/class_009__Vietnam_Robusta/PXL_20261007_043818022.jpg  box=False fallback=False px=4 boxes=0
+  random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261007_055432129.jpg  box=False fallback=False px=2 boxes=0
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261003_061147257.jpg  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261003_061153572.jpg  box=False fallback=False px=0 boxes=0
+  random_date_raccoon/class_014__Colombia_Excelso/PXL_20261003_061158094.jpg  box=False fallback=False px=0 boxes=0
