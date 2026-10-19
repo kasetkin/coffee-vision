@@ -5,7 +5,8 @@
 Retired by ticket ML-5 (D3): the lists are frozen as ML-2 left them, and `build` and `check` refuse. Both
 read today's data, and ML-5 renamed the segmenter positives' folder to dataset/segmenter_positives and
 dropped its dev/holdout split (D1), so a rebuild could only move entries. build() stays as the recipe the
-lists were drawn with; the seg_* stages still read the file until ML-5 P8 repoints them.
+lists were drawn with; the seg_* stages still read the file until ML-5 P8 repoints them. Since ticket ML-8 (D2,
+D9) the manifests it read have no camera or scenario_tag column: the recipe runs only at its own commit.
 
 Every list names raw photos, because the segmenter sees whole photos, never crops:
 

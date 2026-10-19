@@ -10,8 +10,9 @@ The fit set:
   photo that would share a D13 group with a photo of the segmenter dataset's test split, which `ood_eval`
   measures the probe on (D4): the same bytes, or a burst shot within seg_dataset.GROUP_SECONDS of one on the
   same clock (`probe_beans`).
-- **Negatives**: the segmenter dataset's training and validation negatives whose tag is in
-  `ood_eval.CLEAN_NEGATIVE_TAGS`, imported rather than restated. Test negatives are never read here.
+- **Negatives**: every training and validation negative of the segmenter dataset (ticket ML-8 D9: no scenario
+  tags, and negatives are negatives; until then the fit took a list of "clean" tags, which left out the three
+  coffee-cherry photos of wrong_bean_type). Test negatives are never read here.
 
     python -m coffeecv.fit_ood_probe --checkpoint models/allrigs_dino3b16_seg_country_s123.pt
     python -m coffeecv.ood_eval --checkpoint models/allrigs_dino3b16_seg_country_s123.pt    # then measure
@@ -30,8 +31,7 @@ import numpy as np
 from coffeecv.class_list import load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT
 from coffeecv.infer import PROBE_THRESHOLD, _sha, inference_tta_for, load_model, probe_path_for, probe_score
-from coffeecv.ood_eval import (CLEAN_NEGATIVE_TAGS, Unmeasurable, _fit_logistic, embed_photo, id_photos,
-                               split_config)
+from coffeecv.ood_eval import Unmeasurable, _fit_logistic, embed_photo, id_photos, split_config
 from coffeecv.repo_files import rel
 from coffeecv.seg_dataset import SEG_DATASET_FILE, groups, load_seg_dataset, load_split_units, scan
 
@@ -39,9 +39,8 @@ FIT_SPLITS = ("train", "validation")
 
 
 def probe_negatives(photos: list[dict]) -> list[dict]:
-    """The segmenter dataset's training and validation negatives with a clean tag, in file order."""
-    return [e for e in photos
-            if e["source"] == "negative" and e["split"] in FIT_SPLITS and e["tag"] in CLEAN_NEGATIVE_TAGS]
+    """Every training and validation negative of the segmenter dataset, in file order."""
+    return [e for e in photos if e["source"] == "negative" and e["split"] in FIT_SPLITS]
 
 
 def probe_beans(beans: list[Path], photos: list[dict],
@@ -150,7 +149,6 @@ def main() -> None:
             "n_bean_photos_dropped_in_test": beans_in_test,
             "n_negative_photos": len(neg_rows),
             "n_patches_total": int(len(x)),
-            "clean_tags": sorted(CLEAN_NEGATIVE_TAGS),
             "n_patches": args.n_patches,
             "tta": tta,
         },

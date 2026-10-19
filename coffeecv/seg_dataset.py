@@ -15,7 +15,7 @@ and all internet positives. Its schema is `load_seg_dataset`'s, the reader every
   split units       photos the owner ties into one group by hand, in labels/ml5/split_units.yaml (ML-6 D11:
                     one scene on two clocks; `load_split_units`)
   split (D13, D16)  params.yaml seg_dataset.split's train/validation/test shares within each source, and
-                    within each (batch, tag) for negatives, whole groups at a time
+                    within each batch for negatives, whole groups at a time (ML-8 D9: no scenario tags)
   append-only (D11) a rebuild keeps every listed entry as it is and refuses a listed photo gone or changed;
                     photos new to the data are split on arrival, and the pool draw tops up to the new count
 """
@@ -47,9 +47,10 @@ INTERNET_POSITIVES = DATASET / "ood_positives_internet"
 SOURCES = ("segmenter_positive", "pool", "negative", "internet_positive")
 SPLITS = ("train", "validation", "test")
 GROUP_SECONDS = 120       # D13: shots this close form one group
-FIELDS = ("path", "sha256", "source", "batch", "tag", "folder", "split", "group")   # as written, in order
+FIELDS = ("path", "sha256", "source", "batch", "folder", "split", "group")   # as written, in order (no tag: ML-8 D9)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _NAME_TIME = re.compile(r"(?<!\d)(20\d{6})_(\d{6})")
+FILE_NAME_CLOCK = "local, file name"     # every file-name time, one clock (ML-8 D2)
 
 
 @dataclass(frozen=True)
@@ -112,14 +113,14 @@ def draw_pool(eligible: list[dict], n: int, rng: np.random.Generator) -> list[di
     return drawn
 
 
-IDENTITY = ("sha256", "source", "batch", "tag", "folder")    # what a listed photo may never change
+IDENTITY = ("sha256", "source", "batch", "folder")    # what a listed photo may never change
 
 
 def assign(candidates: list[dict], existing: list[dict], params: Params,
            ties: list[list[str]] = ()) -> list[dict]:
     """The dataset's entries, sorted by path. `candidates` is every photo in the data (`scan`'s records);
     `existing` is the committed file's entries, which come back unchanged (D11, append-only): a listed photo
-    gone from the data, or with other bytes, source, batch, tag or folder, is refused. Every non-pool
+    gone from the data, or with other bytes, source, batch or folder, is refused. Every non-pool
     candidate not yet listed joins, and pool photos are drawn until they match the segmenter positives in
     number (D12). A new photo whose group is already split takes that split; the other new groups are split
     per `split_groups`. `ties` are `load_split_units`' sets, passed to `groups`."""
@@ -165,17 +166,19 @@ def assign(candidates: list[dict], existing: list[dict], params: Params,
     return out
 
 
-def shot_time(exif: dict, camera: str, name: str) -> tuple[str, datetime] | None:
+def shot_time(exif: dict, name: str) -> tuple[str, datetime] | None:
     """(clock, time) of a shot, for the D13 grouping; only times on one clock are compared.
 
     1. EXIF DateTimeOriginal with OffsetTimeOriginal: ("utc", that instant). Every pool session's photos
        have both; ML-3's metadata strip keeps them (coffeecv.strip_metadata KEPT_TAGS).
     2. DateTimeOriginal without an offset: ("local <Make> <Model>", the camera's own clock).
     3. No EXIF time (a photo exported without it, or a renamed capture whose manifest keeps the camera's
-       file name, passed as `name`): the YYYYMMDD_HHMMSS in the name. A Pixel names its files in UTC
-       (0 s from the EXIF instant on all 622 Pixel photos with both, 2026-10-08), so `camera` "pixel" is
-       ("utc", ...); any other camera names them in local time ("local <camera>"): OnePlus and Sony did
-       (0 s from DateTimeOriginal), the OnePlus with a PXL_ prefix, so the prefix alone says nothing.
+       file name, passed as `name`): the YYYYMMDD_HHMMSS in the name, every name on one clock,
+       FILE_NAME_CLOCK (ticket ML-8 D2: the manifests have no camera column). A Pixel names its files in UTC
+       and other phones in local time, so this only coarsens the split: two phones' names at one minute may
+       chain, and a Pixel photo without an EXIF time no longer chains with its burst mates that have one. On
+       2026-10-19 21 of 2,046 photos took this path, and the rebuild changed no group. File-name times stay
+       in use: without them a burst could straddle the splits.
     4. Otherwise None: the photo groups by bytes and source URL only."""
     if exif.get("DateTimeOriginal"):
         t = datetime.strptime(exif["DateTimeOriginal"][:19], "%Y:%m:%d %H:%M:%S")
@@ -188,13 +191,13 @@ def shot_time(exif: dict, camera: str, name: str) -> tuple[str, datetime] | None
     m = _NAME_TIME.search(name)
     if m is None:
         return None
-    t = datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
-    return ("utc", t) if camera == "pixel" else (f"local {camera}", t)
+    return FILE_NAME_CLOCK, datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
 
 
 def stratum(e: dict) -> tuple:
-    """What the split is balanced within (D13): the source, and for negatives the (batch, tag) (D16)."""
-    return (e["source"], e["batch"], e["tag"]) if e["source"] == "negative" else (e["source"],)
+    """What the split is balanced within (D13): the source, and for negatives the batch (D16; ML-8 D9 dropped
+    the scenario tag from it)."""
+    return (e["source"], e["batch"]) if e["source"] == "negative" else (e["source"],)
 
 
 def groups(entries: list[dict], ties: list[list[str]] = ()) -> dict[str, str]:
@@ -203,8 +206,8 @@ def groups(entries: list[dict], ties: list[list[str]] = ()) -> dict[str, str]:
     one subject on one clock, chained while each is within GROUP_SECONDS of the one before.
     `time` is `shot_time`'s (clock, datetime) or None; two clocks are never compared. The subject is the
     beans for every positive source (a segmenter positive is often a pool photo's burst neighbour, on any
-    camera of the rig) and each (batch, tag) for negatives: a different negative scenario, or a negative
-    shot right after the beans, is a new subject (as ML-2's grouping had it)."""
+    camera) and each batch for negatives: a negative of another batch, or one shot right after the beans, is a
+    new subject (as ML-2's grouping had it). Until ML-8 D9 it was each (batch, tag)."""
     parent = {e["path"]: e["path"] for e in entries}
 
     def find(p: str) -> str:
@@ -277,7 +280,7 @@ def header(params: Params) -> str:
 # The segmenter dataset (ticket ML-5, D3, D11-D13, D16), written by `python -m coffeecv.seg_dataset build`.
 # Append-only (D11): a rebuild adds photos new to the data and never moves or drops a listed one. Read it
 # with coffeecv.seg_dataset.load_seg_dataset. source: segmenter_positive | pool | negative | internet_positive;
-# split: train | validation | test, {shares} within each source (each batch and tag for negatives); group:
+# split: train | validation | test, {shares} within each source (each batch for negatives); group:
 # byte-identical files, one source URL, and shots within {GROUP_SECONDS} s, named by their first path, never in two
 # splits. meta records the seed and shares the file was built with.
 """
@@ -286,8 +289,8 @@ def header(params: Params) -> str:
 def load_seg_dataset(path: Path = SEG_DATASET_FILE) -> list[dict]:
     """The `photos` list of the segmenter dataset file, checked. Each entry has `path` (repo-relative,
     unique), `sha256` (64 lower-case hex of the file), `source` (one of SOURCES), `split` (one of SPLITS)
-    and `group`; a negative also has `batch` (its folder under dataset/ood_negatives/) and `tag` (that
-    batch manifest's scenario_tag), a pool photo its session `folder`. Other keys are kept and ignored.
+    and `group`; a negative also has `batch` (its folder under dataset/ood_negatives/), a pool photo its session
+    `folder`. Other keys are kept and ignored (entries written before ML-8 D9 also had a scenario `tag`).
     Raises ValueError on the first entry that breaks a rule; the photos themselves need not be present
     (they are DVC-tracked)."""
     return read_seg_dataset(path)[1]
@@ -306,7 +309,7 @@ def read_seg_dataset(path: Path = SEG_DATASET_FILE) -> tuple[dict, list[dict]]:
             raise ValueError(f"{where}: not a mapping")
         missing = [k for k in ("path", "sha256", "source", "split", "group") if k not in e]
         if e.get("source") == "negative":
-            missing += [k for k in ("batch", "tag") if k not in e]
+            missing += [k for k in ("batch",) if k not in e]
         if missing:
             raise ValueError(f"{where}: missing {', '.join(missing)}")
         if e["source"] not in SOURCES:
@@ -374,7 +377,7 @@ def exif_dates(paths: list[Path]) -> dict[str, dict]:
 
 def scan(only: set[str] | None = None) -> list[dict]:
     """Every photo that may be in the dataset, as `assign`'s candidate records: path, sha256, source,
-    batch and tag (negatives), folder (pool), url (internet photos' manifest source_url, which also
+    batch (negatives), folder (pool), url (internet photos' manifest source_url, which also
     stands in for a shot time) and time (`shot_time`).
 
     `only` (repo-relative paths) describes just those photos, the same way, without the checks that every
@@ -389,11 +392,10 @@ def scan(only: set[str] | None = None) -> list[dict]:
     def photos(folder: Path) -> list[Path]:
         return sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in PHOTO_EXTENSIONS)
 
-    recs: list[tuple[dict, str, str]] = []          # (record, camera, name for the file-name time)
+    recs: list[tuple[dict, str]] = []               # (record, name for the file-name time)
     _require_checked_out(SEGMENTER_POSITIVES)
-    camera = {r["filename"]: r["camera"] for r in read_csv(DATASET / "segmenter_positives.manifest.csv")}
     for p in photos(SEGMENTER_POSITIVES):
-        recs.append(({"path": rel(p), "source": "segmenter_positive", "url": ""}, camera[p.name], p.name))
+        recs.append(({"path": rel(p), "source": "segmenter_positive", "url": ""}, p.name))
     for manifest in sorted(NEGATIVES.glob("*.manifest.csv")):
         batch = NEGATIVES / manifest.name.removesuffix(".manifest.csv")
         _require_checked_out(batch)
@@ -403,41 +405,41 @@ def scan(only: set[str] | None = None) -> list[dict]:
             raise ValueError(f"{rel(manifest)} does not list {unlisted}")
         for r in rows:
             recs.append(({"path": rel(batch / r["filename"]), "source": "negative", "batch": batch.name,
-                          "tag": r["scenario_tag"], "url": r["source_url"]}, r["camera"],
+                          "url": r["source_url"]},
                          "" if r["source_url"] else f"{r['source_title']} {Path(r['filename']).name}"))
     _require_checked_out(INTERNET_POSITIVES)
     for r in read_csv(DATASET / "ood_positives_internet.manifest.csv"):
         recs.append(({"path": rel(INTERNET_POSITIVES / r["filename"]), "source": "internet_positive",
-                      "url": r["source_url"]}, r["camera"], ""))
+                      "url": r["source_url"]}, ""))
     for session in sorted(d for d in DATASET.iterdir() if d.is_dir() and any(d.glob("class_*"))):
         _require_checked_out(session)
         for p in photos(session):
             if p.relative_to(session).parts[0].startswith("class_"):
-                recs.append(({"path": rel(p), "source": "pool", "folder": session.name, "url": ""}, "", p.name))
+                recs.append(({"path": rel(p), "source": "pool", "folder": session.name, "url": ""}, p.name))
     if only is not None:
         recs = [x for x in recs if x[0]["path"] in only]
-        unknown = sorted(set(only) - {r["path"] for r, _, _ in recs})
+        unknown = sorted(set(only) - {r["path"] for r, _ in recs})
         if unknown:
             raise ValueError(f"not a photo of the segmenter dataset's sources: {unknown}")
-    missing = [r["path"] for r, _, _ in recs if not (REPO_ROOT / r["path"]).is_file()]
+    missing = [r["path"] for r, _ in recs if not (REPO_ROOT / r["path"]).is_file()]
     if missing:
         raise FileNotFoundError(f"listed in a manifest but not on disk: {missing}")
-    exif = exif_dates([REPO_ROOT / r["path"] for r, _, _ in recs if not r["url"]])
+    exif = exif_dates([REPO_ROOT / r["path"] for r, _ in recs if not r["url"]])
     out = []
-    for r, cam, name in recs:
+    for r, name in recs:
         r["sha256"] = sha256_file(REPO_ROOT / r["path"])
-        r["time"] = None if r["url"] else shot_time(exif.get(r["path"], {}), cam, name)
+        r["time"] = None if r["url"] else shot_time(exif.get(r["path"], {}), name)
         out.append(r)
     return out
 
 
 def counts_table(entries: list[dict]) -> str:
-    """Photos per source (negatives also per batch and tag) and split."""
+    """Photos per source (negatives also per batch) and split."""
     rows: dict[str, Counter] = defaultdict(Counter)
     for e in entries:
         rows[e["source"]][e["split"]] += 1
         if e["source"] == "negative":
-            rows[f"  {e['batch']} / {e['tag']}"][e["split"]] += 1
+            rows[f"  {e['batch']}"][e["split"]] += 1
         rows["all"][e["split"]] += 1
     order = [s for s in SOURCES if s in rows]
     order[order.index("negative") + 1:order.index("negative") + 1] = sorted(k for k in rows if k.startswith("  "))

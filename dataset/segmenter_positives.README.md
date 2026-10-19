@@ -18,13 +18,14 @@ these photos (D2; the guard's code follows in ML-5 P3).
 | column | what |
 |---|---|
 | `filename` | the file in this folder |
-| `camera` | `pixel`, `sony`, `oneplus` and `iphone` are the rigs; `iphone_15_pro_max` and `oneplus_kb2005` are other phones (EXIF make and model) |
 | `date` | capture date (EXIF, local time) |
 | `batch` | the date the photo arrived here; the older batch names are in the history below |
 | `duplicate_of` | for a copy, the repo path of the photo it is a byte copy of (equal SHA-256); empty otherwise |
 | `notes` | what the photo shows, where it is unusual |
 
-The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by ML-5 P2: the segmenter dataset
+The `camera` column was dropped by ticket ML-8 (D2, 2026-10-19): its one reader was the segmenter dataset's
+shot time for a photo without an EXIF time, which now reads every file-name time on one local clock; its values
+are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenario_tag` columns were dropped by ML-5 P2: the segmenter dataset
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.

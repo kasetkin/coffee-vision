@@ -1,5 +1,5 @@
 """What the shipped probe is fitted on (ADR 0016, ticket ML-5 D16): `fit_ood_probe` takes its negatives from
-the segmenter dataset's training and validation splits, clean tags only, and drops from its bean photos any
+the segmenter dataset's training and validation splits, every one (ticket ML-8 D9: no tags), and drops from its bean photos any
 photo that would share a D13 group with a test photo, which `ood_eval` measures it on (D4): the same bytes,
 or a burst shot within seg_dataset.GROUP_SECONDS of one on the same clock. Plain unittest, on
 tests/fixtures/ml5_seg_dataset.yaml with stand-in shot times; no model and no photo.
@@ -52,7 +52,7 @@ class FakeScan:
         for path in sorted(only):
             e = self.listed.get(path, {"source": "pool", "sha256": hashlib.sha256(path.encode()).hexdigest()})
             sha = self.listed[POOL + "0000000.jpg"]["sha256"] if path == COPY else e["sha256"]
-            out.append({"path": path, "source": e["source"], "batch": e.get("batch"), "tag": e.get("tag"),
+            out.append({"path": path, "source": e["source"], "batch": e.get("batch"),
                         "url": "", "sha256": sha, "time": TIMES.get(path)})
         return out
 
@@ -62,10 +62,11 @@ class TestProbeFitSet(unittest.TestCase):
     def setUpClass(cls):
         cls.photos = seg_dataset.load_seg_dataset(FIXTURE)
 
-    def test_negatives_are_training_and_validation_ones_with_a_clean_tag(self):
+    def test_negatives_are_every_training_and_validation_one(self):
         self.assertEqual(
             [e["path"] for e in fit_ood_probe.probe_negatives(self.photos)],
             ["dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_003.jpg",
+             "dataset/ood_negatives/2026-09-11__user_samerig/sparse_beans/PIC_20260911_132500.JPG",
              "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132408.JPG"])
 
     def test_bean_photos_in_the_test_split_are_dropped(self):

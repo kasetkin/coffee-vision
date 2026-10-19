@@ -35,7 +35,6 @@ def photo(path: str, source: str, sha: str | None = None, **kw) -> dict:
         rec["folder"] = path.split("/")[1]
     if source == "negative":
         rec.setdefault("batch", "b1")
-        rec.setdefault("tag", "t1")
     rec.update(kw)
     return rec
 
@@ -80,13 +79,14 @@ class Split(unittest.TestCase):
         for source in ("segmenter_positive", "pool"):
             self.assertEqual(split_counts(out, source=source), {"train": 60, "validation": 15, "test": 25})
 
-    def test_negatives_split_within_each_batch_and_tag(self):
-        negs = [photo(f"dataset/ood_negatives/{b}/{t}/n{i}.jpg", "negative", batch=b, tag=t)
-                for b, t in (("b1", "empty_tray"), ("b1", "ground_coffee"), ("b2", "empty_tray"))
+    def test_negatives_split_within_each_batch(self):
+        # Ticket ML-8 D9: no scenario tag; a batch's subfolders are not strata.
+        negs = [photo(f"dataset/ood_negatives/{b}/{sub}/n{i}.jpg", "negative", batch=b)
+                for b, sub in (("b1", "empty_tray"), ("b1", "ground_coffee"), ("b2", "empty_tray"))
                 for i in range(20)]
         out = sd.assign(negs, [], PARAMS)
-        for b, t in (("b1", "empty_tray"), ("b1", "ground_coffee"), ("b2", "empty_tray")):
-            self.assertEqual(split_counts(out, batch=b, tag=t), {"train": 12, "validation": 3, "test": 5})
+        self.assertEqual(split_counts(out, batch="b1"), {"train": 24, "validation": 6, "test": 10})
+        self.assertEqual(split_counts(out, batch="b2"), {"train": 12, "validation": 3, "test": 5})
 
     def test_the_same_seed_gives_the_same_split(self):
         data = positives(40) + pool("a", 80)
@@ -133,15 +133,22 @@ class Groups(unittest.TestCase):
 
     def test_a_negative_shot_seconds_after_a_bean_photo_is_another_subject(self):
         sp = photo("dataset/segmenter_positives/b.jpg", "segmenter_positive", time=at(0))
-        neg = photo("dataset/ood_negatives/b1/empty_tray/n.jpg", "negative", tag="empty_tray", time=at(30))
+        neg = photo("dataset/ood_negatives/b1/empty_tray/n.jpg", "negative", time=at(30))
         out = sd.assign(self.background + [sp, neg], [], PARAMS)
         self.assertNotEqual(entry(out, sp["path"])["group"], entry(out, neg["path"])["group"])
 
-    def test_negatives_of_two_tags_shot_seconds_apart_are_two_subjects(self):
-        a = photo("dataset/ood_negatives/b1/t1/n.jpg", "negative", tag="confusable_grain", time=at(0))
-        b = photo("dataset/ood_negatives/b1/t2/n.jpg", "negative", tag="green_legume", time=at(30))
+    def test_negatives_of_two_batches_shot_seconds_apart_are_two_subjects(self):
+        a = photo("dataset/ood_negatives/b1/t1/n.jpg", "negative", batch="b1", time=at(0))
+        b = photo("dataset/ood_negatives/b2/t1/n.jpg", "negative", batch="b2", time=at(30))
         out = sd.assign(self.background + [a, b], [], PARAMS)
         self.assertNotEqual(entry(out, a["path"])["group"], entry(out, b["path"])["group"])
+
+    def test_negatives_of_one_batch_shot_seconds_apart_are_one_subject(self):
+        # Ticket ML-8 D9, R8: with no tag, a batch is the negatives' one subject.
+        a = photo("dataset/ood_negatives/b1/empty_tray/n.jpg", "negative", time=at(0))
+        b = photo("dataset/ood_negatives/b1/green_legume/n.jpg", "negative", time=at(30))
+        out = sd.assign(self.background + [a, b], [], PARAMS)
+        self.assert_one_group(out, [a["path"], b["path"]])
 
     def test_a_group_across_sources_shares_one_split(self):
         sp = [photo(f"dataset/segmenter_positives/s{i}.jpg", "segmenter_positive", time=at(1000 * i))
@@ -271,29 +278,29 @@ def _steps(t0: datetime, t1: datetime) -> list[datetime]:
 class ShotTime(unittest.TestCase):
     def test_exif_time_with_its_offset_is_utc(self):
         exif = {"DateTimeOriginal": "2026:09:11 18:00:00", "OffsetTimeOriginal": "+05:00", "Model": "G8441"}
-        self.assertEqual(sd.shot_time(exif, "sony", "PIC_20260911_180000.JPG"), ("utc", T0))
+        self.assertEqual(sd.shot_time(exif, "PIC_20260911_180000.JPG"), ("utc", T0))
 
     def test_exif_time_without_an_offset_is_that_cameras_local_clock(self):
         exif = {"DateTimeOriginal": "2026:10:08 09:28:17", "Make": "OnePlus", "Model": "KB2005"}
-        self.assertEqual(sd.shot_time(exif, "oneplus_kb2005", "IMG_20261008_092817.jpg"),
+        self.assertEqual(sd.shot_time(exif, "IMG_20261008_092817.jpg"),
                          ("local OnePlus KB2005", datetime(2026, 10, 8, 9, 28, 17)))
 
-    def test_without_exif_a_pixel_file_name_is_utc(self):
-        self.assertEqual(sd.shot_time({}, "pixel", "PXL_20260911_130000123.jpg"), ("utc", T0))
-
-    def test_without_exif_another_cameras_file_name_is_its_local_clock(self):
-        self.assertEqual(sd.shot_time({}, "sony", "PIC_20260911_130000.JPG"), ("local sony", T0))
+    def test_without_exif_every_file_name_is_read_on_one_local_clock(self):
+        # Ticket ML-8 D2: no camera column, so a Pixel's UTC file names are no longer told apart.
+        for name in ("PXL_20260911_130000123.jpg", "PIC_20260911_130000.JPG", "IMG_20260911_130000.jpg"):
+            with self.subTest(name=name):
+                self.assertEqual(sd.shot_time({}, name), (sd.FILE_NAME_CLOCK, T0))
+        self.assertNotIn(sd.FILE_NAME_CLOCK, ("utc", "local"))
 
     def test_no_exif_time_and_no_time_in_the_name_is_none(self):
-        self.assertIsNone(sd.shot_time({}, "internet", "internet_beans_001.jpg"))
+        self.assertIsNone(sd.shot_time({}, "internet_beans_001.jpg"))
 
 
 class Reader(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.path = Path(self.dir.name) / "seg_dataset.yaml"
-        negs = [photo(f"dataset/ood_negatives/b1/empty_tray/n{i}.jpg", "negative", tag="empty_tray")
-                for i in range(4)]
+        negs = [photo(f"dataset/ood_negatives/b1/empty_tray/n{i}.jpg", "negative") for i in range(4)]
         self.entries = stored(sd.assign(positives(4) + pool("a", 8) + negs, [], PARAMS))
 
     def tearDown(self):
@@ -317,12 +324,17 @@ class Reader(unittest.TestCase):
         self.assertEqual(meta, {"seed": 5, "split": {"train": 0.7, "validation": 0.1, "test": 0.2},
                                 "group_seconds": 90})
 
-    def test_refuses_a_negative_without_its_tag(self):
+    def test_refuses_a_negative_without_its_batch(self):
         bad = [dict(e) for e in self.entries]
-        del next(e for e in bad if e["source"] == "negative")["tag"]
+        del next(e for e in bad if e["source"] == "negative")["batch"]
         self.write_photos(bad)
-        with self.assertRaisesRegex(ValueError, "missing tag"):
+        with self.assertRaisesRegex(ValueError, "missing batch"):
             sd.load_seg_dataset(self.path)
+
+    def test_writes_no_tag(self):
+        # Ticket ML-8 D9: a record that still carries a tag does not write it.
+        sd.write_seg_dataset(PARAMS, [dict(e, tag="t1") for e in self.entries], self.path)
+        self.assertNotIn("tag", self.path.read_text())
 
     def test_refuses_a_split_not_written_out_in_full(self):
         self.write_photos([dict(self.entries[0], split="val")] + self.entries[1:])
@@ -371,6 +383,9 @@ class CommittedFile(unittest.TestCase):
         self.assertTrue(units)
         for unit in units:
             self.assertEqual(len({group[p] for p in unit if p in group}), 1, unit)
+
+    def test_no_entry_has_a_tag(self):
+        self.assertEqual([e["path"] for e in self.photos if "tag" in e], [])
 
     def test_no_pool_photo_is_a_copy_of_a_segmenter_positive(self):
         positive = {e["sha256"] for e in self.photos if e["source"] == "segmenter_positive"}

@@ -5,12 +5,12 @@ classification. This module scores every **test** photo of `labels/ml5/seg_datas
 path (`patches_for_photo`, so the segmenter's crop or its whole-frame fallback, then `probe_score`) and
 reports:
 
-- negatives caught: probe score above the threshold, overall and per scenario tag;
+- negatives caught: probe score above the threshold, overall and per batch (ticket ML-8 D9: no scenario tags);
 - positives refused (segmenter positives, pool photos, internet positives), per source and apart by whether
   the classifier trained on the photo: its train split holds a file with the same sha256. Segmenter
   positives are often byte copies of pool photos, so the bytes decide, not the path;
 - beside the probe (D9, D22): the segmenter's empty-mask rate on the test negatives, and its empty-or-tiny
-  rate (a mask under the checkpoint's seg_min_area_frac, the D18 fallback serving takes), overall and per tag.
+  rate (a mask under the checkpoint's seg_min_area_frac, the D18 fallback serving takes), overall and per batch.
   Not a guard: the probe refuses, these say how often the segmenter alone would have.
 
 A photo `classify_one` cannot measure (no bean pitch) counts as caught or refused, because that is what the
@@ -45,14 +45,6 @@ from coffeecv.repo_files import sha256_file
 from coffeecv.seg_dataset import SEG_DATASET_FILE, SOURCES, load_seg_dataset
 from coffeecv.transforms import build_eval_transform
 
-# Tags whose every patch is unambiguously not-beans, so a patch-level probe can
-# be trained from the photo-level tag. An empty tray has no bean patches; a
-# sparse scattering of beans does, so those tags are deliberately absent.
-# Module-level because `fit_ood_probe` fits the shipped probe from exactly this set.
-CLEAN_NEGATIVE_TAGS = frozenset({"empty_tray", "ground_coffee", "confusable_grain",
-                                  "other_nuts_seeds", "non_food_objects",
-                                  "real_world_negatives", "green_legume"})
-
 class Measured(NamedTuple):
     """One photo through the serving path: the probe's score (None: unmeasurable, which classify_one refuses)
     and what the segmenter gave (None: not known, as on an unmeasurable photo or a checkpoint without one)."""
@@ -83,11 +75,11 @@ def guard_report(photos: list[dict], measure: Callable[[str], Measured], trained
         if e["split"] != "test":
             continue
         m = measure(e["path"])
-        rows.append({"path": e["path"], "source": e["source"], "tag": e.get("tag"), "score": m.score,
+        rows.append({"path": e["path"], "source": e["source"], "batch": e.get("batch"), "score": m.score,
                      "over": m.score is None or m.score > threshold, "trained": e["sha256"] in trained_sha256,
                      "empty": m.empty, "empty_or_tiny": m.empty_or_tiny})
     neg = [r for r in rows if r["source"] == "negative"]
-    tags = sorted({r["tag"] for r in neg})
+    batches = sorted({r["batch"] for r in neg})
     pos = [r for r in rows if r["source"] != "negative"]
 
     def by_training(group: list[dict]) -> dict:
@@ -98,9 +90,10 @@ def guard_report(photos: list[dict], measure: Callable[[str], Measured], trained
         "threshold": threshold,
         "min_area_frac": min_area_frac,
         "negatives": {"all": _counts(neg, "caught"),
-                      "by_tag": {t: _counts([r for r in neg if r["tag"] == t], "caught") for t in tags},
+                      "by_batch": {b: _counts([r for r in neg if r["batch"] == b], "caught") for b in batches},
                       "segmenter": {"all": _seg_counts(neg),
-                                    "by_tag": {t: _seg_counts([r for r in neg if r["tag"] == t]) for t in tags}}},
+                                    "by_batch": {b: _seg_counts([r for r in neg if r["batch"] == b])
+                                                 for b in batches}}},
         "positives": {**{s: by_training([r for r in pos if r["source"] == s])
                          for s in SOURCES if s != "negative"},
                       "all": by_training(pos)},
@@ -121,11 +114,11 @@ def format_report(report: dict) -> str:
     neg = report["negatives"]
     out = [f"test split, probe threshold {thr} (fixed, ADR 0016)",
            line(f"negatives caught at {thr}", neg["all"], "caught").strip()]
-    out += [line(f"  {tag}", c, "caught") for tag, c in neg["by_tag"].items()]
+    out += [line(f"  {batch}", c, "caught") for batch, c in neg["by_batch"].items()]
     tiny = f"area < {report['min_area_frac']:g}" if report.get("min_area_frac") is not None else "tiny"
     seg = neg["segmenter"]
     out.append("segmenter on the test negatives (beside the probe, not a guard; D9, D22):")
-    for label, c in (("all", seg["all"]), *((f"  {t}", c) for t, c in seg["by_tag"].items())):
+    for label, c in (("all", seg["all"]), *((f"  {b}", c) for b, c in seg["by_batch"].items())):
         un = f"; {c['unknown']} unknown (unmeasurable or no segmenter)" if c["unknown"] else ""
         out.append(f"  {label}: empty mask: {c['empty']}/{c['n']}, empty or tiny ({tiny}): "
                    f"{c['empty_or_tiny']}/{c['n']}{un}")

@@ -46,16 +46,16 @@ class TestTestSplitReport(unittest.TestCase):
     def test_negatives_caught(self):
         self.assertEqual(self.report["threshold"], 0.5)
         self.assertEqual(self.report["negatives"]["all"], {"n": 3, "caught": 2, "unmeasurable": 1})
-        self.assertEqual(self.report["negatives"]["by_tag"],
-                         {"empty_tray": {"n": 2, "caught": 1, "unmeasurable": 0},
-                          "real_world_negatives": {"n": 1, "caught": 1, "unmeasurable": 1}})
+        self.assertEqual(self.report["negatives"]["by_batch"],
+                         {"2026-09__internet_proxy": {"n": 2, "caught": 1, "unmeasurable": 0},
+                          "user_realworld": {"n": 1, "caught": 1, "unmeasurable": 1}})
 
     def test_the_segmenters_empty_and_empty_or_tiny_rate_on_test_negatives(self):
         seg = self.report["negatives"]["segmenter"]
         self.assertEqual(seg["all"], {"n": 3, "empty": 1, "empty_or_tiny": 2, "unknown": 1})
-        self.assertEqual(seg["by_tag"], {"empty_tray": {"n": 2, "empty": 1, "empty_or_tiny": 2, "unknown": 0},
-                                         "real_world_negatives": {"n": 1, "empty": 0, "empty_or_tiny": 0,
-                                                                  "unknown": 1}})
+        self.assertEqual(seg["by_batch"], {"2026-09__internet_proxy": {"n": 2, "empty": 1, "empty_or_tiny": 2,
+                                                                       "unknown": 0},
+                                           "user_realworld": {"n": 1, "empty": 0, "empty_or_tiny": 0, "unknown": 1}})
         self.assertEqual(self.report["min_area_frac"], 0.083)
         text = ood_eval.format_report(self.report)
         self.assertIn("segmenter on the test negatives", text)
@@ -79,6 +79,7 @@ class TestTestSplitReport(unittest.TestCase):
     def test_the_printout_names_every_count(self):
         text = ood_eval.format_report(self.report)
         self.assertIn("negatives caught at 0.5: 2/3", text)
+        self.assertIn("  user_realworld: 1/1", text)
         self.assertIn("not trained on", text)
 
 
@@ -103,7 +104,7 @@ class TestLoadSegDataset(unittest.TestCase):
     def test_refuses_what_the_schema_forbids(self):
         cases = {"an unknown source": [{"source": "ood_positive"}],
                  "a split not written out": [{"split": "val"}],
-                 "a negative without its tag": [{"source": "negative", "extra": "  batch: b\n"}],
+                 "a negative without its batch": [{"source": "negative"}],
                  "a short sha256": [{"sha": "abc"}],
                  "a path twice": [{}, {"sha": "b" * 64}]}
         for name, entries in cases.items():

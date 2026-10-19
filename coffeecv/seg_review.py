@@ -751,8 +751,8 @@ def paired_report(items: list[dict], verdicts: dict[str, dict[str, bool]],
                   neg_masks: dict[str, list[tuple[str, np.ndarray]]], min_area_frac: float) -> dict:
     """D22: per source and overall, both pass / first only / second only / both fail, and the exact McNemar
     p-value on the discordant pairs; each model's empty and empty-or-tiny masks on the test negatives (the
-    D18 rule: no pixel, or an area under `min_area_frac`), overall and per "batch / tag" (ML-6 R1, D6):
-    `neg_masks` {model: [(batch / tag, mask)]}. Models in the items' order."""
+    D18 rule: no pixel, or an area under `min_area_frac`), overall and per batch (ML-6 R1, D6; per "batch / tag"
+    until ML-8 D9): `neg_masks` {model: [(batch, mask)]}. Models in the items' order."""
     names = items[0]["names"]
     counts: dict[str, Counter] = {}
     for it in items:
@@ -899,7 +899,7 @@ def main(argv: list[str] | None = None) -> None:
         dirs = [d if d.is_absolute() else REPO_ROOT / d for d in args.masks]
         items = paired_items(entries, dirs)
         verdicts = paired_verdicts(items, LABELS_DIR / f"{args.session}.paired.jsonl", seed)
-        batch_of = {e["path"]: f"{e['batch']} / {e['tag']}" for e in entries if e["source"] == "negative"}
+        batch_of = {e["path"]: e["batch"] for e in entries if e["source"] == "negative"}
         neg_masks = {d.name: [(batch_of[r["path"]], np.array(Image.open(d / f"{r['id']}.png")) > 0)
                               for r in read_csv(d / "index.csv") if r.get("source") == "negative"] for d in dirs}
         rep = paired_report(items, verdicts, neg_masks, cfg.seg_min_area_frac)

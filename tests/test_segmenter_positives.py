@@ -21,7 +21,7 @@ from tests._tiers import real_data
 
 FOLDER = REPO_ROOT / "dataset" / "segmenter_positives"
 MANIFEST = FOLDER.parent / f"{FOLDER.name}.manifest.csv"
-COLUMNS = ["filename", "camera", "date", "batch", "duplicate_of", "notes"]
+COLUMNS = ["filename", "date", "batch", "duplicate_of", "notes"]   # no camera (ticket ML-8 D2)
 
 
 def rows() -> list[dict]:

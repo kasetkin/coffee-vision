@@ -7,8 +7,8 @@ coffee beans. Used only to evaluate OOD/content-guard candidate methods
 
 ## Isolation from the training pipeline (do not change)
 
-- Scenario subfolders (`empty_tray/`, `confusable_grain/`, etc.) are free-text tags, **not**
-  class directories. Never rename anything under here to the `class_NNN__Label` pattern
+- Subfolders (`empty_tray/`, `confusable_grain/`, etc.) only organise the files: they are **not**
+  class directories, and since ticket ML-8 (D9, 2026-10-19) not tags either: nothing reads them. Never rename anything under here to the `class_NNN__Label` pattern
   that `coffeecv/dataset.py`'s `discover_classes_multi`/`find_class_dir` look for.
 - Never add any path under `dataset/ood_negatives/` to `params.yaml`'s `train_rigs` or
   `heldout_rig`, or to `coffeecv/run_folds.py`'s `RIGS` list. Both are explicit, hardcoded
@@ -22,7 +22,15 @@ coffee beans. Used only to evaluate OOD/content-guard candidate methods
 
 Each subdirectory is one capture/collection batch, DVC-tracked the same way as
 `dataset/<session>/` (one `.dvc` pointer file per batch), with its own `manifest.csv`
-(`filename, scenario_tag, camera, split, date, source_title, source_url, notes`).
+(`filename, split, date, source_title, source_url, notes`).
+
+**No scenario tags, no camera column** (ticket ML-8 D2, D9, 2026-10-19): negatives are negatives. The
+segmenter dataset (`labels/ml5/seg_dataset.yaml`) splits newly added negatives within their batch, the OOD
+probe (`coffeecv.fit_ood_probe`) fits on every training and validation negative, and `coffeecv.ood_eval`
+reports by batch. The manifests' `scenario_tag` and `camera` columns were dropped then; their values are in git
+history (`2026-10-18`'s ingest, `554a2a4`, is the last commit with them). A new negative goes into
+`user_realworld/` (D5) with a manifest row and no tag or camera. Below, "tag" and "camera" describe what the
+columns held.
 
 - **`2026-09__internet_proxy/`** — 100 images downloaded from Wikimedia Commons (CC/public
   domain), one per row of `manifest.csv`, each visually vetted before inclusion. This is a
@@ -33,8 +41,10 @@ Each subdirectory is one capture/collection batch, DVC-tracked the same way as
   scenario tag, seeded) was assigned before any scoring — holdout must stay untouched until
   a single final check, never iteratively re-tuned against.
 
-  Scenario tags: `empty_tray`, `ground_coffee`, `confusable_grain`, `other_nuts_seeds`,
-  `non_food_objects`, `wrong_bean_type`. `partial_beans` was planned but deliberately left
+  Subfolders (the former tags): `empty_tray`, `ground_coffee`, `confusable_grain`, `other_nuts_seeds`,
+  `non_food_objects`, `wrong_bean_type`. Despite its name, `wrong_bean_type` holds three coffee-cherry photos
+  (dried cherries on a tray, cherry husk, cascara), no other bean species; since ML-8 D9 the probe fits on them
+  like any other negative (until then it left them out). `partial_beans` was planned but deliberately left
   empty — stock photos of "a few beans thinly scattered on a tray" don't really exist; that
   tag needs a real shoot. Green/unroasted coffee beans were collected and then **removed**:
   the training set already contains such photos as legitimate examples, so they are not

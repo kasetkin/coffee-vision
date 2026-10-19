@@ -149,7 +149,7 @@
 
   <h2>5. P3 &mdash; no camera column, no scenario tags</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: the commit <code>ML-8 P3</code>; the rebuild keeps every listed split and group value (0 added, the file loses its 612 tags and one header line); in memory two pairs of listed train groups chain into one each (Activity)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Ticket D2 (the column) and D9 (the tags). <code>shot_time</code> reads a file-name time, for a photo with no EXIF
@@ -308,6 +308,20 @@
       the new <code>augment.py</code> and <code>sam_loader.py</code>; the last changed in ML-7 P8 (<code>0f7617a</code>)
       only by moving two imports into <code>build_sam</code>, so the stage is recorded with <code>dvc commit</code>, its
       outputs' md5 unchanged.</div>
+    <div><div class="when">2026-10-19</div>P3 done. Measured first, writing nothing: the rebuild in memory with no
+      camera and no tag keeps every listed entry's split and group value, and adds no photo. Compared as partitions,
+      not only entry by entry (<code>assign</code> returns listed entries as stored, so the rebuild test cannot see a
+      merge within one split), 625 committed groups become 623: (1) <code>2026-09-11__user_samerig</code>'s
+      <code>green_legume</code> group (last shot 06:33:55 UTC) and its <code>confusable_grain</code> group (first
+      06:35:33) are 98 s apart, so with one subject per batch they chain, as R8 foresaw; (2) three iPhone pool photos
+      (<code>IMG_6297</code>, <code>IMG_6303D</code>, <code>IMG_6310</code>) chain under today's code too: a later pool
+      draw bridged two listed groups, whose stored names never change. Both pairs are in train, so no listed split
+      moves; merging only coarsens the split. Reported to the owner at P4's stop rather than stopping here, since
+      nothing written changes. 21 photos read a file-name time, now on one clock. Not changed:
+      <code>seg_eval</code>, ML-2's frozen stage, reads the tags of ML-2's frozen <code>labels/ml2/photo_lists.yaml</code>,
+      a historical record, not a manifest; editing it would only make its frozen stages stale.
+      <code>seg_ml5_predict@*</code> list the dataset file as a dep and were stale already from P1's append (new test
+      negatives without stored masks); the segmenter is out of scope (D3).</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
