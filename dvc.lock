@@ -2131,11 +2131,11 @@ stages:
       nfiles: 138
     - path: labels/ml3/pool_exclude.csv
       hash: md5
-      md5: 6b6880acfe39bf12b216dc727d30663e
-      size: 1793
+      md5: e51f89b4cfce29c8462e7273bc349ae8
+      size: 2377
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: 591b67b9003d5619c7b7d9c572b47bc6.dir
-      size: 3455794434
-      nfiles: 2511
+      md5: a65074b8432234ad11994bf431b1abc3.dir
+      size: 3433062799
+      nfiles: 2502

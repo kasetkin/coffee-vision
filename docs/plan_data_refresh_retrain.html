@@ -167,7 +167,7 @@
 
   <h2>6. P4 &mdash; one re-crop, compared with ML-6's <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-19: re-cropped (16 <code>segcrop@*</code> stages, 58 min) and compared (<code>analysis/ml8/p4_recrop_report.txt</code>: on 1,256 photos no box or fallback changed, crop masks moved at most 7 px, no D17 patch box moved); waiting on the owner&#39;s verdict on the 20 new crops (D11)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: the commits <code>ML-8 P4</code>; re-cropped and compared (<code>analysis/ml8/p4_recrop_report.txt</code>: on 1,256 photos no box or fallback changed, crop masks moved at most 7 px, no D17 patch box moved); the owner accepted 14 of the 20 new crops and declined 6 (<code>pool_exclude.csv</code>); the pool is 1,251 crops</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>Ticket D1 with D3 (b): every session cropped once by XL0-v3 and today's code. The comparison is R3's: what ML-7's
@@ -364,6 +364,18 @@
       augmented one on 54,000 rows 163 s; peak RSS 5.5 GB (the augmented fit; 4.5 GB while the patches are held), of
       about 7 GB available. Estimate for P7: 2.64 h of embedding per seed plus the build and fits, about 2.8 h; about
       8.5 h for three. ADR 0025 written; the ticket's D4 links it.</div>
+    <div><div class="when">2026-10-19</div>P4 done: the owner's verdict on the 20 new crops (D11) on the review page
+      (<code>coffeecv.review_masks</code>; items from <code>analysis/ml8/p4_review_items.py</code>, decisions in
+      <code>labels/ml2/review/ml8_p4_new_crops.decisions.jsonl</code>). The first items drew the crop's mask placed
+      back in the photo, whose edges run straight along the crop box (D4 cuts up to 1.25% of the bean pixels from each
+      side); the owner caught it, and the items now draw the segmenter's full-frame mask, as the live site does,
+      recomputed at the stage's 4 threads and equal to the <code>mask_sha256</code> segcrop recorded for every one of
+      the 20. The 5 verdicts given on the first masks were given again. Accepted 14; declined 6: the three D18
+      fallbacks (#2 and #5, class 013; #8, class 014) and three class 014 masks (#18, #19, #20), appended to
+      <code>labels/ml3/pool_exclude.csv</code>. <code>merge_segpool</code> re-run: 1,251 crops, 25 excluded; class 013
+      keeps 10 photos, class 014 19. <code>split_report</code>: no country is starved of a split; one coffee &times;
+      split cell is empty by chance, 013's validation (D7, accepted), its country Brazil having validation photos from
+      006 and 007.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
