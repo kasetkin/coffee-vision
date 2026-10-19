@@ -178,18 +178,22 @@
           alone is measured on one data state (D4).</td></tr>
       <tr><td class="id">R2</td><td><strong>Augmentation may show no gain in-distribution.</strong></td>
         <td>Val sits near ceiling and in-distribution (README; ML-1 R1, R2); augmentation's promise is robustness to new
-          cameras, light and bags, which no split here measures. The owner adopted it regardless (D4); the paired print
-          says what it does to the numbers we have.</td></tr>
+          cameras, light and bags, which no split here measures. The split is by single photo
+          (<code>dataset.split_photos_by_class</code>), with no burst grouping, so near-duplicate shots of one tray can
+          sit in train and test; that rewards memorisation, and a flat or negative delta is what it would show even if
+          augmentation helps real uploads. The owner adopted it regardless (D4); the paired print, at equal total sample
+          weight in both arms (plan P6), says what it does to the numbers we have.</td></tr>
       <tr><td class="id">R3</td><td><strong>The re-crop's changes hide inside the retrain.</strong></td>
         <td>ML-7's port moves masks. Before anything trains, compare the re-crop with P8's recorded crops on the photos
           both have: crop boxes, fallbacks, mask pixels, and what changes in the patches placed by the D17 rule.</td></tr>
       <tr><td class="id">R4</td><td><strong>Time and memory of augmentation.</strong></td>
         <td>Each view of every training patch is a backbone pass. At K = 8 and 600 patches per class: 6,000 &times; 9
           views at 146.5 ms, about 2.2 h per seed plus val and test, about 7 h for three seeds, during which the host
-          runs nothing else heavy. The unaugmented arm reuses the originals' embeddings (about 20 s more). Memory: the
-          training split's stored patches take about 3.6 GB, the embeddings about 330 MB, against about 7 GB available;
-          augmented images are made and embedded in batches and dropped. A smoke fit measures time and peak RAM first
-          (plan P6).</td></tr>
+          runs nothing else heavy. The unaugmented arm reuses the originals' embeddings. Memory: the training split's
+          stored patches take about 3.6 GB, the embeddings about 330 MB, and the head fits' float64 copies of about
+          54,000 rows about 660 MB each, against about 7 GB available; augmented images are made and embedded in batches
+          and dropped. A smoke fit measures time per view; peak RAM is measured on one full-size training split, which
+          the smoke's 6 patches per class cannot show (plan P6).</td></tr>
       <tr><td class="id">R5</td><td><strong>Disk.</strong></td>
         <td>19 GB free; a second set of crops is 6.4 GB. The re-crop replaces the stage outputs in place and the old
           ones stay in the DVC cache; check free space before it, and push and verify before any <code>dvc gc</code>.</td></tr>
@@ -361,6 +365,11 @@
       ignored arguments, the <code>allrigs</code> names, patch memory), Before and after, What does not change (the library
       version, D12), R4's numbers at K = 8, new R7&ndash;R9, ADR 0024 and 0025 named in D2 and D4, acceptance for
       D10&ndash;D12, Out of scope (the upgrade, feature-space augmentation). No decision changed. Not implemented.</div>
+    <div><div class="when">2026-10-19</div>A data-science review of the plan at the owner's request; the plan's findings
+      6&ndash;9 revise P5&ndash;P7: equal total sample weight in the paired print, <code>Affine</code> and
+      <code>CoarseDropout</code> fills, the camera family at 224 px, every live reader of the camera pools and the DINOv3
+      fixture in P5, RAM measured at full size. R2 now names the split's near-duplicate shots; R4's memory line is
+      corrected. No decision changed. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="plan_data_refresh_retrain.html">ML-8 plan</a>, <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_inference_runtime.html">ML-7</a>,

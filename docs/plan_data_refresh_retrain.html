@@ -12,7 +12,7 @@
     comes first; the first step that changes a number is the classifier fit in P7.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-19; Q1&ndash;Q3 answered 2026-10-19 (ticket D10&ndash;D12); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-19; Q1&ndash;Q3 answered 2026-10-19 (ticket D10&ndash;D12); reviewed 2026-10-19 (P5&ndash;P7 revised); not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_data_refresh_retrain.html"><code>ticket_data_refresh_retrain.html</code></a> (ML-8)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -51,6 +51,32 @@
     </ol>
   </div>
 
+  <div class="callout info">
+    <p>A data-science review of 2026-10-19, checked against the code and against albumentations 2.0.8 on this host,
+      found four more. Each is folded in below; none changes a ticket decision.</p>
+    <ol start="6">
+      <li><b>The paired print changed two things at once.</b> The head is sklearn <code>LogisticRegression</code>, whose
+        loss is C times the sum over rows, so 9&times; the rows at the same C = 0.1 is about 9&times; weaker
+        regularisation. The augmented arm now fits with a sample weight of 1/9, so both arms carry the same total weight
+        and augmentation is the only difference (ADR 0002, <code>docs/agents/experiments.md</code>). P6, P7.</li>
+      <li><b><code>Affine(scale=(0.9, 1.1))</code> filled its borders with black.</b> The 2.0.8 defaults are
+        <code>border_mode=BORDER_CONSTANT</code> and <code>fill=0</code>; at scale 0.9 the corner pixel came out
+        <code>[0, 0, 0]</code>, the filled corners this plan leaves rotation out for. It now reflects
+        (<code>BORDER_REFLECT_101</code>). <code>CoarseDropout</code> fills with the ImageNet mean, as the ResNet-era
+        random erasing did, instead of black. P6.</li>
+      <li><b>Most of the camera-pipeline family did not reach the model.</b> Patches are stored at 448 px and the model
+        sees 224 (<code>patch_resize</code>). <code>Downscale(0.5&ndash;0.9)</code> at 448 never drops below 224, so the
+        resize undoes it; what survived was the default <code>INTER_NEAREST</code> aliasing, which no phone makes. Blur
+        and noise were halved by the 2&times; resize. The family now runs on the patch already resized to 224, so its
+        strengths are in the model's input pixels, and <code>Downscale</code> uses area down and linear up. P6.</li>
+      <li><b>P5 missed what reads the camera pools.</b> <code>coffeecv_dino/reference.py</code>'s
+        <code>REFERENCE_RIG</code> is <code>data/segcropped/cam_iphone</code>, and the DINOv3 parity and real-crop
+        tests are <code>skipUnless</code> those crops exist: once <code>cam_iphone</code> goes they skip silently and
+        <code>check.sh</code> stays green. The fixture regeneration that <code>docs/agents/experiments.md</code> requires
+        after a re-crop was in no phase. P5.</li>
+    </ol>
+  </div>
+
   <h2>1. Phase order and why</h2>
   <p>P1 commits what is already done. P2 and P3 change code and records only, each proved against today's outputs:
     the segmenter's pipeline builds identically through the strict builder, and the segmenter dataset rebuilds equal
@@ -64,7 +90,7 @@
       <tr><td class="id">P2</td><td>The strict augmentation builder, shared with the segmenter</td><td>local</td><td>no: the segmenter's pipeline builds identically</td></tr>
       <tr><td class="id">P3</td><td>No <code>camera</code> column, no scenario tags (D2, D9)</td><td>local</td><td>no: the segmenter dataset rebuilds equal</td></tr>
       <tr><td class="id">P4</td><td>One re-crop with XL0-v3 and today's code, compared with ML-6's <span class="pill sm open">stop</span></td><td>local, owner</td><td>crops only, reported</td></tr>
-      <tr><td class="id">P5</td><td>One pool and the 600/160/160 budget (D2, D8)</td><td>local</td><td>no model yet: the split and patch draw move</td></tr>
+      <tr><td class="id">P5</td><td>One pool and the 600/160/160 budget (D2, D8); the DINOv3 fixture from the pool</td><td>local, owner</td><td>no model yet: the split and patch draw move</td></tr>
       <tr><td class="id">P6</td><td>Augmentation in the head fit, K = 8 (D4)</td><td>local</td><td>smoke subset only</td></tr>
       <tr><td class="id">P7</td><td>The classifier at 42, 123, 7; reference and probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
       <tr><td class="id">P8</td><td>LiteRT export, gates, deploy <span class="pill sm open">stop</span></td><td>local, <code>webappremote</code>, owner</td><td>no: held to ADR 0020's bars</td></tr>
@@ -166,8 +192,10 @@
     <li><span class="box"></span><span><code>dvc.yaml</code>: <code>merge_segpool</code> in, <code>merge_segcam_*</code> out, the notes rewritten without cameras or rigs.</span></li>
     <li><span class="box"></span><span><code>dataset.CAPTURES</code> and <code>params.yaml</code> <code>train_capture_dirs</code> name the one pool; the budget is <code>train_patches_per_class: 600</code>, <code>val_patches_per_class: 160</code>, <code>test_patches_per_class: 160</code>, per class over the pool; <code>capture_idx</code> leaves the patch seed.</span></li>
     <li><span class="box"></span><span><code>coverage_report</code> counts per class (and per session, if useful), not per camera; <code>merge_rig</code>'s camera-model comments go.</span></li>
+    <li><span class="box"></span><span>Every live reader of the four pools moves to the one pool: <code>config.py</code>, <code>dataset.py</code>, <code>ood_eval.py</code> (its merged-pool note), <code>repro_utils.py</code> (the directory-to-stage map gains <code>merge_segpool</code>), <code>coffeecv_dino/reference.py</code> and <code>bench.py</code>, <code>scripts/make_dinov3_fixture.py</code>, and the tests <code>test_dino_backbone</code>, <code>test_dino_head</code>, <code>test_frozen_checkpoint</code>, <code>test_model_and_ood_loading</code>, <code>test_ood_id_photos</code> and <code>test_seg_parity</code>. Historical records stay as written: <code>seg_lists.py</code>'s ML-2 lists, <code>labels/ml2/photo_lists.yaml</code>, <code>analysis/</code>.</span></li>
+    <li><span class="box"></span><span>The DINOv3 reference draws from a fixed list of pool photos (one per class, as from <code>cam_iphone</code> today), not from a camera's pool; regenerate <code>tests/fixtures/dinov3_vits16_reference.npz</code> with <code>scripts/make_dinov3_fixture.py</code> and commit it beside the pool (<code>docs/agents/experiments.md</code>, "Changing the segmenter", step 2). The script runs Meta's dinov3 at a pinned commit: the owner runs it, or says Claude may.</span></li>
     <li><span class="box"></span><span>ADR 0024: no camera or rig in the data or training pipeline; supersedes ADR 0010. The ticket's D2 links it.</span></li>
-    <li><span class="box"></span><span>Checks: <code>python -m coffeecv.split_report</code> with no empty split cell; <code>dvc status</code> current for every crop stage; the fast and full tiers green.</span></li>
+    <li><span class="box"></span><span>Checks: <code>python -m coffeecv.split_report</code> with no empty split cell; <code>dvc status</code> current for every crop stage; the fast and full tiers green, and the real-crop tests listed above <em>ran</em>: compare the tiers' skip lists before and after P5, and none of them may newly skip.</span></li>
   </ol>
 
   <h2>8. P6 &mdash; augmentation in the head fit</h2>
@@ -179,16 +207,23 @@
     built by P2's builder. For the training split, <code>fit_frozen_head</code> embeds each patch as stored and 8
     augmented views of it, drawn from the in-memory array in batches, seeded by (run seed, patch index, view), and keeps
     only the embeddings. Validation and test go through the eval transform alone. The same run also fits a head on the
-    originals alone, the unaugmented arm of ADR 0002's print, for about 20 s more.</p>
+    originals alone, the unaugmented arm of ADR 0002's print.</p>
+  <p>Both arms fit at C = 0.1 with the same total sample weight: each of the 9 rows of a training patch (the original
+    and 8 views) weighs 1/9 in the augmented arm, 1 in the unaugmented one. Without it the augmented arm would also be
+    regularised about 9&times; less (sklearn's loss is C times the sum over rows), and the print could not tell
+    augmentation from the change in C (finding 6). Each arm's diagnostic val-picked C is recorded beside it.</p>
+  <p>Geometry, occlusion and colour act on the stored 448 px patch. The camera-pipeline family acts on the patch after
+    the resize to 224 that the eval transform makes, so its strengths are in the model's input pixels (finding 8); the
+    eval transform then leaves the size as it is.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Family</th><th>Transform, albumentations 2.0.8</th><th>Why</th></tr></thead>
     <tbody>
       <tr><td>Geometry</td><td><code>SquareSymmetry</code>, p 1</td><td>Beans have no "up"; the 8 flips and quarter turns are exact.</td></tr>
-      <tr><td>Scale</td><td><code>Affine(scale=(0.9, 1.1))</code>, no rotation, p 0.5</td><td>Patch size follows the measured bean pitch; tighter than the guide's 0.8&ndash;1.2.</td></tr>
-      <tr><td>Occlusion</td><td><code>CoarseDropout(num_holes_range=(1, 8), hole_height_range=(0.05, 0.15), hole_width_range=(0.05, 0.15))</code>, p 0.5</td><td>"High impact" in the library's guide; the one augmentation adopted here on paired evidence (random erasing, ResNet18).</td></tr>
-      <tr><td>Colour</td><td><code>ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0)</code>, p 0.8</td><td>The guide's ImageNet example, hue at 0: colour carries origin and roast.</td></tr>
+      <tr><td>Scale</td><td><code>Affine(scale=(0.9, 1.1), border_mode=cv2.BORDER_REFLECT_101)</code>, no rotation, p 0.5</td><td>Patch size follows the measured bean pitch; tighter than the guide's 0.8&ndash;1.2. Reflected, not filled: the default fills a shrunk patch's border with black (finding 7).</td></tr>
+      <tr><td>Occlusion</td><td><code>CoarseDropout(num_holes_range=(1, 8), hole_height_range=(0.05, 0.15), hole_width_range=(0.05, 0.15), fill=(124, 116, 104))</code>, p 0.5</td><td>"High impact" in the library's guide. Filled with the ImageNet mean, as the ResNet-era random erasing was. That paired evidence was on a fine-tuned ResNet18 and does not carry over to a frozen DINOv3 head; here it is adopted under D4, not on evidence.</td></tr>
+      <tr><td>Colour</td><td><code>ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0)</code>, p 0.8</td><td>The guide's ImageNet example, hue at 0: colour carries origin and roast. Brightness, saturation and white balance still move roast colour; P7's per-class F1 is where a cost would show.</td></tr>
       <tr><td>White balance</td><td><code>PlanckianJitter</code>, p 0.3</td><td>The guide's phone-upload case.</td></tr>
-      <tr><td>Camera pipeline</td><td><code>ImageCompression(quality_range=(60, 95))</code> p 0.3; <code>OneOf</code>[<code>GaussianBlur(blur_limit=(3, 5))</code>, <code>MotionBlur</code>, <code>Defocus</code>] p 0.2; <code>GaussNoise(std_range=(0.01, 0.04))</code> p 0.2; <code>Downscale(scale_range=(0.5, 0.9))</code> p 0.2</td><td>Other phones, compression, light.</td></tr>
+      <tr><td>Camera pipeline, at 224 px</td><td><code>ImageCompression(quality_range=(60, 95))</code> p 0.3; <code>OneOf</code>[<code>GaussianBlur(blur_limit=(3, 5))</code>, <code>MotionBlur</code>, <code>Defocus</code>] p 0.2; <code>GaussNoise(std_range=(0.01, 0.04))</code> p 0.2; <code>Downscale(scale_range=(0.5, 0.9), interpolation_pair={downscale: INTER_AREA, upscale: INTER_LINEAR})</code> p 0.2</td><td>Other phones, compression, light. At 224 the downscale really loses resolution, and area/linear interpolation does not add the default's nearest-neighbour aliasing (finding 8).</td></tr>
     </tbody>
   </table></div>
   <p>Left out: <code>ToGray</code>, <code>ChannelDropout</code> and hue shifts (they remove the colour signal), rotation
@@ -198,9 +233,10 @@
     <li><span class="box"></span><span><code>head_augment</code> in <code>params.yaml</code> and <code>RunConfig</code>; the run's <code>config.json</code> records the pipeline, <code>views</code> and the albumentations version, and the model card carries them.</span></li>
     <li><span class="box"></span><span><code>fit_frozen_head</code>: the augmented embedding of the training split; nothing augmented written; both heads fitted and both archived in the run's metrics (augmented as the run's head, unaugmented beside it).</span></li>
     <li><span class="box"></span><span>The ResNet-era knobs (<code>color_jitter_strength</code>, <code>brightness_jitter_strength</code>, <code>illum_gradient_strength</code>, zoom, patch scale) stay for <code>run_all_rigs</code> only; the frozen path refuses them non-zero.</span></li>
-    <li><span class="box"></span><span>A smoke fit (<code>--smoke</code>) on one seed: views drawn and embedded, peak RAM and ms per view measured, the estimate for P7 written down. Expected: about 2.3 h of embedding per seed (6,000 &times; 9 views at 146.5 ms, plus val and test), about 7 h for three.</span></li>
+    <li><span class="box"></span><span>A smoke fit (<code>--smoke</code>) on one seed: views drawn and embedded, ms per view measured, the estimate for P7 written down. Expected: about 2.3 h of embedding per seed (6,000 &times; 9 views at 146.5 ms, plus val and test), about 7 h for three. The smoke also prints, per transform applied alone, the mean cosine between a view's embedding and its original's: a transform that barely moves the embedding costs a backbone pass and buys nothing, and is reported to the owner before P7.</span></li>
+    <li><span class="box"></span><span>Peak RAM at full size, which the smoke's 6 training patches per class cannot show: hold one full training split (about 6,000 patches, 3.6 GB), embed its 9 rows per patch and fit both heads, including the val-picked C diagnostic on about 54,000 rows, whose float64 copies are about 660 MB each. Measure peak RSS and the time of both fits against about 7 GB available, before the three-seed run.</span></li>
     <li><span class="box"></span><span>ADR 0025: a frozen head fit augments its training patches per run, in memory, through the strict builder, and stores nothing augmented. The ticket's D4 links it.</span></li>
-    <li><span class="box"></span><span>Tests: the seeded view stream repeats for one seed and differs across seeds; val and test are never augmented; a smoke fit leaves no file outside the run's archive.</span></li>
+    <li><span class="box"></span><span>Tests: the seeded view stream repeats for one seed and differs across seeds; val and test are never augmented; the augmented arm's total sample weight equals the unaugmented arm's; a shrunk <code>Affine</code> view has no constant-filled border; a smoke fit leaves no file outside the run's archive.</span></li>
   </ol>
 
   <h2>9. P7 &mdash; the classifier, its reference and probe <span class="pill sm open">stop</span></h2>
@@ -210,10 +246,10 @@
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7</code> in the background with a log, about 7 h; nothing else heavy runs on the host meanwhile.</span></li>
-    <li><span class="box"></span><span>ADR 0002's print: per seed, val and test macro-F1 of the augmented and unaugmented heads, the deltas, their mean and range, per-class F1. Beside it, exp267&ndash;269, unpaired (R1: new photos, one pool, new budget, new crops).</span></li>
+    <li><span class="box"></span><span>ADR 0002's print: per seed, val and test macro-F1 of the augmented and unaugmented heads (equal total sample weight, P6), the deltas, their mean and range, per-class F1 with each class's val and test photo counts, and each arm's diagnostic val-picked C. Beside it, exp267&ndash;269, unpaired (R1: new photos, one pool, new budget, new crops). Read it with R2: the split is by single photo, so near-duplicate shots of one tray can sit in train and test, which rewards memorisation, not robustness; a flat or negative delta is what that split would show even if augmentation helps real uploads.</span></li>
     <li><span class="box"></span><span>Ship the augmented seed with the highest val macro-F1 under Q1's name (<code>--ship</code>): card, classes sidecar, OOD reference from unaugmented training embeddings (Q3).</span></li>
     <li><span class="box"></span><span>Refit the probe (<code>fit_ood_probe</code>) on every training and validation negative (D9) and measure it with <code>ood_eval</code> on the segmenter dataset's test split (ADR 0016): negatives caught, positives refused, by batch.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: read the print and the probe's numbers; say whether the candidate goes to P8.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: read the print and the probe's numbers; say whether the candidate goes to P8. Both heads come from the same run, so the unaugmented head of the same seed can ship instead at no extra cost; D4 adopts augmentation, and that choice is the owner's at this stop.</span></li>
   </ol>
 
   <h2>10. P8 &mdash; LiteRT export, gates, deploy <span class="pill sm open">stop</span></h2>
@@ -233,8 +269,8 @@
     <li><span class="box"></span><span>P2: a pinned-version argument typo fails the build; the segmenter's seeded stream is byte-identical.</span></li>
     <li><span class="box"></span><span>P3: the segmenter dataset rebuilds equal to the committed file; no code reads <code>camera</code> or <code>scenario_tag</code>.</span></li>
     <li><span class="box"></span><span>P4: the port report written; the owner's verdict on the 20 crops recorded.</span></li>
-    <li><span class="box"></span><span>P5: one pool, no empty split cell, every crop stage current.</span></li>
-    <li><span class="box"></span><span>P6: nothing augmented on disk; RAM and time measured.</span></li>
+    <li><span class="box"></span><span>P5: one pool, no empty split cell, every crop stage current; the DINOv3 fixture regenerated from the pool; no real-crop test newly skipped.</span></li>
+    <li><span class="box"></span><span>P6: nothing augmented on disk; both arms at equal total weight; no constant-filled border; each transform's embedding shift reported; RAM and time measured at full training-split size.</span></li>
     <li><span class="box"></span><span>P7: the paired print and the probe's test-split numbers in front of the owner.</span></li>
     <li><span class="box"></span><span>P8: ADR 0020's gates green; the release verified on the domain; every object verified on the remote.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
@@ -255,6 +291,14 @@
     <div><div class="when">2026-10-19</div>The owner answers Q1 (drop <code>allrigs</code> from new names), Q2 (the
       owner judges the 20 new crops at P4) and Q3 (reference and probe on unaugmented embeddings), recorded as ticket
       D10&ndash;D12. No phase waits on a question. Not implemented.</div>
+    <div><div class="when">2026-10-19</div>A data-science review at the owner's request, checked against the code and
+      albumentations 2.0.8 on this host: findings 6&ndash;9. P5 gains every live reader of the camera pools, the DINOv3
+      reference and fixture from the pool, and a check that no real-crop test newly skips. P6 fits the augmented arm at
+      equal total sample weight, reflects <code>Affine</code>'s border, fills <code>CoarseDropout</code> with the
+      ImageNet mean, runs the camera family at 224 px with area/linear <code>Downscale</code>, reports each transform's
+      embedding shift, and measures RAM at full size. P7's print adds photo counts and both arms' val-picked C, is read
+      with R2's near-duplicate caveat, and its stop names the unaugmented head as an option. No ticket decision changed.
+      Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
