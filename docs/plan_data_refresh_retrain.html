@@ -1,0 +1,264 @@
+<title>Implementation plan: data refresh and retrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-8 · coffee-vision · implementation</div>
+  <h1>Implementation plan: data refresh and retrain</h1>
+  <p class="lede">The order of work for <a href="ticket_data_refresh_retrain.html">ticket ML-8</a>. Four strands:
+    the data's bookkeeping (no camera column, no tags), a strict augmentation builder, the crops (one re-crop, one
+    pool), and the classifier (augmented head fit, probe, LiteRT, deploy). Every change that can be proved harmless
+    comes first; the first step that changes a number is the classifier fit in P7.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-19; Q1&ndash;Q3 answered 2026-10-19 (ticket D10&ndash;D12); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_data_refresh_retrain.html"><code>ticket_data_refresh_retrain.html</code></a> (ML-8)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-19</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>81e1ac0</code> plus the uncommitted ingest of 2026-10-18, not from the
+      ticket alone. Five things the ticket does not cover turned up. They are folded in below, and the ones that need
+      a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>An unknown augmentation argument is silently ignored.</b> In albumentations 2.0.8,
+        <code>ColorJitter(brightness_range=(0.5, 0.6))</code>, the 2.2 docs' spelling, only warns
+        "Argument(s) 'brightness_range' are not valid" and runs with the default <code>brightness=(0.8, 1.2)</code>.
+        <code>seg_finetune._transform</code> catches exceptions, not warnings. The live <code>seg_ft.augment</code>
+        builds with no such warning (all 9 transforms checked 2026-10-19), so XL0-v3 trained as configured. Folded into
+        P2.</li>
+      <li><b>2.0.8 is the last release of <code>albumentations</code>.</b> PyPI has nothing after it (2025-05-27, MIT).
+        Every later version, 2.2 included, is the package <code>albumentationsx</code> (2.5.1, 2026-10-11),
+        <code>AGPL-3.0-only</code> or commercial, which "collects usage statistics by default" and installs under the
+        same import name. <a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a> rejected it; this
+        plan stays on 2.0.8, where every transform it uses exists (<code>PhotoMetricDistort</code>, which the online
+        guide names, does not).</li>
+      <li><b>Patches are held in RAM already.</b> <code>MultiPhotoPatchDataset</code> keeps every patch as a
+        448&times;448&times;3 uint8 array (602 KB), and <code>fit_one_seed</code> builds and embeds one split at a time.
+        At D8's 600 training patches per class that is about 3.6 GB for the training split; augmented views can be drawn
+        from those arrays batch by batch, so only their embeddings (6 KB each) accumulate: 9 &times; 6,000 &times; 6 KB,
+        about 330 MB. Folded into P6.</li>
+      <li><b>The run and model names say <code>allrigs</code>.</b> <code>fit_frozen_head</code> archives runs as
+        <code>allrigs_dino3b16_frozen_clsmean_…</code>, and the shipped models carry the same prefix, a rig word D2
+        retires. Q1.</li>
+      <li><b>Dropping the tags can touch the segmenter dataset's groups.</b> <code>seg_dataset.groups</code> chains shots
+        within 120 s per subject, and a negative's subject is its (batch, tag). With no tag, two tags of one batch shot
+        within 120 s of each other would join one group. P3 measures it against the committed file before writing.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 commits what is already done. P2 and P3 change code and records only, each proved against today's outputs:
+    the segmenter's pipeline builds identically through the strict builder, and the segmenter dataset rebuilds equal
+    without the camera column and the tags. P4 re-crops and is compared with ML-6's crops before anything trains (R3).
+    P5 merges one pool. P6 adds augmentation to the head fit, tried on a smoke subset. P7 is the first step that changes
+    a number the owner reads: the classifier at three seeds. P8 converts and deploys.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Commit the photos of 2026-10-18, the doc fixes, the ticket and this plan</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>The strict augmentation builder, shared with the segmenter</td><td>local</td><td>no: the segmenter's pipeline builds identically</td></tr>
+      <tr><td class="id">P3</td><td>No <code>camera</code> column, no scenario tags (D2, D9)</td><td>local</td><td>no: the segmenter dataset rebuilds equal</td></tr>
+      <tr><td class="id">P4</td><td>One re-crop with XL0-v3 and today's code, compared with ML-6's <span class="pill sm open">stop</span></td><td>local, owner</td><td>crops only, reported</td></tr>
+      <tr><td class="id">P5</td><td>One pool and the 600/160/160 budget (D2, D8)</td><td>local</td><td>no model yet: the split and patch draw move</td></tr>
+      <tr><td class="id">P6</td><td>Augmentation in the head fit, K = 8 (D4)</td><td>local</td><td>smoke subset only</td></tr>
+      <tr><td class="id">P7</td><td>The classifier at 42, 123, 7; reference and probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
+      <tr><td class="id">P8</td><td>LiteRT export, gates, deploy <span class="pill sm open">stop</span></td><td>local, <code>webappremote</code>, owner</td><td>no: held to ADR 0020's bars</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>New names without <code>allrigs</code>? Runs are archived as
+          <code>allrigs_dino3b16_frozen_clsmean_segcrop_country_s42</code> and models named
+          <code>allrigs_dino3b16_segxl0v3_country_s42</code>.</td>
+        <td><span class="pill sm ok">Answered</span> "Yes, drop allrigs" (owner, 2026-10-19): ticket D10. New runs <code>dino3b16_frozen_clsmean_segcrop_country_aug8_s&lt;seed&gt;</code>
+          and the model <code>dino3b16_segxl0v3_country_aug8_s&lt;seed&gt;</code>; old names stay as recorded.</td><td>P6, P7</td></tr>
+      <tr><td class="id">Q2</td><td>Does the owner judge the 20 new photos' crops before they train, as ML-3 P5 did for
+          its new sessions (declined ones go to <code>labels/ml3/pool_exclude.csv</code>)?</td>
+        <td><span class="pill sm ok">Answered</span> "Yes, I want to judge new photos" (owner, 2026-10-19): ticket D11. At P4's stop: 20 crops, a few minutes.</td><td>P5</td></tr>
+      <tr><td class="id">Q3</td><td>Are the OOD reference and the probe built from unaugmented embeddings?</td>
+        <td><span class="pill sm ok">Answered</span> As recommended (owner, 2026-10-19): ticket D12. Yes. They describe what real uploads look like, and the probe's bean
+          photos are the classifier's held-out photos, which are never augmented (ADR 0016).</td><td>P7</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; commit what is done</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">the work is done in the tree (2026-10-18), not committed</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Commit the ingest of 2026-10-18: 31 photos stripped, the two <code>.dvc</code> pointers, <code>user_realworld.manifest.csv</code>, <code>strip_manifest.csv</code>, the segmenter dataset append and its test count. Objects already pushed and verified on <code>dvcnewremote</code> (548 of 548).</span></li>
+    <li><span class="box"></span><span>Commit the doc fixes of 2026-10-18 (README, <code>webapp/README.md</code>, <code>models_pretrained/README.md</code>, <code>dvc.yaml</code> notes, <code>deploy.md</code>, <code>check.sh</code>).</span></li>
+    <li><span class="box"></span><span>Commit the ticket and this plan.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh --full</code> green (it was on 2026-10-18); <code>dvc status</code> on the two pointers clean.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; the strict augmentation builder</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>One module, <code>coffeecv/augment.py</code>, builds an albumentations pipeline from a <code>params.yaml</code> list
+    of <code>{transform, p, args}</code>, for the segmenter's fine-tune and the classifier's head fit alike. It is
+    <code>seg_finetune._transform</code> and <code>build_augment</code> moved, plus one rule: <strong>any warning while a
+    transform is built is an error</strong>, so an argument the pinned version does not know fails the run instead of
+    falling back to a default. The segmenter keeps its own rule that a mask fill is the ignore value, as a check its
+    caller passes in.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Move the builder to <code>coffeecv/augment.py</code>; build each transform under <code>warnings.catch_warnings()</code> with warnings raised as errors, naming the transform and argument; set <code>NO_ALBUMENTATIONS_UPDATE=1</code> before the import, as ADR 0018 requires.</span></li>
+    <li><span class="box"></span><span><code>seg_finetune</code> builds through it; its mask-fill check stays and is passed in.</span></li>
+    <li><span class="box"></span><span>Tests: <code>ColorJitter</code> with <code>brightness_range</code> fails; an unknown transform name fails; <code>seg_ft.augment</code> builds the same 9 transforms with the same arguments as before, and the seeded stream gives byte-identical photo and label on three fixtures.</span></li>
+    <li><span class="box"></span><span>Checks: <code>dvc status</code> shows <code>seg_ml6_finetune@xl0_v3</code> changed only by the moved code; record it with <code>dvc commit</code> after the byte-identical test, not a re-run (as ML-6 D21 did for a change no output depends on).</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; no camera column, no scenario tags</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>Ticket D2 (the column) and D9 (the tags). <code>shot_time</code> reads a file-name time, for a photo with no EXIF
+    time, on one local clock; a negative's split stratum and grouping subject become its batch; the probe fits on every
+    training and validation negative; reports go by batch.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Measure first, writing nothing: rebuild <code>labels/ml5/seg_dataset.yaml</code> in memory with no camera and no tag, and compare every listed entry's split and group with the committed file. If any would change, stop and report it to the owner.</span></li>
+    <li><span class="box"></span><span>Drop <code>camera</code> from the five manifests and <code>scenario_tag</code> from the four that have it (the three negative batches and the internet positives, which nothing reads); keep <code>notes</code>. The manifests' old <code>split</code> column stays as recorded history (ML-6 D1 says no live code reads it).</span></li>
+    <li><span class="box"></span><span><code>seg_dataset</code>: <code>shot_time(exif, name)</code>; <code>stratum</code> is (source, batch) for a negative; the file's entries lose <code>tag</code>, every split and group unchanged; header text updated.</span></li>
+    <li><span class="box"></span><span><code>ood_eval</code>: <code>CLEAN_NEGATIVE_TAGS</code> goes, reports by batch; <code>fit_ood_probe</code> fits on every training and validation negative (adds <code>wrong_bean_type_009</code> and <code>_010</code>); <code>seg_eval</code> and <code>seg_review</code> group by batch.</span></li>
+    <li><span class="box"></span><span>Tests: <code>shot_time</code>'s Pixel-UTC and camera-clock cases rewritten to one local clock; <code>test_segmenter_positives</code>'s column list; the probe-set and seg-dataset fixtures.</span></li>
+    <li><span class="box"></span><span>Docs: <code>dataset/ood_negatives/README.md</code> (no scenario subfolders as tags, no camera column), <code>dataset/segmenter_positives.README.md</code>, the ingest steps for a new negative (no tag, no camera).</span></li>
+    <li><span class="box"></span><span>Checks: the real-data tier green, in particular <code>CommittedFileAgainstPhotos.test_a_rebuild_from_the_data_changes_nothing</code>.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; one re-crop, compared with ML-6's <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>Ticket D1 with D3 (b): every session cropped once by XL0-v3 and today's code. The comparison is R3's: what ML-7's
+    port changed, apart from the 20 new photos.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Free space checked against the crops' 6.4 GB (19 GB free on 2026-10-18); P8's crops stay in the DVC cache, which is what the comparison reads.</span></li>
+    <li><span class="box"></span><span><code>dvc repro -s</code> each of the 16 <code>segcrop@*</code> stages at the pinned 4 threads, in the background with a log.</span></li>
+    <li><span class="box"></span><span>Report, on the photos both runs have: crop boxes changed, fallbacks changed, mask pixels changed (count and largest), and how many patches the D17 rule would place differently.</span></li>
+    <li><span class="box"></span><span>A sheet of the 20 new photos' crops and masks for the owner (Q2).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: read the port report; accept or decline the 20 crops (declined ones go to <code>labels/ml3/pool_exclude.csv</code>).</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; one pool, 600/160/160 per class</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <p>Ticket D2 and D8. One stage, <code>merge_segpool</code>, merges every session's crops into
+    <code>data/segcropped/pool</code> through <code>merge_rig</code> with <code>pool_exclude.csv</code>; the four
+    <code>merge_segcam_*</code> stages go (their outputs stay in history and the DVC cache).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc.yaml</code>: <code>merge_segpool</code> in, <code>merge_segcam_*</code> out, the notes rewritten without cameras or rigs.</span></li>
+    <li><span class="box"></span><span><code>dataset.CAPTURES</code> and <code>params.yaml</code> <code>train_capture_dirs</code> name the one pool; the budget is <code>train_patches_per_class: 600</code>, <code>val_patches_per_class: 160</code>, <code>test_patches_per_class: 160</code>, per class over the pool; <code>capture_idx</code> leaves the patch seed.</span></li>
+    <li><span class="box"></span><span><code>coverage_report</code> counts per class (and per session, if useful), not per camera; <code>merge_rig</code>'s camera-model comments go.</span></li>
+    <li><span class="box"></span><span>ADR 0024: no camera or rig in the data or training pipeline; supersedes ADR 0010. The ticket's D2 links it.</span></li>
+    <li><span class="box"></span><span>Checks: <code>python -m coffeecv.split_report</code> with no empty split cell; <code>dvc status</code> current for every crop stage; the fast and full tiers green.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; augmentation in the head fit</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P5</span></div>
+  </div>
+  <p>Ticket D4. <code>params.yaml</code> gains <code>head_augment</code>: <code>views: 8</code> and the pipeline below,
+    built by P2's builder. For the training split, <code>fit_frozen_head</code> embeds each patch as stored and 8
+    augmented views of it, drawn from the in-memory array in batches, seeded by (run seed, patch index, view), and keeps
+    only the embeddings. Validation and test go through the eval transform alone. The same run also fits a head on the
+    originals alone, the unaugmented arm of ADR 0002's print, for about 20 s more.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Family</th><th>Transform, albumentations 2.0.8</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Geometry</td><td><code>SquareSymmetry</code>, p 1</td><td>Beans have no "up"; the 8 flips and quarter turns are exact.</td></tr>
+      <tr><td>Scale</td><td><code>Affine(scale=(0.9, 1.1))</code>, no rotation, p 0.5</td><td>Patch size follows the measured bean pitch; tighter than the guide's 0.8&ndash;1.2.</td></tr>
+      <tr><td>Occlusion</td><td><code>CoarseDropout(num_holes_range=(1, 8), hole_height_range=(0.05, 0.15), hole_width_range=(0.05, 0.15))</code>, p 0.5</td><td>"High impact" in the library's guide; the one augmentation adopted here on paired evidence (random erasing, ResNet18).</td></tr>
+      <tr><td>Colour</td><td><code>ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0)</code>, p 0.8</td><td>The guide's ImageNet example, hue at 0: colour carries origin and roast.</td></tr>
+      <tr><td>White balance</td><td><code>PlanckianJitter</code>, p 0.3</td><td>The guide's phone-upload case.</td></tr>
+      <tr><td>Camera pipeline</td><td><code>ImageCompression(quality_range=(60, 95))</code> p 0.3; <code>OneOf</code>[<code>GaussianBlur(blur_limit=(3, 5))</code>, <code>MotionBlur</code>, <code>Defocus</code>] p 0.2; <code>GaussNoise(std_range=(0.01, 0.04))</code> p 0.2; <code>Downscale(scale_range=(0.5, 0.9))</code> p 0.2</td><td>Other phones, compression, light.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Left out: <code>ToGray</code>, <code>ChannelDropout</code> and hue shifts (they remove the colour signal), rotation
+    by any angle (filled corners no real patch has), <code>RandomResizedCrop</code> (the patch draw already places crops
+    at random).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>head_augment</code> in <code>params.yaml</code> and <code>RunConfig</code>; the run's <code>config.json</code> records the pipeline, <code>views</code> and the albumentations version, and the model card carries them.</span></li>
+    <li><span class="box"></span><span><code>fit_frozen_head</code>: the augmented embedding of the training split; nothing augmented written; both heads fitted and both archived in the run's metrics (augmented as the run's head, unaugmented beside it).</span></li>
+    <li><span class="box"></span><span>The ResNet-era knobs (<code>color_jitter_strength</code>, <code>brightness_jitter_strength</code>, <code>illum_gradient_strength</code>, zoom, patch scale) stay for <code>run_all_rigs</code> only; the frozen path refuses them non-zero.</span></li>
+    <li><span class="box"></span><span>A smoke fit (<code>--smoke</code>) on one seed: views drawn and embedded, peak RAM and ms per view measured, the estimate for P7 written down. Expected: about 2.3 h of embedding per seed (6,000 &times; 9 views at 146.5 ms, plus val and test), about 7 h for three.</span></li>
+    <li><span class="box"></span><span>ADR 0025: a frozen head fit augments its training patches per run, in memory, through the strict builder, and stores nothing augmented. The ticket's D4 links it.</span></li>
+    <li><span class="box"></span><span>Tests: the seeded view stream repeats for one seed and differs across seeds; val and test are never augmented; a smoke fit leaves no file outside the run's archive.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; the classifier, its reference and probe <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7</code> in the background with a log, about 7 h; nothing else heavy runs on the host meanwhile.</span></li>
+    <li><span class="box"></span><span>ADR 0002's print: per seed, val and test macro-F1 of the augmented and unaugmented heads, the deltas, their mean and range, per-class F1. Beside it, exp267&ndash;269, unpaired (R1: new photos, one pool, new budget, new crops).</span></li>
+    <li><span class="box"></span><span>Ship the augmented seed with the highest val macro-F1 under Q1's name (<code>--ship</code>): card, classes sidecar, OOD reference from unaugmented training embeddings (Q3).</span></li>
+    <li><span class="box"></span><span>Refit the probe (<code>fit_ood_probe</code>) on every training and validation negative (D9) and measure it with <code>ood_eval</code> on the segmenter dataset's test split (ADR 0016): negatives caught, positives refused, by batch.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: read the print and the probe's numbers; say whether the candidate goes to P8.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; LiteRT export, gates, deploy <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Add the candidate to <code>litert_export</code>'s <code>foreach</code>; <code>dvc repro -s</code> it; <code>scripts/deploy_webapp.sh --stage-only</code> and <code>--compare</code> within ML-7 D7's bars (ADR 0020).</span></li>
+    <li><span class="box"></span><span>Push every new object (crops, pool, model, export) to <code>dvcnewremote</code> by target and verify each by md5 (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>Stop for the owner's go. R6: unless <a href="ticket_deploy_memory_headroom.html">OPS-10</a> is fixed first, the live service is stopped by hand for the smoke, about 2 minutes, as in OPS-7.</span></li>
+    <li><span class="box"></span><span>Deploy and verify on the domain (<code>docs/agents/deploy.md</code>); README's Status, the model card and <code>dvc.yaml</code>'s notes say what is live.</span></li>
+  </ol>
+
+  <h2>11. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P2: a pinned-version argument typo fails the build; the segmenter's seeded stream is byte-identical.</span></li>
+    <li><span class="box"></span><span>P3: the segmenter dataset rebuilds equal to the committed file; no code reads <code>camera</code> or <code>scenario_tag</code>.</span></li>
+    <li><span class="box"></span><span>P4: the port report written; the owner's verdict on the 20 crops recorded.</span></li>
+    <li><span class="box"></span><span>P5: one pool, no empty split cell, every crop stage current.</span></li>
+    <li><span class="box"></span><span>P6: nothing augmented on disk; RAM and time measured.</span></li>
+    <li><span class="box"></span><span>P7: the paired print and the probe's test-split numbers in front of the owner.</span></li>
+    <li><span class="box"></span><span>P8: ADR 0020's gates green; the release verified on the domain; every object verified on the remote.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope".</li>
+    <li>Upgrading albumentations: 2.0.8 is its last MIT release, and every later version is AlbumentationsX under AGPL-3.0 or a commercial licence, with usage statistics on by default (finding 2, ADR 0018).</li>
+    <li>Feature-space augmentation (FroFA, arXiv 2403.10519): its gains are few-shot and shrink to +0.1&ndash;0.4 points by 25 shots, and it cannot imitate a camera.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-19</div>Claude reads ticket ML-8 at <code>81e1ac0</code> plus the uncommitted ingest
+      of 2026-10-18 and writes this plan, with the owner's K = 8 and a strict builder as its own phase (P2). Five findings
+      not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner answers Q1 (drop <code>allrigs</code> from new names), Q2 (the
+      owner judges the 20 new crops at P4) and Q3 (reference and probe on unaugmented embeddings), recorded as ticket
+      D10&ndash;D12. No phase waits on a question. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
+    <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/dataset.py</code>,
+    <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/ood_eval.py</code>, the albumentations guide
+    (<code>albumentations.ai/docs/3-basic-usage/choosing-augmentations/</code>).</footer>
+</main>

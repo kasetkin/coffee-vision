@@ -1,0 +1,371 @@
+<title>Data Refresh and Retrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-8 · coffee-vision · dataset, crops, classifier and release</div>
+  <h1>Bring every photo since ML-6 into one crop pool, retrain the classifier with augmentation, and deploy it</h1>
+  <p class="lede">Photos have arrived since ML-6 froze its data, but none of them reaches a model yet, and the crops
+    are stale against code ML-7 changed. This ticket re-crops every photo with the live segmenter, drops every camera,
+    rig and tag from the data and training (one pool, no <code>camera</code> column, no scenario tags), builds every
+    augmentation pipeline strictly, retrains the classifier on augmented patches held only in memory, refits its OOD
+    probe, and deploys the result. Written; D1–D12 decided; planned (<a href="plan_data_refresh_retrain.html">plan</a>,
+    P1–P8), not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-18; D1–D12 decided 2026-10-19; planned 2026-10-19 (P1–P8); not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, re-crop, one pool, classifier retrain with augmentation, release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code> and its five manifests, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml3/pool_exclude.csv</code>, <code>dvc.yaml</code> (<code>segcrop</code>, <code>merge_segcam_*</code> to <code>merge_segpool</code>, <code>seg_ml6_finetune</code>, <code>litert_export</code>), <code>params.yaml</code>, <code>coffeecv/augment.py</code> (new), <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/dataset.py</code>, <code>coffeecv/config.py</code>, <code>coffeecv/merge_rig.py</code>, <code>coffeecv/coverage_report.py</code>, <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/ood_eval.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/seg_eval.py</code>, <code>coffeecv/seg_review.py</code>, <code>docs/adr/</code> (0024, 0025), <code>models/</code>, the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (photos, decisions, the deploy's go)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-18</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The last phase deploys the new classifier and probe (D7), on the owner's go, through <code>docs/agents/deploy.md</code>. Nothing changes on the live site before it.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-18.</strong> Create a ticket for updating crops, the dataset in general and
+      photo augmentation (do we apply the new library in the classifier?), and for retraining a new segmenter and
+      a new classifier. More "true negative" photos will be added too.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the live models (segmenter XL0-v3 and classifier <code>allrigs_dino3b16_segxl0v3_country_s42</code>,
+    ticket <a href="ticket_segmenter_retrain.html">ML-6</a>) were trained on data frozen on 2026-10-11 to 2026-10-13.
+    Since then 20 pool photos have arrived without a crop and 27 negatives have joined the segmenter dataset. Training
+    reads four camera pools, the manifests carry a <code>camera</code> column and scenario tags, and the classifier
+    trains on unaugmented patches.</p>
+  <p>After this ticket: every photo available on 2026-10-19 (D6) is in the data; every session is cropped once by
+    XL0-v3 and today's code (D1, D3); training reads one pool with no camera or rig logic (D2, D8); the classifier is
+    fitted on 8 augmented views per patch generated per run and held only in RAM (D4), through a builder that refuses
+    an argument the pinned library does not know; no manifest has a <code>camera</code> column or a scenario tag (D2,
+    D9); the owner has judged the 20 new crops (D11); the model drops <code>allrigs</code> from its name (D10); its
+    probe is refitted on unaugmented embeddings (D12), its LiteRT export passes the gates, and it is live (D7).</p>
+  <p>Eight phases (the plan): P1 commit the photos of 2026-10-18, the last to join (D6); P2 the strict builder;
+    P3 no <code>camera</code> column, no tags; P4 one re-crop, measured against ML-6's, and the owner's judgement of
+    the 20 new crops; P5 one pool with the new budget; P6 augmentation in the head fit; P7 the classifier at seeds 42,
+    123 and 7, its OOD reference and probe; P8 the LiteRT export and the deploy.</p>
+
+  <h2>2. Background</h2>
+  <p><strong>Photos without a crop.</strong> ML-6 P8 re-cropped every session with XL0-v3 on 2026-10-13
+    (<code>0675f40</code>; 1,256 photos). Since then <code>dataset/random_date_raccoon</code> has gained 20 photos
+    (<code>d88533d</code> and the ingest of 2026-10-18): 5 in <code>class_013__Brazil_SulDeMinas</code> and 15 in
+    <code>class_014__Colombia_Excelso</code>. Neither the crop folders nor the pools have them, so no classifier has
+    seen them. They are the two thin farm regions of <a href="ticket_capture_gaps.html">ML-4</a>, which now hold 12
+    and 27 photos. 14 are Pixel 9 Pro photos, 3 iPhone 15 Pro Max and 3 OnePlus KB2005, a session that
+    <code>merge_segcam_pixel</code> merges whole into <code>cam_pixel</code>.</p>
+  <p><strong>Crops stale against the code.</strong> <code>dvc status</code> reports every <code>segcrop</code> stage
+    changed: <code>segment_beans.py</code> and <code>sam_loader.py</code> changed after P8, in ML-7 P8
+    (<code>c434d11</code>, <code>0f7617a</code>) and OPS-7 P2 (<code>6f88104</code>).
+    <a href="ticket_inference_runtime.html">ML-7</a> measured the port: the mask moves 1–17 pixels on 165 of 782
+    photos, with no fallback or crop-box change, and left the stages built from the segmenter "not rerun or
+    recommitted until the owner decides". Training stays on PyTorch (ML-7 D3).</p>
+  <p><strong>Camera and rig logic today.</strong> Since <a href="adr/0010-all-cameras-equal.md">ADR 0010</a> no camera is
+    held out and the label is the class alone, but the camera still shapes training:</p>
+  <ul>
+    <li>four pools, <code>data/segcropped/cam_{pixel,sony,oneplus,iphone}</code>, one <code>merge_segcam_*</code> stage
+      each, named in <code>dataset.CAPTURES</code> and <code>params.yaml</code> <code>train_capture_dirs</code>;</li>
+    <li>the patch budget is per class <em>per pool</em> (<code>params.yaml</code>: 150 training, 40 validation, 40 test),
+      so a class missing from <code>cam_iphone</code> gets three quarters of the others' patches: exp267 drew about
+      5,400 training patches and 1,440 each for val and test;</li>
+    <li>a pool's position in <code>CAPTURES</code> (<code>capture_idx</code>) seeds its patch boxes;</li>
+    <li><code>coffeecv.coverage_report</code> counts photos per class and pool.</li>
+  </ul>
+  <p>The five manifests (segmenter positives, internet positives, the three negative batches) also have a free-text
+    <code>camera</code> column. Its one reader is <code>seg_dataset.shot_time</code>: for a photo with no EXIF capture
+    time, it says whether the file-name time is UTC (<code>pixel</code>) or a local clock, for the 120 s grouping. On
+    2026-10-19, 21 of the 2,046 photos <code>seg_dataset.scan</code> reads took that path (16 Pixel photos without an
+    EXIF time, among them the 8 renamed <code>20260910_*</code>, and the 5 <code>IMG_20260505_*</code>); the other
+    2,025 have an EXIF time, and EXIF names their clock. Rebuilt with the column ignored and every file-name time read
+    as one local clock, no group changed and the rebuild equalled the committed file; with file-name times not used at
+    all, 14 photos lost their burst mates (the committed file still unchanged, since listed entries never move).</p>
+  <p><strong>Augmentation today.</strong> Only the segmenter's fine-tune augments, with <code>albumentations</code>
+    2.0.8, drawn per sample as it trains and storing nothing
+    (<a href="adr/0018-segmenter-fine-tunes-augment-on-the-fly.md">ADR 0018</a>). The classifier applies none:
+    <code>fit_frozen_head.py</code> gives the training split the eval transform ("frozen arms get no photometric
+    augmentation"), the backbone is frozen and there is no TTA (<a href="adr/0006-frozen-dinov3-b16-head.md">ADR
+    0006</a>). Its config still carries the ResNet era's in-house knobs (<code>color_jitter_strength</code>,
+    <code>brightness_jitter_strength</code>, <code>illum_gradient_strength</code>, zoom and patch-scale), all off.
+    The head is a convex logistic-regression fit on embeddings computed once per run (18.5 s for exp267), not an
+    epoch loop. Embedding took 146.5 ms a patch on this host, about 13 minutes per seed for one view of every
+    training patch; one embedding is 1,536 float32 values, 6 KB. The patches themselves are held in RAM as 448&times;448
+    uint8 arrays (602 KB each), one split at a time.</p>
+  <p><strong>The library.</strong> <code>albumentations</code> 2.0.8 (2025-05-27, MIT) is the package's last release;
+    every later version, 2.2 included, is the package <code>albumentationsx</code> (2.5.1 on 2026-10-11),
+    <code>AGPL-3.0-only</code> or commercial, which collects usage statistics by default and installs under the same
+    import name (PyPI, 2026-10-19). The library's online guide is written for the newer versions, and 2.0.8 does not
+    reject their argument names: <code>ColorJitter(brightness_range=(0.5, 0.6))</code> only warns "Argument(s)
+    'brightness_range' are not valid" and runs with the default <code>brightness=(0.8, 1.2)</code>.
+    <code>seg_finetune._transform</code> catches exceptions, not warnings; the live <code>seg_ft.augment</code> builds
+    with no such warning (all 9 transforms, checked 2026-10-19), so XL0-v3 trained as configured.</p>
+  <p><strong>Names.</strong> <code>fit_frozen_head</code> archives runs as <code>allrigs_dino3b16_frozen_clsmean_…</code>
+    and the shipped models carry the same <code>allrigs_</code> prefix, a rig word.</p>
+  <p><strong>The negatives' tags.</strong> Every negative has a <code>scenario_tag</code>. Three things read it: the
+    segmenter dataset splits newly added negatives within each (batch, tag) (<code>seg_dataset.stratum</code>); the
+    probe fits only on <code>ood_eval.CLEAN_NEGATIVE_TAGS</code>, which leaves out <code>wrong_bean_type</code>; and
+    <code>ood_eval</code> and <code>seg_eval</code> report per tag. Despite its name, <code>wrong_bean_type</code> holds
+    no other bean species but three Wikimedia Commons photos of coffee-cherry material, in
+    <code>dataset/ood_negatives/2026-09__internet_proxy/wrong_bean_type/</code>: <code>wrong_bean_type_009.jpg</code>
+    (dried coffee cherries spread on a tray, close to a bean-tray capture), <code>wrong_bean_type_010.jpg</code>
+    (a close-up of dried cherry husk) and <code>wrong_bean_type_011.jpg</code> (cascara, dried cherry skins). The
+    segmenter dataset holds them as negatives with empty labels, 009 and 010 in its training split and 011 in test,
+    so XL0-v3 was trained to give 009 and 010 no mask; only the probe skips them.</p>
+  <p><strong>The live numbers.</strong> exp267–269: val macro-F1 0.9702–0.9815, test 0.9632–0.9748, in-distribution
+    only (README, ML-1 R2). The probe caught 153/153 test negatives and refused 0/71 test positives
+    (<code>analysis/ml6_p8/summary.txt</code>).</p>
+  <p><strong>The host.</strong> Everything trains here (ML-6 D9): 12 cores, 13 GB of RAM (about 7 GB available),
+    no GPU, 19 GB free on <code>/workspace</code> (98% used). The crops take 6.4 GB. The live site runs on
+    <code>webappremote</code>'s GPU; its last deploy (OPS-7, 2026-10-18) had to stop the live service by hand because
+    the smoke worker did not fit beside it (<a href="ticket_deploy_memory_headroom.html">OPS-10</a>).</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>20 pool photos without a crop; every <code>segcrop</code> stage stale against ML-7's ported mask code.</li>
+        <li>Four camera pools, a patch budget per pool, the pool's index in the patch seed.</li>
+        <li>A <code>camera</code> column in five manifests; scenario tags on the negatives, which split, filter the probe's fit and group reports.</li>
+        <li>Augmentation pipelines built leniently: an unknown argument falls back to a default with a warning.</li>
+        <li>The classifier fitted on unaugmented patches, named <code>allrigs_…</code>.</li>
+        <li>The live classifier trained on ML-6's data of 2026-10-13.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Every photo available on 2026-10-19 cropped once by XL0-v3 and today's code, the 20 new crops judged by the owner, every crop stage current.</li>
+        <li>One pool, a patch budget per class (D8), no camera or rig in any training path; ADR 0024 supersedes ADR 0010.</li>
+        <li>No <code>camera</code> column and no scenario tag anywhere; negatives split, fit and report by batch.</li>
+        <li>One strict builder for every pipeline, failing on an unknown argument.</li>
+        <li>The head fitted on 8 augmented views per patch drawn per run and held in RAM, nothing augmented stored (ADR 0025); new names without <code>allrigs</code>.</li>
+        <li>A new classifier and probe, exported to LiteRT, live on the site.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The segmenter.</strong> XL0-v3 stays (D3); no labels pass, no fine-tune.</li>
+    <li><strong>The classes.</strong> The label is the country (<a href="adr/0012-country-is-the-label.md">ADR 0012</a>); new photos join existing classes.</li>
+    <li><strong>The classifier's design.</strong> A frozen DINOv3 ViT-B/16, <code>cls_mean</code>, a C=0.1
+      logistic-regression head, no TTA (ADR 0006). Augmentation changes what the head is fitted on, not the model.</li>
+    <li><strong>The split.</strong> Photos pooled per class and split 70/15/15; val and test are not augmented.</li>
+    <li><strong>The probe rule.</strong> The linear probe at a fixed 0.5, fitted on the segmenter dataset's training and
+      validation negatives, measured on its test split (<a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>).</li>
+    <li><strong>How photos enter.</strong> Metadata stripped before <code>dvc add</code>
+      (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>); the segmenter dataset stays append-only.</li>
+    <li><strong>The session folders and their names.</strong> No folder under <code>dataset/</code> is renamed, moved or
+      regrouped (owner 2026-10-19, D2); renaming would move every recorded path, and the names are history, not
+      pools.</li>
+    <li><strong>The library version.</strong> <code>albumentations</code> 2.0.8, pinned, not upgraded (ADR 0018).</li>
+    <li><strong>What the OOD reference and probe are built from.</strong> Unaugmented embeddings, as today (D12).</li>
+    <li><strong>Training on PyTorch, serving on LiteRT</strong> (ML-7 D3,
+      <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>,
+      <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The new classifier cannot be compared pairwise with exp267–269.</strong></td>
+        <td>New photos re-draw the pooled split (ML-4 R2), one pool and a new budget (D2, D8) change the patch draw, and
+          the crops move under them. Report both, say what moved, as ML-3 and ML-6 P8 did. The effect of augmentation
+          alone is measured on one data state (D4).</td></tr>
+      <tr><td class="id">R2</td><td><strong>Augmentation may show no gain in-distribution.</strong></td>
+        <td>Val sits near ceiling and in-distribution (README; ML-1 R1, R2); augmentation's promise is robustness to new
+          cameras, light and bags, which no split here measures. The owner adopted it regardless (D4); the paired print
+          says what it does to the numbers we have.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The re-crop's changes hide inside the retrain.</strong></td>
+        <td>ML-7's port moves masks. Before anything trains, compare the re-crop with P8's recorded crops on the photos
+          both have: crop boxes, fallbacks, mask pixels, and what changes in the patches placed by the D17 rule.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Time and memory of augmentation.</strong></td>
+        <td>Each view of every training patch is a backbone pass. At K = 8 and 600 patches per class: 6,000 &times; 9
+          views at 146.5 ms, about 2.2 h per seed plus val and test, about 7 h for three seeds, during which the host
+          runs nothing else heavy. The unaugmented arm reuses the originals' embeddings (about 20 s more). Memory: the
+          training split's stored patches take about 3.6 GB, the embeddings about 330 MB, against about 7 GB available;
+          augmented images are made and embedded in batches and dropped. A smoke fit measures time and peak RAM first
+          (plan P6).</td></tr>
+      <tr><td class="id">R5</td><td><strong>Disk.</strong></td>
+        <td>19 GB free; a second set of crops is 6.4 GB. The re-crop replaces the stage outputs in place and the old
+          ones stay in the DVC cache; check free space before it, and push and verify before any <code>dvc gc</code>.</td></tr>
+      <tr><td class="id">R6</td><td><strong>The deploy takes the site down for a few minutes.</strong></td>
+        <td>OPS-10: with the live worker on the GPU, the host had 3.6 GB available against the smoke worker's 5 GB, and
+          OPS-7's deploy stopped the live service by hand (about 2 minutes down). Either OPS-10 is fixed first or the
+          owner accepts the same short outage at the deploy's stop.</td></tr>
+      <tr><td class="id">R7</td><td><strong>The strict builder touches the live segmenter's training code.</strong></td>
+        <td>Moving <code>seg_finetune</code>'s builder could change XL0-v3's recorded pipeline. The segmenter's seeded
+          stream must come out byte-identical on fixtures before the stage is recorded with <code>dvc commit</code>
+          (plan P2).</td></tr>
+      <tr><td class="id">R8</td><td><strong>Without tags, listed segmenter-dataset groups could merge.</strong></td>
+        <td>A negative's grouping subject becomes its batch, so two tags of one batch shot within 120 s would join one
+          group. Rebuild in memory first; if any listed split or group would change, stop for the owner (plan P3).</td></tr>
+      <tr><td class="id">R9</td><td><strong>The pinned library gets no more fixes.</strong></td>
+        <td>2.0.8 is the last MIT release and upstream is archived. Accepted in ADR 0018; the strict builder at least
+          makes every argument mean what it says.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>When are the pools re-cropped?</td>
+        <td>(a) Once, after the segmenter is chosen (D3), with today's code: every session fresh, the 20 photos in.
+          (b) Now with XL0-v3, and again after D3. (c) Only <code>random_date_raccoon</code> now.</td>
+        <td>(a), owner 2026-10-19. With D3 (b) the segmenter is XL0-v3, so there is one re-crop, with today's code, and
+          it is also R3's measurement against P8's crops.</td></tr>
+      <tr><td class="id">D2</td><td>Where do the 6 non-Pixel photos in <code>random_date_raccoon</code> go?</td>
+        <td>(a) Stay in <code>cam_pixel</code>. (b) Into the pools of their makes. (c) Out of training.</td>
+        <td>Owner 2026-10-19, none of these: <strong>drop rig- and phone-model-based logic altogether.</strong> Training
+          reads one pool of every session's crops; the four <code>merge_segcam_*</code> pools, <code>CAPTURES</code>'s
+          camera list, the per-pool budget (D8), <code>capture_idx</code> in the patch seed and the per-camera coverage
+          columns go, so the question of the 6 photos goes with them. Supersedes ADR 0010: ADR 0024, written in plan
+          P5. The manifests' <code>camera</code> column goes too (owner 2026-10-19, after §2's measurement): it leaves
+          all five manifests and <code>shot_time</code>, which reads a file-name time, when a photo has no EXIF time, on
+          one local clock for every photo. That changes no group in today's data. Its cost later: a Pixel photo
+          without an EXIF time no longer chains with a same-burst Pixel photo that has one, and two phones' photos at
+          the same local minute may chain, which only coarsens the split. File-name times stay in use: dropping them
+          would let a burst straddle the splits. The session folders stay as they are (owner 2026-10-19): no folder under
+          <code>dataset/</code> is renamed, moved or regrouped (§4).</td></tr>
+      <tr><td class="id">D3</td><td>Is the segmenter retrained?</td>
+        <td>(a) XL0-v4 on pass-4 labels, compared blind with XL0-v3. (b) XL0-v3 stays.</td>
+        <td>(b), owner 2026-10-19: XL0-v3 for now. No pass 4: the 18 training and validation positives of
+          <code>d88533d</code> stay unlabelled for a later segmenter ticket. The new negatives still join the segmenter
+          dataset, which the probe fits and is measured on.</td></tr>
+      <tr><td class="id">D4</td><td>Does the classifier augment its training photos?</td>
+        <td>(a) No, as now. (b) A paired screen of augmented training patches, adopted on ADR 0002 evidence. (c) A ticket
+          of its own, later.</td>
+        <td>Owner 2026-10-19: <strong>yes, more augmentation is needed</strong>, adopted without waiting on a screen, and
+          made like the segmenter's (ADR 0018): augmented patches generated in each run and held only there, preferably
+          in RAM, never stored. The head is one convex fit on fixed embeddings, not epochs, so each run draws K augmented
+          views of every training patch once, seeded by the run's seed, embeds them and keeps only the embeddings in
+          memory. Val and test stay unaugmented. Library: <code>albumentations</code> 2.0.8 as pinned for ADR 0018,
+          in place of the ResNet-era knobs. The plan proposes the transforms and K, timed first (R4). The run still
+          prints ADR 0002's paired comparison against the same data unaugmented, at 42, 123 and 7, so the effect is
+          known; it does not gate. Binds later fits: ADR 0025, written in plan P6. Details, owner 2026-10-19: <strong>K = 8</strong> views per training patch beside the original (about 2.3 h of embedding per seed, 7 h for three; about 330 MB of embeddings); the transforms are the plan's (P6: <code>SquareSymmetry</code>, <code>Affine</code> scale 0.9&ndash;1.1, <code>CoarseDropout</code>, <code>ColorJitter</code> with hue 0, <code>PlanckianJitter</code>, compression, blur, noise, <code>Downscale</code>), from the library's own guide; every pipeline is built by a strict builder that fails on an argument the pinned version does not know (plan P2). The library stays at 2.0.8: it is the last <code>albumentations</code> release, and every later version, 2.2 included, is AlbumentationsX, AGPL-3.0 or commercial, with usage statistics on by default (ADR 0018).</td></tr>
+      <tr><td class="id">D5</td><td>Where do the new true negatives go?</td>
+        <td>(a) Into <code>user_realworld</code> as <code>real_world_negatives</code>. (b) A new batch, or a tag for
+          coffee-adjacent negatives.</td>
+        <td>(a), owner 2026-10-19: no new tags; negatives are negatives. Whether to drop the tags altogether is D9.</td></tr>
+      <tr><td class="id">D6</td><td>Which photos does this ticket's classifier train on? (Re-asked 2026-10-19; first
+          asked as "the data cut-off".)</td>
+        <td>The work runs in order: add photos, re-crop, train, export, deploy. A photo added after the re-crop has no
+          crop, and bringing it in means re-cropping and retraining again. (a) Everything in DVC when the owner says the
+          new negatives are in; that is when the re-crop starts, and later photos wait for the next ticket.
+          (b) Photos keep joining until the deploy, each one re-running the steps after it. Recommended: (a).</td>
+        <td>(a), owner 2026-10-19: every photo available on 2026-10-19, which is the ingest of 2026-10-18 (none has
+          arrived since). The negatives the owner adds later wait for the next ticket; D5 says where they go.</td></tr>
+      <tr><td class="id">D7</td><td>What follows the new classifier?</td>
+        <td>(a) As ML-6 D8 (a): retrain at 42, 123 and 7, refit the probe on the new training and validation negatives,
+          export the candidate to LiteRT. (b) Stop at the comparison.</td>
+        <td>(a), owner 2026-10-19, and the ticket ends with a deploy: the candidate's <code>litert_export</code> passes
+          ADR 0020's gates and ships through <code>docs/agents/deploy.md</code> as the last phase, a stop for the owner's
+          go (R6).</td></tr>
+      <tr><td class="id">D8</td><td>What is the patch budget once there is one pool? (From D2.)</td>
+        <td>(a) Per class over the pool: 600 training, 160 validation, 160 test, today's four-pool volume, and every
+          class equal (today a class missing from <code>cam_iphone</code> gets three quarters). (b) A fixed number per
+          photo, so classes with more photos get more patches. Recommended: (a).</td>
+        <td>(a), owner 2026-10-19: 600 training, 160 validation and 160 test patches per class.</td></tr>
+      <tr><td class="id">D9</td><td>Drop the negatives' scenario tags altogether? (From D5.)</td>
+        <td>(a) Keep the existing tags as data and add no more (D5). (b) Drop them: new negatives split within their
+          batch only, reports by batch, and the 3 <code>wrong_bean_type</code> photos (coffee cherries, husk, cascara; §2),
+          which the probe leaves out today, are either fitted as negatives or removed. Listed segmenter-dataset entries keep their split either way.</td>
+        <td>(b), owner 2026-10-19: drop the tags, and the 3 <code>wrong_bean_type</code> photos are negatives like any other, in the probe's fit too. The probe then fits on every training and validation negative; newly added negatives split within their batch; reports go by batch. <code>dataset/ood_negatives/README.md</code> and the manifests say so.</td></tr>
+      <tr><td class="id">D10</td><td>New names without <code>allrigs</code>? (Plan Q1.)</td>
+        <td>(a) New runs <code>dino3b16_frozen_clsmean_segcrop_country_aug8_s&lt;seed&gt;</code>, the model
+          <code>dino3b16_segxl0v3_country_aug8_s&lt;seed&gt;</code>; old names stay as recorded. (b) Keep the prefix.</td>
+        <td>(a), owner 2026-10-19: drop <code>allrigs</code>.</td></tr>
+      <tr><td class="id">D11</td><td>Does the owner judge the 20 new photos' crops before they train? (Plan Q2.)</td>
+        <td>(a) Yes, at plan P4's stop; declined crops go to <code>labels/ml3/pool_exclude.csv</code>, as in ML-3 P5.
+          (b) No.</td>
+        <td>(a), owner 2026-10-19.</td></tr>
+      <tr><td class="id">D12</td><td>Are the OOD reference and the probe built from unaugmented embeddings? (Plan Q3.)</td>
+        <td>(a) Yes: they describe real uploads, and the probe's bean photos are held-out photos, never augmented
+          (ADR 0016). (b) From the augmented ones.</td>
+        <td>(a), owner 2026-10-19.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>Every photo available on 2026-10-19 (D6) stripped (ADR 0013), in DVC and on <code>dvcnewremote</code>, every object verified by md5, and in <code>labels/ml5/seg_dataset.yaml</code> by an append that changes no listed entry.</span></li>
+    <li><span class="box"></span><span>The re-crop compared with P8's crops on the photos both have: crop boxes, fallbacks, mask pixels, patch placement (R3).</span></li>
+    <li><span class="box"></span><span>No code reads a negative's scenario tag: the probe fits on every training and validation negative, the segmenter dataset stratifies new negatives by batch, reports go by batch (D9).</span></li>
+    <li><span class="box"></span><span>Every <code>segcrop</code> stage current in <code>dvc status</code>, run once with XL0-v3 and today's code.</span></li>
+    <li><span class="box"></span><span>No <code>camera</code> column in any manifest; <code>seg_dataset.shot_time</code> reads file-name times on one local clock; a rebuild of <code>labels/ml5/seg_dataset.yaml</code> still equals the committed file (D2).</span></li>
+    <li><span class="box"></span><span>The owner has judged the 20 new photos' crops; declined ones are in <code>labels/ml3/pool_exclude.csv</code> (D11).</span></li>
+    <li><span class="box"></span><span>One pool replaces the four camera pools; no training path, stage or report reads a camera or rig; the patch budget is 600/160/160 per class (D8); ADR 0024 supersedes ADR 0010.</span></li>
+    <li><span class="box"></span><span>One strict builder makes every albumentations pipeline, the segmenter's included, and fails on an argument the pinned version does not know; the segmenter's pipeline builds identically through it (plan P2).</span></li>
+    <li><span class="box"></span><span>The head fit draws 8 augmented views per training patch per run through the strict builder, holds only their embeddings in memory, writes nothing augmented, and records the pipeline, the view count and the library version in the run's config and the model card; ADR 0025 records the rule.</span></li>
+    <li><span class="box"></span><span>Classifier runs at 42, 123 and 7 under names without <code>allrigs</code> (D10), with ADR 0002's paired print against the same data unaugmented, and beside exp267–269 (R1).</span></li>
+    <li><span class="box"></span><span>A candidate, named <code>dino3b16_segxl0v3_country_aug8_s&lt;seed&gt;</code> (D10), with its OOD reference from unaugmented embeddings and a probe refit on every training and validation negative, unaugmented (D12), measured on the test split by batch (ADR 0016).</span></li>
+    <li><span class="box"></span><span>Its <code>litert_export</code> passing ADR 0020's gates; data and models pushed to <code>dvcnewremote</code> and verified.</span></li>
+    <li><span class="box"></span><span>Deployed on the owner's go and verified on the live site (<code>docs/agents/deploy.md</code>).</span></li>
+    <li><span class="box"></span><span>README's Status, the model card, <code>dvc.yaml</code>'s notes, <code>dataset/ood_negatives/README.md</code> and <code>dataset/segmenter_positives.README.md</code> say what is true afterwards.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Retraining the segmenter and labelling its new positives (D3): a later ticket.</li>
+    <li>New capture sessions for thin pools and a fresh-bag test set: <a href="ticket_capture_gaps.html">ML-4</a>. Photos added after 2026-10-19, the owner's next negatives included, wait for the next ticket (D6).</li>
+    <li>Renaming session folders, new classes, a new backbone or head type, moving training onto LiteRT (ML-7 D3).</li>
+    <li>Test-time augmentation (ADR 0006).</li>
+    <li>Upgrading albumentations: every version after 2.0.8 is AlbumentationsX, AGPL-3.0 or commercial (ADR 0018). Revisiting that is its own ticket.</li>
+    <li>Feature-space augmentation (FroFA, arXiv 2403.10519): its gains are few-shot and shrink to +0.1&ndash;0.4 points by 25 shots, and it cannot imitate a camera.</li>
+    <li>Fixing the deploy's memory preflight: <a href="ticket_deploy_memory_headroom.html">OPS-10</a> (R6).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-18</div>Ticket written from the owner's request and from these sources: the
+      ingest of 31 photos (uncommitted when written), <code>d88533d</code>, <code>0675f40</code>, ML-6 and
+      <code>analysis/ml6_p8/summary.txt</code>, ML-7's note on the mask port, <code>dvc status</code>, the
+      segmenter dataset against <code>labels/ml5/pass3.verdicts.jsonl</code>, <code>fit_frozen_head.py</code>, ADRs
+      0002, 0006, 0010, 0015, 0016, 0018. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner decides D1 (a), D2 (no rig or phone-model logic at all), D3 (b),
+      D4 (augmentation adopted, per run, in RAM), D5 (a) and D7 (a) with a deploy at the end. D6 re-asked in plainer
+      words. New D8 (the patch budget, from D2) and D9 (dropping tags, from D5). The ticket is re-scoped to match: no
+      segmenter retrain, one pool, the deploy in scope. Facts added: the camera logic in <code>dataset.py</code>,
+      <code>config.py</code> and <code>params.yaml</code>, exp267's patch counts and embedding time, what reads the
+      negatives' tags. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner decides D6 (a), the photos available now, which are those of
+      2026-10-18, and D8 (a), 600/160/160 per class. For D9 the owner asked for the three
+      <code>wrong_bean_type</code> photos: they are coffee cherries, husk and cascara, not other bean species as this
+      ticket first said; §2 and D9 corrected. D9 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner decides D9 (b): the tags go and the three photos count as
+      negatives. Every decision is made; Triage <code>ready-for-agent</code>. The plan comes next, with D2's two
+      confirmations (session folders, the <code>camera</code> column) and D4's transforms and K as its questions. Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner asked how the manifests' <code>camera</code> column is used; §2 now
+      records the answer and a rebuild with it ignored (no group changes). The owner decides it goes, with the logic
+      behind it (D2). The plan's questions are now the session folders (D2) and D4's transforms and K. Not planned,
+      not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner confirms the session folders stay as they are: no restructuring
+      of <code>dataset/</code> (D2, §4). The plan's one open question is D4's transforms and K. Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-10-19</div>D4's details from the owner: K = 8, the transform set researched in the
+      library's guide, and a strict builder, which goes into the plan as its own phase. Asked whether to upgrade
+      albumentations: 2.0.8 is the last MIT release, later versions are AlbumentationsX (AGPL-3.0 or commercial,
+      telemetry on by default), so it stays (ADR 0018). Plan written: <a href="plan_data_refresh_retrain.html">plan_data_refresh_retrain.html</a>,
+      P1&ndash;P8, Q1&ndash;Q3 open. Not implemented.</div>
+    <div><div class="when">2026-10-19</div>The owner answers the plan's Q1&ndash;Q3: D10 (drop <code>allrigs</code>
+      from new names), D11 (the owner judges the 20 new crops) and D12 (reference and probe unaugmented). Every
+      decision is made. Not implemented.</div>
+    <div><div class="when">2026-10-19</div>Ticket text checked against D1&ndash;D12 and the plan, at the owner's request.
+      Brought up to date: lede, Component, Summary (the plan's eight phases), Background (the library and its silently
+      ignored arguments, the <code>allrigs</code> names, patch memory), Before and after, What does not change (the library
+      version, D12), R4's numbers at K = 8, new R7&ndash;R9, ADR 0024 and 0025 named in D2 and D4, acceptance for
+      D10&ndash;D12, Out of scope (the upgrade, feature-space augmentation). No decision changed. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="plan_data_refresh_retrain.html">ML-8 plan</a>, <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_inference_runtime.html">ML-7</a>,
+    <a href="ticket_capture_gaps.html">ML-4</a>, <a href="ticket_deploy_memory_headroom.html">OPS-10</a>,
+    <code>dataset/ood_negatives/README.md</code>, <code>coffeecv/seg_dataset.py</code>, <code>coffeecv/segcrop_session.py</code>,
+    <code>coffeecv/merge_rig.py</code>, <code>coffeecv/ood_eval.py</code>, <code>coffeecv/fit_frozen_head.py</code>,
+    <code>coffeecv/seg_finetune.py</code>, the albumentations guide (<code>albumentations.ai/docs/3-basic-usage/choosing-augmentations/</code>).</footer>
+</main>
