@@ -2,8 +2,8 @@
 
 Run from the repo root:  python -m unittest discover -s tests -p "test_dino*" -v
 
-Every model input here is real: bean patches drawn from the DVC-tracked cam_iphone crops by
-coffeecv_dino.reference. The weights and the crops are not in git, so tests that need them skip (with a
+Every model input here is real: bean patches drawn from the DVC-tracked pool's listed crops
+(coffeecv_dino/reference_photos.txt) by coffeecv_dino.reference. The weights and the crops are not in git, so tests that need them skip (with a
 pointer) on a clone that has not obtained them -- see models_pretrained/README.md.
 """
 import re
@@ -21,7 +21,7 @@ from tests._tiers import real_data
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "dinov3_vits16_reference.npz"
 HAVE_V3 = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_reference_data()
-SKIP_V3 = "DINOv3 weights or the cam_iphone crops are missing -- run models_pretrained/verify.py / dvc pull"
+SKIP_V3 = "DINOv3 weights or the reference crops are missing -- run models_pretrained/verify.py / dvc pull"
 
 
 @real_data
@@ -45,7 +45,7 @@ class TestDinov3Loader(unittest.TestCase):
             f = self.bb.features(self.x)
         for readout in ("cls", "cls_mean"):
             np.testing.assert_allclose(f[readout].numpy(), self.ref[readout], atol=1e-4, rtol=0,
-                                       err_msg=f"{readout} drifted from Meta's reference (cam_iphone re-cropped? "
+                                       err_msg=f"{readout} drifted from Meta's reference (the pool re-cropped? "
                                                "regenerate the fixture: docs/agents/experiments.md, "
                                                "'Changing the segmenter')")
 

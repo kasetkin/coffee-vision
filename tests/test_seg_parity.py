@@ -27,7 +27,7 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import (CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset, bean_mask_path,
                               bean_share_rule, load_rgb_image)
 from coffeecv.merge_rig import merge_cmd_args, merge_rig, read_exclusions
-from coffeecv.repro_utils import CAPTURE_STAGE_OVERRIDES, _stage_key, stale_crop_stages
+from coffeecv.repro_utils import _stage_key, capture_stage_overrides, stale_crop_stages
 from coffeecv.segcrop_session import crop_photo, write_crop
 
 from tests._tiers import real_data
@@ -43,7 +43,7 @@ N = 40
 
 def dataset_patches(cap_dir: Path, cfg: RunConfig) -> MultiPhotoPatchDataset:
     """`cap_dir`/class_003__X/*__cropped.jpg as a one-photo, split="all" capture: RNG key
-    [seed, 0, 0, 0, SPLIT_SEED_COMPONENT["all"]]."""
+    [seed, 0, 0, SPLIT_SEED_COMPONENT["all"]] (seed, class, photo, split; ticket ML-8 took the capture out)."""
     classes = cap_dir.parent / "classes.txt"
     classes.write_text("003;Colombia,PinkBourbon\n")
     budget = {"train": N, "val": N, "test": N, "all": N}
@@ -61,7 +61,7 @@ class TestSegmentParity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.stage = crop_photo(PHOTO, infer.segmenter_for(CFG))
-        cls.key = [CFG.seed, 0, 0, 0, SPLIT_SEED_COMPONENT["all"]]
+        cls.key = [CFG.seed, 0, 0, SPLIT_SEED_COMPONENT["all"]]
 
     def write_capture(self, tmp: Path, rgb: np.ndarray, crop=None) -> Path:
         cap = tmp / "cap"
@@ -186,12 +186,12 @@ class TestSegPoolsWiring(unittest.TestCase):
         and every segcrop session feeds one of them."""
         stages = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"]
         names = set(stages) | {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]}
-        named = [st for p in CAPTURES for st in CAPTURE_STAGE_OVERRIDES[_stage_key(p)]]
+        named = [st for p in CAPTURES for st in capture_stage_overrides()[_stage_key(p)]]
         self.assertLessEqual(set(named), names)
         self.assertEqual({st for st in named if st.startswith("segcrop@")},
                          {f"segcrop@{s}" for s in stages["segcrop"]["foreach"]})
         for p in CAPTURES:                                              # and per pool, the sessions it merges
-            merge, *segcrops = CAPTURE_STAGE_OVERRIDES[_stage_key(p)]
+            merge, *segcrops = capture_stage_overrides()[_stage_key(p)]
             name, sessions = merge_cmd_args(stages[merge]["cmd"])
             self.assertEqual(name, Path(p).name)
             self.assertEqual([f"segcrop@{s}" for s in sessions], segcrops, p)

@@ -1,18 +1,15 @@
-"""Merge two or more already-cropped sessions into one logical rig.
+"""Merge already-cropped sessions into one pool.
 
-For a rig re-shot on a different day/setup (different framing, lighting, even a
-different crop trim) that should still be trained on as *one* rig rather than a
-new, separate one -- see dataset/2026-08-27__oneplus_flash.crop.yaml (deleted in
-ticket ML-3 P2b; in git history) for why that session and 2026-08-25__oneplus were
-first merged rather than kept apart.
+Since ticket ML-8 (D2, ADR 0024) one pool, data/segcropped/pool, of every session's crops: training reads no
+camera or rig. Until then the merge_segcam_* stages built one pool per camera model (cam_pixel, cam_sony,
+cam_oneplus, cam_iphone), and before that the tray heuristic's merge_cam_* stages; the module keeps its name.
 
-This is deliberately a real, tracked pipeline stage (the merge_segcam_* stages in
-dvc.yaml), not a manual one-off copy -- this project already has a scar from
-treating a step as untracked: crop_tray.py predating the `crop` stage "could not
-run anywhere the crops did not already sit in the working tree" (see
-EXPERIMENTS_LOG.md Phase 9).
+This is deliberately a real, tracked pipeline stage (merge_segpool in dvc.yaml), not a manual one-off copy --
+this project already has a scar from treating a step as untracked: crop_tray.py predating the `crop` stage
+"could not run anywhere the crops did not already sit in the working tree" (see EXPERIMENTS_LOG.md Phase 9).
 
-    python -m coffeecv.merge_rig --name cam_sony --sessions 2026-08-09__sony_cam 2026-08-30__sony
+    python -m coffeecv.merge_rig --name pool --sessions 2026-08-07__box_pictures_all_classes ... random_date_raccoon \
+        --exclude labels/ml3/pool_exclude.csv
 
 Ticket ML-2 (F3): the segmenter's pools merge the same way from data/segcropped (`--root`), and a crop's
 bean-region mask (`<stem>__beanmask.png`, dataset.bean_mask_path) travels with it; a D18 fallback crop has
@@ -41,7 +38,7 @@ CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 
 
 def merge_cmd_args(cmd: str) -> tuple[str, list[str]]:
-    """(--name, --sessions) of a merge_segcam_* stage's cmd, for readers of dvc.yaml: the session list ends at
+    """(--name, --sessions) of a merge stage's cmd (merge_segpool), for readers of dvc.yaml: the session list ends at
     the next flag (--exclude since ML-3 P5), not at the end of the line."""
     parts = cmd.split()
     i = parts.index("--sessions") + 1
@@ -66,8 +63,7 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
                                      f"`dvc repro segcrop@{s}` (on the VM, at 4 threads).")
 
     # Union of class directories across all source sessions -- a session missing
-    # one class (e.g. iPhone lacking class_008) just contributes nothing for it,
-    # same tolerance MultiPhotoPatchDataset already has for a multi-rig train set.
+    # one class just contributes nothing for it.
     class_dirs_by_id: dict[str, list[tuple[str, Path]]] = {}
     for session, session_dir in zip(sessions, session_dirs):
         for class_dir in sorted(session_dir.iterdir()):
@@ -137,7 +133,7 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--name", required=True, help="name of the merged rig, under <root>/<name>")
+    p.add_argument("--name", required=True, help="name of the merged pool, under <root>/<name>")
     p.add_argument("--sessions", required=True, nargs="+", help="cropped session names to merge (>= 2)")
     p.add_argument("--root", type=Path, default=SEGCROPPED_ROOT,
                    help="where the sessions are and the merge goes (default data/segcropped)")
@@ -145,13 +141,7 @@ def main() -> None:
     args = p.parse_args()
     if not args.sessions:
         raise SystemExit("--sessions needs at least one session")
-    # A one-session "merge" is a copy, and was previously refused on exactly that
-    # ground. It is allowed now because rigs are keyed on camera model, so the rig
-    # name has to be stable even when a camera has been shot only once: cam_iphone
-    # is one session today and two the moment an iPhone frame-filling session
-    # lands, and that must not require editing RIGS, params.yaml and every
-    # downstream reference. Paying one directory copy to keep the identifier
-    # stable is the cheaper side of that trade.
+    # A one-session "merge" is a copy; allowed (the camera pools needed it for a camera shot once).
     merge_rig(args.name, args.sessions, args.root.resolve(), read_exclusions(args.exclude) if args.exclude else None)
 
 

@@ -1,6 +1,6 @@
 """Forward-pass latency of the frozen backbones on real bean patches (plan §5.5 / §6.2's table).
 
-Batch 32 at 224 px, the real weights, the real eval-transformed cam_iphone patches from
+Batch 32 at 224 px, the real weights, the real eval-transformed reference patches (the pool's listed photos) from
 `coffeecv_dino.reference`. One process per thread count, because torch's intra-op pool is sized once.
 Reports ms per image; model time per /classify photo is that times 40 patches (no TTA) for a frozen
 DINO arm, and times 320 (40 patches x 8 dihedral views) for today's ResNet18.

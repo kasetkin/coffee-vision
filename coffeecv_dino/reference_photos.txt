@@ -1,0 +1,18 @@
+# The DINOv3 reference photos (coffeecv_dino/reference.py, ticket ML-8 P5): one crop per class folder of
+# data/segcropped/pool, the first by name with a bean mask (not a D18 fallback) and not one of the 20 photos
+# ML-8 first cropped, chosen 2026-10-19. Changing a line, or re-cropping one of these, means regenerating
+# tests/fixtures/dinov3_vits16_reference.npz (scripts/make_dinov3_fixture.py).
+class_001__Ethiopia_Sidamo/IMG_6301D__cropped.jpg
+class_002__Kenya_AA/IMG_6279D__cropped.jpg
+class_003__Colombia_PinkBourbon/IMG_6257D__cropped.jpg
+class_004__CostaRica_LaPastora/IMG_6268D__cropped.jpg
+class_005__Guatemala_Tata/IMG_20261008_092817__cropped.jpg
+class_006__Brazil_Cerrado/IMG_6246__cropped.jpg
+class_007__Brazil_MonteCristo/IMG_6290D__cropped.jpg
+class_008__Ethiopia_Kochere/PIC_20260809_202933__cropped.jpg
+class_009__Vietnam/IMG_6312D__cropped.jpg
+class_010__Indonesia_Java/PIC_20260830_200041__cropped.jpg
+class_011__Peru_Minca/PIC_20260911_124657__cropped.jpg
+class_012__Rwanda_Gisuma/PIC_20260924_145542__cropped.jpg
+class_013__Brazil_SulDeMinas/PXL_20260926_122041643__cropped.jpg
+class_014__Colombia_Excelso/PXL_20260927_105921144__cropped.jpg

@@ -6,20 +6,16 @@ seed: 7
 # Training reads the cropped tree produced by the `segcrop` stage, not the raw
 # session. The segmenter it runs is the seg_* block below.
 #
-# train_capture_dirs: the photo pools training draws from -- the four cam_*
-# dirs, one per camera, each merged from that camera's sessions by a merge_segcam_*
-# stage (dataset.CAPTURES). Since ticket ML-1 (2026-09-29) all are equal: photos
-# are pooled across them and split train/val/test within each class (country) only
-# (D1(b)); none is held out, and there is no cross-camera metric. The order
-# seeds patch boxes, so keep it. run_all_rigs.py rewrites this block to exactly
-# that list on every run, so what rests here is what a bare `dvc repro train`
-# reproduces. Until ticket ML-3 P2b these were the tray heuristic's
-# data/cropped pools, retired then (Q3).
+# train_capture_dirs: the photo pool training draws from -- one, data/segcropped/pool,
+# every session's crops merged by the merge_segpool stage (dataset.CAPTURES; ticket ML-8
+# D2, ADR 0024: no camera or rig in the data or training pipeline). Photos are split
+# train/val/test within each class (country) only (ML-1 D1(b)). run_all_rigs.py rewrites
+# this block to exactly that list on every run, so what rests here is what a bare
+# `dvc repro train` reproduces. Until ML-8 these were four camera pools
+# (data/segcropped/cam_*, one merge_segcam_* stage each); until ticket ML-3 P2b the tray
+# heuristic's data/cropped pools.
 train_capture_dirs:
-  - data/segcropped/cam_pixel
-  - data/segcropped/cam_sony
-  - data/segcropped/cam_oneplus
-  - data/segcropped/cam_iphone
+  - data/segcropped/pool
 # One line per coffee in the D15 format (id;Country[,Region];Misc); the class is the
 # country, so a class pools every folder of its country (ticket ML-3).
 classes_file: dataset/classes.txt
@@ -29,14 +25,15 @@ patch_crop_size: 900
 patch_resize: 224
 patch_store_size: 448  # 0 = keep full patch_crop_size (single-rig legacy behaviour)
 safety_margin: 0.97
-train_patches_per_class: 150   # per class *per capture dir*, over that dir's photos in the split
-val_patches_per_class: 40     # likewise per capture dir
-test_patches_per_class: 40
+# Per class, over the class's photos in the split (ticket ML-8 D8: today's four-pool volume, every
+# class equal); until ML-8 150/40/40 per class *per capture dir*.
+train_patches_per_class: 600
+val_patches_per_class: 160
+test_patches_per_class: 160
 
-# Photo-level split, as fractions of however many photos a class has pooled
-# across all capture dirs (ML-1 D1(b)) -- not per dir, so a dir with few photos
-# of a class can land none in val or test; `python -m coffeecv.split_report`
-# shows each dir's share. val/test floor at 1 photo. See split_photos_by_class.
+# Photo-level split, as fractions of however many photos a class has in the
+# pool (ML-1 D1(b)); `python -m coffeecv.split_report` shows each split's
+# photos. val/test floor at 1 photo. See split_photos_by_class.
 train_photo_frac: 0.70
 val_photo_frac: 0.15
 test_photo_frac: 0.15

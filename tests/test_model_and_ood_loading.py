@@ -38,7 +38,7 @@ class TestEmbeddingContract(unittest.TestCase):
     embedding_dim_of(head) features -- the vector every OOD artifact is built in (plan §8.0)."""
 
     @real_data
-    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "the reference crops (coffeecv_dino/reference_photos.txt) not present")
     def test_pre_hook_captures_the_embedding(self):
         x, _, _, _ = reference_patches(per_class=1)
         for name in SUPPORTED_MODELS:
@@ -132,9 +132,12 @@ class TestLegacyTrainRigsAlias(unittest.TestCase):
         self.assertEqual(cfg.train_capture_dirs, ("data/cropped/cam_sony",))
         self.assertNotIn(LEGACY_CONFIG_NOTE, source)
 
-    def test_shipped_card_resolves_to_todays_four_capture_dirs(self):
+    def test_a_shipped_card_resolves_to_the_pools_it_trained_on(self):
+        # Fitted on the four camera pools before ticket ML-8 (D2) merged them into one: its card still names them.
         cfg, _ = config_for_checkpoint(DEPLOYED, None)
-        self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], list(CAPTURES))
+        self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]],
+                         [f"data/segcropped/cam_{c}" for c in ("pixel", "sony", "oneplus", "iphone")])
+        self.assertEqual(CAPTURES, ["data/segcropped/pool"])
 
 
 class TestRecordedClassIds(unittest.TestCase):
@@ -222,7 +225,7 @@ class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
             load_model(self.ckpt, "resnet18", 10, 0.2)
 
     @real_data
-    @unittest.skipUnless(have_reference_data(), "real crops (data/segcropped/cam_iphone) not present")
+    @unittest.skipUnless(have_reference_data(), "the reference crops (coffeecv_dino/reference_photos.txt) not present")
     def test_logits_bit_identical_to_imagenet_init(self):
         x, _, _, _ = reference_patches(per_class=2)
         new, _ = load_model(self.ckpt, "resnet18", 10, 0.2)

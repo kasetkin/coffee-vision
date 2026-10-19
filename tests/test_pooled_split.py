@@ -1,7 +1,7 @@
 """The pooled photo split (ticket ML-1, D1(b)): one 70/15/15 split per class over every capture dir's
-photos, deterministic, independent of the order the dirs are listed in, and -- because a dir is no
-longer guaranteed a share of each split -- tolerant of a dir that lands no photos in one. Since ticket
-ML-3 a class pools several class folders (a country's coffees). Plain unittest.
+photos, deterministic, independent of the order the dirs are listed in, and tolerant of a dir that lands
+no photos in one. Since ticket ML-3 a class pools several class folders (a country's coffees); since ticket
+ML-8 training reads one pool and the patch budget is per class. Plain unittest.
 
     python -m unittest discover -s tests -p 'test_pooled_split.py'
 
@@ -107,10 +107,10 @@ class TestPooledSplit(unittest.TestCase):
         self.assertEqual(set(census["002"]["val"]), {"capA"})      # an absent dir is not "starved"
 
 
-class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
-    """A dir can land zero photos in a split for a class. That used to be impossible (every dir was
-    floored at one val and one test photo) and would now divide by zero when the patch budget is spread
-    over that dir's photos; it must instead be skipped, warned about and recorded."""
+class TestBudgetIsPerClass(unittest.TestCase):
+    """Ticket ML-8 D8: the patch budget is per class, spread over the class's photos in the split whichever dir
+    each came from, and no dir's position seeds a box. Until ML-8 the budget was per (dir, class), and a dir the
+    pooled split left with no photo in a split was recorded as starved."""
 
     @classmethod
     def setUpClass(cls):
@@ -127,27 +127,31 @@ class TestStarvedCaptureDoesNotCrash(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp)
 
-    def build(self, split):
+    def build(self, split, budget):
         return MultiPhotoPatchDataset(
             captures=self.captures, classes=folder_classes(self.tmp / "classes.txt"), split=split,
-            seed=7, crop_size=32, resize=32, safety_margin=0.97,
-            patches_per_class={"train": 6, "val": 4, "test": 4}, photo_frac=FRAC)
+            seed=7, crop_size=32, resize=32, safety_margin=0.97, patches_per_class=budget, photo_frac=FRAC)
 
-    def test_starved_split_is_skipped_and_recorded(self):
+    def test_the_class_budget_is_spread_over_its_photos_whatever_their_dir(self):
         [home] = [s for s, ps in self.where.items() if ps]
+        budget = {"train": 30, "val": 8, "test": 8}            # above each split's photo count
         for split in ("train", "val", "test"):
             with self.subTest(split=split):
-                ds = self.build(split)
-                dirs = {m.capture for m in ds._meta}
-                if split == home:
-                    self.assertEqual(ds.starved, [])
-                    self.assertEqual(dirs, {"capA", "capB"})
-                    self.assertEqual(sum(m.capture == "capB" for m in ds._meta),
-                                     {"train": 6, "val": 4, "test": 4}[split])  # the whole dir budget
-                else:
-                    self.assertEqual(ds.starved, [("capB", "001")])
-                    self.assertEqual(dirs, {"capA"})
+                ds = self.build(split, budget)
+                self.assertEqual(len(ds), budget[split])                   # one budget for the class
+                n_b = sum(m.capture == "capB" for m in ds._meta)
+                self.assertEqual(n_b > 0, split == home)                    # capB's one photo, where it is
+                self.assertLessEqual(n_b, -(-budget[split] // len({m.photo_name for m in ds._meta})))
                 self.assertEqual(ds.present_class_idxs, [0])
+
+    def test_boxes_do_not_depend_on_the_order_of_the_dirs(self):
+        def boxes(captures):
+            ds = MultiPhotoPatchDataset(
+                captures=captures, classes=folder_classes(self.tmp / "classes.txt"), split="train",
+                seed=7, crop_size=32, resize=32, safety_margin=0.97,
+                patches_per_class={"train": 6, "val": 4, "test": 4}, photo_frac=FRAC)
+            return sorted((m.capture, m.photo_name, m.box) for m in ds._meta)
+        self.assertEqual(boxes(self.captures), boxes(self.captures[::-1]))
 
     def test_all_split_keeps_every_photo_in_name_order(self):
         """split="all" (the DINOv3 fixture's path): each dir's photos in file-name order, photo_idx from 0."""
@@ -195,9 +199,10 @@ class TestCountryPool(unittest.TestCase):
         ds = MultiPhotoPatchDataset(
             captures=self.captures, classes=self.classes, split="train", seed=7, crop_size=32, resize=32,
             safety_margin=0.97, patches_per_class={"train": 30, "val": 4, "test": 4}, photo_frac=FRAC)
-        b_a = [m for m in ds._meta if m.class_id == "B" and m.capture == "capA"]
-        self.assertEqual(len(b_a), 30)                              # one per-(capture, class) budget
-        self.assertEqual({m.folder_id for m in b_a}, {"002", "003"})
+        b_all = [m for m in ds._meta if m.class_id == "B"]
+        self.assertEqual(len(b_all), 30)                            # one budget per class (ticket ML-8 D8)
+        self.assertLessEqual({(m.capture, m.folder_id) for m in b_all}, {("capA", "002"), ("capA", "003"), ("capB", "002")})
+        b_a = [m for m in b_all if m.capture == "capA"]
         self.assertTrue(all(m.photo_name.startswith(f"capA_{m.folder_id}_") for m in b_a))   # provenance
         labels = {ds[i][1] for i in range(len(ds)) if ds._meta[i].class_id == "B"}
         self.assertEqual(labels, {1})
@@ -221,7 +226,8 @@ class TestCountryPool(unittest.TestCase):
 class TestRestingCaptureDirs(unittest.TestCase):
     def test_config_default_and_params_rest_at_captures(self):
         """RunConfig keeps a literal copy of dataset.CAPTURES (to avoid importing the dataset stack), and
-        params.yaml rests at it; all three must agree, order included -- the order seeds patch boxes."""
+        params.yaml rests at it; all three must agree. Since ticket ML-8 (D2) it is one pool."""
+        self.assertEqual(CAPTURES, ["data/segcropped/pool"])
         self.assertEqual(RunConfig().train_capture_dirs, tuple(CAPTURES))
         self.assertEqual(RunConfig.from_params_yaml().train_capture_dirs, tuple(CAPTURES))
 

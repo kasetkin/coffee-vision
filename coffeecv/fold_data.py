@@ -2,10 +2,12 @@
 
 Moved out of `train_baseline.main()` on 2026-09-24, verbatim, so that a second consumer -- the
 frozen-backbone fit (`fit_frozen_head`) -- gets byte-identical patches instead of re-typing the
-construction. Re-typing it is not a safe shortcut here: `capture_idx`, a capture dir's position in the
-config's list, seeds every patch box (`MultiPhotoPatchDataset._extract_photo`), so a caller that builds
-each dir on its own, or in another order, silently draws different patches. The 2026-09-21 backbone
-screen did exactly that. See docs/dinov3_integration_plan.md §0.1 and §4.1.
+construction. Re-typing it is not a safe shortcut here: until ticket ML-8 `capture_idx`, a capture dir's
+position in the config's list, seeded every patch box (`MultiPhotoPatchDataset._extract_photo`), so a
+caller that built each dir on its own, or in another order, silently drew different patches. The
+2026-09-21 backbone screen did exactly that. See docs/dinov3_integration_plan.md §0.1 and §4.1. Since ML-8
+the key is (seed, class, photo, split) and the budget is per class, but one construction still serves
+every caller.
 
 Which *photos* land in which split no longer depends on that position: since ticket ML-1 (D1(b),
 2026-09-29) the photo split is pooled across dirs per class and seeded on (seed, class) alone
@@ -50,7 +52,7 @@ def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
 
     `only` builds just the named splits ("train", "val", "test") and leaves the rest None. The photo
     split is a pure function of (seed, class, photo pool) and each box draws from a generator keyed on
-    (seed, capture_idx, class, photo, split), never from a shared stream, so a split built alone is
+    (seed, class, photo, split), never from a shared stream, so a split built alone is
     byte-identical to the same split built with the others -- and a caller that needs one split at a
     time holds one split's decoded patches in memory, not three.
     """
@@ -111,7 +113,8 @@ def build_capture_dataset(cfg: RunConfig, capture: Capture, classes: ClassList,
     No holdout semantics: this is the generic "draw n_patches per class from all of one dir's photos"
     builder. It feeds the DINOv3 backbone-equivalence fixture (`coffeecv_dino.reference`), whose
     patches must stay byte-identical to the ones `scripts/make_dinov3_fixture.py` recorded -- so the
-    construction, the "all" split's seed component and the single-dir `capture_idx` of 0 must not move.
+    construction and the "all" split's seed component must not move (ticket ML-8 took `capture_idx`, always
+    0 here, out of the box seed, and regenerated the fixture from the pool).
     Moved here on 2026-09-29 (ticket ML-1) from the retired cross-camera evaluator, construction unchanged.
     """
     return MultiPhotoPatchDataset(

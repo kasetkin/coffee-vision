@@ -290,12 +290,6 @@ def main() -> None:
         val_metrics=best_val_metrics, test_metrics=test_metrics,
         captures=[c.name for c in captures],
     )
-    # Which capture dirs the pooled split left with no photos in a split, per class (see
-    # MultiPhotoPatchDataset.starved). Recorded so an archived run states it, not only its log.
-    metrics_json["split_starved"] = {
-        name: [list(pair) for pair in ds.starved]
-        for name, ds in (("train", train_ds), ("val", val_ds), ("test", test_ds))
-    }
     (OUTPUTS_DIR / "metrics.json").write_text(json.dumps(metrics_json, indent=2))
     (OUTPUTS_DIR / "summary.json").write_text(json.dumps(build_summary_json(metrics_json), indent=2))
 

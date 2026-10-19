@@ -10,10 +10,12 @@ coffee beans. Used only to evaluate OOD/content-guard candidate methods
 - Subfolders (`empty_tray/`, `confusable_grain/`, etc.) only organise the files: they are **not**
   class directories, and since ticket ML-8 (D9, 2026-10-19) not tags either: nothing reads them. Never rename anything under here to the `class_NNN__Label` pattern
   that `coffeecv/dataset.py`'s `discover_classes_multi`/`find_class_dir` look for.
-- Never add any path under `dataset/ood_negatives/` to `params.yaml`'s `train_rigs` or
-  `heldout_rig`, or to `coffeecv/run_folds.py`'s `RIGS` list. Both are explicit, hardcoded
-  lists (not globs), so this directory is invisible to training by construction — keep it
-  that way rather than wiring it in "for convenience."
+- Never add any path under `dataset/ood_negatives/` to `params.yaml`'s `train_capture_dirs`,
+  `coffeecv/dataset.py`'s `CAPTURES` or the `merge_segpool` stage's sessions in `dvc.yaml`. All are
+  explicit lists (not globs), so this directory is invisible to the classifier's training by
+  construction — keep it that way rather than wiring it in "for convenience." (The segmenter
+  dataset does fine-tune the segmenter on these negatives, and the OOD probe fits on its
+  training and validation ones; `labels/ml5/seg_dataset.yaml`.)
 - These are raw photos, scored by `coffeecv/ood_eval.py` calling `patches_for_photo`/
   `classify_one` directly (the same live-crop code path a real upload takes) — they are
   never routed through the `data/cropped/` offline-crop tree.

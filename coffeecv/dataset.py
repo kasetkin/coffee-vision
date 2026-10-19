@@ -101,26 +101,15 @@ class PatchMeta:
     folder_id: str  # the class folder (coffee) the photo came from; equals class_id for per-folder classes
 
 
-# The capture dirs a run trains on: the segmenter's four data/segcropped/cam_* pools, each built by its
-# own merge_segcam_* stage in dvc.yaml from one camera's segcrop@<session> crops. Formerly
-# run_folds.RIGS, the fold rotation; moved here when the fold driver was retired (ticket ML-1,
-# 2026-09-29). run_all_rigs.py and fit_frozen_head.py train on exactly this list, and params.yaml
-# rests at it. Until ticket ML-3 P2b this named the tray heuristic's data/cropped/cam_* pools, and
-# ML-2's SEG_CAPTURES named these; the tray heuristic's pools and their crop stages were then retired
-# (Q3), so a tray-heuristic model's split is rebuilt at its own commit.
-#
-# The order is not cosmetic: a dir's position here is the `capture_idx` that
-# seeds its patch boxes (MultiPhotoPatchDataset._extract_photo). It no longer
-# decides which photos land in which split -- that is pooled per class and
-# order-independent (split_photos_by_class).
-#
-# cam_iphone carries eight classes (no class_008, no class_010); the other three
-# carry all ten.
+# The capture dirs a run trains on: one pool, data/segcropped/pool, merged by dvc.yaml's merge_segpool
+# stage from every session's segcrop@<session> crops (ticket ML-8 D2, ADR 0024: no camera or rig anywhere
+# in the data or training pipeline). run_all_rigs.py and fit_frozen_head.py train on exactly this list,
+# and params.yaml rests at it. Until ML-8 it named four pools, data/segcropped/cam_{pixel,sony,oneplus,
+# iphone}, one per camera, merged by merge_segcam_* stages, and a dir's position here seeded its patch
+# boxes; a model trained on them is rebuilt at its own commit. Until ticket ML-3 P2b this named the tray
+# heuristic's data/cropped/cam_* pools.
 CAPTURES = [
-    "data/segcropped/cam_pixel",
-    "data/segcropped/cam_sony",
-    "data/segcropped/cam_oneplus",
-    "data/segcropped/cam_iphone",
+    "data/segcropped/pool",
 ]
 
 
@@ -139,14 +128,11 @@ def bean_share_rule(cfg) -> tuple[float, int] | None:
 class Capture:
     """One capture dir under data/segcropped/: a name and where its crops live.
 
-    A capture is a pool of photos defined by camera + date + setup + lighting --
-    deliberately not "a camera": a future dir need not map 1:1 to a physical
-    camera, even though today's four cam_* dirs each merge one camera's
-    sessions. It is not a label and not a unit of evaluation. Since ticket ML-1
-    (2026-09-29) no capture is held out, trained on selectively or reported
-    separately; photos are pooled across captures and split per class only
-    (`split_photos_by_class`, D1(b)). A capture survives as the patch budget's
-    unit, as a box-RNG seed component, and as provenance in PatchMeta.
+    Since ticket ML-8 (D2, ADR 0024) training reads one, the pool of every session's crops. It is not a
+    label, not a unit of evaluation, of the patch budget or of the box seed: photos are pooled across every
+    capture dir passed and split per class (`split_photos_by_class`), and the budget is per class over the
+    pooled photos. A capture survives as the first half of the split's sort key and as provenance in
+    PatchMeta. Until ML-8 the four camera pools were the budget's unit and a dir's position seeded its boxes.
     """
     name: str
     cropped_dir: Path
@@ -159,7 +145,7 @@ def resolve_captures(cropped_dirs: list[Path]) -> list[Capture]:
         if not path.is_dir():
             raise FileNotFoundError(
                 f"No cropped capture dir at {path}. Run the segmenter's crop stages first: "
-                f"`dvc repro merge_segcam_pixel` (and the other merge_segcam_* stages)."
+                f"`dvc repro -s merge_segpool` (after the segcrop@<session> stages)."
             )
         captures.append(Capture(name=path.name, cropped_dir=path))
     if not captures:
@@ -195,7 +181,7 @@ def pooled_class_photos(captures: list[Capture], folder_ids) -> tuple[list[Captu
     capture they share one pool and one patch budget (D6). The split key stays (capture, photo name), so
     a name repeated across the folders makes `split_photos_by_class` refuse the pool.
 
-    A dir lacking a class is normal (cam_iphone has no class_008 or class_010). A class
+    A dir lacking a class is tolerated (a single-session dir rarely has every class). A class
     directory that exists but holds no crops is not, and still raises from
     `list_cropped_photos` -- that means the crop stage has not run.
     """
@@ -224,9 +210,7 @@ def split_photos_by_class(
 
     Pooled (ticket ML-1, D1(b), 2026-09-29): the split is computed once per class
     over the union of all capture dirs' photos, not once per (capture dir, class) as
-    before. No camera is guaranteed a share of val or test any more -- a low-count
-    dir can land zero photos in a split for some class, which MultiPhotoPatchDataset
-    records and warns about rather than crashing (see its `starved`).
+    before. Since ticket ML-8 training passes one dir, the pool of every session.
 
     Order-independent by construction: the pool is sorted by the global
     `(capture, name)` key *before* the seeded shuffle, and the shuffle is seeded on
@@ -273,9 +257,8 @@ def split_census(captures: list[Capture], classes: ClassList, seed: int,
 
     `{class key: {"pooled": n, "absent": [dirs without the class],
                  "train"|"val"|"test": {capture: n_photos, ...}}}`, with every dir that
-    has the class present in each split's dict, zero included. A zero there is a dir
-    the pooled split starved out of that split for that class: legitimate under D1(b),
-    but it should be seen, not discovered later. `coffeecv.split_report` prints this.
+    has the class present in each split's dict, zero included. With one pool (ticket ML-8)
+    a zero is a class with no photo in that split. `coffeecv.split_report` prints this.
     """
     census: dict[str, dict] = {}
     for class_idx, key in enumerate(classes.keys):
@@ -290,15 +273,16 @@ def split_census(captures: list[Capture], classes: ClassList, seed: int,
 
 
 class MultiPhotoPatchDataset(Dataset):
-    """Patch dataset over one or more capture dirs.
+    """Patch dataset over one or more capture dirs (since ticket ML-8, training passes one: the pool).
 
     Each class has many already-"cropped" photos per dir (one subfolder per
     class; for frame-filling dirs the crop stage is a byte-copy passthrough).
     Train/val/test are split at the *photo* level -- disjoint photos per split --
     rather than by spatial region of one photo, so a split never shares a single
     photo's lighting/colour with another split. The photo split is pooled across
-    every dir per class (`split_photos_by_class`, ticket ML-1 D1(b)); the patch
-    budget is still spent per (dir, class), over that dir's photos in the split.
+    every dir per class (`split_photos_by_class`, ticket ML-1 D1(b)), and the patch
+    budget is per class, spread over the class's photos in the split (ticket ML-8 D8;
+    until then per (dir, class)).
 
     Patches are materialised at construction rather than held as whole photos.
     That is forced by photo size: the 2026-08-09 sessions decode to 37 MB and 57 MB
@@ -381,27 +365,19 @@ class MultiPhotoPatchDataset(Dataset):
 
         self.class_labels = dict(classes.labels)
 
-        # Budget is per class *per capture dir*, so adding a dir adds data rather
-        # than diluting the existing dirs' share of a fixed total. Each dir spends
-        # its budget over its own photos in this split -- which dir a photo came
-        # from no longer decides *which* split it is in (that is pooled), only how
-        # the patches are apportioned once it is there.
+        # Budget is per class (ticket ML-8 D8: 600/160/160), spread evenly over the class's
+        # photos in this split, whichever dir each came from. Until ML-8 it was per class
+        # *per capture dir*, so a class missing from one of the four camera pools got
+        # three quarters of the others' patches.
         n_patches_total = patches_per_class[split]
         self._patches: list[np.ndarray] = []
         # Provenance per patch. The photo itself is dropped after extraction, so
         # this is the only remaining record of where a patch came from -- needed
         # by check_augmentation.py and worth having when a patch looks wrong.
         self._meta: list[PatchMeta] = []
-        # (dir, class_id) pairs where the dir has no directory for the class at all
-        # (cam_iphone has no class_008 or class_010). Tolerated: the other dirs
-        # still supply the class.
+        # (dir, class_id) pairs where the dir has no directory for the class at all.
+        # Tolerated: other dirs may still supply the class.
         self.absent: list[tuple[str, str]] = []
-        # (dir, class_id) pairs where the dir HAS photos of the class but the pooled
-        # split put none of them in this split, so the dir contributes no patches
-        # to it for that class. Legitimate under D1(b) -- a 10-photo dir pooled with
-        # three 20-photo dirs can miss a 15% split by chance -- but warned and kept
-        # here, so it is visible in the run log rather than discovered later.
-        self.starved: list[tuple[str, str]] = []
         # Classes with no photos in ANY dir passed. A total loss for train/val/test
         # (raised below); tolerated for split="all", where one dir is scored as it is.
         self.missing_classes: list[str] = []
@@ -421,27 +397,16 @@ class MultiPhotoPatchDataset(Dataset):
             else:
                 selected = split_photos_by_class(pool, seed, class_idx, photo_frac)[split]
 
-            for capture_idx, capture in enumerate(captures):
-                if capture.name in absent:
-                    continue
-                # A sorted list filtered stays sorted: photo_idx below is this
-                # photo's rank among the dir's own photos in the split, by name,
-                # and _extract_photo's box RNG is keyed on it.
-                mine = [p for p in selected if p.capture == capture.name]
-                if not mine:
-                    self.starved.append((capture.name, class_id))
-                    n_have = sum(1 for p in pool if p.capture == capture.name)
-                    print(f"  WARNING: {capture.name} has {n_have} photo(s) of class {class_id}, but the "
-                          f"pooled split put none in {split} ({len(selected)} of {len(pool)} pooled "
-                          f"photos) -- it contributes no {split} patches for this class")
-                    continue
-                base, extra = divmod(n_patches_total, len(mine))
-                for photo_idx, photo in enumerate(mine):
-                    n_patches = base + (1 if photo_idx < extra else 0)
-                    self._extract_photo(
-                        photo.path, n_patches, seed, capture_idx, class_idx, photo_idx,
-                        class_id, photo.folder_id, capture.name, crop_size, safety_margin,
-                    )
+            # `selected` is sorted by the (capture, name) key: photo_idx below is the
+            # photo's rank among the class's photos in the split, and _extract_photo's
+            # box RNG is keyed on it.
+            base, extra = divmod(n_patches_total, len(selected))
+            for photo_idx, photo in enumerate(selected):
+                n_patches = base + (1 if photo_idx < extra else 0)
+                self._extract_photo(
+                    photo.path, n_patches, seed, class_idx, photo_idx,
+                    class_id, photo.folder_id, photo.capture, crop_size, safety_margin,
+                )
 
         # For train/val/test a class absent from EVERY dir really is a total loss
         # (the model would never see it), which is different from "absent from some
@@ -463,19 +428,19 @@ class MultiPhotoPatchDataset(Dataset):
         ]
 
     def _extract_photo(
-        self, photo_path: Path, n_patches: int, seed: int, capture_idx: int, class_idx: int,
+        self, photo_path: Path, n_patches: int, seed: int, class_idx: int,
         photo_idx: int, class_id: str, folder_id: str, capture_name: str, crop_size: int,
         safety_margin: float,
     ) -> None:
         """Load one photo, cut its patches out, and let the photo go.
 
-        The box RNG key `[seed, capture_idx, class_idx, photo_idx, split]` is unchanged by
-        ticket ML-1 (formerly `rig_idx`; same value, new name)."""
+        The box RNG key is `[seed, class_idx, photo_idx, split]` since ticket ML-8 (D2): until then
+        it also held the capture dir's position in the list (`capture_idx`, formerly `rig_idx`)."""
         rgb = load_rgb_image(photo_path)
         h, w = rgb.shape[:2]
         region = compute_valid_region_rect(h, w, safety_margin)
         rng = np.random.default_rng(
-            [seed, capture_idx, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
+            [seed, class_idx, photo_idx, SPLIT_SEED_COMPONENT[self.split]]
         )
         if self.patch_beans is not None:
             # Estimated per photo, never per session: at inference there is only

@@ -182,7 +182,7 @@
 
   <h2>7. P5 &mdash; one pool, 600/160/160 per class</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: the commit <code>ML-8 P5</code>; <code>merge_segpool</code> merges 1,257 crops (19 excluded) into <code>data/segcropped/pool</code>, no empty split cell; the DINOv3 fixture regenerated from 14 listed pool crops; the merge re-runs if the owner declines any of the 20 new crops (P4&#39;s stop)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>Ticket D2 and D8. One stage, <code>merge_segpool</code>, merges every session's crops into
@@ -331,6 +331,19 @@
       <code>outputs/ml8_p4/</code>, gitignored): three are D18 fallbacks (#2, #5, #8: a hopper on a window sill and a
       plastic hopper, so the whole frame would train), #20's mask takes in a printed cup above the hopper (its patches
       still land on beans). The stop: the owner accepts or declines each.</div>
+    <div><div class="when">2026-10-19</div>P5 done, ahead of P4's verdict because only <code>pool_exclude.csv</code>
+      depends on it (a declined crop re-runs the 15 s merge). The four <code>merge_segcam_*</code> stages leave
+      <code>dvc.yaml</code> and <code>dvc.lock</code> (their 2,477 objects checked in the local cache first, then the
+      working copies deleted, so git cannot see them untracked); <code>merge_segpool</code> merges every session:
+      1,257 crops in 14 class folders. The budget is per class over the pool, and the box seed is (seed, class,
+      photo, split). <code>split_report</code>: no empty split cell. Every reader moved; also
+      <code>train_baseline</code>'s <code>split_starved</code> record (no per-dir budget, nothing to starve),
+      <code>split_report</code>'s and <code>fold_data</code>'s notes. <code>repro_utils</code> reads the pool's segcrop
+      stages from <code>merge_segpool</code>'s command. The DINOv3 reference is a committed list,
+      <code>coffeecv_dino/reference_photos.txt</code>: per class folder the first pool crop by name with a mask, none of
+      the 20 awaiting the owner; the fixture regenerated with Meta's dinov3 at <code>6876159</code> (the owner's
+      approval to test anything, 2026-10-19). Skips before P5, full tier: only the 5 ONNX-environment tests. ADR 0024
+      written; ADR 0010 marked superseded.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,

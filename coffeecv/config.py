@@ -23,26 +23,23 @@ class RunConfig:
     seed: int = 42
 
     # Training reads the *cropped* tree, which the `segcrop` stage produces from the
-    # raw session (and merge_segcam_* pools per camera). The raw photos are `dvc
+    # raw session (and the merge_segpool stage pools, ticket ML-8). The raw photos are `dvc
     # add`-tracked data and are not read here; which session the crops came from is
     # recorded in dvc.yaml and in data/segcropped/<session>/segcrop_manifest.json.
     #
     # The capture dirs whose photos are pooled per class and split 70/15/15 into
-    # train/val/test (ticket ML-1, D1(b)); no dir is held out. The same list, in
-    # the same order, as dataset.CAPTURES -- the order seeds patch boxes. Kept as
+    # train/val/test (ticket ML-1, D1(b)): since ticket ML-8 (D2, ADR 0024) one, the
+    # pool of every session. The same list as dataset.CAPTURES. Kept as
     # a literal so this module does not import the dataset stack; a test checks
     # the two agree. Overridden by params.yaml on every real run, so this is a sane
     # resting shape rather than a live configuration. Kept current anyway: a
     # default naming dirs that no longer exist is the kind of drift that makes a
-    # reader trust the wrong thing. Since ticket ML-3 P2b these are the segmenter's
-    # pools (the tray heuristic's data/cropped pools are retired), while
+    # reader trust the wrong thing. Since ticket ML-3 P2b this is the segmenter's
+    # crops (the tray heuristic's data/cropped pools are retired), while
     # crop_method below still defaults to "tray_heuristic" for old cards; so a
     # config that sets neither is refused by resolve_paths, never read.
     train_capture_dirs: tuple[str, ...] = (
-        "data/segcropped/cam_pixel",
-        "data/segcropped/cam_sony",
-        "data/segcropped/cam_oneplus",
-        "data/segcropped/cam_iphone",
+        "data/segcropped/pool",
     )
     classes_file: str = "dataset/classes.txt"
 
@@ -55,11 +52,12 @@ class RunConfig:
     # (single-dir, pre-Phase-11 behaviour). Keep this well above patch_resize so
     # zoom augmentation crops into detail rather than upsampling.
     patch_store_size: int = 448
-    # Patches per class *per capture dir*, spread over that dir's photos in the
-    # split (see MultiPhotoPatchDataset).
-    train_patches_per_class: int = 150
-    val_patches_per_class: int = 40
-    test_patches_per_class: int = 40
+    # Patches per class, spread over the class's photos in the split (see
+    # MultiPhotoPatchDataset; ticket ML-8 D8). Until ML-8, 150/40/40 per class *per
+    # capture dir*, over four camera pools.
+    train_patches_per_class: int = 600
+    val_patches_per_class: int = 160
+    test_patches_per_class: int = 160
 
     # Photo-level split, as fractions of however many cropped photos a class has
     # pooled across all capture dirs (not a fixed count, and not per dir: dirs

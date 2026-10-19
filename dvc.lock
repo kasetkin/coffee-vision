@@ -797,56 +797,6 @@ stages:
       md5: 8a715be65aec3b76eb92dae709b42422.dir
       size: 141509357
       nfiles: 94
-  merge_segcam_pixel:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_pixel 
-      --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
-      2026-08-30__pixel 2026-09-11__pixel 2026-09-24__pixel random_date_raccoon 
-      --exclude labels/ml3/pool_exclude.csv
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
-      size: 8288
-    - path: data/segcropped/2026-08-07__box_pictures_all_classes
-      hash: md5
-      md5: a03919b3c528f56b0b68a3a4257e0c17.dir
-      size: 142922081
-      nfiles: 370
-    - path: data/segcropped/2026-08-09__pixel_cam
-      hash: md5
-      md5: 91fcd98423d89d0a68ff418472700b5a.dir
-      size: 519612903
-      nfiles: 370
-    - path: data/segcropped/2026-08-30__pixel
-      hash: md5
-      md5: d52aa5a1c26831f1cae75986e7ea404b.dir
-      size: 141509296
-      nfiles: 94
-    - path: data/segcropped/2026-09-11__pixel
-      hash: md5
-      md5: 6943ddad47f72b6bdd37fdc27d559a43.dir
-      size: 70449656
-      nfiles: 42
-    - path: data/segcropped/2026-09-24__pixel
-      hash: md5
-      md5: 058354e10dd78d71e3ee46d7c78eca4d.dir
-      size: 249911772
-      nfiles: 143
-    - path: data/segcropped/random_date_raccoon
-      hash: md5
-      md5: eaaccc4055b9bb7eefde07e6a5365d90.dir
-      size: 106143961
-      nfiles: 101
-    - path: labels/ml3/pool_exclude.csv
-      hash: md5
-      md5: 6b6880acfe39bf12b216dc727d30663e
-      size: 1793
-    outs:
-    - path: data/segcropped/cam_pixel
-      hash: md5
-      md5: 6b23de5d3c932e38fc54c34541ead746.dir
-      size: 1204306827
-      nfiles: 1068
   segcrop@2026-08-27__oneplus_flash:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-27__oneplus_flash 
       --threads 4
@@ -1003,45 +953,6 @@ stages:
       md5: c6650411225a7210179296c320a04508.dir
       size: 106712082
       nfiles: 82
-  merge_segcam_sony:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_sony 
-      --sessions 2026-08-09__sony_cam 2026-08-30__sony 2026-09-11__sony 
-      2026-09-24__sony --exclude labels/ml3/pool_exclude.csv
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
-      size: 8288
-    - path: data/segcropped/2026-08-09__sony_cam
-      hash: md5
-      md5: 8a75de2e169f7daf12cf4f7995ac239d.dir
-      size: 716612090
-      nfiles: 370
-    - path: data/segcropped/2026-08-30__sony
-      hash: md5
-      md5: c6650411225a7210179296c320a04508.dir
-      size: 106712082
-      nfiles: 82
-    - path: data/segcropped/2026-09-11__sony
-      hash: md5
-      md5: 43275f345a4c2c95a35fd47fa351561b.dir
-      size: 102766612
-      nfiles: 42
-    - path: data/segcropped/2026-09-24__sony
-      hash: md5
-      md5: 22cf841df7c4d6d464ad25e2a9be7c52.dir
-      size: 361422279
-      nfiles: 143
-    - path: labels/ml3/pool_exclude.csv
-      hash: md5
-      md5: 6b6880acfe39bf12b216dc727d30663e
-      size: 1793
-    outs:
-    - path: data/segcropped/cam_sony
-      hash: md5
-      md5: b99bfe87605436b7a38b4d23366874f6.dir
-      size: 1277883847
-      nfiles: 617
   segcrop@2026-08-25__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-08-25__oneplus 
       --threads 4
@@ -1146,70 +1057,6 @@ stages:
       md5: 5a07d1c8f450b171006a9c9b172c3b6d.dir
       size: 173606028
       nfiles: 193
-  merge_segcam_iphone:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_iphone 
-      --sessions 2026-08-25__iphone
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
-      size: 8288
-    - path: data/segcropped/2026-08-25__iphone
-      hash: md5
-      md5: 5d738544729336fb48f0ba5e4a54ee4c.dir
-      size: 173606192
-      nfiles: 193
-    outs:
-    - path: data/segcropped/cam_iphone
-      hash: md5
-      md5: 50c6daa8f2916478032008127091cf0a.dir
-      size: 173561198
-      nfiles: 185
-  merge_segcam_oneplus:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name cam_oneplus 
-      --sessions 2026-08-25__oneplus 2026-08-27__oneplus_flash 
-      2026-08-30__oneplus 2026-09-11__oneplus 2026-09-24__oneplus --exclude 
-      labels/ml3/pool_exclude.csv
-    deps:
-    - path: coffeecv/merge_rig.py
-      hash: md5
-      md5: 39f9ea2aa26a71cdb77f155e3aab3f90
-      size: 8288
-    - path: data/segcropped/2026-08-25__oneplus
-      hash: md5
-      md5: c20122dd1c8a50626d01e7b1f8f3e681.dir
-      size: 94776618
-      nfiles: 190
-    - path: data/segcropped/2026-08-27__oneplus_flash
-      hash: md5
-      md5: d77e1a200911a2b88757c5aaaa17c6e1.dir
-      size: 290733012
-      nfiles: 190
-    - path: data/segcropped/2026-08-30__oneplus
-      hash: md5
-      md5: 16fcd5e8edb5455d089265411ede09fb.dir
-      size: 106415123
-      nfiles: 82
-    - path: data/segcropped/2026-09-11__oneplus
-      hash: md5
-      md5: 8d3be9992696f64464c1e29a05a50abb.dir
-      size: 57788199
-      nfiles: 42
-    - path: data/segcropped/2026-09-24__oneplus
-      hash: md5
-      md5: 238a32df92579f4af2ee53a8405210f6.dir
-      size: 209582320
-      nfiles: 143
-    - path: labels/ml3/pool_exclude.csv
-      hash: md5
-      md5: 6b6880acfe39bf12b216dc727d30663e
-      size: 1793
-    outs:
-    - path: data/segcropped/cam_oneplus
-      hash: md5
-      md5: a480215501596d4f82fa04e0cd4756f7.dir
-      size: 740943084
-      nfiles: 607
   segcrop@2026-09-11__oneplus:
     cmd: python -m coffeecv.segcrop_session --session 2026-09-11__oneplus 
       --threads 4
@@ -2189,3 +2036,106 @@ stages:
       md5: 3a7394635f8f2d4ca00cb99259752a32.dir
       size: 815666149
       nfiles: 7
+  merge_segpool:
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name pool 
+      --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 
+      2026-08-09__sony_cam 2026-08-25__iphone 2026-08-25__oneplus 
+      2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 
+      2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 
+      2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon
+      --exclude labels/ml3/pool_exclude.csv
+    deps:
+    - path: coffeecv/merge_rig.py
+      hash: md5
+      md5: c7864c7335a8ffc0a74981c621b4dfc4
+      size: 7755
+    - path: data/segcropped/2026-08-07__box_pictures_all_classes
+      hash: md5
+      md5: c38ef23bd3a4fb0389e5ee1ab4a66abd.dir
+      size: 142922156
+      nfiles: 370
+    - path: data/segcropped/2026-08-09__pixel_cam
+      hash: md5
+      md5: 91fcd98423d89d0a68ff418472700b5a.dir
+      size: 519612903
+      nfiles: 370
+    - path: data/segcropped/2026-08-09__sony_cam
+      hash: md5
+      md5: 4059361d94425ad3b32092a6578d6ccc.dir
+      size: 716612061
+      nfiles: 370
+    - path: data/segcropped/2026-08-25__iphone
+      hash: md5
+      md5: 5a07d1c8f450b171006a9c9b172c3b6d.dir
+      size: 173606028
+      nfiles: 193
+    - path: data/segcropped/2026-08-25__oneplus
+      hash: md5
+      md5: f4349439881987a078bde9ed838fff21.dir
+      size: 94776672
+      nfiles: 190
+    - path: data/segcropped/2026-08-27__oneplus_flash
+      hash: md5
+      md5: c93c6465be95c7432fa0f81c95b743fb.dir
+      size: 290733521
+      nfiles: 190
+    - path: data/segcropped/2026-08-30__oneplus
+      hash: md5
+      md5: 16fcd5e8edb5455d089265411ede09fb.dir
+      size: 106415123
+      nfiles: 82
+    - path: data/segcropped/2026-08-30__pixel
+      hash: md5
+      md5: 8a715be65aec3b76eb92dae709b42422.dir
+      size: 141509357
+      nfiles: 94
+    - path: data/segcropped/2026-08-30__sony
+      hash: md5
+      md5: c6650411225a7210179296c320a04508.dir
+      size: 106712082
+      nfiles: 82
+    - path: data/segcropped/2026-09-11__oneplus
+      hash: md5
+      md5: 8d3be9992696f64464c1e29a05a50abb.dir
+      size: 57788199
+      nfiles: 42
+    - path: data/segcropped/2026-09-11__pixel
+      hash: md5
+      md5: c5a2da6ca4d62bfb07dbbece5bbe6e5a.dir
+      size: 70449656
+      nfiles: 42
+    - path: data/segcropped/2026-09-11__sony
+      hash: md5
+      md5: 43275f345a4c2c95a35fd47fa351561b.dir
+      size: 102766612
+      nfiles: 42
+    - path: data/segcropped/2026-09-24__oneplus
+      hash: md5
+      md5: f75b6b0ee6371f2b7b35b69786093bbc.dir
+      size: 209582841
+      nfiles: 143
+    - path: data/segcropped/2026-09-24__pixel
+      hash: md5
+      md5: cb796fe62fcc925ed87c9fe96e2b93f6.dir
+      size: 249911819
+      nfiles: 143
+    - path: data/segcropped/2026-09-24__sony
+      hash: md5
+      md5: 574089d77afeaae6a35e3ac0dcd97e96.dir
+      size: 361422183
+      nfiles: 143
+    - path: data/segcropped/random_date_raccoon
+      hash: md5
+      md5: 7148d7b39f4c9f56d29372651568395e.dir
+      size: 165253698
+      nfiles: 138
+    - path: labels/ml3/pool_exclude.csv
+      hash: md5
+      md5: 6b6880acfe39bf12b216dc727d30663e
+      size: 1793
+    outs:
+    - path: data/segcropped/pool
+      hash: md5
+      md5: 591b67b9003d5619c7b7d9c572b47bc6.dir
+      size: 3455794434
+      nfiles: 2511

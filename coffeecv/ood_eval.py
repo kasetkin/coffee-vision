@@ -148,10 +148,10 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 def raw_photo_index() -> dict[str, Path]:
     """Filename stem -> raw photo, across every session in `dataset/`.
 
-    An index rather than a path transform because the rigs a checkpoint trains on
-    are *merged* ones (`data/segcropped/cam_pixel` is three sessions stitched together
-    by the merge_segcam_* stages), so a cropped photo's directory no longer names the
-    session its raw original lives in. The stems survive both the crop and the
+    An index rather than a path transform because the pool a checkpoint trains on
+    is a *merged* one (`data/segcropped/pool` is every session stitched together by
+    the merge_segpool stage; until ticket ML-8, four camera pools), so a cropped photo's
+    directory no longer names the session its raw original lives in. The stems survive both the crop and the
     merge unchanged and are unique across the whole tree, which makes them the one
     thing that still joins the two sides.
     """

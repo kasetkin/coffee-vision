@@ -24,11 +24,10 @@ Checks, in order of how badly they bite:
    training would refuse outright. Checked per class folder (a coffee): since ticket
    ML-3 a class can pool several folders, and a table per class (a country) is
    printed beside the folder table when one does.
-4. **Class balance per capture dir and per session** -- reported, never fatal,
-   because the dataset is legitimately ragged (iPhone is thin, the 08-30 sessions
-   are class_010 only). Since ticket ML-1 no capture dir is held out, so a dir
-   missing a class only means the others supply it; this is class balance, not
-   fold coverage.
+4. **Class balance in the pool and per session** -- reported, never fatal,
+   because the dataset is legitimately ragged (the 08-30 sessions are class_010
+   only). Since ticket ML-8 training reads one pool of every session, so this is
+   class balance, not camera coverage.
 
 Exit status is non-zero only for 1-3. Imbalance is information, not an error.
 """
@@ -183,14 +182,14 @@ def main() -> int:
     for cid in sorted(set(labels) - set(counts)):
         errors.append(f"class_{cid} ({labels[cid]}) is declared in classes.txt but has no photos")
 
-    # 4a. class balance per capture dir. Sessions are the capture unit on disk, but
-    # training draws from the CAPTURES dirs, each merged from sessions by a merge_segcam_*
-    # stage -- so a class can look thin per session and still be well covered per dir.
+    # 4a. class balance in the pool. Sessions are the capture unit on disk, but training
+    # draws from the CAPTURES dir, data/segcropped/pool, merged from every session by the
+    # merge_segpool stage (ticket ML-8; until then four camera pools, merge_segcam_*).
     # Counted from the raw sessions through dvc.yaml's merge map, so this runs
     # without the segcrop stage having been run. A merge's --exclude list (ML-3 P5) is subtracted.
     merges, left_out = {}, defaultdict(Counter)
     for stage, body in yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"].items():
-        if stage.startswith("merge_segcam_") and isinstance(body.get("cmd"), str):
+        if stage.startswith("merge_seg") and isinstance(body.get("cmd"), str):
             parts = body["cmd"].split()
             if "--name" in parts and "--sessions" in parts:
                 name, sessions = merge_cmd_args(body["cmd"])
@@ -204,7 +203,7 @@ def main() -> int:
                    for cn in capture_names}
     if not args.quiet:
         width = max(max(len(cn) for cn in capture_names), 5)
-        print("\nclass balance per capture dir (photos; the pools training draws from):")
+        print("\nclass balance in the capture dirs training draws from (photos):")
         print(f"{'class':<28} " + " ".join(f"{cn:>{width}}" for cn in capture_names) + "   total")
         for cid in sorted(labels):
             name = f"{cid} {labels.get(cid, '?')}"[:27]

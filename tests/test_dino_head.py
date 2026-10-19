@@ -2,8 +2,8 @@
 
 Run from the repo root:  python -m unittest discover -s tests -p "test_dino*" -v
 
-On real data: DINOv3 features of real bean patches from the cam_iphone crops (coffeecv_dino.reference),
-12 per class across its 8 classes, split alternately into fit and validation halves. Skips when the
+On real data: DINOv3 features of real bean patches from the pool's reference crops (coffeecv_dino.reference),
+12 per class across its 14 class folders, split alternately into fit and validation halves. Skips when the
 weights or the crops are not on this machine.
 """
 import unittest
@@ -23,7 +23,7 @@ HAVE = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_re
 
 
 @real_data
-@unittest.skipUnless(HAVE, "DINOv3 weights or the cam_iphone crops are missing")
+@unittest.skipUnless(HAVE, "DINOv3 weights or the reference crops are missing")
 class TestHeadOnRealFeatures(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -51,7 +51,7 @@ class TestHeadOnRealFeatures(unittest.TestCase):
         self.assertEqual(fit.C, min(c for c, s in fit.val_macro_f1_by_C.items() if s == best))
         pred, probs, _ = predict(fit.linear, self.Xva)
         self.assertEqual(probs.shape, (len(self.yva), len(self.class_ids)))
-        self.assertGreater((pred == self.yva).mean(), 0.5, "far above the 1/8 chance level expected")
+        self.assertGreater((pred == self.yva).mean(), 0.5, "far above the 1/14 chance level expected")
 
     def test_refuses_a_class_missing_from_training(self):
         keep = self.ytr != self.ytr.max()

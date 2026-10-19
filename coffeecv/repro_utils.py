@@ -11,7 +11,10 @@ import json
 import subprocess
 from pathlib import Path
 
+import yaml
+
 from coffeecv.config import REPO_ROOT
+from coffeecv.merge_rig import merge_cmd_args
 
 
 def run(cmd: list[str]) -> int:
@@ -52,40 +55,34 @@ def dirty_provenance_paths() -> list[str]:
 
 
 # A capture dir's upstream stages: its merge stage and the segcrop stages feeding it (dataset.CAPTURES is
-# all merged pools). Both matter, and the merge stage alone is not enough: if segment_beans.py changes,
+# the merged pool). Both matter, and the merge stage alone is not enough: if segment_beans.py changes,
 # segcrop@<session> goes stale while the merge's dependency (the crop output directory, not yet
 # regenerated) still looks clean -- so a `dvc repro train` would re-crop and then re-merge, changing the
 # pixels under a sweep that had been told everything was up to date. Keyed "segcropped/<name>" (see
-# `_stage_key`). Until ticket ML-3 P2b this also mapped the tray heuristic's data/cropped pools to their
-# crop@ and merge_cam_* stages, retired then (Q3). Ticket ML-3 P4 added the new sessions' segcrop stages.
-CAPTURE_STAGE_OVERRIDES = {
-    "segcropped/cam_pixel":   ["merge_segcam_pixel",
-                               "segcrop@2026-08-07__box_pictures_all_classes",
-                               "segcrop@2026-08-09__pixel_cam", "segcrop@2026-08-30__pixel",
-                               "segcrop@2026-09-11__pixel", "segcrop@2026-09-24__pixel",
-                               "segcrop@random_date_raccoon"],
-    "segcropped/cam_sony":    ["merge_segcam_sony",
-                               "segcrop@2026-08-09__sony_cam", "segcrop@2026-08-30__sony",
-                               "segcrop@2026-09-11__sony", "segcrop@2026-09-24__sony"],
-    "segcropped/cam_oneplus": ["merge_segcam_oneplus",
-                               "segcrop@2026-08-25__oneplus", "segcrop@2026-08-27__oneplus_flash",
-                               "segcrop@2026-08-30__oneplus", "segcrop@2026-09-11__oneplus",
-                               "segcrop@2026-09-24__oneplus"],
-    "segcropped/cam_iphone":  ["merge_segcam_iphone", "segcrop@2026-08-25__iphone"],
-}
+# `_stage_key`). Since ticket ML-8 (D2) the one pool, merge_segpool, whose segcrop stages are read from its
+# own command in dvc.yaml, so the list cannot drift from what the merge reads. Until then the four camera
+# pools (merge_segcam_*); until ticket ML-3 P2b also the tray heuristic's data/cropped pools.
+POOL_MERGE_STAGE = "merge_segpool"
+
+
+def capture_stage_overrides() -> dict[str, list[str]]:
+    """{"segcropped/pool": [merge_segpool, segcrop@<each session it merges>]}, read from dvc.yaml when asked."""
+    stages = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"]
+    _, sessions = merge_cmd_args(stages[POOL_MERGE_STAGE]["cmd"])
+    return {"segcropped/pool": [POOL_MERGE_STAGE, *(f"segcrop@{s}" for s in sessions)]}
 
 
 def _stage_key(capture: str) -> str:
-    """A capture dir's key in CAPTURE_STAGE_OVERRIDES: "<parent>/<basename>"
-    (data/segcropped/cam_pixel -> "segcropped/cam_pixel")."""
+    """A capture dir's key in `capture_stage_overrides()`: "<parent>/<basename>"
+    (data/segcropped/pool -> "segcropped/pool")."""
     p = Path(capture)
     return f"{p.parent.name}/{p.name}"
 
 
 def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     """Upstream-of-train stages that `dvc repro train` would regenerate before
-    training (a segmenter pool's merge stage and its segcrop stages -- see
-    CAPTURE_STAGE_OVERRIDES), for the capture dirs `capture_dirs` names. A
+    training (the pool's merge stage and its segcrop stages -- see
+    `capture_stage_overrides`), for the capture dirs `capture_dirs` names. A
     session's own segcrop dir maps to its segcrop stage; any other dir is refused,
     since no stage here could tell whether it is stale.
 
@@ -104,8 +101,9 @@ def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     stale = []
     for capture in capture_dirs:
         name, key = Path(capture).name, _stage_key(capture)
-        if key in CAPTURE_STAGE_OVERRIDES:
-            stages = CAPTURE_STAGE_OVERRIDES[key]
+        overrides = capture_stage_overrides()
+        if key in overrides:
+            stages = overrides[key]
         elif key.startswith("segcropped/"):
             stages = [f"segcrop@{name}"]
         else:

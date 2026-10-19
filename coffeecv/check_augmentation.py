@@ -132,7 +132,8 @@ def check_rotation_jitter() -> None:
     # 14 patches over 14 photos is one patch each, so sample i came from photo i.
     #
     # Note this is no longer the *Phase 7* box stream: Phase 11 added the rig as
-    # an RNG dimension ([seed, capture_idx, class_idx, photo_idx, split]), so box
+    # an RNG dimension ([seed, capture_idx, class_idx, photo_idx, split]; ticket ML-8
+    # took it out again: [seed, class_idx, photo_idx, split]), so box
     # placement changed by construction and pre-Phase-11 runs are reproducible
     # only from their own commits, not from current code. The invariant still
     # worth asserting, and asserted here, is the one that made jitter safe to
