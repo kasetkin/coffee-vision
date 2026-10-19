@@ -68,12 +68,14 @@ stages:
   # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
   # the filled D4 crop and its bean mask, or the whole photo on a D18 fallback. The segmenter is params.yaml's
-  # seg_* fields. Mask bits differ across CPUs and thread counts (P0), so this runs on the VM at a pinned 4
-  # threads, like seg_predict. Since ticket ML-3 P2b these are the only crops training reads.
+  # seg_* fields. Mask bits differ across CPUs and thread counts (P0), so this runs on one machine at a pinned 4
+  # threads, like seg_predict: the VM until it was shut down (2026-10-12), this host since (ML-6 D9). Since ticket
+  # ML-3 P2b these are the only crops training reads.
   # Ticket ML-6 P6 (D21): segment_beans.py gained the xl0_v3 name (NAMED_SEGMENTERS), a change no stage's output
   # depends on. seg_ml5_predict@xl0_v1 was rerun and came back byte-identical (225 of 225 files); every segcrop
   # stage but random_date_raccoon (stale on its new photos until ML-6 D8) and seg_ml5_predict@xl0_v2 were then
-  # recorded with `dvc commit`, not re-run.
+  # recorded with `dvc commit`, not re-run. ML-6 P8 (D8 (a), 0675f40) then re-cropped every session with XL0-v3 on
+  # this host. The 20 photos added to random_date_raccoon after that (2026-10-17 and 2026-10-18) have no crop yet.
   segcrop:
     foreach:
       - 2026-08-07__box_pictures_all_classes
@@ -122,7 +124,9 @@ stages:
   # four per class before the train/val/test split, and no pool is held out. merge_rig copies each crop's
   # bean mask with it (ML-2 F3). Until ticket ML-3 P2b the tray heuristic's merge_cam_* stages built the
   # same four pools from its own crops. Ticket ML-3 P4 added the new sessions to the pools of their cameras
-  # (D6): random_date_raccoon is the Pixel 9 Pro's; the iPhone took none, so cam_iphone is unchanged. Since
+  # (D6): random_date_raccoon is the Pixel 9 Pro's; the iPhone took none, so cam_iphone is unchanged. (Of its 20
+  # photos not yet cropped, 3 are an iPhone 15 Pro Max's and 3 a OnePlus KB2005's: a re-crop as wired would merge
+  # them into cam_pixel.) Since
   # ML-3 P5 (D8, owner 2026-10-06) the three pools leave out the crops the owner declined
   # (labels/ml3/pool_exclude.csv, from analysis/ml3/mask_review.py exclude); the sessions' segcrop outs keep them.
   merge_segcam_pixel:
@@ -173,7 +177,7 @@ stages:
       - data/segcropped/cam_iphone
 
   # Ticket ML-2 P1/P5: masks for the eval lists (seg_eval, neg_seg_eval, pos_seg_eval), computed once and
-  # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this runs on the VM at
+  # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this ran on the VM at
   # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's
   # sha256 is in photo_lists.yaml and checked before use. `ft` joins at P5.
   # Ticket ML-5 P8: ML-2's segmenter stages below (seg_predict, seg_embed_cache, seg_finetune, seg_predict_ft,
@@ -277,7 +281,7 @@ stages:
         - data/seg_masks/ft_s${item}
 
   # Ticket ML-3 P5 (D8): ft_s123's full-frame masks of the 288 new photos, for the owner's review. segcrop keeps
-  # only crop-aligned masks; this recomputes the full-frame ones on the VM at the same 4 threads and stops unless
+  # only crop-aligned masks; this recomputed the full-frame ones on the VM at the same 4 threads and stops unless
   # each equals the mask_sha256 segcrop recorded, so the owner judges exactly the masks training crops with.
   seg_predict_ml3_new:
     frozen: true

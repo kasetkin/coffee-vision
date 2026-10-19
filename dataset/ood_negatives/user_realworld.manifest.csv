@@ -450,3 +450,30 @@ filename,scenario_tag,camera,split,date,source_title,source_url,notes
 20261010_110743.jpg,real_world_negatives,pixel,holdout,2026-10-10,"20261010_110743.jpg (user capture, metadata stripped 2026-10-10)",,
 20261010_115317.jpg,real_world_negatives,pixel,dev,2026-10-10,"20261010_115317.jpg (user capture, metadata stripped 2026-10-10)",,
 20261010_120922.jpg,real_world_negatives,pixel,holdout,2026-10-10,"20261010_120922.jpg (user capture, metadata stripped 2026-10-10)",,
+IMG_20260505_110109_307.jpg,real_world_negatives,unknown,dev,2026-05-05,"IMG_20260505_110109_307.jpg (user capture, metadata stripped 2026-10-18)",,"no EXIF (re-encoded 756x1008, likely received via a messenger): camera unknown, date from the file name"
+IMG_20260505_110112_428.jpg,real_world_negatives,unknown,dev,2026-05-05,"IMG_20260505_110112_428.jpg (user capture, metadata stripped 2026-10-18)",,"no EXIF (re-encoded 756x1008, likely received via a messenger): camera unknown, date from the file name"
+IMG_20260505_110116_316.jpg,real_world_negatives,unknown,dev,2026-05-05,"IMG_20260505_110116_316.jpg (user capture, metadata stripped 2026-10-18)",,"no EXIF (re-encoded 756x1008, likely received via a messenger): camera unknown, date from the file name"
+IMG_20260505_110124_830.jpg,real_world_negatives,unknown,dev,2026-05-05,"IMG_20260505_110124_830.jpg (user capture, metadata stripped 2026-10-18)",,"no EXIF (re-encoded 756x1008, likely received via a messenger): camera unknown, date from the file name"
+IMG_20260505_110128_894.jpg,real_world_negatives,unknown,dev,2026-05-05,"IMG_20260505_110128_894.jpg (user capture, metadata stripped 2026-10-18)",,"no EXIF (re-encoded 756x1008, likely received via a messenger): camera unknown, date from the file name"
+IMG_20260905_125902.jpg,real_world_negatives,xiaomi,dev,2026-09-05,"IMG_20260905_125902.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20260905_125906.jpg,real_world_negatives,xiaomi,dev,2026-09-05,"IMG_20260905_125906.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20260905_130829.jpg,real_world_negatives,xiaomi,dev,2026-09-05,"IMG_20260905_130829.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_111507.jpg,real_world_negatives,xiaomi,dev,2026-10-16,"IMG_20261016_111507.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_113537.jpg,real_world_negatives,xiaomi,holdout,2026-10-16,"IMG_20261016_113537.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_113550.jpg,real_world_negatives,xiaomi,holdout,2026-10-16,"IMG_20261016_113550.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_113603.jpg,real_world_negatives,xiaomi,holdout,2026-10-16,"IMG_20261016_113603.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_113616.jpg,real_world_negatives,xiaomi,holdout,2026-10-16,"IMG_20261016_113616.jpg (user capture, metadata stripped 2026-10-18)",,
+IMG_20261016_113627.jpg,real_world_negatives,xiaomi,holdout,2026-10-16,"IMG_20261016_113627.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20260727_134345066.jpg,real_world_negatives,pixel,holdout,2026-07-27,"PXL_20260727_134345066.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261005_043743076.jpg,real_world_negatives,pixel,holdout,2026-10-05,"PXL_20261005_043743076.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261005_044132360.jpg,real_world_negatives,pixel,dev,2026-10-05,"PXL_20261005_044132360.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261005_044201088.jpg,real_world_negatives,pixel,dev,2026-10-05,"PXL_20261005_044201088.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261015_171702140.jpg,real_world_negatives,pixel,dev,2026-10-15,"PXL_20261015_171702140.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261015_171706577.jpg,real_world_negatives,pixel,dev,2026-10-15,"PXL_20261015_171706577.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261017_073253435.jpg,real_world_negatives,pixel,dev,2026-10-17,"PXL_20261017_073253435.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261017_094835294.jpg,real_world_negatives,pixel,dev,2026-10-17,"PXL_20261017_094835294.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261017_094918562.jpg,real_world_negatives,pixel,dev,2026-10-17,"PXL_20261017_094918562.jpg (user capture, metadata stripped 2026-10-18)",,
+PXL_20261017_114339905.jpg,real_world_negatives,pixel,holdout,2026-10-17,"PXL_20261017_114339905.jpg (user capture, metadata stripped 2026-10-18)",,"ground coffee in a V60 filter, no whole beans"
+PXL_20261017_114352470.jpg,real_world_negatives,pixel,holdout,2026-10-17,"PXL_20261017_114352470.jpg (user capture, metadata stripped 2026-10-18)",,"ground coffee in a V60 filter, no whole beans"
+PXL_20261017_114409735.jpg,real_world_negatives,pixel,holdout,2026-10-17,"PXL_20261017_114409735.jpg (user capture, metadata stripped 2026-10-18)",,"ground coffee in a V60 filter, no whole beans"
+PXL_20261017_114422648.jpg,real_world_negatives,pixel,holdout,2026-10-17,"PXL_20261017_114422648.jpg (user capture, metadata stripped 2026-10-18)",,"ground coffee in a V60 filter, no whole beans"

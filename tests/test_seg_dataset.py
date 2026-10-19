@@ -360,9 +360,10 @@ class CommittedFile(unittest.TestCase):
 
     def test_every_source_in_full_and_as_many_pool_photos_as_segmenter_positives(self):
         # Ticket ML-6 §3.4 (ML-5 D3/D12/D16, ML-6 D1 (a)): 136 segmenter positives, 585 negatives in three
-        # batches, 12 internet. The 2026-10-17 batch added 10 positives and topped the pool draw up to match.
+        # batches, 12 internet. The 2026-10-17 batch added 10 positives and topped the pool draw up to match;
+        # 2026-10-18 added 27 user_realworld negatives.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 146, "pool": 146, "negative": 585, "internet_positive": 12})
+                         {"segmenter_positive": 146, "pool": 146, "negative": 612, "internet_positive": 12})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}

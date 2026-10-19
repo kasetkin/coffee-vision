@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The repo's guardrail, in two tiers.
 #
-#   scripts/check.sh          fast tier (~25 s): .githooks/pre-push runs it before a push to origin
-#   scripts/check.sh --full   every test (~4.5 min): scripts/deploy_webapp.sh runs it before a deploy
+#   scripts/check.sh          fast tier (~45 s, 2026-10-18): .githooks/pre-push runs it before a push to origin
+#   scripts/check.sh --full   every test (~11 min, 2026-10-18): scripts/deploy_webapp.sh runs it before a deploy
 #
 # Runs coffeecv.leak_check (no public IPs, emails, credentials or photo GPS in what git would publish, ~6 s),
 # coffeecv.ticket_check (the HTML tickets, plans and ADRs keep docs/agents/issue-tracker.md's rules, <1 s),

@@ -61,18 +61,18 @@ Production does not run from a checkout. Each deploy builds an immutable release
   sweep does to `~/coffee-vision` or `~/coffee-vision-venv` cannot change what production serves.
 - Each release has its own `.venv`, built on the host by `uv sync --locked` from `webapp/pyproject.toml`
   + `webapp/uv.lock` on uv's own CPython (`PY_VERSION` in the deploy script, under `/opt/coffee-cv/python`,
-  installed by `--bootstrap`; never the host's system Python) (versions copied from the production freeze; torch/torchvision from the PyTorch
-  CPU index; timm without its download-only deps). Packages are copied, not hard-linked, so every
+  installed by `--bootstrap`; never the host's system Python), versions held to the production freeze. Since ticket ML-7
+  it holds no torch, torchvision or timm: the models run on LiteRT (`ai-edge-litert`). Packages are copied, not hard-linked, so every
   release is independent and a rollback restores exactly what that release was tested with.
 - **The model is chosen inside the release**, in `release.env` (`COFFEE_CV_CHECKPOINT=models/<name>.pt`),
-  so code and model switch -- and roll back -- together. `app.py`'s own default is only for a local
-  dev server.
+  so code and model switch -- and roll back -- together. What runs is that model's LiteRT conversion beside it,
+  `models/<name>.litert/` (the segmenter's encoder and decoder, the DINOv3 backbone and the head). `app.py`'s own
+  default is only for a local dev server.
 - nginx serves the page from `current/webapp/static`, so the page and the API it calls change together
   at the flip. There is no copy step.
-- ResNet18 checkpoints load with `weights=None` (the strict `load_state_dict` overwrites every
-  parameter and buffer; `tests/test_model_and_ood_loading.py` proves the logits are bit-identical), so
-  no ImageNet download or torch hub cache is needed. DINOv3 checkpoints ship their backbone file in
-  `models_pretrained/`, checked against its sha256 at build time and again at every start.
+- A release ships no pretrained weights (ticket ML-7, plan P10): the converted directory carries every weight the
+  service runs, each file checked at build time by md5 against `dvc.lock`'s record of the `litert_export` stage.
+  Only a model with that stage can be deployed; today that is the live one alone.
 
 ## Which checkpoint is deployed
 
@@ -159,10 +159,12 @@ service if there is nothing to roll back to) -> **prune** to `current` + `previo
 prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the host, then
 `scripts/deploy_webapp.sh --verify`.
 
-**Fallback:** `--rollback` to `previous`. There is no second model in `models/` (the ResNet18 fallback,
-`allrigs_cam_s123`, was retired on 2026-10-06 with every other old model). A retired model can still be
-deployed from a commit that holds it, `scripts/deploy_webapp.sh <sha> <model>`, as long as its `.pt` is in the
-local DVC cache (`dvc fetch` at that commit); the release is built from that commit's tree.
+**Fallback:** `--rollback` to `previous`. `models/` still holds the two models the live one replaced
+(`README.md`, "Status"), but neither has a LiteRT conversion, so neither deploys as it stands; the ResNet18
+fallback, `allrigs_cam_s123`, was retired on 2026-10-06 with every other old model. An older release can still be
+rebuilt from a commit that holds it, `scripts/deploy_webapp.sh <sha> <model>`, as long as what that commit's build
+needs (its `.pt`, and since ML-7 its LiteRT export) is in the local DVC cache (`dvc fetch` at that commit); the
+release is built from that commit's tree.
 
 ### Deploying while a sweep trains
 
@@ -247,15 +249,15 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
 
 ## Design choices worth knowing before changing anything
 
-- **One gunicorn worker, sync class, deliberately.** Torch already uses all
-  physical cores per inference call on this CPU-only box; a second worker
-  would just make both requests slower fighting over the same cores, not add
+- **One gunicorn worker, sync class, deliberately.** The worker holds the
+  models on the host's one GPU and takes about 3.5 GB of host memory (OPS-10);
+  a second worker would share the same GPU and double that memory, not add
   real throughput. Serializing behind one worker, backed by nginx's
   `limit_conn` (below), is the better trade for a low-traffic endpoint.
 - **Rate limiting is keyed by connection, not IP** (NAT can put many real
   users behind one IP) -- `limit_conn` caps total *concurrent* `/analyze`
   requests at exactly 1, matching the single gunicorn worker. A request takes
-  about 7 s server-side (12-14 s while a sweep trains), so this alone already enforces well under "1 request/sec"; a
+  about 8.5 s server-side on the GPU (8.4-8.9 s, its preview at 2.1 s; OPS-7, 2026-10-18), so this alone already enforces well under "1 request/sec"; a
   separate rate-limit zone would just re-enforce a limit this already
   guarantees.
 - **The uploaded photo is never stored, logged, or served back to anyone.**
@@ -274,8 +276,8 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   it only shrinks the blast radius if one of those codecs is ever exploited.
   `MemoryDenyWriteExecute=true` was considered but left out of the committed
   unit pending a real test on the host (some ML runtimes JIT-compile at
-  runtime) -- try it there; add it if torch's CPU inference path still works,
-  drop the idea if it doesn't.
+  runtime, LiteRT's GPU accelerator likely among them) -- try it there; add it if
+  the GPU worker still starts and proves the GPU, drop the idea if it doesn't.
 - **Format support is pinned in `coffeecv/dataset.py`, not here.** JPG/PNG/
   WEBP need no plugin; HEIF/HEIC, AVIF, and JPEG XL are registered with
   Pillow right next to each other in `load_rgb_image`'s home module, so the

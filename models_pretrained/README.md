@@ -20,9 +20,9 @@ python models_pretrained/verify.py     # what you have, and what is missing or w
   Until then, rsync this folder from a machine that has it and run `verify.py` on the receiving
   side -- done for the VM (`powervpsssh`, retired 2026-10-12) on 2026-09-24 (all 5 files sha256
   OK there).
-- **The web service** never reads this folder on its host: `scripts/deploy_webapp.sh` copies the one
-  backbone a model needs into each release under `/opt/coffee-cv`, from the deploying machine's copy,
-  refusing it unless its sha256 matches `manifest.json`.
+- **The web service** never reads this folder: since ticket ML-7 a release ships no pretrained weights. The
+  backbone reaches it inside the model's LiteRT conversion (`models/<name>.litert/`, the `litert_export` stage),
+  which is built from this folder's copy on the machine that runs the export.
 - **Anyone else:** DINOv3 cannot be redistributed from a public repo (licence §1b-i), so a copy
   has to be requested from Meta directly. Full procedure, including the two-incompatible-formats
   trap, is `docs/dinov3_integration_plan.md` **§2.5**. Short version: take the **Meta-direct
@@ -59,10 +59,9 @@ That makes either a drop-in as far as the embedding-space work is concerned: the
 the probe's `mu`/`sd`/`w` vectors, `embedding_dim_of` and the classifier head shape are all
 unchanged when swapping between them. Only the weights and the patch size differ.
 
-**`dinov3_vitb16` is 768-d and ~4x the parameters.** It is not a drop-in — it needs its own OOD
-sidecar rebuild — and on a CPU-only box it is very likely too slow for the deployed 40-patch path.
-Useful as a distillation teacher or as an upper bound on what the representation can do; not a
-serving candidate here.
+**`dinov3_vitb16` is 768-d and ~4x the parameters.** It is not a drop-in for the two above — it needs
+its own OOD sidecar — and it is the backbone every shipped model has used since 2026-09-27 (selected on
+exp240-251). Since ticket ML-7 the live site runs it as a LiteRT graph on the host's GPU, not in torch.
 
 **Patch 16 vs 14 makes DINOv3-S slightly cheaper as well as stronger.** At 224 px the DINOv3
 models see 196 tokens against DINOv2's 256. Measured 2026-09-21 (batch 32, 224 px, 6 threads):

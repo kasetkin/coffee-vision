@@ -41,9 +41,9 @@ Each subdirectory is one capture/collection batch, DVC-tracked the same way as
   negatives at all and would have scored as false failures.
 
 - **`user_realworld/`** — general, random real-world photos from the user's own phones, no
-  scenario subfolders (every row is tagged `real_world_negatives`). 451 photos, shot 2023–2026
-  on a Pixel 9 Pro and a OnePlus 7 Pro (the rigs' phone models; `camera` is `pixel` or
-  `oneplus`). Private metadata (GPS and the rest of ML-3 D13's deny list) stripped with
+  scenario subfolders (every row is tagged `real_world_negatives`). 478 photos, shot 2023–2026,
+  most on a Pixel 9 Pro and a OnePlus 7 Pro (the rigs' phone models; `camera` is `pixel` or
+  `oneplus`), some on a Redmi Note 14 Pro (`xiaomi`) and five of unknown origin (`unknown`). Private metadata (GPS and the rest of ML-3 D13's deny list) stripped with
   `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
 
   The first 8 (2026-09-10, Pixel, EXIF stripped that day) were the batch
@@ -65,8 +65,14 @@ Each subdirectory is one capture/collection batch, DVC-tracked the same way as
   (`seg_lists.NEAR_DUP_SECONDS`) form one group and land on the same side. Their `date` is
   EXIF DateTimeOriginal's.
 
+  27 more were added 2026-10-18 (2026-05 to 2026-10): 13 Pixel 9 Pro, 9 Redmi Note 14 Pro and 5
+  without any EXIF (`IMG_20260505_*`, re-encoded at 756x1008, likely received via a messenger), whose
+  camera is `unknown` and whose `date` comes from the file name. Four (`PXL_20261017_1143*`-`1144*`)
+  show ground coffee in a V60 filter, no whole beans: a near-OOD case, noted in their rows. Same rules
+  as the 443, with seed 20261018: 16 dev, 11 holdout in 12 groups.
+
   **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
   2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
-  `split` column (ML-5 D16) and splits all 451 photos 60/15/25 itself, so about 120 holdout
+  `split` column (ML-5 D16) and splits all 478 photos 60/15/25 itself, so about 120 holdout
   photos are in the segmenter's training split. The check no model has seen is that file's
   test split; no live code reads this manifest's holdout.
