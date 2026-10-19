@@ -21,8 +21,8 @@ Read before launching a recorded run or a screen, comparing runs, or reporting r
 
 A new segmenter decoder or tiny-mask threshold in `params.yaml` (`seg_decoder`, `seg_min_area_frac`) changes every crop the classifier sees. The follow-through, in order:
 
-1. Re-crop: `dvc repro -s` each `segcrop` and `merge_segcam_*` stage, never a plain `dvc repro`. Open a few crops at full size, every D18 fallback included.
-2. Regenerate the DINOv3 fixture: `python scripts/make_dinov3_fixture.py`. Its patches come from `data/segcropped/cam_iphone`, so after a re-crop `test_dino_backbone.test_matches_meta_reference` goes red until it is rerun. The script clones and runs Meta's dinov3 at a pinned commit: the owner runs it, or says Claude may. Commit the new `tests/fixtures/dinov3_vits16_reference.npz` beside the re-crop. Precedent: ML-3 P2b, ML-5 P11 (`f585d14`), ML-6 P8.
+1. Re-crop: `dvc repro -s` each `segcrop` stage, then `merge_segpool`, never a plain `dvc repro`. Open a few crops at full size, every D18 fallback included; a photo new to the crops is judged by the owner before it trains (`analysis/ml8/p4_review_items.py`, `coffeecv.review_masks`, declines to `labels/ml3/pool_exclude.csv`; ML-8 P4).
+2. Regenerate the DINOv3 fixture: `python scripts/make_dinov3_fixture.py`. Its patches come from the pool crops listed in `coffeecv_dino/reference_photos.txt`, so after a re-crop `test_dino_backbone.test_matches_meta_reference` goes red until it is rerun. The script clones and runs Meta's dinov3 at a pinned commit: the owner runs it, or says Claude may. Commit the new `tests/fixtures/dinov3_vits16_reference.npz` beside the re-crop. Precedent: ML-3 P2b, ML-5 P11 (`f585d14`), ML-6 P8, ML-8 P5.
 3. Retrain the classifier as a recorded run (seeds 42/123/7) and compare against the previous segmenter's runs; refit the OOD probe on the shipped candidate.
 4. Convert the shipped candidate for serving (below).
 
