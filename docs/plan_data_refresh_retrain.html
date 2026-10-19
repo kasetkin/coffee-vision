@@ -200,7 +200,7 @@
 
   <h2>8. P6 &mdash; augmentation in the head fit</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: the commit <code>ML-8 P6</code>; full size measured: peak RSS 5.5 GB of about 7 GB available, both fits 4.4 min, about 2.8 h per seed (Activity)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P5</span></div>
   </div>
   <p>Ticket D4. <code>params.yaml</code> gains <code>head_augment</code>: <code>views: 8</code> and the pipeline below,
@@ -344,6 +344,26 @@
       the 20 awaiting the owner; the fixture regenerated with Meta's dinov3 at <code>6876159</code> (the owner's
       approval to test anything, 2026-10-19). Skips before P5, full tier: only the 5 ONNX-environment tests. ADR 0024
       written; ADR 0010 marked superseded.</div>
+    <div><div class="when">2026-10-19</div>P6 done. <code>head_augment</code> in <code>params.yaml</code> and
+      <code>RunConfig</code>, built by P2's builder; <code>fit_frozen_head</code> embeds each training patch and its 8
+      views, seeded by (seed, patch, view), keeps only the embeddings, and fits both arms at C = 0.1 with equal total
+      sample weight (each augmented-arm row 1/9; <code>linear_head</code> takes <code>sample_weight</code>). The
+      augmented head is the run's <code>model.pt</code>, the unaugmented one <code>model_unaugmented.pt</code>; both in
+      <code>metrics.json</code>'s <code>arms</code>, <code>--ship --arm</code> picks one. New runs are named
+      <code>dino3b16_frozen_clsmean_segcrop_country_aug8_s&lt;seed&gt;</code> (D10). The frozen path refuses the
+      ResNet-era knobs set (brightness, illumination gradient, zoom, patch scale, rotation);
+      <code>color_jitter_strength</code> is the exception: <code>params.yaml</code> keeps it at 0.2 for
+      <code>run_all_rigs</code>, and the frozen config sets it to 0, as before. Smoke (<code>--smoke</code>, seed 42,
+      9 min): 156.3 ms per view all in; the mean cosine of a view's embedding to its original's, each transform alone
+      on 16 patches: <code>SquareSymmetry</code> 0.983, <code>Affine</code> 0.979, <code>CoarseDropout</code> 0.989,
+      <code>ColorJitter</code> 0.999 (barely moves it: for the owner before P7), <code>PlanckianJitter</code> 0.977,
+      <code>ImageCompression</code> 0.964, the blur <code>OneOf</code> 0.891, <code>GaussNoise</code> 0.957,
+      <code>Downscale</code> 0.974. Full size (<code>analysis/ml8/p6_fullsize.py</code>,
+      <code>p6_fullsize.json</code>): the training split of 6,000 patches (3.6 GB) built in 449 s, the originals
+      embedded at 165.6 ms per patch, 2,048 views of 256 of them at 166.3 ms all in (the full pipeline: mean cosine 0.934); the unaugmented fit with the C grid 101 s, the
+      augmented one on 54,000 rows 163 s; peak RSS 5.5 GB (the augmented fit; 4.5 GB while the patches are held), of
+      about 7 GB available. Estimate for P7: 2.64 h of embedding per seed plus the build and fits, about 2.8 h; about
+      8.5 h for three. ADR 0025 written; the ticket's D4 links it.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,

@@ -209,6 +209,11 @@ class RunConfig:
     # Ticket ML-5 P5 (D11-D13): the segmenter dataset's pool-draw and split seed and its split shares, a
     # block read and checked only by coffeecv/seg_dataset.py (Params). No training run reads it.
     seg_dataset: dict = field(default_factory=dict)
+    # Ticket ML-8 D4 (ADR 0025): the frozen head fit's augmentation, a block read and checked only by
+    # coffeecv/fit_frozen_head.py (HeadAugment): `views` augmented views of every training patch, drawn per run
+    # and held in memory as embeddings, through the albumentations pipelines `patch` (on the stored patch) and
+    # `input` (on the patch resized to patch_resize). Empty = no augmentation, as every head before ML-8.
+    head_augment: dict = field(default_factory=dict)
     # Ticket ML-5 P6/P10 (D22): the seed that draws, per photo, which side of the blind paired review shows which
     # model's mask (coffeecv/seg_review.py paired). No training run reads it.
     seg_paired_seed: int = 0

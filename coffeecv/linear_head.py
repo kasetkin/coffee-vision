@@ -50,10 +50,12 @@ def export_linear(clf: LogisticRegression, scaler: StandardScaler) -> nn.Linear:
 
 def fit_head(X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray,
              class_ids: list[str], class_labels: dict[str, str],
-             C_grid: tuple[float, ...] = C_GRID) -> HeadFit:
+             C_grid: tuple[float, ...] = C_GRID, sample_weight: np.ndarray | None = None) -> HeadFit:
+    """`sample_weight` weighs each training row in the scaler and the loss (ticket ML-8 P6: an augmented fit's
+    rows weigh 1/(1 + views) each, so its total weight, and so the meaning of C, is the unaugmented fit's)."""
     t0 = time.perf_counter()
     n_classes = len(class_ids)
-    scaler = StandardScaler().fit(X_train)
+    scaler = StandardScaler().fit(X_train, sample_weight=sample_weight)
     Xt, Xv = scaler.transform(X_train), scaler.transform(X_val)
     # Ascending C with warm starts: each fit starts from the previous (more regularised) optimum.
     # The problem is convex, so this only changes how fast lbfgs gets there, not where.
@@ -66,7 +68,7 @@ def fit_head(X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val:
         clf.set_params(C=C)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ConvergenceWarning)
-            clf.fit(Xt, y_train)
+            clf.fit(Xt, y_train, sample_weight=sample_weight)
         if any(issubclass(w.category, ConvergenceWarning) for w in caught):
             not_converged.append(C)
         # The selection metric is computed by the same function that reports every other macro-F1
@@ -83,15 +85,16 @@ def fit_head(X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val:
                    time.perf_counter() - t0)
 
 
-def fit_head_at(X_train: np.ndarray, y_train: np.ndarray, C: float, n_classes: int) -> tuple[nn.Linear, bool]:
+def fit_head_at(X_train: np.ndarray, y_train: np.ndarray, C: float, n_classes: int,
+                sample_weight: np.ndarray | None = None) -> tuple[nn.Linear, bool]:
     """One fit at a fixed C -- the shipping fit (plan §9.1), where C comes from the folds rather than
     from this run's own val split. Returns (head, converged). Same solver, scaler and export as
-    `fit_head`, so a shipped head is the thing the folds measured."""
-    scaler = StandardScaler().fit(X_train)
+    `fit_head`, so a shipped head is the thing the folds measured; `sample_weight` as there."""
+    scaler = StandardScaler().fit(X_train, sample_weight=sample_weight)
     clf = LogisticRegression(C=C, max_iter=MAX_ITER)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always", ConvergenceWarning)
-        clf.fit(scaler.transform(X_train), y_train)
+        clf.fit(scaler.transform(X_train), y_train, sample_weight=sample_weight)
     if list(clf.classes_) != list(range(n_classes)):
         raise ValueError(f"head saw classes {list(clf.classes_)}, expected 0..{n_classes - 1}")
     converged = not any(issubclass(w.category, ConvergenceWarning) for w in caught)

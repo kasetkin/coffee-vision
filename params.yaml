@@ -231,6 +231,35 @@ seg_ft:
   max_points: 3
   select_min_area_frac: 0.083
 
+# Ticket ML-8 D4 (docs/adr/0025): the frozen DINOv3 head is fitted on `views` augmented views of every training
+# patch beside the patch itself, drawn per run (seeded by the run's seed, the patch and the view), embedded and held
+# in memory as embeddings only, never stored; val and test are not augmented. Read only by
+# coffeecv/fit_frozen_head.py; every pipeline is built by coffeecv/augment.py's strict builder (albumentations
+# 2.0.8, pinned: an argument it does not know fails the run). `patch` acts on the stored patch (patch_store_size,
+# 448 px): geometry, occlusion and colour. `input` acts on the patch after the resize to patch_resize (224 px), so
+# its strengths are in the model's input pixels: the camera pipeline (at 448 the resize would undo Downscale and
+# halve blur and noise). Plan P6: SquareSymmetry (beans have no "up"); Affine scale only, its border reflected
+# (border_mode 4 = cv2.BORDER_REFLECT_101; the default fills black); CoarseDropout filled with the ImageNet mean;
+# ColorJitter with hue 0 (colour carries origin and roast); PlanckianJitter (white balance); then compression, one
+# blur, noise and Downscale with area down and linear up (interpolation 3 = cv2.INTER_AREA, 1 = INTER_LINEAR).
+# Left out: ToGray, ChannelDropout, hue shifts, rotation by any angle, RandomResizedCrop.
+head_augment:
+  views: 8
+  patch:
+    - {transform: SquareSymmetry, p: 1.0}
+    - {transform: Affine, p: 0.5, args: {scale: [0.9, 1.1], border_mode: 4}}
+    - {transform: CoarseDropout, p: 0.5, args: {num_holes_range: [1, 8], hole_height_range: [0.05, 0.15],
+                                                hole_width_range: [0.05, 0.15], fill: [124, 116, 104]}}
+    - {transform: ColorJitter, p: 0.8, args: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.0}}
+    - {transform: PlanckianJitter, p: 0.3}
+  input:
+    - {transform: ImageCompression, p: 0.3, args: {quality_range: [60, 95]}}
+    - {transform: OneOf, p: 0.2, args: {transforms: [{transform: GaussianBlur, p: 1.0, args: {blur_limit: [3, 5]}},
+                                                     {transform: MotionBlur, p: 1.0}, {transform: Defocus, p: 1.0}]}}
+    - {transform: GaussNoise, p: 0.2, args: {std_range: [0.01, 0.04]}}
+    - {transform: Downscale, p: 0.2, args: {scale_range: [0.5, 0.9],
+                                            interpolation_pair: {downscale: 3, upscale: 1}}}
+
 # Ticket ML-5 P5 (D11-D13, D16): the segmenter dataset (coffeecv/seg_dataset.py ->
 # labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is
 # the train/validation/test share within each source, and within each (batch, tag) for negatives

@@ -1,0 +1,42 @@
+{
+ "seed": 42,
+ "train_split_built": {
+  "seconds": 449.4,
+  "VmRSS": 2.25,
+  "VmHWM": 2.99,
+  "patches": 6000,
+  "patch_bytes": 3612672000
+ },
+ "originals_embedded": {
+  "seconds": 1014.0,
+  "VmRSS": 3.99,
+  "VmHWM": 4.54,
+  "backbone_ms_per_patch": 165.6
+ },
+ "subset_views_embedded": {
+  "seconds": 340.5,
+  "VmRSS": 3.88,
+  "VmHWM": 4.54,
+  "views": 2048,
+  "backbone_ms_per_view": 161.2,
+  "all_in_ms_per_view": 166.3
+ },
+ "patches_released": {
+  "VmRSS": 4.05,
+  "VmHWM": 4.54
+ },
+ "views_cosine_to_original_measured": 0.9337,
+ "unaugmented_fit_with_grid": {
+  "seconds": 101.0,
+  "VmRSS": 4.16,
+  "VmHWM": 4.64,
+  "rows": 6000
+ },
+ "augmented_fit_with_grid": {
+  "seconds": 162.7,
+  "VmRSS": 4.22,
+  "VmHWM": 5.51,
+  "rows": 54000
+ },
+ "estimated_hours_of_embedding_per_seed": 2.64
+}
