@@ -1977,14 +1977,18 @@ stages:
     cmd: python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name 
       xl0_v3 --threads 8
     deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: b5fb1b28e002ef1a052ba2f7c73f8152
+      size: 3101
     - path: coffeecv/sam_loader.py
       hash: md5
-      md5: 9df762bc7a809e060e8898558b5dc4b4
-      size: 3195
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: a64d0558baa95a4a1a034c958c794768
-      size: 26362
+      md5: f7fd5897ca3e5c201b948ab32f850a80
+      size: 25508
     - path: data/ml5_labels/pass3
       hash: md5
       md5: b7ec8b74b686486a6aefd6c19c2604d5.dir

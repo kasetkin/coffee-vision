@@ -13,7 +13,10 @@ The tests that need L0 weights skip on a clone without them (models_pretrained/v
 """
 from __future__ import annotations
 
+import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -172,6 +175,47 @@ class Augment(unittest.TestCase):
         for spec in (one("NoSuchTransform"), one("Affine", rotate=[15, 15], fill_mask=0), one("Affine", rotate=15)):
             with self.subTest(spec=spec), self.assertRaises(ValueError):
                 ft.FtParams.from_config(RunConfig(seg_ft={"weights": XL0_WEIGHTS, "augment": spec}))
+
+
+class BuiltAsBefore(unittest.TestCase):
+    """ML-8 P2 (R7): seg_ft.augment builds through coffeecv.augment's strict builder exactly as through the builder
+    XL0-v3 trained with (seg_finetune at BEFORE_P2): the same transforms with the same arguments, and the seeded
+    stream gives byte-identical photo and label on three photos."""
+    BEFORE_P2 = "e736c2b"
+
+    @classmethod
+    def setUpClass(cls):
+        src = subprocess.check_output(["git", "show", f"{cls.BEFORE_P2}:coffeecv/seg_finetune.py"], cwd=REPO_ROOT)
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmp.cleanup)
+        path = Path(cls.tmp.name) / "seg_finetune_before_p2.py"
+        path.write_bytes(src)
+        spec = importlib.util.spec_from_file_location("seg_finetune_before_p2", path)
+        cls.old = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = cls.old                       # dataclasses look their module up there
+        cls.addClassCleanup(sys.modules.pop, spec.name, None)
+        spec.loader.exec_module(cls.old)
+        cls.spec = ft.FtParams.from_config(RunConfig.from_params_yaml()).augment
+
+    def test_the_same_transforms_with_the_same_arguments(self):
+        from coffeecv.augment import albumentations
+        A = albumentations()
+        old = A.to_dict(A.Compose([self.old._transform(A, t) for t in self.spec], seed=0, strict=True))
+        new = A.to_dict(ft.compose_augment(self.spec, seed=0))
+        self.assertEqual(len(new["transform"]["transforms"]), 9)
+        self.assertEqual(old, new)
+
+    def test_the_seeded_stream_is_byte_identical(self):
+        photos = [(pile_photo(300, 400), (40, 60, 150, 260)), (pile_photo(512, 384), (100, 30, 400, 300)),
+                  (pile_photo(250, 250), (0, 0, 120, 250))]
+        for seed in (123, 7):
+            a, b = self.old.build_augment(self.spec, seed), ft.build_augment(self.spec, seed)
+            for i, (rgb, (y0, x0, y1, x1)) in enumerate(photos * 3):
+                label = np.zeros(rgb.shape[:2], np.uint8)
+                label[y0:y1, x0:x1] = 1
+                (ra, la), (rb, lb) = a(rgb, label), b(rgb, label)
+                with self.subTest(seed=seed, draw=i):
+                    self.assertEqual((ra.tobytes(), la.tobytes()), (rb.tobytes(), lb.tobytes()))
 
 
 class Stream(unittest.TestCase):

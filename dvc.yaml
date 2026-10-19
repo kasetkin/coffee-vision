@@ -406,6 +406,8 @@ stages:
   # as it trains (seg_ft.augment, docs/adr/0018-segmenter-fine-tunes-augment-on-the-fly.md), at 8 threads. Its own
   # stage because seg_ml5_finetune is frozen whole. Deps (D22): the labels, whose labels.csv pins every photo's
   # sha256 (the run refuses a mismatch), not the photo folders or the dataset file, which change with every append.
+  # Ticket ML-8 P2 (R7): the pipeline is built by coffeecv/augment.py's strict builder since then, the same 9 transforms
+  # and a byte-identical seeded stream (tests/test_seg_finetune.py BuiltAsBefore); recorded with `dvc commit`, not re-run.
   seg_ml6_finetune:
     foreach:
       xl0_v3:
@@ -415,6 +417,7 @@ stages:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
         - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
         - coffeecv/sam_loader.py
         - third_party/efficientvit/efficientvit
         - data/ml5_labels/${item.labels}

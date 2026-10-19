@@ -24,7 +24,7 @@ training photo (train, neg_train) is checked against labels.csv's sha256, resize
 serving's own resize (SamResize, the first step of model.transform: the long side to 512 for L0, 1024 for XL0,
 which the encoder's transform then leaves as it is), and held in memory with
 its label at the same size (INTER_AREA, >= 0.5). Each sample is augmented when it is drawn, by seg_ft.augment
-(albumentations transforms built by name, seeded from the run's seed; a spatial transform moves the label with
+(albumentations transforms built by name, strictly by coffeecv.augment since ML-8 P2, seeded from the run's seed; a spatial transform moves the label with
 the photo, and a warp fills the label's exposed border with IGNORE), its label padded with IGNORE as SamPad pads
 the image, and encoded by the frozen encoder. The validation photos are not augmented: they are encoded once per
 run at full resolution, as at serving, and held in memory, so checkpoint selection is deterministic.
@@ -53,7 +53,6 @@ import hashlib
 import inspect
 import json
 import math
-import os
 import time
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
@@ -65,7 +64,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from coffeecv import model_io
+from coffeecv import augment, model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
 from coffeecv.repo_files import read_csv, sha256_file
@@ -120,30 +119,17 @@ class FtParams:
 
 # ---------------------------------------------------------------- augmentation (ML-6 D12, D16)
 
-def _albumentations():
-    """albumentations, imported without its update check (2.0.8 asks PyPI on import otherwise)."""
-    os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
-    import albumentations
-    return albumentations
-
-
-def _transform(A, t: dict):
-    """One seg_ft.augment entry as an albumentations transform. Lists become tuples, `transforms` (OneOf and the
-    like) nest entries. A transform that fills a mask (a warp's exposed border) must fill it with IGNORE."""
-    if not isinstance(t, dict) or set(t) - {"transform", "p", "args"} or "transform" not in t or "p" not in t:
-        raise ValueError(f"seg_ft.augment: {t!r} is not {{transform, p, args}}")
-    cls = getattr(A, str(t["transform"]), None)
-    if not (inspect.isclass(cls) and issubclass(cls, A.BasicTransform | A.BaseCompose)):
-        raise ValueError(f"seg_ft.augment: {t['transform']!r} is not an albumentations transform")
-    args = dict(t.get("args") or {})
+def _fill_mask_is_ignore(cls, args: dict) -> str | None:
+    """The fine-tune's own rule on top of coffeecv.augment's: a transform that fills a mask (a warp's exposed
+    border) fills it with IGNORE."""
     if "fill_mask" in inspect.signature(cls).parameters and args.get("fill_mask") != IGNORE:
-        raise ValueError(f"seg_ft.augment: {t['transform']} must set fill_mask: {IGNORE} (the label's ignore value)")
-    tup = lambda v: tuple(tup(x) for x in v) if isinstance(v, list) else v  # noqa: E731
-    args = {k: [_transform(A, x) for x in v] if k == "transforms" else tup(v) for k, v in args.items()}
-    try:
-        return cls(**args, p=float(t["p"]))
-    except Exception as e:
-        raise ValueError(f"seg_ft.augment: {t['transform']}: {e}") from e
+        return f"must set fill_mask: {IGNORE} (the label's ignore value)"
+    return None
+
+
+def compose_augment(spec, seed: int):
+    """seg_ft.augment as an albumentations Compose, built strictly by coffeecv.augment (ML-8 P2)."""
+    return augment.build(spec, where="seg_ft.augment", seed=seed, check=_fill_mask_is_ignore)
 
 
 def build_augment(spec, seed: int) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
@@ -151,13 +137,12 @@ def build_augment(spec, seed: int) -> Callable[[np.ndarray, np.ndarray], tuple[n
     by `seed`: a spatial transform moves the label with the photo, a pixel transform leaves it as it is."""
     if not spec:
         return lambda rgb, label: (rgb, label)
-    A = _albumentations()
-    pipe = A.Compose([_transform(A, t) for t in spec], seed=seed, strict=True)
+    pipe = compose_augment(spec, seed)
 
-    def augment(rgb: np.ndarray, label: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def augment_sample(rgb: np.ndarray, label: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         out = pipe(image=rgb, mask=label)
         return out["image"], out["mask"]
-    return augment
+    return augment_sample
 
 
 # ---------------------------------------------------------------- geometry
@@ -468,7 +453,7 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str)
             "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
             "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select, "frame": res["frame"],
-            "albumentations": _albumentations().__version__,
+            "albumentations": augment.version(),
             "chosen": res["best"], "history": res["history"], "threads": torch.get_num_threads()}
     out.with_suffix(".json").write_text(json.dumps(card, indent=2) + "\n")
     return out

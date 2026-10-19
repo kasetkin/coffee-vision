@@ -119,7 +119,7 @@
 
   <h2>3. P1 &mdash; commit what is done</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">the work is done in the tree (2026-10-18), not committed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: <code>554a2a4</code>; <code>scripts/check.sh --full</code> passed, both pointers clean and in sync with <code>dvcnewremote</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
@@ -131,7 +131,7 @@
 
   <h2>4. P2 &mdash; the strict augmentation builder</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-19: the commit <code>ML-8 P2</code>; <code>seg_ft.augment</code> builds the same 9 transforms and a byte-identical seeded stream through <code>coffeecv/augment.py</code>; <code>seg_ml6_finetune@xl0_v3</code> recorded with <code>dvc commit</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>One module, <code>coffeecv/augment.py</code>, builds an albumentations pipeline from a <code>params.yaml</code> list
@@ -299,6 +299,15 @@
       embedding shift, and measures RAM at full size. P7's print adds photo counts and both arms' val-picked C, is read
       with R2's near-duplicate caveat, and its stop names the unaugmented head as an option. No ticket decision changed.
       Not implemented.</div>
+    <div><div class="when">2026-10-19</div>Implementation starts (the owner: <code>/implement</code>, approval to test
+      anything needed and to train locally or on <code>webappremote</code>). P1 committed (<code>554a2a4</code>) after the
+      full tier passed. P2 done: <code>coffeecv/augment.py</code> builds every pipeline under warnings-as-errors and
+      refuses <code>ColorJitter(brightness_range=...)</code>; the segmenter builds through it, checked against the builder at
+      <code>e736c2b</code> (same transforms and arguments by <code>A.to_dict</code>, byte-identical photo and label at seeds
+      123 and 7 on three photos). <code>seg_ml6_finetune@xl0_v3</code> was stale on <code>seg_finetune.py</code>,
+      the new <code>augment.py</code> and <code>sam_loader.py</code>; the last changed in ML-7 P8 (<code>0f7617a</code>)
+      only by moving two imports into <code>build_sam</code>, so the stage is recorded with <code>dvc commit</code>, its
+      outputs' md5 unchanged.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
