@@ -45,7 +45,7 @@ Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's 
 
 Push before you collect: `dvc gc` deletes objects only this cache holds, and nothing warns about that. Use `dvc gc --all-commits` (never `--workspace`, which deletes what older commits' `dvc.lock` names: on 2026-10-20 that was 26.5 GB, 7,990 of 8,572 objects, most never pushed). Before it runs, read each warning with `--dry`:
 
-- **"Output ... is missing version info. Cache for it will not be collected."** The output is *not* counted as in use, so its objects are deleted if nothing else names them. It is raised for an output whose working copy is missing, frozen stages included. On 2026-10-20 it cost `data/seg_cache_ml5/pass1` and `pass2` (7.5 GB, never pushed), read as "kept". Push such an output, or `dvc checkout` it, before collecting.
+- **"Output ... is missing version info. Cache for it will not be collected."** The output is *not* counted as in use, so its objects are deleted if nothing else names them. Here it was raised for outputs whose working copy was missing, of frozen stages. On 2026-10-20 it cost `data/seg_cache_ml5/pass1` and `pass2` (7.5 GB, never pushed), read as "kept". Push such an output, or `dvc checkout` it, before collecting.
 - **A commit DVC cannot read** is skipped, and the objects only it uses are deleted.
 
 Then check what the dry run would remove against every object the workspace and history name, as in "Trusting the result" above, and against the remote.
