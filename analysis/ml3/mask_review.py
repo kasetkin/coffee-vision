@@ -20,6 +20,12 @@ decision of 2026-10-06 (option b): every declined mask, and every D18 fallback t
 fallbacks whose beans fill the frame stay, though the review declined them (it judged their empty masks); the
 background ones are BACKGROUND_FALLBACKS, read from a contact sheet of all 24 on 2026-10-05.
 
+Since ticket ML-8 P4 the file also holds the owner's verdict on the 20 photos new to its re-crop
+(labels/ml2/review/ml8_p4_new_crops.decisions.jsonl, items from analysis/ml8/p4_review_items.py): there a
+D18 fallback was judged on its frame, so every decline is excluded, a fallback's as "D18 fallback with
+background". Each item's current mask is the full-frame mask its segcrop report records (mask_sha256), so the
+rows come from the committed decisions and the crops' reports alone.
+
 `summary` prints the accept rate overall and per session, each with its denominators (masks judged, masks in the
 session), the declines with their reasons, and the fallbacks' decisions. Decisions are the last row per item
 made for the item's current mask (review_masks.current_decisions).
@@ -44,6 +50,8 @@ ITEMS = REPO_ROOT / "labels" / "ml3" / "mask_review_items.csv"
 DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / f"{NAME}.decisions.jsonl"
 RISKY_SESSION = "random_date_raccoon"
 POOL_EXCLUDE = REPO_ROOT / "labels" / "ml3" / "pool_exclude.csv"
+ML8_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml8_p4_new_crops.decisions.jsonl"
+ML8_ITEMS = 20
 BACKGROUND_FALLBACKS = {
     "dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174814080.jpg",       # white surface
     "dataset/2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103614873.jpg",    # metal bowl
@@ -148,7 +156,7 @@ def exclusions() -> list[dict]:
     fallback = {it["path"] for it in its if it["fallback"] == "1"}
     if not BACKGROUND_FALLBACKS <= fallback:
         raise ValueError(f"not D18 fallbacks: {sorted(BACKGROUND_FALLBACKS - fallback)}")
-    rows = []
+    rows = ml8_exclusions()
     for it in its:
         declined = dec[it["item"]]["decision"] == "decline"
         if it["path"] in BACKGROUND_FALLBACKS:
@@ -160,6 +168,28 @@ def exclusions() -> list[dict]:
         _, session, class_folder, file = it["path"].split("/")
         rows.append({"session": session, "class_folder": class_folder, "file": file, "reason": reason})
     return sorted(rows, key=lambda r: (r["session"], r["class_folder"], r["file"]))
+
+
+def ml8_exclusions() -> list[dict]:
+    """Ticket ML-8 P4's declines (see the module docstring): every declined photo of the 20 new to the re-crop."""
+    from coffeecv.review_masks import current_decisions
+    its = {}
+    for line in ML8_DECISIONS.read_text().splitlines():
+        r = json.loads(line)
+        if r["item"] in its:
+            continue
+        _, session, class_folder, file = r["path"].split("/")
+        report = REPO_ROOT / "data" / "segcropped" / session / class_folder / "segcrop_report.json"
+        [rep] = [x for x in json.loads(report.read_text()) if x["file"] == file]
+        its[r["item"]] = {"item": r["item"], "session": session, "class_folder": class_folder, "file": file,
+                          "mask_sha256": rep["mask_sha256"], "fallback": rep["fallback"]}
+    dec = current_decisions(ML8_DECISIONS, list(its.values()))
+    if len(its) != ML8_ITEMS or len(dec) != ML8_ITEMS:
+        raise ValueError(f"ML-8 P4: {len(dec)} of {len(its)} items judged on their current masks, "
+                         f"not all {ML8_ITEMS}")
+    return [{"session": it["session"], "class_folder": it["class_folder"], "file": it["file"],
+             "reason": "D18 fallback with background" if it["fallback"] else "mask declined"}
+            for it in its.values() if dec[it["item"]]["decision"] == "decline"]
 
 
 def exclude() -> int:
