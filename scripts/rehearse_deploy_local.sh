@@ -168,7 +168,7 @@ export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOK
 # deploy's full test suite (scripts/check.sh --full).
 export DEPLOY_SKIP_CHECK=1
 D="$C/scripts/deploy_webapp.sh"
-MODEL=${REHEARSE_MODEL:-allrigs_dino3b16_segxl0v3_country_s42}
+MODEL=${REHEARSE_MODEL:-dino3b16_segxl0v3_country_aug8_s123}
 SHA=$(git -C "$C" rev-parse origin/main)
 PREV_SHA=$(git -C "$C" rev-parse "${REHEARSE_PREV_REF:-origin/main~1}")
 [[ "$PREV_SHA" != "$SHA" ]] || { echo "REHEARSE_PREV_REF resolves to origin/main itself"; exit 1; }
