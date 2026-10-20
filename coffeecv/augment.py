@@ -10,6 +10,10 @@ not know and runs with its default: ColorJitter(brightness_range=(0.5, 0.6)), th
 guide, warns "Argument(s) 'brightness_range' are not valid" and jitters brightness by the default (0.8, 1.2). Here
 any warning while a pipeline is built is an error naming the transform, so every argument means what it says.
 
+Shared groups (params.yaml `augment`, ADR 0027): an entry {use: <group>} stands for the group's transforms, in
+its place. `expand` replaces them before anything is built or recorded, and RunConfig.from_params_yaml calls it on
+both fits' pipelines, so a run's config and a model's card hold the transforms that ran, never a reference.
+
 A caller's `check(cls, args)` adds its own rule, applied to every entry, nested ones included: it returns what is
 wrong, or None. The segmenter's is that a transform which fills a mask fills it with the label's ignore value.
 
@@ -34,6 +38,27 @@ def albumentations():
 
 def version() -> str:
     return albumentations().__version__
+
+
+def expand(spec, groups: dict, *, where: str) -> list[dict]:
+    """`spec` with each {use: <group>} entry replaced by `groups`' list of that name, in its place. A group is a
+    plain list of transforms: it cannot use another."""
+    out = []
+    for t in spec or ():
+        if not (isinstance(t, dict) and "use" in t):
+            out.append(t)
+            continue
+        name = t["use"]
+        if set(t) != {"use"}:
+            raise ValueError(f"{where}: {t!r}: a shared group is used as {{use: <group>}} alone")
+        if name not in groups:
+            raise ValueError(f"{where}: no shared group {name!r} in params.yaml augment "
+                             f"(it has {', '.join(sorted(groups)) or 'none'})")
+        group = groups[name]
+        if not isinstance(group, list) or any(isinstance(g, dict) and "use" in g for g in group):
+            raise ValueError(f"augment.{name}: a shared group is a list of transforms, and uses no other group")
+        out.extend(group)
+    return out
 
 
 def _transform(A, t, where: str, check: Callable[[type, dict], str | None] | None):

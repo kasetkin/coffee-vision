@@ -7,3 +7,5 @@ A segmenter fine-tune ([ADR 0015](0015-xl0-segmenter-owner-judged-labels.md)) au
 - **Which library**: `albumentations` 2.0.8, MIT, pinned. Upstream archived it on 2025-07-10. Its successor AlbumentationsX is AGPL-3.0 or commercial and sends telemetry by default, so it is not used. 2.0.8 checks PyPI for a newer version on import unless `NO_ALBUMENTATIONS_UPDATE=1`, which the fine-tune sets before importing it.
 
 Source: [ML-6](../ticket_segmenter_retrain.html) D12, D16, D19.
+
+Amended 2026-10-20 by [ADR 0027](0027-both-fits-share-augmentation-groups.md): the pipeline takes the shared groups of `params.yaml` `augment` (colour, compression, noise) and adds its own transforms on top; XL0-v3 trained with the pipeline before it, recorded on its card.

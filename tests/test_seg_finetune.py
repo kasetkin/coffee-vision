@@ -178,9 +178,10 @@ class Augment(unittest.TestCase):
 
 
 class BuiltAsBefore(unittest.TestCase):
-    """ML-8 P2 (R7): seg_ft.augment builds through coffeecv.augment's strict builder exactly as through the builder
-    XL0-v3 trained with (seg_finetune at BEFORE_P2): the same transforms with the same arguments, and the seeded
-    stream gives byte-identical photo and label on three photos."""
+    """ML-8 P2 (R7): XL0-v3's pipeline builds through coffeecv.augment's strict builder exactly as through the
+    builder it trained with (seg_finetune at BEFORE_P2): the same transforms with the same arguments, and the seeded
+    stream gives byte-identical photo and label on three photos. The pipeline is the one its card records: since
+    ADR 0027, params.yaml's seg_ft.augment is the next fine-tune's."""
     BEFORE_P2 = "e736c2b"
 
     @classmethod
@@ -195,7 +196,7 @@ class BuiltAsBefore(unittest.TestCase):
         sys.modules[spec.name] = cls.old                       # dataclasses look their module up there
         cls.addClassCleanup(sys.modules.pop, spec.name, None)
         spec.loader.exec_module(cls.old)
-        cls.spec = ft.FtParams.from_config(RunConfig.from_params_yaml()).augment
+        cls.spec = json.loads((REPO_ROOT / "models" / "seg" / "xl0_v3.json").read_text())["seg_ft"]["augment"]
 
     def test_the_same_transforms_with_the_same_arguments(self):
         from coffeecv.augment import albumentations
@@ -425,7 +426,10 @@ class EntryPointAtToyScale:
             self.assertEqual((card["name"], card["labels"], card["base_weights"], card["seg_ft"]["epochs"],
                               len(card["history"]), card["frame"]), ("toy_s42", "toy", self.WEIGHTS, 1, 2, self.FRAME))
             self.assertEqual(card["label_set"]["roles"], {"train": 1, "val": 1, "neg_train": 1, "neg_select": 0})
-            self.assertEqual((card["albumentations"], card["seg_ft"]["augment"]), ("2.0.8", raw["seg_ft"]["augment"]))
+            # The transforms that ran: ADR 0027's shared groups expanded, no {use: <group>} left.
+            self.assertEqual((card["albumentations"], card["seg_ft"]["augment"]),
+                             ("2.0.8", read(params).seg_ft["augment"]))
+            self.assertFalse([t for t in card["seg_ft"]["augment"] if "use" in t])
             self.assertEqual(card["history"][1]["point_steps"], 1)
 
 

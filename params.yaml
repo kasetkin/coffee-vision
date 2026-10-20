@@ -180,6 +180,25 @@ seg_keep_frac: 0.95
 patch_min_bean_share: 0.80
 patch_max_attempts_factor: 20
 
+# ADR 0027 (the owner, 2026-10-20): augmentation both fits share, the segmenter's fine-tune (seg_ft.augment) and
+# the classifier's head fit (head_augment). A pipeline names a group as {use: <group>}; RunConfig.from_params_yaml
+# expands it in place (coffeecv/augment.py expand), so runs and cards record the transforms, not the name. Shared:
+# what means the same at the segmenter's 1024 px photo and the classifier's 224 px patch -- colour, JPEG quality
+# and noise relative to the range. Not shared: geometry (the segmenter's moves its label) and blur, whose radius is
+# in pixels. A fit may add its own transforms on top (the segmenter: a hue shift and gamma; colour carries origin,
+# so the classifier's hue stays 0), never weaken a group. Each group is the classifier's pipeline of exp270-272,
+# so the classifier's recipe is unchanged; the segmenter's colour moved from RandomBrightnessContrast (0.2, 0.2,
+# p 0.5, XL0-v3's) to these at its next fine-tune. A DVC stage that trains with a pipeline lists `augment` in its
+# params beside the block, or a changed group does not invalidate it.
+augment:
+  colour:
+    - {transform: ColorJitter, p: 0.8, args: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.0}}
+    - {transform: PlanckianJitter, p: 0.3}
+  compression:
+    - {transform: ImageCompression, p: 0.3, args: {quality_range: [60, 95]}}
+  noise:
+    - {transform: GaussNoise, p: 0.2, args: {std_range: [0.01, 0.04]}}
+
 # Ticket ML-2 P5 (D7 (a), plan §8): decoder-only fine-tuning of the segmenter, read only by
 # coffeecv/seg_finetune.py. The image and prompt encoders stay frozen; the prompt (seg_prompt) and the
 # trained output (seg_mask_select) are the serving ones. Loss: focal_weight x focal(gamma, alpha) +
@@ -187,10 +206,11 @@ patch_max_attempts_factor: 20
 # D16 (docs/adr/0018): albumentations transforms built by name, each {transform, p, args}, applied to each
 # training sample as it is drawn and never stored; validation is not augmented. Spatial: the flips (which
 # cover ML-5's 4 cached views) and a mild Affine whose exposed border is black in the photo and 255
-# (ignored) in the label. Pixel: brightness and contrast, a small hue shift (green and roasted beans differ
-# by colour), saturation and value, gamma, JPEG quality, motion blur or defocus, and Gaussian noise; the
-# blur and noise strengths are mild picks, the library's defaults being harsh (GaussNoise std 0.2-0.44 of
-# the range, Defocus radius 3-10 px). XL0-v1 and v2 had views [id, hflip, vflip, rot180] instead. neg_share: share of each batch drawn from the training
+# (ignored) in the label. Pixel: the shared colour group (augment above, ADR 0027), then its own small hue shift
+# (green and roasted beans differ by colour), saturation and value, and gamma; the shared compression group;
+# motion blur or defocus; the shared noise group. The blur strengths are mild picks, the library's defaults
+# being harsh (Defocus radius 3-10 px). XL0-v3 trained with RandomBrightnessContrast (0.2, 0.2, p 0.5) where the
+# colour group now stands (its card, models/seg/xl0_v3.json). XL0-v1 and v2 had views [id, hflip, vflip, rot180] instead. neg_share: share of each batch drawn from the training
 # negatives (D10/D11); the validation negatives choose the checkpoint (ML-5 D8; ML-2 held out a random
 # neg_select_frac of 0.2 of its negative groups instead). point_share: ticket ML-5 D15, the share of batches
 # that add 1 to max_points points from the error region of the box-only prediction to the box (0.5: box or
@@ -208,13 +228,13 @@ seg_ft:
     - {transform: VerticalFlip, p: 0.5}
     - {transform: Affine, p: 0.5, args: {scale: [0.9, 1.1], translate_percent: [-0.05, 0.05], rotate: [-15, 15],
                                          border_mode: 0, fill: 0, fill_mask: 255}}
-    - {transform: RandomBrightnessContrast, p: 0.5, args: {brightness_limit: 0.2, contrast_limit: 0.2}}
+    - {use: colour}
     - {transform: HueSaturationValue, p: 0.3, args: {hue_shift_limit: 5, sat_shift_limit: 15, val_shift_limit: 10}}
     - {transform: RandomGamma, p: 0.3, args: {gamma_limit: [80, 120]}}
-    - {transform: ImageCompression, p: 0.3, args: {quality_range: [60, 95]}}
+    - {use: compression}
     - {transform: OneOf, p: 0.2, args: {transforms: [{transform: MotionBlur, p: 1.0, args: {blur_limit: [3, 7]}},
                                                      {transform: Defocus, p: 1.0, args: {radius: [1, 3]}}]}}
-    - {transform: GaussNoise, p: 0.2, args: {std_range: [0.01, 0.04]}}
+    - {use: noise}
   epochs: 40
   patience: 8
   batch_size: 8
@@ -240,8 +260,8 @@ seg_ft:
 # its strengths are in the model's input pixels: the camera pipeline (at 448 the resize would undo Downscale and
 # halve blur and noise). Plan P6: SquareSymmetry (beans have no "up"); Affine scale only, its border reflected
 # (border_mode 4 = cv2.BORDER_REFLECT_101; the default fills black); CoarseDropout filled with the ImageNet mean;
-# ColorJitter with hue 0 (colour carries origin and roast); PlanckianJitter (white balance); then compression, one
-# blur, noise and Downscale with area down and linear up (interpolation 3 = cv2.INTER_AREA, 1 = INTER_LINEAR).
+# ColorJitter with hue 0 (colour carries origin and roast) and PlanckianJitter (white balance), the shared colour
+# group (augment above, ADR 0027); then the shared compression group, one blur, the shared noise group and Downscale with area down and linear up (interpolation 3 = cv2.INTER_AREA, 1 = INTER_LINEAR).
 # Left out: ToGray, ChannelDropout, hue shifts, rotation by any angle, RandomResizedCrop.
 head_augment:
   views: 8
@@ -250,13 +270,12 @@ head_augment:
     - {transform: Affine, p: 0.5, args: {scale: [0.9, 1.1], border_mode: 4}}
     - {transform: CoarseDropout, p: 0.5, args: {num_holes_range: [1, 8], hole_height_range: [0.05, 0.15],
                                                 hole_width_range: [0.05, 0.15], fill: [124, 116, 104]}}
-    - {transform: ColorJitter, p: 0.8, args: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.0}}
-    - {transform: PlanckianJitter, p: 0.3}
+    - {use: colour}
   input:
-    - {transform: ImageCompression, p: 0.3, args: {quality_range: [60, 95]}}
+    - {use: compression}
     - {transform: OneOf, p: 0.2, args: {transforms: [{transform: GaussianBlur, p: 1.0, args: {blur_limit: [3, 5]}},
                                                      {transform: MotionBlur, p: 1.0}, {transform: Defocus, p: 1.0}]}}
-    - {transform: GaussNoise, p: 0.2, args: {std_range: [0.01, 0.04]}}
+    - {use: noise}
     - {transform: Downscale, p: 0.2, args: {scale_range: [0.5, 0.9],
                                             interpolation_pair: {downscale: 3, upscale: 1}}}
 

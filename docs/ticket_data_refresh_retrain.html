@@ -381,6 +381,10 @@
       <code>CoarseDropout</code> fills, the camera family at 224 px, every live reader of the camera pools and the DINOv3
       fixture in P5, RAM measured at full size. R2 now names the split's near-duplicate shots; R4's memory line is
       corrected. No decision changed. Not implemented.</div>
+    <div><div class="when">2026-10-20</div>Follow-up at the owner's request, after the close: the head fit and the
+      segmenter's fine-tune share their colour, compression and noise transforms through <code>params.yaml</code>
+      <code>augment</code> (<a href="adr/0027-both-fits-share-augmentation-groups.md">ADR 0027</a>). The head's
+      pipeline is unchanged; the segmenter's colour is stronger from its next fine-tune.</div>
   </div>
 
   <footer>Related: <a href="plan_data_refresh_retrain.html">ML-8 plan</a>, <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_inference_runtime.html">ML-7</a>,

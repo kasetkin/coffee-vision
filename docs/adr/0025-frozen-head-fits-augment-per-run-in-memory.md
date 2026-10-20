@@ -12,3 +12,5 @@ The frozen DINOv3 head (ADR 0006) is fitted on every training patch and `views` 
 - **Cost**: each view is a backbone pass, about 2.3 h of embedding per seed at 8 views on the CPU host. Adopted by the owner without waiting on a screen (ML-8 D4); the split rewards memorisation (by single photo, near-duplicates across splits), so the paired print informs, it does not gate.
 
 Source: [ML-8](../ticket_data_refresh_retrain.html) D4, D12.
+
+Amended 2026-10-20 by [ADR 0027](0027-both-fits-share-augmentation-groups.md): the colour, compression and noise transforms are `params.yaml` `augment`'s shared groups, taken by reference; expanded, the pipeline is the one exp270-272 were fitted with.

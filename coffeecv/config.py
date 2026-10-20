@@ -214,6 +214,10 @@ class RunConfig:
     # and held in memory as embeddings, through the albumentations pipelines `patch` (on the stored patch) and
     # `input` (on the patch resized to patch_resize). Empty = no augmentation, as every head before ML-8.
     head_augment: dict = field(default_factory=dict)
+    # ADR 0027: augmentation groups both fits share, {name: [transforms]}. seg_ft.augment and head_augment's
+    # pipelines name them as {use: <name>}; from_params_yaml expands them in place (augment.expand), so the two
+    # blocks above always hold the transforms that run, and a recorded config never holds a reference.
+    augment: dict = field(default_factory=dict)
     # Ticket ML-5 P6/P10 (D22): the seed that draws, per photo, which side of the blind paired review shows which
     # model's mask (coffeecv/seg_review.py paired). No training run reads it.
     seg_paired_seed: int = 0
@@ -246,6 +250,17 @@ class RunConfig:
         # and cannot be mutated in place by a caller.
         if isinstance(values.get("train_capture_dirs"), list):
             values["train_capture_dirs"] = tuple(values["train_capture_dirs"])
+        # Imported here: serving reads a model's card, never params.yaml, and a release ships no coffeecv/augment.py
+        # (webapp/deploy/release_manifest.py LIBRARY, checked by tests/test_release_manifest.py).
+        from coffeecv.augment import expand
+        groups = values.get("augment") or {}
+        if "augment" in (values.get("seg_ft") or {}):
+            values["seg_ft"] = {**values["seg_ft"],
+                                "augment": expand(values["seg_ft"]["augment"], groups, where="seg_ft.augment")}
+        if values.get("head_augment"):
+            values["head_augment"] = {**values["head_augment"], **{
+                k: expand(values["head_augment"][k], groups, where=f"head_augment.{k}")
+                for k in ("patch", "input") if k in values["head_augment"]}}
         return cls(**values)
 
     def resolve_paths(self) -> tuple[list[Path], Path]:

@@ -4,11 +4,14 @@ know and runs with its default (ColorJitter(brightness_range=...) runs at bright
 while a pipeline is built is an error here."""
 from __future__ import annotations
 
+import json
 import unittest
 
 import numpy as np
+import yaml
 
 from coffeecv import augment
+from coffeecv.config import PARAMS_FILE, REPO_ROOT, RunConfig
 
 
 def one(transform: str, **args) -> list[dict]:
@@ -77,6 +80,66 @@ class Seeded(unittest.TestCase):
         augment.albumentations()
         self.assertEqual(os.environ.get("NO_ALBUMENTATIONS_UPDATE"), "1")
         self.assertEqual(augment.version(), "2.0.8")
+
+
+class Shared(unittest.TestCase):
+    """params.yaml `augment` (ADR 0027): groups both fits take by reference, {use: <group>}, expanded in place."""
+    GROUPS = {"colour": one("ColorJitter", brightness=0.2), "noise": one("GaussNoise")}
+
+    def test_a_use_entry_is_replaced_by_its_group_in_place(self):
+        spec = one("HorizontalFlip") + [{"use": "colour"}] + one("Downscale") + [{"use": "noise"}]
+        self.assertEqual(augment.expand(spec, self.GROUPS, where="x"),
+                         one("HorizontalFlip") + self.GROUPS["colour"] + one("Downscale") + self.GROUPS["noise"])
+
+    def test_a_pipeline_without_use_is_unchanged(self):
+        self.assertEqual(augment.expand(one("HorizontalFlip"), self.GROUPS, where="x"), one("HorizontalFlip"))
+        self.assertEqual(augment.expand([], {}, where="x"), [])
+
+    def test_an_unknown_group_is_refused_naming_the_pipeline(self):
+        with self.assertRaisesRegex(ValueError, r"seg_ft.augment: .*'color'.*colour, noise"):
+            augment.expand([{"use": "color"}], self.GROUPS, where="seg_ft.augment")
+
+    def test_a_malformed_use_or_a_group_that_uses_another_is_refused(self):
+        for spec, groups in (([{"use": "colour", "p": 1.0}], self.GROUPS),
+                             ([{"use": "a"}], {"a": [{"use": "b"}], "b": one("GaussNoise")}),
+                             ([{"use": "a"}], {"a": {"transform": "GaussNoise", "p": 1.0}})):
+            with self.subTest(spec=spec, groups=groups), self.assertRaises(ValueError):
+                augment.expand(spec, groups, where="x")
+
+
+class SharedInParams(unittest.TestCase):
+    """params.yaml as written: both fits name every shared group, so neither holds a copy that can drift."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.raw = yaml.safe_load(PARAMS_FILE.read_text())
+        cls.cfg = RunConfig.from_params_yaml()
+
+    def test_both_fits_take_every_group_by_reference(self):
+        groups = set(self.raw["augment"])
+        self.assertEqual(groups, {"colour", "compression", "noise"})
+        uses = lambda spec: {t["use"] for t in spec if "use" in t}  # noqa: E731
+        self.assertEqual(uses(self.raw["seg_ft"]["augment"]), groups)
+        self.assertEqual(uses(self.raw["head_augment"]["patch"]) | uses(self.raw["head_augment"]["input"]), groups)
+
+    def test_the_loaded_config_holds_the_expanded_pipelines(self):
+        for spec in (self.cfg.seg_ft["augment"], self.cfg.head_augment["patch"], self.cfg.head_augment["input"]):
+            self.assertFalse([t for t in spec if "use" in t])
+        seg = self.cfg.seg_ft["augment"]
+        for name, group in self.cfg.augment.items():
+            with self.subTest(group=name):
+                self.assertTrue(any(seg[i:i + len(group)] == group for i in range(len(seg))))
+
+    def test_the_classifiers_pipeline_is_the_one_exp270_272_were_fitted_with(self):
+        [run] = (REPO_ROOT / "experiments").glob("exp271__*")
+        self.assertEqual(self.cfg.head_augment, json.loads((run / "config.json").read_text())["head_augment"])
+
+    def test_the_segmenter_is_the_classifier_and_more(self):
+        # ADR 0027: the segmenter adds its own on top of the shared groups (a hue shift, gamma), never weaker ones.
+        names = [t["transform"] for t in self.cfg.seg_ft["augment"]]
+        self.assertNotIn("RandomBrightnessContrast", names)
+        self.assertLess(names.index("ColorJitter"), names.index("HueSaturationValue"))
+        self.assertIn("RandomGamma", names)
 
 
 if __name__ == "__main__":
