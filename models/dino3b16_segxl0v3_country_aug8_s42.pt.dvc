@@ -1,0 +1,5 @@
+outs:
+- md5: de91e57d8296d4b796daad254a66cef9
+  size: 63701
+  hash: md5
+  path: dino3b16_segxl0v3_country_aug8_s42.pt

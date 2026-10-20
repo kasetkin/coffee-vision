@@ -1,0 +1,13 @@
+  Ethiopia                       n=600   spread=7.403
+  Kenya                          n=600   spread=6.867
+  Colombia                       n=600   spread=7.357
+  CostaRica                      n=600   spread=6.944
+  Guatemala                      n=600   spread=8.306
+  Brazil                         n=600   spread=7.262
+  Vietnam                        n=600   spread=6.687
+  Indonesia                      n=600   spread=6.078
+  Peru                           n=600   spread=5.999
+  Rwanda                         n=600   spread=6.325
+per-patch  self-scores: mean 0.96  p95 1.30  max 2.92
+per-photo  self-scores: median 0.93  p95 1.24  max 1.96   (873 photos)
+Wrote models/dino3b16_segxl0v3_country_aug8_s42.ood_reference.json

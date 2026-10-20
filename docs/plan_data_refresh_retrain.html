@@ -241,7 +241,7 @@
 
   <h2>9. P7 &mdash; the classifier, its reference and probe <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-20: exp270&ndash;272 fitted (both arms); candidate <code>dino3b16_segxl0v3_country_aug8_s42</code> (exp270) shipped with its OOD reference and refit probe; waiting on the owner (the stop)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6</span></div>
   </div>
   <ol class="tasks">
@@ -376,6 +376,23 @@
       keeps 10 photos, class 014 19. <code>split_report</code>: no country is starved of a split; one coffee &times;
       split cell is empty by chance, 013's validation (D7, accepted), its country Brazil having validation photos from
       006 and 007.</div>
+    <div><div class="when">2026-10-20</div>P7 run, to the stop. <code>fit_frozen_head --seeds 42 123 7 --start-exp
+      270</code> on this host from <code>99f9d19</code>, 7 h 50 min (161, 158, 150 min per seed; views at 145&ndash;152
+      ms all in); no memory failure, though the host's free RAM fell to about 3 GB twice from other applications
+      (the run's own RSS at most 4.9 GB where sampled). ADR 0002's print (<code>analysis/ml8/p7_paired.py</code>, <code>p7_paired.txt</code>), augmented
+      minus unaugmented macro-F1 at equal total weight: val &minus;0.0032, +0.0094, +0.0000 (mean +0.0021); test
+      +0.0018, +0.0063, +0.0032 (mean +0.0038, 3 of 3 positive). Per class, the largest mean moves: Brazil +0.012 val /
+      +0.010 test, Kenya +0.009 / +0.016; Colombia &minus;0.015 val / +0.003 test, Peru &minus;0.010 / +0.004. Read with
+      R2 (split by single photo). Beside it, unpaired (R1), exp267&ndash;269: val 0.9815, 0.9804, 0.9702, test 0.9748,
+      0.9637, 0.9632; the augmented heads: val 0.9755, 0.9661, 0.9723, test 0.9780, 0.9767, 0.9813. The val pick is
+      exp270 (seed 42), shipped as <code>models/dino3b16_segxl0v3_country_aug8_s42</code> with every seed on its card,
+      weights DVC-tracked (not yet pushed: P8). OOD reference from its unaugmented training embeddings (Q3): 873
+      photos. Probe refit (D9: every training and validation negative): 133 bean photos (56 dropped, in the segmenter
+      test split's groups) and 452 negatives. <code>ood_eval</code> on the segmenter test split
+      (<code>p7_ood_eval.txt</code>): negatives caught 160/160, every batch (user_samerig 15/15, internet_proxy 25/25,
+      user_realworld 120/120); positives refused 0/73 (0/40 trained on, 0/33 not). ML-6's candidate: 153/153 and
+      0/71. The stop: the owner reads the print and the probe's numbers and says whether the candidate (or seed 42's
+      unaugmented head) goes to P8.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,
