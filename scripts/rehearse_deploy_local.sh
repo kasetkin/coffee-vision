@@ -11,10 +11,11 @@
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
 # Since ticket OPS-7 the deploy speaks /analyze only (D10), so REHEARSE_PREV_REF must also be from OPS-7 on.
 #
-# Last passed 2026-10-20 (ticket OPS-10, ADR 0026): deploy 1 at 5512f3b, deploy 2 at d2353d7, both the LiteRT model
-# allrigs_dino3b16_segxl0v3_country_s42 on the CPU; the refused deploy (nginx -t), deploy 2 and --compare each stopped
-# the live service only after staging and started it again; --compare within D7 of PyTorch, and a rollback and back. Run with
-# UV_PYTHON_DOWNLOADS and UV_PROJECT_ENVIRONMENT unset: the devcontainer sets them for training.
+# Last passed 2026-10-20 (DVC clean-up): deploy 1 at 479d88c, deploy 2 at 0cb4c6a, both the live LiteRT model
+# dino3b16_segxl0v3_country_aug8_s123 on the CPU; the refused deploy (nginx -t), deploy 2 and --compare each stopped
+# the live service only after staging and started it again (ADR 0026); deploy 2's prune left the staged trees of the
+# host's two releases only; --compare within D7 of PyTorch, and a rollback and back. Run with UV_PYTHON_DOWNLOADS and
+# UV_PROJECT_ENVIRONMENT unset: the devcontainer sets them for training.
 #
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
 # its -E variables -- no sandbox, no caps), systemctl (starts the ExecStart of the rendered unit in the
