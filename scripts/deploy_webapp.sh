@@ -2,9 +2,10 @@
 # Deploy the web service as an immutable release under /opt/coffee-cv (docs/ops1_release_isolation_plan.html).
 #
 #   scripts/deploy_webapp.sh --bootstrap                     one-time VM setup (user, /opt, uv, logs)
-#   scripts/deploy_webapp.sh <git-ref> <model>               full deploy: stage, smoke, flip, verify
+#   scripts/deploy_webapp.sh <git-ref> <model>               full deploy: stage, stop live, smoke, flip, verify
 #   scripts/deploy_webapp.sh --stage-only <git-ref> <model>  preflight, build, stage, smoke; no flip
 #   scripts/deploy_webapp.sh --compare <release-id>          the release's answers within D7's bars of PyTorch's?
+# The smoke and --compare stop the live service while they run (ADR 0026): photo answers are down, the page is up.
 #   scripts/deploy_webapp.sh --verify                        check what `current` serves
 #   scripts/deploy_webapp.sh --rollback                      switch back to `previous`
 #
@@ -17,9 +18,12 @@
 # Every step that runs code on the host is a transient systemd unit that can write only /opt/coffee-cv,
 # capped at CAP_CPU and CAP_MEM with no swap (default: the whole 4-core, 7.5 GB webappremote; plan §5's
 # 1 CPU and 3 GB kept a training sweep on the old VM safe);
-# preflight refuses without 5 GB available memory and 10 GB free on /opt; the sweep's PIDs and log
-# size are printed before the first VM step and after the last. It never touches ~/coffee-vision*,
-# never runs apt, and starts the service only if it is already enabled.
+# preflight refuses without 10 GB free on /opt; the sweep's PIDs and log size are printed before the
+# first VM step and after the last. The host fits one GPU worker, not two (ADR 0026), so before the
+# release runs there the live service is stopped and MIN_MEM_GB (5) of available memory is required
+# (make_room); it is started again when that is done, or on the new release after the flip, and on any
+# failure before the flip. It never touches ~/coffee-vision*, never runs apt, and starts the service at
+# a flip only if it is enabled.
 set -euo pipefail
 
 usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -152,9 +156,8 @@ preflight() {
   local mem free uv py
   mem=$(kv MEM_AVAIL_KB "$out"); free=$(kv OPT_FREE_KB "$out"); uv=$(kv UV "$out"); py=$(kv PY "$out")
   PRE_SWEEP=$(grep '^SWEEP_' <<<"$out" || true)
-  note "MemAvailable $((mem / 1048576)) GB (need $MIN_MEM_GB), free on $APP_ROOT $((free / 1048576)) GB (need $MIN_FREE_GB), uv ${uv:-missing}, Python ${py:-missing}"
+  note "MemAvailable $((mem / 1048576)) GB (need $MIN_MEM_GB, checked by make_room before the release runs here), free on $APP_ROOT $((free / 1048576)) GB (need $MIN_FREE_GB), uv ${uv:-missing}, Python ${py:-missing}"
   note "sweep before: $(tr '\n' ' ' <<<"$PRE_SWEEP")"
-  (( mem >= MIN_MEM_GB * 1048576 )) || die "only $((mem / 1024)) MB available memory; need ${MIN_MEM_GB} GB"
   (( free >= MIN_FREE_GB * 1048576 )) || die "only $((free / 1048576)) GB free on $APP_ROOT; need ${MIN_FREE_GB} GB"
   [[ "$uv" == "$UV_VERSION" ]] || die "uv on the host is '${uv:-missing}', not $UV_VERSION -- run --bootstrap"
   [[ -n "$py" ]] || die "no uv-managed Python $PY_VERSION under $APP_ROOT/python -- run --bootstrap"
@@ -337,6 +340,46 @@ check_staged_listing() {   # the release on the VM holds exactly the manifest (+
   listing=$(vm 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
   "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --model "$MODEL" --check-staged - <<<"$listing" \
     || die "the release on the VM does not match the manifest"
+}
+
+# ------------------------------------------------------------------------------ the live service (ADR 0026)
+# The host fits one GPU worker, not two: a worker costs about 3.3 GB of MemAvailable of webappremote's 7.7 GB
+# (OPS-10). So before the release runs on the host (the smoke, --compare's run) the live service is stopped, and
+# only once everything the release needs is on the host: every file uploaded and checked against its digest, the
+# venv built, the release marked complete, the fixtures and expected answers sent (the owner, 2026-10-20). After
+# the stop only the rendered unit and nginx site are written. It starts again when the release's run is done
+# (restore_live), on the new release after a flip, or from the EXIT trap on any failure or interrupt. A host where
+# stopping it cannot free MIN_MEM_GB is refused before anything stops.
+LIVE_STOPPED_AT=""
+make_room() {
+  local out active avail svc
+  out=$(vm '
+    echo "ACTIVE=$(systemctl is-active coffee-cv-web 2>/dev/null || true)"
+    echo "MEM_AVAIL_KB=$(awk "/MemAvailable/ {print \$2}" /proc/meminfo)"
+    cur=$(systemctl show -p MemoryCurrent --value coffee-cv-web 2>/dev/null || true)
+    [[ "$cur" =~ ^[0-9]+$ ]] || cur=0
+    echo "SERVICE_KB=$((cur / 1024))"')
+  active=$(kv ACTIVE "$out"); avail=$(kv MEM_AVAIL_KB "$out"); svc=$(kv SERVICE_KB "$out")
+  if [[ "$active" == active ]]; then
+    (( avail + svc >= MIN_MEM_GB * 1048576 )) \
+      || die "stopping coffee-cv-web would leave about $(((avail + svc) / 1024)) MB available ($((avail / 1024)) MB + its $((svc / 1024)) MB); need ${MIN_MEM_GB} GB -- nothing stopped"
+    say "Stop the live service (ADR 0026): photo answers are down until it starts again; the page stays up"
+    vm '$SUDO systemctl stop coffee-cv-web'
+    LIVE_STOPPED_AT=$SECONDS
+    note "stopped at $(date -u +%T) UTC"
+    avail=$(vm 'awk "/MemAvailable/ {print \$2}" /proc/meminfo')
+  fi
+  note "MemAvailable $((avail / 1024)) MB (need $MIN_MEM_GB GB)"
+  (( avail >= MIN_MEM_GB * 1048576 )) || die "only $((avail / 1024)) MB available memory; need ${MIN_MEM_GB} GB"
+}
+
+restore_live() {   # starts the live service again if this run stopped it and nothing has started it since
+  [[ -n "$LIVE_STOPPED_AT" ]] || return 0
+  local down=$((SECONDS - LIVE_STOPPED_AT))
+  LIVE_STOPPED_AT=""
+  say "Start the live service again (stopped ${down} s)"
+  vm '$SUDO systemctl start coffee-cv-web' \
+    || note "WARNING: coffee-cv-web did not start -- start it by hand on $HOST: sudo systemctl start coffee-cv-web"
 }
 
 # --------------------------------------------------------------------------------------------- smoke
@@ -598,7 +641,9 @@ compare() {   # compare <release id>: the release on the host, on its accelerato
   while read -r p; do photos+=("$REPO/$p"); done < <(fixtures compare)
   (cd "$REPO" && "$TORCH_PY" -B "$DEPLOY_DIR/release_probe.py" classify-torch --checkpoint "models/$model.pt" \
       "${photos[@]}" 2> >(tail -5 >&2)) > "$SCRATCH/$id.compare-torch.json" || die "PyTorch's reference run failed"
-  note "PyTorch here: $((SECONDS - t0)) s"; t0=$SECONDS
+  note "PyTorch here: $((SECONDS - t0)) s"
+  make_room
+  t0=$SECONDS
   # The release as the service runs it: its venv, its release.env (the accelerator), capped.
   vm '
     R="$APP_ROOT/releases/$ID"
@@ -610,6 +655,7 @@ compare() {   # compare <release id>: the release on the host, on its accelerato
         --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)' ID="$id" \
     > "$SCRATCH/$id.compare-release.json" || die "the release's run failed"
   note "the release on $HOST: $((SECONDS - t0)) s"
+  restore_live
   local rc=0
   "$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" compare-classify --d7 "$SCRATCH/$id.compare-torch.json" \
     "$SCRATCH/$id.compare-release.json" || rc=$?
@@ -661,6 +707,8 @@ bootstrap() {
 
 # -------------------------------------------------------------------------------------------- main
 mkdir -p "$SCRATCH"
+trap restore_live EXIT
+trap 'exit 130' INT TERM
 MODE=deploy
 case "${1:-}" in
   --bootstrap) bootstrap; exit 0 ;;
@@ -682,8 +730,10 @@ guard "$REF"
 preflight
 build "$REF" "$MODEL"
 stage
+make_room
 smoke "$ID"
 if [[ "$MODE" == stage ]]; then
+  restore_live
   postflight
   say "Staged $ID (not flipped). Next: scripts/deploy_webapp.sh --compare $ID"
   exit 0
@@ -691,6 +741,10 @@ fi
 render_production
 flip "$ID"
 ENABLED=$(restart_if_enabled)
+# The restart started the new release; a disabled service is started by the EXIT trap, on the new release too.
+if [[ -n "$ENABLED" && -n "$LIVE_STOPPED_AT" ]]; then
+  note "photo answers were down $((SECONDS - LIVE_STOPPED_AT)) s"; LIVE_STOPPED_AT=""
+fi
 if ! verify; then on_verify_failure; fi
 prune
 postflight

@@ -212,10 +212,14 @@ cp "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" "$R/site.before"
 expect_fail "nginx -t rejected the new site" env STUB_NGINX_FAIL=1 "$D" "$SHA" "$MODEL"
 cmp -s "$R/site.before" "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" || { echo "site not restored"; exit 1; }
 [[ "$(readlink "$APP_ROOT/current")" == "$before" ]] || { echo "current moved"; exit 1; }
-echo "   site restored byte for byte; current unchanged"
+# ADR 0026: the deploy stopped the live service for its smoke; a failure before the flip starts it again.
+PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "the live service was not started again"; exit 1; }
+echo "   site restored byte for byte; current unchanged; the live service started again"
 
-step "deploy 2: $MODEL at ${SHA:0:7} (service enabled: restart + verify, prune)"
-"$D" "$SHA" "$MODEL"
+step "deploy 2: $MODEL at ${SHA:0:7} (service enabled: stopped for the smoke, restarted on the new release, verify, prune)"
+"$D" "$SHA" "$MODEL" | tee "$R/deploy2.log"
+grep -q "Stop the live service" "$R/deploy2.log" || { echo "deploy 2 did not stop the live service"; exit 1; }
+PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "the service is not running after deploy 2"; exit 1; }
 ls "$APP_ROOT/releases"
 
 step "--compare on the current release"
@@ -225,6 +229,7 @@ while read -r f; do
   mkdir -p "$C/$(dirname "$f")"; ln -sfn "$SRC/$f" "$C/$f"
 done < <(git -C "$SRC" ls-files -o -i --exclude-standard -- models models_pretrained)
 "$D" --compare "$(basename "$(readlink "$APP_ROOT/current")")"
+PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "--compare did not start the live service again"; exit 1; }
 
 step "--rollback to ${PREV_SHA:0:7}, and back"
 "$D" --rollback
