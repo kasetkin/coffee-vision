@@ -3,7 +3,11 @@ stages:
   # data/cropped/<session>, settings in dataset/<session>.crop.yaml) and merge_cam_* (data/cropped/cam_*) --
   # are retired, with their pools. Training reads the segmenter's crops only (segcrop, merge_segpool below).
   # They are in git history up to ML-3 P2b's parent, and an older commit plus `dvc checkout` brings them back.
+  # The ResNet trainer's stage, frozen 2026-10-20 (owner): no shipped model has trained through it since the frozen
+  # DINOv3 head (ADR 0006, coffeecv/fit_frozen_head.py, no DVC stage), and every dep had moved on. dvc.lock keeps
+  # its last run; repro never reruns it. Retiring the trainer itself is a separate decision.
   train:
+    frozen: true
     cmd: python -m coffeecv.train_baseline
     deps:
       - coffeecv
@@ -409,10 +413,13 @@ stages:
 
   # Ticket ML-5 P8, P10 (D22): a fine-tuned segmenter's masks of every test photo, negatives included (their
   # empty-or-tiny rate), stored once at the pinned threads, for the blind paired session (seg_review paired).
-  # ML-6 P6: xl0_v3 named in segment_beans.NAMED_SEGMENTERS (D21).
+  # ML-6 P6: xl0_v3 named in segment_beans.NAMED_SEGMENTERS (D21). Frozen 2026-10-20 (owner): the review's record,
+  # made before ML-7 ported the mask code and ML-8 appended photos to the segmenter dataset (its test split has more
+  # photos now than these masks). The next segmenter fine-tune predicts its test split beside XL0-v3's, afresh.
   seg_ml5_predict:
     foreach: [xl0_v1, xl0_v2, xl0_v3]
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ${item} --split test --threads 4
       deps:
         - coffeecv/seg_predict.py

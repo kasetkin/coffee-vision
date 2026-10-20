@@ -37,6 +37,14 @@ Only `outputs/metrics.json` and `outputs/summary.json` may come back missing: th
 - `dvc exp run` can leave HEAD detached, and commits made afterwards land off-branch with no warning. Run `git rev-parse --abbrev-ref HEAD` after any `dvc exp` command; `HEAD` means check out the branch first. Recorded runs go through `dvc repro` (or the drivers that call it), not `dvc exp`.
 - If a `.dir` hash differs between machines, compare the two listings entry by entry before assuming the data drifted; re-running the stage on one machine only mints a third hash. Precedent: an absolute path in a crop report (`5d0e9fd`).
 
+## What `dvc status` shows on a clean checkout
+
+Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, `seg_ml6_finetune` (XL0-v3, ADR 0027) and `train` (the ResNet trainer). `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, removed from the working tree by ML-6's plan and whole in the cache, 7.5 GB: `dvc checkout` brings them back). Anything else it reports is real.
+
+## Cleaning the cache
+
+`dvc gc --all-commits` only: it keeps every object any commit uses. Read its warnings first. "Missing version info" means the object is kept; a commit DVC cannot read is skipped, and the objects only it uses are deleted. `dvc gc --workspace` deletes what older commits' `dvc.lock` names. Most of that (old crop sets and masks) was never pushed, so it exists only here. On 2026-10-20 that was 26.5 GB, 7,990 of 8,572 objects. Push it first if it must go.
+
 ## Objects lost with the VM
 
 The VM (`powervpsssh`) was shut down for good on 2026-10-12 and took the objects only it held: `data/seg_cache` (stage `seg_embed_cache`, 5.8 GB) and the checkpoints, `history.json` and prediction CSVs of exp106-exp239 (their metrics stay in git). A `dvc pull` or `dvc checkout` that names them fails until the stage runs again. Run `dvc repro -s <stage>` for `seg_eval` or `seg_predict_ft`: a plain `dvc repro` rebuilds the cache and retrains the segmenter.

@@ -608,7 +608,8 @@ rollback_links() {
 # ------------------------------------------------------------------------------------ prune / compare
 prune() {
   say "Prune: keep current and previous"
-  vm '
+  local out kept f id
+  out=$(vm '
     cd "$APP_ROOT"
     shopt -s nullglob
     keep="$(readlink -f current) $(readlink -f previous 2>/dev/null || true)"
@@ -623,7 +624,18 @@ prune() {
       [[ -d "releases/$(basename "$f" .json)" ]] || { rm -f "$f"; echo "   removed $f"; }
     done
     capped "$CAP_CPU" "$APP_ROOT" -E UV_CACHE_DIR="$APP_ROOT/uv-cache" "$UV_BIN" cache prune --quiet
-    echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"'
+    echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"
+    echo "KEPT $(basename "$(readlink -f current)") $(basename "$(readlink -f previous 2>/dev/null || true)")"')
+  grep -v '^KEPT ' <<<"$out" || true
+  kept=$(sed -n 's/^KEPT //p' <<<"$out")
+  # This machine's staged trees and their records follow the host: keep those of the releases it keeps.
+  [[ "$kept" == *-* ]] || { note "WARNING: the host named no current release; $SCRATCH left as it is"; return 0; }
+  for f in "$SCRATCH"/2*; do
+    [[ -e "$f" ]] || continue
+    id=$(basename "$f"); id=${id%%.*}      # <id>, <id>.expected.json, <id>.smoke.txt, ...
+    case " $kept " in *" $id "*) continue ;; esac
+    chmod -R u+w "$f" 2>/dev/null || true; rm -rf "$f" && note "removed $f"
+  done
 }
 
 compare() {   # compare <release id>: the release on the host, on its accelerator, against PyTorch here (ADR 0020)

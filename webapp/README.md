@@ -155,7 +155,7 @@ the new release, each an atomic rename) -> **restart only if enabled** -> **veri
 -> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
 release's `index.html`; public `/analyze` answers both parts with the top-1 expected, and the time each part
 arrived is reported, not checked (OPS-7 D11); on failure it rolls back, or stops the
-service if there is nothing to roll back to) -> **prune** to `current` + `previous`.
+service if there is nothing to roll back to) -> **prune** to `current` + `previous`, on the host and in this machine's staging directory (`$DEPLOY_SCRATCH`, default `~/.cache/coffee-cv-deploy`).
 
 **The deploy never enables the service.** If `coffee-cv-web` is disabled it stops after the flip and
 prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the host, then

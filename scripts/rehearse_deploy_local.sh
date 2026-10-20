@@ -222,10 +222,18 @@ PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "the live se
 echo "   site restored byte for byte; current unchanged; the live service started again"
 
 step "deploy 2: $MODEL at ${SHA:0:7} (service enabled: stopped for the smoke, restarted on the new release, verify, prune)"
+old="$DEPLOY_SCRATCH/20200101T0000Z-0000000-$MODEL"            # a staged tree of a release the host no longer has
+mkdir -p "$old" && touch "$old.expected.json" "$old.smoke.txt"
 "$D" "$SHA" "$MODEL" | tee "$R/deploy2.log"
 grep -q "Stop the live service" "$R/deploy2.log" || { echo "deploy 2 did not stop the live service"; exit 1; }
 PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "the service is not running after deploy 2"; exit 1; }
 ls "$APP_ROOT/releases"
+# The prune keeps this machine's staged trees of the releases the host keeps, and only those.
+[[ ! -e "$old" && ! -e "$old.expected.json" && ! -e "$old.smoke.txt" ]] || { echo "the old staged tree was not pruned"; exit 1; }
+for rel in "$APP_ROOT"/releases/*; do
+  [[ -d "$DEPLOY_SCRATCH/$(basename "$rel")" ]] || { echo "the staged tree of $(basename "$rel") was pruned"; exit 1; }
+done
+echo "   scratch pruned to the host's releases: $(ls "$DEPLOY_SCRATCH" | grep -c '^2.*Z-[0-9a-f]*-[^.]*$') staged trees"
 
 step "--compare on the current release"
 # PyTorch's reference (ML-7 P11) runs the clone's coffeecv on the checkpoint and its pretrained weights, untracked
