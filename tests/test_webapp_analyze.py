@@ -34,7 +34,7 @@ PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.
                     if line.startswith("smoke "))
 # The model webapp.app will load: COFFEE_CV_CHECKPOINT, else the same default as its CHECKPOINT. The literal is
 # repeated because webapp.app cannot be imported to read it before this check: the import loads the model.
-MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/allrigs_dino3b16_seg_country_s123.pt")
+MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v3_country_aug8_s123.pt")
 
 
 def _post(client, data: bytes, skip_crop: bool = False, buffered: bool = True):
@@ -77,7 +77,8 @@ class TestAnalyze(unittest.TestCase):
                 raise unittest.SkipTest(f"{p.relative_to(REPO)} is not present (dvc pull)")
         logs = tempfile.mkdtemp(prefix="test_webapp_analyze.")
         cls.addClassCleanup(shutil.rmtree, logs, ignore_errors=True)
-        env = {"COFFEE_CV_LOG_DIR": logs}
+        # The model's converted files on this machine's CPU at fp32 (a GPU release's run only on the host, ML-7 P10).
+        env = {"COFFEE_CV_LOG_DIR": logs, "COFFEE_CV_LITERT_ON_CPU": "1"}
         if not MODEL.with_suffix(".litert").is_dir():
             from tests import test_litert
             missing = test_litert._have_served()

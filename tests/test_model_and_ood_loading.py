@@ -3,8 +3,8 @@ Plain unittest.
 
     python -m unittest discover -s tests -p 'test_model_and_ood_loading.py'
 
-On real artifacts: the deployed checkpoint `models/allrigs_dino3b16_seg_country_s123.pt` with its own OOD
-reference and probe, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked and
+On real artifacts: the live checkpoint `models/dino3b16_segxl0v3_country_aug8_s123.pt` (ticket ML-8) with its own OOD
+reference and probe, ML-3's card (`models/allrigs_dino3b16_seg_country_s123.json`) for the pools before ML-8, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked and
 its ViT-B/16 backbone is not in git, so the tests that need them skip with a reason when either is absent.
 """
 from __future__ import annotations
@@ -28,7 +28,9 @@ from coffeecv_dino.reference import have_reference_data, reference_patches
 
 from tests._tiers import real_data
 
-DEPLOYED = REPO_ROOT / "models" / "allrigs_dino3b16_seg_country_s123.pt"
+DEPLOYED = REPO_ROOT / "models" / "dino3b16_segxl0v3_country_aug8_s123.pt"
+# Fitted on the four camera pools before ticket ML-8 (D2) merged them into one: its card still names them.
+FOUR_POOLS = REPO_ROOT / "models" / "allrigs_dino3b16_seg_country_s123.pt"
 HAVE_DEPLOYED = (DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and probe_path_for(DEPLOYED).exists()
                  and (MODELS_PRETRAINED / SPECS["dinov3_vitb16"].weights).exists())
 
@@ -133,10 +135,11 @@ class TestLegacyTrainRigsAlias(unittest.TestCase):
         self.assertNotIn(LEGACY_CONFIG_NOTE, source)
 
     def test_a_shipped_card_resolves_to_the_pools_it_trained_on(self):
-        # Fitted on the four camera pools before ticket ML-8 (D2) merged them into one: its card still names them.
-        cfg, _ = config_for_checkpoint(DEPLOYED, None)
+        cfg, _ = config_for_checkpoint(FOUR_POOLS, None)
         self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]],
                          [f"data/segcropped/cam_{c}" for c in ("pixel", "sony", "oneplus", "iphone")])
+        cfg, _ = config_for_checkpoint(DEPLOYED, None)
+        self.assertEqual([str(d.relative_to(REPO_ROOT)) for d in cfg.resolve_paths()[0]], CAPTURES)
         self.assertEqual(CAPTURES, ["data/segcropped/pool"])
 
 

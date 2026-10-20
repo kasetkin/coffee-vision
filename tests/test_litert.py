@@ -29,7 +29,8 @@ ARTIFACTS = REPO_ROOT / "analysis" / "ml7_gpu" / "artifacts"
 SERVED = {"encoder.tflite": ARTIFACTS / "tflite" / "encoder.tflite",
           "decoder.tflite": ARTIFACTS / "p7_whole" / "decoder.tflite",
           "dino_b8.tflite": ARTIFACTS / "p7_fp16w" / "dino_b8.tflite"}
-CHECKPOINT = REPO_ROOT / "models" / "allrigs_dino3b16_segxl0v3_country_s42.pt"
+# The live model (ticket ML-8): its head on P7's graphs, which every DINOv3 ViT-B/16 head shares.
+CHECKPOINT = REPO_ROOT / "models" / "dino3b16_segxl0v3_country_aug8_s123.pt"
 FIXTURES = [ln.split() for ln in (REPO_ROOT / "webapp/deploy/fixtures.txt").read_text().splitlines()
             if ln.strip() and not ln.startswith("#")]
 # The smoke photo and three compare photos: two cameras' JPEGs and a HEIC.
