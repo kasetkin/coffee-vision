@@ -80,23 +80,25 @@ def _stage_key(capture: str) -> str:
 
 
 def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
-    """Upstream-of-train stages that `dvc repro train` would regenerate before
-    training (the pool's merge stage and its segcrop stages -- see
-    `capture_stage_overrides`), for the capture dirs `capture_dirs` names. A
-    session's own segcrop dir maps to its segcrop stage; any other dir is refused,
-    since no stage here could tell whether it is stale.
+    """The stages that make the crops a fit reads (the pool's merge stage and its
+    segcrop stages -- see `capture_stage_overrides`) which `dvc status` reports as
+    stale, for the capture dirs `capture_dirs` names. A session's own segcrop dir
+    maps to its segcrop stage; any other dir is refused, since no stage here could
+    tell whether it is stale. fit_frozen_head refuses to start on any (but under
+    --allow-dirty, for a smoke run).
 
-    Deliberately *not* a check on overall `dvc status`, which is dirty by design
-    here: a driver rewrites params.yaml precisely so the train stage re-runs, so
-    "train is out of date" is the required state at launch, not a fault.
+    Only these stages, not the whole `dvc status`: frozen stages and the outputs
+    dvc.md names as expectedly missing are not the fit's inputs.
 
-    These upstream stages are different. If one is stale, `dvc repro train`
-    regenerates the dataset first, and every run then trains on different pixels
-    than the reference runs it is about to be compared against -- a silent
-    comparison-invalidating event. It is also the one failure git cannot see:
-    `data/segcropped/` is gitignored, so on-disk loss or corruption of the crops
-    shows up in `dvc status` and nowhere else. An interrupted `dvc repro` deletes
-    the stage's outs, which is exactly how this happens in practice.
+    A stale one means the crops on disk are not what today's code, segmenter and
+    params would cut: the fit reads data/segcropped/pool as it stands, so it would
+    train on different pixels than the runs it is compared against, or than a
+    rebuild of the same commit -- a silent comparison-invalidating event. It is
+    also the one failure git cannot see: `data/segcropped/` is gitignored, so
+    on-disk loss or corruption of the crops shows up in `dvc status` and nowhere
+    else. An interrupted `dvc repro` deletes the stage's outs, which is exactly how
+    this happens in practice; so does a byte change to a file every segcrop stage
+    depends on, such as segment_beans.py (dc021bf).
     """
     stale = []
     overrides = capture_stage_overrides()          # dvc.yaml, read once

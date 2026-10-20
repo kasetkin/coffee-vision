@@ -10,6 +10,5 @@ status: accepted
 - **Stronger for the segmenter**: a fit adds its own transforms on top of the groups and never weakens one. The segmenter keeps its hue shift, saturation and value, and gamma; colour carries origin and roast, so the classifier's hue stays 0.
 - **What changes**: the segmenter's brightness and contrast (RandomBrightnessContrast 0.2, 0.2 at p 0.5, as XL0-v3 trained) give way to the colour group, which adds saturation and white balance at p 0.8. That takes effect at its next fine-tune; XL0-v3's stage is frozen with the pipeline it trained with.
 - **DVC**: a stage that trains with a pipeline lists `augment` in its params beside its own block, or a changed group does not invalidate it.
-- **Not used**: `color_jitter_strength`, the torchvision knob of the retired ResNet trainer (`train_baseline.py`), stays as it is; neither fit reads it.
 
 Source: the owner, 2026-10-20, after [ML-8](../ticket_data_refresh_retrain.html); amends ADR 0018 and ADR 0025.
