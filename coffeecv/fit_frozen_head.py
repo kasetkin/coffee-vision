@@ -27,7 +27,7 @@ numbers.
 
     python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 270
     python -m coffeecv.fit_frozen_head --smoke --allow-dirty          # tiny budgets, nothing archived
-    python -m coffeecv.fit_frozen_head --ship 270 --name dino3b16_segxl0v3_country_aug8_s42 --seed-exps 270 271 272
+    python -m coffeecv.fit_frozen_head --ship 271 --name dino3b16_segxl0v3_country_aug8_s123 --seed-exps 270 271 272
 
 Every fit reads the segmenter's crops (dataset.CAPTURES) with crop_method "segment", so patches are placed
 by the D17 rule against each photo's mask and the checkpoint serves through the segmenter; params.yaml's seg_*

@@ -3007,3 +3007,6 @@ same total weight (ADR 0025; `params.yaml` `head_augment`). About 2.6 h per seed
 - **Shipped exp271** (seed 123, the owner's pick over the val pick, exp270) as
   `dino3b16_segxl0v3_country_aug8_s123`, live 2026-10-20. OOD probe on the segmenter test split: 160/160 negatives
   caught, 0/73 positives refused (`analysis/ml8/p8_ood_eval_s123.txt`).
+- The val pick, exp270, was shipped first as the candidate `dino3b16_segxl0v3_country_aug8_s42` and retired
+  unreleased on 2026-10-20 (owner): its card, class list, OOD reference and probe and `.pt.dvc` are in git history,
+  and its `.pt` (md5 de91e57d…) was checked in the DVC cache and on the remote before its working copy was deleted.
