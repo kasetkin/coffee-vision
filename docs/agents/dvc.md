@@ -39,11 +39,16 @@ Only ML-2's `outputs/seg_eval_*.json` may come back missing: they are `cache: fa
 
 ## What `dvc status` shows on a clean checkout
 
-Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, and `seg_ml6_finetune` (XL0-v3, ADR 0027). The ResNet trainer's `train` stage was removed with its code. `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, removed from the working tree by ML-6's plan and whole in the cache, 7.5 GB: `dvc checkout` brings them back). Anything else it reports is real.
+Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, and `seg_ml6_finetune` (XL0-v3, ADR 0027). The ResNet trainer's `train` stage was removed with its code. `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, ML-5's encoder caches, 7.5 GB: removed from the working tree by ML-6's plan, never pushed, and deleted from the cache by the `gc` of 2026-10-20, below; only the frozen XL0-v1 and XL0-v2 fine-tunes read them, and `dvc repro -s` on the unfrozen stage rebuilds them). Anything else it reports is real.
 
 ## Cleaning the cache
 
-`dvc gc --all-commits` only: it keeps every object any commit uses. Read its warnings first. "Missing version info" means the object is kept; a commit DVC cannot read is skipped, and the objects only it uses are deleted. `dvc gc --workspace` deletes what older commits' `dvc.lock` names. Most of that (old crop sets and masks) was never pushed, so it exists only here. On 2026-10-20 that was 26.5 GB, 7,990 of 8,572 objects. Push it first if it must go.
+Push before you collect: `dvc gc` deletes objects only this cache holds, and nothing warns about that. Use `dvc gc --all-commits` (never `--workspace`, which deletes what older commits' `dvc.lock` names: on 2026-10-20 that was 26.5 GB, 7,990 of 8,572 objects, most never pushed). Before it runs, read each warning with `--dry`:
+
+- **"Output ... is missing version info. Cache for it will not be collected."** The output is *not* counted as in use, so its objects are deleted if nothing else names them. It is raised for an output whose working copy is missing, frozen stages included. On 2026-10-20 it cost `data/seg_cache_ml5/pass1` and `pass2` (7.5 GB, never pushed), read as "kept". Push such an output, or `dvc checkout` it, before collecting.
+- **A commit DVC cannot read** is skipped, and the objects only it uses are deleted.
+
+Then check what the dry run would remove against every object the workspace and history name, as in "Trusting the result" above, and against the remote.
 
 ## Objects lost with the VM
 
