@@ -645,7 +645,7 @@ def crop_dataset_fixed_trim(
 def build_contact_sheet(out_dir: Path, thumb_size: int = 260, cols: int = 5) -> Path:
     """Tile all `*__cropped.jpg` / `*__bbox.jpg` images in out_dir into one grid
     with filename captions, so review is one glance instead of one file open per
-    image. `__bbox.jpg` files (crop_tray_sam.py --masked) are loose boxes with a
+    image. `__bbox.jpg` files (the crop_tray_sam.py prototype's --masked, removed 2026-10-20) are loose boxes with a
     paired `__mask.png` defining what's actually usable -- shown here with the
     mask overlaid (green) rather than the raw box, so the sheet reflects what
     sampling will actually use, not what the rim-including box looks like."""
