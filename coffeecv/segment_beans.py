@@ -37,7 +37,7 @@ THREADS = 4
 # tokens. "best_iou" picks the multimask output with the highest predicted IoU.
 MASK_SELECT = ("single", "multi1", "multi2", "multi3", "best_iou")
 # D5: (a) "box", one whole-image box; (b) "grid3", a 3x3 grid of foreground points at 20/50/80% of
-# each side (the MobileSAM prototype's layout, crop_tray_sam.py until 2026-10-20, here over the whole photo); "box+grid3" both.
+# each side (the crop_tray_sam.py prototype's layout, here over the whole photo); "box+grid3" both.
 # P0 probes: "center_box", a centred square of side min(H, W) / 10; "center_point", one foreground
 # point at the photo centre; "center_grid4", 16 foreground points on a centred 4x4 grid spanning a
 # square of side min(H, W) / 8 (outer points on the square's edges).
