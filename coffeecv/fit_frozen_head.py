@@ -51,7 +51,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from coffeecv import augment
+from coffeecv import augment, model_io
 from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
 from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_backbone
 from coffeecv.class_list import folder_classes, load_classes
@@ -110,8 +110,8 @@ def run_slug(backbone: str, readout: str, views: int, seed: int) -> str:
 
 class HeadAugment:
     """params.yaml head_augment: `views` augmented views of a training patch (ticket ML-8 D4, ADR 0025). A view is
-    the `patch` pipeline on the stored patch, the eval transform's resize to `resize` (PIL bilinear, as
-    model_io.eval_patch resizes), then the `input` pipeline on the model's input pixels. Both pipelines are built
+    the `patch` pipeline on the stored patch, the eval transform's resize to `resize` (model_io.eval_resize, the
+    one serving's eval_patch calls), then the `input` pipeline on the model's input pixels. Both pipelines are built
     by coffeecv.augment's strict builder and reseeded per view from (run seed, patch index, view), so a view
     is the same whatever was drawn before it, and one seed repeats its stream."""
 
@@ -140,8 +140,7 @@ class HeadAugment:
         x = self._patch(image=patch)["image"]
         if x.shape != patch.shape:
             raise ValueError(f"head_augment.patch changed the patch's shape {patch.shape} to {x.shape}")
-        if x.shape[:2] != (self.resize, self.resize):
-            x = np.asarray(Image.fromarray(x).resize((self.resize, self.resize), Image.BILINEAR))
+        x = np.asarray(model_io.eval_resize(Image.fromarray(x), self.resize))
         out = self._input(image=x)["image"]
         if out.shape != (self.resize, self.resize, 3):
             raise ValueError(f"head_augment.input changed the input's shape to {out.shape}")

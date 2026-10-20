@@ -9,6 +9,7 @@ differently from torch, so they are held to tolerances: the mask to ML-7 D7's Io
 import sys
 import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import numpy as np
@@ -84,6 +85,14 @@ class TestEvalPatch(unittest.TestCase):
                 self.assertEqual(ours.dtype, np.float32)
                 np.testing.assert_array_equal(ours, tf(patch).numpy())
                 np.testing.assert_array_equal(build_eval_transform(224)(patch).numpy(), ours)
+
+    def test_is_the_shared_resize_then_normalise(self):
+        patch = Image.fromarray(_smooth_rgb(448, 448, 0))
+        with mock.patch.object(model_io, "eval_resize", wraps=model_io.eval_resize) as resize:
+            model_io.eval_patch(patch, 224)
+        resize.assert_called_once_with(patch, 224)
+        sized = patch.resize((224, 224))
+        self.assertIs(model_io.eval_resize(sized, 224), sized)   # a patch already at size is not resampled
 
 
 class TestSamInput(unittest.TestCase):

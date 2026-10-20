@@ -85,6 +85,14 @@ class Views(unittest.TestCase):
         np.testing.assert_array_equal(plain.view(p, 0, 0, 0),
                                       np.asarray(Image.fromarray(p).resize((224, 224), Image.BILINEAR)))
 
+    def test_the_resize_is_servings(self):
+        # Train/inference parity (CODING_STANDARDS.md): one resize, model_io's, which eval_patch also calls.
+        from coffeecv import model_io
+        plain = ffh.HeadAugment(views=1, patch=[], input=[], resize=224)
+        with mock.patch.object(model_io, "eval_resize", wraps=model_io.eval_resize) as resize:
+            plain.view(patch(), 0, 0, 0)
+        resize.assert_called_once()
+
     def test_an_unknown_key_or_argument_is_refused(self):
         block = RunConfig.from_params_yaml().head_augment
         for bad in ({**block, "view": 8}, {**block, "views": 0},

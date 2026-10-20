@@ -5,7 +5,8 @@ while the release drops torch (plan P8). Each function replaces torch code it is
 tests/test_model_io.py:
 
     eval_patch       transforms.build_eval_transform: torchvision's Resize on a PIL image is PIL's own resize, so
-                     PIL is called directly; ToTensor and Normalize in float32
+                     PIL is called directly (eval_resize, which the frozen head's augmented views share);
+                     ToTensor and Normalize in float32
     sam_input        EfficientViT-SAM's transform (SamResize, ToTensor, Normalize, SamPad): SamResize is PIL already,
                      and sam_resize is it alone
     sam_box, sam_coords
@@ -41,11 +42,15 @@ def _to_chw_normalised(hwc_uint8: np.ndarray, mean: list[float], std: list[float
     return (x - m) / s
 
 
+def eval_resize(patch: Image.Image, resize: int) -> Image.Image:
+    """A stored patch at the model's input size, by PIL's bilinear; unchanged if it is already. eval_patch's resize,
+    and the one the frozen head's augmented views take between their two pipelines (ticket ML-8 D4)."""
+    return patch if patch.size == (resize, resize) else patch.resize((resize, resize), Image.BILINEAR)
+
+
 def eval_patch(patch: Image.Image, resize: int) -> np.ndarray:
     """A stored patch to the model's input, float32 [3, resize, resize], ImageNet-normalised."""
-    if patch.size != (resize, resize):
-        patch = patch.resize((resize, resize), Image.BILINEAR)
-    return _to_chw_normalised(np.asarray(patch), IMAGENET_MEAN, IMAGENET_STD)
+    return _to_chw_normalised(np.asarray(eval_resize(patch, resize)), IMAGENET_MEAN, IMAGENET_STD)
 
 
 def sam_preprocess_shape(h: int, w: int, long_side: int) -> tuple[int, int]:
