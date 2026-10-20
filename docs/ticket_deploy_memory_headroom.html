@@ -70,6 +70,17 @@
   <div class="log">
     <div><div class="when">2026-10-18</div>Stub created at the owner's request after OPS-7's deploy (plan P5), whose
       first try stopped at the preflight. Not researched, not written.</div>
+    <div><div class="when">2026-10-20</div>Facts from ML-8's deploy (plan P8), measured on <code>webappremote</code>.
+      MemAvailable 3.9 GB beside the live worker before the deploy and 3.6 GB after it (MemTotal 7.7 GB, swap 1 GB with
+      0.3 GB in use); 7.0 GB with the service stopped, so one GPU worker costs about 3.3 GB of MemAvailable (its cgroup's
+      <code>MemoryCurrent</code> 3.24 GB: RSS 1.9 GB, of it 0.9 GB file-backed, and about 2.1 GB of shared memory for the
+      GPU). A smoke worker beside the live one would leave about 0.3 GB, so lowering <code>MIN_MEM_GB</code> to 3 would
+      let the preflight pass and the smoke run on swap or meet the OOM killer, whose likeliest victim is the larger live
+      worker; 4 GB would still refuse at 3.6. The service was stopped by hand twice (photo answers down 06:09&ndash;06:21
+      and 07:07&ndash;07:13 UTC). New: the upload reuses a host file only at the same path, so a new model name re-sent
+      all 780 MB (about 14 MB/s) though only <code>head.npz</code> differed; the first outage ended early by starting the
+      service again and sending the files by hand with the script's rsync command, site up. An upload-only step, or
+      reuse by content, would keep any outage to the smoke and the flip. Not researched, not written.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (plan P5),

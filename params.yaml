@@ -262,8 +262,8 @@ head_augment:
 
 # Ticket ML-5 P5 (D11-D13, D16): the segmenter dataset (coffeecv/seg_dataset.py ->
 # labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is
-# the train/validation/test share within each source, and within each (batch, tag) for negatives
-# (D13, D16). The file records both, and a rebuild refuses other values: it is append-only (D11).
+# the train/validation/test share within each source, and within each batch for negatives
+# (D13, D16; within each (batch, tag) until ticket ML-8 D9 dropped the tags). The file records both, and a rebuild refuses other values: it is append-only (D11).
 # 511 is none of the head seeds (42/123/7) and not ML-2's seg_split_seed (239).
 seg_dataset:
   seed: 511

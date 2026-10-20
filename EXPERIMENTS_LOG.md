@@ -2977,3 +2977,33 @@ deleted. The untracked `.ood_embeddings.npz` sidecars of the three newest were m
   §6.1 gate, passed 2026-09-26 at `7cd4c7e`).
 - `scripts/rehearse_deploy_local.sh` now deploys the current model twice, at origin/main~1 and origin/main, for
   its rollback pair. Not yet rerun.
+
+### exp264-269: not logged here
+
+ML-5's (exp264-266, segmenter XL0-v2 pools) and ML-6's (exp267-269, XL0-v3) refits of the same recipe were recorded
+in their tickets instead: `analysis/ml5_p11/`, `analysis/ml6_p8/summary.txt` and `compare_exp267-269_vs_264-266.txt`,
+and `docs/plan_segmenter_retrain.html`'s Activity. exp267 (`allrigs_dino3b16_segxl0v3_country_s42`) was live
+2026-10-13 to 2026-10-20.
+
+### exp270-272: ML-8, one pool and an augmented head, paired against the same runs unaugmented (2026-10-19)
+
+Ticket ML-8 (`docs/ticket_data_refresh_retrain.html`). One pool of every session's XL0-v3 crops
+(`data/segcropped/pool`, 1,251 photos; no camera, rig or tag anywhere, ADR 0024), 600/160/160 patches per class,
+frozen DINOv3 ViT-B/16 `cls_mean`, logistic-regression head at C = 0.1. Each run fits two heads on the same
+patches: on the originals, and on each original plus 8 augmented views at weight 1/9 per row, so both carry the
+same total weight (ADR 0025; `params.yaml` `head_augment`). About 2.6 h per seed, nearly all of it embedding views.
+
+| seed | exp | val, unaug | val, aug | test, unaug | test, aug |
+|---|---|---|---|---|---|
+| 42 | 270 | 0.9787 | 0.9755 | 0.9762 | 0.9780 |
+| 123 | 271 | 0.9567 | 0.9661 | 0.9704 | 0.9767 |
+| 7 | 272 | 0.9723 | 0.9723 | 0.9781 | 0.9813 |
+
+- Augmented minus unaugmented: val mean +0.0021 (range -0.0032 to +0.0094), test mean +0.0038 (+0.0018 to
+  +0.0063, 3 of 3 positive). Small and inside the val noise band, but one-sided on test. The split is by single
+  photo (near-duplicate shots of one tray can straddle it), which rewards memorisation, so this cannot show
+  whether augmentation helps on real uploads. Per class and against exp267-269 (unpaired: new photos, pool,
+  budget and crops): `analysis/ml8/p7_paired.txt`.
+- **Shipped exp271** (seed 123, the owner's pick over the val pick, exp270) as
+  `dino3b16_segxl0v3_country_aug8_s123`, live 2026-10-20. OOD probe on the segmenter test split: 160/160 negatives
+  caught, 0/73 positives refused (`analysis/ml8/p8_ood_eval_s123.txt`).

@@ -31,7 +31,7 @@ _Avoid_: Background photo, junk photo
 A photo with at least one bean region in it; the counterpart of a negative.
 
 **Pool photo**:
-A photo in one of the classifier's training pools, labelled with its country.
+A photo in the classifier's training pool (`data/segcropped/pool`, one since ticket ML-8; one per camera before), labelled with its country.
 _Avoid_: Main dataset
 
 **Segmenter positive**:
