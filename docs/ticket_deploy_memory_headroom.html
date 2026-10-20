@@ -27,6 +27,10 @@
   </div>
 
   <div class="callout info">
+    <p><strong>Owner decision, 2026-10-20 (after ML-8's deploy).</strong> Stopping the live service is the normal way
+      to deploy (<a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>): the deploy makes room with a short
+      outage, and <code>MIN_MEM_GB</code> stays at 5. Left open: whether the script stops and starts the service itself,
+      and an upload-only step so a new model name's upload falls outside the outage.</p>
     <p><strong>Owner decision, 2026-10-18 (OPS-7's deploy).</strong> Of the two ways past the preflight, (a) stop
       the live service for the deploy, or (b) lower the bar and run the smoke worker beside the live one with about
       0.1 GB to spare, the owner chose (a) for OPS-7.</p>
@@ -81,6 +85,10 @@
       all 780 MB (about 14 MB/s) though only <code>head.npz</code> differed; the first outage ended early by starting the
       service again and sending the files by hand with the script's rsync command, site up. An upload-only step, or
       reuse by content, would keep any outage to the smoke and the flip. Not researched, not written.</div>
+    <div><div class="when">2026-10-20</div>The owner decides that stopping the live service is the normal way to
+      deploy, and asked what the real memory minimum is: about 3.3 GB per worker, so a worker beside the live one
+      does not fit, and 3 GB would only move the failure past the preflight. ADR 0026 written; deploy.md says so.
+      What remains is the script's own stop and start, and an upload-only step. Not written as a ticket yet.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (plan P5),
