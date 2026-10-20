@@ -101,7 +101,7 @@ class TestFinish(unittest.TestCase):
             out.mkdir()
             (out / "convert.json").write_text(json.dumps({"profile": "gpu_split", "torch": "2.13", "litert_torch": "0.9.4",
                                                           "forms": {g: {} for g in litert.GRAPHS}}))
-            cfg = types.SimpleNamespace(classes_file="classes.txt", model_name="dinov3_vitb16", dropout=0.0,
+            cfg = types.SimpleNamespace(classes_file="classes.txt", model_name="dinov3_vitb16",
                                         seg_weights_sha256="a" * 64, seg_decoder_sha256="b" * 64)
             head = types.SimpleNamespace(weight=mock.MagicMock(), bias=mock.MagicMock())
             model = types.SimpleNamespace(readout="cls_mean", backbone=types.SimpleNamespace(weights_sha256="c" * 64))

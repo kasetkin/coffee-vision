@@ -1,7 +1,7 @@
 """The train/val/test datasets a run trains and scores on, built one way for every caller.
 
-Moved out of `train_baseline.main()` on 2026-09-24, verbatim, so that a second consumer -- the
-frozen-backbone fit (`fit_frozen_head`) -- gets byte-identical patches instead of re-typing the
+Moved out of the ResNet trainer's `train_baseline.main()` on 2026-09-24, verbatim, so that a second consumer -- the
+frozen-backbone fit (`fit_frozen_head`), the only one since that trainer was removed (2026-10-20) -- gets byte-identical patches instead of re-typing the
 construction. Re-typing it is not a safe shortcut here: until ticket ML-8 `capture_idx`, a capture dir's
 position in the config's list, seeded every patch box (`MultiPhotoPatchDataset._extract_photo`), so a
 caller that built each dir on its own, or in another order, silently drew different patches. The
@@ -44,7 +44,7 @@ class FoldDatasets:
 
 def build_fold_datasets(cfg: RunConfig, train_transform, eval_transform, *,
                         only: tuple[str, ...] | None = None) -> FoldDatasets:
-    """Build train/val/test from `cfg.train_capture_dirs` exactly as `train_baseline` trains on them.
+    """Build train/val/test from `cfg.train_capture_dirs`, the one construction every caller shares.
 
     `train_transform` is applied to the train split only. A frozen-feature caller passes the eval
     transform for both, which changes what `__getitem__` returns but not which boxes are drawn:

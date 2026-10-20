@@ -27,7 +27,7 @@ for st in lock['stages'].values():
 print(sorted(h for h in want if not (cache / h[:2] / h[2:]).exists()))
 ```
 
-Only `outputs/metrics.json` and `outputs/summary.json` may come back missing: they are `cache: false` and live in git.
+Only ML-2's `outputs/seg_eval_*.json` may come back missing: they are `cache: false` and live in git.
 
 `dvc repro --dry` has said "cached, skipping" for a stage `dvc status` correctly reported as changed. Check `dvc status`, and after a run check that `outputs/config.json` holds the intended values.
 
@@ -39,7 +39,7 @@ Only `outputs/metrics.json` and `outputs/summary.json` may come back missing: th
 
 ## What `dvc status` shows on a clean checkout
 
-Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, `seg_ml6_finetune` (XL0-v3, ADR 0027) and `train` (the ResNet trainer). `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, removed from the working tree by ML-6's plan and whole in the cache, 7.5 GB: `dvc checkout` brings them back). Anything else it reports is real.
+Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, and `seg_ml6_finetune` (XL0-v3, ADR 0027). The ResNet trainer's `train` stage was removed with its code. `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, removed from the working tree by ML-6's plan and whole in the cache, 7.5 GB: `dvc checkout` brings them back). Anything else it reports is real.
 
 ## Cleaning the cache
 

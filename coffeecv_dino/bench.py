@@ -2,10 +2,10 @@
 
 Batch 32 at 224 px, the real weights, the real eval-transformed reference patches (the pool's listed photos) from
 `coffeecv_dino.reference`. One process per thread count, because torch's intra-op pool is sized once.
-Reports ms per image; model time per /classify photo is that times 40 patches (no TTA) for a frozen
-DINO arm, and times 320 (40 patches x 8 dihedral views) for today's ResNet18.
+Reports ms per image; model time per photo is that times 40 patches (no TTA) for a frozen DINO arm
+(320, 40 patches x 8 dihedral views, for the retired ResNet18 with TTA).
 
-    python -m coffeecv_dino.bench --threads 4 --backbones resnet18 dinov3_vits16 dinov3_vitb16
+    python -m coffeecv_dino.bench --threads 4 --backbones dinov3_vits16 dinov3_vitb16
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from coffeecv_dino.reference import reference_patches
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--threads", type=int, required=True, help="torch intra-op threads (production: 4)")
-    p.add_argument("--backbones", nargs="+", default=["resnet18", "dinov3_vits16", "dinov3_vitb16"],
+    p.add_argument("--backbones", nargs="+", default=["dinov3_vits16", "dinov3_vitb16"],
                    choices=sorted(SPECS))
     p.add_argument("--batches", type=int, default=8, help="timed batches per backbone, after 2 warm-up")
     args = p.parse_args()

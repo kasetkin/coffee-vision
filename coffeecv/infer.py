@@ -284,49 +284,40 @@ def config_for_checkpoint(checkpoint: Path, explicit: str | None) -> tuple[RunCo
     return cfg, source
 
 
-def load_model(checkpoint: Path, model_name: str, num_classes: int, dropout: float):
-    """(model, head_module) for any checkpoint this project ships. A frozen DINO checkpoint is a head
-    plus the identity of the backbone it was fitted on (coffeecv.dino_classifier); its head is the
-    Linear the model calls, so forward_with_embeddings' pre-hook captures the readout vector."""
-    import torch
-
+def load_model(checkpoint: Path, model_name: str, num_classes: int):
+    """(model, head_module) for any checkpoint this project ships: a frozen DINO checkpoint, a head plus the
+    identity of the backbone it was fitted on (coffeecv.dino_classifier). Its head is the Linear the model calls,
+    so forward_with_embeddings' pre-hook captures the readout vector."""
     from coffeecv.dino_classifier import is_frozen_model, load_frozen_checkpoint
-    from coffeecv.model import build_model
-    if is_frozen_model(model_name):
-        model = load_frozen_checkpoint(checkpoint, model_name, num_classes).eval()
-        return model, model.head
-    # No ImageNet init: the strict load below overwrites every parameter and buffer, and the served
-    # process cannot see ~/.cache/torch (ProtectHome=true).
-    model, head = build_model(model_name, num_classes=num_classes, freeze_mode="none", dropout=dropout,
-                              pretrained=False)
-    model.load_state_dict(torch.load(checkpoint, map_location="cpu"), strict=True)
-    model.eval()
-    return model, head
+    if not is_frozen_model(model_name):
+        raise ValueError(f"{checkpoint}: model_name {model_name!r} is not a frozen backbone. The fine-tuned "
+                         f"{model_name} path (train_baseline, coffeecv/model.py) was removed on 2026-10-20; to "
+                         f"run such a checkpoint, check out a commit before then.")
+    model = load_frozen_checkpoint(checkpoint, model_name, num_classes).eval()
+    return model, model.head
 
 
 def inference_tta_for(checkpoint: Path, model_name: str) -> bool:
-    """Whether this checkpoint is served with dihedral TTA: its card's `inference_defaults.tta`.
+    """Whether this checkpoint is served with dihedral TTA: its card's `inference_defaults.tta`, off without one.
 
-    A per-model property, not a global switch. The ResNet18 cards say yes (+0.0235, 8x cost). A frozen
-    ViT-B/16 must say no: 8 views x 40 patches is ~46 s per photo on the production VM (plan §6.2), and
-    TTA for the frozen head is unmeasured (Screen D). No card -- a transient outputs/ checkpoint -- falls
-    back by model type: on for a fine-tuned network (the old default), off for a frozen one.
+    A per-model property, not a global switch. The retired ResNet18 cards said yes (+0.0235, 8x cost). A frozen
+    ViT-B/16 says no: 8 views x 40 patches is ~46 s per photo on the production VM (plan §6.2), and TTA for the
+    frozen head is unmeasured (Screen D).
     """
     card = checkpoint.with_suffix(".json")
     if card.exists():
         tta = (json.loads(card.read_text()).get("inference_defaults") or {}).get("tta")
         if tta is not None:
             return bool(tta)
-    from coffeecv.dino_classifier import is_frozen_model
-    return not is_frozen_model(model_name)
+    return False
 
 
 def forward_with_embeddings(model, head, tensors, batch_size: int = 32,
                             tta: bool = False, return_logits: bool = False):
     """(probs, embeddings) in one pass.
 
-    The embedding is the head's *input* -- the pooled penultimate feature, 512-d
-    for resnet18 -- captured with a pre-hook rather than by rebuilding the model
+    The embedding is the head's *input* -- the backbone's readout, 1536-d for the
+    ViT-B/16 cls_mean head -- captured with a pre-hook rather than by rebuilding the model
     headless, so the thing measured is exactly what this checkpoint feeds its
     classifier and cannot drift from it.
 
@@ -642,7 +633,7 @@ def mahalanobis_scores(embeddings: np.ndarray, ref: dict, precision: np.ndarray)
     """Per-patch Mahalanobis distance to the nearest class centroid.
 
     Shared (tied) covariance across classes, per Lee et al. 2018, not one
-    covariance per class: a 512-d covariance needs far more independent samples
+    covariance per class: a 1536-d covariance needs far more independent samples
     per class than ~200 photos give, and patches from one photo are not
     independent of each other. Pooling the classes is what makes the estimate
     stand up at this sample size.
@@ -894,8 +885,8 @@ def main() -> None:
     p.add_argument("--n-patches", type=int, default=40)
     p.add_argument("--no-tta", action="store_true",
                    help="disable dihedral test-time augmentation. The default is the checkpoint card's "
-                        "inference_defaults.tta (on for the ResNet18 cards: +0.0235 cross-rig macro-F1; off "
-                        "for a frozen ViT, where it costs 8x and is unmeasured).")
+                        "inference_defaults.tta, off for a frozen ViT (it costs 8x and is unmeasured; the "
+                        "retired ResNet18 cards turned it on).")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--out", default=None)
     args = p.parse_args()
@@ -912,7 +903,7 @@ def main() -> None:
 
     classes = load_classes(REPO_ROOT / cfg.classes_file)
     class_ids, class_labels = list(classes.keys), dict(classes.labels)
-    classifier = TorchClassifier(*load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout))
+    classifier = TorchClassifier(*load_model(Path(args.checkpoint), cfg.model_name, len(class_ids)))
     tta = False if args.no_tta else inference_tta_for(Path(args.checkpoint), cfg.model_name)
 
     ref_path = Path(args.ood_reference) if args.ood_reference else reference_path_for(Path(args.checkpoint))

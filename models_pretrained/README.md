@@ -29,15 +29,14 @@ python models_pretrained/verify.py     # what you have, and what is missing or w
   `.pth`** files, not the Hugging Face `safetensors` — they are different files, the hashes here
   match only the former, and only the former is what the loader (timm, plan §2.2) is verified against.
 
-DINOv2 and ResNet18 need no gate: they re-download automatically from `torch.hub` /
-`torchvision` if absent, which is exactly the run-time network dependency this folder exists to
-remove — so verify them too rather than assuming.
+DINOv2 needs no gate: it re-downloads automatically from `torch.hub`
+if absent, which is exactly the run-time network dependency this folder exists to
+remove — so verify it too rather than assuming.
 
 ## Contents
 
 | file | params | embed dim | patch | tokens @224 | source / licence |
 |---|---|---|---|---|---|
-| `resnet18/resnet18-f37072fd.pth` | 11.7M | 512 | — | — | torchvision `ResNet18_Weights.IMAGENET1K_V1` (= `DEFAULT`) · BSD-3-Clause |
 | `dinov2/dinov2_vits14_pretrain.pth` | 22.1M | 384 | 14 | 256 | `facebookresearch/dinov2` · **Apache-2.0** |
 | `dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth` | 21.6M | 384 | 16 | 196 | `facebookresearch/dinov3` · DINOv3 License (gated) |
 | `dinov3/dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth` | 28.7M | 384 | 16 | 196 | same |
@@ -78,17 +77,13 @@ the FFN cost is linear in tokens and dominates at this size.
 `% 16 == 0`. The adopted 224 satisfies both, so the guard must be derived from the loaded
 checkpoint's `patch_embed.proj.weight` shape rather than hardcoded.
 
-## Note on the ResNet18 file
+## The ResNet18 file
 
-It was **copied** from `~/.cache/torch/hub/checkpoints/`, not moved. The torch cache is outside
-the repo and is where `torchvision.models.resnet18(weights=DEFAULT)` looks; deleting it there
-would make the next `build_model` call re-download 47 MB, which is exactly the mid-run network
-dependency this folder exists to remove. Keeping both copies costs 47 MB and removes that risk.
-Delete the cache copy only once `build_model` loads from this folder instead of from torchvision's
-downloader. Only training still needs it: inference builds ResNet18 with `weights=None`, because the
-checkpoint's strict load overwrites every weight anyway.
+Removed on 2026-10-20 with the fine-tuned ResNet18 path (`train_baseline`, `coffeecv/model.py`) and
+the frozen screen's ResNet18 control; its manifest entry went with it.
 
-The same applies to `dinov2_vits14_pretrain.pth`.
+`dinov2_vits14_pretrain.pth` was **copied** from `~/.cache/torch/hub/checkpoints/`, not moved: that cache
+is where `torch.hub` looks, so deleting it there would make the DINOv2 reference arm re-download it mid-run.
 
 ## What is still missing for true offline reproducibility
 
@@ -117,12 +112,14 @@ Weights alone are not enough — the *architecture definition* has to be pinned 
    expanding `dvc.lock`'s `.dir` trees, not by trusting `dvc status --cloud`.
 1b. Done 2026-09-24, ahead of step 1: `README.md`, `manifest.json` and `verify.py` were committed on
    their own so the tree is clean for the DINO work; the `.dvc` pointers follow with step 1.
-2. Add `models_pretrained/` entries as deps of the `train` stage in `dvc.yaml` (plan §8.5).
-3. Record the chosen file's sha256 in `RunConfig` so it lands in every archived `config.json`.
+2. Dropped with the `train` stage (2026-10-20): the frozen fit is no DVC stage, and `litert_export` lists the
+   weights it reads as deps.
+3. Done for the frozen head: every run's `config.json` records `dino.weights_sha256`, and the checkpoint is
+   checked against it on load.
 
 ## Licence
 
-DINOv2 (Apache-2.0) and torchvision's ResNet18 (BSD-3-Clause) are unrestricted for this use.
+DINOv2 (Apache-2.0) is unrestricted for this use.
 The DINOv3 weights are under the DINOv3 License, a copy of which is pinned at
 `docs/reference_dinov3_LICENSE.md`. In brief: commercial use is permitted, you own your
 derivatives, and serving predictions through an API does not require attaching the licence —

@@ -163,7 +163,7 @@ prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv
 
 **Fallback:** `--rollback` to `previous`. `models/` still holds the two models the live one replaced
 (`README.md`, "Status"), but neither has a LiteRT conversion, so neither deploys as it stands; the ResNet18
-fallback, `allrigs_cam_s123`, was retired on 2026-10-06 with every other old model. An older release can still be
+fallback, `allrigs_cam_s123`, was retired on 2026-10-06 with every other old model, and the ResNet18 code on 2026-10-20. An older release can still be
 rebuilt from a commit that holds it, `scripts/deploy_webapp.sh <sha> <model>`, as long as what that commit's build
 needs (its `.pt`, and since ML-7 its LiteRT export) is in the local DVC cache (`dvc fetch` at that commit); the
 release is built from that commit's tree.

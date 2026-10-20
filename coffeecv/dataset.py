@@ -103,7 +103,7 @@ class PatchMeta:
 
 # The capture dirs a run trains on: one pool, data/segcropped/pool, merged by dvc.yaml's merge_segpool
 # stage from every session's segcrop@<session> crops (ticket ML-8 D2, ADR 0024: no camera or rig anywhere
-# in the data or training pipeline). run_all_rigs.py and fit_frozen_head.py train on exactly this list,
+# in the data or training pipeline). fit_frozen_head.py trains on exactly this list,
 # and params.yaml rests at it. Until ML-8 it named four pools, data/segcropped/cam_{pixel,sony,oneplus,
 # iphone}, one per camera, merged by merge_segcam_* stages, and a dir's position here seeded its patch
 # boxes; a model trained on them is rebuilt at its own commit. Until ticket ML-3 P2b this named the tray
@@ -372,8 +372,8 @@ class MultiPhotoPatchDataset(Dataset):
         n_patches_total = patches_per_class[split]
         self._patches: list[np.ndarray] = []
         # Provenance per patch. The photo itself is dropped after extraction, so
-        # this is the only remaining record of where a patch came from -- needed
-        # by check_augmentation.py and worth having when a patch looks wrong.
+        # this is the only remaining record of where a patch came from -- the
+        # predictions CSVs carry it, and it is worth having when a patch looks wrong.
         self._meta: list[PatchMeta] = []
         # (dir, class_id) pairs where the dir has no directory for the class at all.
         # Tolerated: other dirs may still supply the class.

@@ -1,5 +1,5 @@
-# Hyperparameters for coffeecv training. Read by coffeecv/config.py and tracked
-# by DVC (`dvc exp run`) so runs can be compared via `dvc exp show`.
+# Parameters of coffeecv's data, segmenter and frozen-head fit. Read by coffeecv/config.py (RunConfig, strict:
+# a key it does not define is refused); DVC stages list the keys they depend on.
 
 seed: 7
 
@@ -9,9 +9,7 @@ seed: 7
 # train_capture_dirs: the photo pool training draws from -- one, data/segcropped/pool,
 # every session's crops merged by the merge_segpool stage (dataset.CAPTURES; ticket ML-8
 # D2, ADR 0024: no camera or rig in the data or training pipeline). Photos are split
-# train/val/test within each class (country) only (ML-1 D1(b)). run_all_rigs.py rewrites
-# this block to exactly that list on every run, so what rests here is what a bare
-# `dvc repro train` reproduces. Until ML-8 these were four camera pools
+# train/val/test within each class (country) only (ML-1 D1(b)). Until ML-8 these were four camera pools
 # (data/segcropped/cam_*, one merge_segcam_* stage each); until ticket ML-3 P2b the tray
 # heuristic's data/cropped pools.
 train_capture_dirs:
@@ -38,19 +36,6 @@ train_photo_frac: 0.70
 val_photo_frac: 0.15
 test_photo_frac: 0.15
 
-# Model
-model_name: resnet18
-freeze_mode: none  # full | last_block | none -- matches what Phase 16's MixStyle screen (exp115-123) actually validated; run_all_rigs.py's --freeze-mode default is also "none" independent of this resting value
-dropout: 0.2
-label_smoothing: 0.0
-color_jitter_strength: 0.2
-# Phase 13: overrides brightness only (contrast/saturation/hue keep
-# color_jitter_strength above). 0.0 = no-op, falls back to color_jitter_strength.
-# Rigs differ 1.48-1.59x in grey mean; 0.2 (0.8-1.2x) cannot reach that.
-brightness_jitter_strength: 0.0
-
-# Augmentation (Phase 8). Every value here is a no-op at the setting shown;
-# the Phase 7 baseline is this whole block off.
 # Scale augmentation (Phase 11): patch side as a log-uniform fraction of the
 # photo's short side, replacing the fixed patch_crop_size. 0/0 = off.
 patch_scale_frac_min: 0.0
@@ -84,53 +69,10 @@ bean_analysis_frac: 0.40
 bean_calibration_k: 1.18
 
 rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch sampling (max ~6 here)
-zoom_scale_min: 1.0          # RandomResizedCrop min area fraction (1.0 = plain resize)
-random_erasing_p: 0.5        # per-patch probability of erasing a rectangle
-illum_gradient_strength: 0.0 # +/- fraction of a corner-to-corner luminance ramp
-mixup_alpha: 0.0             # Beta(a, a) mixing strength (train loop, not a transform)
 
-# MixStyle (domain-agnostic v1, Phase 16): mixes each training batch's per-sample
-# channel mean/std with a randomly permuted copy of the batch, inside the model's
-# forward pass. mixstyle_p is the per-batch probability; 0.0 would be the no-op.
-# ADOPTED at 0.5 (the paper's own default) -- 9/9 fold x seed pairs sign-consistent,
-# mean +0.1400 cross-rig, the cleanest and 2nd-largest confirmed lever on this
-# project after bean-unit sizing. See EXPERIMENTS_LOG.md Phase 16 / exp115-123.
-mixstyle_p: 0.5
-mixstyle_alpha: 0.1          # Beta(a, a) shape for the mixing coefficient
-# agnostic is the only mode: the partner is any random batch sample. (The
-# camera-aware v2 was a confirmed null and was removed with ticket ML-1.)
-mixstyle_mode: agnostic
-
-# Training
-batch_size: 32
-epochs: 100
-early_stop_patience: 20  # stop if val_macro_f1 hasn't improved in this many epochs
-# CosineAnnealingLR floor (0.0 = PyTorch default, decays to exactly zero). Set to
-# 1e-5 so the LR trickles rather than flatlining in a long run's last ~15-20
-# epochs. ADOPTED on a 1-seed x 3-fold screen (seed 42): 3/3 positive cross-rig
-# macro-F1, but only box/pixel showed a real gain (+0.0264/+0.0234); sony was
-# flat (+0.0027) -- promising, not the full 3-seed confirmation this project
-# usually requires (see feedback-experiment-evidence-standard), adopted anyway
-# on a cost/benefit call (full confirmation estimated ~50h more compute).
-# exp151-156; see project-eta-min-screen memory for the full writeup.
-eta_min: 1.0e-05
-# LR schedule: cosine (the adopted recipe above) | plateau (screen arm A3, docs/lr_scheduler_plan.md).
-# Under plateau, `epochs` is only a cap, eta_min is the LR floor for every group, and the
-# raw-F1 patience stop is off -- the scheduler stops training floor_epochs after the floor.
-# The plateau_* values and floor_epochs are inert under cosine, and are fixed for the first
-# screen (chosen from the noise level, not tuned). Rests at cosine: run_all_rigs.py states
-# `scheduler` on every run, but a hand-edited plateau screen must restore it afterwards.
-scheduler: cosine
-plateau_smooth: 5
-plateau_threshold: 0.003
-plateau_patience: 6
-plateau_cooldown: 3
-plateau_factor: 0.3
-floor_epochs: 15
-optimizer: adamw  # adamw | sgd
-lr: 0.001
-backbone_lr: 0.00001  # used only when freeze_mode != full
-weight_decay: 0.0001
+# The fine-tuned ResNet18's model, augmentation (ColorJitter, zoom, erasing, illumination, mixup, MixStyle) and
+# SGD-loop parameters were removed on 2026-10-20 with its trainer. The frozen head's augmentation is
+# head_augment below (ADR 0025), shared with the segmenter's fine-tune through `augment` (ADR 0027).
 
 # Ticket ML-2 (D21): split seed for the segmenter's photo lists (seg_lists.py ->
 # labels/ml2/photo_lists.yaml). Not a head seed; changing it after the lists are

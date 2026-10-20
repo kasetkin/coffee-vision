@@ -61,7 +61,7 @@ def main() -> None:
     print(f"config: {cfg_source}")
     capture_dirs, classes_file = cfg.resolve_paths()
     captures = resolve_captures(capture_dirs)
-    # From classes_file, exactly as train_baseline does, so the label->index
+    # From classes_file, exactly as fit_frozen_head does, so the label->index
     # mapping the centroids are keyed by is the one the checkpoint was fitted with.
     class_list = load_classes(classes_file)
     class_ids, class_labels = list(class_list.keys), dict(class_list.labels)
@@ -96,7 +96,7 @@ def main() -> None:
     )
     print(f"train patches: {len(ds)}")
 
-    model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids), cfg.dropout)
+    model, head = load_model(Path(args.checkpoint), cfg.model_name, len(class_ids))
     # Chunked rather than one `torch.stack` over the whole split: at 224x224x3
     # float32 the full set is gigabytes (5700 patches is ~3.4GB) and the stack is
     # what runs the machine out of memory, not the forward pass -- which already

@@ -1,6 +1,6 @@
 """Fit the shipping head for a frozen backbone on the pool, and ship it (plan §9.1).
 
-The frozen-backbone counterpart of `run_all_rigs.py`: the photos of `dataset.CAPTURES` (since ticket ML-8 one
+The only training driver since the ResNet18 path was removed (2026-10-20): the photos of `dataset.CAPTURES` (since ticket ML-8 one
 pool of every session, no camera or rig) split per class (ticket ML-1), val/test in-distribution only -- they
 say nothing about a new camera or a new scoop of beans, and are never comparable to the fold-era cross-camera
 numbers.
@@ -20,8 +20,8 @@ numbers.
   Val and test are never augmented. Nothing augmented is written. The run fits two heads at the same C and the
   same total sample weight (each of a patch's 1 + views rows weighs 1/(1 + views)), so augmentation is the
   only difference between them: the augmented one is the run's head, the unaugmented one is archived beside it
-  (`model_unaugmented.pt`, metrics.json `arms`), ADR 0002's paired print within one run. A ResNet-era
-  augmentation knob set in params.yaml is refused here (`frozen_config`): this path applies none of them.
+  (`model_unaugmented.pt`, metrics.json `arms`), ADR 0002's paired print within one run. The ResNet era's
+  patch-sampling augmentation set in params.yaml is refused here (`frozen_config`): this path applies none of it.
 - **Seeds only vary the patch draw** (the head is convex). Each seed is archived; the one to ship is
   chosen on val macro-F1, never test, and shipping is a separate, explicit step.
 
@@ -75,12 +75,10 @@ EMBED_BATCH = 32
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
 SHIFT_PATCHES = 16      # --smoke: the training patches each transform alone is applied to (its embedding shift)
 HEAD_AUGMENT_KEYS = ("views", "patch", "input")
-# ResNet-era augmentation this path never applies (every patch goes through the eval transform); set in
-# params.yaml, it would be recorded in the run's config as if it had. Their no-op values. The adopted ResNet
-# recipe's color_jitter_strength, random_erasing_p and mixup_alpha are switched off in `frozen_config` instead,
-# as before (run_all_rigs.ADOPTED holds them in params.yaml).
-RESNET_ERA_KNOBS = {"brightness_jitter_strength": 0.0, "illum_gradient_strength": 0.0, "zoom_scale_min": 1.0,
-                    "patch_scale_frac_min": 0.0, "patch_scale_frac_max": 0.0, "rotation_jitter_degrees": 0.0}
+# The ResNet era's patch-sampling augmentation (patch side as a fraction of the photo, small-angle rotation),
+# still in the sampler but no part of the frozen head's recipe or of serving: set in params.yaml, it would
+# change the patches. Their no-op values. (The ResNet's own transform knobs went with its trainer, 2026-10-20.)
+RESNET_ERA_KNOBS = {"patch_scale_frac_min": 0.0, "patch_scale_frac_max": 0.0, "rotation_jitter_degrees": 0.0}
 
 
 def log(msg: str) -> None:
@@ -97,9 +95,7 @@ def frozen_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
         raise ValueError(f"params.yaml sets {', '.join(on)}: ResNet-era augmentation the frozen head fit never "
                          "applies (its augmentation is head_augment, ticket ML-8 D4). Set it back to "
                          f"{RESNET_ERA_KNOBS} for a frozen fit.")
-    cfg = replace(base, seed=seed, train_capture_dirs=tuple(CAPTURES), crop_method="segment",
-                  model_name=backbone, freeze_mode="full", mixstyle_p=0.0, dropout=0.0,
-                  color_jitter_strength=0.0, random_erasing_p=0.0, mixup_alpha=0.0)
+    cfg = replace(base, seed=seed, train_capture_dirs=tuple(CAPTURES), crop_method="segment", model_name=backbone)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
 
 
@@ -335,7 +331,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
             "backbone": bb.name, "readout": readout, "weights": bb.spec.weights,
             "weights_sha256": bb.weights_sha256, "timm_version": timm.__version__,
             "head": "sklearn LogisticRegression (L2, lbfgs) on standardised features at a FIXED C, exported to "
-                    "nn.Linear; the SGD-loop fields above (epochs, lr, optimizer, scheduler, ...) are unused",
+                    "nn.Linear",
             "C": C, "C_rule": C_rule, "converged": rec["converged"], "fit_seconds": rec["fit_seconds"],
             "diagnostic_val_selected_C": rec["diagnostic_val_selected_C"],
             "diagnostic_val_macro_f1_by_C": rec["diagnostic_val_macro_f1_by_C"],
@@ -447,7 +443,7 @@ def ship(exp: int, name: str, seed_exps: list[int] | None = None, arm: Arm | Non
             "tta": False,
             "why": ("No dihedral TTA: 8 views x 40 patches is ~46 s per photo for ViT-B/16 on the production VM "
                     "(docs/dinov3_integration_plan.md §6.2), and TTA for the frozen head is unmeasured (Screen D). "
-                    "Without it, model time is ~5.8 s per photo at 4 threads, parity with ResNet18 + TTA."),
+                    "Without it, model time is ~5.8 s per photo at 4 threads, parity with the retired ResNet18 + TTA."),
         },
         "expected_performance": {
             **({"cross_camera_from_selection_folds": ("exp240-251, 3 seeds x 4 camera folds: patch macro-F1 "

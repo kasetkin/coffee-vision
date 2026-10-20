@@ -3,68 +3,8 @@ stages:
   # data/cropped/<session>, settings in dataset/<session>.crop.yaml) and merge_cam_* (data/cropped/cam_*) --
   # are retired, with their pools. Training reads the segmenter's crops only (segcrop, merge_segpool below).
   # They are in git history up to ML-3 P2b's parent, and an older commit plus `dvc checkout` brings them back.
-  # The ResNet trainer's stage, frozen 2026-10-20 (owner): no shipped model has trained through it since the frozen
-  # DINOv3 head (ADR 0006, coffeecv/fit_frozen_head.py, no DVC stage), and every dep had moved on. dvc.lock keeps
-  # its last run; repro never reruns it. Retiring the trainer itself is a separate decision.
-  train:
-    frozen: true
-    cmd: python -m coffeecv.train_baseline
-    deps:
-      - coffeecv
-      # The capture dir training actually reads -- params.yaml's
-      # train_capture_dirs, which rests at dataset.CAPTURES -- so the DAG runs
-      # merge_segpool (and the crops behind it) before train, and a changed pool
-      # invalidates the run. Until ticket ML-8 (D2) the four camera pools, data/segcropped/cam_*. Until ticket ML-1 this listed raw-session crop dirs
-      # and the legacy oneplus_combined instead of the cam_* pools, so a change
-      # to a pool did not invalidate train at all; until ticket ML-3 P2b, the tray
-      # heuristic's data/cropped pools. Point train_capture_dirs at a dir not
-      # listed here and add it here too, or a changed dir reuses a stale run.
-      - data/segcropped/pool
-      - dataset/classes.txt
-    params:
-      - params.yaml:
-    outs:
-      - outputs/checkpoints/best.pt
-      - outputs/checkpoints/last.pt
-      # Full per-class detail. Deliberately an `out`, not a `metric`: DVC
-      # flattens every leaf of a metrics file into its own column, and this
-      # file's nested per-class stats expand to 140+ of them, which makes both
-      # `dvc exp show` and the VS Code Experiments table unreadable. Kept
-      # git-tracked (see .gitignore) and archived per run under experiments/.
-      - outputs/metrics.json:
-          cache: false
-    metrics:
-      # The only file DVC reports as a metric: six flat numbers, so the
-      # experiments table and `dvc metrics diff` stay scannable.
-      - outputs/summary.json:
-          cache: false
-    plots:
-      - outputs/history.json:
-          x: epoch
-          y: train_loss
-      - outputs/history.json:
-          x: epoch
-          y: val_loss
-      - outputs/history.json:
-          x: epoch
-          y: val_macro_f1
-      # LR per param group (training_curves.png draws the same two on a log scale). `lr` is the head
-      # group and exists in every history; lr_backbone only in runs made since 2026-09-20, so DVC
-      # warns about that one field until history.json is next overwritten.
-      - outputs/history.json:
-          x: epoch
-          y: lr
-      - outputs/history.json:
-          x: epoch
-          y: lr_backbone
-      - outputs/predictions_val.csv:
-          template: confusion
-          x: true_label
-          y: pred_label
-      - outputs/predictions_test.csv:
-          template: confusion
-          x: true_label
-          y: pred_label
+  # The ResNet trainer's `train` stage (outputs/checkpoints, metrics.json, summary.json, history.json) was removed
+  # on 2026-10-20 with its code; its last run is in git history and dvc.lock before then.
 
   # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:

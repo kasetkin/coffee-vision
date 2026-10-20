@@ -339,8 +339,7 @@ def build_cpu_dir(out: Path) -> dict:
     for name, src in SERVED.items():
         (out / name).symlink_to(src)
     cfg, _ = infer.config_for_checkpoint(CHECKPOINT, None)
-    model, head = infer.load_model(CHECKPOINT, cfg.model_name, len(load_classes(REPO_ROOT / cfg.classes_file).keys),
-                                   cfg.dropout)
+    model, head = infer.load_model(CHECKPOINT, cfg.model_name, len(load_classes(REPO_ROOT / cfg.classes_file).keys))
     litert.save_head(out / "head.npz", head.weight.detach().numpy(), head.bias.detach().numpy())
     def cpu(f):
         return {"file": f, "accelerator": "cpu", "precision": "fp32", "forms": {}}
@@ -372,8 +371,7 @@ class TestAgainstPyTorch(unittest.TestCase):
         cls.cfg, _ = infer.config_for_checkpoint(CHECKPOINT, None)
         classes = load_classes(REPO_ROOT / cls.cfg.classes_file)
         cls.ids, cls.labels = list(classes.keys), dict(classes.labels)
-        cls.torch = infer.TorchClassifier(*infer.load_model(CHECKPOINT, cls.cfg.model_name, len(cls.ids),
-                                                            cls.cfg.dropout))
+        cls.torch = infer.TorchClassifier(*infer.load_model(CHECKPOINT, cls.cfg.model_name, len(cls.ids)))
         cls.ref = infer.load_ood_reference(CHECKPOINT, cls.torch.embedding_dim)
         cls.probe = infer.load_ood_probe(CHECKPOINT, embedding_dim=cls.torch.embedding_dim)
         cls.seg = {"litert": BeanSegmenter(seg_params(cls.cfg), engine=cls.models.sam),

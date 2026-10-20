@@ -1,7 +1,7 @@
 """The depth-0 head: L2 logistic regression on standardised frozen features, exported as nn.Linear.
 
 A frozen backbone needs no training loop: the head is a convex fit with one hyperparameter. C is
-chosen on the **val** split's macro-F1 (the depth-0 analogue of the ResNet arm's
+chosen on the **val** split's macro-F1 (the depth-0 analogue of the retired ResNet arm's
 checkpoint-on-best-val rule -- selection never sees test or cross-rig data). Ties go to the smaller C,
 i.e. the stronger regularisation. See docs/dinov3_integration_plan.md §5.3.
 

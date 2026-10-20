@@ -284,7 +284,7 @@ def classify_torch(photos: list[Path], checkpoint: Path) -> None:
     cfg, _ = infer.config_for_checkpoint(checkpoint, None)
     classes = load_classes(REPO_ROOT / cfg.classes_file)
     ids, labels = list(classes.keys), dict(classes.labels)
-    clf = infer.TorchClassifier(*infer.load_model(checkpoint, cfg.model_name, len(ids), cfg.dropout))
+    clf = infer.TorchClassifier(*infer.load_model(checkpoint, cfg.model_name, len(ids)))
     ref = infer.load_ood_reference(checkpoint, clf.embedding_dim)
     probe = infer.load_ood_probe(checkpoint, embedding_dim=clf.embedding_dim)
     seg = infer.segmenter_for(cfg) if cfg.crop_method == "segment" else None

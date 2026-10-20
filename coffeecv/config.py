@@ -1,4 +1,5 @@
-"""Run configuration: loaded from params.yaml, overridable via CLI flags in train_baseline.py."""
+"""Run configuration: loaded from params.yaml (RunConfig.from_params_yaml, strict) or from a model's card
+(infer.config_for_checkpoint)."""
 from __future__ import annotations
 
 import random
@@ -14,8 +15,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PARAMS_FILE = REPO_ROOT / "params.yaml"
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 CHECKPOINTS_DIR = OUTPUTS_DIR / "checkpoints"
-PLOTS_DIR = OUTPUTS_DIR / "plots"
-TENSORBOARD_DIR = REPO_ROOT / "tensorboard"
 
 
 @dataclass
@@ -49,8 +48,8 @@ class RunConfig:
     # Edge length patches are stored at after extraction. Bounds memory: the
     # 2026-08-09 sessions decode to 37-57 MB per photo, so holding whole photos
     # would need ~18 GB across the datasets. 0 means "keep full patch_crop_size"
-    # (single-dir, pre-Phase-11 behaviour). Keep this well above patch_resize so
-    # zoom augmentation crops into detail rather than upsampling.
+    # (single-dir, pre-Phase-11 behaviour). Kept above patch_resize, so head_augment's patch pipeline acts on
+    # more pixels than the model's input (ADR 0025).
     patch_store_size: int = 448
     # Patches per class, spread over the class's photos in the split (see
     # MultiPhotoPatchDataset; ticket ML-8 D8). Until ML-8, 150/40/40 per class *per
@@ -68,22 +67,12 @@ class RunConfig:
     val_photo_frac: float = 0.15
     test_photo_frac: float = 0.15
 
-    model_name: str = "resnet18"
-    freeze_mode: str = "full"  # full | last_block | none
-    dropout: float = 0.2
-    label_smoothing: float = 0.0
-    color_jitter_strength: float = 0.2
-    # Phase 13: overrides only the brightness bound of the ColorJitter call above
-    # (contrast/saturation/hue keep color_jitter_strength). 0.0 is the no-op
-    # default -- brightness falls back to color_jitter_strength, reproducing the
-    # exact pre-Phase-13 pipeline. Rigs measure 1.48-1.59x apart in grey mean
-    # (see EXPERIMENTS_LOG.md Phase 11), which color_jitter_strength=0.2's
-    # 0.8-1.2x range cannot reach; this widens brightness alone to test whether
-    # augmentation can close that gap without perturbing the other channels.
-    brightness_jitter_strength: float = 0.0
+    # The frozen backbone the head is fitted on (coffeecv/backbones.py SPECS; fit_frozen_head --backbone sets it
+    # per run). The fine-tuned ResNet18 path and its fields -- freeze_mode, dropout, the ColorJitter, zoom,
+    # erasing, illumination, mixup and MixStyle knobs, and the SGD loop's epochs, LR schedule and optimizer --
+    # were removed on 2026-10-20; old cards still carry them, and config_for_checkpoint drops unknown keys.
+    model_name: str = "dinov3_vitb16"
 
-    # Phase 8 augmentation knobs. Every default here is a no-op, so the whole
-    # block off reproduces the Phase 7 pipeline exactly (see transforms.py).
     # Scale augmentation (Phase 11). Patch side is drawn log-uniformly between
     # these fractions of each photo's short side, instead of the fixed
     # `patch_crop_size` in pixels. 0/0 disables it -- the no-op default, so the
@@ -128,46 +117,6 @@ class RunConfig:
     bean_calibration_k: float = 1.18
 
     rotation_jitter_degrees: float = 0.0  # +/- jitter around each right angle, applied at patch sampling
-    zoom_scale_min: float = 1.0  # RandomResizedCrop min *area* fraction; 1.0 = plain resize
-    random_erasing_p: float = 0.0  # probability of erasing a rectangle per patch
-    illum_gradient_strength: float = 0.0  # +/- fraction of a corner-to-corner luminance ramp
-    mixup_alpha: float = 0.0  # Beta(a, a) mixing strength; applied in the train loop, not a transform
-
-    # MixStyle (Zhou et al., domain-agnostic v1): probability of mixing each
-    # training batch's per-sample channel statistics with a randomly permuted
-    # copy of the batch, inside the model's forward pass (see model.py). 0.0 is
-    # the no-op default, same convention as every other Phase 8+ knob here.
-    mixstyle_p: float = 0.0
-    mixstyle_alpha: float = 0.1  # Beta(a, a) shape for the mixing coefficient; the paper's default
-    # "agnostic" (v1, adopted): partner is any random batch sample, regardless of
-    # capture dir -- the only mode. The camera-aware v2 was removed with ticket ML-1;
-    # model.build_model refuses anything else. Irrelevant when mixstyle_p == 0.0.
-    mixstyle_mode: str = "agnostic"
-
-    batch_size: int = 32
-    epochs: int = 20
-    early_stop_patience: int = 8  # stop if val_macro_f1 hasn't improved in this many epochs
-    # Floor for CosineAnnealingLR's decay (PyTorch default 0.0: LR decays to exactly
-    # zero, so the last ~15-20 epochs of a long run train at a negligible LR -- pure
-    # eval noise rather than real learning signal). See project-lr-scheduler-hypotheses.
-    eta_min: float = 0.0
-    # LR schedule (see coffeecv/lr_schedules.py and docs/lr_scheduler_plan.md). "cosine" is the
-    # original CosineAnnealingLR(T_max=epochs, eta_min) with the raw-F1 patience stop above.
-    # "plateau" is ReduceLROnPlateau on a trailing mean of val macro-F1 that owns stopping; there
-    # `epochs` is only a cap (no longer T_max) and eta_min is the LR floor. The plateau_* knobs and
-    # floor_epochs are inert under "cosine", and they are fixed for the first screen -- they were
-    # chosen from the noise level, not tuned, and must not be retuned on cross-rig results.
-    scheduler: str = "cosine"
-    plateau_smooth: int = 5  # epochs in the trailing mean fed to the scheduler
-    plateau_threshold: float = 0.003  # absolute gain in the smoothed F1 that counts as improvement
-    plateau_patience: int = 6  # non-improving epochs tolerated before a drop
-    plateau_cooldown: int = 3  # epochs after a drop before the counter runs again
-    plateau_factor: float = 0.3  # LR multiplier per drop
-    floor_epochs: int = 15  # stop this many epochs after every group reaches its floor
-    optimizer: str = "adamw"  # adamw | sgd
-    lr: float = 1e-3
-    backbone_lr: float = 1e-5  # used only when freeze_mode != "full"
-    weight_decay: float = 1e-4
 
     # Ticket ML-2 (D21): the seed of the segmenter's own photo split, used only by
     # seg_lists.py to build labels/ml2/photo_lists.yaml. It is none of the head seeds

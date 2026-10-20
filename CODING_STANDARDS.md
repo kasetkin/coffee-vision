@@ -11,7 +11,7 @@ Judgement rules for reviewing a change here (`/code-review` reads this file). Ea
 
 ## Config and CLI
 
-- **An omitted flag inherits.** A CLI flag that overrides config defaults to `None`, or to the adopted recipe (`run_all_rigs.ADOPTED`, held equal to `params.yaml` by `tests/test_run_all_rigs.py`), never to a concrete value: a `0.0` default once switched off MixStyle in a "paired" sweep and cost 6.5 hours.
+- **An omitted flag inherits.** A CLI flag that overrides config defaults to `None` (then `params.yaml`'s value), or to the adopted recipe held equal to `params.yaml` by a test, never to a concrete value: a `0.0` default once switched off MixStyle in a "paired" sweep and cost 6.5 hours.
 - **Input lists live in one committed file** that every consumer reads (`webapp/deploy/fixtures.txt`), not inline in scripts, duplicated in tests, or passed as argv or env strings.
 - **Deploy files are templates.** Environment-specific values (user, paths, domain) are `$VAR` placeholders in `*.template` files with a default, rendered by `webapp/deploy/render_template.py`; a literal value is a portability bug even when only one value has ever existed.
 

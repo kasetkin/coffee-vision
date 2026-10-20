@@ -35,7 +35,6 @@ dependencies = [
   # ML-6 D12 (docs/adr/0018): the segmenter fine-tune's augmentation. 2.0.8 is the last MIT release
   # (upstream archived); its successor AlbumentationsX is AGPL with telemetry, so the pin stays here.
   "albumentations==2.0.8",
-  "tensorboard",
   "tqdm",
   # ML-2: the vendored EfficientViT-SAM (third_party/efficientvit) builds on Meta's MaskDecoder,
   # PromptEncoder and ResizeLongestSide. Upstream installs it from git; PyPI 1.0 is the same code.

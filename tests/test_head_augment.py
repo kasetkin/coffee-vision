@@ -236,8 +236,7 @@ class Names(unittest.TestCase):
 
 class ResNetEraKnobs(unittest.TestCase):
     def test_the_frozen_path_refuses_them_set(self):
-        for knob, value in (("brightness_jitter_strength", 0.1), ("illum_gradient_strength", 0.2),
-                            ("zoom_scale_min", 0.8), ("patch_scale_frac_max", 0.3), ("rotation_jitter_degrees", 3.0)):
+        for knob, value in (("patch_scale_frac_max", 0.3), ("rotation_jitter_degrees", 3.0)):
             with self.subTest(knob=knob), mock.patch.object(
                     ffh.RunConfig, "from_params_yaml", return_value=replace(RunConfig.from_params_yaml(), **{knob: value})), \
                     self.assertRaisesRegex(ValueError, knob):
@@ -245,7 +244,7 @@ class ResNetEraKnobs(unittest.TestCase):
 
     def test_params_yamls_resting_values_pass(self):
         cfg = ffh.frozen_config("dinov3_vitb16", 42, smoke=False)
-        self.assertEqual((cfg.color_jitter_strength, cfg.random_erasing_p, cfg.train_patches_per_class), (0.0, 0.0, 600))
+        self.assertEqual((cfg.model_name, cfg.crop_method, cfg.train_patches_per_class), ("dinov3_vitb16", "segment", 600))
 
 
 if __name__ == "__main__":

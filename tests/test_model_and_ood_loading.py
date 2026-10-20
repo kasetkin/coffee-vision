@@ -1,5 +1,5 @@
-"""The embedding contract of every supported architecture, and the checked OOD-artifact loaders.
-Plain unittest.
+"""The checked OOD-artifact loaders, and what config_for_checkpoint reads from a card. Plain unittest. (The
+ResNet18 embedding contract went with its code, 2026-10-20; the frozen head's is tests/test_frozen_checkpoint.py.)
 
     python -m unittest discover -s tests -p 'test_model_and_ood_loading.py'
 
@@ -13,20 +13,15 @@ import json
 import shutil
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
 
-import torch
 
 from coffeecv.backbones import MODELS_PRETRAINED, SPECS
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import CAPTURES
 from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding_dim_of, load_model,
                             load_ood_probe, load_ood_reference, probe_path_for, reference_path_for)
-from coffeecv.model import SUPPORTED_MODELS, build_model
-from coffeecv_dino.reference import have_reference_data, reference_patches
 
-from tests._tiers import real_data
 
 DEPLOYED = REPO_ROOT / "models" / "dino3b16_segxl0v3_country_aug8_s123.pt"
 # Fitted on the four camera pools before ticket ML-8 (D2) merged them into one: its card still names them.
@@ -35,37 +30,11 @@ HAVE_DEPLOYED = (DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and
                  and (MODELS_PRETRAINED / SPECS["dinov3_vitb16"].weights).exists())
 
 
-class TestEmbeddingContract(unittest.TestCase):
-    """A future arm cannot land without proving its head's pre-hook fires and captures
-    embedding_dim_of(head) features -- the vector every OOD artifact is built in (plan §8.0)."""
-
-    @real_data
-    @unittest.skipUnless(have_reference_data(), "the reference crops (coffeecv_dino/reference_photos.txt) not present")
-    def test_pre_hook_captures_the_embedding(self):
-        x, _, _, _ = reference_patches(per_class=1)
-        for name in SUPPORTED_MODELS:
-            with self.subTest(name=name):
-                model, head = build_model(name, num_classes=10, freeze_mode="full", dropout=0.0)
-                captured = []
-                handle = head.register_forward_pre_hook(lambda _m, inp: captured.append(inp[0]))
-                with torch.inference_mode():
-                    out = model.eval()(x)
-                handle.remove()
-                self.assertEqual(out.shape, (len(x), 10))
-                self.assertEqual(len(captured), 1, "the head must be called by forward, exactly once")
-                self.assertEqual(captured[0].shape, (len(x), embedding_dim_of(head)))
-
-    def test_pruned_architectures_fail_loudly(self):
-        for name in ("mobilenet_v3_small", "efficientnet_b0"):
-            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "removed on 2026-09-26"):
-                build_model(name, num_classes=10, freeze_mode="full")
-
-
 @unittest.skipUnless(HAVE_DEPLOYED, f"{DEPLOYED}, its OOD sidecars or the ViT-B/16 weights are not present")
 class TestOodLoaders(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        _, cls.head = load_model(DEPLOYED, "dinov3_vitb16", 10, 0.0)
+        _, cls.head = load_model(DEPLOYED, "dinov3_vitb16", 10)
         cls.dim = embedding_dim_of(cls.head)
 
     def _copy_with(self, tmp: Path, suffix: str, **overrides) -> Path:
@@ -204,38 +173,6 @@ class TestPredictionsProvenance(unittest.TestCase):
         self.assertEqual((rows[0]["true_label"], rows[0]["folder_id"], rows[0]["p_Brazil"]), ("Brazil", "013", "0.75"))
         write_predictions_csv(tmp / "q.csv", np.array([1]), np.array([0]), keys)
         self.assertEqual((tmp / "q.csv").read_text().splitlines(), ["true_label,pred_label", "Brazil,Ethiopia"])
-
-
-class TestInferenceNeedsNoImageNetWeights(unittest.TestCase):
-    """load_model builds ResNet18 with weights=None (docs/ops1_release_isolation_plan.html §4.3): the
-    service runs under ProtectHome=true, where ~/.cache/torch does not exist. Safe only because the
-    strict load_state_dict overwrites every parameter and buffer -- which these tests prove. No ResNet18
-    checkpoint ships since 2026-10-06, so the checkpoint is a seeded random one: unlike ImageNet's init."""
-
-    @classmethod
-    def setUpClass(cls):
-        tmp = Path(tempfile.mkdtemp())
-        cls.addClassCleanup(shutil.rmtree, tmp)
-        torch.manual_seed(0)
-        model, _ = build_model("resnet18", num_classes=10, freeze_mode="none", dropout=0.2, pretrained=False)
-        cls.ckpt = tmp / "resnet18.pt"
-        torch.save(model.state_dict(), cls.ckpt)
-
-    def test_loads_without_touching_the_hub(self):
-        def refuse(*args, **kwargs):
-            raise AssertionError("load_model tried to fetch pretrained weights")
-        with mock.patch("torchvision.models._api.load_state_dict_from_url", refuse):
-            load_model(self.ckpt, "resnet18", 10, 0.2)
-
-    @real_data
-    @unittest.skipUnless(have_reference_data(), "the reference crops (coffeecv_dino/reference_photos.txt) not present")
-    def test_logits_bit_identical_to_imagenet_init(self):
-        x, _, _, _ = reference_patches(per_class=2)
-        new, _ = load_model(self.ckpt, "resnet18", 10, 0.2)
-        old, _ = build_model("resnet18", num_classes=10, freeze_mode="none", dropout=0.2)  # the old path
-        old.load_state_dict(torch.load(self.ckpt, map_location="cpu"), strict=True)
-        with torch.inference_mode():
-            self.assertTrue(torch.equal(new(x), old.eval()(x)))
 
 
 if __name__ == "__main__":

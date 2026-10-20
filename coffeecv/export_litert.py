@@ -86,7 +86,7 @@ def check(model_dir: Path, checkpoint: Path, photos: list[Path]) -> dict:
     cfg, _ = infer.config_for_checkpoint(checkpoint, None)
     classes = load_classes(REPO_ROOT / cfg.classes_file)
     ids, labels = list(classes.keys), dict(classes.labels)
-    torch_clf = infer.TorchClassifier(*infer.load_model(checkpoint, cfg.model_name, len(ids), cfg.dropout))
+    torch_clf = infer.TorchClassifier(*infer.load_model(checkpoint, cfg.model_name, len(ids)))
     ref = infer.load_ood_reference(checkpoint, torch_clf.embedding_dim)
     probe = infer.load_ood_probe(checkpoint, embedding_dim=torch_clf.embedding_dim)
     models = litert.load_models(model_dir, on_cpu=True)
@@ -126,8 +126,7 @@ def finish(checkpoint: Path, profile: str, photos: list[Path]) -> dict:
     if record["profile"] != profile:
         raise SystemExit(f"{out} was converted for profile {record['profile']}, not {profile}")
     cfg, _ = infer.config_for_checkpoint(checkpoint, None)
-    model, head = infer.load_model(checkpoint, cfg.model_name, len(load_classes(REPO_ROOT / cfg.classes_file).keys),
-                                   cfg.dropout)
+    model, head = infer.load_model(checkpoint, cfg.model_name, len(load_classes(REPO_ROOT / cfg.classes_file).keys))
     litert.save_head(out / "head.npz", head.weight.detach().numpy(), head.bias.detach().numpy())
     graphs = {name: {"file": GRAPH_FILES[name], "accelerator": acc, "precision": prec, "forms": record["forms"][name]}
               for name, (acc, prec) in PROFILES[profile].items()}

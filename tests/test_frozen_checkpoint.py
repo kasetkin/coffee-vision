@@ -1,5 +1,5 @@
 """The frozen-DINO checkpoint: what it stores, what loading it refuses, and that it reaches the rest of the
-pipeline through the same `infer.load_model` a ResNet18 checkpoint does. Plain unittest.
+pipeline through `infer.load_model`, the only model loader. Plain unittest.
 
     python -m unittest discover -s tests -p 'test_frozen_checkpoint.py'
 
@@ -27,7 +27,6 @@ from coffeecv.fold_data import build_fold_datasets
 from coffeecv.infer import (config_for_checkpoint, embedding_dim_of, forward_with_embeddings, inference_tta_for,
                             load_model)
 from coffeecv.linear_head import fit_head_at, predict
-from coffeecv.model import FROZEN_MODELS, build_model
 from coffeecv.transforms import build_eval_transform
 from coffeecv_dino.reference import have_reference_data, reference_patches
 
@@ -65,7 +64,7 @@ class TestFrozenCheckpoint(unittest.TestCase):
         self.assertLess(self.ckpt.stat().st_size, 1 << 20)          # 10 x 1536 floats, not 343 MB
 
     def test_load_model_scores_exactly_what_was_fitted(self):
-        model, head = load_model(self.ckpt, NAME, len(self.class_ids), dropout=0.0)
+        model, head = load_model(self.ckpt, NAME, len(self.class_ids))
         self.assertIsInstance(model, DinoClassifier)
         self.assertEqual(embedding_dim_of(head), 1536)
         probs, embeds = forward_with_embeddings(model, head, self.x)
@@ -90,8 +89,7 @@ class TestFrozenCheckpoint(unittest.TestCase):
                     load_frozen_checkpoint(bad, NAME, len(self.class_ids))
 
     def test_tta_follows_the_card(self):
-        self.assertFalse(inference_tta_for(self.ckpt, NAME))         # no card: frozen -> off
-        self.assertTrue(inference_tta_for(self.tmp / "none.pt", "resnet18"))
+        self.assertFalse(inference_tta_for(self.ckpt, NAME))         # no card: off
         card = self.ckpt.with_suffix(".json")
         card.write_text(json.dumps({"inference_defaults": {"tta": True}}))
         try:
@@ -100,13 +98,12 @@ class TestFrozenCheckpoint(unittest.TestCase):
             card.unlink()
 
 
-class TestFrozenModelsStayOutOfTheSgdLoop(unittest.TestCase):
-    def test_build_model_refuses(self):
-        for name in FROZEN_MODELS:
-            self.assertTrue(is_frozen_model(name))
-            with self.assertRaisesRegex(ValueError, "fit_frozen_head"):
-                build_model(name, num_classes=10, freeze_mode="full")
+class TestOnlyFrozenModelsLoad(unittest.TestCase):
+    def test_a_resnet_checkpoint_is_refused_naming_where_it_went(self):
+        # The ResNet18 trainer and its model code were removed on 2026-10-20; an old card must fail loudly.
         self.assertFalse(is_frozen_model("resnet18"))
+        with self.assertRaisesRegex(ValueError, r"resnet18.*removed on 2026-10-20.*check out"):
+            load_model(Path("models/old.pt"), "resnet18", 10)
 
 
 @real_data

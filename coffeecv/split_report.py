@@ -5,7 +5,7 @@ Since ticket ML-1 (D1(b)) photos are pooled across capture dirs and split 70/15/
 only; since ticket ML-8 (D2) training reads one dir, the pool of every session. This prints every split's
 per-dir counts and lists each (dir, class, split) that got zero, which with one pool is a class with no
 photo in a split. Until ML-8, with four camera pools, a thin pool could be left out of a split by chance,
-and `train_baseline` recorded those cells in metrics.json under `split_starved`.
+and the ResNet trainer recorded those cells in metrics.json under `split_starved`.
 
     python -m coffeecv.split_report                 # params.yaml's dirs, seed and fractions
     python -m coffeecv.split_report --seed 123      # another seed's partition

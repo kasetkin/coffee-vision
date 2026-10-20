@@ -1,117 +1,15 @@
-"""Train/eval transforms. Full dihedral-group augmentation is valid here since
-these are top-down photos of a bean pile with no canonical "up".
+"""The eval transform: a stored patch to the model's input tensor. Training's frozen head embeds every patch through
+it (fit_frozen_head, fold_data), and serving runs the same model_io.eval_patch without torch.
 
-Rotation is deliberately *not* here. The 0/90/180/270 part is exact and lossless
-so it stays; the small-angle jitter around each of those is applied at patch
-*sampling* time instead (`geometry.sample_rotated_patch_boxes`), because that is
-the only way to rotate without inventing pixels — the extra content a rotation
-needs is taken from the surrounding source photo rather than filled in.
-
-Every augmentation below defaults to a no-op, so `build_train_transform` with
-default arguments composes exactly the pre-Phase-8 pipeline and consumes exactly
-the same RNG draws — that keeps Phase 7's recorded baselines valid without
-re-running them.
+The fine-tuned ResNet18's train transform (dihedral flips, ColorJitter, zoom, illumination ramp, random erasing)
+lived here until 2026-10-20, when that path was removed; the frozen head's augmentation is params.yaml
+head_augment (ADR 0025, ADR 0027).
 """
 from __future__ import annotations
 
-import random
-
-import numpy as np
 import torch
-import torchvision.transforms as T
-import torchvision.transforms.functional as TF
 
-from coffeecv.model_io import IMAGENET_MEAN, IMAGENET_STD, eval_patch
-
-
-class RandomRightAngleRotation:
-    """Rotate by one of {0, 90, 180, 270} degrees. Exact and lossless on a
-    square image — no interpolation/border artifacts, unlike arbitrary-angle
-    rotation."""
-
-    def __call__(self, img):
-        angle = random.choice([0, 90, 180, 270])
-        if angle:
-            img = TF.rotate(img, angle)
-        return img
-
-
-class RandomIlluminationGradient:
-    """Multiply the image by a linear luminance ramp of random direction,
-    spanning 1-strength .. 1+strength corner to corner.
-
-    Motivated by something observed in this project rather than generic advice:
-    real directional lighting drift over the ~2h 2026-08-07 capture session is
-    what broke the original adaptive crop heuristic. Deliberately a *spatial*
-    gradient — uniform brightness is already covered by `T.ColorJitter`, so a
-    flat offset here would add nothing new. No radial vignette either: a patch
-    is a 900px crop from a 1050x1520 photo, so any real vignette is centred
-    somewhere outside the patch, and a linear ramp is the honest local
-    approximation of that.
-
-    Operates on a [0, 1] tensor (before normalization) so the gain is applied in
-    image space, where "20% brighter" actually means that.
-    """
-
-    def __init__(self, strength: float):
-        self.strength = strength
-
-    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
-        _, h, w = tensor.shape
-        theta = random.uniform(0, 2 * np.pi)
-        ys = torch.linspace(-0.5, 0.5, h).view(h, 1)
-        xs = torch.linspace(-0.5, 0.5, w).view(1, w)
-        ramp = np.cos(theta) * xs + np.sin(theta) * ys  # in [-0.5, 0.5] along the drawn direction
-        gain = 1.0 + 2.0 * self.strength * ramp
-        return (tensor * gain).clamp(0.0, 1.0)
-
-
-def build_train_transform(
-    resize: int,
-    jitter_strength: float = 0.2,
-    zoom_scale_min: float = 1.0,
-    random_erasing_p: float = 0.0,
-    illum_gradient_strength: float = 0.0,
-    brightness_jitter_strength: float = 0.0,
-) -> T.Compose:
-    steps = [
-        RandomRightAngleRotation(),
-        T.RandomHorizontalFlip(p=0.5),
-        T.RandomVerticalFlip(p=0.5),
-    ]
-    # brightness_jitter_strength overrides only the brightness bound of the same
-    # ColorJitter call, so a run that leaves it at 0.0 (the no-op default) draws
-    # from the RNG in exactly the same order/count as before this knob existed.
-    # It is separate from jitter_strength because the evidence for widening it is
-    # rig-specific (measured grey-mean ratios, see EXPERIMENTS_LOG.md Phase 11/13)
-    # while contrast/saturation/hue have no such evidence -- conflating them would
-    # untestably confound "wider brightness" with "wider everything".
-    brightness_b = brightness_jitter_strength if brightness_jitter_strength > 0 else jitter_strength
-    if jitter_strength > 0 or brightness_jitter_strength > 0:
-        steps.append(T.ColorJitter(
-            brightness=brightness_b, contrast=jitter_strength,
-            saturation=jitter_strength, hue=min(jitter_strength * 0.1, 0.5),
-        ))
-    # `scale` is an *area* fraction: 0.7 means zooming into a ~0.84-linear
-    # sub-region. `ratio` is pinned to 1.0 so this stays a pure zoom and doesn't
-    # smuggle in aspect-ratio distortion as a second variable.
-    if zoom_scale_min < 1.0:
-        steps.append(T.RandomResizedCrop(
-            resize, scale=(zoom_scale_min, 1.0), ratio=(1.0, 1.0),
-            interpolation=T.InterpolationMode.BILINEAR,
-        ))
-    else:
-        steps.append(T.Resize((resize, resize), interpolation=T.InterpolationMode.BILINEAR))
-    steps.append(T.ToTensor())
-    if illum_gradient_strength > 0:
-        steps.append(RandomIlluminationGradient(illum_gradient_strength))
-    steps.append(T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD))
-    # After Normalize, so value=0 erases to the ImageNet mean colour rather than
-    # to black. Unlike a geometric fill this is the point of the augmentation —
-    # the region is meant to be missing, not to pass as real texture.
-    if random_erasing_p > 0:
-        steps.append(T.RandomErasing(p=random_erasing_p, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=0))
-    return T.Compose(steps)
+from coffeecv.model_io import eval_patch
 
 
 class EvalTransform:

@@ -1,8 +1,0 @@
-{
-  "val_macro_f1": 0.9311,
-  "val_mcc": 0.9205,
-  "test_macro_f1": 0.9131,
-  "test_mcc": 0.9076,
-  "best_epoch": 86,
-  "epochs_trained": 100
-}

@@ -1,7 +1,7 @@
 """Preflight checks and the `dvc repro` runner shared by the drivers that train and commit.
 
-`run_all_rigs.py` and `fit_frozen_head.py` both refuse to start on uncommitted source or stale crops,
-and both shell out to dvc/git. These helpers lived in `run_folds.py` until 2026-09-29 by accident of
+`fit_frozen_head.py` refuses to start on uncommitted source or stale crops, and shells out to dvc/git
+(so did the ResNet driver, run_all_rigs.py, until 2026-10-20). These helpers lived in `run_folds.py` until 2026-09-29 by accident of
 file history -- they were never fold-specific -- and moved here when the fold driver was retired
 (ticket ML-1), so nothing imports from a module that no longer exists.
 """

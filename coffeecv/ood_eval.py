@@ -315,7 +315,7 @@ def main() -> None:
     print(f"config: {cfg_source}")
     _, classes_file = cfg.resolve_paths()
     classes = load_classes(classes_file)
-    model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
+    model, head = load_model(checkpoint, cfg.model_name, len(classes))
     probe = load_ood_probe(checkpoint, Path(args.probe) if args.probe else None, embedding_dim_of(head))
     if probe is None:
         sys.exit(f"No OOD probe at {args.probe or probe_path_for(checkpoint)}; fit one with coffeecv.fit_ood_probe")

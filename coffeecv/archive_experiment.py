@@ -168,8 +168,8 @@ def rebuild_index() -> int:
 def archive(exp_id: str, slug: str, note: str, src_dir: Path = OUTPUTS_DIR) -> Path:
     """Copy one run's artifacts from `src_dir` into experiments/ and rebuild the index.
 
-    `src_dir` defaults to outputs/, where train_baseline writes. coffeecv_dino's screen keeps each
-    run in its own directory instead -- it produces many runs per invocation -- and passes that.
+    `src_dir` defaults to outputs/, where the retired ResNet trainer (train_baseline, removed 2026-10-20)
+    wrote. fit_frozen_head and coffeecv_dino's screen keep each run in its own directory and pass that.
     """
     metrics_file = src_dir / "metrics.json"
     if not metrics_file.exists():

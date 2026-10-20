@@ -90,7 +90,7 @@ classifier = models.classifier
 logger.info("LiteRT model %s: %s", LITERT_DIR.name,
             json.dumps({g: {k: spec[k] for k in ("file", "accelerator", "precision", "batch")}
                         for g, spec in models.manifest["graphs"].items()}))
-# Dihedral TTA is a property of the model, read from its card (on for ResNet18; off for a frozen ViT,
+# Dihedral TTA is a property of the model, read from its card (off for a frozen ViT,
 # where 8 views would cost ~46 s per photo -- docs/dinov3_integration_plan.md §6.2). LiteRT serves none.
 TTA = inference_tta_for(CHECKPOINT, cfg.model_name)
 if TTA:

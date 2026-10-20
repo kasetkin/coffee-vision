@@ -102,7 +102,7 @@ def main() -> None:
     _, classes_file = cfg.resolve_paths()
     classes = load_classes(classes_file)
     ckpt_sha = _sha(checkpoint)
-    model, head = load_model(checkpoint, cfg.model_name, len(classes), cfg.dropout)
+    model, head = load_model(checkpoint, cfg.model_name, len(classes))
     cache_dir = Path(args.cache_dir) if args.cache_dir else None
     tta = False if args.no_tta else inference_tta_for(checkpoint, cfg.model_name)
 

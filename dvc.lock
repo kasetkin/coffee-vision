@@ -1,122 +1,5 @@
 schema: '2.0'
 stages:
-  train:
-    cmd: python -m coffeecv.train_baseline
-    deps:
-    - path: coffeecv
-      hash: md5
-      md5: 249c539b5a9493ed9e2023d085c5dc93.dir
-      size: 376136
-      nfiles: 33
-    - path: data/cropped/cam_iphone
-      hash: md5
-      md5: b9d48cbb60f86a9536e1f372cc7b8e47.dir
-      size: 119281284
-      nfiles: 93
-    - path: data/cropped/cam_oneplus
-      hash: md5
-      md5: 5e2b3d93485b5e47425a6ff1a7151b50.dir
-      size: 396009394
-      nfiles: 221
-    - path: data/cropped/cam_pixel
-      hash: md5
-      md5: b81973c3061afcbd66b2282ef7c25f3c.dir
-      size: 705962207
-      nfiles: 407
-    - path: data/cropped/cam_sony
-      hash: md5
-      md5: be6adf11e6c485c3a614627972ceda9a.dir
-      size: 1115861501
-      nfiles: 221
-    - path: dataset/classes.txt
-      hash: md5
-      md5: e2f885c478a45fb6a53edfe71a76ef09
-      size: 203
-    params:
-      params.yaml:
-        backbone_lr: 1e-05
-        batch_size: 32
-        bean_analysis_frac: 0.4
-        bean_calibration_k: 1.18
-        bean_k_hi: 80
-        bean_k_lo: 4
-        brightness_jitter_strength: 0.0
-        classes_file: dataset/classes.txt
-        color_jitter_strength: 0.2
-        dropout: 0.2
-        early_stop_patience: 20
-        epochs: 100
-        eta_min: 1e-05
-        floor_epochs: 15
-        freeze_mode: none
-        illum_gradient_strength: 0.0
-        label_smoothing: 0.0
-        lr: 0.001
-        mixstyle_alpha: 0.1
-        mixstyle_mode: agnostic
-        mixstyle_p: 0.5
-        mixup_alpha: 0.0
-        model_name: resnet18
-        optimizer: adamw
-        patch_beans_max: 7.0
-        patch_beans_min: 4.0
-        patch_crop_size: 900
-        patch_resize: 224
-        patch_scale_frac_max: 0.0
-        patch_scale_frac_min: 0.0
-        patch_store_size: 448
-        plateau_cooldown: 3
-        plateau_factor: 0.3
-        plateau_patience: 6
-        plateau_smooth: 5
-        plateau_threshold: 0.003
-        random_erasing_p: 0.5
-        rotation_jitter_degrees: 0.0
-        safety_margin: 0.97
-        scheduler: cosine
-        seed: 7
-        test_patches_per_class: 40
-        test_photo_frac: 0.15
-        train_capture_dirs:
-        - data/cropped/cam_pixel
-        - data/cropped/cam_sony
-        - data/cropped/cam_oneplus
-        - data/cropped/cam_iphone
-        train_patches_per_class: 150
-        train_photo_frac: 0.7
-        val_patches_per_class: 40
-        val_photo_frac: 0.15
-        weight_decay: 0.0001
-        zoom_scale_min: 1.0
-    outs:
-    - path: outputs/checkpoints/best.pt
-      hash: md5
-      md5: c0920874781b14f4b5b39c2929f3f052
-      size: 44797323
-    - path: outputs/checkpoints/last.pt
-      hash: md5
-      md5: cdf770d93cbcd977158fe3774398a51a
-      size: 44797323
-    - path: outputs/history.json
-      hash: md5
-      md5: d59d5ac77a595ba62eaea2bbd39e670c
-      size: 27174
-    - path: outputs/metrics.json
-      hash: md5
-      md5: 16d042222e1737f82dc4571a92fd15f6
-      size: 9860
-    - path: outputs/predictions_test.csv
-      hash: md5
-      md5: cd12ce6afc6f5928348699bf4c599073
-      size: 12983
-    - path: outputs/predictions_val.csv
-      hash: md5
-      md5: 46d4682f396478c33c1368337c3afde1
-      size: 13343
-    - path: outputs/summary.json
-      hash: md5
-      md5: 256f058baebeb4b4fdfaf616b6279770
-      size: 143
   seg_predict@pretrained:
     cmd: python -m coffeecv.seg_predict pretrained --threads 4
     deps:
@@ -1995,16 +1878,16 @@ stages:
     deps:
     - path: coffeecv/export_litert.py
       hash: md5
-      md5: fef56885545fa32713dbcaec35fd3a2b
-      size: 9814
+      md5: a59fb5e712a01fbb96de05e266a3052e
+      size: 9753
     - path: coffeecv/litert.py
       hash: md5
       md5: a947edb93279c7eae9e698122a27b257
       size: 17895
     - path: coffeecv/litert_forms.py
       hash: md5
-      md5: e0bbda833b0a616946956a72e3aed358
-      size: 24860
+      md5: b1727685c2bfa925d0d8a1ca8e3f7e0f
+      size: 24847
     - path: convert/uv.lock
       hash: md5
       md5: 6e114bc858961f7f66b18ddf7c596ed8
@@ -2147,16 +2030,16 @@ stages:
     deps:
     - path: coffeecv/export_litert.py
       hash: md5
-      md5: fef56885545fa32713dbcaec35fd3a2b
-      size: 9814
+      md5: a59fb5e712a01fbb96de05e266a3052e
+      size: 9753
     - path: coffeecv/litert.py
       hash: md5
       md5: a947edb93279c7eae9e698122a27b257
       size: 17895
     - path: coffeecv/litert_forms.py
       hash: md5
-      md5: e0bbda833b0a616946956a72e3aed358
-      size: 24860
+      md5: b1727685c2bfa925d0d8a1ca8e3f7e0f
+      size: 24847
     - path: convert/uv.lock
       hash: md5
       md5: 6e114bc858961f7f66b18ddf7c596ed8

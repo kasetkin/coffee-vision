@@ -95,7 +95,7 @@ class TestNoPrivateCopies(unittest.TestCase):
     silently both times (plan §4.2)."""
 
     BANNED = ("load_rgb_image", "estimate_bean_pitch", "sample_bean_unit_patch_boxes",
-              "build_eval_transform", "build_train_transform",
+              "build_eval_transform",
               "compute_split_metrics", "build_fold_datasets", "build_capture_dataset", "split_photos_by_class",
               "pooled_class_photos", "archive", "patches_for_photo", "forward_with_embeddings", "id_photos",
               "negatives_from", "linear_probe_scores", "_fit_logistic", "auroc", "detection_at_fpr",

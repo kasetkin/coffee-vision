@@ -7,7 +7,8 @@ bfloat16 RoPE periods over timm's fp32 recompute -- timm's output is bit-identic
 reference on one machine (verified at 6876159, 224 and 256 px); tests/test_dino_backbone.py pins it.
 
 DINOv2 is a reference arm only, built exactly as the 2026-09-21 screen built it (torch.hub from the
-cached hub checkout), so its numbers stay continuous with that screen. ResNet18 is the frozen control.
+cached hub checkout), so its numbers stay continuous with that screen. The screen's frozen ResNet18 control
+was removed with the ResNet18 path on 2026-10-20.
 
 `features(x)` returns every readout a backbone offers from ONE forward pass, so a screen that scores
 two readouts still embeds each patch once.
@@ -32,13 +33,12 @@ DINOV2_HUB_DIR = Path.home() / ".cache" / "torch" / "hub" / "facebookresearch_di
 
 @dataclass(frozen=True)
 class BackboneSpec:
-    family: str               # "resnet18" | "dinov2" | "dinov3"
+    family: str               # "dinov2" | "dinov3"
     weights: str              # path under models_pretrained/, as listed in its manifest.json
     timm_name: str | None = None
 
 
 SPECS: dict[str, BackboneSpec] = {
-    "resnet18": BackboneSpec("resnet18", "resnet18/resnet18-f37072fd.pth"),
     "dinov2_vits14": BackboneSpec("dinov2", "dinov2/dinov2_vits14_pretrain.pth"),
     "dinov3_vits16": BackboneSpec("dinov3", "dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth",
                                   "vit_small_patch16_dinov3"),
@@ -50,7 +50,7 @@ SPECS: dict[str, BackboneSpec] = {
 
 # "cls" is what the model returns upstream; "cls_mean" (CLS concatenated with the mean of the patch
 # tokens) is the input Meta's own linear-classification eval feeds its heads (dinov3/eval/linear.py).
-READOUTS = {"resnet18": ("avgpool",), "dinov2": ("cls", "cls_mean"), "dinov3": ("cls", "cls_mean")}
+READOUTS = {"dinov2": ("cls", "cls_mean"), "dinov3": ("cls", "cls_mean")}
 
 
 def sha256_of(path: Path, chunk: int = 1 << 20) -> str:
@@ -133,8 +133,6 @@ class FrozenBackbone(nn.Module):
         return None
 
     def features(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        if self.spec.family == "resnet18":
-            return {"avgpool": self.model(x)}
         if self.spec.family == "dinov2":
             out = self.model.forward_features(x)
             cls, patches = out["x_norm_clstoken"], out["x_norm_patchtokens"]
@@ -148,13 +146,7 @@ def build_backbone(name: str) -> FrozenBackbone:
     spec = SPECS[name]
     digest = verify_weights(spec.weights)
     sd = torch.load(MODELS_PRETRAINED / spec.weights, map_location="cpu", weights_only=True)
-    if spec.family == "resnet18":
-        import torchvision
-
-        model = torchvision.models.resnet18(weights=None)
-        model.load_state_dict(sd, strict=True)
-        model.fc = nn.Identity()
-    elif spec.family == "dinov2":
+    if spec.family == "dinov2":
         if not (DINOV2_HUB_DIR / "hubconf.py").exists():
             raise FileNotFoundError(
                 f"{DINOV2_HUB_DIR} is missing; the DINOv2 reference arm builds from that hub checkout "

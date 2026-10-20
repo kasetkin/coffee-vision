@@ -422,7 +422,7 @@ def load_shipped(checkpoint: Path):
     from coffeecv.segment_beans import BeanSegmenter, seg_params
 
     cfg, _ = config_for_checkpoint(checkpoint, None)
-    model, _ = load_model(checkpoint, cfg.model_name, len(load_classes(REPO / cfg.classes_file).keys), cfg.dropout)
+    model, _ = load_model(checkpoint, cfg.model_name, len(load_classes(REPO / cfg.classes_file).keys))
     seg = BeanSegmenter(seg_params(cfg))
     return model.eval(), seg, cfg
 

@@ -4,7 +4,7 @@ Read before launching a recorded run or a screen, comparing runs, or reporting r
 
 ## Launching
 
-- DINOv3 heads: `python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp <N>`. The legacy ResNet18 driver is `coffeecv.run_all_rigs` (it runs `dvc repro train`); a recorded run never comes from calling a training module directly, or `dvc.lock` falls out of step with the commit.
+- DINOv3 heads: `python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp <N>`. It is the only training driver: the ResNet18 trainer and its `run_all_rigs` driver were removed on 2026-10-20.
 - **Commit the code before the run.** A run's commit must hold everything it depended on: code, `params.yaml`, the data version in `dvc.lock`, and its archived outputs. The drivers refuse a dirty tree, stale stages and a detached HEAD; `--allow-dirty` overrides that and should be rare. A sweep once ran 30 hours on uncommitted code.
 - **Run the changed path at toy scale first** (`CODING_STANDARDS.md`, "Proving a change").
 - **Before a paired run, diff its config against the baseline's**, key by key; only the variable under test may differ:

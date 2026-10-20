@@ -6,14 +6,10 @@
 __pycache__/
 # Must be `/outputs/*`, not `/outputs/` — git cannot re-include a file whose
 # parent *directory* is excluded, so the negation below is silently dead against
-# a directory pattern. dvc.yaml declares metrics.json `cache: false`, i.e.
-# "versioned in git, not the DVC cache", which the blanket ignore was quietly
-# making a lie: it was tracked by neither. Per-experiment copies of this and the
-# rest of each run also live in experiments/.
+# a directory pattern. ML-2's seg_eval@<model> metrics are `cache: false` in dvc.yaml,
+# i.e. "versioned in git, not the DVC cache". (The ResNet trainer's metrics.json and
+# summary.json were too, until its stage was removed on 2026-10-20.)
 /outputs/*
-!/outputs/metrics.json
-!/outputs/summary.json
-# ML-2 seg_eval@<model> metrics (dvc.yaml: cache: false), versioned in git for the same reason.
 !/outputs/seg_eval_*.json
 /tensorboard/
 /dvc_plots/

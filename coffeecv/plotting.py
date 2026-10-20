@@ -86,32 +86,3 @@ def plot_training_curves(history: list[dict], out_path: Path) -> None:
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
-
-
-def plot_patch_samples(dataset, class_ids: list[str], class_labels: dict[str, str], out_path: Path, n_per_class: int = 3) -> None:
-    fig, axes = plt.subplots(len(class_ids), n_per_class, figsize=(n_per_class * 2.2, len(class_ids) * 2.2))
-
-    by_class: dict[str, list[int]] = {cid: [] for cid in class_ids}
-    for idx, meta in enumerate(dataset.meta):
-        if len(by_class[meta.class_id]) < n_per_class:
-            by_class[meta.class_id].append(idx)
-
-    for row, cid in enumerate(class_ids):
-        for col in range(n_per_class):
-            ax = axes[row, col] if len(class_ids) > 1 else axes[col]
-            idxs = by_class[cid]
-            if col < len(idxs):
-                tensor, _label = dataset[idxs[col]]
-                img = tensor.permute(1, 2, 0).numpy()
-                img = (img - img.min()) / (img.max() - img.min() + 1e-8)
-                ax.imshow(img)
-            ax.axis("off")
-            if col == 0:
-                ax.set_ylabel(class_labels.get(cid, cid), fontsize=8)
-                ax.axis("on")
-                ax.set_xticks([])
-                ax.set_yticks([])
-
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=120)
-    plt.close(fig)

@@ -75,13 +75,5 @@
     "embed_dim": null,
     "filename_hash_verified": null,
     "source": "https://huggingface.co/mit-han-lab/efficientvit-sam/resolve/a2f0c5929196a13ef1ffc9338d3f9e482e1e0e68/efficientvit_sam_xl1.pt"
-  },
-  {
-    "path": "resnet18/resnet18-f37072fd.pth",
-    "sha256": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec",
-    "bytes": 46830571,
-    "params_m": 11.7,
-    "embed_dim": null,
-    "filename_hash_verified": true
   }
 ]

@@ -13,13 +13,13 @@
 # that flattening intact regardless.
 #
 # The payload runs verbatim in a nested `bash -c`, so chain steps yourself
-# with && -- a failing step stops the chain (mirrors run_all_rigs.py exiting
+# with && -- a failing step stops the chain (a driver such as fit_frozen_head exits
 # non-zero on failure) and reports as SWEEP_DONE_EXIT=<its exit code>.
 #
 # Usage: scripts/remote_launch.sh <payload> <ssh_host> [remote_workdir] [remote_venv] [remote_log] [remote_status]
 # Example:
 #   scripts/remote_launch.sh \
-#     'python -m coffeecv.run_all_rigs --seeds 42 123 7 --mixstyle-p 0.5 --freeze-mode none --eta-min 1e-5 --scheduler cosine --start-exp 255'
+#     'python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 273'
 set -uo pipefail
 
 PAYLOAD="${1:?usage: remote_launch.sh <payload> <ssh_host> [remote_workdir] [remote_venv] [remote_log] [remote_status]}"
