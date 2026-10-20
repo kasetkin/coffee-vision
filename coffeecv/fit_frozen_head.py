@@ -440,9 +440,7 @@ def ship(exp: int, name: str, seed_exps: list[int] | None = None, arm: str | Non
             "this_run_in_distribution": {s: {k: splits[s][k] for k in ("macro_f1", "mcc", "accuracy")}
                                          for s in ("val", "test")},
             **({"all_seeds_in_distribution": seeds,
-                "headline": ("analysis/ml3/printout.txt: patch macro-F1 over the 8 pre-ML-3 countries on "
-                             "pre-ML-3 photos, with photo-level scores and bootstrap CIs, and the live model's "
-                             "remapped reference")} if seeds else {}),
+                "headline": None} if seeds else {}),   # the fit's comparison printout, written by the person who ships it
             "note": ("in-distribution only -- compare to the folds' test split, never to a cross-camera number" if per_folder else
                      "in-distribution only; country classes (ticket ML-3) are not comparable with any card "
                      "fitted on per-folder classes"),
@@ -456,7 +454,8 @@ def ship(exp: int, name: str, seed_exps: list[int] | None = None, arm: str | Non
     }
     MODELS_DIR.joinpath(f"{name}.json").write_text(json.dumps(card, indent=1) + "\n")
     log(f"shipped {exp_dir.name} -> {dst.relative_to(REPO_ROOT)} (+ .json card, .classes.txt). Next: "
-        f"build_ood_reference and fit_ood_probe on it (plan §9.3), then fill in the card's why_this_one.")
+        f"build_ood_reference and fit_ood_probe on it (plan §9.3), then fill in the card's why_this_one"
+        + (" and headline." if seeds else "."))
 
 
 def main(argv: list[str] | None = None) -> int:

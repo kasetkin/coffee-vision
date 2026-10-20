@@ -1,6 +1,6 @@
 """Ticket ML-8 P6: peak RAM and time of the augmented head fit at full size, before the three-seed run (R4).
 
-    python analysis/ml8/p6_fullsize.py [--seed 42] [--views-subset 256] [--out analysis/ml8/p6_fullsize.json]
+    python analysis/ml8/p6_fullsize.py [--seed N] [--views-subset 256] [--out analysis/ml8/p6_fullsize.json]
 
 The smoke's 6 training patches per class cannot show either. This holds one full training split in memory (as
 fit_one_seed does, D8's 600 patches per class), embeds every original, and the views of `--views-subset` patches
@@ -9,6 +9,7 @@ the unaugmented one on the originals, the augmented one on 1 + views rows per pa
 diagnostic C grid included. The views of the other patches are stood in for by their original plus Gaussian
 noise matched, per dimension, to the measured views' spread, so the fits see the full row count and a
 realistic spread. Peak RSS (VmHWM) is read after each step. Nothing is archived; the patches are never written.
+--seed omitted is params.yaml's seed; the recorded p6_fullsize.json was measured at --seed 42.
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 from coffeecv import fit_frozen_head as ffh  # noqa: E402
 from coffeecv.backbones import build_backbone  # noqa: E402
+from coffeecv.config import RunConfig  # noqa: E402
 from coffeecv.fold_data import build_fold_datasets  # noqa: E402
 from coffeecv.transforms import build_eval_transform  # noqa: E402
 
@@ -36,10 +38,12 @@ def rss_gb() -> dict[str, float]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--seed", type=int, help="default: params.yaml's seed")
     ap.add_argument("--views-subset", type=int, default=256)
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
+    if args.seed is None:
+        args.seed = RunConfig.from_params_yaml().seed
     rec: dict = {"seed": args.seed}
 
     def step(name: str, t0: float, **extra) -> None:
