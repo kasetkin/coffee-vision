@@ -254,7 +254,7 @@
 
   <h2>10. P8 &mdash; LiteRT export, gates, deploy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-20: exp271 shipped as <code>dino3b16_segxl0v3_country_aug8_s123</code>, its OOD reference and probe, LiteRT export (D7 passed on 13 fixtures), every new object pushed and verified; deploying (Activity)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-20: the commits <code>ML-8 P8</code>; <code>dino3b16_segxl0v3_country_aug8_s123</code> deployed and verified on the domain, 07:13 UTC; every object verified on the remote</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -406,6 +406,23 @@
       target and verified by md5 on the remote: the 16 crop stages, <code>merge_segpool</code>, both shipped
       checkpoints (2,029 objects) and the export (8). P8's crops snapshot removed (its 2,597 files checked in the DVC
       cache first). <code>test_release_manifest</code> now names the new model.</div>
+    <div><div class="when">2026-10-20</div>P8 done: deployed. Before the push, the full tier (<code>check.sh
+      --full</code>, 641 tests, the 5 ONNX skips) failed once on P4's commit: <code>test_seg_parity</code> derives
+      <code>pool_exclude.csv</code> from the committed reviews, and P4 had appended its 6 rows by hand.
+      <code>analysis/ml3/mask_review.py</code> now derives ML-8's declines from its decisions and the crops' reports, and
+      rewrote the file (the same 25 rows, sorted; the pool byte-identical); the full tier then passed on
+      <code>341e03b</code>, pushed to <code>origin/main</code>. Deploy (R6, the owner's go): the live service stopped at
+      06:09 UTC for <code>--stage-only</code>, whose upload was the full 780 MB (rsync's <code>--copy-dest</code> matches
+      by path, and the model's files sit under a new name, though only <code>head.npz</code> differs), so the service
+      was started again at 06:21 and the release's files sent by hand into the incomplete release directory with the
+      script's own rsync command, the site up (to 07:06). Stopped again at 07:06:44: <code>--stage-only</code> (rsync 4
+      s, every file's md5 checked, venv 6 s, smoke on the GPU), <code>--compare</code> within D7's bars on 12 photos
+      (07:12), the full deploy reusing that release, flipped, restarted, and <code>--verify</code> on the domain:
+      startup line commit <code>341e03b</code>, model_sha <code>a4d36cfccec4f993</code>, <code>/analyze</code> 200 with
+      preview and classification, top-1 Colombia, 07:13:48. Server-side, the app log: <code>latency_ms</code> 8439,
+      <code>preview_ms</code> 2103. Photo answers were down about 12 and 7 minutes. Pruned: the release before last and
+      the incomplete directory; <code>previous</code> is ML-6's release. For OPS-10: a new model name defeats the
+      upload's reuse, so a deploy that must stop the live service should upload first.</div>
   </div>
 
   <footer>Related: <a href="ticket_data_refresh_retrain.html">ML-8 ticket</a>, <a href="plan_segmenter_retrain.html">ML-6 plan</a>,

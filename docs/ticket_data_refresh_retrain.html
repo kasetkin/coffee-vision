@@ -14,7 +14,7 @@
     P1–P8), not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-18; D1–D12 decided 2026-10-19; planned 2026-10-19 (P1–P8); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-10-18; D1–D12 decided 2026-10-19; planned 2026-10-19 (P1–P8); implemented and live 2026-10-20</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, re-crop, one pool, classifier retrain with augmentation, release</span></div>
@@ -207,7 +207,10 @@
           (plan P2).</td></tr>
       <tr><td class="id">R8</td><td><strong>Without tags, listed segmenter-dataset groups could merge.</strong></td>
         <td>A negative's grouping subject becomes its batch, so two tags of one batch shot within 120 s would join one
-          group. Rebuild in memory first; if any listed split or group would change, stop for the owner (plan P3).</td></tr>
+          group. Rebuild in memory first; if any listed split or group would change, stop for the owner (plan P3).
+          Outcome (P3): no listed split or group value changed; compared as partitions, user_samerig's green_legume
+          and confusable_grain groups (98 s apart) chain, both in train, and three iPhone pool photos chain under the
+          old code too; reported at P4's stop.</td></tr>
       <tr><td class="id">R9</td><td><strong>The pinned library gets no more fixes.</strong></td>
         <td>2.0.8 is the last MIT release and upstream is archived. Accepted in ADR 0018; the strict builder at least
           makes every argument mean what it says.</td></tr>
@@ -360,6 +363,14 @@
     <div><div class="when">2026-10-19</div>The owner answers the plan's Q1&ndash;Q3: D10 (drop <code>allrigs</code>
       from new names), D11 (the owner judges the 20 new crops) and D12 (reference and probe unaugmented). Every
       decision is made. Not implemented.</div>
+    <div><div class="when">2026-10-20</div>Implemented (plan P1&ndash;P8) and live. One pool of 1,251 crops (the owner
+      declined 6 of the 20 new ones), 600/160/160 patches per class, no camera, rig or tag in the pipeline (ADR 0024);
+      the frozen head fits on 8 augmented views beside each training patch (ADR 0025). exp270&ndash;272: augmented
+      minus unaugmented macro-F1 +0.0021 val, +0.0038 test on average (<code>analysis/ml8/p7_paired.txt</code>). The
+      owner chose exp271 (seed 123) over the val pick; <code>dino3b16_segxl0v3_country_aug8_s123</code>, its probe
+      160/160 negatives caught and 0/73 positives refused, deployed and verified on the domain 2026-10-20 07:13 UTC
+      (8.4 s per photo server-side, the preview at 2.1 s). Photo answers were down 06:09&ndash;06:21 and
+      07:07&ndash;07:13 UTC (R6); the first window ended early to upload the new export with the site up.</div>
     <div><div class="when">2026-10-19</div>Ticket text checked against D1&ndash;D12 and the plan, at the owner's request.
       Brought up to date: lede, Component, Summary (the plan's eight phases), Background (the library and its silently
       ignored arguments, the <code>allrigs</code> names, patch memory), Before and after, What does not change (the library
