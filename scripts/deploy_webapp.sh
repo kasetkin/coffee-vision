@@ -10,7 +10,7 @@
 #   scripts/deploy_webapp.sh --rollback                      switch back to `previous`
 #
 # Runs locally and drives the VM over SSH. <git-ref> must resolve to a commit on origin/main. <model> is
-# a name under models/ (e.g. allrigs_dino3b16_seg_country_s123). Environment (defaults in brackets):
+# a name under models/ (e.g. dino3b16_segxl0v3_country_aug8_s123). Environment (defaults in brackets):
 #   HOST [webappremote]  APP_USER [the deploy user: HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
 #   PUBLIC_PORT [12346, nginx's TLS port, behind the proxy]  DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]

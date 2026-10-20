@@ -14,8 +14,8 @@ The fit set:
   tags, and negatives are negatives; until then the fit took a list of "clean" tags, which left out the three
   coffee-cherry photos of wrong_bean_type). Test negatives are never read here.
 
-    python -m coffeecv.fit_ood_probe --checkpoint models/allrigs_dino3b16_seg_country_s123.pt
-    python -m coffeecv.ood_eval --checkpoint models/allrigs_dino3b16_seg_country_s123.pt    # then measure
+    python -m coffeecv.fit_ood_probe --checkpoint models/dino3b16_segxl0v3_country_aug8_s123.pt
+    python -m coffeecv.ood_eval --checkpoint models/dino3b16_segxl0v3_country_aug8_s123.pt    # then measure
 """
 from __future__ import annotations
 

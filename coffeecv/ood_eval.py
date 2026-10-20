@@ -21,7 +21,7 @@ chosen from these numbers (the threshold is fixed), so running this again spends
 The method comparison this file used to run (centroid, kNN, Mahalanobis, energy, ensembles; ADR 0005,
 docs/ood_guard_eval.md) chose the probe and retired with the calibrated threshold; it is in git history.
 
-    python -m coffeecv.ood_eval --checkpoint models/allrigs_dino3b16_seg_country_s123.pt --out ood.json
+    python -m coffeecv.ood_eval --checkpoint models/dino3b16_segxl0v3_country_aug8_s123.pt --out ood.json
 """
 from __future__ import annotations
 

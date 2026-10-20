@@ -121,7 +121,7 @@ proxy that serves the domain on 80/443 and forwards to it; the site is `https://
 
 ```
 scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
-DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> allrigs_dino3b16_segxl0v3_country_s42
+DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> dino3b16_segxl0v3_country_aug8_s123
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
 scripts/deploy_webapp.sh --compare <release-id>             # the release on the host vs PyTorch here, 12 photos, ML-7 D7's bars
 DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves, backend + public site
