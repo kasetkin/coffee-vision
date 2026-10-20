@@ -121,7 +121,9 @@ case $cmd in
     now=; [[ $1 == --now ]] && { now=1; shift; }
     u=$(norm "$1"); touch "$ST/$u.enabled"; [[ -n $now ]] && start "$u"; exit 0 ;;
   is-enabled) u=$(norm "$1"); [[ -f "$ST/$u.enabled" ]] && { echo enabled; exit 0; }; echo disabled; exit 1 ;;
-  is-active) [[ $1 == --quiet ]] && shift; alive "$(norm "$1")" ;;
+  is-active)   # as systemd: prints active or inactive unless --quiet; exit 0 only when active
+    q=; [[ $1 == --quiet ]] && { q=1; shift; }
+    if alive "$(norm "$1")"; then [[ -n $q ]] || echo active; else [[ -n $q ]] || echo inactive; exit 3; fi ;;
   show)
     prop=; while (( $# > 1 )); do case $1 in -p) prop=$2; shift 2 ;; --value) shift ;; *) shift ;; esac; done
     u=$(norm "$1")
@@ -175,6 +177,7 @@ step() { printf '\n\n############ %s\n' "$*"; }
 expect_fail() {   # expect_fail <pattern> <cmd...>: the command must fail and print the pattern
   local out rc=0
   out=$("${@:2}" 2>&1) || rc=$?
+  printf '%s\n' "$out" > "$R/expect_fail.log"
   if (( rc != 0 )) && grep -q -- "$1" <<<"$out"; then echo "   refused as expected: $(grep -m1 -- "$1" <<<"$out")"
   else echo "$out" | tail -20; echo "REHEARSAL FAILED: expected a refusal matching '$1' (exit $rc)"; exit 1; fi
 }
@@ -213,6 +216,7 @@ expect_fail "nginx -t rejected the new site" env STUB_NGINX_FAIL=1 "$D" "$SHA" "
 cmp -s "$R/site.before" "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" || { echo "site not restored"; exit 1; }
 [[ "$(readlink "$APP_ROOT/current")" == "$before" ]] || { echo "current moved"; exit 1; }
 # ADR 0026: the deploy stopped the live service for its smoke; a failure before the flip starts it again.
+grep -q "Start the live service again" "$R/expect_fail.log" || { echo "the refused deploy did not stop and restart the live service"; exit 1; }
 PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "the live service was not started again"; exit 1; }
 echo "   site restored byte for byte; current unchanged; the live service started again"
 
