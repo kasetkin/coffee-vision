@@ -1,0 +1,130 @@
+<title>The Docs Say What Is Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-11 · coffee-vision · documentation</div>
+  <h1>The project README and the serving path page describe the live pipeline, not the one before it</h1>
+  <p class="lede">The owner asked for a ticket to bring the project's overview docs up to date. The serving path page
+    still shows ML-3's model, the L0 segmenter, <code>/classify</code> and a PyTorch path with a ResNet18 fallback; the
+    README's Status mixes the fold-era numbers with today's and points at an experiments log it calls stale. Written,
+    not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-20; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Docs: overview pages</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>docs/inference_path.html</code>, <code>README.md</code>, <code>models_pretrained/README.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (writing), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-20</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-20.</strong> Create a ticket for updating docs such as
+      <code>inference_path</code> and the project README.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Two overview docs, the ones a newcomer reads first, describe the pipeline of early October. After: the serving
+    path page traces today's <code>/analyze</code> from upload to the two streamed parts, and the README's Status says
+    what is live, what the numbers mean and where each run is written up. The plan and investigation records under
+    <code>docs/</code> stay as they are: they record what was true when they were written.</p>
+
+  <h2>2. Background</h2>
+  <p>Read 2026-10-20 at <code>d0d963c</code> and after the ResNet18 code was removed the same day.</p>
+  <ul>
+    <li><b><code>docs/inference_path.html</code></b> (last changed 2026-10-06, linked from nothing): "Traced from
+      <code>coffeecv/infer.py:classify_one</code>, the function both the CLI and <code>webapp/app.py</code>'s POST
+      <code>/classify</code> call"; checkpoint <code>allrigs_dino3b16_seg_country_s123.pt</code>; SAM-L0 +
+      <code>ft_s123</code>; "The ResNet18 fallback, <code>allrigs_cam_s123</code>". Today: <code>/analyze</code>, one
+      streamed request in two parts (ADR 0023), the models on LiteRT with an accelerator per host (ADR 0019, ADR 0020),
+      XL0-v3, the OOD probe at 0.5 (ADR 0016), warm workers (ADR 0021), the live model
+      <code>dino3b16_segxl0v3_country_aug8_s123</code>.</li>
+    <li><b><code>README.md</code>, Status.</b> The shipped line leads with the fold-era cross-camera 0.8873 and
+      ResNet18's recipe, then the live model's in-distribution numbers; "<code>EXPERIMENTS_LOG.md</code> holds the
+      experiment history through exp251", though it now has exp255&ndash;272; the "known limitation" paragraph is about
+      <code>best.pt</code> checkpoint selection and "5 of 9 classes", the ResNet era's, not the frozen head's fixed C and
+      ten countries.</li>
+    <li><b><code>README.md</code>, Repo layout.</b> The <code>dataset/</code> example names
+      <code>2026-07-24__first_pictures/</code>, the earliest session; to be checked against what training and the
+      segmenter read today.</li>
+    <li><b><code>models_pretrained/README.md</code>, Next steps.</b> Step 1 says the DVC remote "is down for
+      maintenance as of 2026-09-24" and the weights are not yet <code>dvc add</code>ed; the EfficientViT-SAM weights have
+      <code>.dvc</code> pointers now, the DINOv3 ones do not.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The serving path page traces a path that no longer runs.</li>
+        <li>The README's Status needs the plans and the log to tell live from history.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The serving path page traces <code>/analyze</code> as it runs, each step with its code location.</li>
+        <li>The README's Status: the live model and its numbers first, then the history in a line each, with links.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The records.</strong> Plans, investigations and closed tickets under <code>docs/</code>, and
+      <code>EXPERIMENTS_LOG.md</code>'s entries: they say what was true when written.</li>
+    <li><strong>The runbooks.</strong> <code>docs/agents/</code> are kept current with each change, as their rules say.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A rewritten page drifts from the code again.</strong></td>
+        <td>The serving page went stale within two weeks (ML-5 to ML-8). Name each step's function and file, so a reader
+          can check it, and add the page to the docs a serving change updates.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What happens to today's <code>inference_path.html</code>?</td>
+        <td>(a) Rewrite it in place for <code>/analyze</code> (b) Keep it as a dated snapshot and write a new page beside it</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The serving path page traces today's <code>/analyze</code>, with the live model, segmenter, runtime and guard.</span></li>
+    <li><span class="box"></span><span>README's Status and Repo layout say what is live, and where exp252&ndash;272 are written up.</span></li>
+    <li><span class="box"></span><span><code>models_pretrained/README.md</code>'s Next steps say what is done and what is left.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Rewriting plans, investigations or closed tickets.</li>
+    <li>Code changes; a doc that finds a bug files it.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-20</div>Ticket written at the owner's request after the session's stale-docs
+      sweep, from <code>docs/inference_path.html</code>, <code>README.md</code> and <code>models_pretrained/README.md</code>
+      at <code>d0d963c</code>. D1 open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>,
+    <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>,
+    <a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="ticket_data_refresh_retrain.html">ML-8</a>.</footer>
+</main>
