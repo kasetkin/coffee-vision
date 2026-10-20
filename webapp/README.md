@@ -137,13 +137,15 @@ no writable home, so no shader cache persists: shaders compile at each boot, wit
 cold-start change with a cache). A worker that cannot prove the GPU refuses to serve (ADR 0020), so a driver upgrade or a
 lost render group shows as a failed smoke test or a service that does not start, never as silent CPU serving.
 
-A full deploy: **preflight** (>= 5 GB available memory, >= 10 GB free on /opt, pinned uv; records the
+A full deploy: **preflight** (>= 10 GB free on /opt, pinned uv; records the
 sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
 the manifest; the `.pt` from the working tree or the local DVC cache, refused unless its md5 matches the
 commit's `.pt.dvc`; its LiteRT export (`models/<name>.litert/`, ticket ML-7) by md5 from `dvc.lock`; the warm-up
 photo; `BUILD_INFO.json` + `release.env`; the expected smoke answers from the staged tree itself, on this machine's
 CPU) -> **stage**
-(rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **smoke**
+(rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **stop the live
+service** (ADR 0026: the host fits one GPU worker; then >= 5 GB available memory, and any failure before the flip
+starts it again) -> **smoke**
 (the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
 sandbox; `/analyze`'s two parts must match the local answer: same verdict and top-1, scores within
 ML-7 D7's 0.05, the preview's mask IoU at least 0.999 and its thumbnail a JPEG of the same size, same `model_sha`; on a GPU host the worker's boot must prove the GPU,

@@ -89,6 +89,15 @@
       deploy, and asked what the real memory minimum is: about 3.3 GB per worker, so a worker beside the live one
       does not fit, and 3 GB would only move the failure past the preflight. ADR 0026 written; deploy.md says so.
       What remains is the script's own stop and start, and an upload-only step. Not written as a ticket yet.</div>
+    <div><div class="when">2026-10-20</div>The owner's go: the deploy script stops and starts the service itself,
+      and stops it only once every file the release needs is on the host. <code>make_room</code> in
+      <code>scripts/deploy_webapp.sh</code> stops it after the release is staged (uploaded, digest-checked, venv built,
+      <code>.complete</code>) and, for <code>--compare</code>, after the local PyTorch reference; it checks
+      <code>MIN_MEM_GB</code> (5) with the service stopped and refuses before stopping if that could not reach it.
+      <code>--stage-only</code> and <code>--compare</code> start it again; the full deploy restarts it on the new
+      release after the flip; an exit trap starts it on any failure. The local rehearsal passed with it (the refused
+      deploy, deploy 2 down 22 s, <code>--compare</code> down 117 s on the CPU). The upload-only step is still open:
+      a new model name still re-sends all its files, but before the stop.</div>
   </div>
 
   <footer>Related: <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (plan P5),
