@@ -430,7 +430,7 @@ stages:
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
   # accelerator and precision per graph (ADR 0019): gpu_split is yappy's; a new host is measured, then named here.
   litert_export:
-    foreach: [allrigs_dino3b16_segxl0v3_country_s42]
+    foreach: [allrigs_dino3b16_segxl0v3_country_s42, dino3b16_segxl0v3_country_aug8_s123]
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${item}.pt --profile gpu_split

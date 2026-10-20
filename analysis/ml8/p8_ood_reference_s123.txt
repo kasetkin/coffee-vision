@@ -1,0 +1,14 @@
+train patches: 6000
+  Ethiopia                       n=600   spread=7.471
+  Kenya                          n=600   spread=6.841
+  Colombia                       n=600   spread=7.207
+  CostaRica                      n=600   spread=6.890
+  Guatemala                      n=600   spread=7.931
+  Brazil                         n=600   spread=7.215
+  Vietnam                        n=600   spread=6.734
+  Indonesia                      n=600   spread=6.326
+  Peru                           n=600   spread=6.122
+  Rwanda                         n=600   spread=6.262
+per-patch  self-scores: mean 0.97  p95 1.33  max 2.16
+per-photo  self-scores: median 0.93  p95 1.24  max 1.64   (873 photos)
+Wrote models/dino3b16_segxl0v3_country_aug8_s123.ood_reference.json
