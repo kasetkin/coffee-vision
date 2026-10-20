@@ -29,11 +29,16 @@ REFERENCE_PHOTOS = Path(__file__).with_name("reference_photos.txt")
 REFERENCE_SEED = 42
 
 
+def folder_of(photo: str) -> str:
+    """A listed crop's class folder id (`class_001__...` -> "001")."""
+    return CLASS_DIR_RE.match(Path(photo).parts[0]).group(1)
+
+
 def reference_photos() -> list[str]:
     """The listed crops, `<class dir>/<crop file>` under REFERENCE_POOL, one per class folder."""
     lines = [ln.strip() for ln in REFERENCE_PHOTOS.read_text().splitlines()]
     photos = [ln for ln in lines if ln and not ln.startswith("#")]
-    folders = [CLASS_DIR_RE.match(Path(p).parts[0]).group(1) for p in photos]
+    folders = [folder_of(p) for p in photos]
     if len(set(folders)) != len(folders):
         raise ValueError(f"{REFERENCE_PHOTOS} lists a class folder twice")
     return photos
@@ -48,16 +53,17 @@ def reference_patches(per_class: int) -> tuple[torch.Tensor, np.ndarray, list[st
     """(eval-transformed patches [N, 3, 224, 224], labels [N], class_ids, class_labels)."""
     cfg = replace(RunConfig.from_params_yaml(), seed=REFERENCE_SEED)
     pool = REPO_ROOT / REFERENCE_POOL
+    photos = reference_photos()
     with tempfile.TemporaryDirectory() as tmp:
         ref_dir = Path(tmp) / "reference"
-        for p in reference_photos():
+        for p in photos:
             crop = pool / p
             (ref_dir / crop.parent.name).mkdir(parents=True, exist_ok=True)
             for f in (crop, bean_mask_path(crop)):
                 (ref_dir / crop.parent.name / f.name).symlink_to(f)
         # Per folder, whatever classes.txt's format: a class's index seeds its boxes, so the fixture's
         # classes are the listed folder ids in sorted order (ticket ML-3).
-        folders = sorted(CLASS_DIR_RE.match(Path(p).parts[0]).group(1) for p in reference_photos())
+        folders = sorted(folder_of(p) for p in photos)
         classes = folder_classes(REPO_ROOT / cfg.classes_file).select(folders)
         ds = build_capture_dataset(cfg, resolve_captures([ref_dir])[0], classes, per_class)
         items = [ds[i] for i in range(len(ds))]

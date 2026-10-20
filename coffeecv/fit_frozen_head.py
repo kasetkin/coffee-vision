@@ -43,8 +43,9 @@ import json
 import shutil
 import socket
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
@@ -217,8 +218,24 @@ def transform_shifts(patches: list[np.ndarray], X: np.ndarray, bb: FrozenBackbon
     return out
 
 
+class Arm(StrEnum):
+    """One of an augmented run's two heads (ADR 0025): the run's own, fitted on the views too, and the paired one
+    fitted on the patches alone. Its value is the run's metrics.json `arms` key and ship's --arm."""
+    AUGMENTED = "augmented"
+    UNAUGMENTED = "unaugmented"
+
+
+@dataclass
+class ArmFit:
+    """fit_arm's head, its val and test predictions and probabilities, and `record`, what metrics.json keeps."""
+    head: object
+    preds: dict[str, np.ndarray]
+    probs: dict[str, np.ndarray]
+    record: dict
+
+
 def fit_arm(X_train: np.ndarray, y_train: np.ndarray, w: np.ndarray | None, X: dict, y: dict, C: float,
-            class_ids: list[str], class_labels: dict[str, str]) -> dict:
+            class_ids: list[str], class_labels: dict[str, str]) -> ArmFit:
     """One head at the fixed C on these training rows (weights `w`), scored on val and test, with the
     diagnostic val-picked C beside it (never used)."""
     t = time.perf_counter()
@@ -230,12 +247,12 @@ def fit_arm(X_train: np.ndarray, y_train: np.ndarray, w: np.ndarray | None, X: d
         pred, probs, _ = predict(head, X[s])
         preds[s], probs_by[s] = pred, probs
         splits[s] = compute_split_metrics(y[s], pred, cross_entropy(probs, y[s]), class_ids, class_labels)
-    return {"head": head, "preds": preds, "probs": probs_by, "record": {
+    return ArmFit(head, preds, probs_by, {
         "splits": splits, "train_rows": int(len(X_train)),
         "total_sample_weight": float(len(X_train) if w is None else w.sum()),
         "C": C, "converged": converged, "fit_seconds": round(fit_s, 1),
         "diagnostic_val_selected_C": grid.C,
-        "diagnostic_val_macro_f1_by_C": {str(k): v for k, v in grid.val_macro_f1_by_C.items()}}}
+        "diagnostic_val_macro_f1_by_C": {str(k): v for k, v in grid.val_macro_f1_by_C.items()}})
 
 
 def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: str,
@@ -256,19 +273,19 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         built = time.perf_counter() - t
         X[split], y[split], ms[split] = embed(ds, bb, readout)
         sizes[split] = len(ds)
-        meta[split] = list(ds._meta)
+        meta[split] = list(ds.meta)
         class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
         log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
         if split == "train" and aug is not None:
             # ADR 0025: the training patches' views, from the patches in memory; only embeddings are kept.
             t = time.perf_counter()
-            views, ms["train_views"] = embed_views(ds._patches, range(len(ds)), bb, readout, aug, seed)
+            views, ms["train_views"] = embed_views(ds.patches, range(len(ds)), bb, readout, aug, seed)
             views_s = time.perf_counter() - t
             log(f"s{seed}: train {aug.views} views of each patch embedded in {views_s / 60:.1f} min "
                 f"({1000 * views_s / max(views.shape[0] * views.shape[1], 1):.1f} ms/view all in, "
                 f"{ms['train_views']:.1f} ms/view in the backbone)")
             if smoke:
-                shifts = transform_shifts(ds._patches, X["train"], bb, readout, aug, seed)
+                shifts = transform_shifts(ds.patches, X["train"], bb, readout, aug, seed)
                 log(f"s{seed}: mean cosine of a view to its patch, each transform alone: {shifts}")
         if ds.bean_share_rule is not None:
             # D17/D18 per split: photos with no mask (whole photo, every box accepted) and patches the
@@ -280,33 +297,33 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         gc.collect()
 
     # ADR 0002 within one run: the same C and the same total sample weight, so augmentation is the only change.
-    arms = {"unaugmented": fit_arm(X["train"], y["train"], None, X, y, C, class_ids, class_labels)}
+    arms = {Arm.UNAUGMENTED: fit_arm(X["train"], y["train"], None, X, y, C, class_ids, class_labels)}
     if aug is not None:
         X_aug, y_aug, w_aug = augmented_rows(X["train"], views, y["train"])
         del views
         gc.collect()
-        arms["augmented"] = fit_arm(X_aug, y_aug, w_aug, X, y, C, class_ids, class_labels)
+        arms[Arm.AUGMENTED] = fit_arm(X_aug, y_aug, w_aug, X, y, C, class_ids, class_labels)
         del X_aug, y_aug, w_aug
-    main_arm = "augmented" if aug is not None else "unaugmented"
+    main_arm = Arm.AUGMENTED if aug is not None else Arm.UNAUGMENTED
     run = arms[main_arm]
-    split_metrics = run["record"]["splits"]
+    split_metrics = run.record["splits"]
     metrics = build_metrics_json(class_ids, class_labels, epochs_trained=None, best_epoch=None,
                                  val_metrics=split_metrics["val"], test_metrics=split_metrics["test"],
                                  captures=captures)
     metrics["best_epoch_selection_metric"] = f"none: C fixed at {C:g} (no selection here)"
     if aug is not None:
-        metrics["arms"] = {name: a["record"] for name, a in arms.items()}
+        metrics["arms"] = {name.value: a.record for name, a in arms.items()}
 
     import timm
 
     run_dir = out / f"s{seed}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    save_frozen_checkpoint(run_dir / "model.pt", bb, readout, run["head"], class_ids, C)
+    save_frozen_checkpoint(run_dir / "model.pt", bb, readout, run.head, class_ids, C)
     if aug is not None:
-        save_frozen_checkpoint(run_dir / "model_unaugmented.pt", bb, readout, arms["unaugmented"]["head"],
+        save_frozen_checkpoint(run_dir / "model_unaugmented.pt", bb, readout, arms[Arm.UNAUGMENTED].head,
                                class_ids, C)
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
-    rec = run["record"]
+    rec = run.record
     (run_dir / "config.json").write_text(json.dumps({
         **config_to_dict(cfg), "class_ids": class_ids,
         # classes_file is a path; its digest tells a later reader whether the file still says what it said.
@@ -326,7 +343,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
                                 "(dino.augment)" if aug is not None else
                                 "eval transform (no head_augment: no augmentation)"),
             "augment": None if aug is None else {
-                **aug.record(), "head_arm": main_arm, "unaugmented_head": "model_unaugmented.pt",
+                **aug.record(), "head_arm": main_arm.value, "unaugmented_head": "model_unaugmented.pt",
                 "sample_weight_per_row": 1.0 / (aug.views + 1), "views_seconds": round(views_s, 1),
                 **({"shift_by_transform": shifts, "shift_patches": min(SHIFT_PATCHES, sizes["train"])}
                    if shifts is not None else {})},
@@ -336,27 +353,27 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         },
     }, indent=2))
     for s in ("val", "test"):
-        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], run["preds"][s], class_ids, meta[s],
-                              run["probs"][s])
+        write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], run.preds[s], class_ids, meta[s],
+                              run.probs[s])
     for name, a in arms.items():
-        r = a["record"]
-        log(f"s{seed}: {name:11s} C={C:g} ({'converged' if r['converged'] else 'NOT CONVERGED'}, "
+        r = a.record
+        log(f"s{seed}: {name.value:11s} C={C:g} ({'converged' if r['converged'] else 'NOT CONVERGED'}, "
             f"{r['fit_seconds']:.0f}s, {r['train_rows']} rows)  val {r['splits']['val']['macro_f1']:.4f}  "
             f"test {r['splits']['test']['macro_f1']:.4f}  (val alone would pick C={r['diagnostic_val_selected_C']:g})")
     return run_dir
 
 
-def arm_splits(metrics: dict, arm: str | None) -> dict:
-    """metrics.json's val and test numbers of one head of the run: `arm` "augmented" or "unaugmented" (ticket ML-8
-    P6, metrics `arms`), or None for the run's head (`splits`)."""
+def arm_splits(metrics: dict, arm: Arm | None) -> dict:
+    """metrics.json's val and test numbers of one head of the run: `arm` (ticket ML-8 P6, metrics `arms`), or None
+    for the run's head (`splits`)."""
     if arm is None:
         return metrics["splits"]
-    if arm not in (metrics.get("arms") or {}):
-        raise SystemExit(f"the run has no {arm!r} head (its arms: {sorted(metrics.get('arms') or {})})")
-    return metrics["arms"][arm]["splits"]
+    if arm.value not in (metrics.get("arms") or {}):
+        raise SystemExit(f"the run has no {arm.value!r} head (its arms: {sorted(metrics.get('arms') or {})})")
+    return metrics["arms"][arm.value]["splits"]
 
 
-def seed_summary(exp: int, seed_exps: list[int], config: dict, arm: str | None = None) -> dict:
+def seed_summary(exp: int, seed_exps: list[int], config: dict, arm: Arm | None = None) -> dict:
     """The in-distribution numbers of every seed of one fit (of head `arm`, `arm_splits`), with the mean and
     range: the shipped seed was picked on val, so its own test number is selection-biased (ticket ML-3 P7)."""
     if exp not in seed_exps or len(set(seed_exps)) != len(seed_exps):
@@ -378,18 +395,18 @@ def seed_summary(exp: int, seed_exps: list[int], config: dict, arm: str | None =
     return out
 
 
-def ship(exp: int, name: str, seed_exps: list[int] | None = None, arm: str | None = None) -> None:
+def ship(exp: int, name: str, seed_exps: list[int] | None = None, arm: Arm | None = None) -> None:
     """experiments/exp<N> + its fitted head -> models/<name>.pt with card and frozen class list. `arm`
-    "unaugmented" ships the run's unaugmented head instead of its augmented one (ticket ML-8 P7's option)."""
+    Arm.UNAUGMENTED ships the run's unaugmented head instead of its augmented one (ticket ML-8 P7's option)."""
     [exp_dir] = list(EXPERIMENTS_DIR.glob(f"exp{exp}__*"))
     config = json.loads((exp_dir / "config.json").read_text())
     metrics = json.loads((exp_dir / "metrics.json").read_text())
     augment_record = (config.get("dino") or {}).get("augment")
     if arm is not None and not augment_record:
         raise SystemExit(f"exp{exp} was fitted without head_augment: it has one head; ship it without --arm")
-    if arm == "augmented":
+    if arm is Arm.AUGMENTED:
         arm = None                                          # the run's own head
-    unaugmented = arm == "unaugmented"
+    unaugmented = arm is Arm.UNAUGMENTED
     splits = arm_splits(metrics, arm)
     # A country list (ticket ML-3) has no fold-era numbers, so the card carries every seed's instead.
     per_folder = list(folder_classes(REPO_ROOT / config["classes_file"]).keys) == config["class_ids"]
@@ -472,7 +489,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--name", help="with --ship: the models/<name>.pt to create")
     p.add_argument("--seed-exps", type=int, nargs="+",
                    help="with --ship: every seed's experiment of the shipped fit, for the card's mean and range")
-    p.add_argument("--arm", choices=("augmented", "unaugmented"),
+    p.add_argument("--arm", type=Arm, choices=list(Arm),
                    help="with --ship: which of an augmented run's two heads (default: the run's head, augmented)")
     args = p.parse_args(argv)
 

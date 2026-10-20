@@ -503,6 +503,17 @@ class MultiPhotoPatchDataset(Dataset):
     def __len__(self) -> int:
         return len(self._patches)
 
+    @property
+    def patches(self) -> list[np.ndarray]:
+        """The stored patches, HxWx3 uint8 at patch_store_size, before any transform: what the frozen head's
+        augmented views are drawn from (fit_frozen_head.embed_views). Read-only by convention."""
+        return self._patches
+
+    @property
+    def meta(self) -> list[PatchMeta]:
+        """Each stored patch's provenance (PatchMeta), in patch order. Read-only by convention."""
+        return self._meta
+
     def capture_names(self) -> list[str]:
         """Per-sample capture dir name (provenance; no metric is broken down by it)."""
         return [m.capture for m in self._meta]

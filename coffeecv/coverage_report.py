@@ -47,6 +47,7 @@ from coffeecv.config import REPO_ROOT
 # was deleted; a broken import must fail loudly instead.
 from coffeecv.dataset import CAPTURES, CLASS_DIR_RE
 from coffeecv.merge_rig import merge_cmd_args, read_exclusions
+from coffeecv.repro_utils import POOL_MERGE_STAGE
 
 DATASET_DIR = REPO_ROOT / "dataset"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
@@ -188,16 +189,14 @@ def main() -> int:
     # Counted from the raw sessions through dvc.yaml's merge map, so this runs
     # without the segcrop stage having been run. A merge's --exclude list (ML-3 P5) is subtracted.
     merges, left_out = {}, defaultdict(Counter)
-    for stage, body in yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"].items():
-        if stage.startswith("merge_seg") and isinstance(body.get("cmd"), str):
-            parts = body["cmd"].split()
-            if "--name" in parts and "--sessions" in parts:
-                name, sessions = merge_cmd_args(body["cmd"])
-                merges[name] = sessions
-                if "--exclude" in parts:
-                    for s, c, _ in read_exclusions(REPO_ROOT / parts[parts.index("--exclude") + 1]):
-                        if s in sessions:
-                            left_out[name][(CLASS_DIR_RE.match(c).group(1))] += 1
+    cmd = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"][POOL_MERGE_STAGE]["cmd"]
+    name, sessions = merge_cmd_args(cmd)
+    merges[name] = sessions
+    parts = cmd.split()
+    if "--exclude" in parts:
+        for s, c, _ in read_exclusions(REPO_ROOT / parts[parts.index("--exclude") + 1]):
+            if s in sessions:
+                left_out[name][(CLASS_DIR_RE.match(c).group(1))] += 1
     capture_names = [Path(c).name for c in CAPTURES]
     per_capture = {cn: {c: sum(counts[c].get(s, 0) for s in merges.get(cn, [cn])) - left_out[cn][c] for c in counts}
                    for cn in capture_names}

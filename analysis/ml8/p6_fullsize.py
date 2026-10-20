@@ -57,13 +57,13 @@ def main() -> int:
     t = time.perf_counter()
     fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=("train",))
     ds = fold.train
-    step("train_split_built", t, patches=len(ds), patch_bytes=int(sum(p.nbytes for p in ds._patches)))
+    step("train_split_built", t, patches=len(ds), patch_bytes=int(sum(p.nbytes for p in ds.patches)))
     t = time.perf_counter()
     X, y, ms = ffh.embed(ds, bb, "cls_mean")
     step("originals_embedded", t, backbone_ms_per_patch=round(ms, 1))
     sub = np.linspace(0, len(ds) - 1, min(args.views_subset, len(ds))).round().astype(int)
     t = time.perf_counter()
-    V_sub, ms_view = ffh.embed_views(ds._patches, sub, bb, "cls_mean", aug, args.seed)
+    V_sub, ms_view = ffh.embed_views(ds.patches, sub, bb, "cls_mean", aug, args.seed)
     wall = time.perf_counter() - t
     n_views = V_sub.shape[0] * V_sub.shape[1]
     step("subset_views_embedded", t, views=int(V_sub.shape[0] * V_sub.shape[1]),
@@ -86,13 +86,14 @@ def main() -> int:
     Xv = {"val": X[: n // 4], "test": X[n // 4: n // 2]}          # stand-ins: only the fits' cost matters here
     yv = {"val": y[: n // 4], "test": y[n // 4: n // 2]}
     t = time.perf_counter()
-    ffh.fit_arm(X, y, None, Xv, yv, ffh.DEFAULT_C, list(cfg_classes(cfg)), {c: c for c in cfg_classes(cfg)})
+    classes = cfg_classes(cfg)
+    ffh.fit_arm(X, y, None, Xv, yv, ffh.DEFAULT_C, classes, {c: c for c in classes})
     step("unaugmented_fit_with_grid", t, rows=n)
     t = time.perf_counter()
     X_all, y_all, w = ffh.augmented_rows(X, views, y)
     del views
     gc.collect()
-    ffh.fit_arm(X_all, y_all, w, Xv, yv, ffh.DEFAULT_C, list(cfg_classes(cfg)), {c: c for c in cfg_classes(cfg)})
+    ffh.fit_arm(X_all, y_all, w, Xv, yv, ffh.DEFAULT_C, classes, {c: c for c in classes})
     step("augmented_fit_with_grid", t, rows=int(len(X_all)))
     rec["estimated_hours_of_embedding_per_seed"] = round(est_h, 2)
     print(json.dumps(rec, indent=1))

@@ -41,6 +41,10 @@ def reports(session_dir: Path) -> dict[tuple[str, str], dict]:
 
 
 def boxes(crop: Path, cfg: RunConfig) -> list[tuple]:
+    """The D17 boxes on one crop, (y0, y1, x0, x1) each: a copy of dataset._extract_photo's masked path (pitch from
+    the crop's grey, its mask, the safety-margin region, the bean-share rule), with one fixed RNG key and no
+    rotation jitter, as of P4. It compares two crop sets on equal terms; it is not training's placement, and is
+    kept as P4's record rather than shared (the box draw itself is geometry.sample_masked_bean_unit_boxes)."""
     rgb = load_rgb_image(crop)
     h, w = rgb.shape[:2]
     gray = (rgb[:, :, 0] * 0.299 + rgb[:, :, 1] * 0.587 + rgb[:, :, 2] * 0.114).astype(np.uint8)

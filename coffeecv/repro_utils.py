@@ -99,9 +99,9 @@ def stale_crop_stages(capture_dirs: list[str]) -> list[str]:
     the stage's outs, which is exactly how this happens in practice.
     """
     stale = []
+    overrides = capture_stage_overrides()          # dvc.yaml, read once
     for capture in capture_dirs:
         name, key = Path(capture).name, _stage_key(capture)
-        overrides = capture_stage_overrides()
         if key in overrides:
             stages = overrides[key]
         elif key.startswith("segcropped/"):

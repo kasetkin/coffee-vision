@@ -139,7 +139,7 @@ def main() -> None:
     # place. Derived only from training data, so the band never gets tuned on the
     # held-out rig it is supposed to be judged against.
     by_photo: dict[str, list[float]] = {}
-    for meta, score in zip(ds._meta, d):
+    for meta, score in zip(ds.meta, d):
         by_photo.setdefault(f"{meta.capture}/{meta.photo_name}", []).append(float(score))
     photo_med = np.array([np.median(v) for v in by_photo.values()])
 

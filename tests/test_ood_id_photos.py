@@ -68,7 +68,7 @@ class TestIdPhotos(unittest.TestCase):
                     resize=32, safety_margin=0.97, patches_per_class={"train": 1, "val": 50, "test": 50},
                     photo_frac={"train": self.cfg.train_photo_frac, "val": self.cfg.val_photo_frac,
                                 "test": self.cfg.test_photo_frac})
-                in_ds = {m.photo_name.removesuffix("__cropped.jpg") for m in ds._meta}
+                in_ds = {m.photo_name.removesuffix("__cropped.jpg") for m in ds.meta}
                 got = self.id_stems(self.classes, split)
                 self.assertEqual(got, in_ds)
                 self.assertEqual(len(got), round(0.15 * 20) + round(0.15 * 25))   # A: 20 photos; B: 25, pooled

@@ -45,6 +45,23 @@ class TestShipCard(unittest.TestCase):
         self.assertIn("headline", card["expected_performance"])
         self.assertIsNone(card["expected_performance"]["headline"])
 
+    def test_the_unaugmented_head_ships_by_its_arm(self):
+        # Ticket ML-8 P7's option: an augmented run's other head, named by fit_frozen_head.Arm.
+        with (tempfile.TemporaryDirectory(dir=fit_frozen_head.REPO_ROOT / "outputs") as tmp,
+              mock.patch.object(fit_frozen_head, "MODELS_DIR", Path(tmp))):
+            fit_frozen_head.ship(271, "t", [270, 271, 272], fit_frozen_head.Arm.UNAUGMENTED)
+            card = json.loads((Path(tmp) / "t.json").read_text())
+        self.assertEqual(card["training_config"]["head_augment"], {})
+        self.assertIsNone(card["dino"]["augment"])
+        self.assertAlmostEqual(card["expected_performance"]["this_run_in_distribution"]["val"]["macro_f1"], 0.9567,
+                               places=4)
+
+    def test_the_cli_names_the_arms(self):
+        with mock.patch.object(fit_frozen_head, "ship") as ship:
+            fit_frozen_head.main(["--ship", "271", "--name", "t", "--seed-exps", "270", "271", "272",
+                                  "--arm", "unaugmented"])
+        self.assertIs(ship.call_args.args[3], fit_frozen_head.Arm.UNAUGMENTED)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -127,7 +127,7 @@ def check_rotation_jitter() -> None:
         patch_store_size=None,  # full-size patches, so box geometry is checkable
     )
     ds_off = MultiPhotoPatchDataset(rotation_jitter_degrees=0.0, **kwargs)
-    assert all(m.angle == 0.0 for m in ds_off._meta), "jitter=0 produced non-zero angles"
+    assert all(m.angle == 0.0 for m in ds_off.meta), "jitter=0 produced non-zero angles"
 
     # 14 patches over 14 photos is one patch each, so sample i came from photo i.
     #
@@ -140,17 +140,17 @@ def check_rotation_jitter() -> None:
     # adopt: turning jitter off must route to the unrotated sampler leaving the
     # RNG stream untouched, so enabling the knob is the only thing that moves a box.
     expected = []
-    for photo_idx, meta in enumerate(ds_off._meta):
+    for photo_idx, meta in enumerate(ds_off.meta):
         photo = find_class_dir(captures[0].cropped_dir, meta.folder_id) / meta.photo_name
         h, w = load_rgb_image(photo).shape[:2]
         photo_region = compute_valid_region_rect(h, w, cfg.safety_margin)
         rng = np.random.default_rng([42, 0, 0, photo_idx, SPLIT_SEED_COMPONENT["train"]])
         expected += sample_patch_boxes(rng, photo_region, 1, CROP_SIZE)
-    assert [m.box for m in ds_off._meta] == expected, "jitter=0 changed box placement"
+    assert [m.box for m in ds_off.meta] == expected, "jitter=0 changed box placement"
     print("\nrotation jitter: dataset at 0 degrees leaves box placement untouched")
 
     ds_on = MultiPhotoPatchDataset(rotation_jitter_degrees=5.0, **kwargs)
-    assert any(m.angle != 0.0 for m in ds_on._meta), "jitter=5 produced no rotation"
+    assert any(m.angle != 0.0 for m in ds_on.meta), "jitter=5 produced no rotation"
     assert ds_on[0][0].shape == ds_off[0][0].shape, "jittered patch changed tensor shape"
     print("  dataset at 5 degrees rotates, and patch tensor shape is unchanged")
 

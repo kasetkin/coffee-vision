@@ -139,9 +139,9 @@ class TestBudgetIsPerClass(unittest.TestCase):
             with self.subTest(split=split):
                 ds = self.build(split, budget)
                 self.assertEqual(len(ds), budget[split])                   # one budget for the class
-                n_b = sum(m.capture == "capB" for m in ds._meta)
+                n_b = sum(m.capture == "capB" for m in ds.meta)
                 self.assertEqual(n_b > 0, split == home)                    # capB's one photo, where it is
-                self.assertLessEqual(n_b, -(-budget[split] // len({m.photo_name for m in ds._meta})))
+                self.assertLessEqual(n_b, -(-budget[split] // len({m.photo_name for m in ds.meta})))
                 self.assertEqual(ds.present_class_idxs, [0])
 
     def test_boxes_do_not_depend_on_the_order_of_the_dirs(self):
@@ -150,7 +150,7 @@ class TestBudgetIsPerClass(unittest.TestCase):
                 captures=captures, classes=folder_classes(self.tmp / "classes.txt"), split="train",
                 seed=7, crop_size=32, resize=32, safety_margin=0.97,
                 patches_per_class={"train": 6, "val": 4, "test": 4}, photo_frac=FRAC)
-            return sorted((m.capture, m.photo_name, m.box) for m in ds._meta)
+            return sorted((m.capture, m.photo_name, m.box) for m in ds.meta)
         self.assertEqual(boxes(self.captures), boxes(self.captures[::-1]))
 
     def test_all_split_keeps_every_photo_in_name_order(self):
@@ -159,7 +159,7 @@ class TestBudgetIsPerClass(unittest.TestCase):
             captures=[self.captures[0]], classes=folder_classes(self.tmp / "classes.txt"), split="all",
             seed=7, crop_size=32, resize=32, safety_margin=0.97,
             patches_per_class={"train": 1, "val": 1, "test": 1, "all": 20}, photo_frac=FRAC)
-        names = [m.photo_name for m in ds._meta]
+        names = [m.photo_name for m in ds.meta]
         self.assertEqual(names, sorted(p.name for p in (self.a / "class_001__X").glob("*__cropped.jpg")))
 
 
@@ -199,12 +199,12 @@ class TestCountryPool(unittest.TestCase):
         ds = MultiPhotoPatchDataset(
             captures=self.captures, classes=self.classes, split="train", seed=7, crop_size=32, resize=32,
             safety_margin=0.97, patches_per_class={"train": 30, "val": 4, "test": 4}, photo_frac=FRAC)
-        b_all = [m for m in ds._meta if m.class_id == "B"]
+        b_all = [m for m in ds.meta if m.class_id == "B"]
         self.assertEqual(len(b_all), 30)                            # one budget per class (ticket ML-8 D8)
         self.assertLessEqual({(m.capture, m.folder_id) for m in b_all}, {("capA", "002"), ("capA", "003"), ("capB", "002")})
         b_a = [m for m in b_all if m.capture == "capA"]
         self.assertTrue(all(m.photo_name.startswith(f"capA_{m.folder_id}_") for m in b_a))   # provenance
-        labels = {ds[i][1] for i in range(len(ds)) if ds._meta[i].class_id == "B"}
+        labels = {ds[i][1] for i in range(len(ds)) if ds.meta[i].class_id == "B"}
         self.assertEqual(labels, {1})
 
     def test_split_is_per_country(self):

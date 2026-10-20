@@ -27,7 +27,7 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import (CAPTURES, SPLIT_SEED_COMPONENT, Capture, MultiPhotoPatchDataset, bean_mask_path,
                               bean_share_rule, load_rgb_image)
 from coffeecv.merge_rig import merge_cmd_args, merge_rig, read_exclusions
-from coffeecv.repro_utils import _stage_key, capture_stage_overrides, stale_crop_stages
+from coffeecv.repro_utils import POOL_MERGE_STAGE, _stage_key, capture_stage_overrides, stale_crop_stages
 from coffeecv.segcrop_session import crop_photo, write_crop
 
 from tests._tiers import real_data
@@ -92,7 +92,7 @@ class TestSegmentParity(unittest.TestCase):
                 self.assertEqual(ds.fallback_photos, [])
             patches, diag = infer.patches_for_photo(PHOTO, cfg, N, self.key)
             self.assertEqual(len(ds), N)
-            for a, b in zip(ds._patches, patches):
+            for a, b in zip(ds.patches, patches):
                 self.assertTrue(np.array_equal(a, np.asarray(b)))
             self.assertEqual(diag["patches_below_share"], ds.n_below_share)
             self.assertEqual(diag["patches_below_share"], below)
@@ -104,7 +104,7 @@ class TestSegmentParity(unittest.TestCase):
             ds = dataset_patches(self.write_capture(Path(tmp), load_rgb_image(PHOTO)), CFG)
             self.assertEqual(ds.fallback_photos, [f"{PHOTO.stem}__cropped.jpg"])
         patches, diag = infer.patches_for_photo(PHOTO, CFG, N, self.key, skip_crop=True)
-        for a, b in zip(ds._patches, patches):
+        for a, b in zip(ds.patches, patches):
             self.assertTrue(np.array_equal(a, np.asarray(b)))
         self.assertEqual((diag["patches_below_share"], ds.n_below_share, diag["seg_fallback"]), (0, 0, None))
 
@@ -198,6 +198,14 @@ class TestSegPoolsWiring(unittest.TestCase):
             self.assertEqual([f"segcrop@{s}" for s in sessions], segcrops, p)
         with self.assertRaisesRegex(ValueError, "segmenter"):           # a retired pool: nothing tracks it
             stale_crop_stages(["data/cropped/cam_pixel"])
+
+    def test_the_merge_stage_depends_on_the_sessions_it_merges(self):
+        """dvc.yaml writes merge_segpool's sessions twice, in its cmd and its deps: a session only in the cmd is
+        merged but does not invalidate the pool, one only in the deps invalidates it but is not merged."""
+        stage = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"][POOL_MERGE_STAGE]
+        _, sessions = merge_cmd_args(stage["cmd"])
+        crops = [d.removeprefix("data/segcropped/") for d in stage["deps"] if d.startswith("data/segcropped/")]
+        self.assertEqual(crops, sessions)
 
 
 if __name__ == "__main__":

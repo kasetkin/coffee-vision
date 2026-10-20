@@ -138,17 +138,17 @@ class FakeSplit:
 
     def __init__(self, split: str, n_per_class: int):
         rng = np.random.default_rng(len(split))
-        self._patches = [rng.integers(0, 256, (448, 448, 3), dtype=np.uint8) for _ in range(3 * n_per_class)]
-        self._meta = [PatchMeta(c, "pool", f"{split}{i}__cropped.jpg", Region(0, 1, 0, 1), 0.0, 448, c)
+        self.patches = [rng.integers(0, 256, (448, 448, 3), dtype=np.uint8) for _ in range(3 * n_per_class)]
+        self.meta = [PatchMeta(c, "pool", f"{split}{i}__cropped.jpg", Region(0, 1, 0, 1), 0.0, 448, c)
                       for i, c in enumerate(CLASSES * n_per_class)]
 
     def __len__(self):
-        return len(self._patches)
+        return len(self.patches)
 
     def __getitem__(self, i):
         from PIL import Image
         from coffeecv.transforms import build_eval_transform
-        return build_eval_transform(224)(Image.fromarray(self._patches[i])), CLASSES.index(self._meta[i].class_id)
+        return build_eval_transform(224)(Image.fromarray(self.patches[i])), CLASSES.index(self.meta[i].class_id)
 
 
 def fake_folds(cfg, train_tf, eval_tf, only):
