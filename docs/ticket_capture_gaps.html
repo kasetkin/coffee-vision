@@ -6,18 +6,18 @@
 
 <main>
   <div class="eyebrow">Ticket ML-4 · coffee-vision · dataset capture</div>
-  <h1>Capture gaps: thin pools and coffees never photographed fresh</h1>
-  <p class="lede">Two open capture items carried in private memory since the August reorganisation plan, restated
-    for today's country classes. The iPhone pool covers 7 of the 10 countries and two farm regions are thin; and no
-    photo in the dataset comes from newly bought bags of a coffee already in it, so how the model does on a new
-    bag has never been measured. Nothing is planned; the owner decides what to shoot.</p>
+  <h1>Capture gaps: two thin farm regions, and coffees never photographed from a new bag</h1>
+  <p class="lede">Closed 2026-10-20 as outdated, rewritten first for the one pool. Written 2026-10-07 around the
+    four camera pools, which ML-8 removed (<a href="adr/0024-no-camera-or-rig-in-the-pipeline.md">ADR 0024</a>), so
+    its iPhone-pool gap no longer exists. Two gaps remain and were not decided: two farm regions rest on a few photos,
+    and no photo comes from a newly bought bag, so every number is in-distribution. A new ticket takes either up.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; not planned, not started</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-10-07; rewritten for the one pool and closed by the owner as outdated, 2026-10-20; nothing captured under it</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, wontfix</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code>, <code>dataset/classes.txt</code>, <code>dvc.yaml</code> (<code>segcrop</code>), the capture pools</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code>, <code>dataset/classes.txt</code>, <code>dvc.yaml</code> (<code>segcrop</code>, <code>merge_segpool</code>), the pool</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Alex (capture, decisions), Claude (wiring, evaluation)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
@@ -25,108 +25,100 @@
   </div>
 
   <div class="callout info">
+    <p><strong>Owner request, 2026-10-20.</strong> Rewrite and close ML-4: it is outdated.</p>
     <p><strong>Carried over, 2026-08-28.</strong> The iPhone shot list and the fresh-scoop session were open items A1
       and A3 of <code>docs/dataset_training_reorg_plan.md</code>; ML-1 D7 re-scoped A1 to class balance only. Moved
       into a ticket by OPS-2 (plan Q2), 2026-10-07.</p>
   </div>
 
   <h2>1. Summary</h2>
-  <p>Two gaps in what the photos cover. Coverage: the iPhone pool is the thinnest, and the newest farm regions
-    rest on a handful of photos. Independence: val and test come from the same bags as train, so every number is
-    in-distribution (ML-1 R2). Each gap is either filled by a capture session or accepted.</p>
+  <p>Since ML-8 training draws from one pool of every session's crops; a camera no longer has a pool, so a camera
+    missing a country is not a gap in training. What is left: two farm regions with few photos, and no photo from a
+    new bag of a coffee already in the dataset. Neither was filled or accepted here.</p>
 
   <h2>2. Background</h2>
-  <p>Photos per country and capture pool, from <code>python -m coffeecv.coverage_report</code> at <code>18f7d95</code>:</p>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Country</th><th>cam_pixel</th><th>cam_sony</th><th>cam_oneplus</th><th>cam_iphone</th></tr></thead>
-    <tbody>
-      <tr><td>Ethiopia</td><td>81</td><td>40</td><td>40</td><td>10 (Sidamo only)</td></tr>
-      <tr><td>Kenya, Colombia, CostaRica, Guatemala, Vietnam</td><td>40&ndash;48</td><td>20</td><td>20</td><td>10&ndash;12</td></tr>
-      <tr><td>Brazil</td><td>87</td><td>40</td><td>40</td><td>30</td></tr>
-      <tr><td>Indonesia</td><td>46</td><td>40</td><td>40</td><td>&ndash;</td></tr>
-      <tr><td>Peru</td><td>49</td><td>50</td><td>49</td><td>&ndash;</td></tr>
-      <tr><td>Rwanda</td><td>36</td><td>38</td><td>34</td><td>&ndash;</td></tr>
-    </tbody>
-  </table></div>
+  <p>Photos in the pool per class folder, from <code>python -m coffeecv.coverage_report</code> on 2026-10-20 (after
+    <code>labels/ml3/pool_exclude.csv</code>): 80&ndash;150 for twelve of the fourteen folders, and</p>
   <ul>
-    <li><b>Thin farm regions.</b> Brazil, Sul de Minas (class_013) has 7 photos and Colombia, Antioquia Excelso
-      (class_014) 12, all from one session. The live model's known weak spot is roasted Colombia Excelso drifting to
-      Peru or Rwanda (model card <code>models/allrigs_dino3b16_seg_country_s123.json</code>).</li>
-    <li><b>The split.</b> With photos pooled per class (<a href="adr/0010-all-cameras-equal.md">ADR 0010</a>), a thin
-      pool can leave a split cell empty; <code>python -m coffeecv.split_report</code> lists them, and cam_iphone was
-      starved at some seeds.</li>
-    <li><b>Fresh scoop</b> (reorg plan §2e): every photo shows the same physical bags used in training. Bag-to-bag
-      drift (roast, moisture) is the largest axis never measured, and the closest thing to what the live site meets.</li>
+    <li><b>Brazil, Sul de Minas</b> (class_013): 10 photos, all from <code>random_date_raccoon</code> (ML-8's new
+      photos); 12 before the exclusions.</li>
+    <li><b>Colombia, Antioquia Excelso</b> (class_014): 19 photos, all from <code>random_date_raccoon</code>; 27 before
+      the exclusions.</li>
+    <li><b>Per country</b> (what the model predicts) every country has 90 or more, since both thin folders share a
+      country with full ones (Brazil 200, Colombia 109).</li>
+    <li><b>Fresh bag</b> (reorg plan §2e): every photo shows the same physical bags used in training, and the split is
+      by single photo (ML-8 R2), so val and test say nothing about a new bag. Bag-to-bag drift (roast, moisture) is the
+      largest axis never measured, and the closest thing to what the live site meets.</li>
   </ul>
 
   <h2>3. Before and after</h2>
   <div class="compare">
     <div>
-      <h3>Now</h3>
+      <h3>Written (2026-10-07)</h3>
       <ul>
-        <li>cam_iphone has no Indonesia, Peru, Rwanda or Kochere photos.</li>
-        <li>Two farm regions under 15 photos.</li>
-        <li>No photo from a newly bought bag; every number is in-distribution.</li>
+        <li>Four camera pools; <code>cam_iphone</code> had no Indonesia, Peru, Rwanda or Kochere photos.</li>
+        <li>Sul de Minas 7 photos, Excelso 12.</li>
+        <li>No photo from a newly bought bag.</li>
       </ul>
     </div>
     <div>
-      <h3>After</h3>
+      <h3>Closed (2026-10-20)</h3>
       <ul>
-        <li>The gaps the owner chooses to fill are filled, the rest accepted in D1&ndash;D2.</li>
-        <li>A held-out fresh-bag session measures the model on new bags, if D3 says so.</li>
+        <li>One pool (ADR 0024): the camera gap is gone.</li>
+        <li>Sul de Minas 10 photos in the pool, Excelso 19 (ML-8's new photos).</li>
+        <li>Still no photo from a newly bought bag; every number stays in-distribution.</li>
       </ul>
     </div>
   </div>
 
   <h2>4. What does not change</h2>
   <ul>
-    <li><strong>The class list.</strong> New photos join existing countries; a new country is a separate ticket.</li>
-    <li><strong>How photos enter.</strong> Stripped of private metadata before <code>dvc add</code> (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>), cropped by the segmenter, judged as in <a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>.</li>
+    <li><strong>How photos enter.</strong> Stripped of private metadata before <code>dvc add</code>
+      (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>), cropped by the segmenter, merged into the pool.</li>
+    <li><strong>A fresh-bag session's rule, if one is shot.</strong> It stays out of the pool and out of the segmenter's
+      lists, like the OOD holdout, or it measures nothing; and new photos re-draw the pooled split, so results before
+      and after are not paired.</li>
   </ul>
 
-  <h2>5. Risks</h2>
-  <div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
-    <tbody>
-      <tr><td class="id">R1</td><td><strong>A fresh-bag session leaks into training.</strong></td>
-        <td>Then it measures nothing. Keep it out of the training pools and out of the segmenter's lists, like the OOD holdout.</td></tr>
-      <tr><td class="id">R2</td><td><strong>New photos shift the split.</strong></td>
-        <td>Adding photos re-draws the pooled split, so results before and after are not paired; compare as ML-3 did, with an unpaired reference.</td></tr>
-    </tbody>
-  </table></div>
-
-  <h2>6. Decisions</h2>
+  <h2>5. Decisions</h2>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
     <tbody>
-      <tr><td class="id">D1</td><td>Fill cam_iphone's missing countries?</td>
+      <tr><td class="id">D1</td><td>Fill <code>cam_iphone</code>'s missing countries?</td>
         <td>(a) Shoot Indonesia, Peru, Rwanda and Kochere on the iPhone (b) Accept the gap</td>
-        <td>Open.</td></tr>
+        <td>Moot, 2026-10-20: no camera pools since ML-8 (ADR 0024).</td></tr>
       <tr><td class="id">D2</td><td>Top up the thin farm regions (Sul de Minas, Excelso)?</td>
         <td>(a) Shoot more of the same bags (b) Accept</td>
-        <td>Open.</td></tr>
+        <td>Not decided; closed with the ticket, 2026-10-20. ML-8 added 10 and 19 pool photos.</td></tr>
       <tr><td class="id">D3</td><td>Run a fresh-bag session?</td>
         <td>(a) Buy new bags of existing coffees and shoot a held-out session (b) Not now</td>
-        <td>Open.</td></tr>
+        <td>Not decided; closed with the ticket, 2026-10-20. A new ticket if wanted.</td></tr>
     </tbody>
   </table></div>
 
-  <h2>7. Scope and acceptance</h2>
+  <h2>6. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>D1&ndash;D3 decided.</span></li>
-    <li><span class="box"></span><span>Each chosen session captured, stripped, wired into <code>dvc.yaml</code> and passing <code>coverage_report</code>.</span></li>
-    <li><span class="box"></span><span>If D3 (a): the live model's result on the fresh-bag session, per country.</span></li>
+    <li><span class="box done"></span><span>Rewritten for the one pool and closed (owner, 2026-10-20).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
-    <li>New countries; retraining or releasing a model (a later ticket, if the photos change it).</li>
+    <li>New countries; retraining or releasing a model.</li>
   </ul>
 
   <h2>Activity</h2>
   <div class="log">
-    <div><div class="when">2026-10-07</div>Ticket written from private memory and <code>docs/dataset_training_reorg_plan.md</code> (A1, A3, §2e) during OPS-2 (plan Q2), with counts from <code>coverage_report</code> at <code>18f7d95</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-07</div>Ticket written from private memory and
+      <code>docs/dataset_training_reorg_plan.md</code> (A1, A3, §2e) during OPS-2 (plan Q2), with counts per camera pool
+      from <code>coverage_report</code> at <code>18f7d95</code> (the table is in git history). Decisions open. Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-10-20</div>Rewritten for the one pool at the owner's request, with counts from
+      <code>coverage_report</code> after ML-8, and closed by the owner as outdated. D1 is moot; D2 and D3 were not
+      decided. Nothing was captured under this ticket.</div>
   </div>
 
-  <footer>Related: <code>docs/dataset_training_reorg_plan.md</code> §2e, <a href="ticket_retire_cross_rig.html">ML-1</a> (D7, R2), <a href="ticket_country_classes.html">ML-3</a>, <a href="ticket_memory_to_repo.html">OPS-2</a>.</footer>
+  <footer>Related: <code>docs/dataset_training_reorg_plan.md</code> §2e,
+    <a href="ticket_retire_cross_rig.html">ML-1</a> (D7, R2), <a href="ticket_country_classes.html">ML-3</a>,
+    <a href="ticket_data_refresh_retrain.html">ML-8</a>,
+    <a href="adr/0024-no-camera-or-rig-in-the-pipeline.md">ADR 0024</a>.</footer>
 </main>
