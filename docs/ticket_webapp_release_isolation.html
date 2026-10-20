@@ -6,12 +6,12 @@
 <main>
   <div class="eyebrow">Ticket OPS-1 · coffee-vision · infrastructure</div>
   <h1>Production webapp runs out of the training checkout</h1>
-  <p class="lede">The live site at coffee.kasetkin.com imports its code, model and Python packages from the same
-    directory and venv that training sweeps rewrite. Fix: serve from an immutable, minimal release directory
-    under <code>/opt/coffee-cv</code> with its own uv-managed environment.</p>
+  <p class="lede">Closed: since 2026-09-27 the live site serves from an immutable, minimal release directory under
+    <code>/opt/coffee-cv</code> with its own uv-managed environment (ADR 0008). Before that it imported its code,
+    model and Python packages from the same directory and venv that training sweeps rewrite.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done · live since 2026-09-27</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">live since 2026-09-27; every deploy since runs through it (<code>scripts/deploy_webapp.sh</code>, ADR 0008)</span></span></div>
     <div class="field"><span class="k">Priority</span><span class="v"><span class="pill high">High</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure / deploy</span></div>
     <div class="field"><span class="k">Component</span><span class="v">webapp, deploy scripts</span></div>
@@ -624,6 +624,7 @@ git branch -d tmp/from-local</code></pre>
     <div><div class="when">2026-09-28</div>exp232–239 finished 15:44 UTC. Sweep commits merged through <code>tmp/*</code> branches (b224982), VM fast-forwarded;
       idle latency and restart invariance measured; <code>webapp/requirements*.txt</code> deleted. Ticket resolved.</div>
     <div><div class="when">2026-10-07</div>OPS-2 P1: Proposed fix links ADR 0008, §1 links ADR 0007, §7 links ADR 0009. Nothing else changes.</div>
+    <div><div class="when">2026-10-20</div>Wording brought in line with the other tickets at the owner's request: Status reads Closed (it read "Done · live since 2026-09-27"), and the lede says what is true now. Nothing else changes.</div>
   </div>
 
   <footer>Related: <code>webapp/README.md</code>, <code>webapp/deploy/</code>, <code>scripts/remote_launch.sh</code>, <code>docs/dinov3_integration_plan.md</code> §9.</footer>
