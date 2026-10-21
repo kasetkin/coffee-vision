@@ -17,7 +17,7 @@
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_green_origins_retrain.html"><code>ticket_green_origins_retrain.html</code></a> (ML-9)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-21</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 blocks P3, Q2 P6, Q3 P7</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 blocks P3, Q4 P4, Q2 P6, Q3 P7</span></span></div>
   </div>
 
   <div class="callout info">
@@ -58,7 +58,14 @@
         seg_ml9_finetune@xl0_v4 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object on
         <code>dvcnewremote</code> (<a href="agents/dvc.md">dvc.md</a>); commit <code>dvc.lock</code>, the card and
         the <code>.gitignore</code> changes; P3 Done here; <code>scripts/check.sh --full</code>; merge.</li>
-      <li><b>Then P4</b>, the owner's: <code>python -m coffeecv.seg_review paired --session ml9_test --masks
+      <li><b>Then P3b</b> (ticket D8, the owner's go given 2026-10-21: launch without asking): branch
+        <code>ml9-lr</code>, worktree <code>/tmp/ml9-lr</code>, holds <code>--lr</code>, its tests and the stages,
+        committed. After P3 is merged: <code>git merge --no-ff ml9-lr</code> into <code>main</code> (only
+        <code>dvc.yaml</code>, the fine-tune, its test and these docs; check first), <code>git worktree remove
+        /tmp/ml9-lr</code>, <code>dvc commit seg_ml9_finetune@xl0_v4</code>, <code>check.sh --full</code>, then on a
+        branch <code>ml9-p3b</code>: <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5
+        seg_ml9_predict@xl0_v4_lr3e5</code>, log <code>/tmp/ng_preview/p3b.log</code>. Its tasks are in P3b below.</li>
+      <li><b>Then P4</b>, the owner's (after Q4): <code>python -m coffeecv.seg_review paired --session ml9_test --masks
         data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
         <code>paired-report</code>.</li>
       <li><b>Questions:</b> P3 runs on Q1's recommendation (a), the shared augmentation; the owner was told before it
@@ -79,6 +86,7 @@
       <tr><td class="id">P1</td><td>pass4 labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels only</td></tr>
       <tr><td class="id">P2</td><td><code>seg_predict</code> by path; the fine-tune and predict stages; a toy run</td><td>local</td><td>no: tests and a toy run</td></tr>
       <tr><td class="id">P3</td><td>XL0-v4 and both models' test masks</td><td>local, about 7 h</td><td>yes: validation only</td></tr>
+      <tr><td class="id">P3b</td><td>XL0-v4_lr3e5 (ticket D8) and its test masks</td><td>local, 5&ndash;10 h</td><td>yes: validation only</td></tr>
       <tr><td class="id">P4</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: test</td></tr>
       <tr><td class="id">P5</td><td>Adopt: <code>params.yaml</code>, re-crop, fallbacks, DINOv3 fixture <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: every crop</td></tr>
       <tr><td class="id">P6</td><td>Classifier at 42, 123, 7; the live model on the new split; probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
@@ -104,6 +112,11 @@
       <tr><td class="id">Q3</td><td>Ticket D6: end with a deploy?</td>
         <td><span class="pill sm open">Open</span> (a), yes, on the owner's go after P6, through
           <code>docs/agents/deploy.md</code>.</td><td>P7</td></tr>
+      <tr><td class="id">Q4</td><td>Ticket D8 makes two candidates. Which go to P4's blind session against
+        XL0-v3?</td>
+        <td><span class="pill sm open">Open</span> The one with the higher validation score, chosen before any test
+          mask is seen: one session of 76 photos. Both, as two sessions, if the scores are within about 0.01, as
+          XL0-v4's epochs 10 and 16 are.</td><td>P4</td></tr>
     </tbody>
   </table></div>
 
@@ -171,10 +184,29 @@
     <li><span class="box"></span><span>Push the decoder and the masks by target and verify on the remote.</span></li>
   </ol>
 
+  <h2>5b. P3b &mdash; XL0-v4 at lr 3e-5 (ticket D8)</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">prepared on <code>ml9-lr</code>; launches when P3 is merged</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3 (the CPU, and <code>seg_finetune.py</code>, a
+      dep of the running stage)</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box done"></span><span><code>seg_finetune --lr</code>, overriding <code>seg_ft.lr</code> for one run
+      and recorded in the card; tests that without it nothing changes (<code>LearningRateArgument</code>). Stages
+      <code>seg_ml9_finetune_lr@xl0_v4_lr3e5</code> and <code>seg_ml9_predict@xl0_v4_lr3e5</code>.</span></li>
+    <li><span class="box"></span><span>After P3's merge: merge <code>ml9-lr</code>; <code>dvc commit
+      seg_ml9_finetune@xl0_v4</code> for the new <code>seg_finetune.py</code> hash (not re-run, as ML-8 P2); then
+      <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_predict@xl0_v4_lr3e5</code> in the
+      background with a log.</span></li>
+    <li><span class="box"></span><span>Report from the two cards alone: each epoch's validation mean IoU and
+      negatives' share side by side, the chosen epochs and scores. No test numbers before P4. Answer Q4.</span></li>
+    <li><span class="box"></span><span>Push the decoder and masks by target and verify on the remote; commit; merge.</span></li>
+  </ol>
+
   <h2>6. P4 &mdash; Blind paired comparison and the choice <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P3b, Q4</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Stop for the owner: <code>seg_review paired</code> over the 76 test positives,
@@ -261,6 +293,8 @@
       under way.</div>
     <div><div class="when">2026-10-21</div>P1 done (pass4: 22 accepted, 9 fenced, 1 dropped) and P2 done, both merged.
       P3 started on <code>ml9-p3</code>; a "Resume here" note above says how to pick it up.</div>
+    <div><div class="when">2026-10-21</div>While P3 ran, the owner asked for the same run at lr 3e-5 after it
+      (ticket D8): P3b, prepared on <code>ml9-lr</code>; Q4 asks which candidates P4 judges.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
