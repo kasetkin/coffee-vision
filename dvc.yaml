@@ -166,6 +166,12 @@ stages:
       xl0_v4:
         labels: pass4
         seed: 123
+      xl0_v4_s42:
+        labels: pass4
+        seed: 42
+      xl0_v4_s7:
+        labels: pass4
+        seed: 7
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
@@ -190,12 +196,21 @@ stages:
   # (labels, seed, params), after XL0-v4's validation score swung from epoch to epoch as XL0-v3's had. Its own stage,
   # so XL0-v4's command and params stay as they ran; `--lr` came after XL0-v4, which it leaves unchanged when absent
   # (tests/test_seg_finetune.py LearningRateArgument), so XL0-v4's new seg_finetune.py hash was recorded with `dvc
-  # commit`, not re-run, as ML-8 P2 did for XL0-v3.
+  # commit`, not re-run, as ML-8 P2 did for XL0-v3. Seeds 42 and 7 at both rates (D8, after) weigh the two rates over
+  # seeds (ADR 0002); only the seed-123 runs predict test masks, until Q4 names another for P4.
   seg_ml9_finetune_lr:
     foreach:
       xl0_v4_lr3e5:
         labels: pass4
         seed: 123
+        lr: 3.0e-5
+      xl0_v4_lr3e5_s42:
+        labels: pass4
+        seed: 42
+        lr: 3.0e-5
+      xl0_v4_lr3e5_s7:
+        labels: pass4
+        seed: 7
         lr: 3.0e-5
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --lr ${item.lr} --name
