@@ -42,6 +42,8 @@ stages:
       - 2026-09-24__pixel
       - 2026-09-24__sony
       - random_date_raccoon
+      # 2026-10-21: green Indonesia (class_015, a new coffee) and green Peru (class_011), Pixel 9 Pro.
+      - 2026-10-21__new_green
     do:
       cmd: python -m coffeecv.segcrop_session --session ${item} --threads 4
       deps:
@@ -72,7 +74,7 @@ stages:
   # ML-8 four stages, merge_segcam_{pixel,sony,oneplus,iphone}, merged one pool per camera model
   # (data/segcropped/cam_*, in git history and the DVC cache); until ML-3 P2b the tray heuristic's merge_cam_*.
   merge_segpool:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name pool --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-09__sony_cam 2026-08-25__iphone 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon --exclude labels/ml3/pool_exclude.csv
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name pool --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-09__sony_cam 2026-08-25__iphone 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon 2026-10-21__new_green --exclude labels/ml3/pool_exclude.csv
     deps:
       - data/segcropped/2026-08-07__box_pictures_all_classes
       - data/segcropped/2026-08-09__pixel_cam
@@ -90,6 +92,7 @@ stages:
       - data/segcropped/2026-09-24__pixel
       - data/segcropped/2026-09-24__sony
       - data/segcropped/random_date_raccoon
+      - data/segcropped/2026-10-21__new_green
       - labels/ml3/pool_exclude.csv
       - coffeecv/merge_rig.py
     outs:
