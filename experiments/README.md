@@ -14,20 +14,20 @@ Budget note, since charts are 95% of an archived run's size: the archive grows
 the charts are the thing to drop — they are fully derived from the JSON beside
 them and `--replot-all` recreates them on demand.
 
-## The adopted model
+## Shipped models
 
-`models/phase8_best_random_erasing_0.5.pt` is DVC-tracked (git holds the `.dvc`
-pointer) with a git-tracked `.json` model card next to it recording provenance,
-expected performance as a *range*, and known failure modes.
+`models/` holds the live model and the one it replaced; which they are, and their numbers, is
+`docs/status.md`. Each is a DVC-tracked `.pt` (git holds the `.pt.dvc` pointer) with a git-tracked
+`.json` model card beside it recording provenance, expected performance as a *range*, and known
+failure modes, plus its class list, OOD sidecars and LiteRT conversion.
 
-It is pinned deliberately rather than relied on via `dvc.lock` history: the DVC
-cache does still hold every run's checkpoint (~4.7GB, 90 of them), but those are
-referenced only by *historical* `dvc.lock` commits, so a `dvc gc` would delete
-them. A `.dvc` file in the working tree is what makes this one survive that.
+A model is pinned by its `.dvc` file rather than relied on via `dvc.lock` history: checkpoints that
+only *historical* `dvc.lock` commits name are what a careless `dvc gc` deletes (`docs/agents/dvc.md`,
+"Cleaning the cache"). A retired model's card and `.pt.dvc` stay in git history.
 
-Note it is **not** the highest test score ever recorded — exp 44 scored 0.9694 —
-because exp 44's setting was rejected when a paired second seed reversed its
-sign. This is the best *confirmed* config, which is the one worth keeping.
+A shipped model is the best *confirmed* one, not the highest single score: in Phase 8 exp 44 scored
+the best test number recorded then (0.9694), and its setting was rejected when a paired second seed
+reversed its sign.
 
 ## Contents
 

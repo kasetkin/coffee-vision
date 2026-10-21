@@ -12,7 +12,7 @@
     not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-20; 2026-10-21: README rewritten as an overview, its Status moved to <code>docs/status.md</code> and its Repo layout to <code>docs/development.md</code>; D1 decided (a), serving path page rewritten in place; <code>models_pretrained/README.md</code> left</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-20; 2026-10-21: README rewritten as an overview, its Status moved to <code>docs/status.md</code> and its Repo layout to <code>docs/development.md</code>; D1 decided (a), serving path page rewritten in place; <code>models_pretrained/README.md</code> brought up to date with the DINO weights pushed to the DVC remote, and R1's rule written; every acceptance item done, for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Docs: overview pages</span></div>
@@ -106,7 +106,7 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The serving path page traces today's <code>/analyze</code>, with the live model, segmenter, runtime and guard.</span></li>
     <li><span class="box done"></span><span>README's Status and Repo layout say what is live, and where exp252&ndash;272 are written up.</span></li>
-    <li><span class="box"></span><span><code>models_pretrained/README.md</code>'s Next steps say what is done and what is left.</span></li>
+    <li><span class="box done"></span><span><code>models_pretrained/README.md</code>'s Next steps say what is done and what is left.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -129,6 +129,15 @@
       now traces <code>/analyze</code> from the upload to its two streamed parts, each step with its function and file.
       Left: <code>models_pretrained/README.md</code>'s Next steps, and R1's mitigation (the page is not yet on the list
       of docs a serving change updates).</div>
+    <div><div class="when">2026-10-21</div>The owner had the DINO weights put on the DVC remote (their private
+      storage): <code>dinov2_vits14</code> and the three DINOv3 files <code>dvc add</code>ed after <code>verify.py</code>
+      passed on all nine files, pushed by name, and each object checked on <code>dvcnewremote</code> by its path, size
+      and md5. <code>models_pretrained/README.md</code> now says every file is DVC-tracked and on the remote, lists the
+      five EfficientViT-SAM files and which one the live segmenter uses, and its Next steps (renamed) mark step 1 done.
+      R1: <code>CODING_STANDARDS.md</code> now has "A serving change updates the serving path page", and
+      <code>docs/agents/deploy.md</code> has a new live model update <code>docs/status.md</code> and the page. Outside
+      this ticket, <code>experiments/README.md</code>'s "The adopted model" (the retired Phase 8 ResNet) became
+      "Shipped models", pointing at <code>docs/status.md</code>. Every acceptance item is done; the owner closes.</div>
   </div>
 
   <footer>Related: <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>,

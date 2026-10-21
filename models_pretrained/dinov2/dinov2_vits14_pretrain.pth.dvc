@@ -1,0 +1,5 @@
+outs:
+- md5: 2e405cee1bad14912278296d4f42e993
+  size: 88283115
+  hash: md5
+  path: dinov2_vits14_pretrain.pth

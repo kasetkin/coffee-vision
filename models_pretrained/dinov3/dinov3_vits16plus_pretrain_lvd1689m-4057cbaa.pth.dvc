@@ -1,0 +1,5 @@
+outs:
+- md5: c10c2992c1edd2b613de58dc344481a0
+  size: 114924783
+  hash: md5
+  path: dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth
