@@ -1,0 +1,41 @@
+{
+  "photos": 234,
+  "negatives": 453,
+  "status": {
+    "accepted": 233,
+    "dropped": 1
+  },
+  "carried": 211,
+  "accepted_by_round": {
+    "r1": 12,
+    "r2": 7,
+    "r3": 3
+  },
+  "by_source": {
+    "internet_positive": {
+      "carried_r1": 2,
+      "carried_r2": 7
+    },
+    "pool": {
+      "accepted_r1": 10,
+      "carried_r1": 100,
+      "carried_r2": 2
+    },
+    "segmenter_positive": {
+      "accepted_r1": 2,
+      "accepted_r2": 7,
+      "accepted_r3": 3,
+      "carried_r1": 93,
+      "carried_r2": 6,
+      "carried_r3": 1,
+      "dropped": 1
+    }
+  },
+  "dropped": [
+    {
+      "path": "dataset/segmenter_positives/PXL_20261014_075517794.jpg",
+      "source": "segmenter_positive",
+      "reason": "declined in round 3"
+    }
+  ]
+}

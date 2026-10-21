@@ -1,0 +1,6 @@
+outs:
+- md5: fea06436aae05e5ce05df09244127b78.dir
+  size: 5833411
+  nfiles: 723
+  hash: md5
+  path: pass4
