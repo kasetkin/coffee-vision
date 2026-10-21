@@ -37,7 +37,7 @@ CFG = replace(RunConfig.from_params_yaml(), crop_method="segment")
 # rule both matter.
 PHOTO = REPO_ROOT / "dataset/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6258D.HEIC"
 HAVE = all(p.exists() for p in (MODELS_PRETRAINED / CFG.seg_weights, REPO_ROOT / CFG.seg_decoder, PHOTO))
-SKIP = "needs the L0 weights, models/seg/ft_s123.pt and the fixture photo (dvc pull)"
+SKIP = "needs the segmenter weights and decoder params.yaml names, and the fixture photo (dvc pull)"
 N = 40
 
 

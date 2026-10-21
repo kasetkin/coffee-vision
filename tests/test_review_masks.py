@@ -1,4 +1,4 @@
-"""The owner's review page (ticket ML-2 D12, plan §4.2, §7): write, overwrite, unreviewed and blind mode,
+"""The owner's review page (ticket ML-2 D12, plan §4.2, §7): write, overwrite and unreviewed items,
 through Flask's test client on a synthetic item. Plain unittest.
 
     python -m unittest discover -s tests -p 'test_review_masks.py'
@@ -38,8 +38,8 @@ class Review(unittest.TestCase):
         self.patch.stop()
         self.tmp.cleanup()
 
-    def client(self, verdicts=None):
-        return review_masks.create_app(self.items, self.decisions, "Accept the mask only if <rule>.", verdicts).test_client()
+    def client(self):
+        return review_masks.create_app(self.items, self.decisions, "Accept the mask only if <rule>.").test_client()
 
     def decide(self, c, i, decision, reason=None):
         r = c.post(f"/decide/{i}", json={"decision": decision, "reason": reason})
@@ -77,14 +77,6 @@ class Review(unittest.TestCase):
         self.assertEqual(c.post("/decide/0", json={"decision": "decline", "reason": "made up"}).status_code, 400)
         self.assertEqual(c.post("/decide/9", json={"decision": "accept"}).status_code, 404)
         self.assertFalse(self.decisions.exists())
-
-    def test_blind_reveals_the_verdict_only_after_the_click(self):
-        c = self.client({"it0": {"verdict": "decline", "failed_rules": [1], "reason": "JUDGE-SAYS", "model": "m"}})
-        page = c.get("/item/0").get_data(as_text=True)
-        self.assertNotIn("JUDGE-SAYS", page)
-        self.assertEqual(self.decide(c, 0, "accept")["verdict"]["reason"], "JUDGE-SAYS")
-        self.assertIn("JUDGE-SAYS", c.get("/item/0").get_data(as_text=True))   # after the click, shown
-        self.assertIsNone(self.client().post("/decide/1", json={"decision": "accept"}).get_json()["verdict"])
 
     def test_page_and_images(self):
         c = self.client()

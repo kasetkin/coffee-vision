@@ -126,8 +126,8 @@ class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
 
 class TestCropMethodRestores(unittest.TestCase):
     """Ticket ML-2: the bean-region step a checkpoint was trained with travels in its config."""
-    SEG = dict(crop_method="segment", seg_weights="efficientvit_sam/efficientvit_sam_l0.pt",
-               seg_weights_sha256="a" * 64, seg_decoder="models/seg/ft_s123.pt", seg_decoder_sha256="b" * 64,
+    SEG = dict(crop_method="segment", seg_weights="efficientvit_sam/efficientvit_sam_xl0.pt",
+               seg_weights_sha256="a" * 64, seg_decoder="models/seg/xl0_v3.pt", seg_decoder_sha256="b" * 64,
                seg_prompt="box", seg_mask_select="multi3", seg_keep_frac=0.95, seg_min_area_frac=0.083,
                patch_min_bean_share=0.8, patch_max_attempts_factor=20)
 

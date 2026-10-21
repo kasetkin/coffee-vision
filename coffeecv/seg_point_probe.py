@@ -8,26 +8,21 @@ For each accepted reference mask with the points that made it, and each segmente
 
 IoU and error regions at 1024 px on the long side. Printed per (reference set, model, output): the share at
 IoU >= 0.9 after the replay and after each click, the empty share of the replay, and the median IoU per click.
-Built from analysis/ml5_point_probe/point_probe.py (whose summary.txt it reproduces) so that P8 can rerun it
-on XL0-v1 against the pass-1 accepts before choosing pass 2's redraw model.
+Built from analysis/ml5_point_probe/point_probe.py, so that P8 could rerun it on a fine-tune against a
+session's accepts before choosing the next session's redraw model.
 
-    python -m coffeecv.seg_point_probe --models pretrained_l0 ft_s123 --outputs single multi3 \\
-        --refs ml2_base_points ml2_labels --out outputs/ml5_point_probe/rows.csv     # the analysis, ~13 min
-    python -m coffeecv.seg_point_probe --models efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v1.pt \\
-        --outputs multi3 --refs ml5:pass1                                            # P8
+    python -m coffeecv.seg_point_probe --models xl0_v3 --outputs multi3 --refs ml5:pass3
 
 Reference sets:
-  ml2_base_points  ML-2's base masks drawn from placed points that the owner accepted (data/seg_masks/base_points,
-                   labels/ml2/base_points.yaml); the frame-filling ones, drawn from the box alone, are left out
-  ml2_labels       ML-2's labels accepted in round 2 or 3, drawn from the box plus the judge's points
-                   (data/seg_labels)
   ml5:<session>    a review session's labels accepted in round 2 or 3 (coffeecv/seg_review.py)
+
+ML-2's sets (ml2_base_points, ml2_labels) went with ML-2's records on 2026-10-21; the analysis's rows.csv and
+summary.txt, made on them, stay in analysis/ml5_point_probe.
 """
 from __future__ import annotations
 
 import argparse
 import csv
-import json
 import statistics
 import time
 from collections import defaultdict
@@ -37,12 +32,10 @@ from typing import NamedTuple
 import cv2
 import numpy as np
 import torch
-import yaml
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import read_csv
 from coffeecv.segment_beans import THREADS, BeanSegmenter, named_params
 
 SMALL = 1024                      # long side for error regions and IoU
@@ -51,8 +44,6 @@ CLICKS = 3
 CUT = 0.9
 ROW_FIELDS = ["set", "path", "model", "output", "n_points", "replay_iou", "replay_empty",
               *(f"click{i}" for i in range(CLICKS + 1))]
-# ML-2's records name the segmenter positives under the folder's old name (renamed in ML-5 P2).
-_MOVED = (("dataset/ood_positives/", "dataset/segmenter_positives/"),)
 
 
 class Ref(NamedTuple):
@@ -61,13 +52,6 @@ class Ref(NamedTuple):
     mask: Path                    # the accepted reference mask, full resolution
     include: list                 # [x, y] fractions of the photo
     exclude: list
-
-
-def resolve(path: str) -> str:
-    """A photo path from an older record, at its current place."""
-    for old, new in _MOVED:
-        path = path.replace(old, new) if path.startswith(old) else path
-    return path
 
 
 def small(mask: np.ndarray) -> np.ndarray:
@@ -103,28 +87,6 @@ def next_click(pred: np.ndarray, ref: np.ndarray) -> tuple[str, list[float]] | N
 
 # ---------------------------------------------------------------- reference sets
 
-def _ml2_base_points() -> list[Ref]:
-    points = yaml.safe_load((REPO_ROOT / "labels/ml2/base_points.yaml").read_text())["items"]
-    by_sha = {e["sha256"]: e for e in points}
-    base = REPO_ROOT / "data/seg_masks/base_points"
-    return [Ref("ml2_base_points", resolve(r["path"]), base / f"{r['id']}.png", by_sha[r["photo_sha256"]]["include"],
-                by_sha[r["photo_sha256"]]["exclude"])
-            for r in read_csv(base / "index.csv") if r["output"] == "single"]   # frame-filling: the box alone
-
-
-def _ml2_labels() -> list[Ref]:
-    root = REPO_ROOT / "data/seg_labels"
-    labels = {r["id"]: r for r in read_csv(root / "labels.csv")}
-    out = []
-    for k in (2, 3):
-        for r in read_csv(root / f"r{k}" / "index.csv"):
-            lab = labels.get(r["id"])
-            if lab and lab["status"] == "accepted" and lab["round"] == str(k) and lab["mask_sha256"] == r["mask_sha256"]:
-                out.append(Ref("ml2_labels", resolve(r["path"]), root / f"r{k}" / f"{r['id']}.png",
-                               json.loads(r["include"]), json.loads(r["exclude"])))
-    return out
-
-
 def _ml5_session(session: str) -> list[Ref]:
     from coffeecv import seg_review
     return [Ref(f"ml5:{session}", r["path"], REPO_ROOT / r["mask"], r["include"], r["exclude"])
@@ -132,13 +94,9 @@ def _ml5_session(session: str) -> list[Ref]:
 
 
 def reference_items(refs: str) -> list[Ref]:
-    if refs == "ml2_base_points":
-        return _ml2_base_points()
-    if refs == "ml2_labels":
-        return _ml2_labels()
     if refs.startswith("ml5:"):
         return _ml5_session(refs.removeprefix("ml5:"))
-    raise ValueError(f"reference set {refs!r}: expected ml2_base_points, ml2_labels or ml5:<session>")
+    raise ValueError(f"reference set {refs!r}: expected ml5:<session>")
 
 
 # ---------------------------------------------------------------- the probe
@@ -212,7 +170,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--models", nargs="+", required=True,
                     help="segmenter names (segment_beans.NAMED_SEGMENTERS) or WEIGHTS:DECODER")
     ap.add_argument("--outputs", nargs="+", choices=OUTPUTS, required=True, help="decoder outputs (D23)")
-    ap.add_argument("--refs", nargs="+", required=True, help="ml2_base_points, ml2_labels, ml5:<session>")
+    ap.add_argument("--refs", nargs="+", required=True, help="ml5:<session>")
     ap.add_argument("--out", type=Path, help="also write every row as CSV")
     args = ap.parse_args(argv)
     items = [it for refs in args.refs for it in reference_items(refs)]

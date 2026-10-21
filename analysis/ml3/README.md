@@ -6,8 +6,9 @@ Plan: `docs/plan_country_classes.html`; ticket: `docs/ticket_country_classes.htm
   they joined `dataset/` (P4). `labels/ml3/new_photos.csv` is the list.
 - `mask_review.py`: the owner's review of ft_s123's masks on the new photos (P5, D8) and the photos the pools
   leave out (`labels/ml3/pool_exclude.csv`).
-- `printout.py` → `printout.txt`: the D10 printout of the country fits exp261-263 (P7), from the archives.
-  The owner picked seed 123 (exp262) from it on 2026-10-06.
+- `printout.txt`: the D10 printout of the country fits exp261-263 (P7), from the archives. The owner picked
+  seed 123 (exp262) from it on 2026-10-06. Its script, `printout.py`, read ML-2's photo lists and went with
+  them on 2026-10-21; it is in git history.
 - `ood_probe_country_s123.log`: `fit_frozen_head --ship 262 --seed-exps 261 262 263`, `build_ood_reference
   --store-knn-embeddings` and `fit_ood_probe --training-days 2026-09-11 --verify` on the shipped
   `models/allrigs_dino3b16_seg_country_s123.pt`, run on the VM (P8); progress lines dropped. In it, the

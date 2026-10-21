@@ -74,11 +74,6 @@ rotation_jitter_degrees: 0.0 # +/- jitter around each right angle, at patch samp
 # SGD-loop parameters were removed on 2026-10-20 with its trainer. The frozen head's augmentation is
 # head_augment below (ADR 0025), shared with the segmenter's fine-tune through `augment` (ADR 0027).
 
-# Ticket ML-2 (D21): split seed for the segmenter's photo lists (seg_lists.py ->
-# labels/ml2/photo_lists.yaml). Not a head seed; changing it after the lists are
-# committed is refused, since the lists are append-only (D20).
-seg_split_seed: 239
-
 # Ticket ML-2 (D5, owner 2026-10-01): the segmenter's fixed prompt (one whole-image
 # box) and which decoder output it keeps (multi3, the widest). See
 # analysis/ml2_p0/README.md for why: no fixed prompt finds the pile on tray photos.
@@ -225,7 +220,7 @@ head_augment:
 # labels/ml5/seg_dataset.yaml). seed draws the pool photos (D12) and orders the split; split is
 # the train/validation/test share within each source, and within each batch for negatives
 # (D13, D16; within each (batch, tag) until ticket ML-8 D9 dropped the tags). The file records both, and a rebuild refuses other values: it is append-only (D11).
-# 511 is none of the head seeds (42/123/7) and not ML-2's seg_split_seed (239).
+# 511 is none of the head seeds (42/123/7) and not ML-2's segmenter split seed (239, retired 2026-10-21).
 seg_dataset:
   seed: 511
   split:

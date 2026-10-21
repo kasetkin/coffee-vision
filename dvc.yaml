@@ -5,6 +5,10 @@ stages:
   # They are in git history up to ML-3 P2b's parent, and an older commit plus `dvc checkout` brings them back.
   # The ResNet trainer's `train` stage (outputs/checkpoints, metrics.json, summary.json, history.json) was removed
   # on 2026-10-20 with its code; its last run is in git history and dvc.lock before then.
+  # ML-2's segmenter stages (seg_predict, seg_embed_cache, seg_finetune, seg_predict_ft, seg_predict_ml3_new,
+  # seg_eval: labels/ml2's lists, the L0 fine-tunes models/seg/ft_s*) and ML-5's XL0-v1 and v2 (seg_ml5_cache,
+  # seg_ml5_finetune, seg_ml5_predict@xl0_v1/v2: data/ml5_labels/pass1, pass2) were removed on 2026-10-21 with the
+  # code only they ran (owner); they are in git history and dvc.lock before then, their outputs in the DVC cache.
 
   # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
@@ -91,235 +95,9 @@ stages:
     outs:
       - data/segcropped/pool
 
-  # Ticket ML-2 P1/P5: masks for the eval lists (seg_eval, neg_seg_eval, pos_seg_eval), computed once and
-  # stored -- mask bits differ by a few pixels across CPUs and thread counts (P0), so this ran on the VM at
-  # a pinned 4 threads and nothing downstream recomputes a mask. The photos are not deps: each one's
-  # sha256 is in photo_lists.yaml and checked before use. `ft` joins at P5.
-  # Ticket ML-5 P8: ML-2's segmenter stages below (seg_predict, seg_embed_cache, seg_finetune, seg_predict_ft,
-  # seg_predict_ml3_new, seg_eval) are frozen, not deleted: their outputs stay tracked, models/seg/ft_s123.pt
-  # first, which segcrop and serving use until P11, and repro never reruns them. They ran on L0, written out
-  # here, from ML-2's lists and the code at a1e73e3. ML-5's own stages follow them (seg_ml5_*).
-  seg_predict:
-    foreach: [pretrained]
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_predict ${item} --threads 4
-      deps:
-        - coffeecv/seg_predict.py
-        - coffeecv/segment_beans.py
-        - coffeecv/sam_loader.py
-        - third_party/efficientvit/efficientvit
-        - labels/ml2/photo_lists.yaml
-        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
-      params:
-        - params.yaml:
-            - seg_prompt
-            - seg_mask_select
-      outs:
-        - data/seg_masks/${item}
-
-  # Ticket ML-2 P5: encoder embeddings (fp16) of every label photo in each seg_ft view, with its label in the
-  # same frame (coffeecv/seg_finetune.py; 512 for L0, 1024 for XL0, by seg_ft.weights' variant, ticket ML-5 P4).
-  # Labels: data/seg_labels (seg_labels.py, the judge loop; dvc add, built outside repro, D16). Several GB and
-  # rebuildable, so never pushed (plan §2.3).
-  # Ticket ML-3 P3 (Q2, Q2a): the metadata strip changed every photo's sha256 (never its pixels), and the
-  # re-keyed photo_lists.yaml and data/seg_labels were recorded here with `dvc commit`, not re-run. So
-  # data/seg_cache/{index.csv, cache.json} and the label-set hash in models/seg/ft_s*.json keep values
-  # derived from the pre-strip hashes (labels/ml3/strip_manifest.csv maps them), and a forced repro of this
-  # stage would not reproduce its recorded outputs; the embeddings and decoders themselves are unchanged.
-  seg_embed_cache:
-    frozen: true
-    cmd: python -m coffeecv.seg_finetune cache --threads 4
-    deps:
-      - coffeecv/seg_finetune.py
-      - coffeecv/sam_loader.py
-      - third_party/efficientvit/efficientvit
-      - labels/ml2/photo_lists.yaml
-      - data/seg_labels
-      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
-    params:
-      - params.yaml:
-          - seg_split_seed
-          - seg_ft.weights
-          - seg_ft.views
-          - seg_ft.neg_select_frac
-    outs:
-      - data/seg_cache:
-          push: false
-
-  # Ticket ML-2 P5 (D7 (a)): decoder-only fine-tuning, one seed each; the epoch is chosen on seg_val and the
-  # held seg-train negatives only. The .json card (params, label-set hash, history) is versioned in git.
-  # The label-set hash is over the pre-strip photo hashes (ticket ML-3 P3; see seg_embed_cache above): the
-  # decoders are ML-2's own, kept rather than retrained (Q2a).
-  seg_finetune:
-    foreach: [42, 123, 7]
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_finetune train --seed ${item} --threads 4
-      deps:
-        - coffeecv/seg_finetune.py
-        - coffeecv/sam_loader.py
-        - third_party/efficientvit/efficientvit
-        - data/seg_cache
-        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
-      params:
-        - params.yaml:
-            - seg_ft
-            - seg_prompt
-            - seg_mask_select
-            - seg_min_area_frac
-      outs:
-        - models/seg/ft_s${item}.pt
-        - models/seg/ft_s${item}.json:
-            cache: false
-
-  # Ticket ML-2 P5: the eval lists' masks from each fine-tuned segmenter, as seg_predict@pretrained (same lists,
-  # same pinned threads), for judging (seg_judge judge --masks ft_s<seed>) and seg_eval@ft_s<seed>.
-  seg_predict_ft:
-    foreach: [42, 123, 7]
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_predict ft_s${item} --threads 4
-      deps:
-        - coffeecv/seg_predict.py
-        - coffeecv/segment_beans.py
-        - coffeecv/sam_loader.py
-        - third_party/efficientvit/efficientvit
-        - labels/ml2/photo_lists.yaml
-        - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt      # the base seg_finetune trains the decoders over
-        - models/seg/ft_s${item}.pt
-      params:
-        - params.yaml:
-            - seg_prompt
-            - seg_mask_select
-      outs:
-        - data/seg_masks/ft_s${item}
-
-  # Ticket ML-3 P5 (D8): ft_s123's full-frame masks of the 288 new photos, for the owner's review. segcrop keeps
-  # only crop-aligned masks; this recomputed the full-frame ones on the VM at the same 4 threads and stops unless
-  # each equals the mask_sha256 segcrop recorded, so the owner judges exactly the masks training crops with.
-  seg_predict_ml3_new:
-    frozen: true
-    cmd: python -m coffeecv.seg_predict_sessions ft_s123 --threads 4 --out ml3_new_ft_s123 --sessions 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon
-    deps:
-      - coffeecv/seg_predict_sessions.py
-      - coffeecv/seg_predict.py
-      - coffeecv/segment_beans.py
-      - coffeecv/sam_loader.py
-      - third_party/efficientvit/efficientvit
-      - models_pretrained/efficientvit_sam/efficientvit_sam_l0.pt
-      - models/seg/ft_s123.pt
-      - dataset/2026-09-11__oneplus
-      - dataset/2026-09-11__pixel
-      - dataset/2026-09-11__sony
-      - dataset/2026-09-24__oneplus
-      - dataset/2026-09-24__pixel
-      - dataset/2026-09-24__sony
-      - dataset/random_date_raccoon
-      - data/segcropped/2026-09-11__oneplus
-      - data/segcropped/2026-09-11__pixel
-      - data/segcropped/2026-09-11__sony
-      - data/segcropped/2026-09-24__oneplus
-      - data/segcropped/2026-09-24__pixel
-      - data/segcropped/2026-09-24__sony
-      - data/segcropped/random_date_raccoon
-    params:
-      - params.yaml:
-          - seg_prompt
-          - seg_mask_select
-    outs:
-      - data/seg_masks/ml3_new_ft_s123
-
-  # Ticket ML-2 P2/P5: score a seg_predict stage's stored masks against the judge's stored verdicts (D16).
-  # Never calls the judge: a mask with no verdict for the pinned judge stops the stage, naming the masks to
-  # judge (python -m coffeecv.seg_judge judge --masks <model>). Also the D18 tiny-mask threshold. Until ticket
-  # ML-3 P2b it also ran the heuristic comparison (D22) and the D19 pitch check against the tray heuristic's
-  # data/cropped pools, retired then; their results stay in the metrics files as of commit 8eef7f5.
-  # Only pretrained and ft_s123: ML-2 judged the seed seg_val selected (123), so ft_s42's and ft_s7's masks
-  # have no verdicts and their stages never ran; running them needs judge calls, which ML-3 D8 rules out.
-  seg_eval:
-    foreach:
-      - pretrained
-      - ft_s123
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_eval ${item}
-      deps:
-        - coffeecv/seg_eval.py
-        - coffeecv/segment_beans.py
-        - labels/ml2/photo_lists.yaml
-        - labels/ml2/verdicts.jsonl
-        - labels/ml2/judge_prompt.md
-        - labels/ml2/accept_rule.md
-        - data/seg_masks/${item}
-      params:
-        - params.yaml:
-            - seg_min_area_frac
-      outs:
-        - outputs/ml2_p2/${item}
-      metrics:
-        - outputs/seg_eval_${item}.json:
-            cache: false
-
-  # Ticket ML-5 P8 (D8, D14, D15): the fine-tune on a labelling session's labels (coffeecv/seg_finetune.py).
-  # seg_ml5_cache@<session>: encoder embeddings (fp16) of every training and validation photo the owner accepted,
-  # and every negative, in each seg_ft view, labels in the encoder's frame (1024 for XL0). About 3.7 GB for pass1
-  # and rebuildable, so not in DVC's cache (cache: false; on ext4 it would be a second full copy): the lock
-  # records its hash only. seg_ml5_finetune@<name>: decoder-only, one seed (D15), box-only and box-plus-points batches through
-  # seg_mask_select (D23); the checkpoint chosen on the validation split only. The .json card is in git.
-  # Frozen by ticket ML-6 P5 (D12, docs/adr/0018-segmenter-fine-tunes-augment-on-the-fly.md): fine-tunes now
-  # augment each sample as they train and cache nothing. 46ec14c is the last commit with the cache code that ran
-  # these stages (seg_finetune cache, the dihedral views, the memory-mapped reader); XL0-v1 and v2 keep their
-  # cards and test masks. The caches themselves were deleted after the freeze (ML-6 D13).
-  seg_ml5_cache:
-    foreach: [pass1, pass2]
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_finetune cache --labels ${item} --threads 4
-      deps:
-        - coffeecv/seg_finetune.py
-        - coffeecv/sam_loader.py
-        - third_party/efficientvit/efficientvit
-        - data/ml5_labels/${item}
-        - models_pretrained/${seg_ft.weights}
-      params:
-        - params.yaml:
-            - seg_ft.weights
-            - seg_ft.views
-      outs:
-        - data/seg_cache_ml5/${item}:
-            cache: false
-
-  seg_ml5_finetune:
-    foreach:
-      xl0_v1:
-        labels: pass1
-        seed: 123
-      xl0_v2:                 # P10: on the owner's pass-2 labels, the recipe and selection rule unchanged
-        labels: pass2
-        seed: 123
-    do:
-      frozen: true
-      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 4
-      deps:
-        - coffeecv/seg_finetune.py
-        - coffeecv/sam_loader.py
-        - third_party/efficientvit/efficientvit
-        - data/seg_cache_ml5/${item.labels}
-        - models_pretrained/${seg_ft.weights}
-      params:
-        - params.yaml:
-            - seg_ft
-            - seg_prompt
-            - seg_mask_select
-      outs:
-        - models/seg/${key}.pt
-        - models/seg/${key}.json:
-            cache: false
-
   # Ticket ML-6 P6 (D4, D12, D15, D21, D22): XL0-v3, XL0-v2's recipe on the pass-3 labels, each sample augmented
   # as it trains (seg_ft.augment, docs/adr/0018-segmenter-fine-tunes-augment-on-the-fly.md), at 8 threads. Its own
-  # stage because seg_ml5_finetune is frozen whole. Deps (D22): the labels, whose labels.csv pins every photo's
+  # stage because seg_ml5_finetune (XL0-v1, v2) was frozen whole. Deps (D22): the labels, whose labels.csv pins every photo's
   # sha256 (the run refuses a mismatch), not the photo folders or the dataset file, which change with every append.
   # Ticket ML-8 P2 (R7): the pipeline is built by coffeecv/augment.py's strict builder since then, the same 9 transforms
   # and a byte-identical seeded stream (tests/test_seg_finetune.py BuiltAsBefore); recorded with `dvc commit`, not re-run.
@@ -353,11 +131,12 @@ stages:
 
   # Ticket ML-5 P8, P10 (D22): a fine-tuned segmenter's masks of every test photo, negatives included (their
   # empty-or-tiny rate), stored once at the pinned threads, for the blind paired session (seg_review paired).
-  # ML-6 P6: xl0_v3 named in segment_beans.NAMED_SEGMENTERS (D21). Frozen 2026-10-20 (owner): the review's record,
+  # ML-6 P6: xl0_v3 named in segment_beans.NAMED_SEGMENTERS (D21); xl0_v1 and v2 left with their stages on
+  # 2026-10-21. Frozen 2026-10-20 (owner): the review's record,
   # made before ML-7 ported the mask code and ML-8 appended photos to the segmenter dataset (its test split has more
   # photos now than these masks). The next segmenter fine-tune predicts its test split beside XL0-v3's, afresh.
   seg_ml5_predict:
-    foreach: [xl0_v1, xl0_v2, xl0_v3]
+    foreach: [xl0_v3]
     do:
       frozen: true
       cmd: python -m coffeecv.seg_predict ${item} --split test --threads 4

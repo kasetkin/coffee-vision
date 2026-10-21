@@ -27,7 +27,7 @@ for st in lock['stages'].values():
 print(sorted(h for h in want if not (cache / h[:2] / h[2:]).exists()))
 ```
 
-Only ML-2's `outputs/seg_eval_*.json` may come back missing: they are `cache: false` and live in git.
+Only `cache: false` outputs may come back missing, today `models/seg/xl0_v3.json`: they live in git.
 
 `dvc repro --dry` has said "cached, skipping" for a stage `dvc status` correctly reported as changed. Check `dvc status`, and after a run check that `outputs/config.json` holds the intended values.
 
@@ -39,7 +39,7 @@ Only ML-2's `outputs/seg_eval_*.json` may come back missing: they are `cache: fa
 
 ## What `dvc status` shows on a clean checkout
 
-Since 2026-10-20 the stages whose recipe moved on are frozen: ML-2's and ML-5's segmenter stages, `seg_ml5_predict`, and `seg_ml6_finetune` (XL0-v3, ADR 0027). The ResNet trainer's `train` stage was removed with its code. `dvc status` lists each as frozen without checking it. Three of them still report missing outputs, which is expected and not a fault: `seg_embed_cache` (`data/seg_cache`, lost with the VM, below) and `seg_ml5_cache@pass1` and `@pass2` (`data/seg_cache_ml5`, ML-5's encoder caches, 7.5 GB: removed from the working tree by ML-6's plan, never pushed, and deleted from the cache by the `gc` of 2026-10-20, below; only the frozen XL0-v1 and XL0-v2 fine-tunes read them, and `dvc repro -s` on the unfrozen stage rebuilds them). Anything else it reports is real.
+Since 2026-10-20 the stages whose recipe moved on are frozen: `seg_ml6_finetune` (XL0-v3, ADR 0027) and `seg_ml5_predict@xl0_v3`. `dvc status` lists a frozen stage as frozen without checking it. ML-2's segmenter stages and ML-5's XL0-v1 and v2 were removed on 2026-10-21, and the ResNet trainer's `train` stage on 2026-10-20, each with its code; they are in git history, and their outputs in the DVC cache but for the encoder caches lost before (`data/seg_cache`, `data/seg_cache_ml5`, below). A clean checkout reports "Data and pipelines are up to date": anything else it reports is real.
 
 ## Cleaning the cache
 
@@ -52,7 +52,7 @@ Then test every object the dry run would remove on the remote, by its path under
 
 ## Objects lost with the VM
 
-The VM (`powervpsssh`) was shut down for good on 2026-10-12 and took the objects only it held: `data/seg_cache` (stage `seg_embed_cache`, 5.8 GB) and the checkpoints, `history.json` and prediction CSVs of exp106-exp239 (their metrics stay in git). A `dvc pull` or `dvc checkout` that names them fails until the stage runs again. Run `dvc repro -s <stage>` for `seg_eval` or `seg_predict_ft`: a plain `dvc repro` rebuilds the cache and retrains the segmenter.
+The VM (`powervpsssh`) was shut down for good on 2026-10-12 and took the objects only it held: `data/seg_cache` (ML-2's stage `seg_embed_cache`, removed on 2026-10-21, 5.8 GB) and the checkpoints, `history.json` and prediction CSVs of exp106-exp239 (their metrics stay in git). A `dvc pull` or `dvc checkout` that names them fails.
 
 ## Objects deleted on the owner's go
 

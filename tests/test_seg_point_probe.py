@@ -1,23 +1,14 @@
-"""The point probe (ticket ML-5 P6, D19, D23): simulated corrective clicks, the summary table, and a rerun of
-analysis/ml5_point_probe/point_probe.py's rows on real photos and masks. Plain unittest.
+"""The point probe (ticket ML-5 P6, D19, D23): simulated corrective clicks and the summary table. Plain unittest.
 
     python -m unittest tests.test_seg_point_probe -v
 """
 from __future__ import annotations
 
-import csv
 import unittest
 
 import numpy as np
 
 from coffeecv import seg_point_probe as probe
-from coffeecv.backbones import MODELS_PRETRAINED
-from coffeecv.config import REPO_ROOT
-from coffeecv.sam_loader import L0_WEIGHTS
-
-from tests._tiers import real_data
-
-ANALYSIS_ROWS = REPO_ROOT / "analysis" / "ml5_point_probe" / "rows.csv"
 
 
 class NextClick(unittest.TestCase):
@@ -55,31 +46,6 @@ class Summary(unittest.TestCase):
         # n 4; replay >= .9: 2 of 4; empty 1 of 4; clicks >= .9: 1, 1, 2, 3 of 4; medians of each click
         self.assertEqual(line, ["A", "m", "multi3", "4", "50%", "25%", "|", "25%", "25%", "50%", "75%", "|",
                                 "0.050", "0.350", "0.705", "0.960"])
-
-
-@real_data
-@unittest.skipUnless((MODELS_PRETRAINED / L0_WEIGHTS).exists() and (REPO_ROOT / "models/seg/ft_s123.pt").exists()
-                     and (REPO_ROOT / "data/seg_masks/base_points/index.csv").exists()
-                     and (REPO_ROOT / "data/seg_labels/labels.csv").exists(),
-                     "L0, ft_s123, data/seg_masks/base_points or data/seg_labels missing (dvc checkout)")
-class AgainstTheAnalysis(unittest.TestCase):
-    """A rewrite is checked against the original: the first photo of each reference set, both models and both
-    outputs, give the analysis's rows (made at 4 threads in the devcontainer)."""
-
-    def test_rows_match_analysis_rows(self):
-        items = [next(i for i in probe.reference_items(refs) if i.set == refs)
-                 for refs in ("ml2_base_points", "ml2_labels")]
-        rows = probe.probe(["pretrained_l0", "ft_s123"], ["single", "multi3"], items)
-        old = {(probe.resolve(r["path"]), r["model"], r["output"]): r for r in csv.DictReader(ANALYSIS_ROWS.read_text().splitlines())}
-        self.assertEqual(len(rows), 8)
-        for r in rows:
-            o = old[(r["path"], r["model"], r["output"])]
-            for k in ("n_points", "replay_empty"):
-                self.assertEqual(int(r[k]), int(o[k]), (r["path"], k))
-            # Not to 9 places since ML-7 P8: the rows were made with torch's mask upsampling, and its port
-            # (model_io.upsample_mask, OpenCV) rounds differently, which can move a pixel at the threshold.
-            for k in ("replay_iou", "click0", "click1", "click2", "click3"):
-                self.assertAlmostEqual(float(r[k]), float(o[k]), delta=1e-5, msg=(r["path"], r["model"], k))
 
 
 if __name__ == "__main__":

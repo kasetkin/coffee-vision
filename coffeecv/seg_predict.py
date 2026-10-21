@@ -1,102 +1,40 @@
-"""Ticket ML-2 P1: the `seg_predict@<model>` stage (plan §2.4, §4.2). Masks for every photo in the eval
-lists, computed once and stored, because mask bits differ by a few pixels across CPUs and thread counts (P0).
-Verdicts, overlays and the review tool read these stored masks and never recompute them.
+"""Ticket ML-5 P8 (D22): the `seg_ml5_predict@<model>` stage. A named segmenter's masks of one split of the
+segmenter dataset (labels/ml5/seg_dataset.yaml), every source, negatives included, computed once and stored,
+because mask bits differ by a few pixels across CPUs and thread counts (ML-2 P0). The blind paired session
+(seg_review paired) reads two of these and never recomputes a mask.
 
-    python -m coffeecv.seg_predict pretrained --threads 4
-    python -m coffeecv.seg_predict ft_s42 --threads 4      # P5: L0 with the seed-42 fine-tuned decoder
+    python -m coffeecv.seg_predict xl0_v3 --split test --threads 4    # seg_ml5_predict@xl0_v3
 
-A model is pretrained weights (any variant, ticket ML-5 P4) and optionally a fine-tuned decoder over them:
-"pretrained" is the fine-tune's base, params.yaml seg_ft.weights, and a decoder runs over the base its card
-records (`model_params`), so moving the fine-tune to another variant is one edit of params.yaml.
+The segmenter is a name in segment_beans.NAMED_SEGMENTERS, at the serving box prompt and params.yaml's
+seg_mask_select. Out: data/seg_masks_ml5/<model>/<id>.png (1-bit) + index.csv, one row per photo: its source
+and split, the photo and mask sha256, area fraction, the selected output's predicted IoU, and the D4 crop box
+(empty if the mask is empty).
 
-Lists: seg_eval + neg_seg_eval + pos_seg_eval. The plan names the first two; pos_seg_eval joined with D26, and
-it holds the 10 OOD-positive base candidates, so with it every base candidate has a stored mask.
-Prompt and output come from params.yaml (seg_prompt, seg_mask_select; D5).
-
-Out: data/seg_masks/<model>/<id>.png (1-bit) + index.csv, one row per photo: the list, the photo and mask
-sha256, area fraction, the selected output's predicted IoU, and the D4 crop box (empty if the mask is empty).
-
-Ticket ML-5 P8 (D22): `--split test` predicts one split of the segmenter dataset (labels/ml5/seg_dataset.yaml),
-every source, negatives included, with a segmenter named in segment_beans.NAMED_SEGMENTERS:
-
-    python -m coffeecv.seg_predict xl0_v1 --split test --threads 4    # seg_ml5_predict@xl0_v1
-
-Out: data/seg_masks_ml5/<model>/<id>.png + index.csv as above, `source` and `split` in place of the list; the
-blind paired session (seg_review paired) reads two of these.
+ML-2's mode, masks of labels/ml2's eval lists (seg_predict@<model>, seg_predict_ft), was removed with its stages
+on 2026-10-21; it is in git history.
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import time
-from typing import NamedTuple
 
 import torch
 from PIL import Image
 
-from coffeecv import seg_lists
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import read_csv, sha256_file
-from coffeecv.seg_base_masks import item_id
+from coffeecv.repo_files import sha256_file
 from coffeecv.seg_dataset import load_seg_dataset, photo_id
-from coffeecv.seg_finetune import FtParams
-from coffeecv.segment_beans import (NAMED_SEGMENTERS, BeanSegmenter, SegParams, d4_box, decoder_base, mask_sha256,
-                                    named_params)
+from coffeecv.segment_beans import NAMED_SEGMENTERS, BeanSegmenter, d4_box, mask_sha256, named_params
 
-MASK_ROOT = REPO_ROOT / "data" / "seg_masks"
 ML5_MASK_ROOT = REPO_ROOT / "data" / "seg_masks_ml5"
-LISTS = ("seg_eval", "neg_seg_eval", "pos_seg_eval")
-FT_SEEDS = (42, 123, 7)
-
-
-class Model(NamedTuple):
-    decoder: str | None = None    # a fine-tuned mask decoder (seg_finetune.py), or None: the pretrained base
-
-
-MODELS = {"pretrained": Model(), **{f"ft_s{s}": Model(f"models/seg/ft_s{s}.pt") for s in FT_SEEDS}}
-
-
-def model_params(model: str, cfg: RunConfig) -> SegParams:
-    """The segmenter MODELS[model] names, at the serving prompt and output (params.yaml seg_prompt,
-    seg_mask_select): the fine-tune's base (seg_ft.weights) for "pretrained", else the decoder over the base
-    its card records."""
-    decoder = MODELS[model].decoder
-    weights = decoder_base(decoder) if decoder else FtParams.from_config(cfg).weights
-    return SegParams(mask_select=cfg.seg_mask_select, prompt=cfg.seg_prompt, weights=weights, decoder=decoder)
-
-
-def photo_entries(lists: dict[str, list[dict]]) -> list[dict]:
-    """[{id, list, path, sha256}] over LISTS, in list order. Raises if an id repeats."""
-    out, seen = [], set()
-    for name in LISTS:
-        for e in lists[name]:
-            i = item_id(e)
-            if i in seen:
-                raise ValueError(f"item id {i} repeats")
-            seen.add(i)
-            out.append({"id": i, "list": name, "path": e["path"], "sha256": e["sha256"]})
-    return out
-
-
-def mask_items(model: str) -> list[dict]:
-    """The stage's index.csv as judge/review items: {item, list, path, photo_sha256, mask, mask_sha256, ...},
-    `mask` repo-relative. Read by seg_judge --masks, seg_eval and review_masks."""
-    out_dir = MASK_ROOT / model
-    rows = read_csv(out_dir / "index.csv")
-    return [{"item": r["id"], "mask": str((out_dir / f"{r['id']}.png").relative_to(REPO_ROOT)), **r} for r in rows]
 
 
 def split_entries(split: str) -> list[dict]:
     """[{id, source, split, path, sha256}] of one split of the segmenter dataset, in file order."""
     return [{"id": photo_id(e["path"]), "source": e["source"], "split": e["split"], "path": e["path"],
              "sha256": e["sha256"]} for e in load_seg_dataset() if e["split"] == split]
-
-
-def run(model: str) -> None:
-    cfg = RunConfig.from_params_yaml()
-    _, lists = seg_lists.load_lists()
-    predict(photo_entries(lists), BeanSegmenter(model_params(model, cfg)), MASK_ROOT / model, cfg)
 
 
 def run_split(model: str, split: str) -> None:
@@ -108,8 +46,8 @@ def run_split(model: str, split: str) -> None:
 
 
 def predict(entries: list[dict], seg: BeanSegmenter, out_dir, cfg: RunConfig) -> None:
-    """Each entry's mask and index row; an entry carries its own columns (list, or source and split) besides
-    id, path and sha256."""
+    """Each entry's mask and index row; an entry carries its own columns (source and split) besides id, path
+    and sha256."""
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     t0 = time.perf_counter()
@@ -138,21 +76,16 @@ def predict(entries: list[dict], seg: BeanSegmenter, out_dir, cfg: RunConfig) ->
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("model", help=f"ML-2's lists: one of {list(MODELS)}; with --split: one of "
-                                  f"{list(NAMED_SEGMENTERS)}")
-    ap.add_argument("--split", choices=["train", "validation", "test"],
-                    help="ML-5: predict this split of labels/ml5/seg_dataset.yaml instead of ML-2's lists")
+    ap.add_argument("model", help=f"one of {list(NAMED_SEGMENTERS)}")
+    ap.add_argument("--split", choices=["train", "validation", "test"], required=True,
+                    help="the split of labels/ml5/seg_dataset.yaml to predict")
     ap.add_argument("--threads", type=int, required=True,
                     help="torch.set_num_threads; pinned in dvc.yaml, because it changes mask bits")
     args = ap.parse_args(argv)
-    known = NAMED_SEGMENTERS if args.split else MODELS
-    if args.model not in known:
-        ap.error(f"model {args.model!r}: not one of {list(known)}")
+    if args.model not in NAMED_SEGMENTERS:
+        ap.error(f"model {args.model!r}: not one of {list(NAMED_SEGMENTERS)}")
     torch.set_num_threads(args.threads)
-    if args.split:
-        run_split(args.model, args.split)
-    else:
-        run(args.model)
+    run_split(args.model, args.split)
 
 
 if __name__ == "__main__":

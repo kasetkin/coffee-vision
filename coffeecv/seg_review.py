@@ -3,23 +3,25 @@ dataset with g/r point corrections, and the blind paired mode for P10.
 
 Labelling (P7, P9):
 
-    python -m coffeecv.seg_review label --session pass1 --proposer ft_s123 --redraw pretrained_l0
-    python -m coffeecv.seg_review status --session pass1      # labels.csv and the report: by round, drops, per source
+    python -m coffeecv.seg_review label --session pass4 --proposer xl0_v3 --redraw xl0_v3 --carry pass3
+    python -m coffeecv.seg_review status --session pass4      # labels.csv and the report: by round, drops, per source
 
 then open http://localhost:8765 (VS Code forwards the port; else --host 0.0.0.0 and the container's IP, as
 review_masks says). `label` first prepares what the session needs, resumably: the proposer's round-1 mask of
 every training and validation positive (whole-image box, params.yaml seg_mask_select), the empty label of
 every training and validation negative (never shown, D14), and each positive's encoding by the redraw model,
 stored once, so that a redraw reruns only the decoder (D19). The proposer and the redraw model are arguments
-(pass 1: ft_s123 and pretrained L0, D19), recorded in the session file; a resume with other models is refused.
+(pass 1 took ML-2's ft_s123 and pretrained L0, D19; pass 3 XL0-v2 for both), recorded in the session file; a
+resume with other models is refused.
 
 A session can start from an earlier one (ticket ML-6 D3 (a)):
 
-    python -m coffeecv.seg_review label --session pass3 --proposer xl0_v2 --redraw xl0_v2 --carry pass2
+    python -m coffeecv.seg_review label --session pass4 --proposer xl0_v3 --redraw xl0_v3 --carry pass3
 
-Every photo pass2 accepted, with the same sha256, keeps its verdicts and masks, copied into pass3 and marked
-`carried_from`; the page shows only the rest (pass2's drops and the photos new since), and only they are
-encoded. `status` counts carried labels apart.
+Every photo pass3 accepted, with the same sha256, keeps its verdicts and masks, copied into pass4 and marked
+`carried_from`; the page shows only the rest (pass3's drops and the photos new since), and only they are
+encoded. `status` counts carried labels apart. pass3 is the one session left in the repo (pass1 and pass2, with
+XL0-v1 and v2, went on 2026-10-21): it holds its own copies of what it carried from pass2.
 
 On the page: A accepts the mask; D (or 1-5, with a reason) declines it. After a decline, hold g and left-click
 for an include point (green), r and left-click for an exclude point (red); U or Backspace undoes the last
@@ -30,13 +32,13 @@ declined in round 3 is dropped, the reason logged (D14).
 
 Blind paired (P10, D22):
 
-    python -m coffeecv.seg_review paired --session p10_test --masks data/seg_masks/<v1> data/seg_masks/<v2>
+    python -m coffeecv.seg_review paired --session <name> --masks data/seg_masks_ml5/xl0_v3 data/seg_masks_ml5/<new>
 
 Each test positive's two masks side by side, left and right drawn at random per photo from params.yaml
 seg_paired_seed (or --seed), the model names hidden until every mask is judged; identical masks are judged
 once. A/D judge the left mask, J/L the right one. Then the report (P10, D22):
 
-    python -m coffeecv.seg_review paired-report --session p10_test --masks <v1 dir> <v2 dir> --out <json>
+    python -m coffeecv.seg_review paired-report --session <name> --masks <v1 dir> <v2 dir> --out <json>
 
 per source (internet positives with the segmenter positives) and overall: both pass, v1 only, v2 only, both
 fail, with an exact McNemar p-value on the discordant pairs; and each model's empty and empty-or-tiny masks on
@@ -84,7 +86,7 @@ LABELS_DIR = REPO_ROOT / "labels" / "ml5"
 MASK_ROOT = REPO_ROOT / "data" / "ml5_labels"
 EMBED_ROOT = REPO_ROOT / "outputs" / "ml5_embeddings"
 ROUNDS = (1, 2, 3)
-REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of seg_labels.CORRECTION_OUTPUT's single
+REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of ML-2's single-output corrections
 LABEL_SPLITS = ("train", "validation")
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
                 "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
@@ -860,8 +862,8 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
     lab = sub.add_parser("label", help="prepare and serve a labelling session")
-    lab.add_argument("--proposer", required=True, help="round 1's segmenter (pass 1: ft_s123, D19)")
-    lab.add_argument("--redraw", required=True, help="the segmenter that redraws from points (pass 1: pretrained_l0)")
+    lab.add_argument("--proposer", required=True, help="round 1's segmenter (pass 3: xl0_v2)")
+    lab.add_argument("--redraw", required=True, help="the segmenter that redraws from points (pass 3: xl0_v2)")
     lab.add_argument("--carry", default=None,
                      help="an earlier session whose accepted labels this one keeps (ML-6 D3 (a)); default none")
     lab.add_argument("--prepare-only", action="store_true", help="prepare, then exit without serving")
@@ -877,7 +879,7 @@ def main(argv: list[str] | None = None) -> None:
     prep.add_argument("--out", type=Path, help="also write the report as JSON")
     prep.add_argument("--chosen", help="the model the owner picks (D20): re-derive the tiny-mask threshold (D21)")
     for p in (lab, st, par, prep):
-        p.add_argument("--session", required=True, help="the session's name, e.g. pass1")
+        p.add_argument("--session", required=True, help="the session's name, e.g. pass4")
     for p in (lab, par):
         p.add_argument("--reviewer", default="owner")
         p.add_argument("--port", type=int, default=8765)

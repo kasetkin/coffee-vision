@@ -118,10 +118,6 @@ class RunConfig:
 
     rotation_jitter_degrees: float = 0.0  # +/- jitter around each right angle, applied at patch sampling
 
-    # Ticket ML-2 (D21): the seed of the segmenter's own photo split, used only by
-    # seg_lists.py to build labels/ml2/photo_lists.yaml. It is none of the head seeds
-    # (42/123/7), so no head seed's split is the segmenter's. No training run reads it.
-    seg_split_seed: int = 239
     # Ticket ML-2 (D5, owner 2026-10-01): the segmenter's fixed prompt is one whole-image box, and
     # the widest multimask output is kept. P0 found it gives the whole frame on frame-filling photos
     # and no output gives the pile on tray photos, so P2 measures exactly that baseline.

@@ -1,6 +1,0 @@
-outs:
-- md5: 63e4c5a067e11dc4f8f8077faa3ffa21.dir
-  size: 15663420
-  nfiles: 1252
-  hash: md5
-  path: seg_labels

@@ -5,16 +5,14 @@
 
 labels/photo_renames.csv maps each old path to the new one and the photo's sha256, which must be the file at
 the new path: a rename moves a photo, never changes it. Only OOD negatives are handled (their batch is the
-folder under dataset/ood_negatives/). For each photo the records carry four strings derived from its path,
-and each is replaced on token boundaries: the path; the ML-5 id (`seg_dataset.photo_id`); the ML-2 label id
-(`seg_base_masks.item_id`), which also names its mask file; and a `batch:` value in YAML. Every other byte of
-each file stays as it was, and nothing is written unless every replacement applies.
+folder under dataset/ood_negatives/). For each photo the records carry three strings derived from its path,
+and each is replaced on token boundaries: the path; the ML-5 id (`seg_dataset.photo_id`), which also names its
+mask file; and a `batch:` value in YAML. Every other byte of each file stays as it was, and nothing is written
+unless every replacement applies. (Until 2026-10-21 also ML-2's label id and records, retired then.)
 
-The run records are not here: data/seg_masks*, data/seg_cache_ml5, outputs/, analysis/, models/*.json and
-the verdict logs keep the paths their runs read. labels/ml2/photo_lists.yaml is frozen (ML-5 D3); a rename
-is, with `seg_lists rekey` and the owner's one clean-up (seg_lists), one of the ways its entries change. The
-DVC-tracked records are `dvc add`ed after, and the stages that read them recorded with `dvc commit`, as ML-3
-P3 did.
+The run records are not here: data/seg_masks_ml5, outputs/, analysis/, models/*.json and
+the verdict logs keep the paths their runs read. The DVC-tracked records are `dvc add`ed after, and the
+stages that read them recorded with `dvc commit`, as ML-3 P3 did.
 """
 from __future__ import annotations
 
@@ -26,7 +24,6 @@ from pathlib import Path
 
 from coffeecv.config import REPO_ROOT
 from coffeecv.repo_files import sha256_file
-from coffeecv.seg_base_masks import item_id
 from coffeecv.seg_dataset import photo_id
 
 RENAMES = REPO_ROOT / "labels" / "photo_renames.csv"
@@ -35,13 +32,10 @@ NEGATIVES = Path("dataset") / "ood_negatives"
 # Records naming photos by path, git-tracked first, then the DVC-tracked ones (`dvc add` them after).
 RECORDS = [
     "labels/ml5/seg_dataset.yaml",
-    "labels/ml2/photo_lists.yaml",
-    "data/ml5_labels/pass1/labels.csv",
-    "data/ml5_labels/pass2/labels.csv",
-    "data/seg_labels/labels.csv",
+    "data/ml5_labels/pass3/labels.csv",
 ]
 # Folders whose files are named by a label id: <id>.png.
-MASK_DIRS = ["data/ml5_labels/pass1/neg", "data/ml5_labels/pass2/neg", "data/seg_labels/neg"]
+MASK_DIRS = ["data/ml5_labels/pass3/neg"]
 
 
 def load_renames(path: Path = RENAMES) -> list[dict]:
@@ -62,11 +56,8 @@ def replacements(rows: list[dict]) -> tuple[list[tuple[re.Pattern, str]], dict[s
     for r in rows:
         old, new = r["old_path"], r["new_path"]
         old_batch, new_batch = batch_of(old), batch_of(new)
-        old_item = item_id({"batch": old_batch, "path": old})
-        new_item = item_id({"batch": new_batch, "path": new})
         stems[photo_id(old)] = photo_id(new)
-        stems[old_item] = new_item
-        for a, b in ((old, new), (photo_id(old), photo_id(new)), (old_item, new_item)):
+        for a, b in ((old, new), (photo_id(old), photo_id(new))):
             subs.append((re.compile(r"(?<![\w.-])" + re.escape(a) + r"(?![\w-])"), b))
         if old_batch != new_batch:
             subs.append((re.compile(r"^(\s*(?:- )?batch: )" + re.escape(old_batch) + r"(?=\r?$)", re.M),

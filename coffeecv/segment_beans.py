@@ -29,8 +29,8 @@ from coffeecv import model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.sam_loader import L0_WEIGHTS, VARIANTS, build_sam, variant_of, weights_for
 
-# The torch thread count every stored-mask tool pins (seg_predict through dvc.yaml's --threads 4, seg_labels,
-# seg_review, seg_point_probe): mask bits differ by a few pixels across thread counts (ticket ML-2 P0).
+# The torch thread count every stored-mask tool pins (seg_predict through dvc.yaml's --threads 4, seg_review,
+# seg_point_probe): mask bits differ by a few pixels across thread counts (ticket ML-2 P0).
 THREADS = 4
 
 # SAM's box prompt yields either the single-mask token (multimask_output=False) or three multimask
@@ -343,12 +343,11 @@ def decoder_base(decoder: str) -> str:
     return json.loads(card.read_text())["base_weights"]
 
 
-# ML-5 P6: the segmenters the review page and the point probe take by name (D19: ft_s123 proposes, pretrained L0
-# redraws in pass 1): pretrained weights, or a fine-tuned decoder over the base its card names (decoder_base).
-# A pass-2 model is passed as WEIGHTS:DECODER until it is named here.
+# ML-5 P6: the segmenters the review page and the point probe take by name: pretrained weights, or a fine-tuned
+# decoder over the base its card names (decoder_base). A new fine-tune is passed as WEIGHTS:DECODER until it is
+# named here. ML-2's ft_s123 and XL0-v1, v2 left with their stages on 2026-10-21.
 NAMED_SEGMENTERS = {"pretrained_l0": (weights_for("l0"), None), "pretrained_xl0": (weights_for("xl0"), None),
-                    "ft_s123": (None, "models/seg/ft_s123.pt"), "xl0_v1": (None, "models/seg/xl0_v1.pt"),
-                    "xl0_v2": (None, "models/seg/xl0_v2.pt"), "xl0_v3": (None, "models/seg/xl0_v3.pt")}
+                    "xl0_v3": (None, "models/seg/xl0_v3.pt")}
 
 
 def named_params(name: str, mask_select: str = "multi3") -> SegParams:

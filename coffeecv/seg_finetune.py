@@ -3,7 +3,7 @@ labels of a labelling session, with point prompts (D15); ticket ML-6 P5: augment
 stage:
 
     python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name xl0_v3 --threads 8
-                                                        # XL0-v3's stage (ML-6 P6; seg_ml5_finetune is frozen)
+                                                        # XL0-v3's stage (ML-6 P6)
 
 Labels come from data/ml5_labels/<session>/labels.csv (seg_review.py, the owner's verdicts): every accepted
 positive and every negative (an empty label, D14) of the training and validation splits. Dropped photos are left
@@ -14,10 +14,8 @@ out, a pending one stops the run, and a test photo never appears there (D4). Rol
     neg_train   training negatives
     neg_select  validation negatives: checkpoint selection only (share empty or tiny, ML-2 D18 threshold)
 
-ML-2's fine-tune (labels/ml2 lists, data/seg_labels, its random 20% of negative groups held for selection) made
-models/seg/ft_s{42,123,7}.pt; its stages are frozen in dvc.yaml and the code that ran them is at a1e73e3. ML-5's
-fine-tunes xl0_v1 and xl0_v2 trained on an embedding cache of 4 dihedral views (seg_ml5_cache@pass1, @pass2); those
-stages are frozen too, and the code that ran them is at 46ec14c.
+ML-2's fine-tunes (ft_s{42,123,7}, code at a1e73e3) and ML-5's XL0-v1 and v2 (an embedding cache of 4 dihedral
+views, code at 46ec14c) left dvc.yaml on 2026-10-21; they are in git history.
 
 Data (ML-6 D12, docs/adr/0018): nothing is cached, and nothing augmented is written. At the start of a run each
 training photo (train, neg_train) is checked against labels.csv's sha256, resized to the encoder's frame by

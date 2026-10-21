@@ -24,11 +24,10 @@ class TestRename(unittest.TestCase):
         with self.assertRaises(ValueError):
             batch_of("dataset/segmenter_positives/PXL_1.jpg")
 
-    def test_mask_stems_are_both_label_ids(self):
+    def test_mask_stems_are_the_label_id(self):
         self.assertEqual(self.stems, {
             "ood_negatives__2026-09__user_realworld__real_world_negatives__real_world_negatives_001":
-                "ood_negatives__user_realworld__20260910_195601",
-            "2026-09__user_realworld__real_world_negatives_001": "user_realworld__20260910_195601"})
+                "ood_negatives__user_realworld__20260910_195601"})
 
     def test_yaml_entry_moves_path_group_and_batch(self):
         text = (f"- path: {OLD}\n  sha256: x\n  batch: 2026-09__user_realworld\n"
@@ -39,11 +38,11 @@ class TestRename(unittest.TestCase):
                               f"  tag: real_world_negatives\n  group: {NEW}\n")
 
     def test_csv_row_moves_id_path_and_mask_and_keeps_crlf(self):
-        old_id = "2026-09__user_realworld__real_world_negatives_001"
-        out, n = rewrite(f"{old_id},neg,{OLD},h,negative,,data/seg_labels/neg/{old_id}.png,m\r\n", self.subs)
+        old_id = "ood_negatives__2026-09__user_realworld__real_world_negatives__real_world_negatives_001"
+        new_id = "ood_negatives__user_realworld__20260910_195601"
+        out, n = rewrite(f"{old_id},{OLD},h,negative,,data/ml5_labels/pass3/neg/{old_id}.png,m\r\n", self.subs)
         self.assertEqual(n, 3)
-        self.assertEqual(out, f"user_realworld__20260910_195601,neg,{NEW},h,negative,,"
-                              f"data/seg_labels/neg/user_realworld__20260910_195601.png,m\r\n")
+        self.assertEqual(out, f"{new_id},{NEW},h,negative,,data/ml5_labels/pass3/neg/{new_id}.png,m\r\n")
 
     def test_a_longer_name_is_not_touched(self):
         text = f"- path: {OLD10}\n  batch: 2026-09__user_realworld_extra\n"

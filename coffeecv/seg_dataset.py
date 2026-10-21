@@ -75,7 +75,7 @@ class Params:
 
 def photo_id(path: str) -> str:
     """File-name-safe id of a dataset photo: its path under dataset/, folders joined by "__", no suffix. (Not
-    seg_base_masks.item_id, which names ML-2's list entries.)"""
+    ML-2's label ids, retired 2026-10-21.)"""
     parts = Path(path).with_suffix("").parts
     if "dataset" in parts:
         parts = parts[len(parts) - parts[::-1].index("dataset"):]

@@ -4,13 +4,10 @@
 # SSH keys for this devcontainer: in the workspace bind mount so they survive a rebuild -- never commit
 /.private_ssh/
 __pycache__/
-# Must be `/outputs/*`, not `/outputs/` — git cannot re-include a file whose
-# parent *directory* is excluded, so the negation below is silently dead against
-# a directory pattern. ML-2's seg_eval@<model> metrics are `cache: false` in dvc.yaml,
-# i.e. "versioned in git, not the DVC cache". (The ResNet trainer's metrics.json and
-# summary.json were too, until its stage was removed on 2026-10-20.)
+# `/outputs/*`, not `/outputs/`, so that a file under it can be re-included: git cannot re-include a file whose
+# parent *directory* is excluded. None is today: ML-2's seg_eval metrics were, until their stage was removed on
+# 2026-10-21 (and the ResNet trainer's metrics.json and summary.json until 2026-10-20).
 /outputs/*
-!/outputs/seg_eval_*.json
 /tensorboard/
 /dvc_plots/
 *.pt

@@ -14,7 +14,7 @@ one for the other. Stdlib only, so coverage_report and the release can import it
 
     load_classes(path)    the classes a model is fitted on and predicts: country or folder, by format
     folder_classes(path)  one class per folder id, sorted, either format: for consumers that must keep
-                          per-folder classes (seg_lists' ML-2 split, the DINOv3 fixture, pick_photos)
+                          per-folder classes (the DINOv3 fixture, pick_photos)
     read_coffees(path)    one Coffee per line, for the reports and the farm-region diagnostics
 """
 from __future__ import annotations

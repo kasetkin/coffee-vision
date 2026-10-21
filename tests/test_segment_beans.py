@@ -116,15 +116,15 @@ class TestSegParams(unittest.TestCase):
 
 
 class TestNamedSegmenters(unittest.TestCase):
-    """ML-5 P6: the review page and the point probe take a segmenter by name (D19's ft_s123, pretrained L0)."""
+    """ML-5 P6: the review page and the point probe take a segmenter by name."""
 
     def test_names_and_weights_with_a_decoder(self):
-        self.assertEqual((named_params("ft_s123").weights, named_params("ft_s123").decoder),
-                         ("efficientvit_sam/efficientvit_sam_l0.pt", "models/seg/ft_s123.pt"))
+        self.assertEqual((named_params("xl0_v3").weights, named_params("xl0_v3").decoder),
+                         ("efficientvit_sam/efficientvit_sam_xl0.pt", "models/seg/xl0_v3.pt"))
         self.assertEqual(named_params("pretrained_l0").decoder, None)
         self.assertEqual(named_params("pretrained_xl0").variant, "xl0")
-        p = named_params("efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v1.pt")
-        self.assertEqual((p.variant, p.decoder, p.mask_select), ("xl0", "models/seg/xl0_v1.pt", "multi3"))
+        p = named_params("efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v4.pt")
+        self.assertEqual((p.variant, p.decoder, p.mask_select), ("xl0", "models/seg/xl0_v4.pt", "multi3"))
         self.assertIsNone(named_params("efficientvit_sam/efficientvit_sam_xl0.pt").decoder)
         with self.assertRaisesRegex(ValueError, "no_such_model"):
             named_params("no_such_model")
@@ -180,7 +180,8 @@ class TestXL0FromConfig(unittest.TestCase):
         self.assertEqual(seg.predict_mask(rgb).shape, (300, 400))
 
 @real_data
-@unittest.skipUnless(HAVE_L0 and (REPO_ROOT / "models/seg/ft_s123.pt").exists(), SKIP_L0 + " (or ft_s123)")
+@unittest.skipUnless((MODELS_PRETRAINED / weights_for("xl0")).exists() and (REPO_ROOT / "models/seg/xl0_v3.pt").exists(),
+                     "EfficientViT-SAM-XL0 weights or models/seg/xl0_v3.pt missing (dvc pull)")
 class TestEncodeOnce(unittest.TestCase):
     """ML-5 P6: the review page encodes a photo once, stores the encoding, and a click reruns only the decoder.
     A stored encoding, moved to another segmenter on the same encoder, must give the mask a full run gives."""
@@ -190,11 +191,12 @@ class TestEncodeOnce(unittest.TestCase):
         rgb = np.full((300, 400, 3), 60, np.uint8)
         rgb[(yy - 150) ** 2 + (xx - 220) ** 2 < 90 ** 2] = (200, 160, 90)
         inc, exc = [(0.55, 0.5)], [(0.1, 0.1), (0.9, 0.9)]
-        ft = BeanSegmenter(replace(P, decoder="models/seg/ft_s123.pt"))
+        base = replace(P, weights=weights_for("xl0"))
+        ft = BeanSegmenter(replace(base, decoder="models/seg/xl0_v3.pt"))
         want_mask, want_iou = ft.predict_with_points(rgb, inc, exc, "multi3")
 
         buf = io.BytesIO()
-        torch.save(BeanSegmenter(P).encode(rgb), buf)        # encoded by another segmenter on the same weights
+        torch.save(BeanSegmenter(base).encode(rgb), buf)     # encoded by another segmenter on the same weights
         buf.seek(0)
         ft.set_encoding(torch.load(buf, weights_only=True))
         mask, iou = ft.decode_points(inc, exc, "multi3")

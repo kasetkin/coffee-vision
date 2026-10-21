@@ -1,4 +1,5 @@
-"""ML-5 D23: summarise point_probe.py's rows.csv per (set, model, output) into summary.txt.
+"""ML-5 D23: summarise rows.csv per (set, model, output) into summary.txt. The rows came from point_probe.py,
+deleted on 2026-10-21 with the ML-2 records it read (coffeecv.seg_point_probe is its successor).
 
     PYTHONPATH=. python analysis/ml5_point_probe/summary.py
 """

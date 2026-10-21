@@ -378,16 +378,15 @@ class ServingParityXL0(ServingParity):
 
 
 class DvcStagesReadTheBaseWeights(unittest.TestCase):
-    """dvc.yaml's seg_ml5_cache@<session> and seg_ml5_finetune@<name> depend on models_pretrained/${seg_ft.weights},
-    the file seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4, P8); so does seg_ml5_predict@<name>,
-    a decoder fine-tuned over it, so that the fine-tune's base is one edit of params.yaml."""
+    """dvc.yaml's fine-tune stage (seg_ml6_finetune@<name>) depends on models_pretrained/${seg_ft.weights}, the file
+    seg_finetune builds from, resolved by DVC itself (ticket ML-5 P4, P8); so does seg_ml5_predict@<name>, a decoder
+    fine-tuned over it, so that the fine-tune's base is one edit of params.yaml."""
 
     def test_the_interpolated_dependency_is_the_file_seg_finetune_builds_from(self):
         from dvc.repo import Repo
         weights = ft.FtParams.from_config(RunConfig.from_params_yaml()).weights
         with Repo(str(REPO_ROOT)) as repo:
-            for name in ("seg_ml5_cache@pass1", "seg_ml5_cache@pass2", "seg_ml5_finetune@xl0_v1",
-                         "seg_ml5_finetune@xl0_v2", "seg_ml5_predict@xl0_v1", "seg_ml5_predict@xl0_v2"):
+            for name in ("seg_ml6_finetune@xl0_v3", "seg_ml5_predict@xl0_v3"):
                 with self.subTest(name):
                     stage = repo.stage.collect(name)[0]
                     pretrained = [d.def_path for d in stage.deps if d.def_path.startswith("models_pretrained/")]
