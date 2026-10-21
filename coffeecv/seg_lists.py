@@ -34,6 +34,11 @@ would change list, change hash or disappear. The eval lists only ever grow; no e
 changes its bytes but not its pixels, and labels/ml3/strip_manifest.csv records each hash before and after.
 `coffeecv.rename_photos` is the one way a path changes: the owner renamed a photo, and
 labels/photo_renames.csv records each path before and after.
+
+One clean-up, the owner's, 2026-10-21, ahead of a segmenter retrain: every entry's `crop:` path and meta's
+`capture_dirs` named the tray heuristic's data/cropped pools, deleted that day, and are gone; the OOD positives
+name dataset/segmenter_positives, where ML-5 moved them (D1), not dataset/ood_positives. Only build() wrote
+or read those, and it runs only at its own commit.
 """
 from __future__ import annotations
 
@@ -145,7 +150,7 @@ def pooled_split(cfg: RunConfig) -> dict[str, list[dict]]:
 
     ML-2 drew it over the tray heuristic's pools, retired in ticket ML-3 P2b. The segmenter's crops hold the
     same photo names (one `<stem>__cropped.jpg` per raw photo, D18 fallbacks included), so the split is the
-    same; a committed entry's `crop:` path stays as history."""
+    same. The `crop:` paths it wrote were dropped from the committed file on 2026-10-21."""
     capture_dirs, frac = split_basis(cfg)
     captures = ml2_captures(capture_dirs)
     classes = folder_classes(REPO_ROOT / cfg.classes_file)

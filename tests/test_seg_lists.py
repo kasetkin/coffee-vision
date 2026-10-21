@@ -181,7 +181,13 @@ class CommittedLists(unittest.TestCase):
         # rekey`, from labels/ml3/strip_manifest.csv). Pixels are unchanged; any other change still fails.
         from coffeecv.rename_photos import RENAMES, load_renames, replacements, rewrite
         text = rewrite(shown.stdout, replacements(load_renames())[0])[0] if RENAMES.exists() else shown.stdout
+        # And the owner's one clean-up of 2026-10-21 (seg_lists' docstring): no `crop:` paths, and the OOD
+        # positives under dataset/segmenter_positives.
+        text = text.replace("dataset/ood_positives/", "dataset/segmenter_positives/")
         committed = yaml.safe_load(text)["lists"]
+        for entries in committed.values():
+            for e in entries:
+                e.pop("crop", None)
         from coffeecv.rekey_photos import MANIFEST, load_map
         rekey, _ = load_map() if MANIFEST.exists() else ({}, set())
         for entries in committed.values():

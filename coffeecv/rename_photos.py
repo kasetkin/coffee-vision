@@ -12,8 +12,9 @@ each file stays as it was, and nothing is written unless every replacement appli
 
 The run records are not here: data/seg_masks*, data/seg_cache_ml5, outputs/, analysis/, models/*.json and
 the verdict logs keep the paths their runs read. labels/ml2/photo_lists.yaml is frozen (ML-5 D3); a rename
-is, with `seg_lists rekey`, one of the two ways its entries change. The DVC-tracked records are `dvc add`ed
-after, and the stages that read them recorded with `dvc commit`, as ML-3 P3 did.
+is, with `seg_lists rekey` and the owner's one clean-up (seg_lists), one of the ways its entries change. The
+DVC-tracked records are `dvc add`ed after, and the stages that read them recorded with `dvc commit`, as ML-3
+P3 did.
 """
 from __future__ import annotations
 
