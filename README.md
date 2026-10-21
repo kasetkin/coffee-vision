@@ -1,74 +1,52 @@
 # Coffee Bean CV Classifier
 
-Computer-vision-first classification of coffee bean origin/quality from photos. Camera-only CV is the active approach; a multi-modal hardware sensor rig (NIR spectroscopy, gas sensing, RF dielectric sensing) is documented as a fallback in `hardware/`, only worth building if plain-image CV underperforms.
+**Try it: [coffee.kasetkin.com](https://coffee.kasetkin.com)**
 
-Sample train patches, one row per class, cropped from the current dataset (`dataset/2026-08-07__box_pictures_all_classes`):
+Take a phone photo of a handful of whole coffee beans and get back the country the coffee was grown in. Our goal is to
+recognise **both green (unroasted) and roasted beans** from every country the model knows. We are not there yet: some
+countries have photos of both, others of only one (see [What it knows](#what-it-knows)).
+
+Sample patches, one row per class, cut from the training photos:
 
 ![Sample patches per class](docs/patch_samples.png)
 
-## Repo layout
+## How it works
 
-- `dataset/` — labeled photo captures. Each capture session is its own dated folder (e.g. `2026-07-24__first_pictures/`), tracked with [DVC](#dataset--dvc) rather than committed directly to git. `classes.txt` is a plain git-tracked text file with one line per coffee (class folder), `id;Country[,Region[,Subregion]];Misc`, e.g. `011;Peru,Junin,Satipo;Minca` (ticket ML-3 D15). The model's class is the **country**: several folders of one country train as one class. The farm region and misc are facts about the photos, never labels (`GLOSSARY.md`).
-- `coffeecv/` — the training, evaluation and inference code; `coffeecv_dino/` holds the DINOv3 screening tools.
-- `models/` — shipped checkpoints (`.pt` via DVC, and the live one's LiteRT conversion, `<name>.litert/`) with their git-tracked cards and OOD sidecars; `models_pretrained/` — upstream backbone weights (untracked) and their checksums.
-- `experiments/` — one archived directory per run, plus `experiments/index.csv`.
-- `webapp/` — the public web service serving the shipped classifier (see [Web service](#web-service) below).
-- `scripts/` — the guardrail (`check.sh`), the deploy and its local rehearsal (`deploy_webapp.sh`, `rehearse_deploy_local.sh`) and the remote-run toolkit (`remote_launch.sh`, `remote_watch.sh`, `remote_wait.sh`, `remote_log.sh`), idle while there is no remote training machine.
-- `docs/` — plans, investigations and their records.
-- `hardware/` — sensor datasheets (NIR: AS7263/AS7265x/AS7343, gas: BME688, LEDs) and a design-research writeup (`Computer vision models for coffee bean origin classification - Claude.pdf`) on which physical/chemical signals actually carry origin information. Reference material for the fallback hardware path — nothing here is built or wired up yet.
-- `.devcontainer/` — the dev environment (below).
-- `.vscode/c_cpp_properties.json` — C/C++ IntelliSense config anticipating firmware work; unused while CV-only is the active path.
+1. **Find the beans.** A segmentation model marks the part of the photo covered by beans and ignores the tray, table and
+   hands.
+2. **Classify.** Patches from that area go through a frozen DINOv3 vision model with a small linear head on top. The
+   patch scores are pooled into one score per country.
+3. **Refuse when unsure.** If the photo does not look like the training data (no beans, other seeds, ground coffee),
+   an out-of-distribution guard declines to answer instead of guessing.
 
-## Dev environment
+The same code runs from the command line and behind a small public web app: upload a photo, see the bean mask, then
+the scores.
 
-Open in VS Code with the Dev Containers extension ("Reopen in Container"). It builds `Dockerfile.cpu`: Python 3.12, PyTorch (CPU wheels — no NVIDIA GPU on this machine), OpenCV, scikit-learn, DVC, etc. `--device=/dev/dri` passes through this machine's AMD iGPU for OpenCV's OpenCL path; as configured the devcontainer won't start on a host without that device (cloud VM, macOS, NVIDIA-only box) — there's no separate GPU/cloud variant. Training runs on this machine: the CPU VM that ran sweeps and served the web app was shut down for good on 2026-10-12, and there is no other training machine until the owner names one (`docs/agents/remote-sweeps.md`). The web app runs on its own host, `webappremote`, which trains nothing.
+## What it knows
 
-`scripts/check.sh` is the guardrail: `coffeecv.leak_check` (no public IPs, emails, credentials or photo GPS in what git would publish), `coffeecv.ticket_check` (the HTML tickets, plans and ADRs keep the tracker's rules), `ruff check` (the lint rules in `pyproject.toml`'s `[tool.ruff]`), `coffeecv.coverage_report` and the unittest suite, in two tiers. `.githooks/pre-commit` runs the leak check and Ruff on the staged files before every commit. The fast tier (~45 s on 2026-10-18) skips the tests marked `@real_data` in `tests/_tiers.py` (real photos or real weights); `.githooks/pre-push` runs it before every push to origin, pushes to any other remote skip it, and `git push --no-verify` bypasses it once. `scripts/check.sh --full` (~11 min on 2026-10-18) runs every test; `scripts/deploy_webapp.sh` runs it on the commit it deploys, before touching the host. The devcontainer wires the hook (`git config core.hooksPath .githooks`); on a fresh clone outside it, run that command yourself.
+- **10 countries:** Brazil, Colombia, Costa Rica, Ethiopia, Guatemala, Indonesia, Kenya, Peru, Rwanda and Vietnam. The
+  coffees are listed in [dataset/classes.txt](dataset/classes.txt).
+- **Green and roasted, so far:** Brazil, Colombia and Guatemala have photos of both (Ethiopia and Vietnam have one
+  roasted photo each); Kenya and Costa Rica are green only; Indonesia, Peru and Rwanda are roasted only. Filling the
+  gaps is what the goal above needs.
+- **The country is the only label.** The farm region, grade, variety and farm name are recorded for each coffee but
+  never predicted.
+- **Photos from several phones and cameras** (Pixel, iPhone, OnePlus, Sony), all treated alike.
 
-Persisted across rebuilds via named Docker volumes (not part of the repo — a `docker volume prune` or Docker reset would lose them): bash history, IPython/Jupyter history and the uv cache. Two gitignored folders in the workspace itself (a bind mount from the host) persist too: `.private_claude/`, mounted as Claude Code's config directory (auth, sessions, memory), and `.private_ssh/`, the devcontainer's SSH keys and config. `~/.ssh` is a link to `.private_ssh/`, so the SSH config with the VM's host alias, its key and `known_hosts` survive a rebuild too; `.devcontainer/link-private-ssh.sh` makes the link on container create, and also sets this clone's `git config core.sshCommand` to push with the devcontainer's key, `.private_ssh/coffee-vision-devcontainer`.
+## How good it is
 
-## Dataset & DVC
+On held-out photos the live model scores about 0.97 macro-F1. Those photos come from the same bags of beans and the same
+cameras as the training photos, so this is **not** an estimate of accuracy on a new phone or a new bag of coffee. That
+test does not exist yet. Details and history: [docs/status.md](docs/status.md).
 
-New capture sessions get tracked with:
+## Where to go next
 
-```bash
-dvc add dataset/<session-name>
-git add dataset/<session-name>.dvc dataset/.gitignore
-```
-
-This keeps the actual images out of git (only a small `.dvc` pointer + hash gets committed) while still versioning them alongside code.
-
-The default remote is `dvcnewremote`, an SSH remote configured in `.dvc/config`: `/home/sun/dvc-store`, reached through the `dvcnewremote` SSH host alias (in `.private_ssh/config`). `dvc push` backs the cache up there. It replaced `powervpsssh`, the VM, which was shut down for good on 2026-10-12; the objects that lived only there are gone (`docs/agents/dvc.md`). Verify a push by checking that the objects `dvc.lock` names exist on the remote, not by `dvc status --cloud`'s summary, which can report "in sync" while objects are missing.
-
-## Web service
-
-`webapp/` serves the shipped checkpoint, `dino3b16_segxl0v3_country_aug8_s123` (a frozen DINOv3 ViT-B/16 with
-a linear head fitted with augmented views, on crops from the XL0-v3 segmenter), behind `POST /analyze` plus a one-page frontend: upload a
-photo once, get a preview of the crop and bean mask, then scores for all 10 countries, or a refusal when the photo
-does not look like the training data (the OOD guard), in one streamed answer (ticket OPS-7). Since ticket ML-7 the
-release serves the model's LiteRT conversion on the host's GPU (`webappremote`, an Intel N100 iGPU), without torch;
-about 8.5 s server-side per photo, the preview after about 2 s (8.4 s and 2.1 s, 2026-10-20). It wraps
-`coffeecv.infer` rather than reimplementing any of it, so the CLI and the web service can never silently
-disagree. Production runs from an immutable release under `/opt/coffee-cv` with its own uv environment,
-isolated from the training checkout; a deploy is one command, `scripts/deploy_webapp.sh`. See
-`webapp/README.md` for the architecture, deploy and rollback, and the things (domain, TLS cert) that live
-outside git by design.
-
-## Status
-
-Devcontainer, dataset pipeline, and a patch-based training/eval pipeline (`coffeecv/`) are all in place. Training draws from one pool, `data/segcropped/pool`: every session's crops, cut by the segmenter (the `merge_segpool` stage; no camera or rig, ticket ML-8 and ADR 0024; the tray heuristic's `data/cropped` pools were retired in ticket ML-3), split 70/15/15 within each class, 600/160/160 patches per class. Since ticket ML-1 (2026-09-29, `docs/ticket_retire_cross_rig.html`) all cameras are equal: none is held out, and the only label is the bean class. Val patch macro-F1 selects checkpoints and adoptions, not the DINOv3 head's C, which is fixed at 0.1 (ML-1 D3, ADR 0006); test is reported. The cross-camera figures below come from the leave-one-camera-out folds that ML-1 retired.
-
-- **Shipped: frozen DINOv3 ViT-B/16, `cls_mean` readout, logistic-regression head**, no TTA. Cross-camera patch macro-F1 **0.8873** (exp240-251, 3 seeds × 4 folds), 0.9489 pooled per photo. The owner selected it on those folds and it has been live since 2026-09-27; the formal paired comparison against ResNet18 (`docs/dinov3_integration_plan.md` §7.2) was closed as superseded when ML-1 retired the folds (D7). The live model, `dino3b16_segxl0v3_country_aug8_s123` (exp271, live since 2026-10-20, ticket ML-8), is that recipe on one pool of every session's XL0-v3 crops (600/160/160 patches per class) with country classes, its head fitted on each training patch and 8 augmented views of it (ADR 0025): in-distribution val 0.9661, test 0.9767; over seeds 42, 123 and 7 (exp270-272) val 0.9661-0.9755, test 0.9767-0.9813, and against the same runs' unaugmented heads +0.0021 val, +0.0038 test on average (`analysis/ml8/p7_paired.txt`). The owner chose seed 123 over the val pick, seed 42. Its OOD probe caught 160/160 test negatives and refused 0/73 bean photos.
-- **Fine-tuned ResNet18 recipe** (bean-unit patch sizing at 4-7 beans, MixStyle p=0.5, random erasing p=0.5, 100 epochs / patience 20, TTA): cross-camera **0.7908-0.8025** over seeds 42, 123 and 7 (exp200-203, exp232-239). No ResNet18 model ships any more.
-
-`models/` holds the live model and the one it replaced, not retired: `allrigs_dino3b16_segxl0v3_country_s42` (exp267, ticket ML-6, live 2026-10-13 to 2026-10-20). Every older model (`allrigs_cam_s123`, `allrigs_dino3b16_s123`, `allrigs_dino3b16_seg_s7` and the `phase*`/`allrigs_*_s17` ResNets) was retired on 2026-10-06, ML-8's unreleased candidate `dino3b16_segxl0v3_country_aug8_s42` (exp270, the val pick) on 2026-10-20, and `allrigs_dino3b16_segxl0_country_s123` (exp265, XL0-v2 segmenter, ticket ML-5, live 2026-10-09 to 2026-10-13) and `allrigs_dino3b16_seg_country_s123` (exp262, the L0 segmenter `ft_s123`, ticket ML-3, live 2026-10-06 to 2026-10-09) on 2026-10-21, with their segmenters; each one's card, sidecars and `.pt.dvc` are in git history and its `.pt` in the DVC cache and remote.
-
-Quote ranges over seeds, not a single run: seed-to-seed spread is wider than most of the effects being measured, which is why adoptions require a *paired* multi-seed check.
-
-**Every val and test score this pipeline now produces is in-distribution, not an estimate of real-world accuracy.** Val and test photos come from the same bean bags and the same cameras as the training photos, so they say nothing about how a model does on a new camera or a new scoop of beans (ML-1, R2). They also sit near ceiling (~0.97) and barely separate choices (R1). Never compare one with a fold-era cross-camera number: 0.887 and 0.975 for the same shipped model answer different questions (R3), and `experiments/index.csv` keeps the two kinds of column apart (`xrig_*` is blank for runs since ML-1, meaning "not measured"). Until a generalization test set exists (fresh scoops, a new phone -- its own ticket), camera- or scoop-level drift shows up only in manual spot-checks and the OOD guard, and neither gates a change.
-
-`EXPERIMENTS_LOG.md` holds the experiment history through exp251. Later runs are written up in the plans that made them: exp252-254 in `docs/dinov3_integration_plan.md`, exp255-260 in ML-2's (`docs/plan_segmentation_mask.html`), exp261-263 in ML-3's (`docs/plan_country_classes.html`), exp264-266 in ML-5's (`docs/plan_segmenter_dataset.html`) and exp267-269 in ML-6's (`docs/plan_segmenter_retrain.html`); `experiments/index.csv` has every run. In the log, phases 1-14 (through exp105) were written contemporaneously and are authoritative prose. Phases 15-17 (exp106-175) were **reconstructed on 2026-09-03** from `index.csv` and the archived configs — the numbers are recomputed and exact, but the reasoning-as-it-happened is genuinely lost for those runs, and the section says so. Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary and is regenerated from the archive directories by `archive_experiment.rebuild_index()`, never hand-edited.
-
-Ticket ML-1 and its implementation plan (`docs/ticket_retire_cross_rig.html`, `docs/plan_retire_cross_rig.html`) record how and why the fold protocol was retired. `docs/dinov3_integration_plan.md` is the record of the DINOv3 work; the dataset and rig reorganisation behind the camera-rig numbers is `docs/dataset_training_reorg_plan.md`.
-
-Known limitation worth reading before further tuning: the validation set is saturating (5 of 9 classes sit at or near f1=1.000, and one run hit val macro-F1 0.9917). Since `best.pt` is selected on peak val macro-F1, this degrades *checkpoint selection*, not just reporting — see the Phase 8 summary.
+| If you want to… | Read |
+|---|---|
+| Set up the dev environment, run the checks, add photos | [docs/development.md](docs/development.md) |
+| See the live model, its numbers and how it got there | [docs/status.md](docs/status.md) |
+| Run, deploy or roll back the web app | [webapp/README.md](webapp/README.md) |
+| Browse experiment records | [experiments/README.md](experiments/README.md), [EXPERIMENTS_LOG.md](EXPERIMENTS_LOG.md) |
+| Learn the project's vocabulary | [GLOSSARY.md](GLOSSARY.md) |
+| Understand why things are the way they are | [docs/adr/](docs/adr/) |
+| Review or write a change | [CODING_STANDARDS.md](CODING_STANDARDS.md) |

@@ -12,7 +12,7 @@
     not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-20; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-20; 2026-10-21: README rewritten as an overview, its Status moved to <code>docs/status.md</code> and its Repo layout to <code>docs/development.md</code>; D1 decided (a), serving path page rewritten in place; <code>models_pretrained/README.md</code> left</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Docs: overview pages</span></div>
@@ -98,14 +98,14 @@
     <tbody>
       <tr><td class="id">D1</td><td>What happens to today's <code>inference_path.html</code>?</td>
         <td>(a) Rewrite it in place for <code>/analyze</code> (b) Keep it as a dated snapshot and write a new page beside it</td>
-        <td>Open.</td></tr>
+        <td>(a), rewrite in place. The owner, 2026-10-21.</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The serving path page traces today's <code>/analyze</code>, with the live model, segmenter, runtime and guard.</span></li>
-    <li><span class="box"></span><span>README's Status and Repo layout say what is live, and where exp252&ndash;272 are written up.</span></li>
+    <li><span class="box done"></span><span>The serving path page traces today's <code>/analyze</code>, with the live model, segmenter, runtime and guard.</span></li>
+    <li><span class="box done"></span><span>README's Status and Repo layout say what is live, and where exp252&ndash;272 are written up.</span></li>
     <li><span class="box"></span><span><code>models_pretrained/README.md</code>'s Next steps say what is done and what is left.</span></li>
   </ul>
 
@@ -120,6 +120,15 @@
     <div><div class="when">2026-10-20</div>Ticket written at the owner's request after the session's stale-docs
       sweep, from <code>docs/inference_path.html</code>, <code>README.md</code> and <code>models_pretrained/README.md</code>
       at <code>d0d963c</code>. D1 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-21</div>At the owner's request the README was rewritten as an overview of the
+      project (what it is for, how it works, what it knows, how good it is), with the live site's link and a goal of
+      both green and roasted beans for every country. Its technical sections moved out: Status to
+      <code>docs/status.md</code>, rewritten to lead with the live model and give the history a line each (the log now
+      reaches exp272; the ResNet-era "5 of 9 classes" limitation dropped), and Repo layout, Dev environment, the checks
+      and Dataset &amp; DVC to <code>docs/development.md</code>. The owner decided D1 (a): <code>docs/inference_path.html</code>
+      now traces <code>/analyze</code> from the upload to its two streamed parts, each step with its function and file.
+      Left: <code>models_pretrained/README.md</code>'s Next steps, and R1's mitigation (the page is not yet on the list
+      of docs a serving change updates).</div>
   </div>
 
   <footer>Related: <a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR 0016</a>,

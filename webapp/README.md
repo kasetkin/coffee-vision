@@ -109,7 +109,7 @@ shipped before ticket ML-3 (all retired on 2026-10-06, e.g. `allrigs_cam_s123`) 
 `id;label` lines, and each folder id is a class: the page shows `006` and its label. Since ML-3
 (`allrigs_dino3b16_seg_country_s123`) the list is in the D15 format, `id;Country[,Region];Misc`, and
 the class is the country: the page shows ten keys such as `Brazil` and `CostaRica`, and the request
-log's `top1_class` holds a country key. A rollback to an older release shows folder classes again.
+log's `top1_class` holds a country key. Only a release from before ML-3 would show folder classes again.
 
 ## Deploying
 
@@ -161,9 +161,12 @@ service if there is nothing to roll back to) -> **prune** to `current` + `previo
 prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the host, then
 `scripts/deploy_webapp.sh --verify`.
 
-**Fallback:** `--rollback` to `previous`. `models/` still holds the two models the live one replaced
-(`README.md`, "Status"), but neither has a LiteRT conversion, so neither deploys as it stands; the ResNet18
-fallback, `allrigs_cam_s123`, was retired on 2026-10-06 with every other old model, and the ResNet18 code on 2026-10-20. An older release can still be
+**Fallback:** `--rollback` to `previous`. `models/` still holds the model the live one replaced,
+`allrigs_dino3b16_segxl0v3_country_s42` (exp267, live 2026-10-13 to 2026-10-20; `docs/status.md`), with its LiteRT
+conversion (dvc.yaml's `litert_export` stage), so it deploys as it stands:
+`scripts/deploy_webapp.sh <git-ref> allrigs_dino3b16_segxl0v3_country_s42`. Every older model was retired with its card
+kept in git history (`docs/status.md`): the ResNet18 fallback, `allrigs_cam_s123`, on 2026-10-06, the ResNet18 code on
+2026-10-20, and the two models whose segmenters left the repo on 2026-10-21. An older release can still be
 rebuilt from a commit that holds it, `scripts/deploy_webapp.sh <sha> <model>`, as long as what that commit's build
 needs (its `.pt`, and since ML-7 its LiteRT export) is in the local DVC cache (`dvc fetch` at that commit); the
 release is built from that commit's tree.

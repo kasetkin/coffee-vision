@@ -1,6 +1,6 @@
 # DVC: moving data and trusting what it says
 
-Read before moving data between machines, pushing to the remote, or committing after a DVC command. The remote's setup is in README.md, "Dataset & DVC".
+Read before moving data between machines, pushing to the remote, or committing after a DVC command. The remote's setup is in docs/development.md, "Dataset & DVC".
 
 ## Moving data
 
