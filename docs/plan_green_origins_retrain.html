@@ -77,7 +77,7 @@
 
   <h2>3. P1 &mdash; pass4 labels <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-21: session started; the fence added (ticket D7)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-21: 22 accepted (12 in round 1, 7 in 2, 3 in 3), 1 dropped; 233 labels with the 211 carried; 313 objects verified on dvcnewremote</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The labels the fine-tune trains on (ADR 0015), carried from pass3 (ML-6 D3 (a)), with XL0-v3 proposing and
@@ -91,11 +91,13 @@
       the page's script run in Node against a fake DOM. <span class="result">Done 2026-10-21. XL0-v3 ignores a
       smaller box (<code>analysis/ml9/box_prompt_probe.txt</code>), hence a fence, not a prompt; ML-10 for
       later.</span></span></li>
-    <li><span class="box"></span><span>Stop for the owner: judge the 23 positives, with points on declines (up to three
-      rounds).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: judge the 23 positives, with points on declines (up to three
+      rounds). <span class="result">Done 2026-10-21: 22 accepted, 9 of the 10 redrawn ones with a fence; dropped
+      <code>PXL_20261014_075517794.jpg</code> (a segmenter positive), declined in round 3.</span></span></li>
     <li><span class="box"></span><span><code>seg_review status --session pass4</code>: accepted by round, drops and why,
       per source, carried against new. <code>dvc add data/ml5_labels/pass4</code>, commit, push by target and verify on
-      the remote.</span></li>
+      the remote. <span class="result">Done 2026-10-21: <code>analysis/ml9/p1_pass4_report.json</code>; 313 objects
+      verified on dvcnewremote.</span></span></li>
   </ol>
 
   <h2>4. P2 &mdash; Stages and a toy run</h2>

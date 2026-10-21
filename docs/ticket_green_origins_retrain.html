@@ -12,7 +12,7 @@
     models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -178,8 +178,9 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The photos of 2026-10-21 stripped, in DVC and pushed; both sessions
       cropped; every new crop in the pool (D1); the segmenter dataset appended at 3 s (ADR 0029).</span></li>
-    <li><span class="box"></span><span>A label session carried from pass3, every training and validation positive without
-      a label judged by the owner (D2 (c): the dataset as appended).</span></li>
+    <li><span class="box done"></span><span>A label session carried from pass3, every training and validation positive without
+      a label judged by the owner (D2 (c): the dataset as appended). Done 2026-10-21: pass4, 22 accepted and 1
+      dropped of 23, 233 labels in all.</span></li>
     <li><span class="box"></span><span>A new XL0 decoder fine-tuned in its own DVC stage with D3's augmentation, and
       compared with XL0-v3 on the test split; the owner's choice and threshold recorded (D4).</span></li>
     <li><span class="box"></span><span>If a new segmenter is adopted: every session re-cropped, its new fallbacks shown
@@ -211,6 +212,8 @@
       recorded per photo (ML-3 D4).</div>
     <div><div class="when">2026-10-21</div>D7 decided by the owner during P1: the review page gets a fence, a rectangle
       the redrawn mask is cut to (ADR 0015 amended); a segmenter that follows box prompts is ML-10.</div>
+    <div><div class="when">2026-10-21</div>P1 done: the owner labelled pass4 (22 accepted, 9 of them fenced; 1
+      dropped). P2 done: <code>seg_predict</code> by path, the stages, a toy run. P3, the fine-tune, next.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
