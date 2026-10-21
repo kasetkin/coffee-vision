@@ -1,7 +1,7 @@
 """What the shipped probe is fitted on (ADR 0016, ticket ML-5 D16): `fit_ood_probe` takes its negatives from
 the segmenter dataset's training and validation splits, every one (ticket ML-8 D9: no tags), and drops from its bean photos any
 photo that would share a D13 group with a test photo, which `ood_eval` measures it on (D4): the same bytes,
-or a burst shot within seg_dataset.GROUP_SECONDS of one on the same clock. Plain unittest, on
+or a burst shot within seg_dataset.GROUP_SECONDS (3 s) of one on the same clock. Plain unittest, on
 tests/fixtures/ml5_seg_dataset.yaml with stand-in shot times; no model and no photo.
 
     python -m unittest tests.test_fit_ood_probe_set -v
@@ -31,8 +31,9 @@ def at(clock: str, hhmmss: str, day: str = "20261001") -> tuple[str, datetime]:
 TIMES = {
     TEST_POSITIVE: at("utc", "120000"),
     TEST_NEGATIVE: at("utc", "080000"),
-    SESSION + "PXL_burst.jpg": at("utc", "120100"),            # 60 s after a test photo: one burst
-    SESSION + "DSC_other_clock.jpg": at("local sony", "120100"),  # the same reading on another camera's clock
+    SESSION + "PXL_burst.jpg": at("utc", "120002"),            # 2 s after a test photo: one burst
+    SESSION + "DSC_other_clock.jpg": at("local sony", "120002"),  # the same reading on another camera's clock
+    SESSION + "PXL_minute.jpg": at("utc", "120100"),           # 60 s after: another shot of the session (ADR 0029)
     SESSION + "PXL_later.jpg": at("utc", "120500"),            # 300 s after
     SESSION + "PXL_after_negative.jpg": at("utc", "080030"),   # 30 s after a test negative: another subject
 }
@@ -76,11 +77,13 @@ class TestProbeFitSet(unittest.TestCase):
         self.assertEqual(dropped, 2)
 
     def test_copies_and_bursts_of_a_test_photo_are_dropped(self):
-        names = ("PXL_burst.jpg", "DSC_other_clock.jpg", "PXL_later.jpg", "PXL_copy.jpg", "PXL_after_negative.jpg")
+        names = ("PXL_burst.jpg", "DSC_other_clock.jpg", "PXL_minute.jpg", "PXL_later.jpg", "PXL_copy.jpg",
+                 "PXL_after_negative.jpg")
         beans = [REPO_ROOT / (SESSION + n) for n in names]              # absolute, as id_photos returns them
         scan = FakeScan(self.photos)
         kept, dropped = fit_ood_probe.probe_beans(beans, self.photos, describe=scan)
-        self.assertEqual([q.name for q in kept], ["DSC_other_clock.jpg", "PXL_later.jpg", "PXL_after_negative.jpg"])
+        self.assertEqual([q.name for q in kept],
+                         ["DSC_other_clock.jpg", "PXL_minute.jpg", "PXL_later.jpg", "PXL_after_negative.jpg"])
         self.assertEqual(dropped, 2)
         self.assertTrue({TEST_POSITIVE, TEST_NEGATIVE, SESSION + "PXL_burst.jpg"} <= scan.asked)
 
@@ -89,19 +92,22 @@ class TestProbeFitSet(unittest.TestCase):
 @real_data
 class TestProbeFitSetOnThePhotos(unittest.TestCase):
     """probe_beans through seg_dataset.scan on the committed dataset file and the checked-out photos: a pool photo
-    the dataset did not draw, shot 103 s before a test photo on the same Pixel, goes; one shot an hour earlier
-    stays."""
+    the dataset did not draw, shot 3 s after a test photo on the same Pixel, goes; one shot 103 s before a test
+    photo stays (ADR 0029: until 2026-10-21 it went), as does one shot an hour earlier."""
 
     def test_a_burst_neighbour_of_a_test_photo_is_dropped(self):
-        box = REPO_ROOT / "dataset" / "2026-08-07__box_pictures_all_classes"
         photos = seg_dataset.load_seg_dataset()
-        test = {e["path"]: e["split"] for e in photos}
-        self.assertEqual(test.get(f"{box.relative_to(REPO_ROOT)}/class_002__Kenya_AA/PXL_20260807_081158015.jpg"),
-                         "test")
-        burst = box / "class_002__Kenya_AA" / "PXL_20260807_081015382.jpg"
+        split = {e["path"]: e["split"] for e in photos}
+        box = REPO_ROOT / "dataset" / "2026-08-07__box_pictures_all_classes"
+        pixel = REPO_ROOT / "dataset" / "2026-08-09__pixel_cam" / "class_007__Brazil_MonteCristo"
+        for test_photo in (box / "class_002__Kenya_AA" / "PXL_20260807_081158015.jpg",
+                           pixel / "PXL_20260809_135349236.jpg"):
+            self.assertEqual(split.get(str(test_photo.relative_to(REPO_ROOT))), "test")
+        burst = pixel / "PXL_20260809_135352790.jpg"
+        minutes_before = box / "class_002__Kenya_AA" / "PXL_20260807_081015382.jpg"
         earlier = box / "class_006__Brazil_Cerrado" / "PXL_20260807_070742209.jpg"
-        kept, dropped = fit_ood_probe.probe_beans([burst, earlier], photos)
-        self.assertEqual((kept, dropped), ([earlier], 1))
+        kept, dropped = fit_ood_probe.probe_beans([burst, minutes_before, earlier], photos)
+        self.assertEqual((kept, dropped), ([minutes_before, earlier], 1))
 
 if __name__ == "__main__":
     unittest.main()

@@ -191,7 +191,7 @@
         <td>(a), 2026-10-08: as many as <code>segmenter_positives</code> holds (128), skipping photos already in it.</td></tr>
       <tr><td class="id">D13</td><td>Split ratios?</td>
         <td>70/15/15 or 60/15/25.</td>
-        <td>60/15/25 train/validation/test within each source, 2026-10-08. Byte-identical files and shots within 120 s form one group and never straddle two splits.</td></tr>
+        <td>60/15/25 train/validation/test within each source, 2026-10-08. Byte-identical files and shots within 120 s form one group and never straddle two splits. Amended 2026-10-21 by the owner: 3 s, not 120 s (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</td></tr>
       <tr><td class="id">D14</td><td>Who judges the masks?</td>
         <td>(a) The Claude judge, as ML-2. (b) The owner.</td>
         <td>(b), 2026-10-08: the owner accepts or declines every training and validation label and every test mask
@@ -321,6 +321,8 @@
       <code>20261009T1740Z-f585d14-allrigs_dino3b16_segxl0_country_s123</code>. Every plan phase is done; the ticket
       is the owner's to close.</div>
     <div><div class="when">2026-10-09</div>Closed by the owner after the release.</div>
+    <div><div class="when">2026-10-21</div>D13's grouping amended by the owner: shots group within 3 s, not 120 s, for
+      photos added from then on (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>

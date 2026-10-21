@@ -1,6 +1,6 @@
 # Photos the owner ties into one split unit by hand (ticket ML-6, D11). A split unit always lands in one split.
 # coffeecv.seg_dataset reads this file (load_split_units) beside its own rules: byte-identical files, one
-# source URL, and shots within 120 s on one clock. Add a unit when one scene is shot on two clocks, which those
+# source URL, and shots within 3 s on one clock (120 s until 2026-10-21, ADR 0029). Add a unit when one scene is shot on two clocks, which those
 # rules never compare. Each unit has a reason and at least two paths; a path the data does not have is refused.
 split_units:
   - why: >-

@@ -2,15 +2,15 @@
 # Append-only (D11): a rebuild adds photos new to the data and never moves or drops a listed one. Read it
 # with coffeecv.seg_dataset.load_seg_dataset. source: segmenter_positive | pool | negative | internet_positive;
 # split: train | validation | test, 60/15/25 within each source (each batch for negatives); group:
-# byte-identical files, one source URL, and shots within 120 s, named by their first path, never in two
-# splits. meta records the seed and shares the file was built with.
+# byte-identical files, one source URL, and shots within 3 s (photos listed before 2026-10-21: 120 s,
+# ADR 0029), named by their first path, never in two splits. meta records the seed and shares the file was built with.
 meta:
   seed: 511
   split:
     train: 0.6
     validation: 0.15
     test: 0.25
-  group_seconds: 120
+  group_seconds: 3
 photos:
 - path: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082824262.jpg
   sha256: 45fc56520a04b285860f736dc4699b8acb249b86b4a114d1b7de8d1d426b932e

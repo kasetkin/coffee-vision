@@ -118,12 +118,19 @@ class Groups(unittest.TestCase):
         out = sd.assign(self.background + [a, b], [], PARAMS)
         self.assert_one_group(out, [a["path"], b["path"]])
 
-    def test_shots_chain_while_each_is_within_120_s_of_the_last(self):
+    def test_shots_chain_while_each_is_within_3_s_of_the_last(self):
         burst = [photo(f"dataset/segmenter_positives/t{i}.jpg", "segmenter_positive", time=at(s))
-                 for i, s in enumerate((0, 100, 220, 341))]
+                 for i, s in enumerate((0, 2, 5, 9))]
         out = sd.assign(self.background + burst, [], PARAMS)
         self.assert_one_group(out, [b["path"] for b in burst[:3]])
         self.assertNotEqual(entry(out, burst[3]["path"])["group"], entry(out, burst[0]["path"])["group"])
+
+    def test_shots_of_one_session_a_minute_apart_are_their_own_groups(self):
+        """ADR 0029: within a session each shot is set up anew, so only a double press groups."""
+        shots = [photo(f"dataset/segmenter_positives/m{i}.jpg", "segmenter_positive", time=at(s))
+                 for i, s in enumerate((0, 30, 60, 100))]
+        out = sd.assign(self.background + shots, [], PARAMS)
+        self.assertEqual(len({entry(out, s["path"])["group"] for s in shots}), 4)
 
     def test_times_on_different_clocks_never_group(self):
         a = photo("dataset/segmenter_positives/c1.jpg", "segmenter_positive", time=at(0, "utc"))
@@ -146,14 +153,15 @@ class Groups(unittest.TestCase):
     def test_negatives_of_one_batch_shot_seconds_apart_are_one_subject(self):
         # Ticket ML-8 D9, R8: with no tag, a batch is the negatives' one subject.
         a = photo("dataset/ood_negatives/b1/empty_tray/n.jpg", "negative", time=at(0))
-        b = photo("dataset/ood_negatives/b1/green_legume/n.jpg", "negative", time=at(30))
+        b = photo("dataset/ood_negatives/b1/green_legume/n.jpg", "negative", time=at(sd.GROUP_SECONDS))
         out = sd.assign(self.background + [a, b], [], PARAMS)
         self.assert_one_group(out, [a["path"], b["path"]])
 
     def test_a_group_across_sources_shares_one_split(self):
         sp = [photo(f"dataset/segmenter_positives/s{i}.jpg", "segmenter_positive", time=at(1000 * i))
               for i in range(40)]
-        pl = [photo(f"dataset/a/class_001__X/q{i}.jpg", "pool", time=at(1000 * i + 30)) for i in range(40)]
+        pl = [photo(f"dataset/a/class_001__X/q{i}.jpg", "pool", time=at(1000 * i + sd.GROUP_SECONDS))
+              for i in range(40)]
         out = sd.assign(sp + pl, [], PARAMS)
         for s, q in zip(sp, pl):
             if q["path"] in {e["path"] for e in out}:
@@ -238,7 +246,7 @@ class AppendOnly(unittest.TestCase):
         data = [dict(p, time=at(1000 * i)) for i, p in enumerate(positives(40))] + pool("a", 100)
         first = stored(sd.assign(data, [], PARAMS))
         old = data[7]
-        new = photo("dataset/segmenter_positives/a_new.jpg", "segmenter_positive", time=at(7000 + 20))
+        new = photo("dataset/segmenter_positives/a_new.jpg", "segmenter_positive", time=at(7000 + sd.GROUP_SECONDS))
         out = sd.assign(data + [new], first, PARAMS)
         self.assertEqual((entry(out, new["path"])["split"], entry(out, new["path"])["group"]),
                          (entry(first, old["path"])["split"], entry(first, old["path"])["group"]))
@@ -253,7 +261,8 @@ class AppendOnly(unittest.TestCase):
             sd.assign(changed, self.first, PARAMS)
 
     def test_refuses_a_new_photo_that_joins_groups_in_two_splits(self):
-        data = [dict(p, time=at(1000 * i)) for i, p in enumerate(positives(40))] + pool("a", 100)
+        # Listed shots just over GROUP_SECONDS apart: each its own group, a short bridge away from the next.
+        data = [dict(p, time=at((sd.GROUP_SECONDS + 2) * i)) for i, p in enumerate(positives(40))] + pool("a", 100)
         first = stored(sd.assign(data, [], PARAMS))
         by_split = {}
         for p in data[:40]:
@@ -266,12 +275,12 @@ class AppendOnly(unittest.TestCase):
 
 
 def _steps(t0: datetime, t1: datetime) -> list[datetime]:
-    """Times every 100 s from t0 to t1, so the shots chain the two into one group."""
-    lo, hi = min(t0, t1), max(t0, t1)
-    out, t = [], lo + timedelta(seconds=100)
+    """Times every GROUP_SECONDS from t0 to t1, so the shots chain the two into one group."""
+    lo, hi, step = min(t0, t1), max(t0, t1), timedelta(seconds=sd.GROUP_SECONDS)
+    out, t = [], lo + step
     while t < hi:
         out.append(t)
-        t += timedelta(seconds=100)
+        t += step
     return out
 
 
