@@ -1,7 +1,7 @@
 # Backbone screen — frozen features under camera shift
 
 Measured 2026-09-21 on the workstation (Ryzen 5 5600U, 6 torch threads, CPU only). Written up in
-`docs/architecture_screen_plan.md`; this directory holds the scripts and raw results.
+`docs/architecture_screen_plan.md`; this directory holds `bench.py` and the probes' raw results.
 
 ## What this measures
 
@@ -65,11 +65,11 @@ self-supervised objective and LVD-142M's scale.
 ## Reproducing
 
     python analysis/architecture_screen/bench.py             # ~6 min
-    python analysis/architecture_screen/xrig_probe.py  120   # ~17 min
-    python analysis/architecture_screen/xrig_probe2.py 120   # ~15 min, needs `pip install timm`
 
-Both probes are deterministic — patch boxes come from the seeded RNG and every model is frozen —
-so a re-run reproduces these tables exactly. Neither touches the VM or the DVC cache.
+The two probes, `xrig_probe.py` and `xrig_probe2.py`, were deleted on 2026-10-21: they score
+leave-one-camera-out on the four per-camera pools, which the project no longer has. The tables above
+and `xrig_probe_results.json` / `xrig_probe2_results.json` are their record; c15dcd8 is the last
+commit they import at.
 
 ## Experiment 1 — frozen DINOv3 under the real fold protocol (2026-09-24 → 26)
 
@@ -127,7 +127,9 @@ ResNet18 space (same-rig and green-legume AUROC 1.000 in both; internet-matched 
 `coffeecv_dino/ood_feasibility.py`), and B/16 without TTA costs ≈ 5.8 s of model time per photo at 4
 threads vs 5.0 s for today's ResNet18 with TTA: parity, not the saving S/16 would have been.
 
-Reproducing (on the VM; each seed ≈ 1.5 h for the core arms, B/16 ≈ 40 min per fold with photo pooling):
+Reproducing: `coffeecv_dino/screen.py` was deleted with the fold protocol (0fa699c, ML-1), so the
+commands below ran at its parent 001ac92, on the VM (each seed ≈ 1.5 h for the core arms, B/16 ≈ 40 min
+per fold with photo pooling):
 
     COFFEECV_TORCH_THREADS=all python -m coffeecv_dino.screen --seeds 42 123 7 \
         --backbones resnet18 dinov2_vits14 dinov3_vits16 dinov3_vits16plus dinov3_vitb16 \
