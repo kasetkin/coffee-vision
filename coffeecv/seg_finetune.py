@@ -52,7 +52,7 @@ import inspect
 import json
 import math
 import time
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -464,10 +464,16 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--seed", type=int, required=True, help="the fine-tune seed")
     ap.add_argument("--name", required=True, help="the model's name, models/seg/<name>.pt")
     ap.add_argument("--threads", type=int, required=True, help="torch.set_num_threads")
+    ap.add_argument("--lr", type=float, help="overrides params.yaml seg_ft.lr for this run, one candidate's own stage "
+                                             "(ML-9 D8); the card records the rate used")
     args = ap.parse_args(argv)
     torch.set_num_threads(args.threads)
     cfg = RunConfig.from_params_yaml()
     p = FtParams.from_config(cfg)
+    if args.lr is not None:
+        if not args.lr > 0:
+            ap.error("--lr must be positive")
+        p = replace(p, lr=args.lr)
     rows = label_rows(args.labels)
     res = train(args.seed, cfg, p, rows)
     out = write_model(res, cfg, p, label_set(args.labels, rows), args.name)

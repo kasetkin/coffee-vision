@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import asdict, replace
 from pathlib import Path
 from unittest import mock
 
@@ -393,6 +394,43 @@ class DvcStagesReadTheBaseWeights(unittest.TestCase):
                     self.assertEqual(pretrained, [f"models_pretrained/{weights}"])
                     module = "seg_predict" if "predict" in name else "seg_finetune"
                     self.assertTrue(stage.cmd.startswith(f"python -m coffeecv.{module} "))
+
+
+class LearningRateArgument(unittest.TestCase):
+    """Ticket ML-9 D8: `--lr` overrides params.yaml's seg_ft.lr for one run, so a second candidate differs from
+    XL0-v4 in the rate alone without changing the params XL0-v4's stage depends on; the card's seg_ft is the run's."""
+
+    def run_main(self, extra: list[str]) -> ft.FtParams:
+        """main() with training stubbed out: the FtParams train got, checked against those the card records."""
+        got = {}
+
+        def train(seed, cfg, p, rows):
+            got["train"] = p
+            return {"best": {"epoch": 1, "score": 0.5}}
+
+        def write_model(res, cfg, p, labels, name):
+            got["card"] = asdict(p)
+            return REPO_ROOT / "models" / "seg" / f"{name}.pt"
+
+        with (mock.patch.object(ft, "label_rows", lambda session: []),
+              mock.patch.object(ft, "label_set", lambda session, rows: {}),
+              mock.patch.object(ft, "train", train), mock.patch.object(ft, "write_model", write_model),
+              mock.patch.object(ft.torch, "set_num_threads"), mock.patch("builtins.print")):
+            ft.main(["train", "--labels", "toy", "--seed", "123", "--name", "toy", "--threads", "1", *extra])
+        self.assertEqual(got["card"], asdict(got["train"]))
+        return got["train"]
+
+    def test_without_it_the_rate_is_params_yamls(self):
+        self.assertEqual(self.run_main([]).lr, ft.FtParams.from_config(RunConfig.from_params_yaml()).lr)
+
+    def test_it_changes_the_rate_and_nothing_else(self):
+        base = ft.FtParams.from_config(RunConfig.from_params_yaml())
+        self.assertEqual(self.run_main(["--lr", "3e-5"]), replace(base, lr=3e-5))
+
+    def test_a_rate_that_is_not_positive_is_refused(self):
+        for bad in ("0", "-1e-4"):
+            with self.subTest(bad), self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+                self.run_main(["--lr", bad])
 
 
 class EntryPointAtToyScale:
