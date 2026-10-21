@@ -94,23 +94,28 @@
 
   <h2>4. P2 &mdash; Stages and a toy run</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-21: the seg_predict change and stages, and the toy run</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Test-first: <code>seg_predict</code> takes <code>WEIGHTS:DECODER</code> beside a
+    <li><span class="box done"></span><span>Test-first: <code>seg_predict</code> takes <code>WEIGHTS:DECODER</code> beside a
       name, as <code>named_params</code> does, and records which in its output. No <code>segcrop</code> stage goes
-      stale.</span></li>
-    <li><span class="box"></span><span><code>dvc.yaml</code>: <code>seg_ml9_finetune@xl0_v4</code> (labels pass4, seed
+      stale. <span class="result">Done 2026-10-21: with <code>--out</code>, required for that form; 4 new tests;
+      <code>dvc status</code> clean after it.</span></span></li>
+    <li><span class="box done"></span><span><code>dvc.yaml</code>: <code>seg_ml9_finetune@xl0_v4</code> (labels pass4, seed
       123, 8 threads; params <code>seg_ft</code>, <code>augment</code>, <code>seg_prompt</code>,
       <code>seg_mask_select</code>) and <code>seg_ml9_predict</code> for XL0-v3 and XL0-v4 on today's test split
-      (XL0-v3's frozen masks predate ML-8's appends).</span></li>
-    <li><span class="box"></span><span>Diff the run's <code>seg_ft</code>, <code>seg_prompt</code> and
+      (XL0-v3's frozen masks predate ML-8's appends). <span class="result">Done 2026-10-21.</span></span></li>
+    <li><span class="box done"></span><span>Diff the run's <code>seg_ft</code>, <code>seg_prompt</code> and
       <code>seg_mask_select</code> key by key against <code>models/seg/xl0_v3.json</code>: only the augmentation may
-      differ (Q1).</span></li>
-    <li><span class="box"></span><span>Checks: the full suite green; the fine-tune's real entry point run at toy scale
+      differ (Q1). <span class="result">Done 2026-10-21: only <code>seg_ft.augment</code> differs.</span></span></li>
+    <li><span class="box done"></span><span>Checks: the full suite green; the fine-tune's real entry point run at toy scale
       (one epoch, a few steps) on pass3's labels (<code>CODING_STANDARDS.md</code>, "Proving a
-      change").</span></li>
+      change"). <span class="result">Done 2026-10-21: <code>seg_finetune train --labels pass3</code> with
+      <code>epochs: 1</code> (restored after), under a throwaway name, deleted after: it loaded 169 positives and 351
+      negatives, built the shared groups' pipeline (ColorJitter, PlanckianJitter, &hellip;), trained one epoch of 43
+      steps in 885 s with two other jobs on the CPU, and wrote a decoder and its card. ML-6 measured about 7 h for 40
+      epochs on an idle host; P3 measures its own first epoch.</span></span></li>
   </ol>
 
   <h2>5. P3 &mdash; XL0-v4</h2>
