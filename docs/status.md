@@ -23,6 +23,8 @@ Quote ranges over seeds, not a single run: seed-to-seed spread is wider than mos
 
 Roast state is uneven across countries (pool photos, `data/segcropped/pool/merge_manifest.json`): Brazil (class 013, 10 photos), Colombia (class 014, 19) and Guatemala (26) have roasted photos beside their green ones, Ethiopia and Vietnam one roasted photo each; Kenya and Costa Rica are green only; Indonesia, Peru and Rwanda are roasted only. For the one-state countries roast state alone narrows the answer, and no number above says how a model does on them in the other state.
 
+That is the pool the live model trained on. Since 2026-10-21 the pool also holds green Indonesia (class 015, a coffee of its own, 21 photos) and green Peru (class 011, 20), and 7 more roasted Colombia (class 014, 26), which no model has trained on yet ([ML-9](ticket_green_origins_retrain.html)). Until then the live model has seen Indonesia and Peru roasted only.
+
 ## How it got here
 
 - **Fine-tuned ResNet18** (the first model): bean-unit patch sizing at 4-7 beans, MixStyle p=0.5, random erasing p=0.5, 100 epochs / patience 20, TTA. Cross-camera patch macro-F1 0.7908-0.8025 over seeds 42, 123 and 7 (exp200-203, exp232-239). No ResNet18 model ships any more, and its code was removed on 2026-10-20.
