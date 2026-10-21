@@ -8,7 +8,7 @@ The fit set:
 
 - **Bean photos**: the checkpoint's own held-out photos (`--id-split`, its test split by default), minus any
   photo that would share a D13 group with a photo of the segmenter dataset's test split, which `ood_eval`
-  measures the probe on (D4): the same bytes, or a burst shot within seg_dataset.GROUP_SECONDS of one on the
+  measures the probe on (D4): the same bytes, or a burst shot within seg_dataset.GROUP_SECONDS (3 s, ADR 0029) of one on the
   same clock (`probe_beans`).
 - **Negatives**: every training and validation negative of the segmenter dataset (ticket ML-8 D9: no scenario
   tags, and negatives are negatives; until then the fit took a list of "clean" tags, which left out the three

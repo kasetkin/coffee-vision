@@ -46,7 +46,7 @@ NEGATIVES = DATASET / "ood_negatives"
 INTERNET_POSITIVES = DATASET / "ood_positives_internet"
 SOURCES = ("segmenter_positive", "pool", "negative", "internet_positive")
 SPLITS = ("train", "validation", "test")
-GROUP_SECONDS = 120       # D13: shots this close form one group
+GROUP_SECONDS = 3         # D13: shots this close form one group; 120 until 2026-10-21 (ADR 0029)
 FIELDS = ("path", "sha256", "source", "batch", "folder", "split", "group")   # as written, in order (no tag: ML-8 D9)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _NAME_TIME = re.compile(r"(?<!\d)(20\d{6})_(\d{6})")
@@ -281,8 +281,8 @@ def header(params: Params) -> str:
 # Append-only (D11): a rebuild adds photos new to the data and never moves or drops a listed one. Read it
 # with coffeecv.seg_dataset.load_seg_dataset. source: segmenter_positive | pool | negative | internet_positive;
 # split: train | validation | test, {shares} within each source (each batch for negatives); group:
-# byte-identical files, one source URL, and shots within {GROUP_SECONDS} s, named by their first path, never in two
-# splits. meta records the seed and shares the file was built with.
+# byte-identical files, one source URL, and shots within {GROUP_SECONDS} s (photos listed before 2026-10-21: 120 s,
+# ADR 0029), named by their first path, never in two splits. meta records the seed and shares the file was built with.
 """
 
 

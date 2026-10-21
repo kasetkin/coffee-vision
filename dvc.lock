@@ -798,9 +798,9 @@ stages:
       size: 24862
     - path: dataset/random_date_raccoon
       hash: md5
-      md5: 9f2100dbf0d46b705d7c3f9c49723347.dir
-      size: 206517046
-      nfiles: 68
+      md5: 39525421a628e542aa7388bb29668dda.dir
+      size: 219114097
+      nfiles: 75
     - path: models/seg/xl0_v3.pt
       hash: md5
       md5: a7e9b1d59b158bc6ad92fbd806ab2eee
@@ -829,9 +829,9 @@ stages:
     outs:
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 7148d7b39f4c9f56d29372651568395e.dir
-      size: 165253698
-      nfiles: 138
+      md5: 6b15c19488a86e412351a25012f0c697.dir
+      size: 174708830
+      nfiles: 151
   seg_ml6_finetune@xl0_v3:
     cmd: python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name 
       xl0_v3 --threads 8
@@ -1055,7 +1055,7 @@ stages:
       2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 
       2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 
       2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon
-      --exclude labels/ml3/pool_exclude.csv
+      2026-10-21__new_green --exclude labels/ml3/pool_exclude.csv
     deps:
     - path: coffeecv/merge_rig.py
       hash: md5
@@ -1136,11 +1136,16 @@ stages:
       md5: 574089d77afeaae6a35e3ac0dcd97e96.dir
       size: 361422183
       nfiles: 143
+    - path: data/segcropped/2026-10-21__new_green
+      hash: md5
+      md5: 82f201df26bc935d233dc25fab901aa2.dir
+      size: 92980150
+      nfiles: 85
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 7148d7b39f4c9f56d29372651568395e.dir
-      size: 165253698
-      nfiles: 138
+      md5: 6b15c19488a86e412351a25012f0c697.dir
+      size: 174708830
+      nfiles: 151
     - path: labels/ml3/pool_exclude.csv
       hash: md5
       md5: 10403a12e70cbf1eb281dc2b76d5a714
@@ -1148,9 +1153,9 @@ stages:
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: a65074b8432234ad11994bf431b1abc3.dir
-      size: 3433062799
-      nfiles: 2502
+      md5: 502e62a78bd076ba16088b571f201d0e.dir
+      size: 3535473155
+      nfiles: 2597
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v3_country_aug8_s123.pt --profile gpu_split && 
@@ -1200,3 +1205,55 @@ stages:
       md5: 6ec9fc9035708aac4242710610681df1.dir
       size: 815666152
       nfiles: 7
+  segcrop@2026-10-21__new_green:
+    cmd: python -m coffeecv.segcrop_session --session 2026-10-21__new_green 
+      --threads 4
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/segcrop_session.py
+      hash: md5
+      md5: 871894318de8f070d08f561642376115
+      size: 5796
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 2c86c4d4860ca9d1619a7b34c03dce36
+      size: 24862
+    - path: dataset/2026-10-21__new_green
+      hash: md5
+      md5: 040626a9f7217ff96d548ce97c6ee291.dir
+      size: 154296921
+      nfiles: 41
+    - path: models/seg/xl0_v3.pt
+      hash: md5
+      md5: a7e9b1d59b158bc6ad92fbd806ab2eee
+      size: 16265873
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_decoder: models/seg/xl0_v3.pt
+        seg_decoder_sha256: 
+          4b21ed7beeb20b12eabe8b8afc078d45011ed1d6fa71855638b1c6947da9ae22
+        seg_keep_frac: 0.95
+        seg_mask_select: multi3
+        seg_min_area_frac: 0.064511
+        seg_prompt: box
+        seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
+        seg_weights_sha256: 
+          9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
+    outs:
+    - path: data/segcropped/2026-10-21__new_green
+      hash: md5
+      md5: 82f201df26bc935d233dc25fab901aa2.dir
+      size: 92980150
+      nfiles: 85

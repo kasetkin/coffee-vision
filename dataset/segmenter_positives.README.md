@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 146 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 149 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,17 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-21: 3 photos of an open bag in gloved hands
+
+- **New photos** (batch `2026-10-21`): three iPhone 16 Pro Max (`IMG_6583.HEIC`..`IMG_6585.HEIC`, shot
+  2026-06-19), roasted beans in an open bag held in gloved hands, close-up from above. None is a byte copy of
+  another photo under `dataset/`.
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS, the Apple maker notes); 0 checks
+  failing. Rows in `labels/ml3/strip_manifest.csv`.
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all three, with 3 pool photos topping the draw
+  up to 149. Shot 14-18 s apart, they are three groups: since this batch the 120 s rule is 3 s
+  ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
 
 ## 2026-10-17: 10 grinder-hopper photos
 
