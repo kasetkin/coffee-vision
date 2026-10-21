@@ -3010,3 +3010,9 @@ same total weight (ADR 0025; `params.yaml` `head_augment`). About 2.6 h per seed
 - The val pick, exp270, was shipped first as the candidate `dino3b16_segxl0v3_country_aug8_s42` and retired
   unreleased on 2026-10-20 (owner): its card, class list, OOD reference and probe and `.pt.dvc` are in git history,
   and its `.pt` (md5 de91e57d…) was checked in the DVC cache and on the remote before its working copy was deleted.
+- Retired on 2026-10-21 (owner), once their segmenters (ft_s123, XL0-v2) left the repo with ML-2's and ML-5's
+  stages and no longer ran: `allrigs_dino3b16_seg_country_s123` (exp262, ML-3) and
+  `allrigs_dino3b16_segxl0_country_s123` (exp265, ML-5). Their cards, class lists, OOD references and probes and
+  `.pt.dvc` are in git history; each `.pt` (md5 2b611d5e…, efb5d2bb…) was checked in the DVC cache and on the
+  remote before its working copy was deleted. exp262's untracked `.ood_embeddings.npz` was moved, not deleted, to
+  `~/retired_models_2026-10-21/` on the devcontainer.

@@ -4,7 +4,7 @@ ResNet18 embedding contract went with its code, 2026-10-20; the frozen head's is
     python -m unittest discover -s tests -p 'test_model_and_ood_loading.py'
 
 On real artifacts: the live checkpoint `models/dino3b16_segxl0v3_country_aug8_s123.pt` (ticket ML-8) with its own OOD
-reference and probe, ML-3's card (`models/allrigs_dino3b16_seg_country_s123.json`) for the pools before ML-8, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked and
+reference and probe, ML-6's card (`models/allrigs_dino3b16_segxl0v3_country_s42.json`) for the pools before ML-8, and real bean patches from `coffeecv_dino.reference`. The checkpoint is DVC-tracked and
 its ViT-B/16 backbone is not in git, so the tests that need them skip with a reason when either is absent.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ from coffeecv.infer import (LEGACY_CONFIG_NOTE, config_for_checkpoint, embedding
 
 DEPLOYED = REPO_ROOT / "models" / "dino3b16_segxl0v3_country_aug8_s123.pt"
 # Fitted on the four camera pools before ticket ML-8 (D2) merged them into one: its card still names them.
-FOUR_POOLS = REPO_ROOT / "models" / "allrigs_dino3b16_seg_country_s123.pt"
+FOUR_POOLS = REPO_ROOT / "models" / "allrigs_dino3b16_segxl0v3_country_s42.pt"
 HAVE_DEPLOYED = (DEPLOYED.exists() and reference_path_for(DEPLOYED).exists() and probe_path_for(DEPLOYED).exists()
                  and (MODELS_PRETRAINED / SPECS["dinov3_vitb16"].weights).exists())
 
