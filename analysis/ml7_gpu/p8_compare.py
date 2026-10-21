@@ -49,7 +49,7 @@ def main() -> None:
     cfg, _ = infer.config_for_checkpoint(CHECKPOINT, None)
     classes = load_classes(REPO / cfg.classes_file)
     ids, labels = list(classes.keys), dict(classes.labels)
-    tc = infer.TorchClassifier(*infer.load_model(CHECKPOINT, cfg.model_name, len(ids), cfg.dropout))
+    tc = infer.TorchClassifier(*infer.load_model(CHECKPOINT, cfg.model_name, len(ids)))
     ref = infer.load_ood_reference(CHECKPOINT, tc.embedding_dim)
     probe = infer.load_ood_probe(CHECKPOINT, embedding_dim=tc.embedding_dim)
     with tempfile.TemporaryDirectory() as tmp:

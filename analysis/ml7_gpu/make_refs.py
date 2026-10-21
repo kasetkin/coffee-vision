@@ -69,7 +69,7 @@ class Context:
         checkpoint = graphs.repo_path(checkpoint)
         cfg, _ = config_for_checkpoint(checkpoint, None)
         classes = load_classes(REPO / cfg.classes_file)
-        model, head = load_model(checkpoint, cfg.model_name, len(classes.keys), cfg.dropout)
+        model, head = load_model(checkpoint, cfg.model_name, len(classes.keys))
         weights = {"weight": head.weight.detach().numpy(), "bias": head.bias.detach().numpy()}
         return cls(checkpoint, cfg, list(classes.keys), dict(classes.labels), model, head, weights,
                    load_ood_reference(checkpoint, embedding_dim_of(head)),
