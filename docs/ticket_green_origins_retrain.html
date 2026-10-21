@@ -12,7 +12,7 @@
     models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -99,7 +99,7 @@
       (<a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a>). New data is the change.</li>
     <li><strong>The owner judges every segmenter label</strong> (ADR 0015) and reads every comparison
       (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>); nothing passes on a numeric gate.</li>
-    <li><strong>A converted model serves only within D7's bars</strong>
+    <li><strong>A converted model serves only within ML-7 D7's bars</strong>
       (<a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>).</li>
     <li><strong>The label cards</strong> in <code>classes_labels_only</code> are a record of which coffee is which, not
       training data.</li>
@@ -166,6 +166,11 @@
       <tr><td class="id">D6</td><td>Does the ticket end with a deploy?</td>
         <td>(a) Yes, on the owner's go after D4 and D5's results. (b) No: it stops at a converted candidate.</td>
         <td>Open.</td></tr>
+      <tr><td class="id">D7</td><td>The owner asks for a rectangle on the review page beside the green and red points.
+        XL0-v3 ignores a box smaller than the photo (plan P1). What does the rectangle do?</td>
+        <td>(a) A fence: the redrawn mask is cut to it. (b) A prompt, after a segmenter is trained to follow boxes.</td>
+        <td><strong>(a), 2026-10-21</strong>, amending <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR
+          0015</a>; (b) is recorded as <a href="ticket_segmenter_box_prompts.html">ML-10</a>, for later.</td></tr>
     </tbody>
   </table></div>
 
@@ -182,7 +187,7 @@
     <li><span class="box"></span><span>The classifier at seeds 42, 123 and 7 as recorded runs, reported as ranges with
       per-class F1 and the green photos of 2026-10-21 alone, compared as D5 says; its probe refitted and measured with
       <code>ood_eval</code>.</span></li>
-    <li><span class="box"></span><span>The chosen models converted, within D7's bars on the serving host (ADR 0020), and
+    <li><span class="box"></span><span>The chosen models converted, within ML-7 D7's bars on the serving host (ADR 0020), and
       deployed if D6 says so; <code>docs/status.md</code>, the README and <code>docs/inference_path.html</code>
       updated for the live models.</span></li>
   </ul>
@@ -204,6 +209,8 @@
       (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7; Q1&ndash;Q3 carry D3, D5 and D6 with
       recommendations). Reporting "per roast state" became "the green photos of 2026-10-21 alone": roast state is not
       recorded per photo (ML-3 D4).</div>
+    <div><div class="when">2026-10-21</div>D7 decided by the owner during P1: the review page gets a fence, a rectangle
+      the redrawn mask is cut to (ADR 0015 amended); a segmenter that follows box prompts is ML-10.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,

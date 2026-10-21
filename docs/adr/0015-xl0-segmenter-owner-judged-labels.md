@@ -9,3 +9,5 @@ The learned segmentation stage of [ADR 0011](0011-learned-bean-segmentation-stag
 Source: [ML-5](../ticket_segmenter_dataset.html) D14, D15, D17, D18, D23; supersedes [ADR 0011](0011-learned-bean-segmentation-stage.md) (ML-2 D1, D6, D15).
 
 Amended 2026-10-17 by [ADR 0019](0019-serving-runs-litert-accelerator-per-host.md) (ML-7): serving runs the segmenter converted to LiteRT, so "the same code in training and serving" means the same processing code and the same weights, converted and held to D7's bars against PyTorch.
+
+Amended 2026-10-21 by [ML-9](../ticket_green_origins_retrain.html) D7: on a decline the owner may also draw a fence, a rectangle the redrawn mask is cut to, beside or instead of points. The fence is not a prompt: XL0-v3 ignores a box smaller than the photo (half of its mask fell outside a half box on 10 accepted photos, where pretrained XL0 kept 99.5% inside; `analysis/ml9/box_prompt_probe.txt`), so it bounds the mask after the model, and a fenced label is no reference for the point probe. A segmenter that follows boxes is [ML-10](../ticket_segmenter_box_prompts.html).

@@ -1,0 +1,118 @@
+<title>Segmenter Box Prompts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-10 · coffee-vision · segmenter training and the review page</div>
+  <h1>Teach the segmenter to follow a box prompt, so the owner's rectangle can steer a redraw</h1>
+  <p class="lede">The fine-tuned segmenter ignores any box smaller than the photo. On the review page the owner's
+    rectangle therefore only cuts the redrawn mask (<a href="ticket_green_origins_retrain.html">ML-9</a> D7); it cannot
+    tell the model where the beans are. The owner wants this recorded for later. Written; not planned, not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Model: segmenter fine-tune recipe</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/seg_finetune.py</code>, <code>params.yaml</code> (<code>seg_ft</code>), <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_review_pages.py</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-21</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">a later segmenter fine-tune; not ML-9's</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-21.</strong> "For now let's go with (a), but record somewhere that maybe later we
+      should retrain segmenter to follow also boxes, not only red-green dots."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a fine-tuned segmenter sees one box in training, the whole photo, as serving sends it, and learns to
+    disregard it. After this ticket a fine-tune also trains on smaller boxes, and the review page passes the owner's
+    rectangle to the model as a prompt, so a redraw can find beans inside it rather than only drop what lies
+    outside.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The measurement</strong> (<code>analysis/ml9/box_prompt_probe.txt</code>, 10 pool photos the owner
+      accepted in pass3): given a box over the left half of the beans, XL0-v3 put a median 50% of its mask outside the
+      box, and matched the left half of the owner's mask at IoU 0.50; pretrained XL0 put 0.5% outside, IoU 0.91. Both
+      match the owner's mask from the whole-photo box (median IoU 0.995 and 0.994).</li>
+    <li><strong>The same thing happened to points</strong>: ML-2's box-only fine-tune stopped following points, and
+      ML-5 D15 fixed it by sampling points from the error region in some batches
+      (<a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>). Boxes would get the same treatment.</li>
+    <li><strong>Serving keeps the whole-photo box</strong> (ADR 0015). Box batches must not cost the whole-photo
+      output its accuracy, which is what crops every photo.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The rectangle is a fence: it cuts the redrawn mask (ML-9 D7).</li>
+        <li>A fine-tune trains on the whole-photo box and sampled points.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Some fine-tune batches carry a smaller box around part of the label.</li>
+        <li>The rectangle is sent to the model as a prompt, and the redraw follows it.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Serving's prompt</strong>, the whole-photo box, and checkpoint selection on it (ADR 0015).</li>
+    <li><strong>The owner judges every label</strong> (ADR 0015).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Box batches may cost the serving output accuracy.</strong></td>
+        <td>Measured as point batches were: the candidate's whole-photo masks compared blind with the live segmenter's
+          (as ML-6 P7) before it ships.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>When?</td>
+        <td>(a) In the next segmenter fine-tune after ML-9. (b) Only when the fence proves too little in labelling.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>A fine-tune trained with box batches beside point batches, its whole-photo masks
+      compared with the live segmenter's.</span></li>
+    <li><span class="box"></span><span><code>analysis/ml9/box_prompt_probe.py</code> rerun on it: the share outside a
+      half box near pretrained XL0's.</span></li>
+    <li><span class="box"></span><span>The review page sends the rectangle as a prompt with a segmenter that follows
+      it.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Any change to serving's prompt.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-21</div>Ticket written at the owner's request, from ML-9 P1's box-prompt probe
+      (<code>analysis/ml9/box_prompt_probe.txt</code>). D1 open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9</a> (D7, the fence),
+    <a href="ticket_segmenter_dataset.html">ML-5</a> (D15, points in training),
+    <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</footer>
+</main>

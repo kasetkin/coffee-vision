@@ -50,7 +50,7 @@
       <tr><td class="id">P4</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: test</td></tr>
       <tr><td class="id">P5</td><td>Adopt: <code>params.yaml</code>, re-crop, fallbacks, DINOv3 fixture <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: every crop</td></tr>
       <tr><td class="id">P6</td><td>Classifier at 42, 123, 7; the live model on the new split; probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
-      <tr><td class="id">P7</td><td>LiteRT export and the deploy <span class="pill sm open">stop</span></td><td>local, web host</td><td>no: within D7's bars</td></tr>
+      <tr><td class="id">P7</td><td>LiteRT export and the deploy <span class="pill sm open">stop</span></td><td>local, web host</td><td>no: within ML-7 D7's bars</td></tr>
     </tbody>
   </table></div>
 
@@ -77,14 +77,20 @@
 
   <h2>3. P1 &mdash; pass4 labels <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-21: session started; the fence added (ticket D7)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The labels the fine-tune trains on (ADR 0015), carried from pass3 (ML-6 D3 (a)), with XL0-v3 proposing and
     redrawing, as ML-6 P4 did with XL0-v2.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>python -m coffeecv.seg_review label --session pass4 --proposer xl0_v3
-      --redraw xl0_v3 --carry pass3</code>, served from this host.</span></li>
+    <li><span class="box done"></span><span><code>python -m coffeecv.seg_review label --session pass4 --proposer xl0_v3
+      --redraw xl0_v3 --carry pass3</code>, served from this host. <span class="result">Started 2026-10-21: 23 to
+      judge, 211 carried.</span></span></li>
+    <li><span class="box done"></span><span>The owner's fence (ticket D7): hold b and drag; the redrawn mask is cut to
+      the rectangle, recorded per round, verdict and label; a fenced label is no point-probe reference. Tests first;
+      the page's script run in Node against a fake DOM. <span class="result">Done 2026-10-21. XL0-v3 ignores a
+      smaller box (<code>analysis/ml9/box_prompt_probe.txt</code>), hence a fence, not a prompt; ML-10 for
+      later.</span></span></li>
     <li><span class="box"></span><span>Stop for the owner: judge the 23 positives, with points on declines (up to three
       rounds).</span></li>
     <li><span class="box"></span><span><code>seg_review status --session pass4</code>: accepted by round, drops and why,
@@ -181,7 +187,7 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P6, Q3</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>litert_export@&lt;candidate&gt;</code>: converted and within D7's bars
+    <li><span class="box"></span><span><code>litert_export@&lt;candidate&gt;</code>: converted and within ML-7 D7's bars
       (ADR 0020); pushed by target and verified.</span></li>
     <li><span class="box"></span><span>Stop for the owner: the go to deploy, then <a href="agents/deploy.md">deploy.md</a>
       (the service stops while it runs, ADR 0026).</span></li>
@@ -210,6 +216,10 @@
   <div class="log">
     <div><div class="when">2026-10-21</div>Claude reads ticket ML-9 at <code>db0e284</code> and writes this plan. Three
       findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-21</div>P1 started (pass4, 23 to judge). The owner asked for a rectangle beside the
+      points; XL0-v3 ignores a box smaller than the photo, so it is a fence (ticket D7, ADR 0015 amended), and a
+      segmenter that follows boxes is ML-10. P2's <code>seg_predict</code> change and stages committed; its toy run
+      under way.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
