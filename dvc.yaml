@@ -158,6 +158,60 @@ stages:
       outs:
         - data/seg_masks_ml5/${item}
 
+  # Ticket ML-9 P2: the next fine-tune, on the owner's pass-4 labels (carried from pass3: ML-8's appends and the
+  # photos of 2026-10-21), with params.yaml's seg_ft whose augment takes the groups shared with the classifier
+  # (ADR 0027; plan Q1). Its own stage, as seg_ml6_finetune is frozen with XL0-v3's recipe.
+  seg_ml9_finetune:
+    foreach:
+      xl0_v4:
+        labels: pass4
+        seed: 123
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
+  # Ticket ML-9 P2: both candidates' masks of today's test split (seg_ml5_predict's XL0-v3 masks predate ML-8's
+  # appends), for the blind paired session of P4. XL0-v4 is passed as WEIGHTS:DECODER, so segment_beans.py, a dep
+  # of every segcrop stage, changes only if it is adopted.
+  seg_ml9_predict:
+    foreach:
+      xl0_v3:
+        model: xl0_v3
+      xl0_v4:
+        model: ${seg_ft.weights}:models/seg/xl0_v4.pt
+    do:
+      cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_ml9/${key}
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml5/seg_dataset.yaml
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/${key}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks_ml9/${key}
+
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's

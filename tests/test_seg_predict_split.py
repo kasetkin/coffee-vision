@@ -64,5 +64,39 @@ class SplitPrediction(unittest.TestCase):
             seg_predict.main(["ft_s42", "--split", "test", "--threads", "1"])
 
 
+class ModelArgument(unittest.TestCase):
+    """Ticket ML-9 P2: a decoder not yet in NAMED_SEGMENTERS is passed as WEIGHTS:DECODER, as named_params takes
+    it, so a candidate is predicted without editing segment_beans.py, a dep of every segcrop stage."""
+
+    UNREGISTERED = "efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v3.pt"
+
+    def run_main(self, argv: list[str]) -> list[tuple]:
+        calls = []
+        with mock.patch.object(seg_predict, "run_split", lambda *a: calls.append(a)), \
+                mock.patch.object(seg_predict.torch, "set_num_threads"):
+            seg_predict.main(argv)
+        return calls
+
+    def test_a_registered_name_writes_under_its_name_by_default(self):
+        self.assertEqual(self.run_main(["xl0_v3", "--split", "test", "--threads", "1"]),
+                         [("xl0_v3", "test", seg_predict.ML5_MASK_ROOT / "xl0_v3")])
+
+    def test_out_moves_the_masks(self):
+        out = REPO_ROOT / "data" / "seg_masks_ml9" / "xl0_v3"
+        self.assertEqual(self.run_main(["xl0_v3", "--split", "test", "--threads", "1", "--out", str(out)]),
+                         [("xl0_v3", "test", out)])
+
+    def test_weights_and_decoder_need_out(self):
+        with self.assertRaises(SystemExit):
+            self.run_main([self.UNREGISTERED, "--split", "test", "--threads", "1"])
+        out = REPO_ROOT / "data" / "seg_masks_ml9" / "candidate"
+        self.assertEqual(self.run_main([self.UNREGISTERED, "--split", "test", "--threads", "1", "--out", str(out)]),
+                         [(self.UNREGISTERED, "test", out)])
+
+    def test_unknown_weights_are_refused(self):
+        with self.assertRaises(SystemExit):
+            self.run_main(["nonsense.pt:models/seg/xl0_v3.pt", "--split", "test", "--threads", "1", "--out", "x"])
+
+
 if __name__ == "__main__":
     unittest.main()
