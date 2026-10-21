@@ -11,7 +11,7 @@ versioned. For what the project is, see the top-level [README.md](../README.md).
 - `experiments/` — one archived directory per run, plus `experiments/index.csv`.
 - `webapp/` — the public web service serving the shipped classifier (`webapp/README.md`).
 - `scripts/` — the guardrail (`check.sh`), the deploy and its local rehearsal (`deploy_webapp.sh`, `rehearse_deploy_local.sh`) and the remote-run toolkit (`remote_launch.sh`, `remote_watch.sh`, `remote_wait.sh`, `remote_log.sh`), idle while there is no remote training machine.
-- `docs/` — plans, investigations and their records.
+- `docs/` — plans, investigations and their records. `docs/patch_samples.png`, the README's sample patches, is drawn by `python -m coffeecv.patch_samples` from the photos listed in `docs/patch_samples.txt`.
 - `hardware/` — sensor datasheets (NIR: AS7263/AS7265x/AS7343, gas: BME688, LEDs) and a design-research writeup (`Computer vision models for coffee bean origin classification - Claude.pdf`) on which physical/chemical signals actually carry origin information. Reference material for a fallback sensor rig, only worth building if plain-image CV underperforms — nothing here is built or wired up yet.
 - `.devcontainer/` — the dev environment (below).
 - `.vscode/c_cpp_properties.json` — C/C++ IntelliSense config anticipating firmware work; unused while CV-only is the active path.
