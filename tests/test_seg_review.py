@@ -216,6 +216,65 @@ class LabelSession(SessionFixture):
         self.post(c, "/redraw/0", {"include": [[0.5, 0.5]], "exclude": []}, 400)        # nothing new
         self.assertEqual(len(self.redrawer.calls), 1)
 
+    def fenced(self, mask, fence):
+        """`mask` cut to `fence`, whose corners map to pixels as points do: f * (side - 1), rounded."""
+        x0, y0, x1, y1 = fence
+        keep = np.zeros_like(mask)
+        keep[round(y0 * (H - 1)):round(y1 * (H - 1)) + 1, round(x0 * (W - 1)):round(x1 * (W - 1)) + 1] = True
+        return mask & keep
+
+    def test_a_fence_cuts_the_redraw_to_its_rectangle_and_is_recorded(self):
+        # Ticket ML-9 P1: XL0-v3 ignores a box smaller than the photo, so the owner's rectangle bounds the mask.
+        c = self.client()
+        self.post(c, "/decide/1", {"decision": "decline", "reason": "rim/tray included"})
+        fence = [0.45, 0.45, 0.55, 0.55]
+        r = self.post(c, "/redraw/1", {"include": [[0.5, 0.5]], "exclude": [], "fence": fence})
+        self.assertEqual((r["status"], r["round"]), ("judge", 2))
+        self.assertEqual(self.redrawer.calls[-1], ("pool__p1", [[0.5, 0.5]], []))     # the model sees no fence
+        want = self.fenced(rect(0.4, 0.4, 0.6, 0.6), fence)
+        info = self.info(c, 1)
+        self.assertEqual((info["mask_sha256"], info["fence"]), (mask_sha256(want), fence))
+        self.assertEqual(info["points"], {"include": [[0.5, 0.5]], "exclude": []})
+        self.post(c, "/decide/1", {"decision": "accept"})
+        self.assertEqual((self.verdict_rows()[-1]["fence"], self.verdict_rows()[-1]["mask_sha256"]),
+                         (fence, mask_sha256(want)))
+        index = list(csv.DictReader((self.mask_root / "pass1" / "r2" / "index.csv").read_text().splitlines()))
+        self.assertEqual(json.loads(index[0]["fence"]), fence)
+        self.session.write_labels()
+        label = {r["id"]: r for r in seg_review.accepted_labels("pass1", self.mask_root)}["pool__p1"]
+        self.assertEqual((label["fence"], label["include"]), (fence, [[0.5, 0.5]]))
+
+    def test_a_fence_alone_redraws_and_a_new_fence_is_a_new_prompt(self):
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "decline"})
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "fence": [0.0, 0.0, 0.05, 0.05]})
+        self.assertEqual(self.info(c, 0)["round"], 2)
+        self.post(c, "/decide/0", {"decision": "decline"})
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "fence": [0.0, 0.0, 0.05, 0.05]}, 400)   # nothing new
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "fence": [0.0, 0.0, 0.08, 0.08]})
+        self.assertEqual((self.info(c, 0)["round"], self.info(c, 0)["fence"]), (3, [0.0, 0.0, 0.08, 0.08]))
+
+    def test_bad_fences_are_refused(self):
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "decline"})
+        for fence in ([0.6, 0.4, 0.4, 0.7], [0.1, 0.1, 1.2, 0.9], [0.1, 0.1, 0.9], "all", [0.3, 0.3, 0.3, 0.6]):
+            self.post(c, "/redraw/0", {"include": [[0.5, 0.5]], "exclude": [], "fence": fence}, 400)
+        self.assertEqual(self.redrawer.calls, [])
+
+    def test_rows_from_before_the_fence_read_as_none(self):
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "accept"})
+        self.assertIsNone(self.info(c, 0)["fence"])
+        self.assertIsNone(self.verdict_rows()[-1]["fence"])
+        self.session.write_labels()
+        f = self.mask_root / "pass1" / "labels.csv"
+        rows = list(csv.DictReader(f.read_text().splitlines()))
+        with open(f, "w", newline="") as out:                       # a labels.csv written before the column
+            wr = csv.DictWriter(out, fieldnames=[k for k in rows[0] if k != "fence"], extrasaction="ignore")
+            wr.writeheader()
+            wr.writerows(rows)
+        self.assertIsNone(seg_review.accepted_labels("pass1", self.mask_root)[0]["fence"])
+
     def test_home_goes_to_the_first_photo_left_to_do_and_images_render(self):
         c = self.client()
         self.post(c, "/decide/0", {"decision": "accept"})
