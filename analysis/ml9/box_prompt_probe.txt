@@ -1,0 +1,22 @@
+photo  xl0_v3: half_out  pretrained_xl0: half_out
+PXL_20260809_140726626.jpg  0.500  0.000
+PXL_20260809_133951879.jpg  0.500  0.000
+PXL_20260927_101610945.jpg  0.503  0.017
+PXL_20260924_102444840.jpg  0.496  0.012
+PXL_20260911_052409641.jpg  0.500  0.000
+PIC_20260924_150056.JPG  0.500  0.000
+PXL_20260809_134740871.jpg  0.503  0.000
+PXL_20260924_055639328.jpg  0.481  0.010
+PXL_20260924_174814080.jpg  0.333  0.016
+PXL_20260807_082856017.jpg  0.000  0.060
+
+xl0_v3
+  whole     median 0.995  min 0.978  max 0.998
+  tight     median 0.995  min 0.924  max 0.998
+  half_iou  median 0.499  min 0.000  max 0.648
+  half_out  median 0.500  min 0.000  max 0.503
+pretrained_xl0
+  whole     median 0.994  min 0.000  max 0.999
+  tight     median 0.994  min 0.923  max 0.999
+  half_iou  median 0.905  min 0.701  max 0.978
+  half_out  median 0.005  min 0.000  max 0.060

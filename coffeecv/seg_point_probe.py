@@ -89,8 +89,10 @@ def next_click(pred: np.ndarray, ref: np.ndarray) -> tuple[str, list[float]] | N
 
 def _ml5_session(session: str) -> list[Ref]:
     from coffeecv import seg_review
+    # A fenced label (ticket ML-9 P1) was cut to the owner's rectangle after the model: no model redraws it from
+    # its points, so it is no reference.
     return [Ref(f"ml5:{session}", r["path"], REPO_ROOT / r["mask"], r["include"], r["exclude"])
-            for r in seg_review.accepted_labels(session) if int(r["round"]) >= 2]
+            for r in seg_review.accepted_labels(session) if int(r["round"]) >= 2 and not r.get("fence")]
 
 
 def reference_items(refs: str) -> list[Ref]:

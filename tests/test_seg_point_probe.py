@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -46,6 +47,17 @@ class Summary(unittest.TestCase):
         # n 4; replay >= .9: 2 of 4; empty 1 of 4; clicks >= .9: 1, 1, 2, 3 of 4; medians of each click
         self.assertEqual(line, ["A", "m", "multi3", "4", "50%", "25%", "|", "25%", "25%", "50%", "75%", "|",
                                 "0.050", "0.350", "0.705", "0.960"])
+
+
+class ReferenceSet(unittest.TestCase):
+    def test_a_fenced_label_is_not_a_reference(self):
+        """Ticket ML-9 P1: a fenced mask was cut to the owner's rectangle, so no model redraws it from its points."""
+        rows = [{"path": f"dataset/p{k}.jpg", "mask": f"m{k}.png", "round": r, "include": [[0.5, 0.5]],
+                 "exclude": [], "fence": fence}
+                for k, (r, fence) in enumerate([(2, None), (2, [0.1, 0.1, 0.9, 0.9]), (1, None), (3, None)])]
+        with mock.patch("coffeecv.seg_review.accepted_labels", lambda session: rows):
+            refs = probe.reference_items("ml5:pass9")
+        self.assertEqual([r.path for r in refs], ["dataset/p0.jpg", "dataset/p3.jpg"])
 
 
 if __name__ == "__main__":

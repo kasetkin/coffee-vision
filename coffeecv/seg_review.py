@@ -26,7 +26,10 @@ XL0-v1 and v2, went on 2026-10-21): it holds its own copies of what it carried f
 On the page: A accepts the mask; D (or 1-5, with a reason) declines it. After a decline, hold g and left-click
 for an include point (green), r and left-click for an exclude point (red); U or Backspace undoes the last
 point; Enter redraws: the redraw model draws the whole-image box plus every point so far through the multi3
-output (D23), and that mask is the next round's, judged again. Until it is judged, more points and another
+output (D23), and that mask is the next round's, judged again. Hold b and drag for a fence (ticket ML-9 P1): the
+redrawn mask is cut to that rectangle. It is not a prompt: XL0-v3 ignores a box smaller than the photo (half of its
+mask fell outside a half box, on 10 accepted photos), so the fence bounds the mask after the model. A fence alone
+redraws; U undoes it like a point. Until it is judged, more points and another
 Enter replace it. A plain click opens the spot at full resolution; Space toggles the outline. A photo still
 declined in round 3 is dropped, the reason logged (D14).
 
@@ -89,9 +92,9 @@ ROUNDS = (1, 2, 3)
 REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of ML-2's single-output corrections
 LABEL_SPLITS = ("train", "validation")
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
-                "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256"]
+                "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256", "fence"]
 LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
-                "include", "exclude", "reason"]
+                "include", "exclude", "reason", "fence"]
 
 
 def _now() -> str:
@@ -106,6 +109,21 @@ def _append_jsonl(path: Path, row: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a") as f:
         f.write(json.dumps(row) + "\n")
+
+
+def fence_mask(mask: np.ndarray, fence: list[float]) -> np.ndarray:
+    """`mask` cut to `fence`, [x0, y0, x1, y1] in fractions of the photo, its corners mapped to pixels as
+    `decode_points` maps a point (f * (side - 1)), rounded, both edges inside."""
+    h, w = mask.shape
+    x0, y0, x1, y1 = (round(f * (s - 1)) for f, s in zip(fence, (w, h, w, h)))
+    keep = np.zeros_like(mask)
+    keep[y0:y1 + 1, x0:x1 + 1] = True
+    return mask & keep
+
+
+def _fence_of(row: dict | None) -> list[float] | None:
+    """A row's fence; rows written before ML-9 have no such column."""
+    return json.loads(row["fence"]) if row and row.get("fence") else None
 
 
 def _save_mask(mask: np.ndarray, path: Path) -> None:
@@ -260,14 +278,14 @@ class LabelSession:
         return self._cache[k][1]
 
     def _put(self, k: int, item: dict, mask: np.ndarray, iou: float, inc: list, exc: list, info: dict,
-             output: str) -> None:
+             output: str, fence: list[float] | None = None) -> None:
         _save_mask(mask, self.mask_path(item, k))
         self._put_row(k, {
             "id": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "mask_sha256": mask_sha256(mask),
             "height": mask.shape[0], "width": mask.shape[1], "area_frac": f"{mask.mean():.4f}",
             "pred_iou": f"{iou:.4f}", "include": json.dumps(inc), "exclude": json.dumps(exc), "model": info["model"],
             "output": output, "threads": torch.get_num_threads(), "weights_sha256": info["weights_sha256"],
-            "decoder_sha256": info["decoder_sha256"]})
+            "decoder_sha256": info["decoder_sha256"], "fence": json.dumps(fence) if fence else ""})
 
     def _put_row(self, k: int, row: dict) -> None:
         """Round k's index.csv with `row` in place of its photo's."""
@@ -288,6 +306,9 @@ class LabelSession:
         r = self.row(item, k)
         return {"include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])} if r else \
             {"include": [], "exclude": []}
+
+    def fence(self, item: dict, k: int) -> list[float] | None:
+        return _fence_of(self.row(item, k))
 
     # verdicts
     def verdicts(self) -> dict[tuple[str, int], dict]:
@@ -312,14 +333,15 @@ class LabelSession:
         _append_jsonl(self.verdicts_path, {
             "item": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "source": item["source"],
             "split": item["split"], "round": st.round, "mask_sha256": cur["mask_sha256"], "model": cur["model"],
-            "output": cur["output"], **self.points(item, st.round), "decision": decision,
+            "output": cur["output"], **self.points(item, st.round), "fence": self.fence(item, st.round),
+            "decision": decision,
             "reason": None if decision == "accept" else reason, "reviewer": reviewer, "via": "seg_review",
             "ts": _now()})
         return self.state(item)
 
-    def redraw(self, item: dict, include: list, exclude: list, drawer) -> State:
-        """The next round's mask from the box plus `include`/`exclude` (every point so far), after a decline;
-        or a replacement of that mask while it is not judged."""
+    def redraw(self, item: dict, include: list, exclude: list, drawer, fence: list[float] | None = None) -> State:
+        """The next round's mask from the box plus `include`/`exclude` (every point so far), cut to `fence` if
+        one is drawn, after a decline; or a replacement of that mask while it is not judged."""
         st = self.state(item)
         if st.status == "points":
             k, base = st.round + 1, st.round
@@ -327,12 +349,14 @@ class LabelSession:
             k, base = st.round, st.round
         else:
             raise _Refused(409, f"{st.status} in round {st.round}: decline the mask before redrawing")
-        if not include and not exclude:
-            raise _Refused(400, "no point")
-        if {"include": include, "exclude": exclude} == self.points(item, base):
-            raise _Refused(400, "no new point since this mask was drawn")
+        if not include and not exclude and not fence:
+            raise _Refused(400, "no point and no fence")
+        if ({"include": include, "exclude": exclude}, fence) == (self.points(item, base), self.fence(item, base)):
+            raise _Refused(400, "no new point or fence since this mask was drawn")
         mask, iou = drawer.redraw(item, include, exclude)
-        self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT)
+        if fence:
+            mask = fence_mask(mask, fence)
+        self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT, fence)
         return self.state(item)
 
     # a carried session
@@ -414,13 +438,13 @@ class LabelSession:
                         "mask": rel(self.mask_path(it, st.round)) if acc else "",
                         "mask_sha256": row["mask_sha256"] if acc else "",
                         "include": row["include"] if acc else "", "exclude": row["exclude"] if acc else "",
-                        "reason": st.reason or ""})
+                        "reason": st.reason or "", "fence": row.get("fence", "") if acc else ""})
         for e in self.negatives:
             f = self.mask_dir / "neg" / f"{e['id']}.png"
             out.append({"id": e["id"], "path": e["path"], "photo_sha256": e["sha256"], "source": e["source"],
                         "split": e["split"], "status": "negative", "round": "", "mask": rel(f),
                         "mask_sha256": mask_sha256(np.array(Image.open(f)) > 0) if f.exists() else "",
-                        "include": "", "exclude": "", "reason": "D14: negative, empty label"})
+                        "include": "", "exclude": "", "reason": "D14: negative, empty label", "fence": ""})
         return out
 
     def write_labels(self) -> list[dict]:
@@ -461,6 +485,18 @@ def _points(body: dict, key: str) -> list[list[float]]:
     if not ok:
         raise _Refused(400, f"{key}: a list of [x, y] fractions of the photo")
     return [[float(c) for c in p] for p in pts]
+
+
+def _fence(body: dict) -> list[float] | None:
+    fence = body.get("fence")
+    if fence is None:
+        return None
+    ok = (isinstance(fence, list) and len(fence) == 4 and
+          all(isinstance(c, (int, float)) and 0 <= c <= 1 for c in fence) and
+          fence[0] < fence[2] and fence[1] < fence[3])
+    if not ok:
+        raise _Refused(400, "fence: [x0, y0, x1, y1] fractions of the photo, x0 < x1 and y0 < y1, or none")
+    return [float(c) for c in fence]
 
 
 def _decision(body: dict) -> tuple[str, str | None]:
@@ -536,6 +572,7 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
                 "status": st.status, "round": st.round, "rounds": len(ROUNDS), "reason": st.reason,
                 "model": row["model"] if row else None, "mask_sha256": row["mask_sha256"] if row else "",
                 "points": session.points(it, st.round) if st.round else {"include": [], "exclude": []},
+                "fence": session.fence(it, st.round) if st.round else None,
                 "decision": mine["decision"] if mine else None, "accepted": counts["accepted"],
                 "dropped": counts["dropped"], "todo": counts["judge"] + counts["points"] + counts["pending"],
                 "reasons": REASONS, "session": session.name}
@@ -566,9 +603,9 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
     def redraw(i: int):
         it = get(i)
         body = request.get_json(force=True)
-        include, exclude = _points(body, "include"), _points(body, "exclude")
+        include, exclude, fence = _points(body, "include"), _points(body, "exclude"), _fence(body)
         with lock:
-            return reply(i, session.redraw(it, include, exclude, redrawer))
+            return reply(i, session.redraw(it, include, exclude, redrawer, fence))
 
     return app
 
@@ -854,8 +891,8 @@ def accepted_labels(session: str, mask_root: Path = MASK_ROOT) -> list[dict]:
     f = mask_root / session / "labels.csv"
     if not f.exists():
         raise ValueError(f"{rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
-    return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"])}
-            for r in read_csv(f) if r["status"] == "accepted"]
+    return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"]),
+             "fence": _fence_of(r)} for r in read_csv(f) if r["status"] == "accepted"]
 
 
 def main(argv: list[str] | None = None) -> None:

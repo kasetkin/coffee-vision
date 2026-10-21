@@ -2,7 +2,8 @@
 handlers, kept apart from the session logic that serves them. Each page takes two substitutions, `__INFO__` (the
 photo's state as JSON) and `__RULE__` (the acceptance rule, HTML-escaped).
 
-    LABEL_PAGE    labelling: A/D/1-5 verdicts, hold g/r + click for include/exclude points, U undo, Enter redraw
+    LABEL_PAGE    labelling: A/D/1-5 verdicts, hold g/r + click for include/exclude points, hold b + drag for a
+                  fence (ticket ML-9 P1), U undo, Enter redraw
     PAIRED_PAGE   the blind paired mode (D22): A/D the left mask, J/L the right one
 """
 
@@ -14,6 +15,7 @@ body{font-family:sans-serif;margin:0;background:#222;color:#eee;display:flex;hei
 .pt{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);
     pointer-events:none}
 .pt.include{background:#1db31d}.pt.exclude{background:#e01b1b}
+.fence{position:absolute;border:2px dashed #ffd400;box-sizing:border-box;pointer-events:none}
 #right{width:560px;padding:12px;overflow:auto;background:#2b2b2b}
 .zoom{width:512px;height:512px;background:#111;display:block;margin:8px 0}
 button{font-size:15px;margin:3px;padding:6px 10px}
@@ -31,14 +33,14 @@ LABEL_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>ML-5 lab
  <div class="state" id="state"></div>
  <button class="acc" onclick="decide('accept')">Accept (A)</button>
  <button class="dec" onclick="decide('decline')">Decline (D)</button>
- <button onclick="redraw()">Redraw (Enter)</button> <button onclick="undo()">Undo point (U)</button><br>
+ <button onclick="redraw()">Redraw (Enter)</button> <button onclick="undo()">Undo (U)</button><br>
  <div id="reasons"></div>
  <div class="msg" id="msg"></div>
  <button onclick="go(info.i-1)">&larr; prev</button><button onclick="go(info.i+1)">next &rarr;</button>
  <button onclick="location='/'">next to do (N)</button>
  <div class="keys">hold g + click: include point (green) &middot; hold r + click: exclude point (red) &middot;
-   U / Backspace: undo the last point &middot; Enter: redraw &middot; Space: toggle outline &middot;
-   plain click: full resolution</div>
+   hold b + drag: fence (yellow), the redrawn mask is cut to it &middot; U / Backspace: undo the last point or
+   fence &middot; Enter: redraw &middot; Space: toggle outline &middot; plain click: full resolution</div>
  <img id="zoom" class="zoom">
  <div class="rule"><b>Accept rule (D13)</b><br>__RULE__</div>
 </div>
@@ -48,6 +50,9 @@ let outline = 1, last = null, held = null;
 // Every point so far, in the order placed (those that drew the shown mask first: includes, then excludes).
 let points = [...info.points.include.map(p => ({x: p[0], y: p[1], kind: 'include'})),
               ...info.points.exclude.map(p => ({x: p[0], y: p[1], kind: 'exclude'}))];
+// The fence that cut the shown mask, if any, and the undo order: points and fences as placed (loaded ones first).
+let fence = info.fence, drag = null;
+const history = [...points.map(() => ({kind: 'point'})), ...(fence ? [{kind: 'fence', prev: null}] : [])];
 const photo = document.getElementById('photo'), zoom = document.getElementById('zoom');
 const wrap = document.getElementById('wrap'), msgBox = document.getElementById('msg');
 function msg(t){ msgBox.textContent = t; }
@@ -56,10 +61,15 @@ function src(){ const v = `outline=${outline}&m=${info.mask_sha256.slice(0, 12)}
   photo.src = `/img/${info.i}/view.jpg?${v}`;
   if(last) zoom.src = `/img/${info.i}/zoom.jpg?x=${last[0]}&y=${last[1]}&${v}`; }
 function drawPoints(){
-  wrap.querySelectorAll('.pt').forEach(d => d.remove());
+  wrap.querySelectorAll('.pt, .fence').forEach(d => d.remove());
   for(const p of points){ const d = document.createElement('div'); d.className = 'pt ' + p.kind;
     d.style.left = (p.x * 100) + '%'; d.style.top = (p.y * 100) + '%'; wrap.appendChild(d); }
+  const f = drag ? box(drag) : fence;
+  if(f){ const d = document.createElement('div'); d.className = 'fence';
+    d.style.left = (f[0] * 100) + '%'; d.style.top = (f[1] * 100) + '%';
+    d.style.width = ((f[2] - f[0]) * 100) + '%'; d.style.height = ((f[3] - f[1]) * 100) + '%'; wrap.appendChild(d); }
 }
+function told(){ msg(`${points.length} points${fence ? ', a fence' : ''}; Enter redraws`); }
 function render(){
   document.getElementById('head').textContent =
     `${info.i+1} / ${info.n}  ${info.item}  (${info.source}, ${info.split})`;
@@ -88,21 +98,44 @@ async function redraw(){
   if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
   const pick = k => points.filter(p => p.kind === k).map(p => [p.x, p.y]);
   msg('redrawing...');
-  const r = await post(`/redraw/${info.i}`, {include: pick('include'), exclude: pick('exclude')});
+  const r = await post(`/redraw/${info.i}`, {include: pick('include'), exclude: pick('exclude'), fence});
   if(r) location.reload();
 }
-function undo(){ if(points.length){ points.pop(); drawPoints(); msg(`${points.length} points; Enter redraws`); } }
+function undo(){
+  const h = history.pop();
+  if(!h) return;
+  if(h.kind === 'fence') fence = h.prev; else points.pop();
+  drawPoints(); told();
+}
 const r4 = v => Math.round(Math.min(Math.max(v, 0), 1) * 1e4) / 1e4;
+function at(e){ const b = photo.getBoundingClientRect();
+  return [r4((e.clientX-b.left)/b.width), r4((e.clientY-b.top)/b.height)]; }
+const box = d => [Math.min(d[0], d[2]), Math.min(d[1], d[3]), Math.max(d[0], d[2]), Math.max(d[1], d[3])];
+photo.ondragstart = () => false;
+photo.onmousedown = e => {
+  if(held !== 'b') return;
+  if(!canPoint()){ msg('decline the mask first (D or 1-5), then draw a fence'); return; }
+  drag = [...at(e), ...at(e)]; e.preventDefault();
+};
+document.onmousemove = e => { if(drag){ drag = [drag[0], drag[1], ...at(e)]; drawPoints(); } };
+document.onmouseup = e => {
+  if(!drag) return;
+  const f = box([drag[0], drag[1], ...at(e)]);
+  drag = null;
+  if(f[2] - f[0] >= 0.01 && f[3] - f[1] >= 0.01){ history.push({kind: 'fence', prev: fence}); fence = f; }
+  drawPoints(); told();
+};
 photo.onclick = e => {
-  const b = photo.getBoundingClientRect(), x = (e.clientX-b.left)/b.width, y = (e.clientY-b.top)/b.height;
+  const [x, y] = at(e);
+  if(held === 'b') return;
   if(held){
     if(!canPoint()){ msg('decline the mask first (D or 1-5), then place points'); return; }
-    points.push({x: r4(x), y: r4(y), kind: held === 'g' ? 'include' : 'exclude'});
-    drawPoints(); msg(`${points.length} points; Enter redraws`); return;
+    points.push({x, y, kind: held === 'g' ? 'include' : 'exclude'}); history.push({kind: 'point'});
+    drawPoints(); told(); return;
   }
   last = [x, y]; src();
 };
-function holdKey(k){ return k === 'g' || k === 'G' ? 'g' : k === 'r' || k === 'R' ? 'r' : null; }
+function holdKey(k){ k = k.toLowerCase(); return k === 'g' || k === 'r' || k === 'b' ? k : null; }
 document.onkeydown = e => {
   if(e.ctrlKey || e.metaKey || e.altKey) return;
   const h = holdKey(e.key);
