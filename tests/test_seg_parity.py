@@ -177,8 +177,6 @@ class TestSegPoolsWiring(unittest.TestCase):
         default): sampled so, the pools would skip their masks' patch rule (D17). It is refused when read."""
         with self.assertRaisesRegex(ValueError, "crop_method"):
             RunConfig().resolve_paths()
-        with self.assertRaisesRegex(ValueError, "crop_method"):
-            replace(RunConfig(), train_capture_dirs=("data/cropped/cam_sony",), crop_method="segment").resolve_paths()
         replace(RunConfig(), crop_method="segment").resolve_paths()
         replace(RunConfig(), train_capture_dirs=("data/cropped/cam_sony",)).resolve_paths()     # an old card
 

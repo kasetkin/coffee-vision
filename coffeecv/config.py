@@ -213,15 +213,12 @@ class RunConfig:
         return cls(**values)
 
     def resolve_paths(self) -> tuple[list[Path], Path]:
-        """(capture dirs, classes file). Refuses a pool the crop method did not make (ticket ML-3 P2b):
-        the segmenter's data/segcropped pools sampled as tray-heuristic crops would skip their masks' patch
-        rule (D17), and the tray heuristic's data/cropped pools read as "segment" find no masks, so every
-        photo would pass as a D18 fallback. Either way nothing fails; the patches are just wrong."""
-        made_by = {"segcropped": "segment", "cropped": "tray_heuristic"}
+        """(capture dirs, classes file). Refuses the segmenter's data/segcropped pools under any crop method
+        but "segment" (ticket ML-3 P2b): sampled as tray-heuristic crops they would skip their masks' patch
+        rule (D17). Nothing would fail; the patches would just be wrong."""
         for d in self.train_capture_dirs:
-            want = made_by.get(Path(d).parent.name)
-            if want is not None and want != self.crop_method:
-                raise ValueError(f"capture dir {d} needs crop_method {want!r}, not {self.crop_method!r}")
+            if Path(d).parent.name == "segcropped" and self.crop_method != "segment":
+                raise ValueError(f"capture dir {d} needs crop_method 'segment', not {self.crop_method!r}")
         return [REPO_ROOT / d for d in self.train_capture_dirs], REPO_ROOT / self.classes_file
 
 

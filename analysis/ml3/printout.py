@@ -91,7 +91,7 @@ def new_photo_keys() -> set[tuple[str, str]]:
 
 
 def ml2_seen() -> set[tuple[str, str]]:
-    """(pool, stem) of every photo ML-2's segmenter trained or selected on (as analysis/ml2_p6/unseen_subset)."""
+    """(pool, stem) of every photo ML-2's segmenter trained or selected on (as ML-2 P6's unseen-subset scoring did)."""
     lists = yaml.safe_load(ML2_LISTS.read_text())["lists"]
     return {(Path(e["crop"]).parts[-3], stem(Path(e["crop"]).name)) for n in ("seg_train", "seg_val") for e in lists[n]}
 

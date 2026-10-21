@@ -96,11 +96,10 @@ then M3, M1, M2. M4's 97 s/image is the open problem; see whether reducing
 
 ## Reproducing
 
-    python analysis/bean_scale/make_crops.py    # writes 30 crops for counting
-    python analysis/bean_scale/benchmark.py     # ~50 min, MobileSAM dominates
-
-`ground_truth.json` holds the manual counts and is the reusable artifact — the
-counting does not need repeating unless the rigs change.
+The scripts (`make_crops.py`, `benchmark.py`, `band_sweep.py` and their `estimators.py`) were deleted
+on 2026-10-21 with the tray heuristic's data/cropped pools they read, which were retired in ticket
+ML-3 P2b. This README and the JSON files here are the record: `ground_truth.json` (the manual
+counts), `ground_truth_newrigs_vlm.json`, `benchmark.json` and `band_sweep.json`.
 
 ---
 
