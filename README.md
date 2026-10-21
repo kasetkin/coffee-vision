@@ -26,9 +26,10 @@ the scores.
 
 - **10 countries:** Brazil, Colombia, Costa Rica, Ethiopia, Guatemala, Indonesia, Kenya, Peru, Rwanda and Vietnam. The
   coffees are listed in [dataset/classes.txt](dataset/classes.txt).
-- **Green and roasted, so far:** Brazil, Colombia and Guatemala have photos of both (Ethiopia and Vietnam have one
-  roasted photo each); Kenya and Costa Rica are green only; Indonesia, Peru and Rwanda are roasted only. Filling the
-  gaps is what the goal above needs.
+- **Green and roasted, so far:** Brazil, Colombia, Guatemala, Indonesia and Peru have photos of both (Ethiopia and
+  Vietnam have one roasted photo each); Kenya and Costa Rica are green only; Rwanda is roasted only. Filling the gaps
+  is what the goal above needs. The green Indonesia and Peru photos arrived on 2026-10-21, after the live model was
+  trained: it has seen those two countries roasted only.
 - **The country is the only label.** The farm region, grade, variety and farm name are recorded for each coffee but
   never predicted.
 - **Photos from several phones and cameras** (Pixel, iPhone, OnePlus, Sony), all treated alike.
