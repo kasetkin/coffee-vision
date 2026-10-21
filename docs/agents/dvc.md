@@ -53,3 +53,7 @@ Then test every object the dry run would remove on the remote, by its path under
 ## Objects lost with the VM
 
 The VM (`powervpsssh`) was shut down for good on 2026-10-12 and took the objects only it held: `data/seg_cache` (stage `seg_embed_cache`, 5.8 GB) and the checkpoints, `history.json` and prediction CSVs of exp106-exp239 (their metrics stay in git). A `dvc pull` or `dvc checkout` that names them fails until the stage runs again. Run `dvc repro -s <stage>` for `seg_eval` or `seg_predict_ft`: a plain `dvc repro` rebuilds the cache and retrains the segmenter.
+
+## Objects deleted on the owner's go
+
+On 2026-10-21 the owner had the tray heuristic's `data/cropped` pools (retired in ML-3 P2b; nothing at HEAD reads them) deleted from the cache without a push, the exception ADR 0028 allows: the 790 objects (0.71 GB) that only `data/cropped` outputs name, in any commit. The objects they share with `dataset/` photos and `data/segcropped` stay. A `dvc checkout` of `data/cropped` at an older commit fails.
