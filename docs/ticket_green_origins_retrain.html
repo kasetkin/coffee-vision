@@ -171,6 +171,13 @@
         <td>(a) A fence: the redrawn mask is cut to it. (b) A prompt, after a segmenter is trained to follow boxes.</td>
         <td><strong>(a), 2026-10-21</strong>, amending <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR
           0015</a>; (b) is recorded as <a href="ticket_segmenter_box_prompts.html">ML-10</a>, for later.</td></tr>
+      <tr><td class="id">D8</td><td>XL0-v4's validation score swung from epoch to epoch (mean IoU 0.65&ndash;0.97
+        after epoch 4), as XL0-v3's had. Is a steadier run tried?</td>
+        <td>(a) A second candidate after XL0-v4: the same labels, seed and params at a third of the learning rate,
+          <code>seg_ft.lr</code> 3e-5 instead of 1e-4. (b) No: P4 judges XL0-v4 as it is.</td>
+        <td><strong>(a), 2026-10-21:</strong> "launch the same experiment but with training speed changed &hellip;
+          3e-5". XL0-v4_lr3e5, in its own stage. One seed each: it shows whether this run is steadier, not that 3e-5
+          always is (ADR 0002 wants seeds).</td></tr>
     </tbody>
   </table></div>
 
@@ -181,8 +188,8 @@
     <li><span class="box done"></span><span>A label session carried from pass3, every training and validation positive without
       a label judged by the owner (D2 (c): the dataset as appended). Done 2026-10-21: pass4, 22 accepted and 1
       dropped of 23, 233 labels in all.</span></li>
-    <li><span class="box"></span><span>A new XL0 decoder fine-tuned in its own DVC stage with D3's augmentation, and
-      compared with XL0-v3 on the test split; the owner's choice and threshold recorded (D4).</span></li>
+    <li><span class="box"></span><span>A new XL0 decoder fine-tuned in its own DVC stage with D3's augmentation (and,
+      by D8, a second at lr 3e-5), and compared with XL0-v3 on the test split; the owner's choice and threshold recorded (D4).</span></li>
     <li><span class="box"></span><span>If a new segmenter is adopted: every session re-cropped, its new fallbacks shown
       to the owner, the DINOv3 fixture regenerated (<a href="agents/experiments.md">experiments.md</a>).</span></li>
     <li><span class="box"></span><span>The classifier at seeds 42, 123 and 7 as recorded runs, reported as ranges with
@@ -214,6 +221,8 @@
       the redrawn mask is cut to (ADR 0015 amended); a segmenter that follows box prompts is ML-10.</div>
     <div><div class="when">2026-10-21</div>P1 done: the owner labelled pass4 (22 accepted, 9 of them fenced; 1
       dropped). P2 done: <code>seg_predict</code> by path, the stages, a toy run. P3, the fine-tune, next.</div>
+    <div><div class="when">2026-10-21</div>D8 decided by the owner while P3 ran: a second candidate at lr 3e-5,
+      launched when XL0-v4's run ends (plan P3b).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
