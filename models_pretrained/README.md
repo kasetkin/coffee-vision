@@ -7,7 +7,8 @@ mid-run is not reproducible and fails on a box without egress.
 The weight binaries are gitignored; **this README, `manifest.json` and `verify.py` are tracked
 on purpose** — they are the acquisition instructions, the checksums and the checker, i.e. the only
 way a fresh clone can obtain and validate the right files. (Until 2026-09-21 `.gitignore` excluded
-the whole directory and hid all three.) **Not yet DVC-tracked**; see "Next steps".
+the whole directory and hid all three.) Every weight file is DVC-tracked, its `.dvc` pointer beside it, and
+its object is on the DVC remote (`dvcnewremote`, `docs/development.md`).
 
 ## Getting these files on a fresh clone
 
@@ -15,11 +16,9 @@ the whole directory and hid all three.) **Not yet DVC-tracked**; see "Next steps
 python models_pretrained/verify.py     # what you have, and what is missing or wrong
 ```
 
-- **You, on another machine:** `dvc pull` once the weights are DVC-tracked. They live in the
-  private DVC remote, so this needs nothing from Meta a second time.
-  Until then, rsync this folder from a machine that has it and run `verify.py` on the receiving
-  side -- done for the VM (`powervpsssh`, retired 2026-10-12) on 2026-09-24 (all 5 files sha256
-  OK there).
+- **You, on another machine:** `dvc pull -R models_pretrained`, then `verify.py`. The weights live in the
+  private DVC remote, so this needs nothing from Meta a second time. (Before they were DVC-tracked this folder
+  was rsynced, last to the VM `powervpsssh`, retired 2026-10-12; `docs/agents/dvc.md` retires copying by hand.)
 - **The web service** never reads this folder: since ticket ML-7 a release ships no pretrained weights. The
   backbone reaches it inside the model's LiteRT conversion (`models/<name>.litert/`, the `litert_export` stage),
   which is built from this folder's copy on the machine that runs the export.
@@ -41,15 +40,20 @@ remove — so verify it too rather than assuming.
 | `dinov3/dinov3_vits16_pretrain_lvd1689m-08c60483.pth` | 21.6M | 384 | 16 | 196 | `facebookresearch/dinov3` · DINOv3 License (gated) |
 | `dinov3/dinov3_vits16plus_pretrain_lvd1689m-4057cbaa.pth` | 28.7M | 384 | 16 | 196 | same |
 | `dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth` | 85.7M | 768 | 16 | 196 | same |
-| `efficientvit_sam/efficientvit_sam_l0.pt` | 34.8M | — | — | — | HF `mit-han-lab/efficientvit-sam` @ `a2f0c592` (URL in `manifest.json`) · Apache-2.0 · ticket ML-2 |
+| `efficientvit_sam/efficientvit_sam_l0.pt` | 34.8M | — | — | — | HF `mit-han-lab/efficientvit-sam` @ `a2f0c592` (URLs in `manifest.json`) · Apache-2.0 · ticket ML-2 |
+| `efficientvit_sam/efficientvit_sam_l1.pt` | 47.7M | — | — | — | same |
+| `efficientvit_sam/efficientvit_sam_l2.pt` | 61.3M | — | — | — | same |
+| `efficientvit_sam/efficientvit_sam_xl0.pt` | 117.0M | — | — | — | same |
+| `efficientvit_sam/efficientvit_sam_xl1.pt` | 203.3M | — | — | — | same |
 
-EfficientViT-SAM-L0 is the ML-2 bean segmenter, built by `coffeecv/sam_loader.py` from the vendored
-`third_party/efficientvit`. It is the first file here that is `dvc add`ed
-(`efficientvit_sam/efficientvit_sam_l0.pt.dvc`); its push waits for the DVC remote.
+The EfficientViT-SAM files are the bean segmenter's base weights, built by `coffeecv/sam_loader.py` from the
+vendored `third_party/efficientvit`. XL0 is the live segmenter's, under its fine-tuned decoder
+`models/seg/xl0_v3.pt` (ticket ML-6); L0 was ML-2's; all five were screened in ML-2's P0.
 
-All five load cleanly. The four whose filenames embed a sha256 prefix (torch.hub's convention)
-were **verified against their contents** — the downloads are intact and authentic. DINOv2's
-upstream filename carries no hash, so its sha256 is recorded in `manifest.json` only.
+`verify.py` checks every file's sha256 against `manifest.json` (all nine OK on 2026-10-21). The three DINOv3
+files' names embed a sha256 prefix (torch.hub's convention), so they also verify against their own names: the
+downloads are intact and authentic. The other files' names carry no hash, so their sha256 is recorded in
+`manifest.json` only.
 
 ## What the numbers mean for this project
 
@@ -104,14 +108,13 @@ Weights alone are not enough — the *architecture definition* has to be pinned 
   superseded Meta-repo loading notes (the `hubconf.py`/torchmetrics trap, `weights=<path>`
   copying into the torch hub cache) are its Appendix B.
 
-## Next steps
+## Steps toward reproducibility
 
-1. `dvc add` each file and commit the `.dvc` pointers, so the weights reach the DVC remote and the
-   train stage can depend on them. **Not done yet** — Stage 1 no longer blocks it (it finished
-   2026-09-21), but the DVC remote is down for maintenance as of 2026-09-24. Verify the DVC push by
-   expanding `dvc.lock`'s `.dir` trees, not by trusting `dvc status --cloud`.
+1. Done: every file is `dvc add`ed and on the remote. The EfficientViT-SAM files were added on 2026-09-30 (ticket
+   ML-2), the DINOv2 and DINOv3 files on 2026-10-21 (ticket OPS-11); each object was checked on the remote by its
+   path, as `docs/agents/dvc.md` says, not by `dvc status --cloud`.
 1b. Done 2026-09-24, ahead of step 1: `README.md`, `manifest.json` and `verify.py` were committed on
-   their own so the tree is clean for the DINO work; the `.dvc` pointers follow with step 1.
+   their own so the tree is clean for the DINO work.
 2. Dropped with the `train` stage (2026-10-20): the frozen fit is no DVC stage, and `litert_export` lists the
    weights it reads as deps.
 3. Done for the frozen head: every run's `config.json` records `dino.weights_sha256`, and the checkpoint is
