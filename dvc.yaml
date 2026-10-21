@@ -186,6 +186,38 @@ stages:
         - models/seg/${key}.json:
             cache: false
 
+  # Ticket ML-9 D8: XL0-v4's run at a third of its learning rate (seg_ft.lr 1e-4 -> 3e-5, `--lr`), all else the same
+  # (labels, seed, params), after XL0-v4's validation score swung from epoch to epoch as XL0-v3's had. Its own stage,
+  # so XL0-v4's command and params stay as they ran; `--lr` came after XL0-v4, which it leaves unchanged when absent
+  # (tests/test_seg_finetune.py LearningRateArgument), so XL0-v4's new seg_finetune.py hash was recorded with `dvc
+  # commit`, not re-run, as ML-8 P2 did for XL0-v3.
+  seg_ml9_finetune_lr:
+    foreach:
+      xl0_v4_lr3e5:
+        labels: pass4
+        seed: 123
+        lr: 3.0e-5
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --lr ${item.lr} --name
+        ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
   # Ticket ML-9 P2: both candidates' masks of today's test split (seg_ml5_predict's XL0-v3 masks predate ML-8's
   # appends), for the blind paired session of P4. XL0-v4 is passed as WEIGHTS:DECODER, so segment_beans.py, a dep
   # of every segcrop stage, changes only if it is adopted.
@@ -195,6 +227,8 @@ stages:
         model: xl0_v3
       xl0_v4:
         model: ${seg_ft.weights}:models/seg/xl0_v4.pt
+      xl0_v4_lr3e5:
+        model: ${seg_ft.weights}:models/seg/xl0_v4_lr3e5.pt
     do:
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_ml9/${key}
       deps:
