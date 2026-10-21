@@ -64,7 +64,8 @@
         <code>dvc.yaml</code>, the fine-tune, its test and these docs; check first), <code>git worktree remove
         /tmp/ml9-lr</code>, <code>dvc commit seg_ml9_finetune@xl0_v4</code>, <code>check.sh --full</code>, then on a
         branch <code>ml9-p3b</code>: <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5
-        seg_ml9_predict@xl0_v4_lr3e5</code>, log <code>/tmp/ng_preview/p3b.log</code>. Its tasks are in P3b below.</li>
+        seg_ml9_predict@xl0_v4_lr3e5</code>, log <code>/tmp/ng_preview/p3b.log</code>, then the four seed runs one
+        at a time (the owner's go, same day). Its tasks are in P3b below.</li>
       <li><b>Then P4</b>, the owner's (after Q4): <code>python -m coffeecv.seg_review paired --session ml9_test --masks
         data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
         <code>paired-report</code>.</li>
@@ -86,7 +87,7 @@
       <tr><td class="id">P1</td><td>pass4 labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels only</td></tr>
       <tr><td class="id">P2</td><td><code>seg_predict</code> by path; the fine-tune and predict stages; a toy run</td><td>local</td><td>no: tests and a toy run</td></tr>
       <tr><td class="id">P3</td><td>XL0-v4 and both models' test masks</td><td>local, about 7 h</td><td>yes: validation only</td></tr>
-      <tr><td class="id">P3b</td><td>XL0-v4_lr3e5 (ticket D8) and its test masks</td><td>local, 5&ndash;10 h</td><td>yes: validation only</td></tr>
+      <tr><td class="id">P3b</td><td>XL0-v4_lr3e5 (ticket D8) and its test masks; seeds 42 and 7 at both rates</td><td>local, 25&ndash;50 h, one run at a time</td><td>yes: validation only</td></tr>
       <tr><td class="id">P4</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: test</td></tr>
       <tr><td class="id">P5</td><td>Adopt: <code>params.yaml</code>, re-crop, fallbacks, DINOv3 fixture <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: every crop</td></tr>
       <tr><td class="id">P6</td><td>Classifier at 42, 123, 7; the live model on the new split; probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
@@ -114,9 +115,10 @@
           <code>docs/agents/deploy.md</code>.</td><td>P7</td></tr>
       <tr><td class="id">Q4</td><td>Ticket D8 makes two candidates. Which go to P4's blind session against
         XL0-v3?</td>
-        <td><span class="pill sm open">Open</span> The one with the higher validation score, chosen before any test
-          mask is seen: one session of 76 photos. Both, as two sessions, if the scores are within about 0.01, as
-          XL0-v4's epochs 10 and 16 are.</td><td>P4</td></tr>
+        <td><span class="pill sm open">Open</span> The rate first, from the three seeds' validation scores at each
+          (range, and the epoch-to-epoch swing); then that rate's seed with the highest score, its test masks
+          predicted then. All chosen before any test mask is seen; one session of 76 photos. If the rates tie within
+          the seeds' range, the steadier one.</td><td>P4</td></tr>
     </tbody>
   </table></div>
 
@@ -198,8 +200,14 @@
       seg_ml9_finetune@xl0_v4</code> for the new <code>seg_finetune.py</code> hash (not re-run, as ML-8 P2); then
       <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_predict@xl0_v4_lr3e5</code> in the
       background with a log.</span></li>
-    <li><span class="box"></span><span>Report from the two cards alone: each epoch's validation mean IoU and
-      negatives' share side by side, the chosen epochs and scores. No test numbers before P4. Answer Q4.</span></li>
+    <li><span class="box"></span><span>Then, one at a time at 8 threads (12 cores; two at once would slow both, and
+      another thread count changes the result): <code>seg_ml9_finetune@xl0_v4_s42</code>,
+      <code>seg_ml9_finetune_lr@xl0_v4_lr3e5_s42</code>, <code>seg_ml9_finetune@xl0_v4_s7</code>,
+      <code>seg_ml9_finetune_lr@xl0_v4_lr3e5_s7</code>, alternating so a pair is complete early. Logs
+      <code>/tmp/ng_preview/p3b_&lt;name&gt;.log</code>.</span></li>
+    <li><span class="box"></span><span>Report from the six cards alone: per rate, the range over seeds of the chosen
+      score, validation mean IoU and negatives' share, and each run's epoch-to-epoch swing. No test numbers before P4.
+      Answer Q4.</span></li>
     <li><span class="box"></span><span>Push the decoder and masks by target and verify on the remote; commit; merge.</span></li>
   </ol>
 
@@ -295,6 +303,8 @@
       P3 started on <code>ml9-p3</code>; a "Resume here" note above says how to pick it up.</div>
     <div><div class="when">2026-10-21</div>While P3 ran, the owner asked for the same run at lr 3e-5 after it
       (ticket D8): P3b, prepared on <code>ml9-lr</code>; Q4 asks which candidates P4 judges.</div>
+    <div><div class="when">2026-10-21</div>The owner added seeds 42 and 7 at both rates after the lr 3e-5 run
+      (ticket D8): four more runs in P3b; Q4 now picks the rate over seeds, then the seed.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,

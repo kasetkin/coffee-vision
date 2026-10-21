@@ -176,8 +176,9 @@
         <td>(a) A second candidate after XL0-v4: the same labels, seed and params at a third of the learning rate,
           <code>seg_ft.lr</code> 3e-5 instead of 1e-4. (b) No: P4 judges XL0-v4 as it is.</td>
         <td><strong>(a), 2026-10-21:</strong> "launch the same experiment but with training speed changed &hellip;
-          3e-5". XL0-v4_lr3e5, in its own stage. One seed each: it shows whether this run is steadier, not that 3e-5
-          always is (ADR 0002 wants seeds).</td></tr>
+          3e-5". XL0-v4_lr3e5, in its own stage. Extended the same day: "after &hellip; one training session with new LR
+          value launch more seeds with old LR and new LR", seeds 42 and 7 at both rates (ADR 0002), one run at a
+          time.</td></tr>
     </tbody>
   </table></div>
 
@@ -223,6 +224,8 @@
       dropped). P2 done: <code>seg_predict</code> by path, the stages, a toy run. P3, the fine-tune, next.</div>
     <div><div class="when">2026-10-21</div>D8 decided by the owner while P3 ran: a second candidate at lr 3e-5,
       launched when XL0-v4's run ends (plan P3b).</div>
+    <div><div class="when">2026-10-21</div>D8 extended by the owner: seeds 42 and 7 at both rates after the lr 3e-5
+      run, four more runs (plan P3b).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
