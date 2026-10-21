@@ -37,6 +37,38 @@
     </ol>
   </div>
 
+  <div class="callout info">
+    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, for a new session; update or delete it as phases move).</p>
+    <ul>
+      <li><b>Done and merged into <code>main</code></b> (<code>a5a89d8</code>): P1 (pass4, 233 labels) and P2 (stages,
+        <code>seg_predict</code> by path, toy run). <code>main</code> is 19 commits ahead of <code>origin</code>, not
+        pushed: ask the owner before <code>git push</code>.</li>
+      <li><b>Running: P3</b> on branch <code>ml9-p3</code>, started about 13:04 UTC: <code>dvc repro -s
+        seg_ml9_finetune@xl0_v4 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code>, log
+        <code>/tmp/ng_preview/p3.log</code> (inside the container; gone after a rebuild). 187 positives and 368
+        negatives, 47 steps an epoch at about 17 s a step, about 15 min an epoch with validation; early stopping at
+        patience 8 within 40 epochs (XL0-v3 stopped after 17 and chose epoch 9), so 4.5&ndash;10 h, then two predict
+        stages over the 236 test photos.</li>
+      <li><b>Is it still running?</b> <code>ps -eo pid,etime,args | grep '[s]eg_finetune train --labels pass4'</code>.
+        Never <code>pkill -f</code> or <code>pgrep -f</code> that pattern from a shell: it matches the shell itself;
+        kill by PID. It is done when <code>dvc status</code> reports no <code>seg_ml9_*</code> stage and
+        <code>models/seg/xl0_v4.json</code> exists. If it died, rerun the same command: it starts over.</li>
+      <li><b>When it ends</b> (P3's tasks): report from <code>models/seg/xl0_v4.json</code> alone (chosen epoch,
+        validation mean IoU, negatives' empty-or-tiny share), no test numbers; <code>dvc push
+        seg_ml9_finetune@xl0_v4 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object on
+        <code>dvcnewremote</code> (<a href="agents/dvc.md">dvc.md</a>); commit <code>dvc.lock</code>, the card and
+        the <code>.gitignore</code> changes; P3 Done here; <code>scripts/check.sh --full</code>; merge.</li>
+      <li><b>Then P4</b>, the owner's: <code>python -m coffeecv.seg_review paired --session ml9_test --masks
+        data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
+        <code>paired-report</code>.</li>
+      <li><b>Questions:</b> P3 runs on Q1's recommendation (a), the shared augmentation; the owner was told before it
+        started and did not object, but has not answered Q1 in words. Q2 (ticket D5) and Q3 (D6) are open.</li>
+      <li><b>How the owner wants the work done:</b> one branch per phase, merged with <code>--no-ff</code> (ADR 0017)
+        after <code>scripts/check.sh --full</code> passes on the merged tree; commits split into small ones, each a
+        single step that is easy to read later; DVC outputs pushed by target and verified object by object.</li>
+    </ul>
+  </div>
+
   <h2>1. Phase order and why</h2>
   <p>The owner's label session needs only the dataset as appended, so it opens first, and P2's stages are built and
     tried at toy scale meanwhile. P3 trains (about 7 h) and P4 judges it blind, the owner's choice deciding whether
@@ -128,7 +160,7 @@
 
   <h2>5. P3 &mdash; XL0-v4</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-21: running since about 13:04 UTC on <code>ml9-p3</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, Q1</span></div>
   </div>
   <ol class="tasks">
@@ -227,6 +259,8 @@
       points; XL0-v3 ignores a box smaller than the photo, so it is a fence (ticket D7, ADR 0015 amended), and a
       segmenter that follows boxes is ML-10. P2's <code>seg_predict</code> change and stages committed; its toy run
       under way.</div>
+    <div><div class="when">2026-10-21</div>P1 done (pass4: 22 accepted, 9 fenced, 1 dropped) and P2 done, both merged.
+      P3 started on <code>ml9-p3</code>; a "Resume here" note above says how to pick it up.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
