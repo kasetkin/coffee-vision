@@ -9,14 +9,14 @@
   <p class="lede">The ingest of 2026-10-21 brought the first green Indonesia and green Peru photos, 7 more roasted
     Colombia Excelso photos, 3 segmenter positives and a negative. They are in the data, but no model has trained on
     them: the live classifier knows Indonesia and Peru roasted only. The owner wants every new photo used, and both
-    models retrained. Written; D1 decided, D2&ndash;D6 open; not planned, not implemented.</p>
+    models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1 decided; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code> (D2), <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (a new fine-tune stage, <code>segcrop</code>, <code>merge_segpool</code>, <code>litert_export</code>), <code>params.yaml</code> (<code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/ood_eval.py</code>, <code>models/</code>, <code>tests/fixtures/dinov3_vits16_reference.npz</code>, the release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code> (D2), <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (a new fine-tune stage, <code>segcrop</code>, <code>merge_segpool</code>, <code>litert_export</code>), <code>params.yaml</code> (<code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/ood_eval.py</code>, <code>models/</code>, <code>tests/fixtures/dinov3_vits16_reference.npz</code>, the release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, mask verdicts, the deploy's go)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-21</span></div>
@@ -83,8 +83,8 @@
         <li>The segmenter dataset holds the new photos as D2 decides, and each training and validation one has an
           owner-judged label.</li>
         <li>A new segmenter (or XL0-v3, if the owner keeps it, D4) crops every session.</li>
-        <li>A classifier trained on every new photo, with its refitted probe, reported per class and per roast state,
-          converted and live on the owner's go (D6).</li>
+        <li>A classifier trained on every new photo, with its refitted probe, reported per class and on the green photos of
+          2026-10-21 alone, converted and live on the owner's go (D6).</li>
       </ul>
     </div>
   </div>
@@ -113,7 +113,8 @@
         light.</strong></td>
         <td>Their patches in <code>docs/patch_samples.png</code> are warmer and browner than the older green ones (mostly
           iPhone). A model can learn the session for those two countries, not the beans, and the split, by single photo
-          within the pool, cannot see it: the test photos share the session. Mitigation: report per roast state; a
+          within the pool, cannot see it: the test photos share the session. Mitigation: report that session's test
+          photos on their own (roast state is not recorded per photo, ML-3 D4, but every photo of the session is green); a
           held-out session of green beans would measure it (<a href="ticket_capture_gaps.html">ML-4</a> D3, never
           decided).</td></tr>
       <tr><td class="id">R2</td><td><strong>New photos re-draw the pooled split, so no run is paired with
@@ -127,8 +128,9 @@
         <td>At <code>params.yaml</code>'s recipe the fine-tune changes data and augmentation (ADR 0027), so the
           comparison cannot say which one moved a result. D3.</td></tr>
       <tr><td class="id">R5</td><td><strong>The owner's time.</strong></td>
-        <td>Every new segmenter photo needs a verdict, and test masks are judged too (ADR 0015): about 55 photos at D2
-          (a), more at (b). XL0-v3's fine-tune took about 7 h at 8 threads (ML-6 D15).</td></tr>
+        <td>Every training and validation positive without a pass3 label needs a verdict (ADR 0015): 23 at D2 (c), 18 of
+          them from ML-8's appends of 2026-10-17 and 18, never labelled. The comparison then judges 76 test positives.
+          XL0-v3's fine-tune took about 7 h at 8 threads (ML-6 D15).</td></tr>
     </tbody>
   </table></div>
 
@@ -146,7 +148,8 @@
         to match the positives in number (ML-5 D12)?</td>
         <td>(a) All 48 as pool entries beyond D12's count, this batch only. (b) From now on every new pool session joins
           the segmenter dataset whole, amending D12 (an ADR). (c) Keep D12: only the 3 photos drawn so far.</td>
-        <td>Open.</td></tr>
+        <td><strong>(c), 2026-10-21:</strong> "keep the rule". The segmenter still learns from photos XL0-v3 never saw:
+          ML-8's appends and the 7 of 2026-10-21 (R5). D1's "all" holds for the classifier.</td></tr>
       <tr><td class="id">D3</td><td>Which augmentation does the new fine-tune use?</td>
         <td>(a) <code>params.yaml</code>'s, the groups shared with the classifier (ADR 0027): data and augmentation
           both change. (b) XL0-v3's own (in <code>dvc.lock</code> and <code>models/seg/xl0_v3.json</code>): data is the
@@ -157,8 +160,8 @@
           as ML-6 D7 and D23: (a) the new decoder (b) XL0-v3.</td>
         <td>Open: waits for the comparison.</td></tr>
       <tr><td class="id">D5</td><td>How is the new classifier compared, with no paired baseline (R2)?</td>
-        <td>(a) Its seeds 42, 123 and 7, beside the live model scored on the same new test split, per class and per roast
-          state. (b) Its seeds alone, beside exp270&ndash;272's numbers.</td>
+        <td>(a) Its seeds 42, 123 and 7, beside the live model scored on the same new test split, per class and on the green
+          photos of 2026-10-21 alone. (b) Its seeds alone, beside exp270&ndash;272's numbers.</td>
         <td>Open.</td></tr>
       <tr><td class="id">D6</td><td>Does the ticket end with a deploy?</td>
         <td>(a) Yes, on the owner's go after D4 and D5's results. (b) No: it stops at a converted candidate.</td>
@@ -170,14 +173,14 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The photos of 2026-10-21 stripped, in DVC and pushed; both sessions
       cropped; every new crop in the pool (D1); the segmenter dataset appended at 3 s (ADR 0029).</span></li>
-    <li><span class="box"></span><span>The segmenter dataset holds the new photos as D2 decides; a label session carried
-      from pass3, every new training and validation label judged by the owner.</span></li>
+    <li><span class="box"></span><span>A label session carried from pass3, every training and validation positive without
+      a label judged by the owner (D2 (c): the dataset as appended).</span></li>
     <li><span class="box"></span><span>A new XL0 decoder fine-tuned in its own DVC stage with D3's augmentation, and
       compared with XL0-v3 on the test split; the owner's choice and threshold recorded (D4).</span></li>
     <li><span class="box"></span><span>If a new segmenter is adopted: every session re-cropped, its new fallbacks shown
       to the owner, the DINOv3 fixture regenerated (<a href="agents/experiments.md">experiments.md</a>).</span></li>
     <li><span class="box"></span><span>The classifier at seeds 42, 123 and 7 as recorded runs, reported as ranges with
-      per-class and per-roast-state F1, compared as D5 says; its probe refitted and measured with
+      per-class F1 and the green photos of 2026-10-21 alone, compared as D5 says; its probe refitted and measured with
       <code>ood_eval</code>.</span></li>
     <li><span class="box"></span><span>The chosen models converted, within D7's bars on the serving host (ADR 0020), and
       deployed if D6 says so; <code>docs/status.md</code>, the README and <code>docs/inference_path.html</code>
@@ -197,6 +200,10 @@
       from the code and data at that commit, <a href="ticket_segmenter_retrain.html">ML-6</a> and
       <a href="ticket_data_refresh_retrain.html">ML-8</a>. D1 decided by the owner ("use ALL new photos"); D2&ndash;D6
       open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-21</div>D2 decided by the owner: keep ML-5 D12's pool draw (c). Planned
+      (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7; Q1&ndash;Q3 carry D3, D5 and D6 with
+      recommendations). Reporting "per roast state" became "the green photos of 2026-10-21 alone": roast state is not
+      recorded per photo (ML-3 D4).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
