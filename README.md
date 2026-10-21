@@ -6,9 +6,9 @@ Take a phone photo of a handful of whole coffee beans and get back the country t
 recognise **both green (unroasted) and roasted beans** from every country the model knows. We are not there yet: some
 countries have photos of both, others of only one (see [What it knows](#what-it-knows)).
 
-Sample patches, one row per class, cut from the training photos:
+What the model sees: one patch per country and roast state, cut from the training photos:
 
-![Sample patches per class](docs/patch_samples.png)
+![Sample patches: green and roasted beans per country](docs/patch_samples.png)
 
 ## How it works
 

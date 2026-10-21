@@ -1,0 +1,19 @@
+# The README's sample patches, docs/patch_samples.png, drawn by `python -m coffeecv.patch_samples`.
+# One line per country and roast state the training pool has: <country> <green|roasted> <crop>, the crop a segmenter
+# crop under data/segcropped/ whose class folder belongs to that country (dataset/classes.txt). A country gets a
+# roasted line only once its pool has roasted photos, and likewise for green. Chosen by eye, 2026-10-21.
+Brazil      green    data/segcropped/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6246__cropped.jpg
+Brazil      roasted  data/segcropped/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260926_122057066__cropped.jpg
+Colombia    green    data/segcropped/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6258D__cropped.jpg
+Colombia    roasted  data/segcropped/random_date_raccoon/class_014__Colombia_Excelso/IMG_20261017_115345__cropped.jpg
+CostaRica   green    data/segcropped/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6269D__cropped.jpg
+Ethiopia    green    data/segcropped/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6302D__cropped.jpg
+Ethiopia    roasted  data/segcropped/random_date_raccoon/class_001__Ethiopia_Sidamo/PXL_20260927_101610945__cropped.jpg
+Guatemala   green    data/segcropped/2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6339__cropped.jpg
+Guatemala   roasted  data/segcropped/random_date_raccoon/class_005__Guatemala_Tata/IMG_9273__cropped.jpg
+Indonesia   roasted  data/segcropped/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124411025__cropped.jpg
+Kenya       green    data/segcropped/2026-08-25__iphone/class_002__Kenya_AA/IMG_6280D__cropped.jpg
+Peru        roasted  data/segcropped/2026-09-24__pixel/class_011__Peru_Minca/PXL_20260924_123128657__cropped.jpg
+Rwanda      roasted  data/segcropped/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054856833__cropped.jpg
+Vietnam     green    data/segcropped/2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6314D__cropped.jpg
+Vietnam     roasted  data/segcropped/random_date_raccoon/class_009__Vietnam_Robusta/PXL_20261007_043818022__cropped.jpg
