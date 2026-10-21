@@ -30,6 +30,11 @@ D15 = """\
 013;Brazil,SulDeMinas;
 014;Colombia,Antioquia;Excelso
 """
+# dataset/classes.txt today: D15 plus the coffees added since. 015 is the green Indonesia of 2026-10-21, a coffee
+# other than 010's Java whose farm region is unknown (owner, 2026-10-21).
+CLASSES_TXT = D15 + """\
+015;Indonesia;
+"""
 # An old-format frozen list, word for word: allrigs_cam_s123's (the same bytes as allrigs_dino3b16_s123's), from
 # the 10-class models retired on 2026-10-06. Archived experiments' configs still name lists in this format.
 OLD_FORMAT = """\
@@ -89,9 +94,18 @@ class TestClassList(unittest.TestCase):
         shuffled = "\n".join(lines[7:] + lines[:7]) + "\n"
         self.assertEqual(load_classes(self.write(shuffled)), load_classes(self.write(D15)))
 
-    def test_dataset_classes_txt_is_d15(self):
-        """Ticket ML-3 P4 wrote D15 to dataset/classes.txt, word for word; before it, the old ten-line list."""
-        self.assertEqual((REPO_ROOT / "dataset" / "classes.txt").read_text(), D15)
+    def test_dataset_classes_txt_is_d15_and_the_coffees_since(self):
+        """Ticket ML-3 P4 wrote D15 to dataset/classes.txt, word for word (before it, the old ten-line list); a
+        coffee joins with a line of its own after it."""
+        self.assertEqual((REPO_ROOT / "dataset" / "classes.txt").read_text(), CLASSES_TXT)
+
+    def test_a_coffee_of_unknown_region_joins_its_country(self):
+        path = self.write(CLASSES_TXT)
+        classes = load_classes(path)
+        self.assertEqual(classes.keys, COUNTRIES)                       # no new country, so no new class
+        self.assertEqual(classes.folders["Indonesia"], ("010", "015"))
+        indonesia = {c.folder_id: c for c in read_coffees(path)}["015"]
+        self.assertEqual((indonesia.country, indonesia.farm_region, indonesia.misc), ("Indonesia", None, None))
 
     def test_coffees_keep_farm_region_and_misc_apart(self):
         coffees = {c.folder_id: c for c in read_coffees(self.write(D15))}
