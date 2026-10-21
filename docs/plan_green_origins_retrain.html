@@ -1,0 +1,218 @@
+<title>Implementation plan: green origins retrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-9 · coffee-vision · implementation</div>
+  <h1>Implementation plan: green origins retrain</h1>
+  <p class="lede">The order of work for <a href="ticket_green_origins_retrain.html">ticket ML-9</a>. Two strands: the
+    segmenter (labels, fine-tune, comparison, re-crop) and then the classifier (three seeds, probe, export, deploy). The
+    owner's labels come first, so the fine-tune's stages can be built while they are judged. The first step that
+    changes a number is the fine-tune in P3.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; Q1&ndash;Q3 open, assumed as recommended; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_green_origins_retrain.html"><code>ticket_green_origins_retrain.html</code></a> (ML-9)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-21</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 blocks P3, Q2 P6, Q3 P7</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>db0e284</code>, not from the ticket alone. Three things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>23 photos need a label, not 3.</b> pass3 (2026-10-12) predates ML-8's appends: 18 of their training and
+        validation positives were never labelled, beside the 3 of 2026-10-21 and pass3's 2 drops. P1.</li>
+      <li><b>Naming the new decoder would stale every crop.</b> <code>seg_predict</code> takes only names in
+        <code>segment_beans.NAMED_SEGMENTERS</code>, and <code>segment_beans.py</code> is a dep of all 17
+        <code>segcrop</code> stages: registering <code>xl0_v4</code> there stales them all (about 2 h of re-crop) even
+        if XL0-v3 stays. <code>segment_beans.named_params</code> already reads <code>WEIGHTS:DECODER</code>; P2 lets
+        <code>seg_predict</code> take it, and the name is registered only in P5, if adopted.</li>
+      <li><b>Roast state is not recorded per photo</b> (ML-3 D4), so "per roast state" cannot be reported. Every photo
+        of <code>2026-10-21__new_green</code> is green: its test photos are reported on their own. The ticket's wording
+        follows.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>The owner's label session needs only the dataset as appended, so it opens first, and P2's stages are built and
+    tried at toy scale meanwhile. P3 trains (about 7 h) and P4 judges it blind, the owner's choice deciding whether
+    P5 re-crops. The classifier trains once, on the crops of the segmenter chosen, so its numbers are read only once.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>pass4 labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels only</td></tr>
+      <tr><td class="id">P2</td><td><code>seg_predict</code> by path; the fine-tune and predict stages; a toy run</td><td>local</td><td>no: tests and a toy run</td></tr>
+      <tr><td class="id">P3</td><td>XL0-v4 and both models' test masks</td><td>local, about 7 h</td><td>yes: validation only</td></tr>
+      <tr><td class="id">P4</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: test</td></tr>
+      <tr><td class="id">P5</td><td>Adopt: <code>params.yaml</code>, re-crop, fallbacks, DINOv3 fixture <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: every crop</td></tr>
+      <tr><td class="id">P6</td><td>Classifier at 42, 123, 7; the live model on the new split; probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
+      <tr><td class="id">P7</td><td>LiteRT export and the deploy <span class="pill sm open">stop</span></td><td>local, web host</td><td>no: within D7's bars</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the ticket's open decisions. Each has a recommendation, which this plan assumes until it is
+    answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Ticket D3: the fine-tune's augmentation, <code>params.yaml</code>'s shared groups
+        (ADR 0027) or XL0-v3's own?</td>
+        <td><span class="pill sm open">Open</span> (a), <code>params.yaml</code>'s. ADR 0027 already chose it for the
+          next fine-tune; (b) would depart from the ADR. The comparison then names the better model, not why (ticket
+          R4), as ML-6's did.</td><td>P3</td></tr>
+      <tr><td class="id">Q2</td><td>Ticket D5: score the live model on the new test split, beside the candidate's
+        seeds?</td>
+        <td><span class="pill sm open">Open</span> (a), yes. It is the one baseline on the same photos (ticket R2), and
+          shows what the live model gets wrong on the green photos.</td><td>P6</td></tr>
+      <tr><td class="id">Q3</td><td>Ticket D6: end with a deploy?</td>
+        <td><span class="pill sm open">Open</span> (a), yes, on the owner's go after P6, through
+          <code>docs/agents/deploy.md</code>.</td><td>P7</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; pass4 labels <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>The labels the fine-tune trains on (ADR 0015), carried from pass3 (ML-6 D3 (a)), with XL0-v3 proposing and
+    redrawing, as ML-6 P4 did with XL0-v2.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>python -m coffeecv.seg_review label --session pass4 --proposer xl0_v3
+      --redraw xl0_v3 --carry pass3</code>, served from this host.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge the 23 positives, with points on declines (up to three
+      rounds).</span></li>
+    <li><span class="box"></span><span><code>seg_review status --session pass4</code>: accepted by round, drops and why,
+      per source, carried against new. <code>dvc add data/ml5_labels/pass4</code>, commit, push by target and verify on
+      the remote.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; Stages and a toy run</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Test-first: <code>seg_predict</code> takes <code>WEIGHTS:DECODER</code> beside a
+      name, as <code>named_params</code> does, and records which in its output. No <code>segcrop</code> stage goes
+      stale.</span></li>
+    <li><span class="box"></span><span><code>dvc.yaml</code>: <code>seg_ml9_finetune@xl0_v4</code> (labels pass4, seed
+      123, 8 threads; params <code>seg_ft</code>, <code>augment</code>, <code>seg_prompt</code>,
+      <code>seg_mask_select</code>) and <code>seg_ml9_predict</code> for XL0-v3 and XL0-v4 on today's test split
+      (XL0-v3's frozen masks predate ML-8's appends).</span></li>
+    <li><span class="box"></span><span>Diff the run's <code>seg_ft</code>, <code>seg_prompt</code> and
+      <code>seg_mask_select</code> key by key against <code>models/seg/xl0_v3.json</code>: only the augmentation may
+      differ (Q1).</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green; the fine-tune's real entry point run at toy scale
+      (one epoch, a few steps) on pass3's labels (<code>CODING_STANDARDS.md</code>, "Proving a
+      change").</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; XL0-v4</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, Q1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Commit the stages, then <code>dvc repro -s seg_ml9_finetune@xl0_v4</code> and the
+      predict stages, in the background with a log; check the first epoch's time against about 7 h in all.</span></li>
+    <li><span class="box"></span><span>Report from <code>models/seg/xl0_v4.json</code> alone: chosen epoch, validation
+      mean IoU, the validation negatives' empty-or-tiny share. No test numbers before P4.</span></li>
+    <li><span class="box"></span><span>Push the decoder and the masks by target and verify on the remote.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Blind paired comparison and the choice <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: <code>seg_review paired</code> over the 76 test positives,
+      XL0-v3's and XL0-v4's masks blind.</span></li>
+    <li><span class="box"></span><span><code>paired-report</code>: both pass, one only, both fail, exact McNemar p, and
+      the 160 test negatives per batch. It says the two differ in data and augmentation (ticket R4).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: XL0-v3 or XL0-v4, and the tiny-mask threshold (ticket
+      D4).</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Adopt the segmenter <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <p>If XL0-v3 stays, this phase is empty and the crops stand.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_decoder</code> and its sha256,
+      <code>seg_min_area_frac</code>; <code>xl0_v4</code> in <code>NAMED_SEGMENTERS</code>. Then <code>dvc repro
+      -s</code> each <code>segcrop</code> stage and <code>merge_segpool</code>, never a plain <code>dvc
+      repro</code> (<a href="agents/experiments.md">experiments.md</a>); about 2 h.</span></li>
+    <li><span class="box"></span><span>Open a few crops at full size, every fallback included; report
+      <code>IMG_7317.HEIC</code> (ticket R3). Stop for the owner on any photo whose crop became a fallback or newly
+      lost its beans.</span></li>
+    <li><span class="box"></span><span>The DINOv3 fixture regenerated (<code>scripts/make_dinov3_fixture.py</code>): the
+      owner runs it, or says Claude may.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Classifier, baseline and probe <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q2</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 273</code>
+      on the committed tree, after its config is diffed against exp271's (only the data may differ).</span></li>
+    <li><span class="box"></span><span>The live model scored on the same test split (Q2), test-first if it needs new
+      code.</span></li>
+    <li><span class="box"></span><span>The report: val and test as ranges over seeds, per-class F1, and the test photos
+      of <code>2026-10-21__new_green</code> alone, for every arm.</span></li>
+    <li><span class="box"></span><span>The probe refitted on the chosen candidate and measured with
+      <code>ood_eval</code>, against exp271's (160/160 negatives caught, 0/73 positives refused).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: which seed ships, or none.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; Export and deploy <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6, Q3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>litert_export@&lt;candidate&gt;</code>: converted and within D7's bars
+      (ADR 0020); pushed by target and verified.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the go to deploy, then <a href="agents/deploy.md">deploy.md</a>
+      (the service stops while it runs, ADR 0026).</span></li>
+    <li><span class="box"></span><span><code>docs/status.md</code>, the README, <code>docs/inference_path.html</code>
+      and <code>EXPERIMENTS_LOG.md</code> updated for the live models.</span></li>
+  </ol>
+
+  <h2>10. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: every training and validation positive has an accepted label or a logged
+      drop.</span></li>
+    <li><span class="box"></span><span>P2: no <code>segcrop</code> stage stale after the change to
+      <code>seg_predict</code>.</span></li>
+    <li><span class="box"></span><span>P3&ndash;P7: every new DVC output pushed by target and verified on the
+      remote.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". The 48 new pool photos in the segmenter dataset (ticket D2
+      (c)).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-21</div>Claude reads ticket ML-9 at <code>db0e284</code> and writes this plan. Three
+      findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
+    <a href="plan_segmenter_retrain.html">ML-6 plan</a>, <a href="plan_data_refresh_retrain.html">ML-8 plan</a>,
+    <a href="agents/experiments.md">experiments.md</a>.</footer>
+</main>
