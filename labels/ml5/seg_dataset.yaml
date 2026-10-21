@@ -36,6 +36,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: train
   group: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080658175.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081134287.jpg
+  sha256: 193bf3470c55d849da47cf61b40e8af31129f6a3c8034a7e9ac131cb8f2ca250
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: test
+  group: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081134287.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081158015.jpg
   sha256: a6952ac9edf39abd9cfe0bd265965998a89a3cc56d75d998f85f0df623b7ea80
   source: pool
@@ -156,6 +162,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_131537250.jpg
+- path: dataset/2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_131816795.jpg
+  sha256: fb0973d3ca7bb1286cb2856edb399e0a3432ca13619d539d5a17d68a85a1abb5
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_131816795.jpg
 - path: dataset/2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_132011347.jpg
   sha256: 64cf371bb2ac8ed28dc15c7ac9a1a03b55ce8c80fa87a9a2f0a1059b47c00449
   source: pool
@@ -396,6 +408,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_140658766.jpg
+- path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_211032.JPG
+  sha256: d58f025ecc6ffa04af32ba47b7117bb68ff79bab187c7f284a255375b6d9065f
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: train
+  group: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_211032.JPG
 - path: dataset/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6303D.HEIC
   sha256: fbf8e9875d45c796281c1e3d60ef71c9fccc35771006b90cc1d704af38b43f82
   source: pool
@@ -4470,6 +4488,12 @@ photos:
   batch: user_realworld
   split: train
   group: dataset/ood_negatives/user_realworld/IMG_20261016_113537.jpg
+- path: dataset/ood_negatives/user_realworld/IMG_2625.JPG
+  sha256: edeef80fff8c28a02253772766fcf41bb83f5d9e32f71d05fcb09af84be8cc01
+  source: negative
+  batch: user_realworld
+  split: train
+  group: dataset/ood_negatives/user_realworld/IMG_2625.JPG
 - path: dataset/ood_negatives/user_realworld/PXL_20260727_134345066.jpg
   sha256: 61c17a0d44bdaaff9c474d72c3e24af6bd96e3f61687487b83b94b7ca98876c1
   source: negative
@@ -4660,6 +4684,21 @@ photos:
   source: segmenter_positive
   split: test
   group: dataset/2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195315306.jpg
+- path: dataset/segmenter_positives/IMG_6583.HEIC
+  sha256: a746b99ccd2c8771b64e2e4600d7574a683c9ecf377e296f517b4d33eec028f3
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/IMG_6583.HEIC
+- path: dataset/segmenter_positives/IMG_6584.HEIC
+  sha256: 42e91e396add60f40ba909bb04086e46d4a221045b656727d6057a8093e4feba
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/IMG_6584.HEIC
+- path: dataset/segmenter_positives/IMG_6585.HEIC
+  sha256: 689cf97508de61e1bb10ff2b4d262f5a0ce34bb95c132beffbed03a6ea1e1380
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/IMG_6585.HEIC
 - path: dataset/segmenter_positives/IMG_6761.HEIC
   sha256: 718897b6c91f5dae02e306c9f03d7bb98a36cef3a9f22ec7698ffd7c92c1b84b
   source: segmenter_positive
