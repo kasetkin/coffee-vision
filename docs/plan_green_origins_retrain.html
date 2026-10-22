@@ -184,7 +184,7 @@
 
   <h2>5b. P3b &mdash; XL0-v4 at lr 3e-5 (ticket D8)</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">prepared on <code>ml9-lr</code>; launches when P3 is merged</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-22: the queue started 02:48 UTC on <code>ml9-p3b</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3 (the CPU, and <code>seg_finetune.py</code>, a
       dep of the running stage)</span></div>
   </div>
@@ -192,7 +192,7 @@
     <li><span class="box done"></span><span><code>seg_finetune --lr</code>, overriding <code>seg_ft.lr</code> for one run
       and recorded in the card; tests that without it nothing changes (<code>LearningRateArgument</code>). Stages
       <code>seg_ml9_finetune_lr@xl0_v4_lr3e5</code> and <code>seg_ml9_predict@xl0_v4_lr3e5</code>.</span></li>
-    <li><span class="box"></span><span>After P3's merge: merge <code>ml9-lr</code>; <code>dvc commit
+    <li><span class="box done"></span><span>After P3's merge: merge <code>ml9-lr</code>; <code>dvc commit
       seg_ml9_finetune@xl0_v4</code> for the new <code>seg_finetune.py</code> hash (not re-run, as ML-8 P2); then
       <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_predict@xl0_v4_lr3e5</code> in the
       background with a log.</span></li>
