@@ -1271,8 +1271,8 @@ stages:
       size: 3296
     - path: coffeecv/seg_finetune.py
       hash: md5
-      md5: 82a44c526042507ee1acc745b956f765
-      size: 25263
+      md5: d0a6f86fa18dde3d68d5ffb3c6c239b3
+      size: 25619
     - path: data/ml5_labels/pass4
       hash: md5
       md5: fea06436aae05e5ce05df09244127b78.dir
