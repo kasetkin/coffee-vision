@@ -12,7 +12,7 @@
     models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22, its push pending</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -214,6 +214,8 @@
       the redrawn mask is cut to (ADR 0015 amended); a segmenter that follows box prompts is ML-10.</div>
     <div><div class="when">2026-10-21</div>P1 done: the owner labelled pass4 (22 accepted, 9 of them fenced; 1
       dropped). P2 done: <code>seg_predict</code> by path, the stages, a toy run. P3, the fine-tune, next.</div>
+    <div><div class="when">2026-10-22</div>P3: XL0-v4 trained, restarted once after a host reboot; it chose epoch 28 of 36
+      (validation score 0.961). Its push waits for the DVC remote.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
