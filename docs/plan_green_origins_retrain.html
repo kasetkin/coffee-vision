@@ -38,28 +38,17 @@
   </div>
 
   <div class="callout info">
-    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, for a new session; update or delete it as phases move).</p>
+    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, updated 2026-10-22 02:40, for a new session; update or delete it as phases move).</p>
     <ul>
       <li><b>Done and merged into <code>main</code></b> (<code>a5a89d8</code>): P1 (pass4, 233 labels) and P2 (stages,
         <code>seg_predict</code> by path, toy run). <code>main</code> is 19 commits ahead of <code>origin</code>, not
         pushed: ask the owner before <code>git push</code>.</li>
-      <li><b>Running: P3</b> on branch <code>ml9-p3</code>, restarted 19:16 UTC (the first run, from 13:04, died
-        in epoch 22 when the host rebooted at about 18:10; nothing is saved before a run ends, so it started over on
-        the same code, owner's go; its log is <code>/tmp/ng_preview/p3_run1_reboot.log</code>): <code>dvc repro -s
-        seg_ml9_finetune@xl0_v4 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code>, log
-        <code>/tmp/ng_preview/p3.log</code> (inside the container; gone after a rebuild). 187 positives and 368
-        negatives, 47 steps an epoch at about 17 s a step, about 15 min an epoch with validation; early stopping at
-        patience 8 within 40 epochs (XL0-v3 stopped after 17 and chose epoch 9), so 4.5&ndash;10 h, then two predict
-        stages over the 236 test photos.</li>
-      <li><b>Is it still running?</b> <code>ps -eo pid,etime,args | grep '[s]eg_finetune train --labels pass4'</code>.
-        Never <code>pkill -f</code> or <code>pgrep -f</code> that pattern from a shell: it matches the shell itself;
-        kill by PID. It is done when <code>dvc status</code> reports no <code>seg_ml9_*</code> stage and
-        <code>models/seg/xl0_v4.json</code> exists. If it died, rerun the same command: it starts over.</li>
-      <li><b>When it ends</b> (P3's tasks): report from <code>models/seg/xl0_v4.json</code> alone (chosen epoch,
-        validation mean IoU, negatives' empty-or-tiny share), no test numbers; <code>dvc push
-        seg_ml9_finetune@xl0_v4 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object on
-        <code>dvcnewremote</code> (<a href="agents/dvc.md">dvc.md</a>); commit <code>dvc.lock</code>, the card and
-        the <code>.gitignore</code> changes; P3 Done here; <code>scripts/check.sh --full</code>; merge.</li>
+      <li><b>P3: trained and committed</b> on <code>ml9-p3</code> (2026-10-22 02:26 UTC; XL0-v4 chose epoch 28, score
+        0.961). <b>Not pushed:</b> after the host's reboot the container did not resolve
+        <code>dvcnewremote</code> (a Tailscale name). When it does: <code>dvc push seg_ml9_finetune@xl0_v4
+        seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object (<a
+        href="agents/dvc.md">dvc.md</a>), then tick P3's last task. The first run's log, killed by the reboot, is
+        <code>/tmp/ng_preview/p3_run1_reboot.log</code>.</li>
       <li><b>Then P4</b>, the owner's: <code>python -m coffeecv.seg_review paired --session ml9_test --masks
         data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
         <code>paired-report</code>.</li>
@@ -162,14 +151,18 @@
 
   <h2>5. P3 &mdash; XL0-v4</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-21: restarted 19:16 UTC on <code>ml9-p3</code> after a host reboot</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-22: trained and committed; only the push is left (the remote did not resolve after the host's reboot)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, Q1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Commit the stages, then <code>dvc repro -s seg_ml9_finetune@xl0_v4</code> and the
-      predict stages, in the background with a log; check the first epoch's time against about 7 h in all.</span></li>
-    <li><span class="box"></span><span>Report from <code>models/seg/xl0_v4.json</code> alone: chosen epoch, validation
-      mean IoU, the validation negatives' empty-or-tiny share. No test numbers before P4.</span></li>
+    <li><span class="box done"></span><span>Commit the stages, then <code>dvc repro -s seg_ml9_finetune@xl0_v4</code> and the
+      predict stages, in the background with a log; check the first epoch's time against about 7 h in all. Done
+      2026-10-22 02:26 UTC: 36 epochs at 11&ndash;14 min, after a restart (the host rebooted in the first run's epoch
+      22; the second repeats its 21 epochs exactly).</span></li>
+    <li><span class="box done"></span><span>Report from <code>models/seg/xl0_v4.json</code> alone: chosen epoch, validation
+      mean IoU, the validation negatives' empty-or-tiny share. No test numbers before P4. Epoch 28 of 36 (patience
+      stopped it): score 0.961, mean IoU 0.946, 83 of 85 negatives empty or tiny. The score still swung from epoch
+      to epoch (0.896&ndash;0.961 after epoch 19), as ticket D8 expected.</span></li>
     <li><span class="box"></span><span>Push the decoder and the masks by target and verify on the remote.</span></li>
   </ol>
 
@@ -267,6 +260,9 @@
       epoch 16, validation score 0.956); the fine-tune saves nothing before it ends, so P3 restarted at 19:16 on the
       same code (the owner's choice over adding checkpoints first). Same host and threads: its epochs should repeat
       the first run's.</div>
+    <div><div class="when">2026-10-22</div>P3 trained: XL0-v4 chose epoch 28 of 36 (validation score 0.961, mean IoU
+      0.946, 83 of 85 negatives empty or tiny); both models' test masks stored. Committed and merged; the push waits
+      for the remote, which did not resolve after the host's reboot.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
