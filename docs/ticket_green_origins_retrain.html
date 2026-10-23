@@ -12,7 +12,7 @@
     models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); pushes pending</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); pushes pending</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -131,6 +131,13 @@
         <td>Every training and validation positive without a pass3 label needs a verdict (ADR 0015): 23 at D2 (c), 18 of
           them from ML-8's appends of 2026-10-17 and 18, never labelled. The comparison then judges 76 test positives.
           XL0-v3's fine-tune took about 7 h at 8 threads (ML-6 D15).</td></tr>
+      <tr><td class="id">R6</td><td><strong>XL0-v4 speckles some dense piles in a hopper.</strong> Found in P5,
+        2026-10-23.</td>
+        <td>Where XL0-v3 masks the pile whole, XL0-v4 masks beans one by one and leaves the gaps out: 5 of the 33
+          Brazil photos of 2026-10-22 and 23, a Guatemala and a green Indonesia photo (XL0-v3 0.24 and 0.13 of the
+          photo, XL0-v4 0.07 and 0.08). Rare in the pool (4 of 1,324 photos lost over a fifth of their mask in the
+          re-crop), but these are the photos the site is sent. The owner declined the 6 worst from the pool (D9); a
+          later fine-tune can take them as labels.</td></tr>
     </tbody>
   </table></div>
 
@@ -182,6 +189,15 @@
           3e-5". XL0-v4_lr3e5, in its own stage. Extended the same day: "after &hellip; one training session with new LR
           value launch more seeds with old LR and new LR", seeds 42 and 7 at both rates (ADR 0002), one run at a
           time.</td></tr>
+      <tr><td class="id">D9</td><td>Which crops train after the re-crop with XL0-v4, and the 33 Brazil Sul de Minas
+        photos the owner added on 2026-10-23?</td>
+        <td>Each photo whose crop is a fallback, or whose mask lost its beans, accepted or declined (as ML-3 D8, ML-8
+          D11).</td>
+        <td><strong>2026-10-23:</strong> declined 8: the two new Brazil fallbacks showing background, five speckled
+          masks (R6: four new Brazil photos and the Guatemala one) and the green Indonesia one. Readmitted 2: Brazil
+          <code>PXL_20261016_081726673</code> and <code>081741399</code>, ML-8's declined fallbacks, which XL0-v4
+          masks. <code>labels/ml2/review/ml9_p5_crops.decisions.jsonl</code>; the pool 1,326 photos, 31
+          excluded.</td></tr>
     </tbody>
   </table></div>
 
@@ -236,6 +252,11 @@
       epoch 10, on track with the other two. Plan Q4 recommends XL0-v4 for P4.</div>
     <div><div class="when">2026-10-23</div>P4: the owner judged the 76 test positives blind (XL0-v3 62, XL0-v4 65; p =
       0.549); XL0-v4 left 156 of 160 test negatives empty, XL0-v3 44. D4 decided: XL0-v4, threshold 0.039049.</div>
+    <div><div class="when">2026-10-23</div>P5: every session re-cropped with XL0-v4 (fallbacks 5 to 2, both already
+      excluded; <code>IMG_7317.HEIC</code> masked, R3 gone). The owner added 33 Brazil Sul de Minas photos; the 13 from
+      Galaxy phones needed <code>strip_metadata</code> to cut Samsung's trailer (network country, a timestamp).
+      XL0-v4 speckles some hopper piles (R6); the owner declined 8 crops and readmitted 2 (D9). The DINOv3 fixture
+      regenerated, class_015 added.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
