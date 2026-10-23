@@ -81,5 +81,25 @@
         }
       }
     }
+  },
+  "tiny_threshold": {
+    "model": "xl0_v4",
+    "rule": "half the smallest accepted test-positive mask (ML-2 D18, ML-5 D21)",
+    "from_n_accepted": 65,
+    "old": 0.064511,
+    "new": 0.039049,
+    "under_old": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg",
+      "dataset/segmenter_positives/IMG_6583.HEIC",
+      "dataset/segmenter_positives/IMG_6585.HEIC",
+      "dataset/segmenter_positives/PXL_20261008_074913048.jpg"
+    ],
+    "under_new": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg",
+      "dataset/segmenter_positives/IMG_6585.HEIC",
+      "dataset/segmenter_positives/PXL_20261008_074913048.jpg"
+    ]
   }
 }
