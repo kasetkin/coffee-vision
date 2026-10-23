@@ -93,7 +93,11 @@ seg_mask_select: multi3
 # XL0-v3 test-positive masks (smallest 0.1290), 0.040223 before; the same 2 test positives fall
 # under either value, and 141/153 test negatives are empty or tiny under it (140 under 0.040223).
 # analysis/ml6_p7_paired/.
-seg_min_area_frac: 0.064511
+# Ticket ML-9 P4 (D4, owner 2026-10-23): re-derived by the same rule from the owner-accepted XL0-v4
+# test-positive masks (65 of 76), 0.064511 before; 4 test positives fall under it (5 under 0.064511), each
+# failed by XL0-v3 and XL0-v4 alike, and 156/160 test negatives are empty (empty or tiny under either value).
+# analysis/ml9/p4_paired_report.txt.
+seg_min_area_frac: 0.039049
 
 # Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
 # below, at both ends (segcrop stage -> data/segcropped, live segmentation in
@@ -105,11 +109,13 @@ crop_method: segment
 # fine-tuned on the owner's pass-3 labels with on-the-fly augmentation (models/seg/xl0_v3.json); the
 # classifier is re-cropped with it in ML-6 P8 (D8 (a)). Before: ML-5 P10 (D20, owner 2026-10-09)
 # XL0-v2 (models/seg/xl0_v2.json), and until then (ML-2 P5, owner 2026-10-02) pretrained L0 +
-# ft_s123, which the shipped classifier was cropped with.
+# ft_s123, which the shipped classifier was cropped with. Ticket ML-9 P4 (D4, owner 2026-10-23): XL0-v4,
+# XL0-v3's recipe on the pass-4 labels with the augmentation groups shared with the classifier
+# (models/seg/xl0_v4.json); every session re-cropped with it in ML-9 P5.
 seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
 seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
-seg_decoder: models/seg/xl0_v3.pt
-seg_decoder_sha256: 4b21ed7beeb20b12eabe8b8afc078d45011ed1d6fa71855638b1c6947da9ae22
+seg_decoder: models/seg/xl0_v4.pt
+seg_decoder_sha256: 6f78260e206cd0e723edc9d7afea0497888f5bf239d8c26e19ac105e0932c3bc
 # D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
 seg_keep_frac: 0.95
 # D17: reject a patch box under 80% bean region; after 20 x n candidates, top up

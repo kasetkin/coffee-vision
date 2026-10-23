@@ -119,8 +119,9 @@ class TestNamedSegmenters(unittest.TestCase):
     """ML-5 P6: the review page and the point probe take a segmenter by name."""
 
     def test_names_and_weights_with_a_decoder(self):
-        self.assertEqual((named_params("xl0_v3").weights, named_params("xl0_v3").decoder),
-                         ("efficientvit_sam/efficientvit_sam_xl0.pt", "models/seg/xl0_v3.pt"))
+        for name in ("xl0_v3", "xl0_v4"):
+            self.assertEqual((named_params(name).weights, named_params(name).decoder),
+                             ("efficientvit_sam/efficientvit_sam_xl0.pt", f"models/seg/{name}.pt"))
         self.assertEqual(named_params("pretrained_l0").decoder, None)
         self.assertEqual(named_params("pretrained_xl0").variant, "xl0")
         p = named_params("efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v4.pt")

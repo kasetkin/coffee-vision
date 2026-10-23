@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -45,6 +46,22 @@ def write_fixture(path: Path) -> Path:
     im.save(path, exif=exif.tobytes(), icc_profile=icc, quality=90)
     subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE, str(path)], check=True)
     return path
+
+
+def samsung_trailer(blocks: dict[int, tuple[bytes, bytes]]) -> bytes:
+    """A Samsung SEF trailer as a Galaxy appends it after a JPEG: {type: (name, value)} blocks, the SEFH
+    directory pointing back at them, its length and SEFT (the layout of the 2026-10-23 photos, made-up values)."""
+    body, entries = b"", []
+    for typ, (name, value) in blocks.items():
+        block = struct.pack("<HHI", 0, typ, len(name)) + name + value
+        entries.append((typ, len(body), len(block)))
+        body += block
+    directory = b"SEFH" + struct.pack("<II", 107, len(entries)) + b"".join(
+        struct.pack("<HHII", 0, typ, len(body) - start, size) for typ, start, size in entries)
+    return body + directory + struct.pack("<I", len(directory)) + b"SEFT"
+
+
+SAMSUNG = {0x0A01: (b"Image_UTC_Data", b"1700000000000"), 0x0AA1: (b"MCC_Data", b"262")}
 
 
 def flip_coded_byte(path: Path, item_id: int) -> None:
@@ -89,6 +106,31 @@ class TestStrip(unittest.TestCase):
 
     def test_heic(self):
         self.assert_clean_and_lossless(write_fixture(self.tmp / "a.heic"))
+
+    def test_samsung_trailer_is_cut(self):
+        """2026-10-23: a Galaxy JPEG ends with an SEF trailer exiftool reads but cannot delete; it is cut, and
+        the photo before it is what exiftool wrote."""
+        path = write_fixture(self.tmp / "a.jpg")
+        path.write_bytes(path.read_bytes() + samsung_trailer(SAMSUNG))
+        self.assertIn("MakerNotes:Samsung:MCCData", sm.read_tags(path))
+        self.assert_clean_and_lossless(path)
+        self.assertEqual(sm.samsung_trailer_start(path.read_bytes()), None)
+        self.assertTrue(path.read_bytes().endswith(b"\xff\xd9"))
+
+    def test_trailer_start_is_its_earliest_block(self):
+        trailer = samsung_trailer(SAMSUNG)
+        self.assertEqual(sm.samsung_trailer_start(b"jpeg" + trailer), 4)
+        self.assertEqual(sm.samsung_trailer_start(b"jpeg\xff\xd9"), None)
+
+    def test_malformed_samsung_trailer_fails(self):
+        path = write_fixture(self.tmp / "a.jpg")
+        trailer = bytearray(samsung_trailer(SAMSUNG))
+        trailer[-8] += 1                                # the directory's length no longer matches
+        path.write_bytes(path.read_bytes() + bytes(trailer))
+        sha = sm.sha256_file(path)
+        row = sm.strip_one(path, dry_run=False)
+        self.assertTrue(any("Samsung trailer" in p for p in row["problems"]), row["problems"])
+        self.assertEqual(sm.sha256_file(path), sha)
 
     def check_fails_untouched(self, path: Path, expect: str, **patches):
         sha = sm.sha256_file(path)

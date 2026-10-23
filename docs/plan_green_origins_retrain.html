@@ -38,24 +38,26 @@
   </div>
 
   <div class="callout info">
-    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, updated 2026-10-22 02:40, for a new session; update or delete it as phases move).</p>
+    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, updated 2026-10-23, for a new session; update or delete it as phases move).</p>
     <ul>
-      <li><b>Done and merged into <code>main</code></b> (<code>a5a89d8</code>): P1 (pass4, 233 labels) and P2 (stages,
-        <code>seg_predict</code> by path, toy run). <code>main</code> is 19 commits ahead of <code>origin</code>, not
-        pushed: ask the owner before <code>git push</code>.</li>
-      <li><b>P3: trained and committed</b> on <code>ml9-p3</code> (2026-10-22 02:26 UTC; XL0-v4 chose epoch 28, score
-        0.961). <b>Not pushed:</b> after the host's reboot the container did not resolve
-        <code>dvcnewremote</code> (a Tailscale name). When it does: <code>dvc push seg_ml9_finetune@xl0_v4
-        seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object (<a
-        href="agents/dvc.md">dvc.md</a>), then tick P3's last task. The first run's log, killed by the reboot, is
+      <li><b>Done and merged into <code>main</code>:</b> P1&ndash;P3b (XL0-v4 and the learning-rate runs) and P4.
+        <code>main</code> is not pushed to <code>origin</code>: ask the owner before <code>git push</code>.</li>
+      <li><b>Not pushed to DVC:</b> since the host's reboot (2026-10-21) the container does not resolve
+        <code>dvcnewremote</code> (a Tailscale name). When it does, push by target and verify every object
+        (<a href="agents/dvc.md">dvc.md</a>): <code>seg_ml9_finetune@xl0_v4 seg_ml9_finetune@xl0_v4_s42
+        seg_ml9_finetune@xl0_v4_s7 seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_finetune_lr@xl0_v4_lr3e5_s42
+        seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4 seg_ml9_predict@xl0_v4_lr3e5</code>, every
+        <code>segcrop</code> stage, <code>merge_segpool</code> and <code>dataset/random_date_raccoon.dvc</code>;
+        then tick P3's and P3b's push tasks. P3's first log, killed by the reboot:
         <code>/tmp/ng_preview/p3_run1_reboot.log</code>.</li>
-      <li><b>P3b: runs done</b> 2026-10-23 on <code>ml9-p3b</code> (five of six; lr 3e-5 at seed 7 stopped by the
-        owner in epoch 10). Report and Q4's recommendation in P3b and &sect;2: lr 1e-4 at seed 123, XL0-v4 itself.
-        <b>Not pushed</b>, as P3: when <code>dvcnewremote</code> resolves, <code>dvc push seg_ml9_finetune@xl0_v4 seg_ml9_finetune@xl0_v4_s42 seg_ml9_finetune@xl0_v4_s7 seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_finetune_lr@xl0_v4_lr3e5_s42 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4 seg_ml9_predict@xl0_v4_lr3e5</code>, verify every
-        object, tick both phases' push tasks, <code>check.sh --full</code>, merge <code>ml9-p3b</code>.</li>
-      <li><b>Then P4</b>, the owner's (after Q4): <code>python -m coffeecv.seg_review paired --session ml9_test --masks
-        data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
-        <code>paired-report</code>.</li>
+      <li><b>P4 and P5 done</b> 2026-10-23: XL0-v4 at 0.039049 serves (ticket D4); every session re-cropped; 33
+        Brazil photos added; the pool 1,326 photos, 31 excluded (ticket D9); the DINOv3 fixture regenerated.
+        Merged into <code>main</code> from <code>ml9-brazil</code>, which carries P5.</li>
+      <li><b>Next: P6</b>, the classifier at seeds 42, 123 and 7 (<code>fit_frozen_head</code>, about 8 h here; the
+        owner keeps it local, not on <code>yappy</code>). Q2 (the live model on the new test split) is still open:
+        its recommendation (a) is assumed.</li>
+      <li><b>Disk:</b> about 23 GB free of 906 GB. Nothing leaves the DVC cache until the remote holds it (ADR
+        0028).</li>
       <li><b>Questions:</b> P3 runs on Q1's recommendation (a), the shared augmentation; the owner was told before it
         started and did not object, but has not answered Q1 in words. Q2 (ticket D5) and Q3 (D6) are open.</li>
       <li><b>How the owner wants the work done:</b> one branch per phase, merged with <code>--no-ff</code> (ADR 0017)
@@ -243,20 +245,31 @@
 
   <h2>7. P5 &mdash; Adopt the segmenter <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-23: XL0-v4 crops, 33 Brazil photos added, the owner's D9, the fixture</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>If XL0-v3 stays, this phase is empty and the crops stand.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>params.yaml</code>: <code>seg_decoder</code> and its sha256,
+    <li><span class="box done"></span><span><code>params.yaml</code>: <code>seg_decoder</code> and its sha256,
       <code>seg_min_area_frac</code>; <code>xl0_v4</code> in <code>NAMED_SEGMENTERS</code>. Then <code>dvc repro
       -s</code> each <code>segcrop</code> stage and <code>merge_segpool</code>, never a plain <code>dvc
-      repro</code> (<a href="agents/experiments.md">experiments.md</a>); about 2 h.</span></li>
-    <li><span class="box"></span><span>Open a few crops at full size, every fallback included; report
+      repro</code> (<a href="agents/experiments.md">experiments.md</a>); about 2 h. Done 2026-10-23 in 53 min
+      (1,324 photos at about 2.3 s); the predict stages' new <code>segment_beans.py</code> hash recorded with
+      <code>dvc commit</code>.</span></li>
+    <li><span class="box done"></span><span>Open a few crops at full size, every fallback included; report
       <code>IMG_7317.HEIC</code> (ticket R3). Stop for the owner on any photo whose crop became a fallback or newly
-      lost its beans.</span></li>
-    <li><span class="box"></span><span>The DINOv3 fixture regenerated (<code>scripts/make_dinov3_fixture.py</code>): the
-      owner runs it, or says Claude may.</span></li>
+      lost its beans. Done 2026-10-23: against XL0-v3's crops (<code>analysis/ml8/p4_recrop_compare.py</code>,
+      the old crops hard-linked from the cache) fallbacks went from 5 to 2, both already excluded;
+      <code>IMG_7317.HEIC</code> and three more are masked now; 4 photos lost over a fifth of their mask, the
+      speckling of ticket R6. Meanwhile the owner added 33 Brazil Sul de Minas photos to
+      <code>random_date_raccoon</code>: <code>strip_metadata</code> learnt to cut a Galaxy JPEG's Samsung trailer
+      (<code>41f1c95</code>), and their crops and the shrunk ones were shown. The owner declined 8 and readmitted
+      2 (ticket D9). <code>mask_review.py</code> had tied ML-8's decisions to the masks they were made on, so the
+      re-crop had voided them; they hold for their photos now, as ML-3's do. The pool: 1,326 photos, 31
+      excluded; the segmenter dataset unchanged (no new positive, ML-5 D12).</span></li>
+    <li><span class="box done"></span><span>The DINOv3 fixture regenerated (<code>scripts/make_dinov3_fixture.py</code>): the
+      owner runs it, or says Claude may. Done 2026-10-23 on the owner's go, with class_015's reference crop added
+      (15 photos).</span></li>
   </ol>
 
   <h2>8. P6 &mdash; Classifier, baseline and probe <span class="pill sm open">stop</span></h2>
@@ -333,6 +346,9 @@
       (1e-4, seed 123). Pushes of P3 and P3b wait for the remote.</div>
     <div><div class="when">2026-10-23</div>P4 done: the owner judged the test positives blind (XL0-v3 62/76, XL0-v4
       65/76, p = 0.549; negatives empty 44 and 156 of 160) and chose XL0-v4 at 0.039049 (ticket D4). P5 next.</div>
+    <div><div class="when">2026-10-23</div>P5 done: XL0-v4's re-crop, 33 new Brazil photos (Samsung's trailer cut by
+      <code>strip_metadata</code>), the owner's 8 declines and 2 readmissions (ticket D9, R6), the DINOv3 fixture.
+      P6 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,

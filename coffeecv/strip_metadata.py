@@ -5,7 +5,9 @@
 
 D13.1 as a deny list: GPS (EXIF, XMP and any GPS* tag), maker notes (Sony face info, Apple, Google HDR+
 maker note), C2PA/JUMBF (its signing certificate carries a device-stable id), extended XMP, embedded
-thumbnails and previews, device and lens serial numbers, owner/artist fields. Everything else stays,
+thumbnails and previews, device and lens serial numbers, owner/artist fields, and a Samsung JPEG's SEF
+trailer (MCC_Data, the network's country; Image_UTC_Data), cut from the file's end as exiftool cannot
+delete it (samsung_trailer_start, 2026-10-23). Everything else stays,
 Orientation and the ICC profile included: they are not private and they describe the photo. A RAW file's
 preview and a HEIF's thumbnail item are image data exiftool cannot remove; the owner keeps them (2026-10-05).
 
@@ -310,6 +312,31 @@ def compare(before: dict, after: dict, ext: str = "") -> tuple[list[str], list[s
     return removed, problems
 
 
+def samsung_trailer_start(data: bytes) -> int | None:
+    """Where a Samsung SEF trailer begins in `data`, or None if it has none. Samsung appends it after a JPEG's
+    last image (the gain map's, when there is one); exiftool reads it (MakerNotes:Samsung) but cannot delete
+    it, and its -trailer:all= cuts the gain map too. Layout: the data blocks, then b"SEFH", a version, a count,
+    `count` entries (2-byte pad, 2-byte type, the block's offset back from SEFH, its length), the directory's
+    length (uint32 LE) and b"SEFT". The trailer begins at its earliest block. A malformed one raises
+    ValueError: the photo fails rather than keep half a trailer."""
+    if data[-4:] != b"SEFT":
+        return None
+    n = int.from_bytes(data[-8:-4], "little")
+    h = len(data) - 8 - n
+    if n < 12 or h < 0 or data[h:h + 4] != b"SEFH":
+        raise ValueError("SEFT without its SEFH directory")
+    count = int.from_bytes(data[h + 8:h + 12], "little")
+    if n != 12 + 12 * count:
+        raise ValueError(f"SEFH directory of {n} bytes for {count} entries")
+    starts = []
+    for i in range(count):
+        _, _, off, size = struct.unpack_from("<HHII", data, h + 12 + 12 * i)
+        if not 0 < off <= h or size > off:
+            raise ValueError(f"SEF entry {i} outside its trailer")
+        starts.append(h - off)
+    return min(starts, default=h)
+
+
 def strip_one(path: Path, dry_run: bool) -> dict:
     """Strip `path` (or, with dry_run, only check what stripping would do). Returns its manifest row
     plus "problems"; raises nothing for a failed check -- the row says so and the original is kept."""
@@ -341,6 +368,15 @@ def strip_one(path: Path, dry_run: bool) -> dict:
         if proc.returncode != 0 or not tmp.exists():
             row["problems"].append(f"exiftool failed: {(proc.stderr or proc.stdout).strip()}")
             return row
+        if path.suffix.lower() in {".jpg", ".jpeg"}:
+            data = tmp.read_bytes()
+            try:
+                cut = samsung_trailer_start(data)
+            except ValueError as e:
+                row["problems"].append(f"Samsung trailer: {e}")
+                return row
+            if cut is not None:
+                tmp.write_bytes(data[:cut])
         after = read_tags(tmp)
         removed, problems = compare(before, after, path.suffix)
         if pixel_digest(tmp) != pix_before:

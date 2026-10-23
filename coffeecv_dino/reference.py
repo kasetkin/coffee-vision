@@ -4,7 +4,7 @@ Drawn by coffeecv's own single-capture-dir builder (`fold_data.build_capture_dat
 one dir, split="all") from the DVC-tracked crops, through the project's eval transform, so no
 check in this package runs on synthetic data. Since ticket ML-8 (D2, plan P5) the photos are a fixed
 list from the pool, one per class folder (REFERENCE_PHOTOS, a committed file): the builder runs on a
-temporary dir holding links to just those crops and their masks, so drawing them decodes 14 photos, not
+temporary dir holding links to just those crops and their masks, so drawing them decodes 15 photos, not
 the pool, and the patches change only when the list or the crops do. Labels index the listed folders,
 sorted. Patches are placed by the D17 rule against each crop's mask (params.yaml's crop_method), and every
 listed crop has one. Until ML-8 the reference was every photo of data/segcropped/cam_iphone, the smallest
