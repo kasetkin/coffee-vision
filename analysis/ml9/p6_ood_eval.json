@@ -1,0 +1,2475 @@
+{
+  "checkpoint": "models/dino3b16_segxl0v4_country_aug8_s42.pt",
+  "checkpoint_sha": "b7ea3396da6f709c",
+  "config_source": "models/dino3b16_segxl0v4_country_aug8_s42.json (training_config)",
+  "ood_probe": "models/dino3b16_segxl0v4_country_aug8_s42.ood_probe.json",
+  "dataset": "/workspace/labels/ml5/seg_dataset.yaml",
+  "n_patches": 40,
+  "tta": false,
+  "threshold": 0.5,
+  "min_area_frac": 0.039049,
+  "negatives": {
+    "all": {
+      "n": 160,
+      "caught": 160,
+      "unmeasurable": 0
+    },
+    "by_batch": {
+      "2026-09-11__user_samerig": {
+        "n": 15,
+        "caught": 15,
+        "unmeasurable": 0
+      },
+      "2026-09__internet_proxy": {
+        "n": 25,
+        "caught": 25,
+        "unmeasurable": 0
+      },
+      "user_realworld": {
+        "n": 120,
+        "caught": 120,
+        "unmeasurable": 0
+      }
+    },
+    "segmenter": {
+      "all": {
+        "n": 160,
+        "empty": 156,
+        "empty_or_tiny": 156,
+        "unknown": 0
+      },
+      "by_batch": {
+        "2026-09-11__user_samerig": {
+          "n": 15,
+          "empty": 15,
+          "empty_or_tiny": 15,
+          "unknown": 0
+        },
+        "2026-09__internet_proxy": {
+          "n": 25,
+          "empty": 22,
+          "empty_or_tiny": 22,
+          "unknown": 0
+        },
+        "user_realworld": {
+          "n": 120,
+          "empty": 119,
+          "empty_or_tiny": 119,
+          "unknown": 0
+        }
+      }
+    }
+  },
+  "positives": {
+    "segmenter_positive": {
+      "trained": {
+        "n": 13,
+        "refused": 0,
+        "unmeasurable": 0
+      },
+      "not_trained": {
+        "n": 23,
+        "refused": 0,
+        "unmeasurable": 0
+      }
+    },
+    "pool": {
+      "trained": {
+        "n": 28,
+        "refused": 0,
+        "unmeasurable": 0
+      },
+      "not_trained": {
+        "n": 9,
+        "refused": 0,
+        "unmeasurable": 0
+      }
+    },
+    "internet_positive": {
+      "trained": {
+        "n": 0,
+        "refused": 0,
+        "unmeasurable": 0
+      },
+      "not_trained": {
+        "n": 3,
+        "refused": 0,
+        "unmeasurable": 0
+      }
+    },
+    "all": {
+      "trained": {
+        "n": 41,
+        "refused": 0,
+        "unmeasurable": 0
+      },
+      "not_trained": {
+        "n": 35,
+        "refused": 0,
+        "unmeasurable": 0
+      }
+    }
+  },
+  "per_photo": [
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081134287.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081158015.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075413640.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074138771.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 3.2671008341448314e-13,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074208543.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-07__box_pictures_all_classes/class_004__CostaRica_LaPastora/PXL_20260807_074652608.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-09__pixel_cam/class_007__Brazil_MonteCristo/PXL_20260809_135349236.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 1.0100225376962284e-13,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_200920.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_200959.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6258D.HEIC",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6270D.HEIC",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6248.HEIC",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195315306.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_002__Kenya_AA/PXL_20260825_195427701.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195610599.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195806798.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195041576.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195108562.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194521865.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193900810.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193927646-2.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-27__oneplus_flash/class_002__Kenya_AA/PXL_20260827_185316654.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-27__oneplus_flash/class_004__CostaRica_LaPastora/PXL_20260827_183549809.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175351178.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 1.0274812227560657e-12,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200308.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200454.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-11__oneplus/class_011__Peru_Minca/PXL_20260911_103852413.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_180037009.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_180118224.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_102907099.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103026914.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201748.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_145750.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_152044.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_152120.JPG",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132408.JPG",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999999979012,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132430.JPG",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999992640889,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132441.JPG",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999999916241,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132504.JPG",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999999960998,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132538.JPG",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999999993315,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_062054116.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999997161711246,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_062101181.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.999999999972564,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_062113774.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999870143679,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_062134620.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999970290803397,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_062220520.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999998465465836,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_111908870.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999999104702,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_111911560.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999998705498445,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_111923713.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999942660882,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_111934828.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999252246511,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_112012892.jpg",
+      "source": "negative",
+      "batch": "2026-09-11__user_samerig",
+      "score": 0.9999999962568193,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_001.png",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999726972,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_003.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999998392,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_012.png",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9998728200796411,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_014.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999998805651,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_020.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_023.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999991301,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_032.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999998958,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_039.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9998324355657708,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_040.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_001.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_006.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999978865,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/empty_tray/empty_tray_010.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999994559,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/ground_coffee/ground_coffee_001.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999993949,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/ground_coffee/ground_coffee_003.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999199643244,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/ground_coffee/ground_coffee_010.png",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999927933,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/ground_coffee/ground_coffee_011.png",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999985854,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/non_food_objects/non_food_objects_006.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/non_food_objects/non_food_objects_021.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999979885,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/non_food_objects/non_food_objects_029.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999987257,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_008.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999997747955,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_015.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_016.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999991381433,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_022.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_024.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/2026-09__internet_proxy/wrong_bean_type/wrong_bean_type_011.jpg",
+      "source": "negative",
+      "batch": "2026-09__internet_proxy",
+      "score": 0.8007108922458738,
+      "over": true,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230917_164017.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999992811,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230920_142308.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999167739,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230924_174430.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230924_174432.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20230924_174451.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998807,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231003_164337.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999677283,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231010_163532.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998949,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231015_144830.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999999214,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231021_162945.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999547008,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231021_163443.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999990485,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231101_151813.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999997534,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20231203_110450.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240116_143005.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999353401,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240121_150627-1.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998559,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240121_150627.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998586,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240121_173043.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999055,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240209_144154.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999270833273,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240312_110424.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999992395,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240312_205741.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240328_165018.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999999131,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240328_165023.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999052,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240405_210530.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999647196927,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240511_120915.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999990173,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240511_134844.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999949516568,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240516_092415.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999942572153226,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240728_110238.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240820_173149.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999990340616,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240830_160104.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999994882,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240915_111411.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999886695,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240918_182351.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999998723794,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20240918_182355.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999996508,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241014_194625.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999996305766,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241209_081643.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999996057911,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241222_125058.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999991414,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20241229_131958.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999955957,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250202_182303.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999059,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250202_183105.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999962934621,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250202_183122.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999994991,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250217_093714.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999924647,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250217_093715.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999063636,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250222_113238.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999096467,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250309_114759.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999996684,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250309_114808.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999993218,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_144014.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999590476,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_153551.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999776534,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_153610.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999975874,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250420_172311.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999882927,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250504_094828.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999769684,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250515_103323.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999991569,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250607_190533.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999431767,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250615_162840.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999987809,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250620_172207.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998515,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250625_191611.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999999703,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250709_072727.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999659515,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250720_134031.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999997116,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250731_210052.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999991045,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250731_210110.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999994437,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250810_133306.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999997351552,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250810_133309.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999996034508,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250913_190036.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999992097,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20250921_104421.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999838011,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251012_203810.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999997191509,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251018_092657.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999245212,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251026_092801.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999974566,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251116_145535.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999982968,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251205_182547.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999693507,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251208_150331.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999482381,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20251208_150336.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999789649,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_235648.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999992205,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_235837.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999913189,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260102_235903.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999970655,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260106_160016.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999979423,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260111_145048.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999988329,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260123_132811.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999997538337,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260215_125741.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999956278,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260215_125845.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999429818,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260218_101807.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999996382443,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260218_101826.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999814566,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260218_101845.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999988694285,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260304_150454.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999997069,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_102654.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999065,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260307_102655.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998928,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260317_193617.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999868618,
+      "over": true,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_124252.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999848939,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260404_124254.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999872532,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260406_122933.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999756941,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260409_124208.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999928571632,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260409_233521.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998298,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260410_200912.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999817428602,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260415_144403.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999998880821,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260422_133716.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999996025034,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260422_142610.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999987505557,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260426_123707.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999994695454,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260426_165643.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999916747278,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260501_105802.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999997685228539,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260501_105940.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999901615123,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260506_162655.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999965776,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260509_133549.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999998047955,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260509_142347.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999991104,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260514_183031.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999978266,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_112239.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999945188,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_112244.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999979474,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260517_124901.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998999,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_103013.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999994319,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_103019.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999992596,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_154735.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.99999999830472,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260531_165520.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999006424,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260605_125159.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999999025,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_155018.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999984046177,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_191622.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999311358,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_191636.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999971625,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260621_191806.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999999242364,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/20260910_195601-1.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999261661,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/IMG_20260905_125902.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999998801,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/IMG_20260905_125906.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999921926,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/PXL_20261017_073253435.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.999999993496073,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/PXL_20261017_114339905.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999996678995199,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/PXL_20261017_114352470.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999999587338,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/PXL_20261017_114409735.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999973321383,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_negatives/user_realworld/PXL_20261017_114422648.jpg",
+      "source": "negative",
+      "batch": "user_realworld",
+      "score": 0.9999999997941742,
+      "over": true,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "source": "internet_positive",
+      "batch": null,
+      "score": 1.3945736806682302e-06,
+      "over": false,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg",
+      "source": "internet_positive",
+      "batch": null,
+      "score": 4.2745628887691636e-10,
+      "over": false,
+      "trained": false,
+      "empty": true,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/ood_positives_internet/internet_beans/internet_beans_020.jpg",
+      "source": "internet_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/random_date_raccoon/class_014__Colombia_Excelso/PXL_20261002_071227288.jpg",
+      "source": "pool",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6259D.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6260.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6261.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6262.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6583.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/IMG_6585.HEIC",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 0.41340495524475446,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": true
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260830_200147.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260830_200207.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 5.894840271295294e-12,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260830_200224.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260924_145832.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260924_152141.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260924_200435.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PIC_20260924_200454.JPG",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260724_114729110.RAW-01.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260724_114752775.RAW-01.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260724_114930003.RAW-01.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260724_114948416.RAW-01.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 3.3388227288063556e-10,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260824_174917686.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260827_185335018.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260827_185344206.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260829_084655975.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260831_051541829.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260912_063727989.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260914_063047551.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260921_064126147.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260921_064142067.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260924_104055590.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20260924_175043854.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261002_071216473.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261006_053625750.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_042411201.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_042418770.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_042435945.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": true,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_074853981.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_074902440.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 9.357622968839298e-14,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": false
+    },
+    {
+      "path": "dataset/segmenter_positives/PXL_20261008_074913048.jpg",
+      "source": "segmenter_positive",
+      "batch": null,
+      "score": 0.019998065432055102,
+      "over": false,
+      "trained": false,
+      "empty": false,
+      "empty_or_tiny": true
+    }
+  ]
+}
