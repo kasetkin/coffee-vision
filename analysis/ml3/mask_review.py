@@ -28,7 +28,9 @@ every session with XL0-v4 and changed nearly every mask).
 
 Since ticket ML-9 P5 it also holds the owner's declines among the crops of XL0-v4 (2026-10-23, from the sheets
 of the new Brazil photos and of the masks the re-crop shrank; labels/ml2/review/ml9_p5_crops.decisions.jsonl):
-each row names its reason, a fallback's beginning "D18 fallback".
+each row names its reason, a fallback's beginning "D18 fallback". An accept there overrides an earlier
+review's decline of the same photo: two Brazil photos ML-8 P4 declined as XL0-v3 fallbacks train again on
+their XL0-v4 masks (owner, 2026-10-23).
 
 `summary` prints the accept rate overall and per session, each with its denominators (masks judged, masks in the
 session), the declines with their reasons, and the fallbacks' decisions. Decisions are the last row per item
@@ -129,6 +131,8 @@ def exclusions() -> list[dict]:
             continue
         _, session, class_folder, file = it["path"].split("/")
         rows.append({"session": session, "class_folder": class_folder, "file": file, "reason": reason})
+    readmitted = {r["path"] for r in last_decisions(ML9_DECISIONS).values() if r["decision"] == "accept"}
+    rows = [r for r in rows if f"dataset/{r['session']}/{r['class_folder']}/{r['file']}" not in readmitted]
     return sorted(rows, key=lambda r: (r["session"], r["class_folder"], r["file"]))
 
 
