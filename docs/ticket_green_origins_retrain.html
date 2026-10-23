@@ -12,7 +12,7 @@
     models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22, its push pending</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); pushes pending</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -228,6 +228,9 @@
       run, four more runs (plan P3b).</div>
     <div><div class="when">2026-10-22</div>P3: XL0-v4 trained, restarted once after a host reboot; it chose epoch 28 of 36
       (validation score 0.961). Its push waits for the DVC remote.</div>
+    <div><div class="when">2026-10-23</div>D8's runs: lr 1e-4 chose validation scores 0.958&ndash;0.961 at seeds 123,
+      42 and 7; lr 3e-5 0.916&ndash;0.920 at seeds 123 and 42, no steadier. The owner stopped 3e-5 at seed 7 in its
+      epoch 10, on track with the other two. Plan Q4 recommends XL0-v4 for P4.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
