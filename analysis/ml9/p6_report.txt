@@ -1,0 +1,48 @@
+ML-9 P6: exp273-275 beside the live model dino3b16_segxl0v3_country_aug8_s123 (exp271) on the same test patches, XL0-v4 crops
+
+candidate val macro-F1  0.9655-0.9686 (mean 0.9667)
+candidate test macro-F1 0.9649-0.9807 (mean 0.9718)
+
+test, all: 200 photos, 1600 patches (seed 42)
+  candidate patch macro-F1 0.9649-0.9807 (mean 0.9718)   photo accuracy 0.9850-1.0000 (mean 0.9933)
+  live      patch macro-F1 0.9562-0.9577 (mean 0.9571)   photo accuracy 0.9500-0.9700 (mean 0.9600)
+  per class, F1 mean over seeds (candidate / live / delta):
+    Ethiopia   0.9781 / 0.9782 / -0.0001
+    Kenya      0.9595 / 0.9651 / -0.0055
+    Colombia   0.9312 / 0.9029 / +0.0282
+    CostaRica  0.9927 / 0.9928 / -0.0000
+    Guatemala  0.9256 / 0.9232 / +0.0024
+    Brazil     0.9665 / 0.9399 / +0.0266
+    Vietnam    1.0000 / 0.9948 / +0.0052
+    Indonesia  0.9927 / 0.9461 / +0.0466
+    Peru       0.9762 / 0.9320 / +0.0441
+    Rwanda     0.9959 / 0.9959 / +0.0000
+
+test, unseen by the live model: 64 photos, 498 patches (seed 42)
+  candidate patch macro-F1 0.9541-0.9686 (mean 0.9631)   photo accuracy 0.9869-1.0000 (mean 0.9956)
+  live      patch macro-F1 0.8945-0.9387 (mean 0.9105)   photo accuracy 0.8630-0.9608 (mean 0.8996)
+  per class, F1 mean over seeds (candidate / live / delta):
+    Ethiopia   0.9895 / 0.9686 / +0.0209
+    Kenya      0.9474 / 0.9449 / +0.0025
+    Colombia   0.9043 / 0.7980 / +0.1064
+    CostaRica  0.9843 / 0.9795 / +0.0049
+    Guatemala  0.8710 / 0.8253 / +0.0458
+    Brazil     0.9667 / 0.8615 / +0.1052
+    Vietnam    1.0000 / 0.9924 / +0.0076
+    Indonesia  0.9953 / 0.9020 / +0.0932
+    Peru       0.9721 / 0.8376 / +0.1344
+    Rwanda     1.0000 / 0.9948 / +0.0052
+  exp273 live photos wrong: 20261023_125153 (Brazil as Colombia), 20261023_125349 (Brazil as Colombia), PXL_20261021_085418521 (Indonesia as Ethiopia), PXL_20261021_090239119 (Indonesia as Guatemala), PXL_20261021_090435987 (Peru as Kenya), PXL_20261021_090529833 (Peru as Colombia), PXL_20261021_091021676 (Peru as Colombia), PXL_20261022_060003330 (Brazil as Colombia)
+  exp274 candidate photos wrong: IMG_20261008_092817 (Guatemala as Colombia), PXL_20260924_175043854 (Peru as Colombia)
+  exp274 live photos wrong: IMG_20261008_092817 (Guatemala as Colombia), PXL_20261007_055440501 (Brazil as Colombia), PXL_20261021_085445176 (Indonesia as Ethiopia), PXL_20261021_090018417 (Indonesia as Brazil), PXL_20261021_090041665 (Indonesia as Vietnam), PXL_20261021_091105177 (Peru as Colombia)
+  exp275 live photos wrong: 20261023_125135 (Brazil as Colombia), PXL_20261007_055440501 (Brazil as Colombia), PXL_20261021_085525122 (Indonesia as Brazil), PXL_20261021_090125166 (Indonesia as Brazil), PXL_20261021_090549814 (Peru as Colombia), PXL_20261021_090820273 (Peru as Colombia), PXL_20261021_091105177 (Peru as Colombia), PXL_20261021_091125495 (Peru as Colombia), PXL_20261021_091155170 (Peru as Colombia), PXL_20261023_063824491 (Brazil as Colombia)
+
+test, 2026-10-21 green: 5 photos, 32 patches (seed 42)
+  candidate patch macro-F1 0.9545-0.9750 (mean 0.9656)   photo accuracy 1.0000-1.0000 (mean 1.0000)
+  live      patch macro-F1 0.0000-0.0000 (mean 0.0000)   photo accuracy 0.0000-0.0000 (mean 0.0000)
+  per class, F1 mean over seeds (candidate / live / delta):
+    Indonesia  0.9710 / 0.0000 / +0.9710
+    Peru       0.9602 / 0.0000 / +0.9602
+  exp273 live photos wrong: PXL_20261021_085418521 (Indonesia as Ethiopia), PXL_20261021_090239119 (Indonesia as Guatemala), PXL_20261021_090435987 (Peru as Kenya), PXL_20261021_090529833 (Peru as Colombia), PXL_20261021_091021676 (Peru as Colombia)
+  exp274 live photos wrong: PXL_20261021_085445176 (Indonesia as Ethiopia), PXL_20261021_090018417 (Indonesia as Brazil), PXL_20261021_090041665 (Indonesia as Vietnam), PXL_20261021_091105177 (Peru as Colombia)
+  exp275 live photos wrong: PXL_20261021_085525122 (Indonesia as Brazil), PXL_20261021_090125166 (Indonesia as Brazil), PXL_20261021_090549814 (Peru as Colombia), PXL_20261021_090820273 (Peru as Colombia), PXL_20261021_091105177 (Peru as Colombia), PXL_20261021_091125495 (Peru as Colombia), PXL_20261021_091155170 (Peru as Colombia)
