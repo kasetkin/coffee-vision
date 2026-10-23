@@ -49,15 +49,10 @@
         seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4</code> and verify every object (<a
         href="agents/dvc.md">dvc.md</a>), then tick P3's last task. The first run's log, killed by the reboot, is
         <code>/tmp/ng_preview/p3_run1_reboot.log</code>.</li>
-      <li><b>P3b</b> (ticket D8; the owner's go given 2026-10-21: launch without asking): <code>ml9-lr</code>
-        (<code>--lr</code>, its tests, the stages) merged into <code>main</code> 2026-10-22; XL0-v4's new
-        <code>seg_finetune.py</code> hash recorded with <code>dvc commit</code>. The runs go one at a time on branch
-        <code>ml9-p3b</code> by <code>/tmp/ng_preview/p3b_queue.sh</code>: progress in
-        <code>/tmp/ng_preview/p3b_queue.log</code>, each run's log in <code>p3b_&lt;name&gt;.log</code>. Is one
-        running? <code>ps -eo pid,etime,args | grep '[s]eg_finetune train'</code> (never <code>pgrep -f</code> or
-        <code>pkill -f</code> that pattern from a shell: it matches the shell; kill by PID). A run killed midway
-        (a reboot) saves nothing: rerun its <code>dvc repro -s</code> and the ones after it; <code>dvc status</code>
-        names the stages not yet run. Its tasks are in P3b below.</li>
+      <li><b>P3b: runs done</b> 2026-10-23 on <code>ml9-p3b</code> (five of six; lr 3e-5 at seed 7 stopped by the
+        owner in epoch 10). Report and Q4's recommendation in P3b and &sect;2: lr 1e-4 at seed 123, XL0-v4 itself.
+        <b>Not pushed</b>, as P3: when <code>dvcnewremote</code> resolves, <code>dvc push seg_ml9_finetune@xl0_v4 seg_ml9_finetune@xl0_v4_s42 seg_ml9_finetune@xl0_v4_s7 seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_finetune_lr@xl0_v4_lr3e5_s42 seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4 seg_ml9_predict@xl0_v4_lr3e5</code>, verify every
+        object, tick both phases' push tasks, <code>check.sh --full</code>, merge <code>ml9-p3b</code>.</li>
       <li><b>Then P4</b>, the owner's (after Q4): <code>python -m coffeecv.seg_review paired --session ml9_test --masks
         data/seg_masks_ml9/xl0_v3 data/seg_masks_ml9/xl0_v4</code>, 76 test positives blind, then
         <code>paired-report</code>.</li>
@@ -79,7 +74,7 @@
       <tr><td class="id">P1</td><td>pass4 labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>no: labels only</td></tr>
       <tr><td class="id">P2</td><td><code>seg_predict</code> by path; the fine-tune and predict stages; a toy run</td><td>local</td><td>no: tests and a toy run</td></tr>
       <tr><td class="id">P3</td><td>XL0-v4 and both models' test masks</td><td>local, about 7 h</td><td>yes: validation only</td></tr>
-      <tr><td class="id">P3b</td><td>XL0-v4_lr3e5 (ticket D8) and its test masks; seeds 42 and 7 at both rates</td><td>local, 25&ndash;50 h, one run at a time</td><td>yes: validation only</td></tr>
+      <tr><td class="id">P3b</td><td>XL0-v4_lr3e5 (ticket D8) and its test masks; seeds 42 and 7 at both rates (3e-5 at seed 7 stopped)</td><td>local, 25&ndash;50 h, one run at a time</td><td>yes: validation only</td></tr>
       <tr><td class="id">P4</td><td>Blind paired comparison and the choice <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: test</td></tr>
       <tr><td class="id">P5</td><td>Adopt: <code>params.yaml</code>, re-crop, fallbacks, DINOv3 fixture <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes: every crop</td></tr>
       <tr><td class="id">P6</td><td>Classifier at 42, 123, 7; the live model on the new split; probe <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
@@ -107,7 +102,9 @@
           <code>docs/agents/deploy.md</code>.</td><td>P7</td></tr>
       <tr><td class="id">Q4</td><td>Ticket D8 makes two candidates. Which go to P4's blind session against
         XL0-v3?</td>
-        <td><span class="pill sm open">Open</span> The rate first, from the three seeds' validation scores at each
+        <td><span class="pill sm open">Open</span> <b>2026-10-23, from P3b's cards:</b> lr 1e-4, and its best seed,
+          123 (0.9614; seed 7 0.9612): XL0-v4 itself, whose test masks exist, so P4 runs as first planned. The rule:
+          the rate first, from the three seeds' validation scores at each
           (range, and the epoch-to-epoch swing); then that rate's seed with the highest score, its test masks
           predicted then. All chosen before any test mask is seen; one session of 76 photos. If the rates tie within
           the seeds' range, the steadier one.</td><td>P4</td></tr>
@@ -184,7 +181,7 @@
 
   <h2>5b. P3b &mdash; XL0-v4 at lr 3e-5 (ticket D8)</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">prepared on <code>ml9-lr</code>; launches when P3 is merged</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-23: runs done and reported; only the push is left (the remote does not resolve since the host's reboot)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3 (the CPU, and <code>seg_finetune.py</code>, a
       dep of the running stage)</span></div>
   </div>
@@ -192,18 +189,36 @@
     <li><span class="box done"></span><span><code>seg_finetune --lr</code>, overriding <code>seg_ft.lr</code> for one run
       and recorded in the card; tests that without it nothing changes (<code>LearningRateArgument</code>). Stages
       <code>seg_ml9_finetune_lr@xl0_v4_lr3e5</code> and <code>seg_ml9_predict@xl0_v4_lr3e5</code>.</span></li>
-    <li><span class="box"></span><span>After P3's merge: merge <code>ml9-lr</code>; <code>dvc commit
+    <li><span class="box done"></span><span>After P3's merge: merge <code>ml9-lr</code>; <code>dvc commit
       seg_ml9_finetune@xl0_v4</code> for the new <code>seg_finetune.py</code> hash (not re-run, as ML-8 P2); then
       <code>dvc repro -s seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_predict@xl0_v4_lr3e5</code> in the
       background with a log.</span></li>
-    <li><span class="box"></span><span>Then, one at a time at 8 threads (12 cores; two at once would slow both, and
+    <li><span class="box done"></span><span>Then, one at a time at 8 threads (12 cores; two at once would slow both, and
       another thread count changes the result): <code>seg_ml9_finetune@xl0_v4_s42</code>,
       <code>seg_ml9_finetune_lr@xl0_v4_lr3e5_s42</code>, <code>seg_ml9_finetune@xl0_v4_s7</code>,
       <code>seg_ml9_finetune_lr@xl0_v4_lr3e5_s7</code>, alternating so a pair is complete early. Logs
-      <code>/tmp/ng_preview/p3b_&lt;name&gt;.log</code>.</span></li>
-    <li><span class="box"></span><span>Report from the six cards alone: per rate, the range over seeds of the chosen
+      <code>/tmp/ng_preview/p3b_&lt;name&gt;.log</code>. Done 2026-10-23 09:00 UTC, five of six: the owner stopped
+      lr 3e-5 at seed 7 in its epoch 10, tracking the other two 3e-5 seeds (scores 0.791&ndash;0.813 at epochs
+      7&ndash;9 against their 0.783&ndash;0.830), with no chance of reaching 1e-4's; its item left
+      <code>dvc.yaml</code>, nothing was written.</span></li>
+    <li><span class="box done"></span><span>Report from the cards alone: per rate, the range over seeds of the chosen
       score, validation mean IoU and negatives' share, and each run's epoch-to-epoch swing. No test numbers before P4.
-      Answer Q4.</span></li>
+      Answer Q4. Done 2026-10-23:</span>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Run</th><th>lr</th><th>Seed</th><th>Chosen epoch / run</th><th>Score</th><th>Mean IoU</th>
+          <th>Negatives empty or tiny</th><th>Score, 2nd half</th><th>Lowest after epoch 5</th></tr></thead>
+        <tbody>
+          <tr><td><code>xl0_v4</code></td><td>1e-4</td><td>123</td><td>28 / 36</td><td>0.961</td><td>0.946</td><td>83/85</td><td>0.896&ndash;0.961</td><td>0.816</td></tr>
+          <tr><td><code>xl0_v4_s42</code></td><td>1e-4</td><td>42</td><td>26 / 34</td><td>0.958</td><td>0.962</td><td>81/85</td><td>0.835&ndash;0.958</td><td>0.750</td></tr>
+          <tr><td><code>xl0_v4_s7</code></td><td>1e-4</td><td>7</td><td>17 / 25</td><td>0.961</td><td>0.946</td><td>83/85</td><td>0.875&ndash;0.961</td><td>0.875</td></tr>
+          <tr><td><code>xl0_v4_lr3e5</code></td><td>3e-5</td><td>123</td><td>29 / 37</td><td>0.920</td><td>0.899</td><td>80/85</td><td>0.861&ndash;0.920</td><td>0.709</td></tr>
+          <tr><td><code>xl0_v4_lr3e5_s42</code></td><td>3e-5</td><td>42</td><td>39 / 40</td><td>0.916</td><td>0.880</td><td>81/85</td><td>0.885&ndash;0.916</td><td>0.737</td></tr>
+        </tbody>
+      </table></div>
+      <span>lr 1e-4 chose 0.958&ndash;0.961 on all three seeds; 3e-5 0.916&ndash;0.920 on two, still rising at
+        epoch 39 of 40, and its dips no shallower (lowest 0.709, 0.737). A third of the rate learns slower, not
+        steadier: D8's answer is no. The swing at 1e-4 is what checkpoint selection is for, and its chosen epochs
+        agree over seeds.</span></li>
     <li><span class="box"></span><span>Push the decoder and masks by target and verify on the remote; commit; merge.</span></li>
   </ol>
 
@@ -308,6 +323,9 @@
     <div><div class="when">2026-10-22</div>P3 trained: XL0-v4 chose epoch 28 of 36 (validation score 0.961, mean IoU
       0.946, 83 of 85 negatives empty or tiny); both models' test masks stored. Committed and merged; the push waits
       for the remote, which did not resolve after the host's reboot.</div>
+    <div><div class="when">2026-10-23</div>P3b's runs done: lr 1e-4 chose 0.958&ndash;0.961 at seeds 123, 42 and 7;
+      3e-5 0.916&ndash;0.920 at 123 and 42; the owner stopped 3e-5 at seed 7 in epoch 10. Q4's recommendation: XL0-v4
+      (1e-4, seed 123). Pushes of P3 and P3b wait for the remote.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,

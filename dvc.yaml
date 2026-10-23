@@ -197,7 +197,9 @@ stages:
   # so XL0-v4's command and params stay as they ran; `--lr` came after XL0-v4, which it leaves unchanged when absent
   # (tests/test_seg_finetune.py LearningRateArgument), so XL0-v4's new seg_finetune.py hash was recorded with `dvc
   # commit`, not re-run, as ML-8 P2 did for XL0-v3. Seeds 42 and 7 at both rates (D8, after) weigh the two rates over
-  # seeds (ADR 0002); only the seed-123 runs predict test masks, until Q4 names another for P4.
+  # seeds (ADR 0002); only the seed-123 runs predict test masks, until Q4 names another for P4. lr 3e-5 at seed 7 was
+  # stopped by the owner in its epoch 10 (2026-10-23), tracking seeds 123 and 42 at 3e-5, both about 0.04 below every
+  # 1e-4 seed; its item was removed with nothing written (plan P3b).
   seg_ml9_finetune_lr:
     foreach:
       xl0_v4_lr3e5:
@@ -207,10 +209,6 @@ stages:
       xl0_v4_lr3e5_s42:
         labels: pass4
         seed: 42
-        lr: 3.0e-5
-      xl0_v4_lr3e5_s7:
-        labels: pass4
-        seed: 7
         lr: 3.0e-5
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --lr ${item.lr} --name

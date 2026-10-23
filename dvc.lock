@@ -1480,3 +1480,591 @@ stages:
       md5: 4785be34e61e26f12fe484c78d117b6a.dir
       size: 1209868
       nfiles: 237
+  seg_ml9_finetune_lr@xl0_v4_lr3e5:
+    cmd: python -m coffeecv.seg_finetune train --labels pass4 --seed 123 --lr 
+      3e-05 --name xl0_v4_lr3e5 --threads 8
+    deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: 6a71865bf74fe4be33b956f443f35169
+      size: 4440
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: d0a6f86fa18dde3d68d5ffb3c6c239b3
+      size: 25619
+    - path: data/ml5_labels/pass4
+      hash: md5
+      md5: fea06436aae05e5ce05df09244127b78.dir
+      size: 5833411
+      nfiles: 723
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        augment:
+          colour:
+          - transform: ColorJitter
+            p: 0.8
+            args:
+              brightness: 0.2
+              contrast: 0.2
+              saturation: 0.2
+              hue: 0.0
+          - transform: PlanckianJitter
+            p: 0.3
+          compression:
+          - transform: ImageCompression
+            p: 0.3
+            args:
+              quality_range:
+              - 60
+              - 95
+          noise:
+          - transform: GaussNoise
+            p: 0.2
+            args:
+              std_range:
+              - 0.01
+              - 0.04
+        seg_ft:
+          weights: efficientvit_sam/efficientvit_sam_xl0.pt
+          augment:
+          - transform: HorizontalFlip
+            p: 0.5
+          - transform: VerticalFlip
+            p: 0.5
+          - transform: Affine
+            p: 0.5
+            args:
+              scale:
+              - 0.9
+              - 1.1
+              translate_percent:
+              - -0.05
+              - 0.05
+              rotate:
+              - -15
+              - 15
+              border_mode: 0
+              fill: 0
+              fill_mask: 255
+          - use: colour
+          - transform: HueSaturationValue
+            p: 0.3
+            args:
+              hue_shift_limit: 5
+              sat_shift_limit: 15
+              val_shift_limit: 10
+          - transform: RandomGamma
+            p: 0.3
+            args:
+              gamma_limit:
+              - 80
+              - 120
+          - use: compression
+          - transform: OneOf
+            p: 0.2
+            args:
+              transforms:
+              - transform: MotionBlur
+                p: 1.0
+                args:
+                  blur_limit:
+                  - 3
+                  - 7
+              - transform: Defocus
+                p: 1.0
+                args:
+                  radius:
+                  - 1
+                  - 3
+          - use: noise
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          point_share: 0.5
+          max_points: 3
+          select_min_area_frac: 0.083
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: models/seg/xl0_v4_lr3e5.json
+      hash: md5
+      md5: 8867862598a8f4462a621f70c473de2a
+      size: 16628
+    - path: models/seg/xl0_v4_lr3e5.pt
+      hash: md5
+      md5: 371536062e2e73fad51b1a404a52d4c0
+      size: 16272965
+  seg_ml9_predict@xl0_v4_lr3e5:
+    cmd: python -m coffeecv.seg_predict 
+      efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v4_lr3e5.pt 
+      --split test --threads 4 --out data/seg_masks_ml9/xl0_v4_lr3e5
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: ccd4e9c2eefeb74c23b6bd4b37bb3e68
+      size: 5474
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 2c86c4d4860ca9d1619a7b34c03dce36
+      size: 24862
+    - path: labels/ml5/seg_dataset.yaml
+      hash: md5
+      md5: fa4f8f00db0e9f1ea24aeaa0b3ec3045
+      size: 260175
+    - path: models/seg/xl0_v4_lr3e5.pt
+      hash: md5
+      md5: 371536062e2e73fad51b1a404a52d4c0
+      size: 16272965
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks_ml9/xl0_v4_lr3e5
+      hash: md5
+      md5: 44751c9834de3b1bce7e2f408d71a6aa.dir
+      size: 2242695
+      nfiles: 237
+  seg_ml9_finetune@xl0_v4_s42:
+    cmd: python -m coffeecv.seg_finetune train --labels pass4 --seed 42 --name 
+      xl0_v4_s42 --threads 8
+    deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: 6a71865bf74fe4be33b956f443f35169
+      size: 4440
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: d0a6f86fa18dde3d68d5ffb3c6c239b3
+      size: 25619
+    - path: data/ml5_labels/pass4
+      hash: md5
+      md5: fea06436aae05e5ce05df09244127b78.dir
+      size: 5833411
+      nfiles: 723
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        augment:
+          colour:
+          - transform: ColorJitter
+            p: 0.8
+            args:
+              brightness: 0.2
+              contrast: 0.2
+              saturation: 0.2
+              hue: 0.0
+          - transform: PlanckianJitter
+            p: 0.3
+          compression:
+          - transform: ImageCompression
+            p: 0.3
+            args:
+              quality_range:
+              - 60
+              - 95
+          noise:
+          - transform: GaussNoise
+            p: 0.2
+            args:
+              std_range:
+              - 0.01
+              - 0.04
+        seg_ft:
+          weights: efficientvit_sam/efficientvit_sam_xl0.pt
+          augment:
+          - transform: HorizontalFlip
+            p: 0.5
+          - transform: VerticalFlip
+            p: 0.5
+          - transform: Affine
+            p: 0.5
+            args:
+              scale:
+              - 0.9
+              - 1.1
+              translate_percent:
+              - -0.05
+              - 0.05
+              rotate:
+              - -15
+              - 15
+              border_mode: 0
+              fill: 0
+              fill_mask: 255
+          - use: colour
+          - transform: HueSaturationValue
+            p: 0.3
+            args:
+              hue_shift_limit: 5
+              sat_shift_limit: 15
+              val_shift_limit: 10
+          - transform: RandomGamma
+            p: 0.3
+            args:
+              gamma_limit:
+              - 80
+              - 120
+          - use: compression
+          - transform: OneOf
+            p: 0.2
+            args:
+              transforms:
+              - transform: MotionBlur
+                p: 1.0
+                args:
+                  blur_limit:
+                  - 3
+                  - 7
+              - transform: Defocus
+                p: 1.0
+                args:
+                  radius:
+                  - 1
+                  - 3
+          - use: noise
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          point_share: 0.5
+          max_points: 3
+          select_min_area_frac: 0.083
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: models/seg/xl0_v4_s42.json
+      hash: md5
+      md5: 702364db5e8266b8370b283994da728a
+      size: 15535
+    - path: models/seg/xl0_v4_s42.pt
+      hash: md5
+      md5: 61e00128160f1609e0fbf409058c1818
+      size: 16272713
+  seg_ml9_finetune_lr@xl0_v4_lr3e5_s42:
+    cmd: python -m coffeecv.seg_finetune train --labels pass4 --seed 42 --lr 
+      3e-05 --name xl0_v4_lr3e5_s42 --threads 8
+    deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: 6a71865bf74fe4be33b956f443f35169
+      size: 4440
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: d0a6f86fa18dde3d68d5ffb3c6c239b3
+      size: 25619
+    - path: data/ml5_labels/pass4
+      hash: md5
+      md5: fea06436aae05e5ce05df09244127b78.dir
+      size: 5833411
+      nfiles: 723
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        augment:
+          colour:
+          - transform: ColorJitter
+            p: 0.8
+            args:
+              brightness: 0.2
+              contrast: 0.2
+              saturation: 0.2
+              hue: 0.0
+          - transform: PlanckianJitter
+            p: 0.3
+          compression:
+          - transform: ImageCompression
+            p: 0.3
+            args:
+              quality_range:
+              - 60
+              - 95
+          noise:
+          - transform: GaussNoise
+            p: 0.2
+            args:
+              std_range:
+              - 0.01
+              - 0.04
+        seg_ft:
+          weights: efficientvit_sam/efficientvit_sam_xl0.pt
+          augment:
+          - transform: HorizontalFlip
+            p: 0.5
+          - transform: VerticalFlip
+            p: 0.5
+          - transform: Affine
+            p: 0.5
+            args:
+              scale:
+              - 0.9
+              - 1.1
+              translate_percent:
+              - -0.05
+              - 0.05
+              rotate:
+              - -15
+              - 15
+              border_mode: 0
+              fill: 0
+              fill_mask: 255
+          - use: colour
+          - transform: HueSaturationValue
+            p: 0.3
+            args:
+              hue_shift_limit: 5
+              sat_shift_limit: 15
+              val_shift_limit: 10
+          - transform: RandomGamma
+            p: 0.3
+            args:
+              gamma_limit:
+              - 80
+              - 120
+          - use: compression
+          - transform: OneOf
+            p: 0.2
+            args:
+              transforms:
+              - transform: MotionBlur
+                p: 1.0
+                args:
+                  blur_limit:
+                  - 3
+                  - 7
+              - transform: Defocus
+                p: 1.0
+                args:
+                  radius:
+                  - 1
+                  - 3
+          - use: noise
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          point_share: 0.5
+          max_points: 3
+          select_min_area_frac: 0.083
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: models/seg/xl0_v4_lr3e5_s42.json
+      hash: md5
+      md5: 8be0ba4231beba39de40284d71b8fdca
+      size: 17660
+    - path: models/seg/xl0_v4_lr3e5_s42.pt
+      hash: md5
+      md5: 80df625fc0fad83e74c7dc5349357c78
+      size: 16273469
+  seg_ml9_finetune@xl0_v4_s7:
+    cmd: python -m coffeecv.seg_finetune train --labels pass4 --seed 7 --name 
+      xl0_v4_s7 --threads 8
+    deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: 6a71865bf74fe4be33b956f443f35169
+      size: 4440
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: d0a6f86fa18dde3d68d5ffb3c6c239b3
+      size: 25619
+    - path: data/ml5_labels/pass4
+      hash: md5
+      md5: fea06436aae05e5ce05df09244127b78.dir
+      size: 5833411
+      nfiles: 723
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        augment:
+          colour:
+          - transform: ColorJitter
+            p: 0.8
+            args:
+              brightness: 0.2
+              contrast: 0.2
+              saturation: 0.2
+              hue: 0.0
+          - transform: PlanckianJitter
+            p: 0.3
+          compression:
+          - transform: ImageCompression
+            p: 0.3
+            args:
+              quality_range:
+              - 60
+              - 95
+          noise:
+          - transform: GaussNoise
+            p: 0.2
+            args:
+              std_range:
+              - 0.01
+              - 0.04
+        seg_ft:
+          weights: efficientvit_sam/efficientvit_sam_xl0.pt
+          augment:
+          - transform: HorizontalFlip
+            p: 0.5
+          - transform: VerticalFlip
+            p: 0.5
+          - transform: Affine
+            p: 0.5
+            args:
+              scale:
+              - 0.9
+              - 1.1
+              translate_percent:
+              - -0.05
+              - 0.05
+              rotate:
+              - -15
+              - 15
+              border_mode: 0
+              fill: 0
+              fill_mask: 255
+          - use: colour
+          - transform: HueSaturationValue
+            p: 0.3
+            args:
+              hue_shift_limit: 5
+              sat_shift_limit: 15
+              val_shift_limit: 10
+          - transform: RandomGamma
+            p: 0.3
+            args:
+              gamma_limit:
+              - 80
+              - 120
+          - use: compression
+          - transform: OneOf
+            p: 0.2
+            args:
+              transforms:
+              - transform: MotionBlur
+                p: 1.0
+                args:
+                  blur_limit:
+                  - 3
+                  - 7
+              - transform: Defocus
+                p: 1.0
+                args:
+                  radius:
+                  - 1
+                  - 3
+          - use: noise
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          point_share: 0.5
+          max_points: 3
+          select_min_area_frac: 0.083
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: models/seg/xl0_v4_s7.json
+      hash: md5
+      md5: d01e5eda5eeefd372011b891ad5452a6
+      size: 12340
+    - path: models/seg/xl0_v4_s7.pt
+      hash: md5
+      md5: bfd401f0759a25c52489c7f3c547742a
+      size: 16272587
