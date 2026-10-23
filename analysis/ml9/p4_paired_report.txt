@@ -1,0 +1,19 @@
+test positives, judged blind and paired (D22): xl0_v3 vs xl0_v4
+  pool                 n= 37  both pass  32  xl0_v3 only  2  xl0_v4 only  2  both fail  1  |  xl0_v3 34/37  xl0_v4 34/37  |  exact McNemar p = 1
+  segmenter_positive   n= 39  both pass  26  xl0_v3 only  2  xl0_v4 only  5  both fail  6  |  xl0_v3 28/39  xl0_v4 31/39  |  exact McNemar p = 0.453
+  overall              n= 76  both pass  58  xl0_v3 only  4  xl0_v4 only  7  both fail  7  |  xl0_v3 62/76  xl0_v4 65/76  |  exact McNemar p = 0.549
+test negatives, empty / empty or tiny (area < 0.064511):
+  xl0_v3               44/160 empty, 148/160 empty or tiny
+    2026-09-11__user_samerig                         8/15 empty, 12/15 empty or tiny
+    2026-09__internet_proxy                          10/25 empty, 20/25 empty or tiny
+    user_realworld                                   26/120 empty, 116/120 empty or tiny
+  xl0_v4               156/160 empty, 156/160 empty or tiny
+    2026-09-11__user_samerig                         15/15 empty, 15/15 empty or tiny
+    2026-09__internet_proxy                          22/25 empty, 22/25 empty or tiny
+    user_realworld                                   119/120 empty, 119/120 empty or tiny
+tiny-mask threshold (D21) from xl0_v4's 65 accepted test positives: new 0.039049, old 0.064511; test positives under old 5, under new 4
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg
+  under old: dataset/segmenter_positives/IMG_6583.HEIC
+  under old and new: dataset/segmenter_positives/IMG_6585.HEIC
+  under old and new: dataset/segmenter_positives/PXL_20261008_074913048.jpg
