@@ -39,7 +39,7 @@ Only `cache: false` outputs may come back missing, today `models/seg/xl0_v3.json
 
 ## What `dvc status` shows on a clean checkout
 
-Since 2026-10-20 the stages whose recipe moved on are frozen: `seg_ml6_finetune` (XL0-v3, ADR 0027) and `seg_ml5_predict@xl0_v3`. `dvc status` lists a frozen stage as frozen without checking it. ML-2's segmenter stages and ML-5's XL0-v1 and v2 were removed on 2026-10-21, and the ResNet trainer's `train` stage on 2026-10-20, each with its code; they are in git history, and their outputs in the DVC cache but for the encoder caches lost before (`data/seg_cache`, `data/seg_cache_ml5`, below). A clean checkout reports "Data and pipelines are up to date": anything else it reports is real.
+Since 2026-10-20 the stages whose recipe moved on are frozen: `seg_ml6_finetune` (XL0-v3, ADR 0027) and `seg_ml5_predict@xl0_v3`. Since 2026-10-24 `seg_ml9_predict` too, ML-9 P4's record of a test split that has grown since. `dvc status` lists a frozen stage as frozen without checking it. ML-2's segmenter stages and ML-5's XL0-v1 and v2 were removed on 2026-10-21, and the ResNet trainer's `train` stage on 2026-10-20, each with its code; they are in git history, and their outputs in the DVC cache but for the encoder caches lost before (`data/seg_cache`, `data/seg_cache_ml5`, below). A clean checkout reports "Data and pipelines are up to date": anything else it reports is real.
 
 ## Cleaning the cache
 

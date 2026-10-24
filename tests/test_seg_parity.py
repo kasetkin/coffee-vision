@@ -157,15 +157,16 @@ class TestMergeCarriesMasks(unittest.TestCase):
     def test_committed_exclusions_follow_the_review(self):
         """labels/ml3/pool_exclude.csv is what analysis/ml3/mask_review.py derives from the committed reviews
         (ML-3 P5's 19 photos, ML-8 P4's 6 declines of the 20 new to its re-crop, and ML-9 P5's 8 among the crops of
-        XL0-v4, less the 2 of ML-8's it readmits). The decisions hold for their photos across re-crops: XL0-v4's
-        changed nearly every mask."""
+        XL0-v4, less the 2 of ML-8's it readmits, less the 4 the owner moved to dataset/segmenter_positives on
+        2026-10-24, and less the 18 of the remaining 27 the owner's re-review on XL0-v4 masks readmitted the same day).
+        The decisions hold for their photos across re-crops: XL0-v4's changed nearly every mask."""
         import importlib.util
         spec = importlib.util.spec_from_file_location("mask_review", REPO_ROOT / "analysis/ml3/mask_review.py")
         mask_review = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mask_review)
         want = {(r["session"], r["class_folder"], r["file"]) for r in mask_review.exclusions()}
         self.assertEqual(read_exclusions(mask_review.POOL_EXCLUDE), want)
-        self.assertEqual(len(want), 31)
+        self.assertEqual(len(want), 9)
 
 
 class TestSegPoolsWiring(unittest.TestCase):

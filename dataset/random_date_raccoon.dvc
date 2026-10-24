@@ -1,6 +1,6 @@
 outs:
-- md5: 7133e2325e93be807153a50ac1ee5731.dir
-  size: 341486307
-  nfiles: 125
+- md5: 8e10a208023226ef5e5001b626e41bdc.dir
+  size: 319562044
+  nfiles: 119
   hash: md5
   path: random_date_raccoon

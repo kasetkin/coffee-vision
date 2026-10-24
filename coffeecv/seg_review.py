@@ -31,7 +31,8 @@ redrawn mask is cut to that rectangle. It is not a prompt: XL0-v3 ignores a box 
 mask fell outside a half box, on 10 accepted photos), so the fence bounds the mask after the model. A fence alone
 redraws; U undoes it like a point. Until it is judged, more points and another
 Enter replace it. A plain click opens the spot at full resolution; Space toggles the outline. A photo still
-declined in round 3 is dropped, the reason logged (D14).
+declined in its session's last round is dropped, the reason logged (D14). Each session file records its rounds:
+7 for a session started since 2026-10-24 (ADR 0030), 3 (D14's) for one whose file has none (pass1-pass4).
 
 Blind paired (P10, D22):
 
@@ -88,7 +89,8 @@ from coffeecv.segment_beans import THREADS, BeanSegmenter, mask_sha256, named_pa
 LABELS_DIR = REPO_ROOT / "labels" / "ml5"
 MASK_ROOT = REPO_ROOT / "data" / "ml5_labels"
 EMBED_ROOT = REPO_ROOT / "outputs" / "ml5_embeddings"
-ROUNDS = (1, 2, 3)
+ROUNDS_DEFAULT = 7          # ADR 0030 (owner, 2026-10-24): the rounds a new session gives each photo
+LEGACY_ROUNDS = 3           # D14's: a session file without "rounds" was started under it (pass1-pass4)
 REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of ML-2's single-output corrections
 LABEL_SPLITS = ("train", "validation")
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
@@ -155,19 +157,19 @@ class State(NamedTuple):
     reason: str | None
 
 
-def progress(masks: dict[int, str], verdicts: dict[int, dict]) -> State:
-    """Where a photo is in the loop (D14). `masks` {round: mask sha256}; `verdicts` {round: the last verdict on
-    that round's current mask}.
+def progress(masks: dict[int, str], verdicts: dict[int, dict], rounds: int) -> State:
+    """Where a photo is in the loop (D14) of a session of `rounds` rounds. `masks` {round: mask sha256};
+    `verdicts` {round: the last verdict on that round's current mask}.
 
     judge k     round k's mask waits for a verdict
     points k    round k was declined: place points and redraw round k + 1
     accepted k  round k's mask is the label
-    dropped 3   declined in round 3
+    dropped n   declined in round n, the last
     pending 0   no round-1 mask yet (not prepared)
     """
     if 1 not in masks:
         return State("pending", 0, None)
-    for k in ROUNDS:
+    for k in range(1, rounds + 1):
         if k not in masks:
             prev = verdicts[k - 1]
             return State("points", k - 1, prev.get("reason"))
@@ -176,8 +178,8 @@ def progress(masks: dict[int, str], verdicts: dict[int, dict]) -> State:
             return State("judge", k, None)
         if vk["decision"] == "accept":
             return State("accepted", k, None)
-    why = verdicts[ROUNDS[-1]].get("reason")
-    return State("dropped", ROUNDS[-1], f"declined in round {ROUNDS[-1]}" + (f": {why}" if why else ""))
+    why = verdicts[rounds].get("reason")
+    return State("dropped", rounds, f"declined in round {rounds}" + (f": {why}" if why else ""))
 
 
 # ---------------------------------------------------------------- the models at the session's boundary
@@ -244,18 +246,21 @@ class LabelSession:
         self.meta_path = labels_dir / f"{name}.session.json"
         self.verdicts_path = labels_dir / f"{name}.verdicts.jsonl"
         self.mask_dir = mask_root / name
+        old = json.loads(self.meta_path.read_text()) if self.meta_path.exists() else None
         if models is None:
-            if not self.meta_path.exists():
+            if old is None:
                 raise ValueError(f"no session {name}: {rel(self.meta_path)} does not exist")
-            models = json.loads(self.meta_path.read_text())
+            models = old
         self.carry = models.get("carry")
+        # A session keeps the rounds it was started with; one started before the file recorded them had D14's 3.
+        self.rounds = int(models.get("rounds") or (old.get("rounds", LEGACY_ROUNDS) if old else ROUNDS_DEFAULT))
         if self.carry == name:
             raise ValueError(f"session {name} cannot carry itself")
         meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
-                "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS), "carry": self.carry}
-        if self.meta_path.exists():
-            old = json.loads(self.meta_path.read_text())
-            diff = [k for k in meta if old.get(k) != meta[k]]
+                "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS), "carry": self.carry,
+                "rounds": self.rounds}
+        if old is not None:
+            diff = [k for k in meta if old.get(k, LEGACY_ROUNDS if k == "rounds" else None) != meta[k]]
             if diff:
                 raise ValueError(f"session {name} was started with " +
                                  ", ".join(f"{k} {old.get(k)!r}" for k in diff) + f", not {models}")
@@ -322,8 +327,9 @@ class LabelSession:
 
     def state(self, item: dict, verdicts: dict | None = None) -> State:
         verdicts = self.verdicts() if verdicts is None else verdicts
-        masks = {k: self._idx(k)[item["id"]]["mask_sha256"] for k in ROUNDS if item["id"] in self._idx(k)}
-        return progress(masks, {k: verdicts[(item["id"], k)] for k in ROUNDS if (item["id"], k) in verdicts})
+        ks = range(1, self.rounds + 1)
+        masks = {k: self._idx(k)[item["id"]]["mask_sha256"] for k in ks if item["id"] in self._idx(k)}
+        return progress(masks, {k: verdicts[(item["id"], k)] for k in ks if (item["id"], k) in verdicts}, self.rounds)
 
     def decide(self, item: dict, decision: str, reason: str | None, reviewer: str) -> State:
         st = self.state(item)
@@ -569,7 +575,7 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
         row = session.row(it, st.round) if st.round else None
         mine = verdicts.get((it["id"], st.round))
         info = {"i": i, "n": len(items), "item": it["id"], "source": it["source"], "split": it["split"],
-                "status": st.status, "round": st.round, "rounds": len(ROUNDS), "reason": st.reason,
+                "status": st.status, "round": st.round, "rounds": session.rounds, "reason": st.reason,
                 "model": row["model"] if row else None, "mask_sha256": row["mask_sha256"] if row else "",
                 "points": session.points(it, st.round) if st.round else {"include": [], "exclude": []},
                 "fence": session.fence(it, st.round) if st.round else None,
@@ -854,7 +860,7 @@ def print_paired_report(rep: dict) -> None:
             print(f"  under {' and '.join(which)}: {path}")
 
 
-def report(rows: list[dict], carried: set[str] = frozenset()) -> dict:
+def report(rows: list[dict], carried: set[str] = frozenset(), *, rounds: int) -> dict:
     """P7's report: accepted by round, dropped and why, per source. Labels `carried` (ids, ML-6 D3 (a)) count
     apart: as carried_r<k> per source and in `carried`, not in accepted_by_round, which counts this session's."""
     pos = [r for r in rows if r["status"] != "negative"]
@@ -868,7 +874,7 @@ def report(rows: list[dict], carried: set[str] = frozenset()) -> dict:
     return {"photos": len(pos), "negatives": len(rows) - len(pos),
             "status": dict(Counter(r["status"] for r in pos)),
             "carried": len(pos) - len(new),
-            "accepted_by_round": {f"r{k}": by_round.get(k, 0) for k in ROUNDS},
+            "accepted_by_round": {f"r{k}": by_round.get(k, 0) for k in range(1, rounds + 1)},
             "by_source": {s: dict(sorted(c.items())) for s, c in sorted(by_source.items())},
             "dropped": [{"path": r["path"], "source": r["source"], "reason": r["reason"]}
                         for r in pos if r["status"] == "dropped"]}
@@ -926,7 +932,7 @@ def main(argv: list[str] | None = None) -> None:
     rule = RULE_FILE.read_text().strip()
     if args.command == "status":
         session = LabelSession(args.session, entries, None)
-        rep = report(session.write_labels(), session.carried())
+        rep = report(session.write_labels(), session.carried(), rounds=session.rounds)
         print_report(rep)
         if args.out:
             args.out.parent.mkdir(parents=True, exist_ok=True)
