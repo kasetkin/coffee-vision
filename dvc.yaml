@@ -264,21 +264,26 @@ stages:
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
   # accelerator and precision per graph (ADR 0019): gpu_split is yappy's; a new host is measured, then named here.
   # Live since 2026-10-20 (ticket ML-8): dino3b16_segxl0v3_country_aug8_s123; the s42 entry is the release before it.
+  # Each model names the decoder its card was trained with (training_config.seg_decoder), which the export converts:
+  # ticket ML-9's candidate is the first on XL0-v4.
   litert_export:
-    foreach: [allrigs_dino3b16_segxl0v3_country_s42, dino3b16_segxl0v3_country_aug8_s123]
+    foreach:
+      allrigs_dino3b16_segxl0v3_country_s42: {seg: xl0_v3}
+      dino3b16_segxl0v3_country_aug8_s123: {seg: xl0_v3}
+      dino3b16_segxl0v4_country_aug8_s42: {seg: xl0_v4}
     do:
       cmd: >-
-        convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${item}.pt --profile gpu_split
-        && python -m coffeecv.export_litert finish --checkpoint models/${item}.pt --profile gpu_split
+        convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split
+        && python -m coffeecv.export_litert finish --checkpoint models/${key}.pt --profile gpu_split
       deps:
         - coffeecv/export_litert.py
         - coffeecv/litert_forms.py
         - coffeecv/litert.py
         - convert/uv.lock
-        - models/${item}.pt
-        - models/${item}.json
+        - models/${key}.pt
+        - models/${key}.json
         - models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
         - models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
-        - models/seg/xl0_v3.pt
+        - models/seg/${item.seg}.pt
       outs:
-        - models/${item}.litert
+        - models/${key}.litert
