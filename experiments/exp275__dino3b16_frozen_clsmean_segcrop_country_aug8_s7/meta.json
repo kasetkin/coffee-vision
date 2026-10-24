@@ -1,0 +1,5 @@
+{
+  "exp": "275",
+  "slug": "dino3b16_frozen_clsmean_segcrop_country_aug8_s7",
+  "note": "plan \u00a79.1 shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; fitted on 8 augmented views per training patch beside it at equal total sample weight (ticket ML-8 D4, ADR 0025; the unaugmented arm in metrics.json arms); one pool of every session (data/segcropped/pool, ticket ML-8 D2), crop_method segment; country classes (ticket ML-3, dataset/classes.txt); in-distribution metrics only"
+}

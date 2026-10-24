@@ -40,26 +40,18 @@
   <div class="callout info">
     <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, updated 2026-10-23, for a new session; update or delete it as phases move).</p>
     <ul>
-      <li><b>Done and merged into <code>main</code>:</b> P1&ndash;P3b (XL0-v4 and the learning-rate runs) and P4.
-        <code>main</code> is not pushed to <code>origin</code>: ask the owner before <code>git push</code>.</li>
-      <li><b>Not pushed to DVC:</b> since the host's reboot (2026-10-21) the container does not resolve
-        <code>dvcnewremote</code> (a Tailscale name). When it does, push by target and verify every object
-        (<a href="agents/dvc.md">dvc.md</a>): <code>seg_ml9_finetune@xl0_v4 seg_ml9_finetune@xl0_v4_s42
-        seg_ml9_finetune@xl0_v4_s7 seg_ml9_finetune_lr@xl0_v4_lr3e5 seg_ml9_finetune_lr@xl0_v4_lr3e5_s42
-        seg_ml9_predict@xl0_v3 seg_ml9_predict@xl0_v4 seg_ml9_predict@xl0_v4_lr3e5</code>, every
-        <code>segcrop</code> stage, <code>merge_segpool</code> and <code>dataset/random_date_raccoon.dvc</code>;
-        then tick P3's and P3b's push tasks. P3's first log, killed by the reboot:
-        <code>/tmp/ng_preview/p3_run1_reboot.log</code>.</li>
-      <li><b>P4 and P5 done</b> 2026-10-23: XL0-v4 at 0.039049 serves (ticket D4); every session re-cropped; 33
-        Brazil photos added; the pool 1,326 photos, 31 excluded (ticket D9); the DINOv3 fixture regenerated.
-        Merged into <code>main</code> from <code>ml9-brazil</code>, which carries P5.</li>
-      <li><b>Next: P6</b>, the classifier at seeds 42, 123 and 7 (<code>fit_frozen_head</code>, about 8 h here; the
-        owner keeps it local, not on <code>yappy</code>). Q2 (the live model on the new test split) is still open:
-        its recommendation (a) is assumed.</li>
+      <li><b>Done and merged into <code>main</code>:</b> P1&ndash;P5; P6 on <code>ml9-p6</code>.</li>
+      <li><b>DVC:</b> P3&ndash;P5's outputs pushed and verified 2026-10-23. The container resolves
+        <code>dvcnewremote</code> through an <code>/etc/hosts</code> line (Tailscale's address); expect disconnects.</li>
+      <li><b>P4&ndash;P6 done</b> 2026-10-23: XL0-v4 at 0.039049 serves (ticket D4); every session re-cropped; the pool
+        1,326 photos; exp273&ndash;275 trained; exp273 shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code> with
+        its probe.</li>
+      <li><b>Now: P7</b>, the LiteRT export, the push, the merge into <code>main</code>, <code>git push origin
+        main</code> and the deploy, all on the owner's go of 2026-10-23 (Q3), stopping only on a critical failure.</li>
       <li><b>Disk:</b> about 23 GB free of 906 GB. Nothing leaves the DVC cache until the remote holds it (ADR
         0028).</li>
-      <li><b>Questions:</b> P3 runs on Q1's recommendation (a), the shared augmentation; the owner was told before it
-        started and did not object, but has not answered Q1 in words. Q2 (ticket D5) and Q3 (D6) are open.</li>
+      <li><b>Questions:</b> P3 ran on Q1's recommendation (a), the shared augmentation; the owner was told before it
+        started and did not object, but has not answered Q1 in words. Q2&ndash;Q4 answered.</li>
       <li><b>How the owner wants the work done:</b> one branch per phase, merged with <code>--no-ff</code> (ADR 0017)
         after <code>scripts/check.sh --full</code> passes on the merged tree; commits split into small ones, each a
         single step that is easy to read later; DVC outputs pushed by target and verified object by object.</li>
@@ -97,11 +89,13 @@
           R4), as ML-6's did.</td><td>P3</td></tr>
       <tr><td class="id">Q2</td><td>Ticket D5: score the live model on the new test split, beside the candidate's
         seeds?</td>
-        <td><span class="pill sm open">Open</span> (a), yes. It is the one baseline on the same photos (ticket R2), and
+        <td><span class="pill sm ok">Answered</span> 2026-10-23, (a) as recommended: the owner left the choice to
+          Claude. It is the one baseline on the same photos (ticket R2), and
           shows what the live model gets wrong on the green photos.</td><td>P6</td></tr>
       <tr><td class="id">Q3</td><td>Ticket D6: end with a deploy?</td>
-        <td><span class="pill sm open">Open</span> (a), yes, on the owner's go after P6, through
-          <code>docs/agents/deploy.md</code>.</td><td>P7</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-23, (a): the owner gave the go before P6's results, for
+          the best seed unless something critical fails, through <code>docs/agents/deploy.md</code>; P6's and P7's
+          stops are lifted.</td><td>P7</td></tr>
       <tr><td class="id">Q4</td><td>Ticket D8 makes two candidates. Which go to P4's blind session against
         XL0-v3?</td>
         <td><span class="pill sm ok">Answered</span> 2026-10-23: the owner ran P4 on XL0-v4. <b>From P3b's cards:</b> lr 1e-4, and its best seed,
@@ -178,7 +172,8 @@
       mean IoU, the validation negatives' empty-or-tiny share. No test numbers before P4. Epoch 28 of 36 (patience
       stopped it): score 0.961, mean IoU 0.946, 83 of 85 negatives empty or tiny. The score still swung from epoch
       to epoch (0.896&ndash;0.961 after epoch 19), as ticket D8 expected.</span></li>
-    <li><span class="box"></span><span>Push the decoder and the masks by target and verify on the remote.</span></li>
+    <li><span class="box done"></span><span>Push the decoder and the masks by target and verify on the remote. Done
+      2026-10-23 with P3b's and P5's outputs, one push, every object verified.</span></li>
   </ol>
 
   <h2>5b. P3b &mdash; XL0-v4 at lr 3e-5 (ticket D8)</h2>
@@ -221,7 +216,9 @@
         epoch 39 of 40, and its dips no shallower (lowest 0.709, 0.737). A third of the rate learns slower, not
         steadier: D8's answer is no. The swing at 1e-4 is what checkpoint selection is for, and its chosen epochs
         agree over seeds.</span></li>
-    <li><span class="box"></span><span>Push the decoder and masks by target and verify on the remote; commit; merge.</span></li>
+    <li><span class="box done"></span><span>Push the decoder and masks by target and verify on the remote; commit; merge.
+      Pushed 2026-10-23 with P3's and P5's: 2,833 of 2,838 objects on <code>dvcnewremote</code>, sizes checked; the
+      other 5 are the <code>cache: false</code> model cards, in git.</span></li>
   </ol>
 
   <h2>6. P4 &mdash; Blind paired comparison and the choice <span class="pill sm open">stop</span></h2>
@@ -274,19 +271,27 @@
 
   <h2>8. P6 &mdash; Classifier, baseline and probe <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-23: exp273&ndash;275; exp273 (seed 42, the val pick) shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 273</code>
-      on the committed tree, after its config is diffed against exp271's (only the data may differ).</span></li>
-    <li><span class="box"></span><span>The live model scored on the same test split (Q2), test-first if it needs new
-      code.</span></li>
-    <li><span class="box"></span><span>The report: val and test as ranges over seeds, per-class F1, and the test photos
-      of <code>2026-10-21__new_green</code> alone, for every arm.</span></li>
-    <li><span class="box"></span><span>The probe refitted on the chosen candidate and measured with
-      <code>ood_eval</code>, against exp271's (160/160 negatives caught, 0/73 positives refused).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: which seed ships, or none.</span></li>
+    <li><span class="box done"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 273</code>
+      on the committed tree, after its config is diffed against exp271's (only the data may differ). Done on
+      <code>a3bfcbf</code>, 7 h 37 min; the decoder, the threshold, the class list and the segmenter's own recipe
+      differ, the head's recipe does not.</span></li>
+    <li><span class="box done"></span><span>The live model scored on the same test split (Q2), test-first if it needs new
+      code. <code>analysis/ml9/p6_live_baseline.py</code>: no unit test; it checks itself instead, each run's own head
+      reproducing its archived predictions and the live model's rebuilt split matching exp271's.</span></li>
+    <li><span class="box done"></span><span>The report: val and test as ranges over seeds, per-class F1, and the test photos
+      of <code>2026-10-21__new_green</code> alone, for every arm. <code>analysis/ml9/p6_report.txt</code>: val
+      0.9655&ndash;0.9686, test 0.9649&ndash;0.9807; on the 64 test photos the live model did not train on (it trained
+      on 136 of the 200), 0.9541&ndash;0.9686 against 0.8945&ndash;0.9387, no class lower; the green photos all right
+      against none.</span></li>
+    <li><span class="box done"></span><span>The probe refitted on the chosen candidate and measured with
+      <code>ood_eval</code>, against exp271's (160/160 negatives caught, 0/73 positives refused). The candidate: 160/160 and 0/76
+      (<code>analysis/ml9/p6_ood_eval.txt</code>).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: which seed ships, or none. Lifted by Q3's answer: the val
+      pick, exp273, ships.</span></li>
   </ol>
 
   <h2>9. P7 &mdash; Export and deploy <span class="pill sm open">stop</span></h2>
@@ -349,6 +354,9 @@
     <div><div class="when">2026-10-23</div>P5 done: XL0-v4's re-crop, 33 new Brazil photos (Samsung's trailer cut by
       <code>strip_metadata</code>), the owner's 8 declines and 2 readmissions (ticket D9, R6), the DINOv3 fixture.
       P6 next.</div>
+    <div><div class="when">2026-10-23</div>P3&ndash;P5 pushed and verified. While P6 ran the owner answered Q3: deploy
+      the best seed without another stop unless something critical fails. P6 done: exp273&ndash;275, the live model
+      beside them on the same test patches (Q2), exp273 shipped with its probe (160/160, 0/76). P7 next.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,

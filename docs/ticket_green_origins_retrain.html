@@ -9,10 +9,11 @@
   <p class="lede">The ingest of 2026-10-21 brought the first green Indonesia and green Peru photos, 7 more roasted
     Colombia Excelso photos, 3 segmenter positives and a negative. They are in the data, but no model has trained on
     them: the live classifier knows Indonesia and Peru roasted only. The owner wants every new photo used, and both
-    models retrained. Written; D1 and D2 decided, D3&ndash;D6 open; planned; not implemented.</p>
+    models retrained. D1, D2 and D4&ndash;D9 decided, D3 open (run as plan Q1 recommends); P1&ndash;P6 done; P7, the
+    export and the deploy, in progress.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); pushes pending</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 in progress</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -172,10 +173,15 @@
       <tr><td class="id">D5</td><td>How is the new classifier compared, with no paired baseline (R2)?</td>
         <td>(a) Its seeds 42, 123 and 7, beside the live model scored on the same new test split, per class and on the green
           photos of 2026-10-21 alone. (b) Its seeds alone, beside exp270&ndash;272's numbers.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a), as recommended</strong>; the owner left the choice to Claude on 2026-10-23 ("select the best
+          model yourself"). On the test photos the live model did not train on, patch macro-F1 0.9541&ndash;0.9686
+          against its 0.8945&ndash;0.9387; the green 2026-10-21 test photos all right against none
+          (<code>analysis/ml9/p6_report.txt</code>).</td></tr>
       <tr><td class="id">D6</td><td>Does the ticket end with a deploy?</td>
         <td>(a) Yes, on the owner's go after D4 and D5's results. (b) No: it stops at a converted candidate.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a), 2026-10-23</strong>, given before the results: "after training is done select the best model
+          yourself and deploy it if no critical error arise", with leave to stop the site on <code>yappy</code> and
+          delete an old release if needed.</td></tr>
       <tr><td class="id">D7</td><td>The owner asks for a rectangle on the review page beside the green and red points.
         XL0-v3 ignores a box smaller than the photo (plan P1). What does the rectangle do?</td>
         <td>(a) A fence: the redrawn mask is cut to it. (b) A prompt, after a segmenter is trained to follow boxes.</td>
@@ -257,6 +263,13 @@
       Galaxy phones needed <code>strip_metadata</code> to cut Samsung's trailer (network country, a timestamp).
       XL0-v4 speckles some hopper piles (R6); the owner declined 8 crops and readmitted 2 (D9). The DINOv3 fixture
       regenerated, class_015 added.</div>
+    <div><div class="when">2026-10-23</div>P3&ndash;P5's outputs pushed to <code>dvcnewremote</code> in one 4 h push and
+      verified object by object. D6 decided by the owner while P6 ran: deploy the best seed without another stop, unless
+      something critical fails; D5 (a) with it. P6: exp273&ndash;275, val 0.9655&ndash;0.9686, test
+      0.9649&ndash;0.9807; beside the live model on the test photos it did not train on, 0.9541&ndash;0.9686 against
+      0.8945&ndash;0.9387, and every green 2026-10-21 test photo right where it had none. exp273 (seed 42, the val pick)
+      shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code>; its probe caught 160/160 test negatives and refused
+      0/76 positives.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
