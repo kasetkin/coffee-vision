@@ -3,10 +3,10 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 149 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 155 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
-Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
+Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here but the 2026-10-24 batch is in it, split
 train/validation/test within this source (D13), a copy in one group with its original. Nothing here trains
 the classifier; a copy of a pool photo reaches it only as the original. The OOD guard no longer calibrates on
 these photos (D2; the guard's code follows in ML-5 P3).
@@ -29,6 +29,21 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-24: 6 grinder-hopper photos moved out of the pool
+
+- **Moved, not copied** (batch `2026-10-24`), by the owner, from `random_date_raccoon`: four of
+  `class_013__Brazil_SulDeMinas` (`20261023_125403.jpg`, `IMG_20261022_110423.jpg`, `PIC_20261024_134903.JPG`,
+  `PIC_20261024_134916.JPG`) and two of `class_014__Colombia_Excelso` (`IMG_20261016_120539.jpg`,
+  `PXL_20261018_041127921.jpg`). They are every class photo under `dataset/` whose XL0-v4 mask is empty or under
+  `seg_min_area_frac` (`coffeecv.find_tiny_masks`, 0 to 0.0133 of the frame): the classifier's pool read them
+  whole (D18), and they are grinder hoppers, the setting the segmenter is meant to learn. Four were already left
+  out of the pool (`labels/ml3/pool_exclude.csv`); the two `PIC_20261024_*` had never been cropped.
+- **No copies**: each file's bytes are its `random_date_raccoon` DVC entry's, and none duplicates another photo
+  under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`, nearest 0.78).
+- **Metadata** (ticket ML-3, D13): already stripped in `random_date_raccoon`; checked again with
+  `coffeecv.strip_metadata` (clean, bytes unchanged), rows under the new paths in `labels/ml3/strip_manifest.csv`.
+- **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`).
 
 ## 2026-10-21: 3 photos of an open bag in gloved hands
 
