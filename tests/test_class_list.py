@@ -124,9 +124,9 @@ class TestClassList(unittest.TestCase):
     def test_every_shipped_frozen_list_is_d15(self):
         frozen = sorted((REPO_ROOT / "models").glob("*.classes.txt"))
         self.assertTrue(frozen)
-        for path in frozen:                             # shipped since ML-3: exactly the D15 file
+        for path in frozen:                             # shipped since ML-3: the D15 file, since ML-9 with class_015
             with self.subTest(path=path.name):
-                self.assertEqual(path.read_text(), D15)
+                self.assertIn(path.read_text(), (D15, D15 + "015;Indonesia;\n"))
 
     def test_old_format_list_reads_as_before(self):
         path = self.write(OLD_FORMAT)
