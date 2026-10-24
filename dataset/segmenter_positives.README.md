@@ -6,7 +6,7 @@ on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" pos
 **There is no "never seen" claim any more**: 71 of the 155 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
-Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here but the 2026-10-24 batch is in it, split
+Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
 train/validation/test within this source (D13), a copy in one group with its original. Nothing here trains
 the classifier; a copy of a pool photo reaches it only as the original. The OOD guard no longer calibrates on
 these photos (D2; the guard's code follows in ML-5 P3).
@@ -43,7 +43,9 @@ stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and M
   under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`, nearest 0.78).
 - **Metadata** (ticket ML-3, D13): already stripped in `random_date_raccoon`; checked again with
   `coffeecv.strip_metadata` (clean, bytes unchanged), rows under the new paths in `labels/ml3/strip_manifest.csv`.
-- **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all six, with 6 pool photos topping the draw
+  up to 155. The two `PIC_20261024_*` shots are 13 s apart, so two groups under the 3 s rule
+  ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
 
 ## 2026-10-21: 3 photos of an open bag in gloved hands
 
