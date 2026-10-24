@@ -234,6 +234,8 @@ stages:
   # Ticket ML-9 P2: both candidates' masks of today's test split (seg_ml5_predict's XL0-v3 masks predate ML-8's
   # appends), for the blind paired session of P4. XL0-v4 is passed as WEIGHTS:DECODER, so segment_beans.py, a dep
   # of every segcrop stage, changes only if it is adopted.
+  # Frozen 2026-10-24 (owner): P4's record, made before the segmenter dataset appended the 6 positives of 2026-10-24
+  # and their pool draw (its test split has 5 photos more than these masks).
   seg_ml9_predict:
     foreach:
       xl0_v3:
@@ -243,6 +245,7 @@ stages:
       xl0_v4_lr3e5:
         model: ${seg_ft.weights}:models/seg/xl0_v4_lr3e5.pt
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_ml9/${key}
       deps:
         - coffeecv/seg_predict.py
