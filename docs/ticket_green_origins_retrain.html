@@ -9,11 +9,11 @@
   <p class="lede">The ingest of 2026-10-21 brought the first green Indonesia and green Peru photos, 7 more roasted
     Colombia Excelso photos, 3 segmenter positives and a negative. They are in the data, but no model has trained on
     them: the live classifier knows Indonesia and Peru roasted only. The owner wants every new photo used, and both
-    models retrained. D1, D2 and D4&ndash;D9 decided, D3 open (run as plan Q1 recommends); P1&ndash;P6 done; P7, the
-    export and the deploy, in progress.</p>
+    models retrained. D1, D2 and D4&ndash;D9 decided, D3 open (run as plan Q1 recommends); P1&ndash;P7 done; live
+    2026-10-24.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 in progress</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 done: <code>dino3b16_segxl0v4_country_aug8_s42</code> live 2026-10-24 (release <code>15b01c3</code>), for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -270,6 +270,10 @@
       0.8945&ndash;0.9387, and every green 2026-10-21 test photo right where it had none. exp273 (seed 42, the val pick)
       shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code>; its probe caught 160/160 test negatives and refused
       0/76 positives.</div>
+    <div><div class="when">2026-10-24</div>P7: the LiteRT export passed D7; <code>main</code> pushed to
+      <code>origin</code> for the deploy; staged, compared with PyTorch (12 photos, no top-1 change) and deployed,
+      verified on the domain. <code>dino3b16_segxl0v4_country_aug8_s42</code> is live with XL0-v4; ML-8's release is
+      <code>previous</code> for a rollback. Implemented; left for the owner to close.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,

@@ -12,7 +12,7 @@
     changes a number is the fine-tune in P3.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; Q1&ndash;Q3 open, assumed as recommended; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-21; Q2&ndash;Q4 answered, Q1 run as recommended; P1&ndash;P7 done 2026-10-21&ndash;24; deployed 2026-10-24, release 20261024T0028Z-15b01c3</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_green_origins_retrain.html"><code>ticket_green_origins_retrain.html</code></a> (ML-9)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -38,24 +38,9 @@
   </div>
 
   <div class="callout info">
-    <p><b>Resume here</b> (written 2026-10-21 13:20 UTC, updated 2026-10-23, for a new session; update or delete it as phases move).</p>
-    <ul>
-      <li><b>Done and merged into <code>main</code>:</b> P1&ndash;P5; P6 on <code>ml9-p6</code>.</li>
-      <li><b>DVC:</b> P3&ndash;P5's outputs pushed and verified 2026-10-23. The container resolves
-        <code>dvcnewremote</code> through an <code>/etc/hosts</code> line (Tailscale's address); expect disconnects.</li>
-      <li><b>P4&ndash;P6 done</b> 2026-10-23: XL0-v4 at 0.039049 serves (ticket D4); every session re-cropped; the pool
-        1,326 photos; exp273&ndash;275 trained; exp273 shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code> with
-        its probe.</li>
-      <li><b>Now: P7</b>, the LiteRT export, the push, the merge into <code>main</code>, <code>git push origin
-        main</code> and the deploy, all on the owner's go of 2026-10-23 (Q3), stopping only on a critical failure.</li>
-      <li><b>Disk:</b> about 23 GB free of 906 GB. Nothing leaves the DVC cache until the remote holds it (ADR
-        0028).</li>
-      <li><b>Questions:</b> P3 ran on Q1's recommendation (a), the shared augmentation; the owner was told before it
-        started and did not object, but has not answered Q1 in words. Q2&ndash;Q4 answered.</li>
-      <li><b>How the owner wants the work done:</b> one branch per phase, merged with <code>--no-ff</code> (ADR 0017)
-        after <code>scripts/check.sh --full</code> passes on the merged tree; commits split into small ones, each a
-        single step that is easy to read later; DVC outputs pushed by target and verified object by object.</li>
-    </ul>
+    <p><b>Resume here</b> (updated 2026-10-24): every phase is done and the release is live. Left for the owner: close
+      the ticket, answer Q1 in words if wanted, and say whether the docs commit after the deploy goes to
+      <code>origin</code>.</p>
   </div>
 
   <h2>1. Phase order and why</h2>
@@ -296,27 +281,36 @@
 
   <h2>9. P7 &mdash; Export and deploy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-24: release 20261024T0028Z-15b01c3-dino3b16_segxl0v4_country_aug8_s42, deployed and verified on the domain</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6, Q3</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>litert_export@&lt;candidate&gt;</code>: converted and within ML-7 D7's bars
-      (ADR 0020); pushed by target and verified.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: the go to deploy, then <a href="agents/deploy.md">deploy.md</a>
-      (the service stops while it runs, ADR 0026).</span></li>
-    <li><span class="box"></span><span><code>docs/status.md</code>, the README, <code>docs/inference_path.html</code>
-      and <code>EXPERIMENTS_LOG.md</code> updated for the live models.</span></li>
+    <li><span class="box done"></span><span><code>litert_export@&lt;candidate&gt;</code>: converted and within ML-7 D7's bars
+      (ADR 0020); pushed by target and verified. D7 passed on 13 fixtures; the stage names each model's decoder now;
+      the checkpoint and the export's 8 objects verified by md5 on <code>dvcnewremote</code>.</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: the go to deploy, then <a href="agents/deploy.md">deploy.md</a>
+      (the service stops while it runs, ADR 0026). The go came with Q3's answer. <code>main</code> pushed to
+      <code>origin</code> at <code>15b01c3</code>; <code>--stage-only</code> (upload 59 min; smoke on the GPU, top-1
+      as local, mask IoU 0.999997), <code>--compare</code> (12 photos, 0 verdict or top-1 changes, p95 largest change
+      0.0048) and the deploy; <code>--verify</code> passed again after it, 0 restarts. Photo answers were down 33 s, 129
+      s and 41 s. Server-side <code>latency_ms</code> 8.3&ndash;8.7 s, <code>preview_ms</code> 2.0&ndash;2.1 s. The
+      deploy pruned the 2026-10-18 release; <code>previous</code> is ML-8's.</span></li>
+    <li><span class="box done"></span><span><code>docs/status.md</code>, the README, <code>docs/inference_path.html</code>
+      and <code>EXPERIMENTS_LOG.md</code> updated for the live models. The README names no model and needed no
+      change; <code>dvc.yaml</code>'s note too.</span></li>
   </ol>
 
   <h2>10. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: every training and validation positive has an accepted label or a logged
-      drop.</span></li>
-    <li><span class="box"></span><span>P2: no <code>segcrop</code> stage stale after the change to
-      <code>seg_predict</code>.</span></li>
-    <li><span class="box"></span><span>P3&ndash;P7: every new DVC output pushed by target and verified on the
-      remote.</span></li>
-    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+    <li><span class="box done"></span><span>P1: every training and validation positive has an accepted label or a logged
+      drop. pass4: 22 accepted, 1 dropped (P1).</span></li>
+    <li><span class="box done"></span><span>P2: no <code>segcrop</code> stage stale after the change to
+      <code>seg_predict</code>. <code>dvc status</code> on every <code>segcrop</code> stage and
+      <code>merge_segpool</code> clean, 2026-10-24.</span></li>
+    <li><span class="box done"></span><span>P3&ndash;P7: every new DVC output pushed by target and verified on the
+      remote. 2026-10-23 and 2026-10-24.</span></li>
+    <li><span class="box done"></span><span>Full suite green at each phase's last commit: <code>scripts/check.sh --full</code>
+      before each merge into <code>main</code>.</span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
@@ -357,6 +351,9 @@
     <div><div class="when">2026-10-23</div>P3&ndash;P5 pushed and verified. While P6 ran the owner answered Q3: deploy
       the best seed without another stop unless something critical fails. P6 done: exp273&ndash;275, the live model
       beside them on the same test patches (Q2), exp273 shipped with its probe (160/160, 0/76). P7 next.</div>
+    <div><div class="when">2026-10-24</div>P7 done: the export passed D7; <code>main</code> pushed at
+      <code>15b01c3</code>; staged, compared and deployed, verified on the domain twice. Photo answers were down
+      33 s, 129 s and 41 s. Docs say what is live.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9 ticket</a>,
