@@ -3016,3 +3016,27 @@ same total weight (ADR 0025; `params.yaml` `head_augment`). About 2.6 h per seed
   `.pt.dvc` are in git history; each `.pt` (md5 2b611d5e…, efb5d2bb…) was checked in the DVC cache and on the
   remote before its working copy was deleted. exp262's untracked `.ood_embeddings.npz` was moved, not deleted, to
   `~/retired_models_2026-10-21/` on the devcontainer.
+
+### exp273-275: ML-9, the classifier on XL0-v4's crops, green Indonesia and Peru included (2026-10-23)
+
+Ticket ML-9 (`docs/ticket_green_origins_retrain.html`). ML-8's recipe unchanged (600/160/160 patches per class,
+frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8 augmented views per training patch at weight 1/9) on new data: every
+session re-cropped with the XL0-v4 segmenter at a tiny-mask threshold of 0.039049, and the pool grown to 1,326
+photos (31 excluded) with the green Indonesia (class 015) and Peru photos of 2026-10-21 and 33 more Brazil photos.
+About 2.5 h per seed.
+
+| seed | exp | val, unaug | val, aug | test, unaug | test, aug |
+|---|---|---|---|---|---|
+| 42 | 273 | 0.9693 | 0.9686 | 0.9694 | 0.9699 |
+| 123 | 274 | 0.9603 | 0.9659 | 0.9591 | 0.9649 |
+| 7 | 275 | 0.9593 | 0.9655 | 0.9776 | 0.9807 |
+
+- The new photos re-draw the split, so no run is paired with exp270-272. The baseline is the live model,
+  `dino3b16_segxl0v3_country_aug8_s123`, scored on each run's own test patches (`analysis/ml9/p6_report.txt`). It
+  trained on 136 of the 200 test photos, so it is compared on the 64 it did not: patch macro-F1 0.9541-0.9686
+  against its 0.8945-0.9387, photo accuracy 0.987-1.000 against 0.863-0.961, no class lower (Peru +0.13, Colombia
+  +0.11, Brazil +0.11, Indonesia +0.09). It got none of the green 2026-10-21 test photos right; the candidates got
+  all of them. Both on XL0-v4's crops: this compares the classifiers, not the pipelines.
+- **Shipped exp273** (seed 42, the val pick; the owner left the choice to Claude) as
+  `dino3b16_segxl0v4_country_aug8_s42`. OOD probe on the segmenter test split: 160/160 negatives caught, 0/76
+  positives refused (`analysis/ml9/p6_ood_eval.txt`).
