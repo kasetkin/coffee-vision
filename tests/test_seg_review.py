@@ -72,10 +72,12 @@ def v(decision, reason=None):
 
 
 class Progress(unittest.TestCase):
-    """Where a photo is in the loop, from its masks per round and the verdicts on them (D14: up to 3 rounds)."""
+    """Where a photo is in the loop, from its masks per round and the verdicts on them (D14: up to 3 rounds; ADR
+    0030: a session's own number, 7 since 2026-10-24)."""
 
     def test_the_rounds(self):
-        P = seg_review.progress
+        def P(masks, verdicts):
+            return seg_review.progress(masks, verdicts, 3)
         self.assertEqual(P({}, {}).status, "pending")                                  # not prepared
         self.assertEqual(P({1: "m1"}, {}), ("judge", 1, None))
         self.assertEqual(P({1: "m1"}, {1: v("accept")}), ("accepted", 1, None))
@@ -88,6 +90,15 @@ class Progress(unittest.TestCase):
                          ("dropped", 3, "declined in round 3: rim/tray included"))
         self.assertEqual(P(three, {1: v("decline"), 2: v("decline"), 3: v("decline")}),
                          ("dropped", 3, "declined in round 3"))
+
+    def test_seven_rounds_drop_only_after_the_seventh(self):
+        masks = {k: f"m{k}" for k in range(1, 8)}
+        declined = {k: v("decline") for k in range(1, 8)}
+        self.assertEqual(seg_review.progress({k: masks[k] for k in (1, 2, 3)}, {k: declined[k] for k in (1, 2, 3)}, 7),
+                         ("points", 3, None))
+        self.assertEqual(seg_review.progress(masks, {**{k: declined[k] for k in range(1, 7)}, 7: v("accept")}, 7),
+                         ("accepted", 7, None))
+        self.assertEqual(seg_review.progress(masks, declined, 7), ("dropped", 7, "declined in round 7"))
 
 
 class SessionFixture(unittest.TestCase):
@@ -118,7 +129,7 @@ class SessionFixture(unittest.TestCase):
         self.tmp.cleanup()
 
     def open(self, proposer="prop", redraw="redraw"):
-        return seg_review.LabelSession("pass1", self.entries, {"proposer": proposer, "redraw": redraw},
+        return seg_review.LabelSession("pass1", self.entries, {"proposer": proposer, "redraw": redraw, "rounds": 3},
                                        self.labels_dir, self.mask_root)
 
     def client(self):
@@ -294,7 +305,7 @@ class LabelSession(SessionFixture):
         rows = self.session.write_labels()
         on_disk = list(csv.DictReader((self.mask_root / "pass1" / "labels.csv").read_text().splitlines()))
         self.assertEqual([r["status"] for r in on_disk], ["accepted", "accepted", "pending", "negative"])
-        rep = seg_review.report(rows)
+        rep = seg_review.report(rows, rounds=3)
         self.assertEqual(rep["by_source"], {"internet_positive": {"pending": 1}, "pool": {"accepted_r2": 1},
                                             "segmenter_positive": {"accepted_r1": 1}})
         self.assertEqual((rep["accepted_by_round"], rep["negatives"]), ({"r1": 1, "r2": 1, "r3": 0}, 1))
@@ -311,6 +322,27 @@ class LabelSession(SessionFixture):
         meta.write_text(json.dumps(old))
         self.assertIsNone(self.open().carry)
         self.assertIsNone(seg_review.LabelSession("pass1", self.entries, None, self.labels_dir, self.mask_root).carry)
+
+    def test_a_session_file_from_before_rounds_resumes_with_three(self):
+        meta = self.labels_dir / "pass1.session.json"
+        old = {k: v for k, v in json.loads(meta.read_text()).items() if k != "rounds"}  # as pass1-pass4 are
+        meta.write_text(json.dumps(old))
+        resumed = seg_review.LabelSession("pass1", self.entries, {"proposer": "prop", "redraw": "redraw"},
+                                          self.labels_dir, self.mask_root)
+        self.assertEqual(resumed.rounds, 3)
+        self.assertEqual(seg_review.LabelSession("pass1", self.entries, None, self.labels_dir, self.mask_root).rounds, 3)
+
+    def test_a_new_session_gets_seven_rounds_and_keeps_them(self):
+        new = seg_review.LabelSession("pass9", self.entries, {"proposer": "prop", "redraw": "redraw"},
+                                      self.labels_dir, self.mask_root)
+        self.assertEqual(new.rounds, seg_review.ROUNDS_DEFAULT)
+        self.assertEqual(seg_review.ROUNDS_DEFAULT, 7)
+        self.assertEqual(json.loads((self.labels_dir / "pass9.session.json").read_text())["rounds"], 7)
+        self.assertEqual(seg_review.LabelSession("pass9", self.entries, None, self.labels_dir, self.mask_root).rounds, 7)
+        with self.assertRaisesRegex(ValueError, "rounds"):
+            seg_review.LabelSession("pass9", self.entries, {"proposer": "prop", "redraw": "redraw", "rounds": 3},
+                                    self.labels_dir, self.mask_root)
+        self.assertEqual(self.info(seg_review.create_label_app(new, self.redrawer, "rule").test_client(), 0)["rounds"], 7)
 
 
 class CarriedSession(SessionFixture):
@@ -339,7 +371,8 @@ class CarriedSession(SessionFixture):
 
     def open_pass2(self, carry="pass1"):
         return seg_review.LabelSession("pass2", self.entries, {"proposer": "prop2", "redraw": "redraw2",
-                                                               "carry": carry}, self.labels_dir, self.mask_root)
+                                                               "carry": carry, "rounds": 3},
+                                       self.labels_dir, self.mask_root)
 
     def test_an_accepted_photo_keeps_its_round_and_mask_marked_carried(self):
         for i, k in (("segmenter_positive__p0", 1), ("pool__p1", 2)):
@@ -388,7 +421,7 @@ class CarriedSession(SessionFixture):
     def test_the_report_counts_carried_and_new_labels_apart(self):
         c = seg_review.create_label_app(self.open_pass2(), self.redrawer2, "rule").test_client()
         self.post(c, "/decide/1", {"decision": "accept"})                  # the new photo, p6
-        rep = seg_review.report(self.carried.write_labels(), self.carried.carried())
+        rep = seg_review.report(self.carried.write_labels(), self.carried.carried(), rounds=3)
         self.assertEqual(rep["by_source"], {"internet_positive": {"pending": 1}, "pool": {"carried_r2": 1},
                                             "segmenter_positive": {"accepted_r1": 1, "carried_r1": 1}})
         self.assertEqual((rep["carried"], rep["accepted_by_round"]), (2, {"r1": 1, "r2": 0, "r3": 0}))

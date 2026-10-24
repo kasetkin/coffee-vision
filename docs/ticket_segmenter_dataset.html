@@ -199,7 +199,9 @@
           owner places points: hold <kbd>g</kbd> and left-click for an include point, <kbd>r</kbd> for an exclude
           point; the mask is redrawn and judged again, up to 3 rounds; still declined means dropped, reason logged.
           Negatives get empty labels. No Claude recheck and no planted-defect test of the judge; a Claude recheck
-          only if the metrics are bad, on the owner's call. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.</td></tr>
+          only if the metrics are bad, on the owner's call. <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>.
+          Amended 2026-10-24 by the owner: 7 rounds, recorded per session; pass1-pass4 keep 3
+          (<a href="adr/0030-a-label-gets-seven-rounds.md">ADR 0030</a>).</td></tr>
       <tr><td class="id">D15</td><td>The fine-tune recipe?</td>
         <td>&mdash;</td>
         <td>2026-10-08: ML-2's decoder-only recipe, one seed (123; ML-2's three seeds were indistinguishable). Plus
