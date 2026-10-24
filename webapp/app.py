@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 # The shipped model. COFFEE_CV_CHECKPOINT (a path relative to the repo) overrides it without a code
 # edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
-CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v3_country_aug8_s123.pt")
+CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v4_country_aug8_s42.pt")
 # Its converted model (coffeecv.litert): beside it unless COFFEE_CV_LITERT_DIR (relative to the repo) names another,
 # for the same smoke tests. COFFEE_CV_LITERT_RUNTIME is LiteRT's accelerator directory (release.env names the
 # release venv's ai_edge_litert/, which holds the WebGPU library) and COFFEE_CV_WARMUP_PHOTO the boot's warm-up
