@@ -32,6 +32,10 @@ each row names its reason, a fallback's beginning "D18 fallback". An accept ther
 review's decline of the same photo: two Brazil photos ML-8 P4 declined as XL0-v3 fallbacks train again on
 their XL0-v4 masks (owner, 2026-10-23).
 
+Since 2026-10-24 it also holds the owner's re-review of the 27 photos the file then excluded, each on its XL0-v4 mask
+(labels/ml2/review/pool_exclude_rereview.decisions.jsonl, items from analysis/ml3/pool_exclude_rereview_items.py):
+an accept there readmits its photo, like ML-9 P5's; a decline keeps the photo out under its earlier reason.
+
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
 
@@ -63,6 +67,7 @@ ML8_FALLBACKS = {
     "dataset/random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120539.jpg",
 }
 ML9_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml9_p5_crops.decisions.jsonl"
+REREVIEW_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "pool_exclude_rereview.decisions.jsonl"
 # Moved to dataset/segmenter_positives by the owner on 2026-10-24: the empty or tiny XL0-v4 masks
 # (coffeecv.find_tiny_masks); the two other photos moved had never been reviewed.
 MOVED_OUT = {
@@ -142,7 +147,8 @@ def exclusions() -> list[dict]:
             continue
         _, session, class_folder, file = it["path"].split("/")
         rows.append({"session": session, "class_folder": class_folder, "file": file, "reason": reason})
-    readmitted = {r["path"] for r in last_decisions(ML9_DECISIONS).values() if r["decision"] == "accept"}
+    readmitted = {r["path"] for f in (ML9_DECISIONS, REREVIEW_DECISIONS)
+                  for r in last_decisions(f).values() if r["decision"] == "accept"}
     rows = [r for r in rows if f"dataset/{r['session']}/{r['class_folder']}/{r['file']}" not in readmitted | MOVED_OUT]
     return sorted(rows, key=lambda r: (r["session"], r["class_folder"], r["file"]))
 
