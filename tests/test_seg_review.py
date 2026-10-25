@@ -427,6 +427,80 @@ class CarriedSession(SessionFixture):
         self.assertEqual((rep["carried"], rep["accepted_by_round"]), (2, {"r1": 1, "r2": 0, "r3": 0}))
 
 
+class RecheckedSession(CarriedSession):
+    """The owner's re-review of every label (2026-10-25): pass3 rechecks pass1. As in CarriedSession, pass1
+    accepted p0 in round 1 and p1 in round 2 and dropped p2, and p6 is new. pass3 shows every positive: p0 and p1
+    with their pass1 label as the round-1 mask to judge, p2 and p6 with the proposer's."""
+
+    def setUp(self):
+        super().setUp()
+        self.proposer3, self.redrawer3 = FakeDrawer("prop3"), FakeDrawer("redraw3")
+        self.rechecked = self.open_pass3()
+        self.rechecked.prepare(self.proposer3, self.redrawer3)
+
+    def open_pass3(self, recheck="pass1", carry=None):
+        return seg_review.LabelSession("pass3", self.entries, {"proposer": "prop3", "redraw": "redraw3",
+                                                               "carry": carry, "recheck": recheck, "rounds": 3},
+                                       self.labels_dir, self.mask_root)
+
+    def item(self, i):
+        return next(it for it in self.rechecked.items if it["id"] == i)
+
+    def test_every_positive_is_shown_an_earlier_label_as_its_round_1_mask(self):
+        c = seg_review.create_label_app(self.open_pass3(), self.redrawer3, "rule").test_client()
+        shown = [self.info(c, i) for i in range(4)]
+        self.assertEqual([(s["item"], s["status"], s["round"], s["model"]) for s in shown],
+                         [("segmenter_positive__p0", "judge", 1, "prop"), ("pool__p1", "judge", 1, "redraw"),
+                          ("internet_positive__p2", "judge", 1, "prop3"), ("segmenter_positive__p6", "judge", 1, "prop3")])
+        for i in ("segmenter_positive__p0", "pool__p1"):
+            self.assertEqual(self.rechecked.row(self.item(i), 1)["mask_sha256"], self.pass1_labels[i]["mask_sha256"])
+        self.assertEqual(shown[1]["points"], {"include": [[0.5, 0.5]], "exclude": []})     # what drew p1's label
+        self.assertEqual(self.rechecked.carried(), set())
+        self.assertFalse((self.labels_dir / "pass3.verdicts.jsonl").exists())               # nothing judged yet
+        self.assertEqual(sorted(self.redrawer3.prepared), sorted(it["id"] for it in self.rechecked.items))
+
+    def test_an_accepted_recheck_keeps_the_earlier_label(self):
+        c = seg_review.create_label_app(self.open_pass3(), self.redrawer3, "rule").test_client()
+        self.post(c, "/decide/1", {"decision": "accept"})
+        row = {r["id"]: r for r in self.rechecked.write_labels()}["pool__p1"]
+        self.assertEqual((row["status"], row["round"], row["mask_sha256"], row["include"]),
+                         ("accepted", 1, self.pass1_labels["pool__p1"]["mask_sha256"], "[[0.5, 0.5]]"))
+
+    def test_a_declined_recheck_redraws_from_its_earlier_points_plus_new_ones(self):
+        c = seg_review.create_label_app(self.open_pass3(), self.redrawer3, "rule").test_client()
+        self.post(c, "/decide/1", {"decision": "decline", "reason": "beans missed"})
+        self.post(c, "/redraw/1", {"include": [[0.5, 0.5]], "exclude": []}, code=400)      # no new point
+        self.post(c, "/redraw/1", {"include": [[0.5, 0.5], [0.2, 0.2]], "exclude": []})
+        self.assertEqual(self.redrawer3.calls, [("pool__p1", [[0.5, 0.5], [0.2, 0.2]], [])])
+        self.assertEqual(self.rechecked.state(self.item("pool__p1")), ("judge", 2, None))
+
+    def test_a_second_prepare_changes_nothing(self):
+        index = (self.mask_root / "pass3" / "r1" / "index.csv").read_text()
+        self.open_pass3().prepare(self.proposer3, self.redrawer3)
+        self.assertEqual((self.mask_root / "pass3" / "r1" / "index.csv").read_text(), index)
+
+    def test_the_session_file_records_the_recheck_and_a_resume_with_another_is_refused(self):
+        self.assertEqual(json.loads((self.labels_dir / "pass3.session.json").read_text())["recheck"], "pass1")
+        for other in (None, "pass2"):
+            with self.subTest(recheck=other), self.assertRaisesRegex(ValueError, "recheck"):
+                self.open_pass3(recheck=other)
+        self.assertEqual(seg_review.LabelSession("pass3", self.entries, None, self.labels_dir, self.mask_root).recheck,
+                         "pass1")
+
+    def test_a_session_carries_or_rechecks_not_both(self):
+        with self.assertRaisesRegex(ValueError, "carries or rechecks"):
+            seg_review.LabelSession("pass4", self.entries, {"proposer": "p", "redraw": "r", "carry": "pass1",
+                                                            "recheck": "pass2"}, self.labels_dir, self.mask_root)
+        with self.assertRaisesRegex(ValueError, "itself"):
+            seg_review.LabelSession("pass4", self.entries, {"proposer": "p", "redraw": "r", "recheck": "pass4"},
+                                    self.labels_dir, self.mask_root)
+
+    def test_a_session_file_from_before_recheck_resumes_without_one(self):
+        meta = self.labels_dir / "pass2.session.json"
+        meta.write_text(json.dumps({k: v for k, v in json.loads(meta.read_text()).items() if k != "recheck"}))
+        self.assertIsNone(self.open_pass2().recheck)
+
+
 class SessionMasksStayOutOfGit(unittest.TestCase):
     """docs/agents/dvc.md, "Keeping git and DVC apart": a session's masks are gitignored from its first click,
     not only once `dvc add data/ml5_labels/<session>` writes its own .gitignore, and that `dvc add` still works
