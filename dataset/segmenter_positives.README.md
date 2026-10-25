@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 170 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 176 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,24 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-25: 6 pool photos whose masks the owner had declined, for labelling
+
+- **Moved, not copied** (batch `2026-10-25`), by the owner's call: every photo `labels/ml3/pool_exclude.csv` kept out
+  of the classifier's pool for its XL0-v4 mask that the segmenter dataset did not hold, so that the owner can fix
+  its mask on the labelling page (the owner's re-review of every label, pass7). `2026-09-24__oneplus`'s Rwanda
+  `PXL_20260924_103114778.jpg` (a close-up), and five grinder hoppers from `random_date_raccoon`: Brazil
+  `20261023_125142.jpg`, `20261023_125206.jpg` (Galaxy Z Fold6), `DSC_0001.JPG` (Sony G8441), `IMG_9391.HEIC`
+  (iPhone 15 Pro Max), and Colombia `PXL_20261018_041117629.jpg` (Pixel 7). Declined in ML-3 P5 (the Rwanda one),
+  ML-8 P4 (the Colombia one) or ML-9 P5 (the four Brazil), and kept out by the re-review of 2026-10-24 on their
+  XL0-v4 masks. The three other photos the file excluded are in the segmenter dataset
+  already (`IMG_20261008_092822.jpg` as its copy here) and labelled.
+- **No copies**: each file's bytes are its old DVC entry's, and none duplicates a photo here by SHA-256 or by
+  content (`coffeecv.find_duplicates`, nearest 0.50).
+- **Metadata** (ticket ML-3, D13): stripped when they arrived; checked again with `coffeecv.strip_metadata` (clean,
+  bytes unchanged), rows under the new paths in `labels/ml3/strip_manifest.csv`.
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all six (train 4, validation 1, test 1: the
+  Colombia photo, which gets no label), with 6 pool photos topping the draw up to 176.
 
 ## 2026-10-25: 15 grinder-hopper photos whose masks failed, 9 before the pool and 6 after its review
 
@@ -243,7 +261,9 @@ with nothing load-bearing in it.
 
 ## Sibling batch
 
-`dataset/ood_positives_internet/` holds 12 Wikimedia-sourced photos of coffee beans under the
+`dataset/ood_positives_internet/` holds 11 Wikimedia-sourced photos of coffee beans (12 until 2026-10-25, when
+the owner deleted `internet_beans_017.jpg` from the data and from the segmenter dataset, after its label was
+dropped in pass7's re-review: the one entry the append-only file has lost) under the
 `internet_beans` tag — also genuine positives, but a *different* population (studio lighting,
 varied roasts and framing), so they are a separate directory and a separate condition rather
 than being mixed in here. Sparse arrangements (a handful of beans on a white surface) and

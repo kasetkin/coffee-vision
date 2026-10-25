@@ -89,6 +89,13 @@ MOVED_OUT = {
     "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_074245705.jpg",
     "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_112002683.jpg",
     "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_112059290.jpg",
+    # The 6 the file excluded that the segmenter dataset did not hold, moved by the owner the same day for labelling.
+    "dataset/2026-09-24__oneplus/class_012__Rwanda_Gisuma/PXL_20260924_103114778.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125142.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125206.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/DSC_0001.JPG",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/IMG_9391.HEIC",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_041117629.jpg",
 }
 BACKGROUND_FALLBACKS = {
     "dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174814080.jpg",       # white surface

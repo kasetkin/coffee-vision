@@ -384,9 +384,11 @@ class CommittedFile(unittest.TestCase):
         # batches, 12 internet. The 2026-10-17 batch added 10 positives and topped the pool draw up to match;
         # 2026-10-18 added 27 user_realworld negatives; 2026-10-21 3 positives, the pool draw's 3, and 1 negative;
         # 2026-10-24 the 6 positives moved from random_date_raccoon and the pool draw's 6; 2026-10-25 the 15 positives
-        # kept out of or moved from random_date_raccoon and the pool draw's 15.
+        # kept out of or moved from random_date_raccoon and the pool draw's 15; then the 6 pool-excluded photos moved
+        # for labelling and the pool draw's 6. internet_beans_017 was deleted from the data by the owner's call
+        # (2026-10-25), its entry with it: the one exception to append-only (D11).
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 170, "pool": 170, "negative": 613, "internet_positive": 12})
+                         {"segmenter_positive": 176, "pool": 176, "negative": 613, "internet_positive": 11})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}
