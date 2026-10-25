@@ -38,8 +38,8 @@ an accept there readmits its photo, like ML-9 P5's; a decline keeps the photo ou
 
 Since 2026-10-25 it also holds the owner's review of the 18 Brazil photos new to random_date_raccoon's crops that day
 (labels/ml2/review/new_crops_2026-10-25.decisions.jsonl, items from analysis/ml3/new_crops_items.py): none is a
-fallback, and every decline is "mask declined". The owner's words for the 7: their masks are not good enough, but the
-photos are all good ones.
+fallback, and every decline is "mask declined". The owner's words for the 6: their masks are not good enough, but the
+photos are all good ones; the owner moved them to dataset/segmenter_positives the same day (MOVED_OUT).
 
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
@@ -82,6 +82,13 @@ MOVED_OUT = {
     "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/IMG_20261022_110423.jpg",
     "dataset/random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120539.jpg",
     "dataset/random_date_raccoon/class_014__Colombia_Excelso/PXL_20261018_041127921.jpg",
+    # The 6 the 2026-10-25 review declined, moved by the owner the same day: good photos, masks not good enough.
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124114.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_074233345.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_074242228.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_074245705.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_112002683.jpg",
+    "dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_112059290.jpg",
 }
 BACKGROUND_FALLBACKS = {
     "dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_174814080.jpg",       # white surface
