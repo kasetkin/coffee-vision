@@ -642,9 +642,9 @@ stages:
       size: 24955
     - path: dataset/2026-09-24__oneplus
       hash: md5
-      md5: 3e7da4974252be64337b3a93a43465c2.dir
-      size: 176454711
-      nfiles: 70
+      md5: 19cd0abc1420ccfb857bdac5a569de87.dir
+      size: 174221934
+      nfiles: 69
     - path: models/seg/xl0_v4.pt
       hash: md5
       md5: 64bc0946e5159cec6a19265a9eb80681
@@ -673,9 +673,9 @@ stages:
     outs:
     - path: data/segcropped/2026-09-24__oneplus
       hash: md5
-      md5: 166d80d19d139fa50e2ca6145b90078c.dir
-      size: 209928359
-      nfiles: 143
+      md5: 1f6d0eb2852060da15837fffd923eca6.dir
+      size: 207023476
+      nfiles: 141
   segcrop@2026-09-24__pixel:
     cmd: python -m coffeecv.segcrop_session --session 2026-09-24__pixel 
       --threads 4
@@ -798,9 +798,9 @@ stages:
       size: 24955
     - path: dataset/random_date_raccoon
       hash: md5
-      md5: 209a34944028942a78dd13be13da95e2.dir
-      size: 358493306
-      nfiles: 131
+      md5: a7a7cc084ce37d44753f53d20f1f8654.dir
+      size: 342532908
+      nfiles: 126
     - path: models/seg/xl0_v4.pt
       hash: md5
       md5: 64bc0946e5159cec6a19265a9eb80681
@@ -829,9 +829,9 @@ stages:
     outs:
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 592091a917338b7e562d878cf665bd5f.dir
-      size: 226631598
-      nfiles: 268
+      md5: 5ff6985e26ad397fd09ea2dde36cf826.dir
+      size: 221650521
+      nfiles: 258
   seg_ml6_finetune@xl0_v3:
     cmd: python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name 
       xl0_v3 --threads 8
@@ -1123,9 +1123,9 @@ stages:
       nfiles: 42
     - path: data/segcropped/2026-09-24__oneplus
       hash: md5
-      md5: 166d80d19d139fa50e2ca6145b90078c.dir
-      size: 209928359
-      nfiles: 143
+      md5: 1f6d0eb2852060da15837fffd923eca6.dir
+      size: 207023476
+      nfiles: 141
     - path: data/segcropped/2026-09-24__pixel
       hash: md5
       md5: d9be3b89dda4ae7c86ff84c315322a6c.dir
@@ -1143,18 +1143,18 @@ stages:
       nfiles: 85
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 592091a917338b7e562d878cf665bd5f.dir
-      size: 226631598
-      nfiles: 268
+      md5: 5ff6985e26ad397fd09ea2dde36cf826.dir
+      size: 221650521
+      nfiles: 258
     - path: labels/ml3/pool_exclude.csv
       hash: md5
-      md5: b4e873f140864c0bbc8dd0122c2ad4be
-      size: 789
+      md5: 816a1f9d4e0c6275dc162ac136506c36
+      size: 289
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: 387eec153d4207b86b6e7b4eed1b9c9f.dir
-      size: 3649049185
+      md5: 80c22df54583cc213c0891ddc43d47bb.dir
+      size: 3649048733
       nfiles: 2743
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
