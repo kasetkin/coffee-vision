@@ -36,6 +36,11 @@ Since 2026-10-24 it also holds the owner's re-review of the 27 photos the file t
 (labels/ml2/review/pool_exclude_rereview.decisions.jsonl, items from analysis/ml3/pool_exclude_rereview_items.py):
 an accept there readmits its photo, like ML-9 P5's; a decline keeps the photo out under its earlier reason.
 
+Since 2026-10-25 it also holds the owner's review of the 18 Brazil photos new to random_date_raccoon's crops that day
+(labels/ml2/review/new_crops_2026-10-25.decisions.jsonl, items from analysis/ml3/new_crops_items.py): none is a
+fallback, and every decline is "mask declined". The owner's words for the 7: their masks are not good enough, but the
+photos are all good ones.
+
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
 
@@ -68,6 +73,8 @@ ML8_FALLBACKS = {
 }
 ML9_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml9_p5_crops.decisions.jsonl"
 REREVIEW_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "pool_exclude_rereview.decisions.jsonl"
+NEW_CROPS_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "new_crops_2026-10-25.decisions.jsonl"
+NEW_CROPS_ITEMS = 18
 # Moved to dataset/segmenter_positives by the owner on 2026-10-24: the empty or tiny XL0-v4 masks
 # (coffeecv.find_tiny_masks); the two other photos moved had never been reviewed.
 MOVED_OUT = {
@@ -136,7 +143,7 @@ def exclusions() -> list[dict]:
     fallback = {it["path"] for it in its if it["fallback"] == "1"}
     if not BACKGROUND_FALLBACKS <= fallback:
         raise ValueError(f"not D18 fallbacks: {sorted(BACKGROUND_FALLBACKS - fallback)}")
-    rows = ml8_exclusions() + ml9_exclusions()
+    rows = ml8_exclusions() + ml9_exclusions() + new_crops_exclusions()
     for it in its:
         declined = dec[it["item"]]["decision"] == "decline"
         if it["path"] in BACKGROUND_FALLBACKS:
@@ -188,6 +195,14 @@ def ml8_exclusions() -> list[dict]:
 def ml9_exclusions() -> list[dict]:
     """Ticket ML-9 P5's declines (see the module docstring)."""
     return declined_rows(list(last_decisions(ML9_DECISIONS).values()), lambda r: r["reason"].startswith("D18 fallback"))
+
+
+def new_crops_exclusions() -> list[dict]:
+    """The declines of the 2026-10-25 review (see the module docstring): every item judged, no fallback among them."""
+    dec = last_decisions(NEW_CROPS_DECISIONS)
+    if len(dec) != NEW_CROPS_ITEMS:
+        raise ValueError(f"2026-10-25: {len(dec)} items judged, not all {NEW_CROPS_ITEMS}")
+    return declined_rows(list(dec.values()), lambda r: False)
 
 
 def exclude() -> int:
