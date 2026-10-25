@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 164 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 170 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -30,7 +30,7 @@ assigns its own split (D13), and the tags only meant something for the guard's c
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
 
-## 2026-10-25: 9 grinder-hopper photos with tiny or fragmented masks
+## 2026-10-25: 15 grinder-hopper photos whose masks failed, 9 before the pool and 6 after its review
 
 - **New photos, moved here before they joined the pool** (batch `2026-10-25`): 9 of the 27
   `class_013__Brazil_SulDeMinas` photos shot on 2026-10-25 for `random_date_raccoon`. The owner asked for those
@@ -42,13 +42,21 @@ stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and M
     them whole (D18): `131612`, `131728`, `131738`, `124107`.
   - **Fragmented** (5): the mask broken up over the pile, measured on the mask at a 1024 px long side: the
     holes inside its main piece cover 4.7-21% of that piece's outline, and its boundary is 5.8-23 times
-    a disc's of the same area: `131653`, `131656`, `112012816`, `124134`, `124212`. The 18 photos kept in
-    the pool reach 2.5% and 3.8 times.
+    a disc's of the same area: `131653`, `131656`, `112012816`, `124134`, `124212`. The other 18 reach 2.5%
+    and 3.8 times.
+- **Moved out of the pool after its review** (6, same batch), by the owner: the 18 others joined
+  `random_date_raccoon`'s crops, and the owner's review declined 6 crops: their masks are not good enough, but
+  the photos are all good ones (`labels/ml2/review/new_crops_2026-10-25.decisions.jsonl`). Moved, they are sure
+  to be labelled; in the pool they would only have reached the segmenter through its random draw. Galaxy Z Fold8
+  Ultra (`20261025_124114.jpg`, whose mask also took in cups and a cloth), Pixel 7 (`PXL_20261025_074233345.jpg`,
+  `074242228`, `074245705`) and the OnePlus 7 Pro (`PXL_20261025_112002683.jpg`, `112059290`).
 - **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
   every nearest match under 0.67).
-- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS on the Galaxy and OnePlus
-  photos, the Sony and Samsung maker notes, the OnePlus photo's HDR+ maker note, embedded thumbnails, the Galaxy
-  photos' SEF trailers); 0 checks failing. Rows in `labels/ml3/strip_manifest.csv` under the paths here.
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS on the Galaxy, Pixel 7 and OnePlus
+  photos, the Sony and Samsung maker notes, the Pixel 7 and OnePlus photos' HDR+ maker note, embedded thumbnails, the Galaxy
+  photos' SEF trailers); 0 checks failing. Rows in `labels/ml3/strip_manifest.csv` under the paths here; the 6
+  moved after the review also keep their rows under `random_date_raccoon`, and were checked again here (clean,
+  bytes unchanged).
 - **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`). `131653` and `131656` are 3 s apart by
   their capture times, at the limit of the 3 s rule
   ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
