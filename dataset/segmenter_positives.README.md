@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 155 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 164 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,29 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-25: 9 grinder-hopper photos with tiny or fragmented masks
+
+- **New photos, moved here before they joined the pool** (batch `2026-10-25`): 9 of the 27
+  `class_013__Brazil_SulDeMinas` photos shot on 2026-10-25 for `random_date_raccoon`. The owner asked for those
+  with a tiny or fragmented XL0-v4 mask, more use to the segmenter than to the classifier; they were picked by
+  the measures below. Sony G8441 (`PIC_20261025_131612.JPG`,
+  `131653`, `131656`, `131728`, `131738`), Galaxy Z Fold8 Ultra (`20261025_124107.jpg`, `124134`, `124212`)
+  and a OnePlus 7 Pro whose files are named `PXL_` (`PXL_20261025_112012816.jpg`).
+  - **Tiny** (4): mask under `seg_min_area_frac` (0 to 0.0206 of the frame), so the classifier would read
+    them whole (D18): `131612`, `131728`, `131738`, `124107`.
+  - **Fragmented** (5): the mask broken up over the pile, measured on the mask at a 1024 px long side: the
+    holes inside its main piece cover 4.7-21% of that piece's outline, and its boundary is 5.8-23 times
+    a disc's of the same area: `131653`, `131656`, `112012816`, `124134`, `124212`. The 18 photos kept in
+    the pool reach 2.5% and 3.8 times.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  every nearest match under 0.67).
+- **Metadata** (ticket ML-3, D13): stripped with `coffeecv.strip_metadata` (GPS on the Galaxy and OnePlus
+  photos, the Sony and Samsung maker notes, the OnePlus photo's HDR+ maker note, embedded thumbnails, the Galaxy
+  photos' SEF trailers); 0 checks failing. Rows in `labels/ml3/strip_manifest.csv` under the paths here.
+- **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`). `131653` and `131656` are 3 s apart by
+  their capture times, at the limit of the 3 s rule
+  ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
 
 ## 2026-10-24: 6 grinder-hopper photos moved out of the pool
 
