@@ -4756,11 +4756,6 @@ photos:
   source: internet_positive
   split: train
   group: dataset/ood_positives_internet/internet_beans/internet_beans_016.jpg
-- path: dataset/ood_positives_internet/internet_beans/internet_beans_017.jpg
-  sha256: ea788acbce36541b86a417823ee582ed1535a8539ca4117d1ad3adf6753f322d
-  source: internet_positive
-  split: validation
-  group: dataset/ood_positives_internet/internet_beans/internet_beans_017.jpg
 - path: dataset/ood_positives_internet/internet_beans/internet_beans_018.jpg
   sha256: 90323e495da41276e51fdf8d813de0ca2f55db971a192a4de8d932ec99c70ff4
   source: internet_positive

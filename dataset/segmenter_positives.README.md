@@ -261,7 +261,9 @@ with nothing load-bearing in it.
 
 ## Sibling batch
 
-`dataset/ood_positives_internet/` holds 12 Wikimedia-sourced photos of coffee beans under the
+`dataset/ood_positives_internet/` holds 11 Wikimedia-sourced photos of coffee beans (12 until 2026-10-25, when
+the owner deleted `internet_beans_017.jpg` from the data and from the segmenter dataset, after its label was
+dropped in pass7's re-review: the one entry the append-only file has lost) under the
 `internet_beans` tag — also genuine positives, but a *different* population (studio lighting,
 varied roasts and framing), so they are a separate directory and a separate condition rather
 than being mixed in here. Sparse arrangements (a handful of beans on a white surface) and
