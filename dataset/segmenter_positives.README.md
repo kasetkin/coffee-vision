@@ -57,9 +57,9 @@ stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and M
   photos' SEF trailers); 0 checks failing. Rows in `labels/ml3/strip_manifest.csv` under the paths here; the 6
   moved after the review also keep their rows under `random_date_raccoon`, and were checked again here (clean,
   bytes unchanged).
-- **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`). `131653` and `131656` are 3 s apart by
-  their capture times, at the limit of the 3 s rule
-  ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all fifteen (train 9, validation 2, test 4),
+  with 15 pool photos topping the draw up to 170. `131653` and `131656`, 3 s apart, are one group under the
+  3 s rule ([ADR 0029](../docs/adr/0029-segmenter-dataset-groups-shots-3-s-apart.md)).
 
 ## 2026-10-24: 6 grinder-hopper photos moved out of the pool
 
