@@ -45,7 +45,8 @@ stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and M
   content (`coffeecv.find_duplicates`, nearest 0.50).
 - **Metadata** (ticket ML-3, D13): stripped when they arrived; checked again with `coffeecv.strip_metadata` (clean,
   bytes unchanged), rows under the new paths in `labels/ml3/strip_manifest.csv`.
-- **Not yet in the segmenter dataset** (`labels/ml5/seg_dataset.yaml`).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all six (train 4, validation 1, test 1: the
+  Colombia photo, which gets no label), with 6 pool photos topping the draw up to 176.
 
 ## 2026-10-25: 15 grinder-hopper photos whose masks failed, 9 before the pool and 6 after its review
 
