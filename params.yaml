@@ -97,7 +97,11 @@ seg_mask_select: multi3
 # test-positive masks (65 of 76), 0.064511 before; 4 test positives fall under it (5 under 0.064511), each
 # failed by XL0-v3 and XL0-v4 alike, and 156/160 test negatives are empty (empty or tiny under either value).
 # analysis/ml9/p4_paired_report.txt.
-seg_min_area_frac: 0.039049
+# XL0-v5 (the owner, 2026-10-26): re-derived by the same rule from the owner-accepted XL0-v5 test-positive
+# masks, its 2 accepted empty masks (internet photos judged to hold no pile) not counted (smallest IMG_6585,
+# 0.042016), 0.039049 before; the same 2 test positives (those empty ones) fall under either value, and 154/160
+# test negatives are empty or tiny under either. analysis/xl0v5/paired_report.txt.
+seg_min_area_frac: 0.021008
 
 # Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
 # below, at both ends (segcrop stage -> data/segcropped, live segmentation in
@@ -111,11 +115,13 @@ crop_method: segment
 # XL0-v2 (models/seg/xl0_v2.json), and until then (ML-2 P5, owner 2026-10-02) pretrained L0 +
 # ft_s123, which the shipped classifier was cropped with. Ticket ML-9 P4 (D4, owner 2026-10-23): XL0-v4,
 # XL0-v3's recipe on the pass-4 labels with the augmentation groups shared with the classifier
-# (models/seg/xl0_v4.json); every session re-cropped with it in ML-9 P5.
+# (models/seg/xl0_v4.json); every session re-cropped with it in ML-9 P5. XL0-v5 (the owner, 2026-10-26):
+# XL0-v4's recipe on the pass-7 labels, seed 123 of three (models/seg/xl0_v5.json; 80 against XL0-v4's 64 of 91
+# test positives passed blind, analysis/xl0v5/); every session re-cropped with it.
 seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
 seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
-seg_decoder: models/seg/xl0_v4.pt
-seg_decoder_sha256: 6f78260e206cd0e723edc9d7afea0497888f5bf239d8c26e19ac105e0932c3bc
+seg_decoder: models/seg/xl0_v5.pt
+seg_decoder_sha256: a19345734a60300bac7b74996f9dac462857226bca172bb361457337957b8f2e
 # D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
 seg_keep_frac: 0.95
 # D17: reject a patch box under 80% bean region; after 20 x n candidates, top up
