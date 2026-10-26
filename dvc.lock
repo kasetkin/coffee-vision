@@ -2268,8 +2268,8 @@ stages:
       size: 5474
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: a0ffbd0ce6a108827c5090f6bfd8cf53
-      size: 24955
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
       md5: af8aa8a4e9bf7b2ca309b7a482820f15
@@ -2312,8 +2312,8 @@ stages:
       size: 5474
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: a0ffbd0ce6a108827c5090f6bfd8cf53
-      size: 24955
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
       md5: af8aa8a4e9bf7b2ca309b7a482820f15
@@ -2628,8 +2628,8 @@ stages:
       size: 5474
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: a0ffbd0ce6a108827c5090f6bfd8cf53
-      size: 24955
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
       md5: af8aa8a4e9bf7b2ca309b7a482820f15
@@ -2672,8 +2672,8 @@ stages:
       size: 5474
     - path: coffeecv/segment_beans.py
       hash: md5
-      md5: a0ffbd0ce6a108827c5090f6bfd8cf53
-      size: 24955
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
       md5: af8aa8a4e9bf7b2ca309b7a482820f15
