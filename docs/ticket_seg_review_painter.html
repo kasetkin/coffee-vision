@@ -1,0 +1,251 @@
+<title>Seg Review Painter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-11 · coffee-vision · segmenter labelling page</div>
+  <h1>Let the owner paint a mask on the labelling page: erase stray parts and fill small holes with a round brush</h1>
+  <p class="lede">On the labelling page a declined mask can be corrected only through the model (green and red
+    points) and a fence that cuts it to a rectangle. Neither removes a small blob outside the beans that a rectangle
+    cannot exclude, nor fills a small hole inside a correct mask. The owner asks for a brush: hold e and drag to erase,
+    hold w and drag to fill, with a see-through round cursor and a radius from 1 to 100 pixels set on the right
+    panel. Written; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>,
+    P1&ndash;P3); not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-26; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>, P1&ndash;P3); not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Tooling: segmenter labelling page</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/seg_review.py</code> (<code>LabelSession.redraw</code>, the index and labels columns, <code>/redraw</code>), <code>coffeecv/seg_review_pages.py</code> (<code>LABEL_PAGE</code>), <code>coffeecv/seg_point_probe.py</code>, <code>tests/test_seg_review.py</code>, <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-26</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-26.</strong> The review tool's second purpose is to help the segmenter produce
+      masks for the positives before training, with three ways to improve a bad mask: green dots, red dots and a
+      bounding box. Add a "painter" mode: if the owner presses e and moves the mouse with the left button pressed,
+      the mask under it is erased. The cursor stays visible but shows what is underneath: a round circle about 10
+      pixels across, with a thin border and a see-through inside. It is for erasing small parts of the mask outside
+      the bean region. An inverted mode, w with the same gestures, fills small holes inside a correct mask. A
+      numeric field on the right control panel sets the brush radius, from 1 to 100 pixels.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today every mask on the labelling page (<code>python -m coffeecv.seg_review label</code>) is the model's output,
+    at most cut to a fence. After this ticket the owner can also paint on it: an erase brush (hold e, drag) and a fill
+    brush (hold w, drag), radius set in a number field on the right panel. Strokes are recorded like points and
+    fences, as data the server applies to the mask at full resolution, so every label stays reproducible from its
+    index row. The work splits into: the recorded strokes and their application on the server; the page's brush,
+    cursor, live preview and radius field; and the label's provenance (the ADR 0015 amendment and the point
+    probe).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The correction flow</strong> (<code>coffeecv/seg_review.py</code> docstring and
+      <code>LabelSession.redraw</code>): the owner declines a mask (D or 1&ndash;5), places points (hold g or r and
+      click) or a fence (hold b and drag), and Enter redraws: the redraw model draws the whole-photo box plus every
+      point so far through <code>multi3</code>, then <code>fence_mask</code> cuts the result to the fence. The result
+      is the next round's mask, judged again; a session gives each photo seven rounds
+      (<a href="adr/0030-a-label-gets-seven-rounds.md">ADR 0030</a>). Points and the fence carry forward from round
+      to round; U undoes the last point or fence.</li>
+    <li><strong>What the page shows</strong>: a server-rendered JPEG, the photo at <code>VIEW_LONG_SIDE</code> = 1600
+      px with the mask outlined in magenta (<code>review_masks.view_image</code>), and a 1024 px full-resolution tile
+      around a clicked spot shown at 512 px (<code>zoom_tile</code>). The browser never holds the mask itself, so
+      painting with live feedback needs the mask on the page.</li>
+    <li><strong>Scale</strong>: the photos are phone photos larger than the 1600 px view, so one screen pixel of the
+      view is a few photo pixels. A radius of 1 photo pixel is under one screen pixel; a radius of 100 screen pixels
+      is a few hundred photo pixels. D1: the page counts screen pixels, the record photo pixels.</li>
+    <li><strong>Records</strong>: each round's <code>index.csv</code> row holds the points (<code>include</code>,
+      <code>exclude</code>) and <code>fence</code> that drew its mask; the verdict rows copy them, and
+      <code>labels.csv</code> carries the accepted label's <code>fence</code>. A redraw with nothing new since the
+      shown mask is refused (400).</li>
+    <li><strong>Provenance</strong>: <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a> has every
+      label drawn by the model from the owner's points, amended by ML-9 D7 for the fence, which bounds the mask after
+      the model. The point probe (<code>coffeecv/seg_point_probe.py</code>) uses accepted round-2+ labels as references
+      for "does a model follow points", and skips fenced ones because no model redraws them from their points. A
+      painted label is the same case.</li>
+    <li><strong>Keys in use</strong>: A, D, 1&ndash;5, g, r, b (held), U, Backspace, Enter, Space, N, arrows. E and W
+      are free. The digits 1&ndash;5 decline the mask, so typing a radius into the field must not reach the page's key
+      handler.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Three corrections: include points, exclude points, a fence.</li>
+        <li>A stray blob outside the beans, inside any useful rectangle, stays unless the model drops it.</li>
+        <li>A small hole inside the beans stays unless the model fills it.</li>
+        <li>The page shows the mask only as an outline baked into a server JPEG.</li>
+        <li>Every label is the model's output, perhaps fenced.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Two more: hold e and drag to erase, hold w and drag to fill.</li>
+        <li>The cursor over the photo is a circle of the brush's size, a thin border with a see-through inside,
+          coloured by mode.</li>
+        <li>A number field on the right panel sets the radius, 1&ndash;100 pixels of the screen (D1); each stroke
+          is recorded with its radius in photo pixels, scaled from the view's size on the screen at the time.</li>
+        <li>Each stroke shows on the page as it is drawn, a see-through tint over the photo and its outline: light
+          green where w fills, light red where e erases (D7); U undoes the last stroke, as it does a point.</li>
+        <li>Enter sends the strokes with the points and fence; the server draws the mask, fences it, then paints it,
+          and records the strokes in the index row, the verdicts and <code>labels.csv</code>.</li>
+        <li>A painted label is marked as one and is no reference for the point probe.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The owner judges every mask</strong> (ADR 0015): a painted mask is judged like any redraw before it
+      becomes a label.</li>
+    <li><strong>The rounds</strong> (ADR 0030): a painted mask is a round like a redraw (D4).</li>
+    <li><strong>Points and the fence</strong> work as they do; painting is applied after them.</li>
+    <li><strong>The blind paired mode</strong> (<code>PAIRED_PAGE</code>): it judges models' masks, so it gets no
+      brush.</li>
+    <li><strong>Serving and fine-tuning</strong>: a painted label trains a fine-tune like any accepted label; nothing
+      in serving changes.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The tint shows where the brush went, not the edge that results.</strong></td>
+        <td>Until Enter the outline is the shown mask's (D7), and the tint is drawn at view resolution where the server
+          paints at full resolution, with the radius scaled to photo pixels (D1). Both apply the same geometry (a disc
+          of the radius along the stroke), and after Enter the page shows the server's mask, which is the one judged.
+          A test checks that the server's painted pixels are those within the radius of the stroke.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Typing a radius could decline the mask.</strong></td>
+        <td>Digits 1&ndash;5 decline it. The key handler ignores keys typed into the field; Enter there applies the
+          radius, not a redraw.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A painted label could pass for the model's.</strong></td>
+        <td>The point probe would then score a model against pixels no model drew. Strokes are a recorded column, and
+          the probe skips a painted label as it skips a fenced one.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Strokes carried to a later redraw may land on a mask that moved.</strong></td>
+        <td>A stroke made on round 3's mask is applied to round 4's model output if strokes carry forward (D3). Erase
+          outside the beans and fill inside them stay right whatever the model draws, but a stroke along an edge may
+          not. D3 decides; the preview shows the result before the owner presses Enter.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A long stroke makes a long index row.</strong></td>
+        <td>Mouse-move events are dense. Stroke points are kept only where they move at least a pixel at view scale,
+          and rounded like points, to four decimals.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The radius 1&ndash;100 counts which pixels?</td>
+        <td>(a) Photo pixels: the brush paints the same area of the photo whatever the window size, and the record
+          means the same on every screen; on the 1600 px view a radius of 1&ndash;2 is under a screen pixel, and the
+          cursor is drawn at least a few pixels wide. (b) Screen pixels of the view: what the owner sees is what is
+          set, and the record converts to photo pixels at that view's scale.</td>
+        <td><strong>Both, 2026-10-26</strong>: "web interface should show radius as pixel on current screen. But
+          path that we save to the disk should remember them as photo pixels, so web tool should scale tool radius
+          correctly." The field and the cursor are in screen pixels; each stroke's path (fractions of the photo, as
+          points) and radius (photo pixels) are converted at the scale the view had when the stroke was drawn.</td></tr>
+      <tr><td class="id">D2</td><td>Where can the owner paint?</td>
+        <td>(a) On the main view only. (b) Also on the full-resolution zoom tile on the right, where a small hole is
+          four times larger than on the view.</td>
+        <td><strong>(a), 2026-10-26</strong>: only the main view.</td></tr>
+      <tr><td class="id">D3</td><td>Do strokes carry to later rounds, as points and the fence do?</td>
+        <td>(a) Yes: every stroke so far is applied after each redraw, and U undoes them. (b) No: strokes apply to the
+          mask they were drawn on; a later redraw with new points starts from the model's mask again.</td>
+        <td><strong>(a), 2026-10-26</strong>, as recommended.</td></tr>
+      <tr><td class="id">D4</td><td>When can the owner paint, and what does Enter do with strokes alone?</td>
+        <td>(a) As with points: after a decline (or on an unjudged redraw); Enter with only new strokes reruns the
+          same pipeline (decoder, fence, strokes) into the next round's mask, judged again. (b) Strokes on the mask
+          under judgement without declining it, accepted with it.</td>
+        <td><strong>(a), 2026-10-26</strong>, as recommended: the same as points.</td></tr>
+      <tr><td class="id">D5</td><td>Is e (and w) held, like g, r and b, or a toggle?</td>
+        <td>(a) Held: hold e and drag; release ends the mode. (b) Toggle: press e once to enter erase mode, again (or
+          Esc) to leave.</td>
+        <td><strong>(a), 2026-10-26</strong>: held down.</td></tr>
+      <tr><td class="id">D6</td><td>A painted label changes what ADR 0015 says a label is. Amend it?</td>
+        <td>(a) Amend ADR 0015, as ML-9 D7 did for the fence: a label is the model's mask, fenced, then painted by
+          the owner; a painted label is no reference for the point probe. (b) Keep painting out of labels.</td>
+        <td><strong>(a), 2026-10-26</strong>: amend. The amendment is written when the brush works (plan
+          P2).</td></tr>
+      <tr><td class="id">D7</td><td>What shows the strokes before Enter? The outline is drawn into the server's
+          JPEG, so it cannot follow the brush (plan Q1).</td>
+        <td>(a) The page draws the edited mask's outline itself, updated as the stroke is drawn. (b) A see-through
+          tint over the painted area, on top of the server's outline.</td>
+        <td><strong>(b), 2026-10-26</strong>: "let's use seethrough colors. Light green for adding mode, when 'w' is
+          held. And seethrough light red for removing mode, when 'e' is held." The outline changes at Enter.</td></tr>
+      <tr><td class="id">D8</td><td>The radius field's starting value (plan Q3).</td>
+        <td>(a) 5 screen pixels, the last value set kept in the browser from photo to photo. (b) A fixed start on
+          every photo.</td>
+        <td><strong>(a), 2026-10-26</strong>, as recommended.</td></tr>
+      <tr><td class="id">D9</td><td>Undoing a stroke carried from an earlier round: the shown mask already has it
+          painted in, and the page cannot show the pixels under it (plan Q2).</td>
+        <td>(a) Keep the undo; the page says "undone; Enter redraws to show it". (b) A second route serving the mask
+          before strokes, at a decoder run per page load or a second stored mask per round.</td>
+        <td><strong>(a), 2026-10-26</strong>, as recommended.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>Holding e (w) and dragging with the left button over the photo erases (fills)
+      a disc of the set radius along the path; the stroke shows as it is drawn, tinted see-through light red (light
+      green) over the photo (D7).</span></li>
+    <li><span class="box"></span><span>The cursor over the photo, while e or w is held, is a circle of the brush's
+      size with a thin border and a see-through inside, in one colour for erase and another for fill.</span></li>
+    <li><span class="box"></span><span>A number field on the right panel sets the radius, 1&ndash;100 screen pixels,
+      clamped; the stroke is recorded with that radius in photo pixels (D1); typing in it triggers no page
+      key.</span></li>
+    <li><span class="box"></span><span>U and Backspace undo the last stroke, point or fence, in the order
+      made.</span></li>
+    <li><span class="box"></span><span>Enter sends the strokes; the server applies them after the model and the
+      fence, at full resolution, and refuses a redraw with nothing new, strokes counted.</span></li>
+    <li><span class="box"></span><span>Strokes (mode, radius, path) are recorded in the round's
+      <code>index.csv</code> row, its verdict rows and <code>labels.csv</code>; rows written before have none and
+      read as no strokes.</span></li>
+    <li><span class="box"></span><span>The point probe skips painted labels.</span></li>
+    <li><span class="box"></span><span>ADR 0015 amended (D6), and the <code>seg_review.py</code> docstring and
+      the page's key list describe the brush.</span></li>
+    <li><span class="box"></span><span>Tests in <code>tests/test_seg_review.py</code>: erase and fill paint the
+      right pixels, after the fence; strokes are recorded and carried to later rounds (D3); an old row reads as no strokes;
+      a strokes-only redraw is accepted and an unchanged one refused.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Painting in the blind paired mode.</li>
+    <li>Brush shapes other than a disc, and keyboard shortcuts for the radius.</li>
+    <li>Painting on the zoom tile (D2).</li>
+    <li>Re-labelling past sessions with the brush; it is for sessions from the next one on.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-26</div>Ticket written at the owner's request, from
+      <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_review_pages.py</code>, ADR 0015 and 0030 and ML-9 D7.
+      D1&ndash;D6 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-26</div>The owner decides D1&ndash;D6: the radius in screen pixels on the page and
+      photo pixels on disk (D1), the main view only (D2), strokes carry forward (D3), painting follows the points'
+      rules (D4), e and w held (D5), ADR 0015 amended (D6). Triage to ready-for-agent. Plan written
+      (<a href="plan_seg_review_painter.html">plan_seg_review_painter.html</a>, P1&ndash;P3, Q1&ndash;Q3).</div>
+    <div><div class="when">2026-10-26</div>The owner answers plan Q1 as D7: strokes show as a see-through tint, light
+      green for w, light red for e, over the server's outline.</div>
+    <div><div class="when">2026-10-26</div>The owner answers plan Q3 as D8: the radius starts at 5 screen pixels, and
+      the browser keeps the last value set.</div>
+    <div><div class="when">2026-10-26</div>The owner answers plan Q2 as D9: a carried stroke's undo is kept, shown at
+      the next Enter. Every plan question answered; P1 and P2 unblocked.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9</a> (D7, the fence),
+    <a href="ticket_segmenter_dataset.html">ML-5</a> (D14, D19, D23, the labelling page),
+    <a href="ticket_segmenter_box_prompts.html">ML-10</a>,
+    <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>,
+    <a href="adr/0030-a-label-gets-seven-rounds.md">ADR 0030</a>.</footer>
+</main>

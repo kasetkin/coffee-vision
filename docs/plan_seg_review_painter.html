@@ -1,0 +1,186 @@
+<title>Implementation plan: seg review painter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-11 · coffee-vision · implementation</div>
+  <h1>Implementation plan: seg review painter</h1>
+  <p class="lede">The order of work for <a href="ticket_seg_review_painter.html">ticket ML-11</a>. Two strands: the
+    server records strokes and paints them into the mask (P1), then the page gets the brush, its cursor, the radius
+    field and a live preview (P2). The server comes first because it is what a label depends on, and its tests pin
+    the geometry the page then imitates. The owner tries the brush in P3. No phase changes a model, a crop or an
+    existing label.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-26; Q1&ndash;Q3 answered (ticket D7, D9, D8); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_seg_review_painter.html"><code>ticket_seg_review_painter.html</code></a> (ML-11)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-26</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>014d1c1</code>, not from the ticket alone. Four things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>Finished sessions are DVC-tracked directories.</b> <code>data/ml5_labels/pass3</code>&ndash;<code>pass7</code>
+        each have a <code>.dvc</code> file, and the fine-tune stages in <code>dvc.yaml</code> depend on them. A new
+        <code>strokes</code> column must not rewrite them: readers take a missing column as no strokes, and no old
+        session's <code>labels.csv</code> or <code>index.csv</code> is rewritten by this work. P1.</li>
+      <li><b>The page has no mask, only a JPEG with the outline drawn in</b> (<code>view_image</code>), so the
+        outline cannot follow the brush. Q1, answered as a tint over the painted area (ticket D7), which needs no
+        mask on the page.</li>
+      <li><b>Undoing a carried stroke cannot be previewed.</b> With D3, the shown mask already has the earlier
+        rounds' strokes painted in; the pixels under an erased stroke are the model's, which the page does not have.
+        Q2.</li>
+      <li><b>A rechecking session already carries strokes.</b> <code>recheck_in</code> copies the earlier round's
+        index row whole into round 1, so a painted label being rechecked keeps its strokes, as it keeps its points
+        and fence, once the row has the column. Nothing to change; a test pins it.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 is server-side and fully testable without a browser: the stroke format, the painting, its records and its
+    refusals. P2 builds the page on P1's routes and is checked by hand on a toy session. P3 is the owner using it.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Strokes recorded and painted on the server; the point probe skips painted labels</td><td>local</td><td>no: tests; old records read as no strokes</td></tr>
+      <tr><td class="id">P2</td><td>The page's brush, cursor, radius field and preview; docs and the ADR 0015 amendment</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>The owner tries the brush <span class="pill sm open">stop</span></td><td>local, owner</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>What shows the mask while painting? The server's outline is drawn into the JPEG,
+          so it cannot follow the brush.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-10-26, against the recommendation (the page drawing the
+          outline itself): "let's use seethrough colors. Light green for adding mode, when 'w' is held. And seethrough
+          light red for removing mode, when 'e' is held." The server's outline stays until Enter. Ticket D7.</td>
+        <td>P2</td></tr>
+      <tr><td class="id">Q2</td><td>Undoing a stroke carried from an earlier round: the page cannot show what lies
+          under it (finding 3).</td>
+        <td><span class="pill sm ok">Answered</span> 2026-10-26, as recommended: the undo is kept and the message
+          says "undone; Enter redraws to show it" (ticket D9). The alternative was a second mask route serving the mask before strokes, at the cost of a
+          decoder run on each page load or a second stored mask per round.</td><td>P2</td></tr>
+      <tr><td class="id">Q3</td><td>The radius field's starting value.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-10-26, as recommended: 5 screen pixels (the request's
+          "about 10 pixels across"), and the last value set is kept in the browser from photo to photo. Ticket
+          D8.</td><td>P2</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; Strokes on the server</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>A stroke is <code>{"mode": "erase" | "fill", "r": &lt;photo pixels&gt;, "path": [[x, y], ...]}</code>, the path
+    in fractions of the photo, mapped to pixels as points and the fence are, <code>f * (side - 1)</code>. Painting
+    sets (fill) or clears (erase) every pixel whose centre lies within <code>r</code> of the path, a single point being
+    a disc. Strokes apply in order, after the model and the fence (ticket D3, D4).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>paint_mask(mask, strokes)</code> beside <code>fence_mask</code>, each
+      segment rasterised in its bounding box only, so a long stroke on a full-size photo stays quick.</span></li>
+    <li><span class="box"></span><span><code>_strokes(body)</code> validates the request as <code>_fence</code> does:
+      a list of strokes, each mode one of the two, <code>r</code> positive and at most the photo's long side, a path
+      of one or more <code>[x, y]</code> fractions; 400 otherwise.</span></li>
+    <li><span class="box"></span><span><code>LabelSession.redraw</code> takes <code>strokes</code>: a redraw needs
+      a point, a fence or a stroke; "nothing new" compares strokes too; the mask is drawn, fenced, then painted.
+      <code>strokes(item, k)</code> reads a row's, as <code>fence</code> does.</span></li>
+    <li><span class="box"></span><span>A <code>strokes</code> column in <code>INDEX_FIELDS</code> and
+      <code>LABEL_FIELDS</code>, in the verdict rows and in <code>accepted_labels</code>; a row without it reads as
+      no strokes (finding 1).</span></li>
+    <li><span class="box"></span><span>The page's info gains <code>strokes</code> and the photo's
+      <code>width</code> and <code>height</code> (from the index row).</span></li>
+    <li><span class="box"></span><span><code>seg_point_probe._ml5_session</code> skips a painted label, as a fenced
+      one (ticket R3).</span></li>
+    <li><span class="box"></span><span>Tests in <code>tests/test_seg_review.py</code>: erase and fill paint exactly
+      the pixels within <code>r</code> of the path, after the fence; a strokes-only redraw is accepted and calls the
+      model with the points; the same strokes again are refused; strokes carry into the next round's row and the
+      verdicts and <code>labels.csv</code>; an index row without the column reads as none; a recheck keeps a
+      label's strokes; bad strokes are refused; the probe skips a painted label.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh</code> green; no file under
+      <code>data/ml5_labels/pass3</code>&ndash;<code>pass7</code> changed.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The brush on the page</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>In <code>LABEL_PAGE</code>: a canvas over the photo shows the strokes not yet sent, each a round-capped line of
+    the brush's width, see-through light green for w and light red for e, over the server's view and its outline
+    (ticket D7). Holding e or w and dragging with the left button draws on it. On release the stroke joins the list, converted to the record's
+    units at the view's scale at that moment: the path to fractions, the radius to
+    <code>r_screen &times; width / shown width</code> photo pixels (ticket D1).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>e and w are hold keys beside g, r and b (D5); painting needs
+      <code>canPoint()</code>, as points do (D4); a click while e or w is held does not open the zoom tile.</span></li>
+    <li><span class="box"></span><span>The cursor, while e or w is held over the photo: the native one hidden, a
+      circle of the radius in screen pixels, a thin border with a see-through inside, red for erase and green for
+      fill as the points are; at radius 1 still drawn a few pixels wide.</span></li>
+    <li><span class="box"></span><span>A number field on the right panel, 1&ndash;100 screen pixels, clamped, starting at
+      5 and kept in <code>localStorage</code> (Q3, ticket D8); keys typed in it never reach the page's handler (ticket R2), and Enter or Esc there returns focus
+      to the photo.</span></li>
+    <li><span class="box"></span><span>Path points kept only where the mouse moved a screen pixel or more, rounded
+      to four decimals as points are (ticket R5).</span></li>
+    <li><span class="box"></span><span>U and Backspace undo the last stroke in the shared history; a stroke drawn
+      on this page is taken off the canvas, a carried one with the message "undone; Enter redraws to show it" (Q2,
+      ticket D9). Enter sends <code>strokes</code> with the points
+      and fence; the message counts strokes too.</span></li>
+    <li><span class="box"></span><span>The key list on the page and the <code>seg_review.py</code> and
+      <code>seg_review_pages.py</code> docstrings describe the brush; ADR 0015 gets its amendment (ticket D6): a
+      label is the model's mask, fenced, then painted by the owner; a painted label is no reference for the point
+      probe.</span></li>
+    <li><span class="box"></span><span>Checks: on a toy session (as the tests build), by hand in a browser: erase and
+      fill tints, Enter changes the mask where the tint was, to within a pixel of its edge, resizing the window
+      keeps the recorded radius in photo pixels, a digit typed in the field declines nothing;
+      <code>scripts/check.sh</code> green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The owner tries the brush <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: use the brush on a few photos of the next labelling
+      session, and say what to change, or close the ticket.</span></li>
+  </ol>
+
+  <h2>6. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: painting, records and refusals pinned by tests; old sessions untouched.</span></li>
+    <li><span class="box"></span><span>P2: the hand checks above, on a toy session.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Browser-driven tests of the page: the page has none today, and
+      the geometry it imitates is pinned on the server.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-26</div>Claude reads ticket ML-11 at <code>014d1c1</code> and writes this
+      plan. Four findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-26</div>The owner answers Q1 (ticket D7): a see-through tint, light green for w and
+      light red for e. P1's mask route is dropped, as the page no longer needs the mask.</div>
+    <div><div class="when">2026-10-26</div>The owner answers Q3 as recommended (ticket D8). Q2 open.</div>
+    <div><div class="when">2026-10-26</div>The owner answers Q2 as recommended (ticket D9). Every question
+      answered.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_seg_review_painter.html">ML-11 ticket</a>, <code>coffeecv/seg_review.py</code>,
+    <code>coffeecv/seg_review_pages.py</code>, <code>coffeecv/seg_point_probe.py</code>,
+    <a href="plan_green_origins_retrain.html">ML-9 plan</a> (P1, the fence).</footer>
+</main>
