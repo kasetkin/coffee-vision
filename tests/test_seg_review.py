@@ -696,6 +696,17 @@ class PairedSession(unittest.TestCase):
         self.assertEqual(t["under_old"], [self.items[1]["path"]])
         self.assertEqual(t["under_new"], [self.items[1]["path"]])
 
+    def test_an_accepted_empty_mask_sets_no_threshold(self):
+        """XL0-v5's test split (2026-10-26): the owner accepted empty masks on photos with no pile (the accept
+        rule's point 4); half of 0 would let every speck crop. The smallest non-empty accepted mask sets it."""
+        self.judge({0: (True, False), 1: (False, True), 2: (True, True)})
+        verdicts = seg_review.paired_verdicts(self.items, self.decisions, 7)
+        ids = [it["item"] for it in self.items]
+        areas = {ids[0]: 0.0, ids[1]: 0.05, ids[2]: 0.20}
+        t = seg_review.tiny_threshold(self.items, verdicts, "xl0_v1", areas, 0.083)
+        self.assertEqual((t["new"], t["from_n_accepted"], t["accepted_empty"]), (0.1, 1, 1))
+        self.assertEqual(t["under_new"], [self.items[0]["path"], self.items[1]["path"]])
+
 
 class McNemar(unittest.TestCase):
     def test_exact_two_sided_p(self):

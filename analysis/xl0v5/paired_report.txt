@@ -11,3 +11,6 @@ test negatives, empty / empty or tiny (area < 0.039049):
     2026-09-11__user_samerig                         14/15 empty, 14/15 empty or tiny
     2026-09__internet_proxy                          17/25 empty, 22/25 empty or tiny
     user_realworld                                   88/120 empty, 118/120 empty or tiny
+tiny-mask threshold (D21) from xl0_v5's 78 accepted test positives (2 accepted empty, not counted): new 0.021008, old 0.039049; test positives under old 2, under new 2
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg
