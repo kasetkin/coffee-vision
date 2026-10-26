@@ -307,6 +307,10 @@ stages:
         model: ${seg_ft.weights}:models/seg/xl0_v4.pt
       xl0_v5:
         model: ${seg_ft.weights}:models/seg/xl0_v5.pt
+      xl0_v5_s42:
+        model: ${seg_ft.weights}:models/seg/xl0_v5_s42.pt
+      xl0_v5_s7:
+        model: ${seg_ft.weights}:models/seg/xl0_v5_s7.pt
     do:
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v5/${key}
       deps:
