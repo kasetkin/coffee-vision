@@ -30,6 +30,19 @@ assigns its own split (D13), and the tags only meant something for the guard's c
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
 
+## 2026-10-26: 10 grinder-hopper photos whose masks the owner declined
+
+- **New photos** (batch `2026-10-26`): 10 of 15 Brazil Sul de Minas grinder-hopper photos shot on 2026-10-26
+  (Sony `PIC_` and `PXL_` files). The owner judged all 15 on XL0-v5 seed 42's masks
+  (`labels/ml2/review/segpos_2026-10-26_xl0v5_s42.decisions.jsonl`): the 5 accepted joined `random_date_raccoon`'s
+  `class_013__Brazil_SulDeMinas`, the 10 declined stay here to be labelled.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  every nearest match under 0.73).
+- **Metadata** (ticket ML-3, D13): `coffeecv.strip_metadata --dry-run` finds all 15 clean (no GPS, nothing to
+  strip); they have no rows in `labels/ml3/strip_manifest.csv` (added by another session, not through it).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all ten (train 6, validation 2, test 2), with 10
+  pool photos topping the draw up to 186.
+
 ## 2026-10-25: 6 pool photos whose masks the owner had declined, for labelling
 
 - **Moved, not copied** (batch `2026-10-25`), by the owner's call: every photo `labels/ml3/pool_exclude.csv` kept out
