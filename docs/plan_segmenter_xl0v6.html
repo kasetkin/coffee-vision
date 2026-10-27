@@ -201,7 +201,7 @@
 
   <h2>6. P4 &mdash; pass8 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-27: prepared (352 positives, 453 negatives); waiting for the owner's verdicts</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
@@ -388,6 +388,26 @@
       after give the same <code>model.pt</code>, <code>model_unaugmented.pt</code> and predictions; killed with
       SIGKILL after its first chunk and rerun, it loads the train split and that chunk and gives them again, metrics
       equal but for timings. ADR 0025 amended.</div>
+    <div><div class="when">2026-10-27</div>/code-review of P1&ndash;P3. Spec: nothing missing; the fingerprints'
+      extra keys (library versions, batching) noted as safe; the directory was not flushed after a rename, now it is.
+      Not changed, by design: a real run with another <code>--out</code> leaves the default directory's features (D8
+      is per <code>--out</code>); the label-set hash is <code>labels.csv</code>'s <code>mask_sha256</code> column, as
+      the card's; the crops' version is <code>dvc.lock</code>'s, which <code>--allow-dirty</code> (smoke only) can make
+      stale. Standards: the atomic write, the fingerprint diff and the directory removal shared in
+      <code>repo_files</code>, the store's rebuild decision moved onto it; <code>CODE_DEPS</code> stays a list held
+      equal to <code>dvc.yaml</code> by a test (<code>296956f</code>).</div>
+    <div><div class="when">2026-10-27</div>P4 prepared: <code>seg_review label --session pass8 --proposer xl0_v5
+      --redraw xl0_v5 --recheck pass7 --prepare-only</code>: 352 positives (272 of pass7's accepted labels as round 1,
+      80 from the proposer: the positives appended since and pass7's one drop), 453 empty negative labels, every
+      positive's encoding stored (the encoder's weights are XL0's for every decoder, so earlier sessions' encodings
+      served; 80 encoded). The page is ready for the owner.</div>
+    <div><div class="when">2026-10-27</div>P7's fixture step (D9) started early, since no step after it changes its
+      inputs: <code>coffeecv_dino.reference</code> draws 448&nbsp;px boxes from the original photos, inside each
+      photo's middle half (drawn over the whole frame, 3 of the 15 boxes held only tray and table; in the middle
+      half all 15 are beans, opened at full size). Running <code>scripts/make_dinov3_fixture.py</code> (Meta's code)
+      was not permitted in this session, so the change waits on branch <code>ml13-p7-fixture</code>
+      (<code>a98e0ee</code>), where <code>test_matches_meta_reference</code> is red until the owner runs the script
+      or allows Claude to.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,

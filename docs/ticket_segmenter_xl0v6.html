@@ -15,7 +15,7 @@
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); pass8 prepared, waiting for the owner (P4)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -333,6 +333,13 @@
     <div><div class="when">2026-10-27</div>The owner answers plan Q3 as D10: Claude stops instead of shipping only if
       exp279's val macro-F1 is below 0.9 or a class's val F1 below 0.8. Every decision and plan question
       answered.</div>
+    <div><div class="when">2026-10-27</div>P1&ndash;P3 done (plan Activity): the 44 photos stripped, in DVC and
+      pushed, in the segmenter dataset (1,084 photos; train 26, validation 6, test 12 of them); the fine-tune and the
+      classifier fit resume after a reboot, each proved at toy scale and through the entry point against an
+      uninterrupted run and the code before. pass8 prepared (352 positives). Two pairs of the new photos, 5&nbsp;s
+      apart and close in content, fall in different splits under ADR 0029's 3&nbsp;s rule (folder README). P7's
+      fixture draw is written but waits on branch <code>ml13-p7-fixture</code>: running Meta's code was not
+      permitted in Claude's session. Next: the owner's pass8 (P4).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
