@@ -59,6 +59,16 @@ class ReferenceSet(unittest.TestCase):
             refs = probe.reference_items("ml5:pass9")
         self.assertEqual([r.path for r in refs], ["dataset/p0.jpg", "dataset/p3.jpg"])
 
+    def test_a_painted_label_is_not_a_reference(self):
+        """Ticket ML-11 R3: a painted mask has pixels the owner brushed, which no model draws from its points."""
+        stroke = {"mode": "erase", "r": 12.0, "path": [[0.1, 0.1], [0.2, 0.1]]}
+        rows = [{"path": f"dataset/p{k}.jpg", "mask": f"m{k}.png", "round": 2, "include": [[0.5, 0.5]],
+                 "exclude": [], "fence": None, "strokes": strokes} for k, strokes in enumerate([[], [stroke]])]
+        rows.append({k: v for k, v in rows[0].items() if k != "strokes"} | {"path": "dataset/p2.jpg"})  # before ML-11
+        with mock.patch("coffeecv.seg_review.accepted_labels", lambda session: rows):
+            refs = probe.reference_items("ml5:pass9")
+        self.assertEqual([r.path for r in refs], ["dataset/p0.jpg", "dataset/p2.jpg"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,10 +11,10 @@
     cannot exclude, nor fills a small hole inside a correct mask. The owner asks for a brush: hold e and drag to erase,
     hold w and drag to fill, with a see-through round cursor and a radius from 1 to 100 pixels set on the right
     panel. Written; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>,
-    P1&ndash;P3); not implemented.</p>
+    P1&ndash;P3); implemented and tried by the owner 2026-10-27; closed by the owner 2026-10-27.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-26; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>, P1&ndash;P3); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-10-27 by the owner; written 2026-10-26; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>, P1&ndash;P3); P1&ndash;P3 done 2026-10-27 (<code>ac9f831</code>, <code>aaa0578</code>, <code>f9d5914</code>); every acceptance item met</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: segmenter labelling page</span></div>
@@ -174,7 +174,7 @@
         <td>(a) Amend ADR 0015, as ML-9 D7 did for the fence: a label is the model's mask, fenced, then painted by
           the owner; a painted label is no reference for the point probe. (b) Keep painting out of labels.</td>
         <td><strong>(a), 2026-10-26</strong>: amend. The amendment is written when the brush works (plan
-          P2).</td></tr>
+          P2): <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>, amended 2026-10-27.</td></tr>
       <tr><td class="id">D7</td><td>What shows the strokes before Enter? The outline is drawn into the server's
           JPEG, so it cannot follow the brush (plan Q1).</td>
         <td>(a) The page draws the edited mask's outline itself, updated as the stroke is drawn. (b) A see-through
@@ -190,30 +190,37 @@
         <td>(a) Keep the undo; the page says "undone; Enter redraws to show it". (b) A second route serving the mask
           before strokes, at a decoder run per page load or a second stored mask per round.</td>
         <td><strong>(a), 2026-10-26</strong>, as recommended.</td></tr>
+      <tr><td class="id">D10</td><td>After Enter, do the strokes still show? The page reloads with the new mask, and
+          D7's tint showed only the strokes not yet sent (P3).</td>
+        <td>(a) Only the strokes not yet sent; the earlier ones are in the mask. (b) Every stroke so far, those that
+          drew the shown mask too, until U undoes one.</td>
+        <td><strong>(b), 2026-10-27</strong>, the owner trying the brush: "I want to see them so I can verify new
+          mask and see Undo change anything." An undone earlier stroke loses its tint at once; the mask changes at
+          Enter (D9).</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>Holding e (w) and dragging with the left button over the photo erases (fills)
+    <li><span class="box done"></span><span>Holding e (w) and dragging with the left button over the photo erases (fills)
       a disc of the set radius along the path; the stroke shows as it is drawn, tinted see-through light red (light
       green) over the photo (D7).</span></li>
-    <li><span class="box"></span><span>The cursor over the photo, while e or w is held, is a circle of the brush's
+    <li><span class="box done"></span><span>The cursor over the photo, while e or w is held, is a circle of the brush's
       size with a thin border and a see-through inside, in one colour for erase and another for fill.</span></li>
-    <li><span class="box"></span><span>A number field on the right panel sets the radius, 1&ndash;100 screen pixels,
+    <li><span class="box done"></span><span>A number field on the right panel sets the radius, 1&ndash;100 screen pixels,
       clamped; the stroke is recorded with that radius in photo pixels (D1); typing in it triggers no page
       key.</span></li>
-    <li><span class="box"></span><span>U and Backspace undo the last stroke, point or fence, in the order
+    <li><span class="box done"></span><span>U and Backspace undo the last stroke, point or fence, in the order
       made.</span></li>
-    <li><span class="box"></span><span>Enter sends the strokes; the server applies them after the model and the
+    <li><span class="box done"></span><span>Enter sends the strokes; the server applies them after the model and the
       fence, at full resolution, and refuses a redraw with nothing new, strokes counted.</span></li>
-    <li><span class="box"></span><span>Strokes (mode, radius, path) are recorded in the round's
+    <li><span class="box done"></span><span>Strokes (mode, radius, path) are recorded in the round's
       <code>index.csv</code> row, its verdict rows and <code>labels.csv</code>; rows written before have none and
       read as no strokes.</span></li>
-    <li><span class="box"></span><span>The point probe skips painted labels.</span></li>
-    <li><span class="box"></span><span>ADR 0015 amended (D6), and the <code>seg_review.py</code> docstring and
+    <li><span class="box done"></span><span>The point probe skips painted labels.</span></li>
+    <li><span class="box done"></span><span>ADR 0015 amended (D6), and the <code>seg_review.py</code> docstring and
       the page's key list describe the brush.</span></li>
-    <li><span class="box"></span><span>Tests in <code>tests/test_seg_review.py</code>: erase and fill paint the
+    <li><span class="box done"></span><span>Tests in <code>tests/test_seg_review.py</code>: erase and fill paint the
       right pixels, after the fence; strokes are recorded and carried to later rounds (D3); an old row reads as no strokes;
       a strokes-only redraw is accepted and an unchanged one refused.</span></li>
   </ul>
@@ -241,6 +248,21 @@
       the browser keeps the last value set.</div>
     <div><div class="when">2026-10-26</div>The owner answers plan Q2 as D9: a carried stroke's undo is kept, shown at
       the next Enter. Every plan question answered; P1 and P2 unblocked.</div>
+    <div><div class="when">2026-10-27</div>Claude implements plan P1 (<code>ac9f831</code>: strokes recorded, painted
+      on the server after the model and the fence, refused when nothing is new, a <code>strokes</code> column that old
+      rows lack and read as none; the point probe skips painted labels) and P2 (<code>aaa0578</code>: the brush, its
+      cursor, the radius field and the tint on the page; the <code>seg_review.py</code> docstring and the key list;
+      ADR 0015 amended, D6). Tests pin the geometry, the records, carrying, recheck and refusals;
+      <code>scripts/check.sh</code> green. No browser in the agent's container: the page's script was run in node
+      against a stub DOM, and the first two acceptance items, which need a screen, stay open for the owner in P3.
+      Status In progress.</div>
+    <div><div class="when">2026-10-27</div>The owner tries the brush on a scratch session (four training positives,
+      xl0_v5, under <code>/tmp</code>): e and w work and the mask changes at Enter, but the strokes vanished after it.
+      Decided as D10: every stroke so far stays tinted. Done in the page; the browser check goes on.</div>
+    <div><div class="when">2026-10-27</div>The owner, after D10: "'undo' and 'enter' work as intended now, I do not see
+      any problems." The two acceptance items that needed a screen are met. Every acceptance item ticked; Status stays
+      In progress for the owner to close.</div>
+    <div><div class="when">2026-10-27</div>Closed by the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9</a> (D7, the fence),
