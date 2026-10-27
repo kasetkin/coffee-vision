@@ -6,6 +6,7 @@ Read before moving data between machines, pushing to the remote, or committing a
 
 - **Use `dvc push` here and `dvc pull` (or `dvc fetch`) on the other machine.** Both verify hashes. Copying `.dvc/cache` objects with rsync or scp is retired: an interrupted `rsync --partial --ignore-existing` once left a truncated object under its final name, the retry skipped it, and a VM run failed with "image file is truncated".
 - **Push explicit targets** (`dvc push models/<name>.pt.dvc`) and verify the objects. `dvc push --all-commits` has reported "Everything is up to date" while an object it collected was missing from the remote.
+- **After the host reboots**, the remote (`dvcnewremote`, `webappremote`: yappy's Tailscale name) may not resolve here: Docker regenerates the container's `/etc/resolv.conf` with the LAN's resolver only, which knows no `*.ts.net` name ("Name or service not known"). Put Tailscale's resolver first, in place (the file is bind-mounted): `{ echo nameserver 100.100.100.100; cat /etc/resolv.conf; } > /tmp/r && sudo tee /etc/resolv.conf < /tmp/r > /dev/null`. Seen 2026-10-22 and 2026-10-27.
 - `--all-commits` reads `.dvc/config` as of each commit. A remote declared in `.dvc/config.local` without a `url` makes every older commit fail with `ConfigError: expected 'url'`, logged as a WARNING with exit 0 (323 commits silently skipped once). Keep a local override self-sufficient: `dvc remote modify --local <remote> url ...`.
 
 ## Trusting the result
@@ -39,7 +40,7 @@ Only `cache: false` outputs may come back missing, today `models/seg/xl0_v3.json
 
 ## What `dvc status` shows on a clean checkout
 
-Since 2026-10-20 the stages whose recipe moved on are frozen: `seg_ml6_finetune` (XL0-v3, ADR 0027) and `seg_ml5_predict@xl0_v3`. Since 2026-10-24 `seg_ml9_predict` too, ML-9 P4's record of a test split that has grown since. `dvc status` lists a frozen stage as frozen without checking it. ML-2's segmenter stages and ML-5's XL0-v1 and v2 were removed on 2026-10-21, and the ResNet trainer's `train` stage on 2026-10-20, each with its code; they are in git history, and their outputs in the DVC cache but for the encoder caches lost before (`data/seg_cache`, `data/seg_cache_ml5`, below). A clean checkout reports "Data and pipelines are up to date": anything else it reports is real.
+Since 2026-10-20 the stages whose recipe moved on are frozen: `seg_ml6_finetune` (XL0-v3, ADR 0027) and `seg_ml5_predict@xl0_v3`. Since 2026-10-24 `seg_ml9_predict` too, ML-9 P4's record of a test split that has grown since. Since 2026-10-27 `seg_xl0v5_predict` too, the record of XL0-v5's blind paired sessions, for the same reason. `dvc status` lists a frozen stage as frozen without checking it. ML-2's segmenter stages and ML-5's XL0-v1 and v2 were removed on 2026-10-21, and the ResNet trainer's `train` stage on 2026-10-20, each with its code; they are in git history, and their outputs in the DVC cache but for the encoder caches lost before (`data/seg_cache`, `data/seg_cache_ml5`, below). A clean checkout reports "Data and pipelines are up to date": anything else it reports is real.
 
 ## Cleaning the cache
 

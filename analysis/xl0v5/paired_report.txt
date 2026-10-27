@@ -1,0 +1,16 @@
+test positives, judged blind and paired (D22): xl0_v4 vs xl0_v5
+  pool                 n= 44  both pass  33  xl0_v4 only  1  xl0_v5 only 10  both fail  0  |  xl0_v4 34/44  xl0_v5 43/44  |  exact McNemar p = 0.0117
+  segmenter_positive   n= 47  both pass  27  xl0_v4 only  3  xl0_v5 only 10  both fail  7  |  xl0_v4 30/47  xl0_v5 37/47  |  exact McNemar p = 0.0923
+  overall              n= 91  both pass  60  xl0_v4 only  4  xl0_v5 only 20  both fail  7  |  xl0_v4 64/91  xl0_v5 80/91  |  exact McNemar p = 0.00154
+test negatives, empty / empty or tiny (area < 0.039049):
+  xl0_v4               156/160 empty, 156/160 empty or tiny
+    2026-09-11__user_samerig                         15/15 empty, 15/15 empty or tiny
+    2026-09__internet_proxy                          22/25 empty, 22/25 empty or tiny
+    user_realworld                                   119/120 empty, 119/120 empty or tiny
+  xl0_v5               119/160 empty, 154/160 empty or tiny
+    2026-09-11__user_samerig                         14/15 empty, 14/15 empty or tiny
+    2026-09__internet_proxy                          17/25 empty, 22/25 empty or tiny
+    user_realworld                                   88/120 empty, 118/120 empty or tiny
+tiny-mask threshold (D21) from xl0_v5's 78 accepted test positives (2 accepted empty, not counted): new 0.021008, old 0.039049; test positives under old 2, under new 2
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg
+  under old and new: dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg

@@ -1,0 +1,101 @@
+{
+  "models": [
+    "xl0_v4",
+    "xl0_v5"
+  ],
+  "min_area_frac": 0.039049,
+  "groups": {
+    "pool": {
+      "n": 44,
+      "both pass": 33,
+      "xl0_v4 only": 1,
+      "xl0_v5 only": 10,
+      "both fail": 0,
+      "xl0_v4 pass": 34,
+      "xl0_v5 pass": 43,
+      "mcnemar_p": 0.01171875
+    },
+    "segmenter_positive": {
+      "n": 47,
+      "both pass": 27,
+      "xl0_v4 only": 3,
+      "xl0_v5 only": 10,
+      "both fail": 7,
+      "xl0_v4 pass": 30,
+      "xl0_v5 pass": 37,
+      "mcnemar_p": 0.09228515625
+    },
+    "overall": {
+      "n": 91,
+      "both pass": 60,
+      "xl0_v4 only": 4,
+      "xl0_v5 only": 20,
+      "both fail": 7,
+      "xl0_v4 pass": 64,
+      "xl0_v5 pass": 80,
+      "mcnemar_p": 0.001543879508972168
+    }
+  },
+  "negatives": {
+    "xl0_v4": {
+      "n": 160,
+      "empty": 156,
+      "empty_or_tiny": 156,
+      "by_batch": {
+        "2026-09-11__user_samerig": {
+          "n": 15,
+          "empty": 15,
+          "empty_or_tiny": 15
+        },
+        "2026-09__internet_proxy": {
+          "n": 25,
+          "empty": 22,
+          "empty_or_tiny": 22
+        },
+        "user_realworld": {
+          "n": 120,
+          "empty": 119,
+          "empty_or_tiny": 119
+        }
+      }
+    },
+    "xl0_v5": {
+      "n": 160,
+      "empty": 119,
+      "empty_or_tiny": 154,
+      "by_batch": {
+        "2026-09-11__user_samerig": {
+          "n": 15,
+          "empty": 14,
+          "empty_or_tiny": 14
+        },
+        "2026-09__internet_proxy": {
+          "n": 25,
+          "empty": 17,
+          "empty_or_tiny": 22
+        },
+        "user_realworld": {
+          "n": 120,
+          "empty": 88,
+          "empty_or_tiny": 118
+        }
+      }
+    }
+  },
+  "tiny_threshold": {
+    "model": "xl0_v5",
+    "rule": "half the smallest accepted non-empty test-positive mask (ML-2 D18, ML-5 D21)",
+    "from_n_accepted": 78,
+    "accepted_empty": 2,
+    "old": 0.039049,
+    "new": 0.021008,
+    "under_old": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg"
+    ],
+    "under_new": [
+      "dataset/ood_positives_internet/internet_beans/internet_beans_002.jpg",
+      "dataset/ood_positives_internet/internet_beans/internet_beans_003.jpg"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+test negatives (160): empty / tiny (area < 0.039049) / larger
+  xl0_v5         119 /  35 /   6
+  xl0_v5_s42     120 /  35 /   5
+  xl0_v5_s7      143 /  14 /   3
+negatives where some model drew a non-tiny mask (6), area per model:
+  ood_negatives__2026-09-11__user_samerig__confusable_grain__PXL_20260911_111923713          0.443  0.000  0.000
+  ood_negatives__2026-09__internet_proxy__confusable_grain__confusable_grain_040             0.975  0.900  0.964
+  ood_negatives__2026-09__internet_proxy__other_nuts_seeds__other_nuts_seeds_022             0.232  0.099  0.023
+  ood_negatives__2026-09__internet_proxy__wrong_bean_type__wrong_bean_type_011               0.958  0.956  0.957
+  ood_negatives__user_realworld__20240312_205741                                             0.053  0.066  0.013
+  ood_negatives__user_realworld__20260317_193617                                             0.145  0.126  0.127
+
+test positives (91): identical masks / differing (largest disagreement >= 0.001)
+  2 identical, 56 differing below the bar, 33 listed
+listed, largest disagreement first (blob = share of the photo; IoU per pair; owner verdict per model):
+  0.1292  iou 0.892 0.368 0.399  owner dec dec -  segment segmenter_positives__PXL_20261008_074913048
+  0.0555  iou 0.726 0.925 0.764  owner acc dec -  segment segmenter_positives__PIC_20261025_131728
+  0.0268  iou 0.809 0.726 0.596  owner dec dec -  segment segmenter_positives__IMG_20261016_120539
+  0.0176  iou 0.968 0.961 0.976  owner acc dec -  segment segmenter_positives__PXL_20260924_104055590
+  0.0174  iou 0.989 0.831 0.839  owner acc dec -  segment segmenter_positives__PXL_20260724_114752775.RAW-01
+  0.0112  iou 0.892 0.962 0.894  owner dec dec -  segment segmenter_positives__PXL_20261018_041127921
+  0.0094  iou 0.983 0.711 0.699  owner acc dec -  segment segmenter_positives__IMG_6585
+  0.0043  iou 0.984 0.972 0.986  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_003__Colombia_PinkBourbon__PXL_20260807_075413640
+  0.0039  iou 0.984 0.974 0.988  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_004__CostaRica_LaPastora__PXL_20260807_074208543
+  0.0037  iou 0.990 0.960 0.969  owner dec acc -  segment segmenter_positives__PXL_20261018_041117629
+  0.0033  iou 0.997 0.992 0.990  owner acc acc -  segment segmenter_positives__PIC_20260924_152141
+  0.0033  iou 0.984 0.968 0.954  owner acc acc -  segment segmenter_positives__PXL_20260724_114729110.RAW-01
+  0.0030  iou 0.985 0.977 0.990  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_004__CostaRica_LaPastora__PXL_20260807_074652608
+  0.0029  iou 0.987 0.981 0.991  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_002__Kenya_AA__PXL_20260807_081158015
+  0.0029  iou 0.998 0.991 0.993  owner acc acc -  segment segmenter_positives__PXL_20261002_071216473
+  0.0028  iou 0.987 0.963 0.952  owner acc acc -  segment segmenter_positives__PXL_20260724_114930003.RAW-01
+  0.0028  iou 0.978 0.984 0.992  owner dec acc -  segment segmenter_positives__PXL_20261008_042418770
+  0.0028  iou 0.969 0.912 0.929  owner dec dec -  segment segmenter_positives__20261025_124107
+  0.0027  iou 0.983 0.976 0.990  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_004__CostaRica_LaPastora__PXL_20260807_074138771
+  0.0022  iou 0.997 0.990 0.989  owner acc dec -  pool    2026-08-25__oneplus__class_008__Ethiopia_Kochere__PXL_20260825_194521865
+  0.0019  iou 0.996 0.985 0.986  owner acc acc -  segment segmenter_positives__PXL_20261008_074853981
+  0.0019  iou 0.995 0.981 0.980  owner acc acc -  segment segmenter_positives__PXL_20261008_074902440
+  0.0017  iou 0.997 0.992 0.993  owner acc acc -  pool    2026-08-25__oneplus__class_004__CostaRica_LaPastora__PXL_20260825_195806798
+  0.0016  iou 0.998 0.993 0.992  owner acc acc -  segment segmenter_positives__IMG_6259D
+  0.0016  iou 1.000 0.997 0.997  owner acc acc -  pool    2026-08-09__pixel_cam__class_001__Ethiopia_Sidamo__PXL_20260809_131258734
+  0.0014  iou 0.996 0.995 0.992  owner acc acc -  segment segmenter_positives__PXL_20260921_064142067
+  0.0014  iou 1.000 0.999 0.999  owner acc acc -  segment segmenter_positives__PXL_20260921_064126147
+  0.0013  iou 0.997 0.991 0.990  owner acc acc -  pool    2026-08-25__iphone__class_006__Brazil_Cerrado__IMG_6248
+  0.0013  iou 0.993 0.995 0.992  owner acc acc -  segment segmenter_positives__PXL_20261025_112012816
+  0.0012  iou 0.988 0.987 0.994  owner acc acc -  pool    2026-08-07__box_pictures_all_classes__class_002__Kenya_AA__PXL_20260807_081134287
+  0.0011  iou 0.999 0.999 1.000  owner dec acc -  pool    2026-09-24__sony__class_012__Rwanda_Gisuma__PIC_20260924_145750
+  0.0011  iou 0.992 0.969 0.966  owner acc acc -  segment segmenter_positives__IMG_6583
+  0.0010  iou 1.000 0.959 0.959  owner acc acc -  pool    2026-09-11__oneplus__class_011__Peru_Minca__PXL_20260911_103852413

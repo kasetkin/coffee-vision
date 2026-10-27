@@ -1,0 +1,284 @@
+{
+ "runs": {
+  "276": {
+   "seed": 42,
+   "val_macro_f1": 0.9718141052097581,
+   "test_macro_f1": 0.9812563739461149,
+   "subsets": {
+    "all": {
+     "candidate": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9812563739461149,
+      "per_class_f1": {
+       "Ethiopia": 0.9875,
+       "Kenya": 0.9535603715170279,
+       "Colombia": 0.9657320872274143,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9526813880126183,
+       "Brazil": 0.978328173374613,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9841269841269841,
+       "Rwanda": 0.9968847352024922
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     },
+     "live": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9800220775676877,
+      "per_class_f1": {
+       "Ethiopia": 0.9844236760124611,
+       "Kenya": 0.9659442724458205,
+       "Colombia": 0.9584664536741214,
+       "CostaRica": 0.9905956112852664,
+       "Guatemala": 0.9444444444444444,
+       "Brazil": 0.9751552795031055,
+       "Vietnam": 1.0,
+       "Indonesia": 0.9905956112852664,
+       "Peru": 0.9937106918238994,
+       "Rwanda": 0.9968847352024922
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     }
+    },
+    "unseen by the live model": {
+     "candidate": {
+      "patches": 1341,
+      "photos": 165,
+      "macro_f1": 0.9803486421055894,
+      "per_class_f1": {
+       "Ethiopia": 0.987012987012987,
+       "Kenya": 0.9565217391304348,
+       "Colombia": 0.968421052631579,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9556962025316456,
+       "Brazil": 0.9635036496350365,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9877551020408163,
+       "Rwanda": 0.9908256880733946
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     },
+     "live": {
+      "patches": 1341,
+      "photos": 165,
+      "macro_f1": 0.9806629204151573,
+      "per_class_f1": {
+       "Ethiopia": 0.9838187702265372,
+       "Kenya": 0.9719626168224299,
+       "Colombia": 0.971830985915493,
+       "CostaRica": 0.9905956112852664,
+       "Guatemala": 0.9592476489028213,
+       "Brazil": 0.9558823529411765,
+       "Vietnam": 1.0,
+       "Indonesia": 0.9905956112852664,
+       "Peru": 0.991869918699187,
+       "Rwanda": 0.9908256880733946
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     }
+    }
+   }
+  },
+  "277": {
+   "seed": 123,
+   "val_macro_f1": 0.9666896866341889,
+   "test_macro_f1": 0.9697732213468345,
+   "subsets": {
+    "all": {
+     "candidate": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9697732213468345,
+      "per_class_f1": {
+       "Ethiopia": 0.9784615384615385,
+       "Kenya": 0.9716088328075709,
+       "Colombia": 0.9206349206349206,
+       "CostaRica": 0.9968652037617555,
+       "Guatemala": 0.8952380952380953,
+       "Brazil": 0.968944099378882,
+       "Vietnam": 0.9937888198757764,
+       "Indonesia": 1.0,
+       "Peru": 0.9815950920245399,
+       "Rwanda": 0.9905956112852664
+      },
+      "photo_accuracy": 0.9952153110047847,
+      "photos_wrong": [
+       "IMG_20261008_092817 (Guatemala as Colombia)"
+      ]
+     },
+     "live": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9811911263720022,
+      "per_class_f1": {
+       "Ethiopia": 0.9843260188087775,
+       "Kenya": 0.9814814814814815,
+       "Colombia": 0.9487179487179487,
+       "CostaRica": 0.9968652037617555,
+       "Guatemala": 0.9538461538461539,
+       "Brazil": 0.9650793650793651,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9815950920245399,
+       "Rwanda": 1.0
+      },
+      "photo_accuracy": 0.9952153110047847,
+      "photos_wrong": [
+       "PXL_20261025_060025090 (Brazil as Guatemala)"
+      ]
+     }
+    },
+    "unseen by the live model": {
+     "candidate": {
+      "patches": 551,
+      "photos": 74,
+      "macro_f1": 0.9714036725310965,
+      "per_class_f1": {
+       "Ethiopia": 1.0,
+       "Kenya": 1.0,
+       "Colombia": 0.907563025210084,
+       "CostaRica": 0.9937888198757764,
+       "Guatemala": 0.8913043478260869,
+       "Brazil": 0.9548387096774194,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9777777777777777,
+       "Rwanda": 0.9887640449438202
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     },
+     "live": {
+      "patches": 551,
+      "photos": 74,
+      "macro_f1": 0.9628071393783284,
+      "per_class_f1": {
+       "Ethiopia": 0.9838709677419355,
+       "Kenya": 0.9782608695652174,
+       "Colombia": 0.905982905982906,
+       "CostaRica": 0.9937888198757764,
+       "Guatemala": 0.8865979381443299,
+       "Brazil": 0.9333333333333333,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.946236559139785,
+       "Rwanda": 1.0
+      },
+      "photo_accuracy": 0.9864864864864865,
+      "photos_wrong": [
+       "PXL_20261025_060025090 (Brazil as Guatemala)"
+      ]
+     }
+    }
+   }
+  },
+  "278": {
+   "seed": 7,
+   "val_macro_f1": 0.9614320591232854,
+   "test_macro_f1": 0.9694026305875674,
+   "subsets": {
+    "all": {
+     "candidate": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9694026305875674,
+      "per_class_f1": {
+       "Ethiopia": 0.9508196721311475,
+       "Kenya": 0.9842271293375394,
+       "Colombia": 0.9404388714733543,
+       "CostaRica": 0.9874213836477987,
+       "Guatemala": 0.9365558912386707,
+       "Brazil": 0.9659442724458205,
+       "Vietnam": 1.0,
+       "Indonesia": 0.9876543209876543,
+       "Peru": 0.9503105590062112,
+       "Rwanda": 0.9906542056074766
+      },
+      "photo_accuracy": 0.9904306220095693,
+      "photos_wrong": [
+       "PXL_20260927_101610945 (Ethiopia as Peru)",
+       "PXL_20260927_103241427 (Ethiopia as Peru)"
+      ]
+     },
+     "live": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9731321668992869,
+      "per_class_f1": {
+       "Ethiopia": 0.9615384615384616,
+       "Kenya": 0.9777777777777777,
+       "Colombia": 0.9538461538461539,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.950920245398773,
+       "Brazil": 0.9490445859872612,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9567901234567902,
+       "Rwanda": 0.9876543209876543
+      },
+      "photo_accuracy": 0.9904306220095693,
+      "photos_wrong": [
+       "PXL_20260927_103241427 (Ethiopia as Peru)",
+       "PXL_20261022_060003330 (Brazil as Colombia)"
+      ]
+     }
+    },
+    "unseen by the live model": {
+     "candidate": {
+      "patches": 453,
+      "photos": 60,
+      "macro_f1": 0.9602831577834522,
+      "per_class_f1": {
+       "Ethiopia": 0.8888888888888888,
+       "Kenya": 0.9696969696969697,
+       "Colombia": 0.9555555555555556,
+       "CostaRica": 0.9821428571428571,
+       "Guatemala": 0.9137931034482759,
+       "Brazil": 0.9724770642201835,
+       "Vietnam": 1.0,
+       "Indonesia": 0.989010989010989,
+       "Peru": 0.9534883720930233,
+       "Rwanda": 0.9777777777777777
+      },
+      "photo_accuracy": 0.9833333333333333,
+      "photos_wrong": [
+       "PXL_20260927_103241427 (Ethiopia as Peru)"
+      ]
+     },
+     "live": {
+      "patches": 453,
+      "photos": 60,
+      "macro_f1": 0.9452905246926985,
+      "per_class_f1": {
+       "Ethiopia": 0.8727272727272727,
+       "Kenya": 0.9375,
+       "Colombia": 0.9130434782608695,
+       "CostaRica": 1.0,
+       "Guatemala": 0.9464285714285714,
+       "Brazil": 0.9038461538461539,
+       "Vietnam": 1.0,
+       "Indonesia": 1.0,
+       "Peru": 0.9010989010989011,
+       "Rwanda": 0.9782608695652174
+      },
+      "photo_accuracy": 0.9666666666666667,
+      "photos_wrong": [
+       "PXL_20260927_103241427 (Ethiopia as Peru)",
+       "PXL_20261022_060003330 (Brazil as Colombia)"
+      ]
+     }
+    }
+   }
+  }
+ },
+ "live": "dino3b16_segxl0v4_country_aug8_s42",
+ "live_trained_photos": 926
+}

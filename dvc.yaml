@@ -262,18 +262,89 @@ stages:
       outs:
         - data/seg_masks_ml9/${key}
 
+  # XL0-v5 (owner, 2026-10-25): XL0-v4's recipe on the owner's pass-7 labels, the re-review of every training and
+  # validation label (seg_review --recheck pass6; 179 of 263 redrawn) and the positives of 2026-10-25. Only the
+  # labels differ from seg_ml9_finetune@xl0_v4: params.yaml's seg_ft at lr 1e-4 (ML-9 D8), 8 threads. Seed 123
+  # first, as XL0-v4; seeds 42 and 7 weigh it over seeds (ADR 0002), one run at a time (12 cores; ML-9 P3b).
+  seg_xl0v5_finetune:
+    foreach:
+      xl0_v5:
+        labels: pass7
+        seed: 123
+      xl0_v5_s42:
+        labels: pass7
+        seed: 42
+      xl0_v5_s7:
+        labels: pass7
+        seed: 7
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
+  # XL0-v5 against XL0-v4, the live segmenter, on today's test split, for the owner's blind paired review
+  # (seg_review paired). Both afresh: seg_ml9_predict's masks are frozen and predate the appends of 2026-10-24 and
+  # 2026-10-25. XL0-v5 is passed as WEIGHTS:DECODER, so segment_beans.py, a dep of every segcrop stage, changes only if
+  # it is adopted.
+  # Frozen 2026-10-27: the record the owner's blind paired sessions judged (xl0v5_test, xl0v5_seeds_test), made before
+  # the segmenter dataset appended the 10 positives of 2026-10-26 and their pool draw (its test split has 4 photos more
+  # than these masks).
+  seg_xl0v5_predict:
+    foreach:
+      xl0_v4:
+        model: ${seg_ft.weights}:models/seg/xl0_v4.pt
+      xl0_v5:
+        model: ${seg_ft.weights}:models/seg/xl0_v5.pt
+      xl0_v5_s42:
+        model: ${seg_ft.weights}:models/seg/xl0_v5_s42.pt
+      xl0_v5_s7:
+        model: ${seg_ft.weights}:models/seg/xl0_v5_s7.pt
+    do:
+      frozen: true
+      cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v5/${key}
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml5/seg_dataset.yaml
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/${key}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks_xl0v5/${key}
+
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
   # accelerator and precision per graph (ADR 0019): gpu_split is yappy's; a new host is measured, then named here.
-  # Live since 2026-10-24 (ticket ML-9): dino3b16_segxl0v4_country_aug8_s42; the two above it are the releases before it.
+  # Live since 2026-10-27: dino3b16_segxl0v5_country_aug8_s42; the three above it are the releases before it.
   # Each model names the decoder its card was trained with (training_config.seg_decoder), which the export converts:
-  # ticket ML-9's candidate is the first on XL0-v4.
+  # ticket ML-9's candidate is the first on XL0-v4, the XL0-v5 candidate (exp276) the first on XL0-v5.
   litert_export:
     foreach:
       allrigs_dino3b16_segxl0v3_country_s42: {seg: xl0_v3}
       dino3b16_segxl0v3_country_aug8_s123: {seg: xl0_v3}
       dino3b16_segxl0v4_country_aug8_s42: {seg: xl0_v4}
+      dino3b16_segxl0v5_country_aug8_s42: {seg: xl0_v5}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split

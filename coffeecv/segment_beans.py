@@ -346,9 +346,10 @@ def decoder_base(decoder: str) -> str:
 # ML-5 P6: the segmenters the review page and the point probe take by name: pretrained weights, or a fine-tuned
 # decoder over the base its card names (decoder_base). A new fine-tune is passed as WEIGHTS:DECODER until it is
 # named here. ML-2's ft_s123 and XL0-v1, v2 left with their stages on 2026-10-21. XL0-v4 named when adopted (ML-9
-# D4, 2026-10-23).
+# D4, 2026-10-23), XL0-v5 too (the owner, 2026-10-26).
 NAMED_SEGMENTERS = {"pretrained_l0": (weights_for("l0"), None), "pretrained_xl0": (weights_for("xl0"), None),
-                    "xl0_v3": (None, "models/seg/xl0_v3.pt"), "xl0_v4": (None, "models/seg/xl0_v4.pt")}
+                    "xl0_v3": (None, "models/seg/xl0_v3.pt"), "xl0_v4": (None, "models/seg/xl0_v4.pt"),
+                    "xl0_v5": (None, "models/seg/xl0_v5.pt")}
 
 
 def named_params(name: str, mask_select: str = "multi3") -> SegParams:

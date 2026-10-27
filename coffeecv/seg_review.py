@@ -871,12 +871,16 @@ def tiny_threshold(items: list[dict], verdicts: dict[str, dict[str, bool]], mode
                    old: float) -> dict:
     """D21, ML-2 D18's rule on the new test split: half the smallest area (mask pixels / photo pixels) among the
     chosen model's test-positive masks the owner accepted; and which test positives of that model fall under the
-    old and the new value (empty masks included). `areas` {item: area} for that model's masks."""
+    old and the new value (empty masks included). `areas` {item: area} for that model's masks. An accepted empty
+    mask (a photo the owner judged to hold no pile, the accept rule's point 4) sets nothing: half of 0 would let
+    every speck crop (XL0-v5, 2026-10-26)."""
     accepted = [areas[it["item"]] for it in items if verdicts[it["item"]][model]]
-    new = round(0.5 * min(accepted), 6) if accepted else None
+    sized = [a for a in accepted if a > 0]
+    new = round(0.5 * min(sized), 6) if sized else None
     under = lambda t: [it["path"] for it in items if t is not None and areas[it["item"]] < t]  # noqa: E731
-    return {"model": model, "rule": "half the smallest accepted test-positive mask (ML-2 D18, ML-5 D21)",
-            "from_n_accepted": len(accepted), "old": old, "new": new, "under_old": under(old), "under_new": under(new)}
+    return {"model": model, "rule": "half the smallest accepted non-empty test-positive mask (ML-2 D18, ML-5 D21)",
+            "from_n_accepted": len(sized), "accepted_empty": len(accepted) - len(sized), "old": old, "new": new,
+            "under_old": under(old), "under_new": under(new)}
 
 
 def print_paired_report(rep: dict) -> None:
@@ -892,7 +896,8 @@ def print_paired_report(rep: dict) -> None:
         for batch, b in c["by_batch"].items():
             print(f"    {batch:48s} {b['empty']}/{b['n']} empty, {b['empty_or_tiny']}/{b['n']} empty or tiny")
     if t := rep.get("tiny_threshold"):
-        print(f"tiny-mask threshold (D21) from {t['model']}'s {t['from_n_accepted']} accepted test positives: "
+        empty = f" ({t['accepted_empty']} accepted empty, not counted)" if t.get("accepted_empty") else ""
+        print(f"tiny-mask threshold (D21) from {t['model']}'s {t['from_n_accepted']} accepted test positives{empty}: "
               f"new {t['new']}, old {t['old']}; test positives under old {len(t['under_old'])}, "
               f"under new {len(t['under_new'])}")
         for path in sorted(set(t["under_old"]) | set(t["under_new"])):
