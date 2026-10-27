@@ -1,0 +1,327 @@
+<title>Segmenter XL0-v6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-13 · coffee-vision · new photos, segmenter labels and fine-tune, re-crop, classifier retrain, release</div>
+  <h1>Add the 44 photos of 2026-10-27, re-review every positive's label with the brush, fine-tune the segmenter (XL0-v6) and retrain the classifier on its crops</h1>
+  <p class="lede">The owner put 44 new Colombia and Guatemala photos into <code>dataset/segmenter_positives</code> on
+    2026-10-27. This ticket has two parts. First, the photos go through every usual intake step: metadata stripped,
+    DVC, manifest, segmenter dataset. Second, and the main point: the owner re-reviews every training and validation
+    positive's label on the labelling page, fixing masks with ML-11's brush; a new segmenter, XL0-v6, is fine-tuned on
+    those labels at one seed; and, because a new segmenter changes every crop, the classifier is retrained at one seed
+    and shipped. Both training scripts also learn to resume after a host reboot (D7, D8). Written; D1&ndash;D9 decided;
+    planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-27; D1&ndash;D9 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9); not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_review.py</code> (session pass8), <code>data/ml5_labels/pass8</code>, <code>coffeecv/seg_finetune.py</code> and <code>coffeecv/fit_frozen_head.py</code> (resume, D7), <code>dvc.yaml</code> (XL0-v6's fine-tune and predict stages, <code>segcrop</code>, <code>merge_segpool</code>, <code>litert_export</code>), <code>params.yaml</code> (<code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>models/seg/</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>models/</code>, <code>tests/fixtures/dinov3_vits16_reference.npz</code>, the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation, the shipped model, the deploy), Alex (decisions, every label verdict and brush fix, the blind comparison)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-27</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The last step deploys the new models through <a href="agents/deploy.md">docs/agents/deploy.md</a>, on Claude's go (D6); a deploy stops photo answers while it runs (<a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>), the page stays up. Nothing changes on the live site before it.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">builds on ML-12's XL0-v5 (live) and ML-11's brush (merge <code>acd949b</code>)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-27.</strong> "I've added new photos to the dataset. Create ticket. Inside this
+      ticket we will do two things. First we will add photos (like always, all steps). Second step is segmenter
+      retraining (the main point) and classifier retrain (because we can not use the old one with new segmenter).
+      During segmenter retrain I will inspect ALL true positive masks in the dataset and use updated in ML-11 web-tool
+      with new functionality to fix masks. All other steps will be as usual."</p>
+    <p><strong>Then, the same day.</strong> D1&ndash;D6 answered, and: "I want you to fix training (both segmenter and
+      classifier) scripts so they save the best metrics checkpoint to the disk during training, so we can resume if
+      host reboots."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the live models are XL0-v5 (<code>xl0_v5</code>, fine-tuned on the pass7 labels,
+    <a href="ticket_segmenter_xl0v5.html">ML-12</a>) and the classifier
+    <code>dino3b16_segxl0v5_country_aug8_s42</code> (exp276). Every pass7 label is the model's mask, at most fenced: the
+    brush (<a href="ticket_seg_review_painter.html">ML-11</a>) did not exist then. After this ticket the 44 photos of
+    2026-10-27 are in the data, every training and validation positive carries a label the owner judged in a new
+    session, pass8, with the brush where the model could not get a mask right, and XL0-v6, fine-tuned on pass8, cuts
+    every crop the classifier trains on and the site serves.</p>
+  <p>The parts, in order:</p>
+  <ol>
+    <li><strong>Intake</strong> (part one, as on 2026-10-25 and 26): strip private metadata, check for duplicates,
+      <code>dvc add</code>, manifest rows and a README section, append to the segmenter dataset. The 44 stay segmenter
+      positives (D1).</li>
+    <li><strong>Resume</strong> (D7): the segmenter fine-tune writes its best checkpoint and its state after every epoch
+      and continues from them after a reboot; the classifier fit saves its computed features as it goes and resumes
+      from them, and they are deleted before the next experiment (D8).</li>
+    <li><strong>pass8</strong>: <code>seg_review label --session pass8 --recheck pass7</code> with XL0-v5 as proposer
+      and redraw model; the owner judges every training and validation positive (D2), fixing masks with points, the
+      fence and the brush.</li>
+    <li><strong>XL0-v6</strong>: fine-tuned on pass8 at one seed (D3), judged blind against XL0-v5 on the test split
+      (D4), adopted on that and its tiny-mask threshold re-derived (ML-12 D4's rule).</li>
+    <li><strong>Re-crop and retrain</strong>: every session re-cropped, the classifier
+      at one seed, its OOD probe refit (<a href="agents/experiments.md">experiments.md</a>, "Changing the segmenter"),
+      without waiting for the owner's review of the re-crop (D5). Before it, the DINOv3 fixture's inputs move to the
+      original photos, so this re-crop and every later one leave it alone (D9).</li>
+    <li><strong>Ship</strong>: Claude ships the run (D6); the LiteRT export within ML-7 D7's bars, DVC and git pushed,
+      deployed and verified on the domain.</li>
+  </ol>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The new photos</strong>, read from the workspace on 2026-10-27: 44 files in
+      <code>dataset/segmenter_positives</code> that its committed <code>.dvc</code> does not list (186 listed, 230
+      present, none removed), all shot on 2026-10-27 and named <code>20261027_HHMMSS_&lt;phone&gt;_&lt;country&gt;</code>.
+      20 Colombia (JPEG, four phones) and 24 Guatemala (18 JPEG, and 6 Pixel DNG raws of 17&ndash;56 MB). No other
+      <code>dataset/</code> folder changed (<code>dvc status</code>). The name's time parses as
+      <code>seg_dataset.shot_time</code>'s file-name clock, which groups shots within 3 s
+      (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</li>
+    <li><strong>Their metadata.</strong> <code>coffeecv.strip_metadata --dry-run</code> on the folder: all 44 carry
+      private tags (EXIF GPS among them; Sony maker notes, C2PA), 0 fail a check; the 186 older photos are clean. The
+      six DNGs keep their RAW preview, as the owner decided for every RAW on 2026-10-05
+      (<a href="ticket_country_classes.html">ML-3</a> D13). They are stripped before anything else touches them
+      (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>).</li>
+    <li><strong>The segmenter dataset</strong> (<code>labels/ml5/seg_dataset.yaml</code>, append-only, ML-5 D11) holds
+      996 photos: 186 segmenter positives, 186 pool photos drawn to match them in number (ML-5 D12), 11 internet
+      positives, 613 negatives; split 60/15/25 within each source. Its positives: 288 train and validation, 95 test.
+      44 new segmenter positives add 44 to the pool draw: about 1,084 photos, about 66 more train and validation
+      positives and 22 more test ones, as the split falls.</li>
+    <li><strong>The labels.</strong> pass7 (<code>--recheck pass6</code>, proposer and redraw XL0-v4, seven rounds,
+      <a href="adr/0030-a-label-gets-seven-rounds.md">ADR 0030</a>) accepted 272 positives and dropped 1. The 15 or so
+      train and validation positives appended on 2026-10-26 (<code>ab61da2</code>) have no label yet. A
+      <code>--recheck</code> session shows every train and validation positive: a pass7 label with the same sha256
+      starts as round 1 with the points and fence that drew it; the rest start from the proposer's mask. Test positives
+      get no label: they are judged blind, per model, in the paired mode (ML-5 D22).</li>
+    <li><strong>The brush</strong> (ML-11, closed 2026-10-27): hold e to erase, w to fill, the radius set on the right
+      panel; strokes are recorded with the round, painted after the model and the fence, and carry to later rounds. A
+      label is the model's mask, fenced, then painted (<a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR
+      0015</a>, amended); the point probe skips painted labels. pass8 is the first session to use it on real labels
+      (ML-11, Out of scope).</li>
+    <li><strong>The recipe.</strong> XL0-v5's (ML-12 D1): <code>params.yaml</code>'s <code>seg_ft</code> at lr 1e-4,
+      from the pretrained EfficientViT-SAM XL0 weights, 8 threads; each best epoch kept. A seed took 5.2&ndash;6.0 h.
+      <code>seg_xl0v5_predict</code> is frozen, the record of ML-12's blind sessions (<a href="agents/dvc.md">dvc.md</a>),
+      so the grown test split needs a predict stage of its own.</li>
+    <li><strong>Training state today.</strong> <code>seg_finetune.train</code> holds the best epoch's decoder in memory
+      and writes <code>models/seg/&lt;name&gt;.pt</code> once, at the end. <code>fit_frozen_head</code> has no epochs: it
+      embeds every patch and its 8 augmented views (about 2.3 h of the views alone per seed), then makes one convex fit
+      at the fixed C, all in memory (<a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a>). A
+      reboot loses all of either: ML-9's XL0-v4 restarted once, and ML-12's first classifier run died about 7 h in.</li>
+    <li><strong>The classifier.</strong> exp276&ndash;278 (frozen DINOv3 ViT-B/16, <code>cls_mean</code>, C = 0.1, 8
+      augmented views per patch): val 0.9614&ndash;0.9718, test 0.9694&ndash;0.9813 patch macro-F1, on a pool of 1,376
+      photos; exp276 is seed 42, val 0.9718, test 0.9813. The next run is exp279.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>44 photos in <code>segmenter_positives</code>, outside DVC, with GPS and other private tags.</li>
+        <li>The segmenter dataset holds 996 photos; about 15 of its train and validation positives have no label.</li>
+        <li>Every label is a model's mask, perhaps fenced; none painted.</li>
+        <li>A reboot during a fine-tune or a classifier fit loses the whole run.</li>
+        <li>XL0-v5 (pass7) cuts every crop, tiny-mask threshold 0.021008.</li>
+        <li>Live: <code>dino3b16_segxl0v5_country_aug8_s42</code> (exp276).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The 44 photos stripped, in DVC and pushed, in the manifest and the README, and in the segmenter dataset as
+          segmenter positives (D1).</li>
+        <li>pass8: every training and validation positive judged by the owner, fixed with the brush where needed
+          (D2).</li>
+        <li>The fine-tune keeps its best checkpoint on disk as it trains, the classifier fit its computed features; both
+          resume after a reboot, and leave nothing behind for the next experiment (D7, D8).</li>
+        <li>XL0-v6 (pass8, seed 123), judged blind against XL0-v5, cuts every crop at its re-derived threshold.</li>
+        <li>exp279 (seed 42) on XL0-v6's crops, with its refit probe, converted and live (D6).</li>
+        <li><code>docs/status.md</code>, the README and <code>docs/inference_path.html</code> name the new models.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The owner judges every label</strong> (ADR 0015) <strong>and the blind comparison</strong>; nothing is
+      adopted on a numeric gate.</li>
+    <li><strong>Seven rounds per label</strong> (ADR 0030).</li>
+    <li><strong>The segmenter dataset's rules</strong>: append-only, the pool side drawn to match the positives (ML-5
+      D12), shots grouped within 3 s (ADR 0029).</li>
+    <li><strong>The classifier's pool</strong>: no photo joins or leaves it (D1), so exp279's split is exp276's.</li>
+    <li><strong>The recipes</strong>: XL0-v6's card differs from <code>xl0_v5.json</code>'s only in the labels;
+      exp279's config differs from exp276's only in the decoder and the threshold. A resumed run trains as an
+      uninterrupted one would (D7).</li>
+    <li><strong>The OOD guard</strong>: a probe at the fixed 0.5 (<a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR
+      0016</a>), refit on the shipped checkpoint.</li>
+    <li><strong>Serving</strong>: LiteRT on the host's GPU (<a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR
+      0019</a>); a conversion serves only within ML-7 D7's bars (<a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR
+      0020</a>).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The new photos carry GPS.</strong></td>
+        <td>The dry run above: all 44. They are gitignored and outside DVC today, so nothing has left the machine. The
+          strip runs first, with rows in <code>labels/ml3/strip_manifest.csv</code>, and a second dry run must find
+          them clean before <code>dvc add</code> and any push.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The owner's time.</strong></td>
+        <td>pass7 showed 273 positives; pass8 shows about 354 (D2), each with up to seven rounds, then about 117 test
+          positives judged blind. The session is resumable, and pass7's accepted labels start as round 1, so a good one
+          costs one key.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Painted labels are new to a fine-tune.</strong></td>
+        <td>A painted edge is a disc's, not a model's; nothing has trained on one yet. The blind comparison against
+          XL0-v5 on the test split, whose masks no brush touched, measures what XL0-v6 learned; the point probe already
+          skips painted labels (ML-11).</td></tr>
+      <tr><td class="id">R4</td><td><strong>One seed each departs from ADR 0002.</strong></td>
+        <td><a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a> asks for seeds 42, 123 and 7, paired: seed
+          spread here is larger than the effects measured, and single-seed wins have reversed. The fine-tune's score swung
+          0.635&ndash;0.973 between epochs and seeds (ML-12 R2). The owner's decision for this ticket (D3, D6), not a
+          change to the ADR. Mitigation: each run is paired with its predecessor at the same seed (XL0-v6 with
+          <code>xl0_v5</code> at 123, exp279 with exp276 at 42), so the labels and the crops are each the one
+          difference; the segmenter is adopted on the owner's blind judgement, not its score; the report says it is one
+          seed.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The blind comparison is on a grown test split.</strong></td>
+        <td>About 117 test positives, not ML-12's 91 (95 since 2026-10-26). XL0-v5 is predicted on the same photos in
+          XL0-v6's new predict stage, so the pair is like for like; the numbers are not comparable with ML-12's.</td></tr>
+      <tr><td class="id">R6</td><td><strong>The classifier trains on crops the owner has not seen.</strong></td>
+        <td>D5. Gained and lost coverage reported per photo, sheets for the owner's later review, as in ML-12 R3.</td></tr>
+      <tr><td class="id">R7</td><td><strong>A resumed run could differ from an uninterrupted one.</strong></td>
+        <td>A resume that restored the weights but not the optimizer, the schedule or a random stream would train a
+          different model with nothing to show it. The resume state holds all of them and a fingerprint of the run's
+          inputs; a run whose fingerprint differs never resumes from it: the leftovers are deleted, logged, and the run
+          starts fresh (D8). A toy run interrupted and resumed must give the same
+          checkpoint, byte for byte, as one run straight through (plan P2, P3).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Where do the 44 photos go?</td>
+        <td>(a) All stay segmenter positives, as placed: all 44 in the segmenter dataset, none in the classifier's
+          pool, which stays as it is. (b) As on 2026-10-26: the owner judges XL0-v5's masks of the 44; the accepted
+          ones move to <code>random_date_raccoon</code>'s class folder and train the classifier, the declined ones stay
+          here.</td>
+        <td><strong>(a)</strong>, 2026-10-27, as recommended: "new photos stay in segmenter-only folder".</td></tr>
+      <tr><td class="id">D2</td><td>"ALL true positive masks": which positives does the owner judge?</td>
+        <td>(a) Every training and validation positive, in pass8 (<code>--recheck pass7</code>, proposer and redraw
+          <code>xl0_v5</code>): about 354. The test positives get no label and are judged blind, per model. (b) The test
+          positives too, as labels (ML-5 D22 would change).</td>
+        <td><strong>(a)</strong>, 2026-10-27, as recommended: "every training and validation".</td></tr>
+      <tr><td class="id">D3</td><td>How is XL0-v6 trained?</td>
+        <td>(a) XL0-v5's recipe on pass8, seeds 123, 42 and 7, one at a time (about 18 h). (b) One seed.</td>
+        <td><strong>(b)</strong>, 2026-10-27: "take only 1 seed, it's my decision". Seed 123, XL0-v5's own, so labels
+          are the one difference from <code>xl0_v5</code>. Departs from ADR 0002 for this ticket (R4).</td></tr>
+      <tr><td class="id">D4</td><td>How is XL0-v6 judged?</td>
+        <td>As ML-12 D2: (a) a blind paired session, XL0-v6 against XL0-v5, on the test positives, with the test
+          negatives' emptiness. (b) Another way.</td>
+        <td><strong>(a)</strong>, 2026-10-27 ("okay"). With one seed (D3) there are no seeds to compare.</td></tr>
+      <tr><td class="id">D5</td><td>Does the classifier's training wait for the owner's review of the re-crop?</td>
+        <td>(a) Stop for it. (b) Train on the new crops, the sheets for later; <code>pool_exclude.csv</code> unchanged
+          (ML-12 D5).</td>
+        <td><strong>(b)</strong>, 2026-10-27: "start classifier training without waiting for my segmenter
+          review".</td></tr>
+      <tr><td class="id">D6</td><td>Who picks the shipped model and deploys?</td>
+        <td>(a) The owner, after the results. (b) Claude: the run converted, git pushed to origin and DVC to the remote,
+          deployed and verified on the domain (ML-12 D6).</td>
+        <td><strong>(b)</strong>, 2026-10-27: "you select model yourself. [&hellip;] We will run only one seed
+          experiment for segmenter and only 1 seed for classifier." Seed 42, exp276's, so the crops are the one
+          difference from the live model. Departs from ADR 0002 for this ticket (R4).</td></tr>
+      <tr><td class="id">D7</td><td>Can a training run survive a host reboot?</td>
+        <td>The owner's request: both training scripts save the best checkpoint to disk as they train, and resume.</td>
+        <td><strong>Yes</strong>, 2026-10-27: "fix training (both segmenter and classifier) scripts so they save the
+          best metrics checkpoint to the disk during training, so we can resume if host reboots". The segmenter has
+          epochs and a best one; the classifier fit has neither, so what it saves is D8.</td></tr>
+      <tr><td class="id">D8</td><td>What does the classifier fit save so it can resume? It has no epochs; its
+          hours go into the embeddings, which ADR 0025 keeps in memory (plan Q1).</td>
+        <td>(a) Each split's embeddings, and the training views' in chunks, on disk as they are computed; a rerun
+          loads them and embeds the rest. About 330 MB of views per seed. (b) Nothing: a reboot restarts the fit.</td>
+        <td><strong>(a)</strong>, 2026-10-27: "save computed features to the disk, but delete them before launching
+          next experiment so they will not polute disk". They go when the seed's run directory is written, and a run
+          that finds another run's leftovers deletes them before it starts; the fine-tune's resume state follows the
+          same rule. Amends <a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a> (plan
+          P3).</td></tr>
+      <tr><td class="id">D9</td><td>The DINOv3 fixture turns red at every re-crop: its test draws its input patches
+          from the pool crops, though it checks only the backbone against Meta's code (plan Q2).</td>
+        <td>(a) Regenerate it after this re-crop, as before. (b) Draw the inputs from the original photos in
+          <code>dataset/</code>, which no re-crop touches, and regenerate it one last time. (c) Skip the test until a
+          backbone change needs it.</td>
+        <td><strong>(b)</strong>, 2026-10-27, as recommended. Claude runs Meta's code that one time (plan P7).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The 44 photos stripped (a dry run then finds them clean), checked for duplicates
+      with <code>coffeecv.find_duplicates</code>, in DVC and pushed; manifest rows (batch <code>2026-10-27</code>) and a
+      README section.</span></li>
+    <li><span class="box"></span><span>The segmenter dataset appended (<code>seg_dataset build</code>), no listed entry
+      changed; <code>test_seg_dataset</code> and <code>test_segmenter_positives</code> pass in full.</span></li>
+    <li><span class="box"></span><span><code>seg_finetune</code> writes its best checkpoint and its resume state after
+      every epoch and resumes from them; a toy run interrupted and resumed gives the same checkpoint as one run straight
+      through; a run with other inputs deletes the leftovers and starts fresh.</span></li>
+    <li><span class="box"></span><span><code>fit_frozen_head</code> saves its computed features and resumes from them (D8), proved the same way;
+      they are gone after the run; ADR 0025 amended.</span></li>
+    <li><span class="box"></span><span>pass8 done: every training and validation positive judged by the owner, its
+      labels in DVC and its verdicts in git; <code>seg_review status</code> reports accepted, dropped and painted per
+      source.</span></li>
+    <li><span class="box"></span><span>XL0-v6 (seed 123) fine-tuned in its own DVC stage; its best epoch and score
+      recorded.</span></li>
+    <li><span class="box"></span><span>XL0-v6 judged blind against XL0-v5 on the test split, adopted as
+      <code>xl0_v6</code> if the owner's verdicts favour it, its threshold re-derived; the report in
+      <code>analysis/xl0v6/</code>.</span></li>
+    <li><span class="box"></span><span>Every session re-cropped (<code>segcrop</code> stages, then
+      <code>merge_segpool</code>), coverage changes reported, sheets for the owner's later review (D5).</span></li>
+    <li><span class="box"></span><span>The DINOv3 fixture's 15 input patches drawn from the original photos in
+      <code>dataset/</code>, the fixture regenerated one last time, and its step gone from experiments.md's "Changing
+      the segmenter"; <code>test_dino_backbone</code> passes before and after the re-crop (D9).</span></li>
+    <li><span class="box"></span><span>exp279 (seed 42) as a recorded run, paired with exp276 with per-class F1, its
+      OOD probe refit and measured with <code>ood_eval</code>; the report says it is one seed.</span></li>
+    <li><span class="box"></span><span>The candidate converted within ML-7 D7's bars; DVC pushed and every object verified
+      on the remote; main pushed; deployed and verified on the domain (D6); <code>docs/status.md</code>, the README and
+      <code>docs/inference_path.html</code> updated.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Changes to the labelling page or the brush; a fault found during pass8 gets its own ticket.</li>
+    <li>Box prompts for the segmenter (<a href="ticket_segmenter_box_prompts.html">ML-10</a>).</li>
+    <li>A new fine-tune recipe or new augmentation; more seeds (D3, D6).</li>
+    <li>New classes, and the classifier's recipe.</li>
+    <li>Restarting a run automatically after a reboot: a run resumes when its command is run again.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-27</div>Ticket written at the owner's request, from the workspace at
+      <code>acd949b</code> (44 untracked photos in <code>segmenter_positives</code>, a metadata dry run),
+      <a href="ticket_segmenter_xl0v5.html">ML-12</a>, <a href="ticket_seg_review_painter.html">ML-11</a> and
+      <a href="ticket_green_origins_retrain.html">ML-9</a>. D1&ndash;D6 open, with Claude's recommendations on D1 and D2.
+      Not planned, not implemented.</div>
+    <div><div class="when">2026-10-27</div>The owner decides D1&ndash;D6: the 44 stay segmenter positives (D1), every
+      training and validation positive is judged (D2), one seed for the segmenter (D3) and one for the classifier (D6),
+      both departing from ADR 0002 for this ticket; the blind comparison as ML-12 (D4); no stop before the classifier
+      trains (D5); Claude ships and deploys (D6). And asks that both training scripts keep their best checkpoint on
+      disk and resume after a reboot (D7). Triage to ready-for-agent. Plan written
+      (<a href="plan_segmenter_xl0v6.html">plan_segmenter_xl0v6.html</a>, P1&ndash;P9; Q1, the classifier's resume, and
+      Q2, the DINOv3 fixture, open).</div>
+    <div><div class="when">2026-10-27</div>The owner answers plan Q1 as D8: the classifier fit saves its computed
+      features to disk and resumes from them, and they are deleted before the next experiment. Q2 open: the owner asks
+      why the DINOv3 fixture must be regenerated at all.</div>
+    <div><div class="when">2026-10-27</div>The owner answers plan Q2 as D9: the fixture's inputs move to the original
+      photos and it is regenerated one last time. Every decision and plan question answered.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
+    <a href="ticket_seg_review_painter.html">ML-11</a>,
+    <a href="ticket_green_origins_retrain.html">ML-9</a>,
+    <a href="ticket_segmenter_dataset.html">ML-5</a>,
+    <a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>,
+    <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>,
+    <a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a>,
+    <a href="adr/0030-a-label-gets-seven-rounds.md">ADR 0030</a>,
+    <a href="agents/experiments.md">docs/agents/experiments.md</a>, <code>dataset/segmenter_positives.README.md</code>.</footer>
+</main>
