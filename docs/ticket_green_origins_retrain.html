@@ -13,7 +13,7 @@
     2026-10-24.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 done: <code>dino3b16_segxl0v4_country_aug8_s42</code> live 2026-10-24 (release <code>15b01c3</code>), for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-10-27 by the owner; written 2026-10-21; D1, D2, D7 decided; planned (<a href="plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 done: <code>dino3b16_segxl0v4_country_aug8_s42</code> live 2026-10-24 (release <code>15b01c3</code>); replaced 2026-10-27 by XL0-v5&rsquo;s <code>dino3b16_segxl0v5_country_aug8_s42</code></span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
@@ -274,6 +274,9 @@
       <code>origin</code> for the deploy; staged, compared with PyTorch (12 photos, no top-1 change) and deployed,
       verified on the domain. <code>dino3b16_segxl0v4_country_aug8_s42</code> is live with XL0-v4; ML-8's release is
       <code>previous</code> for a rollback. Implemented; left for the owner to close.</div>
+    <div><div class="when">2026-10-27</div>Closed by the owner. The model shipped here was live until 2026-10-27, when
+      <code>dino3b16_segxl0v5_country_aug8_s42</code> (exp276, the XL0-v5 segmenter; <code>EXPERIMENTS_LOG.md</code>,
+      exp276-278) replaced it; its release is now <code>previous</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_retrain.html">ML-6</a>, <a href="ticket_data_refresh_retrain.html">ML-8</a>,
