@@ -3071,3 +3071,6 @@ a tiny-mask threshold of 0.021008, half the smallest non-empty test-positive mas
   split 160/160 negatives caught, 0/95 positives refused (`analysis/xl0v5/ood_eval.txt`). XL0-v5 alone leaves
   119/160 test negatives with an empty mask and 154/160 empty or under the threshold (XL0-v4: 156/160 and 156/160);
   the probe, not the segmenter, is the guard. LiteRT export: D7's check passed on 13 fixtures.
+- The changed crops trained before the owner saw them (the owner's go, 2026-10-26); the owner reviewed their 28
+  review sheets on 2026-10-27 and found them okay (`analysis/xl0v5/recrop_report.txt`: the re-crop against
+  XL0-v4's crops).
