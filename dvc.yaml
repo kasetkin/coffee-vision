@@ -301,6 +301,9 @@ stages:
   # (seg_review paired). Both afresh: seg_ml9_predict's masks are frozen and predate the appends of 2026-10-24 and
   # 2026-10-25. XL0-v5 is passed as WEIGHTS:DECODER, so segment_beans.py, a dep of every segcrop stage, changes only if
   # it is adopted.
+  # Frozen 2026-10-27: the record the owner's blind paired sessions judged (xl0v5_test, xl0v5_seeds_test), made before
+  # the segmenter dataset appended the 10 positives of 2026-10-26 and their pool draw (its test split has 4 photos more
+  # than these masks).
   seg_xl0v5_predict:
     foreach:
       xl0_v4:
@@ -312,6 +315,7 @@ stages:
       xl0_v5_s7:
         model: ${seg_ft.weights}:models/seg/xl0_v5_s7.pt
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v5/${key}
       deps:
         - coffeecv/seg_predict.py
