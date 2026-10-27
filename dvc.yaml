@@ -338,12 +338,13 @@ stages:
   # accelerator and precision per graph (ADR 0019): gpu_split is yappy's; a new host is measured, then named here.
   # Live since 2026-10-24 (ticket ML-9): dino3b16_segxl0v4_country_aug8_s42; the two above it are the releases before it.
   # Each model names the decoder its card was trained with (training_config.seg_decoder), which the export converts:
-  # ticket ML-9's candidate is the first on XL0-v4.
+  # ticket ML-9's candidate is the first on XL0-v4, the XL0-v5 candidate (exp276) the first on XL0-v5.
   litert_export:
     foreach:
       allrigs_dino3b16_segxl0v3_country_s42: {seg: xl0_v3}
       dino3b16_segxl0v3_country_aug8_s123: {seg: xl0_v3}
       dino3b16_segxl0v4_country_aug8_s42: {seg: xl0_v4}
+      dino3b16_segxl0v5_country_aug8_s42: {seg: xl0_v5}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split

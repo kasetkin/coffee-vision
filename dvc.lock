@@ -2701,3 +2701,52 @@ stages:
       md5: 969d9a8d727c783329b49aebce218eed.dir
       size: 1807865
       nfiles: 252
+  litert_export@dino3b16_segxl0v5_country_aug8_s42:
+    cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
+      models/dino3b16_segxl0v5_country_aug8_s42.pt --profile gpu_split && python
+      -m coffeecv.export_litert finish --checkpoint 
+      models/dino3b16_segxl0v5_country_aug8_s42.pt --profile gpu_split
+    deps:
+    - path: coffeecv/export_litert.py
+      hash: md5
+      md5: a59fb5e712a01fbb96de05e266a3052e
+      size: 9753
+    - path: coffeecv/litert.py
+      hash: md5
+      md5: a947edb93279c7eae9e698122a27b257
+      size: 17895
+    - path: coffeecv/litert_forms.py
+      hash: md5
+      md5: b1727685c2bfa925d0d8a1ca8e3f7e0f
+      size: 24847
+    - path: convert/uv.lock
+      hash: md5
+      md5: 6e114bc858961f7f66b18ddf7c596ed8
+      size: 64217
+    - path: models/dino3b16_segxl0v5_country_aug8_s42.json
+      hash: md5
+      md5: 454027f6d72fd092625188c20dcd9e43
+      size: 12788
+    - path: models/dino3b16_segxl0v5_country_aug8_s42.pt
+      hash: md5
+      md5: 8c2e8d1265bdc0f31a28567021b24340
+      size: 63701
+    - path: models/seg/xl0_v5.pt
+      hash: md5
+      md5: 8ef98cd7988a445fbd7629358c82bc3f
+      size: 16265873
+    - path: 
+        models_pretrained/dinov3/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
+      hash: md5
+      md5: 3843a030991de9939ee2c15f68f4f834
+      size: 342860279
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    outs:
+    - path: models/dino3b16_segxl0v5_country_aug8_s42.litert
+      hash: md5
+      md5: 929502ee72a3e8c4e3f7869bbb4f6139.dir
+      size: 815666151
+      nfiles: 7
