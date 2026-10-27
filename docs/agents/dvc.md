@@ -28,7 +28,7 @@ for st in lock['stages'].values():
 print(sorted(h for h in want if not (cache / h[:2] / h[2:]).exists()))
 ```
 
-Only `cache: false` outputs may come back missing, today `models/seg/xl0_v3.json`: they live in git.
+Only `cache: false` outputs may come back missing, today each fine-tune's `models/seg/<name>.json` (nine on 2026-10-27, `xl0_v3` to `xl0_v5_s7`): they live in git.
 
 `dvc repro --dry` has said "cached, skipping" for a stage `dvc status` correctly reported as changed. Check `dvc status`, and after a run check that `outputs/config.json` holds the intended values.
 
