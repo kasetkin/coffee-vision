@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import os
+import shutil
 from pathlib import Path
+from typing import BinaryIO, Callable
 
 from coffeecv.config import REPO_ROOT
 
@@ -30,6 +33,35 @@ def tree_sha256(path: Path) -> str:
     for f in sorted(q for q in path.rglob("*") if q.is_file() and "__pycache__" not in q.parts):
         h.update(f"{f.relative_to(path).as_posix()} {sha256_file(f)}\n".encode())
     return h.hexdigest()
+
+
+def atomic_write(path: Path, write: Callable[[BinaryIO], object]) -> None:
+    """`write(f)` into a temporary file beside `path`, flushed to disk, renamed over `path`, the rename flushed
+    too: a reboot leaves the old file or the new one, never part of one (the resume state, ticket ML-13 P2, P3)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    with open(tmp, "wb") as f:
+        write(f)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def remove_tree(path: Path) -> None:
+    """Delete `path`, and its parent once empty."""
+    shutil.rmtree(path, ignore_errors=True)
+    if path.parent.is_dir() and not any(path.parent.iterdir()):
+        path.parent.rmdir()
+
+
+def differing_keys(a: dict, b: dict) -> list[str]:
+    """The keys whose values differ between two fingerprints, one missing from either included."""
+    return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
 
 
 def read_csv(path: Path) -> list[dict]:

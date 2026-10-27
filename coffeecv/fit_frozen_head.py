@@ -49,7 +49,6 @@ import argparse
 import gc
 import hashlib
 import json
-import os
 import shutil
 import socket
 import time
@@ -75,7 +74,7 @@ from coffeecv.geometry import Region
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
-from coffeecv.repo_files import tree_sha256
+from coffeecv.repo_files import atomic_write, differing_keys, remove_tree, tree_sha256
 from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
 from coffeecv.transforms import build_eval_transform
 
@@ -234,7 +233,7 @@ def embed_views(patches: list[np.ndarray] | None, indices, bb: FrozenBackbone, r
         for (row, _, k), v in zip(part, f_part):
             feats[row, k] = v
     if store is not None and loaded:
-        log(f"{loaded} of {-(-len(jobs) // size)} view chunks loaded from {store.dir}")
+        log(f"{loaded} of {n_view_chunks(len(jobs))} view chunks loaded from {store.dir}")
     return feats, 1000 * spent / max(len(jobs), 1), wall
 
 
@@ -278,15 +277,12 @@ def feature_fingerprint(bb: FrozenBackbone, readout: str, cfg: RunConfig, aug: H
             **{f"sha256 {p}": tree_sha256(REPO_ROOT / p) for p in (*FEATURE_INPUTS, cfg.classes_file)}}
 
 
+def n_view_chunks(n_views: int) -> int:
+    return -(-n_views // (VIEW_CHUNK_BATCHES * EMBED_BATCH))
+
+
 def fingerprint_key(fingerprint: dict) -> str:
     return hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()[:16]
-
-
-def drop_features(path: Path) -> None:
-    """Delete one run's saved features, and the features directory once empty."""
-    shutil.rmtree(path, ignore_errors=True)
-    if path.parent.is_dir() and not any(path.parent.iterdir()):
-        path.parent.rmdir()
 
 
 def clear_feature_leftovers(out: Path, keep: list[dict]) -> None:
@@ -298,11 +294,11 @@ def clear_feature_leftovers(out: Path, keep: list[dict]) -> None:
             continue
         try:
             saved = json.loads((d / "fingerprint.json").read_text())
-            differ = ", ".join(sorted(k for k in set(saved) | set(keep[0]) if saved.get(k) != keep[0].get(k)))
+            differ = ", ".join(differing_keys(saved, keep[0]))
         except (OSError, ValueError):
             differ = "unreadable"
         log(f"deleting another run's saved features {d} ({differ} differ)")
-        drop_features(d)
+        remove_tree(d)
 
 
 class FeatureStore:
@@ -316,15 +312,9 @@ class FeatureStore:
         self.dir = out / FEATURES_DIR / fingerprint_key(fingerprint)
 
     def _write(self, name: str, write) -> None:
-        self.dir.mkdir(parents=True, exist_ok=True)
         if name != "fingerprint.json" and not (self.dir / "fingerprint.json").exists():
             self._write("fingerprint.json", lambda f: f.write(json.dumps(self.fingerprint, indent=1).encode()))
-        tmp = self.dir / f".{name}.tmp"
-        with open(tmp, "wb") as f:
-            write(f)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, self.dir / name)
+        atomic_write(self.dir / name, write)
 
     def _json(self, name: str, rec) -> None:
         self._write(f"{name}.json", lambda f: f.write(json.dumps(rec).encode()))
@@ -346,17 +336,29 @@ class FeatureStore:
         with np.load(self.dir / f"{split}.npz") as z:
             return z["X"], z["y"], rec
 
+    @staticmethod
+    def _chunk(c: int) -> str:
+        return f"views_{c:04d}"
+
     def save_chunk(self, c: int, feats: np.ndarray, rec: dict) -> None:
-        self._write(f"views_{c:04d}.npy", lambda f: np.save(f, feats))
-        self._json(f"views_{c:04d}", rec)
+        self._write(f"{self._chunk(c)}.npy", lambda f: np.save(f, feats))
+        self._json(self._chunk(c), rec)
 
     def load_chunk(self, c: int) -> tuple[np.ndarray, dict] | None:
-        rec = self._load_json(f"views_{c:04d}")
-        return None if rec is None else (np.load(self.dir / f"views_{c:04d}.npy"), rec)
+        rec = self._load_json(self._chunk(c))
+        return None if rec is None else (np.load(self.dir / f"{self._chunk(c)}.npy"), rec)
 
-    def views_done(self, n_jobs: int) -> bool:
-        return all(self._load_json(f"views_{c:04d}") is not None
-                   for c in range(-(-n_jobs // (VIEW_CHUNK_BATCHES * EMBED_BATCH))))
+    def needs_patches(self, split: str, views: int, smoke: bool) -> bool:
+        """Whether `split`'s patches must be built again: its embeddings are not saved, or (`views` > 0, the
+        training split of an augmented run) a view chunk is missing, or a smoke run's shifts are."""
+        saved = self._load_json(split)
+        if saved is None:
+            return True
+        if not views:
+            return False
+        chunks = range(n_view_chunks(saved["size"] * views))
+        return (any(self._load_json(self._chunk(c)) is None for c in chunks)
+                or (smoke and self.load_shifts() is None))
 
     def save_shifts(self, shifts: dict) -> None:
         self._json("shifts", shifts)
@@ -365,7 +367,7 @@ class FeatureStore:
         return self._load_json("shifts")
 
     def drop(self) -> None:
-        drop_features(self.dir)
+        remove_tree(self.dir)
 
 
 def patch_meta(d: dict) -> PatchMeta:
@@ -428,8 +430,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
         saved = store.load_split(split)
         with_views = split == "train" and aug is not None
         ds = fold = None
-        if saved is None or (with_views and not (store.views_done(saved[2]["size"] * aug.views)
-                                                 and (not smoke or store.load_shifts() is not None))):
+        if store.needs_patches(split, aug.views if with_views else 0, smoke):
             t = time.perf_counter()
             fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=(split,))
             ds = getattr(fold, split)

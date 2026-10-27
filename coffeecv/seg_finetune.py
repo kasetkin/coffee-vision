@@ -62,8 +62,6 @@ import hashlib
 import inspect
 import json
 import math
-import os
-import shutil
 import time
 from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
@@ -78,7 +76,7 @@ from PIL import Image
 from coffeecv import augment, model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import read_csv, sha256_file, tree_sha256
+from coffeecv.repo_files import atomic_write, differing_keys, read_csv, remove_tree, sha256_file, tree_sha256
 from coffeecv.sam_loader import build_sam, variant_of
 
 LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <session>/labels.csv
@@ -354,9 +352,7 @@ def run_fingerprint(seed: int, name: str, cfg: RunConfig, p: FtParams, rows: lis
 
 def drop_slot(name: str) -> None:
     """Delete a run's slot, and RESUME_ROOT once empty."""
-    shutil.rmtree(RESUME_ROOT / name, ignore_errors=True)
-    if RESUME_ROOT.is_dir() and not any(RESUME_ROOT.iterdir()):
-        RESUME_ROOT.rmdir()
+    remove_tree(RESUME_ROOT / name)
 
 
 class ResumeSlot:
@@ -388,7 +384,7 @@ class ResumeSlot:
             drop_slot(self.name)
             return None
         if saved != self.fingerprint:
-            differ = sorted(k for k in set(saved) | set(self.fingerprint) if saved.get(k) != self.fingerprint.get(k))
+            differ = differing_keys(saved, self.fingerprint)
             print(f"resume state {self.file} is another run's ({', '.join(differ)} differ): deleted, starting fresh",
                   flush=True)
             drop_slot(self.name)
@@ -396,14 +392,7 @@ class ResumeSlot:
         return state
 
     def save(self, state: dict) -> None:
-        """Atomically: a temporary file, flushed to disk, then renamed over the last state."""
-        self.file.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.file.with_suffix(".tmp")
-        with open(tmp, "wb") as f:
-            torch.save({**state, "fingerprint": self.fingerprint}, f)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, self.file)
+        atomic_write(self.file, lambda f: torch.save({**state, "fingerprint": self.fingerprint}, f))
 
 
 # ---------------------------------------------------------------- the decoder pass and the loss

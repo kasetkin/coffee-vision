@@ -13,6 +13,7 @@ import contextlib
 import io
 import json
 import re
+import shutil
 import tempfile
 import unittest
 from dataclasses import replace
@@ -53,7 +54,7 @@ def straight_seen() -> int:
 class Resume(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(dir=REPO_ROOT))
-        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
     def run_main(self, out: Path, bb: FakeBackbone, *, cfg_edit: dict | None = None, smoke: bool = True) -> str:
         """`fit_frozen_head --smoke --allow-dirty --out <out>` on the fakes (without --smoke: a real run of seed 42,
