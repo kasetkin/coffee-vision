@@ -64,8 +64,9 @@ let points = [...info.points.include.map(p => ({x: p[0], y: p[1], kind: 'include
               ...info.points.exclude.map(p => ({x: p[0], y: p[1], kind: 'exclude'}))];
 // The fence that cut the shown mask, if any.
 let fence = info.fence, drag = null;
-// Every brush stroke so far (ticket ML-11): r in photo pixels, the path in fractions of the photo (D1). Those that
-// drew the shown mask are painted in it already; those drawn here (`here`) show as a tint until Enter (D7).
+// Every brush stroke so far (ticket ML-11): r in photo pixels, the path in fractions of the photo (D1). Each shows
+// as a tint (D7), those that drew the shown mask too (D10), so the owner checks the mask against them; those drawn
+// here are `here`.
 let strokes = info.strokes.map(s => ({...s, here: false})), paint = null, mouse = null;
 // The undo order: points, fences and strokes as placed (loaded ones first).
 const history = [...points.map(() => ({kind: 'point'})), ...(fence ? [{kind: 'fence', prev: null}] : []),
@@ -93,13 +94,13 @@ function drawPoints(){
     d.style.width = ((f[2] - f[0]) * 100) + '%'; d.style.height = ((f[3] - f[1]) * 100) + '%'; wrap.appendChild(d); }
 }
 function drawStrokes(){
-  // The strokes drawn here and the one being drawn, opaque on a canvas the CSS makes see-through, so overlaps do
-  // not darken and a later stroke covers an earlier one, as on the server.
+  // Every stroke so far and the one being drawn, opaque on a canvas the CSS makes see-through, so overlaps do not
+  // darken and a later stroke covers an earlier one, as on the server.
   const b = photo.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(b.width * dpr); canvas.height = Math.round(b.height * dpr);
   const g = canvas.getContext('2d'), sx = canvas.width, sy = canvas.height;
   g.lineCap = g.lineJoin = 'round';
-  for(const s of [...strokes.filter(s => s.here), ...(paint ? [paint] : [])]){
+  for(const s of [...strokes, ...(paint ? [paint] : [])]){
     const r = s.r * sx / info.width;                        // photo pixels to canvas pixels
     g.strokeStyle = g.fillStyle = TINT[s.mode]; g.beginPath();
     if(s.path.length === 1){ g.arc(s.path[0][0] * sx, s.path[0][1] * sy, r, 0, 2 * Math.PI); g.fill(); continue; }
@@ -160,8 +161,9 @@ function undo(){
   if(h.kind === 'fence') fence = h.prev;
   else if(h.kind === 'stroke'){
     // A stroke from an earlier round is painted into the shown mask, which the page cannot unpaint (D9).
-    if(!strokes.pop().here){ msg(`undone; Enter redraws to show it (${counts()})`); return; }
+    const s = strokes.pop();
     drawStrokes();
+    if(!s.here){ msg(`undone; Enter redraws to show it (${counts()})`); return; }
   }
   else points.pop();
   drawPoints(); told();

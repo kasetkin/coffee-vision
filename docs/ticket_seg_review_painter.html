@@ -190,6 +190,13 @@
         <td>(a) Keep the undo; the page says "undone; Enter redraws to show it". (b) A second route serving the mask
           before strokes, at a decoder run per page load or a second stored mask per round.</td>
         <td><strong>(a), 2026-10-26</strong>, as recommended.</td></tr>
+      <tr><td class="id">D10</td><td>After Enter, do the strokes still show? The page reloads with the new mask, and
+          D7's tint showed only the strokes not yet sent (P3).</td>
+        <td>(a) Only the strokes not yet sent; the earlier ones are in the mask. (b) Every stroke so far, those that
+          drew the shown mask too, until U undoes one.</td>
+        <td><strong>(b), 2026-10-27</strong>, the owner trying the brush: "I want to see them so I can verify new
+          mask and see Undo change anything." An undone earlier stroke loses its tint at once; the mask changes at
+          Enter (D9).</td></tr>
     </tbody>
   </table></div>
 
@@ -249,6 +256,9 @@
       <code>scripts/check.sh</code> green. No browser in the agent's container: the page's script was run in node
       against a stub DOM, and the first two acceptance items, which need a screen, stay open for the owner in P3.
       Status In progress.</div>
+    <div><div class="when">2026-10-27</div>The owner tries the brush on a scratch session (four training positives,
+      xl0_v5, under <code>/tmp</code>): e and w work and the mask changes at Enter, but the strokes vanished after it.
+      Decided as D10: every stroke so far stays tinted. Done in the page; the browser check goes on.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9</a> (D7, the fence),

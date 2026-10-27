@@ -39,9 +39,9 @@ redrawn mask is cut to that rectangle. It is not a prompt: XL0-v3 ignores a box 
 mask fell outside a half box, on 10 accepted photos), so the fence bounds the mask after the model. A fence alone
 redraws; U undoes it like a point. Hold e and drag to erase the mask, w to fill it (ticket ML-11), with a round
 brush whose radius the right panel sets in screen pixels; each stroke is recorded with its path in fractions of the
-photo and its radius in photo pixels, shows as a light red (e) or light green (w) tint until Enter, and is painted
-after the model and the fence, at full resolution. Strokes alone redraw, carry to later rounds like points, and U
-undoes them in the order made. Until it is judged, more points and another
+photo and its radius in photo pixels, shows as a light red (e) or light green (w) tint, before Enter and after,
+and is painted after the model and the fence, at full resolution. Strokes alone redraw, carry to later rounds like
+points, and U undoes them in the order made. Until it is judged, more points and another
 Enter replace it. A plain click opens the spot at full resolution; Space toggles the outline. A photo still
 declined in its session's last round is dropped, the reason logged (D14). Each session file records its rounds:
 7 for a session started since 2026-10-24 (ADR 0030), 3 (D14's) for one whose file has none (pass1-pass4).
