@@ -3040,3 +3040,34 @@ About 2.5 h per seed.
 - **Shipped exp273** (seed 42, the val pick; the owner left the choice to Claude) as
   `dino3b16_segxl0v4_country_aug8_s42`. OOD probe on the segmenter test split: 160/160 negatives caught, 0/76
   positives refused (`analysis/ml9/p6_ood_eval.txt`).
+
+### exp276-278: the classifier on XL0-v5's crops (2026-10-27)
+
+ML-9's recipe unchanged (600/160/160 patches per class, frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8 augmented
+views per training patch at weight 1/9) on new crops: every session re-cropped with the XL0-v5 segmenter (`xl0_v5`,
+seed 123 of its fine-tune, chosen by the owner on the test split, 2026-10-26; `analysis/xl0v5/seed_compare.txt`) at
+a tiny-mask threshold of 0.021008, half the smallest non-empty test-positive mask the owner accepted
+(`analysis/xl0v5/paired_report.txt`). The pool is 1,376 photos (3 excluded), with the 15 Brazil photos of
+2026-10-26. About 2.5 h per seed.
+
+| seed | exp | val, unaug | val, aug | test, unaug | test, aug |
+|---|---|---|---|---|---|
+| 42 | 276 | 0.9687 | 0.9718 | 0.9712 | 0.9813 |
+| 123 | 277 | 0.9680 | 0.9667 | 0.9605 | 0.9698 |
+| 7 | 278 | 0.9557 | 0.9614 | 0.9662 | 0.9694 |
+
+- Paired by seed with exp273-275 (XL0-v4's crops), the augmented heads move val -0.0040 to +0.0032 (mean 0.0000)
+  and test -0.0113 to +0.0113 (mean +0.0016), no class by more than 0.012 on average. The photos added since
+  re-draw the split (209 val and test photos each, about 147 of them shared with exp273-275's 200), so those
+  deltas mix the crops with the split.
+- The baseline on the same photos is the live model, `dino3b16_segxl0v4_country_aug8_s42`, scored on each run's own
+  test patches (`analysis/xl0v5/live_baseline.txt`). It trained on 44 of seed 42's 209 test photos; on the ones it
+  did not, patch macro-F1 0.9603-0.9803 against its 0.9453-0.9807, photo accuracy 0.983-1.000 against 0.967-1.000
+  (Brazil +0.03, Peru +0.03, Colombia, Kenya and Ethiopia about +0.01; Guatemala -0.01, Costa Rica -0.005). On
+  every test photo, the 44 included, it scores 0.9731-0.9812 against the candidates' 0.9694-0.9813. Both on
+  XL0-v5's crops: this compares the classifiers, not the pipelines.
+- **Shipped exp276** (seed 42, the val pick; the owner left the choice to Claude) as
+  `dino3b16_segxl0v5_country_aug8_s42`. OOD probe refit on 197 bean photos and 453 negatives; on the segmenter test
+  split 160/160 negatives caught, 0/95 positives refused (`analysis/xl0v5/ood_eval.txt`). XL0-v5 alone leaves
+  119/160 test negatives with an empty mask and 154/160 empty or under the threshold (XL0-v4: 156/160 and 156/160);
+  the probe, not the segmenter, is the guard. LiteRT export: D7's check passed on 13 fixtures.

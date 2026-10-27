@@ -284,11 +284,11 @@
     parts is included.
   </p>
   <div class="scope">
-    <span>model: dino3b16_segxl0v4_country_aug8_s42</span>
-    <span>segmenter: EfficientViT-SAM XL0 + xl0_v4 decoder</span>
+    <span>model: dino3b16_segxl0v5_country_aug8_s42</span>
+    <span>segmenter: EfficientViT-SAM XL0 + xl0_v5 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-10-24</span>
+    <span>as of 2026-10-27</span>
   </div>
 
   <div class="callout">
@@ -355,7 +355,7 @@
     <rect x="140" y="230" width="320" height="104" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
     <text x="300" y="252" text-anchor="middle" style="font-size:14px; font-weight:600">BeanSegmenter.predict_mask()</text>
     <text x="300" y="268" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">segment_beans.py &middot; via infer.segment_decoded()</text>
-    <text x="300" y="287" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">XL0 encoder at 1024 px + xl0_v4 decoder, GPU fp32</text>
+    <text x="300" y="287" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">XL0 encoder at 1024 px + xl0_v5 decoder, GPU fp32</text>
     <text x="300" y="303" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">whole-photo box prompt &#8594; 3rd output &#8594; bean mask</text>
     <text x="300" y="321" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">skip_crop=1 from the page: not run, whole photo</text>
   </g>
@@ -367,7 +367,7 @@
     <text x="300" y="376" text-anchor="middle" style="font-size:14px; font-weight:600">mask_and_crop()</text>
     <text x="300" y="392" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">segment_beans.py</text>
     <text x="300" y="411" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">non-beans gray-filled, crop keeps 95% of beans</text>
-    <text x="300" y="427" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">mask &lt; 3.90% of photo &#8594; whole photo, unfilled (D18)</text>
+    <text x="300" y="427" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">mask &lt; 2.10% of photo &#8594; whole photo, unfilled (D18)</text>
   </g>
   <line x1="460" y1="400" x2="686" y2="400" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#aGood)"/>
   <text x="573" y="393" text-anchor="middle" style="font-size:10.5px; fill:var(--accent-ink)">HTTP 200, stream opens</text>
@@ -535,11 +535,11 @@ entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref,
       <h3>Bean region and bean pitch — patches measured in beans, on the mask</h3>
       <span class="file">coffeecv/infer.py &middot; segment_decoded(), sample_patches()</span>
     </div>
-    <p>The segmenter is the one the model's training crops were cut with (XL0-v4, ticket ML-9), named and
+    <p>The segmenter is the one the model's training crops were cut with (XL0-v5, 2026-10-26), named and
       sha-pinned by the model's own config through <code>seg_params(cfg)</code>; a mismatch fails the worker's boot, not
       a request. It sees the photo at 1024 px on its long side, prompted with one box over the whole photo, and its
       mask is scaled back to the full photo. Non-bean pixels in the crop are filled with ImageNet's mean colour, and the
-      crop keeps at least 95% of the bean pixels (D3, D4). A mask covering less than 3.90% of the photo is treated as no
+      crop keeps at least 95% of the bean pixels (D3, D4). A mask covering less than 2.10% of the photo is treated as no
       mask: the whole photo is classified, unfilled, every patch accepted (D18).</p>
     <p>Bean pitch is then measured on the crop by FFT, not assumed from a zoom level, so each patch is 4–7 beans on a
       side at any distance, exactly as in training. A patch with less than 80% bean region under the mask is redrawn;
