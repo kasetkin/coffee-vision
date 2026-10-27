@@ -78,7 +78,7 @@ from PIL import Image
 from coffeecv import augment, model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import read_csv, sha256_file
+from coffeecv.repo_files import read_csv, sha256_file, tree_sha256
 from coffeecv.sam_loader import build_sam, variant_of
 
 LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <session>/labels.csv
@@ -338,16 +338,6 @@ def epoch_batches(data: TrainSet, p: FtParams, rng: np.random.Generator, aug) ->
 
 
 # ---------------------------------------------------------------- resume after a reboot (ML-13 D7, D8; plan P2)
-
-def tree_sha256(path: Path) -> str:
-    """sha256 of a file, or of a directory's files (relative path and content), __pycache__ left out."""
-    if path.is_file():
-        return sha256_file(path)
-    h = hashlib.sha256()
-    for f in sorted(q for q in path.rglob("*") if q.is_file() and "__pycache__" not in q.parts):
-        h.update(f"{f.relative_to(path).as_posix()} {sha256_file(f)}\n".encode())
-    return h.hexdigest()
-
 
 def run_fingerprint(seed: int, name: str, cfg: RunConfig, p: FtParams, rows: list[dict], weights_sha256: str) -> dict:
     """What a run reads, so a resume continues only the run it was saved by: what the fine-tune stage in dvc.yaml

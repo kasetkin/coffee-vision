@@ -21,6 +21,17 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def tree_sha256(path: Path) -> str:
+    """sha256 of a file, or of a directory's files (relative path and content), __pycache__ left out: what a
+    resume fingerprint holds of the code and data a run reads (ticket ML-13 P2, P3)."""
+    if path.is_file():
+        return sha256_file(path)
+    h = hashlib.sha256()
+    for f in sorted(q for q in path.rglob("*") if q.is_file() and "__pycache__" not in q.parts):
+        h.update(f"{f.relative_to(path).as_posix()} {sha256_file(f)}\n".encode())
+    return h.hexdigest()
+
+
 def read_csv(path: Path) -> list[dict]:
     return list(csv.DictReader(Path(path).read_text().splitlines()))
 

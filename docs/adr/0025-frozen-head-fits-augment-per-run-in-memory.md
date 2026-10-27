@@ -14,3 +14,5 @@ The frozen DINOv3 head (ADR 0006) is fitted on every training patch and `views` 
 Source: [ML-8](../ticket_data_refresh_retrain.html) D4, D12.
 
 Amended 2026-10-20 by [ADR 0027](0027-both-fits-share-augmentation-groups.md): the colour, compression and noise transforms are `params.yaml` `augment`'s shared groups, taken by reference; expanded, the pipeline is the one exp270-272 were fitted with.
+
+Amended 2026-10-27 by [ML-13](../ticket_segmenter_xl0v6.html) D8: so a fit can resume after a host reboot, the embeddings it computes are written to disk as it goes (each split's when it is embedded, the training views' in chunks of whole batches, about 330 MB per seed under `outputs/frozen_head/features/`) and a rerun of the same command loads those whose fingerprint matches and embeds the rest. Views are still made from the patches in memory and dropped; no augmented image is ever written. The embeddings go once the seed's run directory is written, and a run deletes any other run's before it embeds anything, so nothing stays on disk from one experiment into the next.

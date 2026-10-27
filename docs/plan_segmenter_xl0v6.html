@@ -165,7 +165,7 @@
 
   <h2>5. P3 &mdash; The classifier fit resumes</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-27: features saved and resumed; a --smoke killed after its first chunk and rerun gives the code before's model</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 answered (ticket D8)</span></span></div>
   </div>
   <p>D8: <code>fit_one_seed</code> saves each split's embeddings, labels and metadata under the run's
@@ -374,6 +374,20 @@
       chosen): the code before P2 and after give the same <code>.pt</code> and history; the same run killed with
       SIGKILL during epoch 2 and rerun resumes at epoch 2 and gives that <code>.pt</code> again. The state is 65 MB
       for XL0.</div>
+    <div><div class="when">2026-10-27</div>P3 done. <code>FeatureStore</code> keeps a seed's embeddings under
+      <code>&lt;out&gt;/features/&lt;fingerprint key&gt;/</code>: each split's with its labels and provenance, the
+      views' in chunks of <code>VIEW_CHUNK_BATCHES</code> (100) whole batches, the smoke run's shifts; each written
+      atomically, its <code>.json</code> last. <code>main</code> deletes every other fingerprint's directory under its
+      <code>--out</code> before anything is embedded (a smoke's is <code>smoke/</code>); <code>fit_one_seed</code>
+      deletes its own once the run directory is written. The fingerprint adds torch's and timm's versions and the
+      batching to the plan's list. <code>tests.test_frozen_head_resume</code> (through <code>main</code> on the fake
+      backbone, three view chunks): stopped in the views and rerun gives the straight run's metrics and predictions
+      and embeds nothing twice; a changed <code>pool_exclude.csv</code> or config key deletes the old features and
+      starts fresh; a smoke leaves a real run's features, a real run deletes them. Through the entry point on
+      ViT-B/16 and the real crops (<code>--smoke</code>, chunk lowered to 5 batches, 3 chunks): the code before P3 and
+      after give the same <code>model.pt</code>, <code>model_unaugmented.pt</code> and predictions; killed with
+      SIGKILL after its first chunk and rerun, it loads the train split and that chunk and gives them again, metrics
+      equal but for timings. ADR 0025 amended.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
