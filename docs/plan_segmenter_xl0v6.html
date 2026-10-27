@@ -1,0 +1,294 @@
+<title>Implementation plan: segmenter XL0-v6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-13 · coffee-vision · implementation</div>
+  <h1>Implementation plan: segmenter XL0-v6</h1>
+  <p class="lede">The order of work for <a href="ticket_segmenter_xl0v6.html">ticket ML-13</a>. Three strands: the
+    44 photos' intake (P1), resume for both training scripts (P2, P3), and the model chain: pass8, XL0-v6, the
+    re-crop, exp279, the deploy (P4&ndash;P8), with the owner's re-crop review last (P9). The intake comes first because
+    pass8 needs the new photos in the segmenter dataset. The resume work runs while the owner labels, so it is in place
+    before the first long run. The first step that changes a number is P5, XL0-v6's fine-tune.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-27; Q1&ndash;Q2 answered (ticket D8, D9); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_segmenter_xl0v6.html"><code>ticket_segmenter_xl0v6.html</code></a> (ML-13)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-27</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>acd949b</code>, not from the ticket alone. Four things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q2 (§2).</p>
+    <ol>
+      <li><b>The classifier fit has no "best metrics checkpoint".</b> <code>fit_frozen_head.fit_one_seed</code> embeds
+        the train, val and test patches and 8 views of every training patch, then fits one convex head at the fixed C;
+        there are no epochs and nothing to select. Its hours go into the embeddings, which ADR 0025 keeps in memory only.
+        Q1.</li>
+      <li><b>DVC deletes a stage's outputs before it runs.</b> A resume file declared as an output, or written to
+        <code>models/seg/&lt;name&gt;.pt</code>, would be gone when <code>dvc repro</code> reruns the stage after a
+        reboot. The resume state lives in <code>outputs/</code> (gitignored, not a DVC output). P2.</li>
+      <li><b>An exact resume needs three random streams.</b> The fine-tune draws from torch's generator, its own
+        <code>numpy</code> generator (batches, points) and the augmentation Compose's two generators (albumentations
+        2.0.8: <code>random_generator</code> and <code>py_random</code>, which <code>seg_finetune.build_augment</code>
+        hides in a closure). All are saved and restored, with the optimizer and the cosine schedule. P2.</li>
+      <li><b>The classifier's views are seeded per patch.</b> <code>HeadAugment.view</code> seeds each view by (run
+        seed, patch, view), so embeddings saved in chunks and resumed mid-split are the ones an uninterrupted run
+        computes. That makes Q1 (a) exact without saving any random state. P3.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 touches only data and records. P2 and P3 change training code but no number: a resumed toy run must equal an
+    uninterrupted one byte for byte, and an uninterrupted run must equal what the code gives today. P4 is the owner's
+    labelling, the longest step; P2 and P3 fit inside it. P5 is the first step that changes a number.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Intake of the 44 photos; the segmenter dataset appended</td><td>local</td><td>no: data and records</td></tr>
+      <tr><td class="id">P2</td><td>Fine-tune: best checkpoint and resume state each epoch, resume</td><td>local</td><td>no: an uninterrupted run as before; resumed equals uninterrupted</td></tr>
+      <tr><td class="id">P3</td><td>Classifier fit: resume as Q1 settles</td><td>local</td><td>no: same</td></tr>
+      <tr><td class="id">P4</td><td>pass8 prepared; the owner labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>labels</td></tr>
+      <tr><td class="id">P5</td><td>XL0-v6 fine-tuned (seed 123); test masks of XL0-v5 and XL0-v6</td><td>local</td><td>yes</td></tr>
+      <tr><td class="id">P6</td><td>The owner's blind comparison; adoption and threshold <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
+      <tr><td class="id">P7</td><td>Re-crop, fixture, exp279 (seed 42), probe, ship</td><td>local</td><td>yes</td></tr>
+      <tr><td class="id">P8</td><td>LiteRT export, pushes, deploy, docs</td><td>local, <code>webappremote</code></td><td>live model</td></tr>
+      <tr><td class="id">P9</td><td>The owner reviews the re-crop sheets <span class="pill sm open">stop</span></td><td>owner</td><td>maybe <code>pool_exclude.csv</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>What does the classifier fit save so it can resume? It has no epochs and no best
+          checkpoint (finding 1); a reboot loses its embeddings, the hours of a run. (a) Each split's embeddings, and the
+          training views' in chunks of a few hundred patches, written to the run's <code>outputs/</code> directory as
+          they are computed; a rerun loads what is there and embeds the rest; the files go when the seed's run directory
+          is written. About 330 MB of views per seed on disk for the run's length. ADR 0025 is amended: views are still
+          made in memory and never stored as images, but their embeddings are on disk until the run ends. (b) Nothing:
+          the classifier restarts from scratch after a reboot, ADR 0025 as it is.</td>
+        <td><span class="pill ok">Answered</span> (a), 2026-10-27: "save computed features to the disk, but delete them
+          before launching next experiment so they will not polute disk". Ticket D8.</td><td>P3</td></tr>
+      <tr><td class="id">Q2</td><td>The DINOv3 fixture after the re-crop. It trains and serves nothing:
+          <code>test_dino_backbone.test_matches_meta_reference</code> checks that the timm-built DINOv3 (ViT-S/16, the
+          loader the shipped ViT-B/16 shares) gives Meta's own code's output, which the fixture holds, since Meta's code
+          may not be in this public repo. The test redraws its 15 input patches from the current pool crops
+          (<code>coffeecv_dino/reference_photos.txt</code>), so every re-crop changes the inputs and turns it red, though
+          the backbone has not changed. (a) Regenerate it after this re-crop, as every segmenter ticket has (the
+          script clones and runs Meta's dinov3 at a pinned commit). (b) Draw the inputs from the original photos in
+          <code>dataset/</code>, which no re-crop touches, and regenerate it one last time; no later segmenter change
+          touches it. (c) Skip the test until a backbone change needs it.</td>
+        <td><span class="pill ok">Answered</span> (b), 2026-10-27: "as recommended, variant b". Ticket D9.</td><td>P7</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; Intake of the 44 photos</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>As the batches of 2026-10-25 and 26 (<code>dataset/segmenter_positives.README.md</code>), all 44 staying here
+    (D1).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>coffeecv.strip_metadata dataset/segmenter_positives --manifest
+      labels/ml3/strip_manifest.csv</code>; a second <code>--dry-run</code> finds all 230 clean.</span></li>
+    <li><span class="box"></span><span><code>coffeecv.find_duplicates</code> against <code>dataset/</code>: none is a copy,
+      or each copy is recorded in <code>duplicate_of</code>.</span></li>
+    <li><span class="box"></span><span>44 manifest rows (batch <code>2026-10-27</code>, notes from opening each photo) and
+      a README section; <code>dvc add dataset/segmenter_positives</code>, reading what git stages after it
+      (<a href="agents/dvc.md">dvc.md</a>).</span></li>
+    <li><span class="box"></span><span><code>seg_dataset build</code>: the 44 and the pool photos the draw takes appended,
+      no listed entry changed; the test counts in <code>tests/test_seg_dataset.py</code> moved.</span></li>
+    <li><span class="box"></span><span>Checks: <code>test_seg_dataset</code> and <code>test_segmenter_positives</code> in
+      full; <code>scripts/check.sh</code>; <code>dvc push</code> of the folder, its objects verified on the
+      remote.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The fine-tune keeps its best checkpoint and resumes</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>After every epoch <code>seg_finetune.train</code> writes, atomically (a temporary file, then a rename),
+    <code>outputs/seg_finetune/&lt;name&gt;/resume.pt</code>: the epoch, the decoder, the optimizer, the scheduler, the
+    torch, numpy and augmentation random states, the best epoch's decoder and metrics, the history, and a fingerprint
+    of the run (seed, name, label-set hash, <code>seg_ft</code>, output, base weights' hash, threads). The best epoch's
+    decoder is in it from the moment it is best. Run again with the same arguments, the command finds the file, checks
+    the fingerprint, rebuilds the photos and validation encodings (deterministic, minutes) and continues at the next
+    epoch. A file with another fingerprint is another run's leftover: it is deleted, with a log line naming what
+    differs, and the run starts fresh (D8's rule). The file goes once <code>models/seg/&lt;name&gt;.pt</code> and its card are written; the card records the
+    epochs a run resumed at. The DVC stage's command is unchanged, so <code>dvc repro -s</code> after a reboot
+    resumes.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>build_augment</code> exposes its Compose's generators, so their state can be
+      saved and restored in place.</span></li>
+    <li><span class="box"></span><span>The resume state, written each epoch, read at start; the fingerprint check and
+      the leftovers' deletion; the docstring.</span></li>
+    <li><span class="box"></span><span>Tests on a toy model: two epochs straight against one, a stop, and a resume give
+      equal decoders, history and chosen epoch; a changed seed or label set starts fresh and deletes the old state; the
+      file is gone after the model is written.</span></li>
+    <li><span class="box"></span><span>Checks: an uninterrupted toy run through the real entry point gives the same
+      <code>.pt</code> as the code before P2 (CODING_STANDARDS, "A rewrite is checked against the original"); the
+      same run killed during epoch 2 and rerun gives it too; <code>scripts/check.sh</code>.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The classifier fit resumes</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 answered (ticket D8)</span></span></div>
+  </div>
+  <p>D8: <code>fit_one_seed</code> saves each split's embeddings, labels and metadata under the run's
+    <code>outputs/frozen_head/</code> directory when the split is done, and the training views in chunks as they are
+    embedded, each file with the run's fingerprint (seed, config, the crops' version in <code>dvc.lock</code>, the
+    backbone's hash). A rerun of the same command loads what matches and embeds the rest. The files go once the seed's
+    run directory is written, and a run that finds files with another fingerprint deletes them before it embeds
+    anything, so nothing from one experiment stays on disk into the next.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The saved splits and view chunks, loaded on a rerun; the fingerprint; the
+      clean-up at the run's end and of another run's leftovers at the start; the docstring.</span></li>
+    <li><span class="box"></span><span>ADR 0025 amended: embeddings on disk until the run ends; nothing augmented stored
+      as an image.</span></li>
+    <li><span class="box"></span><span>Checks: <code>--smoke</code> straight through, and killed in the views and rerun,
+      give the same <code>model.pt</code> and <code>metrics.json</code>; an uninterrupted <code>--smoke</code> gives
+      what it gave before P3; <code>scripts/check.sh</code>.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; pass8 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>python -m coffeecv.seg_review label --session pass8 --proposer xl0_v5
+      --redraw xl0_v5 --recheck pass7</code>: its preparation (proposer masks of the positives pass7 has no label for,
+      every positive encoded) run before the owner opens the page.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judge every training and validation positive (D2), with the
+      brush where needed.</span></li>
+    <li><span class="box"></span><span>After: <code>seg_review status --session pass8</code> (accepted, dropped, painted,
+      per source); <code>dvc add data/ml5_labels/pass8</code>, the verdicts and session file committed, pushed and
+      verified.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; XL0-v6</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_xl0v6_finetune</code> in <code>dvc.yaml</code>: <code>xl0_v6</code> on
+      pass8, seed 123 (D3), 8 threads; its card diffed against <code>xl0_v5.json</code> key by key, only the labels
+      differing; proved at toy scale through the stage's command.</span></li>
+    <li><span class="box"></span><span>The run, resumed through P2 if the host reboots; best epoch and score
+      recorded.</span></li>
+    <li><span class="box"></span><span><code>seg_xl0v6_predict</code>: XL0-v5's and XL0-v6's masks of every test photo of
+      the grown split (R5).</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; The blind comparison <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: <code>seg_review paired</code>, XL0-v5 against XL0-v6 on the
+      test positives (D4).</span></li>
+    <li><span class="box"></span><span><code>paired-report</code>, with the test negatives' emptiness, to
+      <code>analysis/xl0v6/</code>; the owner adopts XL0-v6 or keeps XL0-v5.</span></li>
+    <li><span class="box"></span><span>If adopted: <code>xl0_v6</code> in <code>NAMED_SEGMENTERS</code>, the threshold
+      re-derived by ML-12 D4's rule (<code>--chosen</code>), <code>params.yaml</code> moved;
+      <code>seg_xl0v6_predict</code> frozen as the record. If not, the ticket stops here and P7&ndash;P9 are
+      dropped.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; Re-crop, exp279, ship</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6</span></div>
+  </div>
+  <p>No stop for the re-crop's review (D5); Claude picks and ships (D6).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc repro -s</code> each <code>segcrop</code> stage, then
+      <code>merge_segpool</code>; coverage changes per photo and every D18 fallback in
+      <code>analysis/xl0v6/recrop_report.txt</code>, with sheets for P9.</span></li>
+    <li><span class="box"></span><span>The DINOv3 fixture (D9), before the re-crop: <code>coffeecv_dino/reference</code>
+      draws one patch per class from a listed original photo in <code>dataset/</code> (the ones whose crops
+      <code>reference_photos.txt</code> lists now) instead of its pool crop; <code>scripts/make_dinov3_fixture.py</code>
+      run one last time; the step and the test's error message no longer point at a re-crop, and experiments.md's
+      "Changing the segmenter" loses step 2. <code>test_dino_backbone</code> passes, and still passes after the
+      re-crop.</span></li>
+    <li><span class="box"></span><span><code>fit_frozen_head --seeds 42 --start-exp 279</code>, its config diffed against
+      exp276's (only the decoder and the threshold differ); resumed through P3 if the host reboots.</span></li>
+    <li><span class="box"></span><span>Paired with exp276: val and test macro-F1, per-class F1, and the live model on the
+      same test patches; the report says it is one seed (R4).</span></li>
+    <li><span class="box"></span><span>Shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>, its OOD probe refit and
+      measured with <code>ood_eval</code>. If exp279 falls clearly below exp276, Claude stops and reports instead of
+      shipping (ML-12 D6's "no critical error").</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; Convert, push, deploy</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>litert_export@dino3b16_segxl0v6_country_aug8_s42</code> within D7's bars;
+      tests, docs and the webapp's dev default moved to the new model; <code>scripts/check.sh --full</code>.</span></li>
+    <li><span class="box"></span><span>DVC pushed and every object <code>dvc.lock</code> names verified on the remote; the
+      branch merged with <code>--no-ff</code> (ADR 0017) and main pushed.</span></li>
+    <li><span class="box"></span><span>Deployed through <code>scripts/deploy_webapp.sh</code> (staged, <code>--compare</code>,
+      flip), verified on the domain with <code>latency_ms</code> and <code>preview_ms</code>;
+      <code>docs/status.md</code>, the README and <code>docs/inference_path.html</code> updated.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; The owner's re-crop review <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the re-crop's sheets (D5). A crop to exclude goes to
+      <code>labels/ml3/pool_exclude.csv</code> for the next retrain; it does not retrain here.</span></li>
+  </ol>
+
+  <h2>12. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the 44 stripped and clean on a second dry run; the segmenter dataset appended,
+      no listed entry changed.</span></li>
+    <li><span class="box"></span><span>P2, P3: a resumed toy run equals an uninterrupted one; an uninterrupted one equals
+      the code before; a run with another fingerprint deletes the leftovers and starts fresh; nothing is left on disk
+      after a run.</span></li>
+    <li><span class="box"></span><span>P5&ndash;P7: each config diffed against its predecessor's at the same seed, one key
+      apart.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope".</li>
+    <li>Resume for <code>fit_ood_probe</code> and <code>litert_export</code>: minutes each.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-27</div>Claude reads ticket ML-13 at <code>acd949b</code>, with D1&ndash;D7 decided,
+      and writes this plan. Four findings not in the ticket; Q1 (the classifier's resume) and Q2 (the DINOv3 fixture)
+      open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-27</div>The owner answers Q1 (ticket D8): features saved, deleted before the next
+      experiment. P2 takes the same rule for the fine-tune's leftovers in place of a refusal and <code>--fresh</code>.
+      P3 unblocked. Q2 reworded with options after the owner asked why the fixture is needed.</div>
+    <div><div class="when">2026-10-27</div>The owner answers Q2 (ticket D9): (b), the fixture's inputs from the
+      original photos, regenerated one last time, in P7 before the re-crop. Every question answered.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
+    <a href="plan_seg_review_painter.html">ML-11 plan</a>, <code>coffeecv/seg_finetune.py</code>,
+    <code>coffeecv/fit_frozen_head.py</code>, <a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a>,
+    <a href="agents/experiments.md">docs/agents/experiments.md</a>.</footer>
+</main>
