@@ -37,7 +37,11 @@ point; Enter redraws: the redraw model draws the whole-image box plus every poin
 output (D23), and that mask is the next round's, judged again. Hold b and drag for a fence (ticket ML-9 P1): the
 redrawn mask is cut to that rectangle. It is not a prompt: XL0-v3 ignores a box smaller than the photo (half of its
 mask fell outside a half box, on 10 accepted photos), so the fence bounds the mask after the model. A fence alone
-redraws; U undoes it like a point. Until it is judged, more points and another
+redraws; U undoes it like a point. Hold e and drag to erase the mask, w to fill it (ticket ML-11), with a round
+brush whose radius the right panel sets in screen pixels; each stroke is recorded with its path in fractions of the
+photo and its radius in photo pixels, shows as a light red (e) or light green (w) tint until Enter, and is painted
+after the model and the fence, at full resolution. Strokes alone redraw, carry to later rounds like points, and U
+undoes them in the order made. Until it is judged, more points and another
 Enter replace it. A plain click opens the spot at full resolution; Space toggles the outline. A photo still
 declined in its session's last round is dropped, the reason logged (D14). Each session file records its rounds:
 7 for a session started since 2026-10-24 (ADR 0030), 3 (D14's) for one whose file has none (pass1-pass4).
@@ -60,8 +64,10 @@ model (D20), `--chosen <model>` adds the re-derived tiny-mask threshold (D21).
 Storage, as ML-2 D16: verdicts and their points in git, masks DVC-tracked (`dvc add data/ml5_labels/<session>`
 when the session is done; .gitignore keeps them out of git from the first click).
     labels/ml5/<session>.session.json        the session's models and outputs
-    labels/ml5/<session>.verdicts.jsonl      one row per click: round, mask sha256, the points that drew it
-    data/ml5_labels/<session>/r<k>/<id>.png  round k's masks (1-bit) + index.csv with their points and models
+    labels/ml5/<session>.verdicts.jsonl      one row per click: round, mask sha256, the points, fence and strokes
+                                             that drew it
+    data/ml5_labels/<session>/r<k>/<id>.png  round k's masks (1-bit) + index.csv with their points, fence, strokes
+                                             and models (a row from before ML-11 has no strokes column: none)
     data/ml5_labels/<session>/neg/<id>.png   the empty labels of the negatives
     data/ml5_labels/<session>/labels.csv     one row per photo (`status`): accepted, dropped or pending
     labels/ml5/<session>.paired.jsonl        the paired mode's verdicts, side and model per mask
