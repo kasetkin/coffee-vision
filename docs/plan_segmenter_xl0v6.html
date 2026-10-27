@@ -217,7 +217,7 @@
 
   <h2>7. P5 &mdash; XL0-v6</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-27: XL0-v5's test masks done (seg_xl0v6_predict@xl0_v5); the fine-tune waits on pass8</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
@@ -408,6 +408,12 @@
       was not permitted in this session, so the change waits on branch <code>ml13-p7-fixture</code>
       (<code>a98e0ee</code>), where <code>test_matches_meta_reference</code> is red until the owner runs the script
       or allows Claude to.</div>
+    <div><div class="when">2026-10-27</div>Full suite green (<code>scripts/check.sh --full</code>). P5 begun where it
+      needs no labels: <code>seg_xl0v6_predict</code> in <code>dvc.yaml</code> with XL0-v5's item, run on the 279 test
+      photos, pushed and verified (<code>bad4469</code>); XL0-v6's item joins once it is fine-tuned. P2's change to
+      <code>seg_finetune.py</code> made the eight earlier fine-tune stages stale in <code>dvc status</code>; since an
+      uninterrupted run writes the same model, the new hash is recorded with <code>dvc commit</code> as in
+      <code>ce173f0</code> (<code>2bdb8ef</code>), and <code>dvc status</code> is up to date.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
