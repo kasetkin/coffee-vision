@@ -2750,3 +2750,47 @@ stages:
       md5: 929502ee72a3e8c4e3f7869bbb4f6139.dir
       size: 815666151
       nfiles: 7
+  seg_xl0v6_predict@xl0_v5:
+    cmd: python -m coffeecv.seg_predict 
+      efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v5.pt --split test
+      --threads 4 --out data/seg_masks_xl0v6/xl0_v5
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: ccd4e9c2eefeb74c23b6bd4b37bb3e68
+      size: 5474
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
+    - path: labels/ml5/seg_dataset.yaml
+      hash: md5
+      md5: 70651dbeead97bac017c2f9f1489bf75
+      size: 306494
+    - path: models/seg/xl0_v5.pt
+      hash: md5
+      md5: 8ef98cd7988a445fbd7629358c82bc3f
+      size: 16265873
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks_xl0v6/xl0_v5
+      hash: md5
+      md5: 5c17c03e323767863109022dfd0fcb01.dir
+      size: 1976268
+      nfiles: 280

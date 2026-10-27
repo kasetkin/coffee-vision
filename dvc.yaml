@@ -332,6 +332,30 @@ stages:
       outs:
         - data/seg_masks_xl0v5/${key}
 
+  # ML-13 P5 (R5): XL0-v5's and XL0-v6's masks of every test photo of the grown split (the 44 photos of 2026-10-27 and
+  # their pool draw included), for the owner's blind paired review (D4). seg_xl0v5_predict is frozen, the record of
+  # ML-12's sessions. XL0-v5's item first, while the owner labels pass8; XL0-v6's joins once it is fine-tuned.
+  seg_xl0v6_predict:
+    foreach:
+      xl0_v5:
+        model: ${seg_ft.weights}:models/seg/xl0_v5.pt
+    do:
+      cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v6/${key}
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml5/seg_dataset.yaml
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/${key}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks_xl0v6/${key}
+
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
