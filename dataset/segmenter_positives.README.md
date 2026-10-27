@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 176 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 230 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,23 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-27: 44 Colombia and Guatemala grinder-hopper photos
+
+- **New photos** (batch `2026-10-27`, ticket ML-13): 44 grinder-hopper photos shot on 2026-10-27, named
+  `20261027_HHMMSS_<phone>_<country>`: 20 Colombia (Pixel 9 Pro, OnePlus, KB2005, G8441; JPEG) and 24 Guatemala
+  (18 JPEG, OnePlus and G8441, and 6 Pixel 9 Pro DNG raws). They stay segmenter positives, none in the classifier's
+  pool (the owner, ML-13 D1).
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  no pair at 0.97). Three pairs within the batch are close (0.877-0.886) and listed for a look: `111137`/`111142`
+  and `131255`/`131300`, 5 s apart each, and `114544`/`114546`, 2 s apart. Only the last is one group (ADR 0029's
+  3 s); the first two pairs fall in different splits, as the rule has it.
+- **Metadata** (ticket ML-3, D13): all 44 carried private tags (EXIF GPS, C2PA, the Sony maker note, the HDR+
+  maker note, EXIF thumbnails) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 230 photos here clean. The six DNGs keep their RAW
+  preview (owner, 2026-10-05).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 44 (train 26, validation 6, test 12), with 44
+  pool photos topping the draw up to 230.
 
 ## 2026-10-26: 10 grinder-hopper photos whose masks the owner declined
 

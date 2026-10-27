@@ -101,7 +101,7 @@
 
   <h2>3. P1 &mdash; Intake of the 44 photos</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-27: the 44 stripped and in DVC, pushed and verified; 1,084 photos in the segmenter dataset</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>As the batches of 2026-10-25 and 26 (<code>dataset/segmenter_positives.README.md</code>), all 44 staying here
@@ -351,6 +351,16 @@
     <div><div class="when">2026-10-27</div>The owner answers Q3 (ticket D10): stop instead of shipping only if exp279's
       val macro-F1 is below 0.9 or a class's val F1 below 0.8. P7 unblocked once P3 and P6 are done. Every question
       answered.</div>
+    <div><div class="when">2026-10-27</div>P1 done. <code>strip_metadata</code> stripped all 44 (GPS, C2PA, the Sony
+      and HDR+ maker notes, EXIF thumbnails; 0 checks failing), and a second dry run finds all 230 clean. The tool also
+      wrote same-hash rows for the 138 clean photos moved here from other folders, which earlier batches did not
+      record; only the 44 new rows are kept. <code>find_duplicates</code>: no copy (no pair at 0.97); three pairs
+      within the batch at 0.877&ndash;0.886, two of them 5&nbsp;s apart and so in different splits under ADR 0029's
+      3&nbsp;s (<code>111137</code>/<code>111142</code>, <code>131255</code>/<code>131300</code>), named in the
+      folder's README for the owner. <code>dvc add</code>: 44 entries added, none changed or removed; pushed, and all
+      231 objects of the listing are on the remote, the 44 new ones at their local sizes. <code>seg_dataset
+      build</code>: 996 &rarr; 1,084 photos, no listed entry changed; the 44 split train 26, validation 6, test 12, with
+      44 pool photos drawn. <code>test_seg_dataset</code> and <code>test_segmenter_positives</code> pass in full.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,

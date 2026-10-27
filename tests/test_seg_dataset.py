@@ -387,9 +387,10 @@ class CommittedFile(unittest.TestCase):
         # kept out of or moved from random_date_raccoon and the pool draw's 15; then the 6 pool-excluded photos moved
         # for labelling and the pool draw's 6. internet_beans_017 was deleted from the data by the owner's call
         # (2026-10-25), its entry with it: the one exception to append-only (D11). 2026-10-26 the 10 positives whose
-        # masks the owner declined and the pool draw's 10.
+        # masks the owner declined and the pool draw's 10. 2026-10-27 the 44 Colombia and Guatemala positives (ML-13
+        # D1) and the pool draw's 44.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 186, "pool": 186, "negative": 613, "internet_positive": 11})
+                         {"segmenter_positive": 230, "pool": 230, "negative": 613, "internet_positive": 11})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}

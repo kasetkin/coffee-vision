@@ -1,6 +1,6 @@
 outs:
-- md5: ca693ffa3fad078ea2c194be6147ff27.dir
-  size: 640651224
-  nfiles: 186
+- md5: 390c99729f31cdfb8cf7f715a430dbed.dir
+  size: 1026427200
+  nfiles: 230
   hash: md5
   path: segmenter_positives
