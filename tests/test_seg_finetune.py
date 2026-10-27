@@ -13,7 +13,9 @@ The tests that need L0 weights skip on a clone without them (models_pretrained/v
 """
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import subprocess
 import sys
@@ -404,7 +406,7 @@ class LearningRateArgument(unittest.TestCase):
         """main() with training stubbed out: the FtParams train got, checked against those the card records."""
         got = {}
 
-        def train(seed, cfg, p, rows):
+        def train(seed, cfg, p, rows, name):
             got["train"] = p
             return {"best": {"epoch": 1, "score": 0.5}}
 
@@ -415,6 +417,7 @@ class LearningRateArgument(unittest.TestCase):
         with (mock.patch.object(ft, "label_rows", lambda session: []),
               mock.patch.object(ft, "label_set", lambda session, rows: {}),
               mock.patch.object(ft, "train", train), mock.patch.object(ft, "write_model", write_model),
+              mock.patch.object(ft, "RESUME_ROOT", REPO_ROOT / "outputs" / "no_such_dir"),
               mock.patch.object(ft.torch, "set_num_threads"), mock.patch("builtins.print")):
             ft.main(["train", "--labels", "toy", "--seed", "123", "--name", "toy", "--threads", "1", *extra])
         self.assertEqual(got["card"], asdict(got["train"]))
@@ -438,7 +441,8 @@ class EntryPointAtToyScale:
     through main() and a params.yaml that is the repo's with seg_ft at toy scale and its base weights set to WEIGHTS
     (CODING_STANDARDS "Run the real entry point"). The label set is three synthetic photos: one epoch trains with
     every batch adding points, the card names the base weights, the pipeline and albumentations' version, and
-    nothing but the model and its card is written (ML-6 D12)."""
+    nothing but the model and its card is left behind (ML-6 D12; the resume state is gone once they are written,
+    ML-13 P2)."""
 
     WEIGHTS = FRAME = None
 
@@ -454,7 +458,7 @@ class EntryPointAtToyScale:
             before = {f for f in tmp.rglob("*")}
             read = RunConfig.from_params_yaml
             with (mock.patch.object(RunConfig, "from_params_yaml", lambda: read(params)),
-                  mock.patch.object(ft, "MODEL_DIR", tmp / "m"),
+                  mock.patch.object(ft, "MODEL_DIR", tmp / "m"), mock.patch.object(ft, "RESUME_ROOT", tmp / "resume"),
                   mock.patch.object(ft, "label_rows", lambda session: rows)):
                 ft.main(["train", "--labels", "toy", "--seed", "42", "--name", "toy_s42", "--threads", "4"])
             self.assertEqual({f.relative_to(tmp) for f in tmp.rglob("*")} - {f.relative_to(tmp) for f in before},
@@ -468,6 +472,7 @@ class EntryPointAtToyScale:
                              ("2.0.8", read(params).seg_ft["augment"]))
             self.assertFalse([t for t in card["seg_ft"]["augment"] if "use" in t])
             self.assertEqual(card["history"][1]["point_steps"], 1)
+            self.assertEqual(card["resumed_at"], [])
 
 
 @real_data
@@ -480,6 +485,126 @@ class EntryPointL0(EntryPointAtToyScale, unittest.TestCase):
 @unittest.skipUnless(HAVE_XL0, SKIP_XL0)
 class EntryPointXL0(EntryPointAtToyScale, unittest.TestCase):
     WEIGHTS, FRAME = XL0_WEIGHTS, 1024
+
+
+class Interrupted(Exception):
+    """A host reboot, as the test sees it."""
+
+
+@real_data
+@unittest.skipUnless(HAVE_L0, SKIP_L0)
+class Resume(unittest.TestCase):
+    """Ticket ML-13 D7, D8 (plan P2): the stage's command keeps its best checkpoint and resume state on disk after
+    every epoch, in outputs/seg_finetune/<name>/, and run again after a reboot it continues where it stopped: the
+    model, history and chosen epoch are those of a run straight through. A state with other inputs is deleted and
+    the run starts fresh; a run deletes other runs' leftovers, a toy run (`_toy`) only its own; nothing stays once
+    the model is written. L0, three synthetic photos, patience above the epochs so no run stops early."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(dir=REPO_ROOT)
+        cls.addClassCleanup(cls.tmp.cleanup)
+        cls.rows = toy_rows(Path(cls.tmp.name), [("train", 300, 400), ("train", 260, 340), ("val", 240, 320),
+                                                 ("neg_train", 250, 300), ("neg_select", 220, 300)])
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(dir=self.tmp.name))
+        self.root = self.dir / "resume"
+
+    def run_main(self, name: str, *, epochs: int = 3, seed: int = 42, rows=None, seg_ft=None, augment=None,
+                 interrupt_at: int | None = None) -> str:
+        """main() on the toy label set with seg_ft at toy scale (`seg_ft` and `augment` edit params.yaml's); the
+        printed log. `interrupt_at`: the selection pass (0 before training, n after epoch n) that never returns,
+        as if the host rebooted while epoch n ran."""
+        raw = yaml.safe_load(PARAMS_FILE.read_text())
+        raw["seg_ft"] = {**raw["seg_ft"], "weights": L0_WEIGHTS, "epochs": epochs, "patience": 10, "batch_size": 2,
+                         "point_share": 0.5, **(seg_ft or {})}
+        raw["augment"] = {**raw["augment"], **(augment or {})}
+        params = self.dir / f"params_{name}.yaml"
+        params.write_text(yaml.safe_dump(raw, sort_keys=False))
+        read, evaluate, calls = RunConfig.from_params_yaml, ft.evaluate, []
+
+        def interrupting(*a, **k):
+            calls.append(1)
+            if len(calls) - 1 == interrupt_at:
+                raise Interrupted
+            return evaluate(*a, **k)
+
+        out = io.StringIO()
+        with (mock.patch.object(RunConfig, "from_params_yaml", lambda: read(params)),
+              mock.patch.object(ft, "MODEL_DIR", self.dir / "m"), mock.patch.object(ft, "RESUME_ROOT", self.root),
+              mock.patch.object(ft, "label_rows", lambda session: rows or self.rows),
+              mock.patch.object(ft, "evaluate", interrupting), contextlib.redirect_stdout(out)):
+            try:
+                ft.main(["train", "--labels", "toy", "--seed", str(seed), "--name", name, "--threads", "2"])
+            except Interrupted:
+                pass
+        return out.getvalue()
+
+    def card(self, name: str) -> dict:
+        return json.loads((self.dir / "m" / f"{name}.json").read_text())
+
+    @staticmethod
+    def without_seconds(history: list[dict]) -> list[dict]:
+        return [{k: v for k, v in row.items() if k != "seconds"} for row in history]
+
+    def test_a_run_stopped_in_epoch_2_and_run_again_gives_the_uninterrupted_model(self):
+        # One name for both, in two directories: torch.save names its archive after the file.
+        self.run_main("run")
+        a = self.card("run")
+        self.setUp()
+        self.run_main("run", interrupt_at=2)
+        self.assertTrue((self.root / "run" / "resume.pt").exists())
+        self.assertFalse((self.dir / "m" / "run.pt").exists())
+        log = self.run_main("run")
+        self.assertIn("resuming at epoch 2", log)
+        b = self.card("run")
+        self.assertEqual(len(a["history"]), 4)
+        self.assertEqual((b["sha256"], self.without_seconds(b["history"]), b["chosen"]),
+                         (a["sha256"], self.without_seconds(a["history"]), a["chosen"]))
+        self.assertEqual((a["resumed_at"], b["resumed_at"]), ([], [2]))
+        self.assertFalse(self.root.exists())
+
+    def test_a_state_with_other_inputs_is_deleted_and_the_run_starts_fresh(self):
+        colour = yaml.safe_load(PARAMS_FILE.read_text())["augment"]["colour"]
+        changed_colour = [{**colour[0], "args": {**colour[0]["args"], "brightness": 0.3}}, *colour[1:]]
+        for change, differs in (({"seed": 7}, "seed"), ({"rows": self.rows[:-1]}, "label_set_sha256"),
+                                ({"seg_ft": {"focal_weight": 10.0}}, "seg_ft"),
+                                ({"augment": {"colour": changed_colour}}, "augment")):
+            with self.subTest(differs):
+                self.setUp()
+                self.run_main("run", epochs=2, interrupt_at=2)
+                self.assertTrue((self.root / "run" / "resume.pt").exists())
+                log = self.run_main("run", epochs=2, **change)
+                self.assertRegex(log, rf"is another run's \([^)]*\b{differs}\b[^)]*differ\): deleted, starting fresh")
+                self.assertNotIn("resuming", log)
+                self.assertEqual((self.card("run")["resumed_at"], len(self.card("run")["history"])), ([], 3))
+                self.assertFalse(self.root.exists())
+
+    def test_a_run_deletes_other_runs_leftovers_and_a_toy_run_only_its_own(self):
+        leftover = self.root / "xl0_v6" / "resume.pt"
+        leftover.parent.mkdir(parents=True)
+        leftover.write_bytes(b"an interrupted real run's hours")
+        self.run_main("xl0_v6_toy", epochs=1)
+        self.assertTrue(leftover.exists())
+        log = self.run_main("other", epochs=1)
+        self.assertIn("deleting another run's resume state", log)
+        self.assertFalse(self.root.exists())
+
+
+class ResumeFingerprintCode(unittest.TestCase):
+    """The resume fingerprint hashes the code every fine-tune stage in dvc.yaml depends on (plan P2), so a code
+    change DVC would rerun the stage for also stops a resume."""
+
+    def test_the_code_deps_are_the_stages(self):
+        stages = yaml.safe_load((REPO_ROOT / "dvc.yaml").read_text())["stages"]
+        for name, stage in stages.items():
+            do = stage.get("do", stage)
+            if not do["cmd"].startswith("python -m coffeecv.seg_finetune ") or do.get("frozen"):
+                continue
+            with self.subTest(name):
+                code = [d for d in do["deps"] if not d.startswith(("data/", "models_pretrained/"))]
+                self.assertEqual(sorted(code), sorted(ft.CODE_DEPS))
 
 
 if __name__ == "__main__":

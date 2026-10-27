@@ -123,7 +123,7 @@
 
   <h2>4. P2 &mdash; The fine-tune keeps its best checkpoint and resumes</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-27: resume state each epoch; a run killed in epoch 2 and rerun gives the uninterrupted model, which is the code before's</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>After every epoch <code>seg_finetune.train</code> writes, atomically (a temporary file, then a rename),
@@ -361,6 +361,19 @@
       231 objects of the listing are on the remote, the 44 new ones at their local sizes. <code>seg_dataset
       build</code>: 996 &rarr; 1,084 photos, no listed entry changed; the 44 split train 26, validation 6, test 12, with
       44 pool photos drawn. <code>test_seg_dataset</code> and <code>test_segmenter_positives</code> pass in full.</div>
+    <div><div class="when">2026-10-27</div>P2 done. One finding: albumentations 2.0.8 gives the Compose
+      <em>and every transform in it</em> a numpy and a Python generator of its own (13 pairs for
+      <code>seg_ft.augment</code> today), so the resume saves all of them, not the Compose's two;
+      <code>build_augment</code> now returns an <code>Augmenter</code> that walks the tree. The fingerprint adds
+      torch's version to the plan's list. <code>tests.test_seg_finetune.Resume</code> (L0, three epochs): stopped in
+      epoch 2 and rerun gives the straight run's model byte for byte, its history and chosen epoch; a changed seed,
+      label set, <code>seg_ft</code> key or shared <code>augment</code> group deletes the state, names the key and
+      starts fresh; a <code>_toy</code> run leaves another name's slot, a real run deletes it; nothing is left after
+      the model is written. <code>ResumeFingerprintCode</code> holds the hashed code to the fine-tune stages' deps.
+      Through the entry point at toy scale on XL0 (three epochs, <code>--lr 1e-3</code> so a trained epoch is
+      chosen): the code before P2 and after give the same <code>.pt</code> and history; the same run killed with
+      SIGKILL during epoch 2 and rerun resumes at epoch 2 and gives that <code>.pt</code> again. The state is 65 MB
+      for XL0.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
