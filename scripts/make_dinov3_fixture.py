@@ -4,8 +4,10 @@ The fixture is what lets tests/test_dino_backbone.py check the timm-built DINOv3
 code without Meta's code being in this repo (docs/dinov3_integration_plan.md §2.3-2.4): the DINOv3
 License covers the code as well as the weights, and a public repo must not redistribute either. The
 fixture holds only model *outputs*, which the licence does not restrict. The input is real: one bean
-patch per class from the pool's listed photos (coffeecv_dino/reference_photos.txt, since ticket ML-8; cam_iphone
-before), drawn by coffeecv_dino.reference exactly as the test redraws it.
+patch per class from the listed original photos (coffeecv_dino/reference_photos.txt), drawn by
+coffeecv_dino.reference exactly as the test redraws it. Since ticket ML-13 (D9) the draw reads the originals in
+dataset/, not the pool's crops, so a re-crop leaves the fixture as it is; only a change to the list, the draw or
+the backbone calls for this script.
 
     python scripts/make_dinov3_fixture.py                 # clones facebookresearch/dinov3 into a temp dir
     python scripts/make_dinov3_fixture.py --repo /path/to/existing/clone
@@ -24,7 +26,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coffeecv_dino.reference import REFERENCE_POOL, REFERENCE_SEED, reference_patches, reference_photos  # noqa: E402
+from coffeecv_dino.reference import PATCH_SIDE, REFERENCE_SEED, reference_patches, reference_photos  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 META_URL = "https://github.com/facebookresearch/dinov3.git"
@@ -58,7 +60,7 @@ def main() -> int:
         cls = out["x_norm_clstoken"].numpy()
         cls_mean = np.concatenate([cls, out["x_norm_patchtokens"].mean(dim=1).numpy()], axis=1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(OUT, cls=cls, cls_mean=cls_mean, pool=REFERENCE_POOL, photos=np.array(reference_photos()),
+    np.savez(OUT, cls=cls, cls_mean=cls_mean, patch_side=PATCH_SIDE, photos=np.array(reference_photos()),
              seed=REFERENCE_SEED, per_class=PER_CLASS,
              class_ids=np.array(class_ids), meta_commit=META_COMMIT, weights=WEIGHTS.name)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}: cls {cls.shape}, cls_mean {cls_mean.shape} "

@@ -1,41 +1,45 @@
 """A small, fixed set of REAL bean patches: the input to the Meta-equivalence fixture and the tests.
 
-Drawn by coffeecv's own single-capture-dir builder (`fold_data.build_capture_dataset`: every photo of
-one dir, split="all") from the DVC-tracked crops, through the project's eval transform, so no
-check in this package runs on synthetic data. Since ticket ML-8 (D2, plan P5) the photos are a fixed
-list from the pool, one per class folder (REFERENCE_PHOTOS, a committed file): the builder runs on a
-temporary dir holding links to just those crops and their masks, so drawing them decodes 15 photos, not
-the pool, and the patches change only when the list or the crops do. Labels index the listed folders,
-sorted. Patches are placed by the D17 rule against each crop's mask (params.yaml's crop_method), and every
-listed crop has one. Until ML-8 the reference was every photo of data/segcropped/cam_iphone, the smallest
-camera pool (92 photos, 8 of the 10 classes then).
+Since ticket ML-13 (D9, plan P7) the patches come from the original photos in dataset/, one per class folder
+(REFERENCE_PHOTOS, a committed file), which no re-crop touches: the fixture checks only the backbone against
+Meta's code, so nothing upstream of the backbone may move it. Each listed photo is decoded by photo_io (most are
+iPhone HEIC), and `per_class` square boxes of PATCH_SIDE px, the stored patch's side, are placed uniformly at random
+inside the photo's middle half by a generator keyed on (REFERENCE_SEED, the photo's path), then put through the
+project's eval transform as a stored patch is. No mask, bean scale, crop or segmenter setting reaches the draw. Labels index the listed folder
+ids, sorted (a folder's id is the number its name starts with, so `class_009__Vietnam_Robusta` in dataset/ is
+the pool's `class_009__Vietnam`).
+
+Until ML-13 the patches came from the pool's crops of the same photos, placed by the D17 rule against each crop's
+mask, so every re-crop changed them and the fixture had to be regenerated; until ML-8 the reference was every photo
+of data/segcropped/cam_iphone.
 """
 from __future__ import annotations
 
-import tempfile
-from dataclasses import replace
+import zlib
 from pathlib import Path
 
 import numpy as np
 import torch
+from PIL import Image
 
 from coffeecv.class_list import folder_classes
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import CLASS_DIR_RE, bean_mask_path, resolve_captures
-from coffeecv.fold_data import build_capture_dataset
+from coffeecv.dataset import CLASS_DIR_RE
+from coffeecv.photo_io import load_rgb_image
+from coffeecv.transforms import build_eval_transform
 
-REFERENCE_POOL = "data/segcropped/pool"
 REFERENCE_PHOTOS = Path(__file__).with_name("reference_photos.txt")
 REFERENCE_SEED = 42
+PATCH_SIDE = 448            # params.yaml patch_store_size when the draw moved to the originals (2026-10-27)
 
 
 def folder_of(photo: str) -> str:
-    """A listed crop's class folder id (`class_001__...` -> "001")."""
-    return CLASS_DIR_RE.match(Path(photo).parts[0]).group(1)
+    """A listed photo's class folder id (`dataset/<session>/class_001__.../x.jpg` -> "001")."""
+    return CLASS_DIR_RE.match(Path(photo).parent.name).group(1)
 
 
 def reference_photos() -> list[str]:
-    """The listed crops, `<class dir>/<crop file>` under REFERENCE_POOL, one per class folder."""
+    """The listed photos, repo paths under dataset/, one per class folder."""
     lines = [ln.strip() for ln in REFERENCE_PHOTOS.read_text().splitlines()]
     photos = [ln for ln in lines if ln and not ln.startswith("#")]
     folders = [folder_of(p) for p in photos]
@@ -45,27 +49,29 @@ def reference_photos() -> list[str]:
 
 
 def have_reference_data() -> bool:
-    pool = REPO_ROOT / REFERENCE_POOL
-    return all((pool / p).is_file() and bean_mask_path(pool / p).is_file() for p in reference_photos())
+    return all((REPO_ROOT / p).is_file() for p in reference_photos())
+
+
+def reference_boxes(photo: str, h: int, w: int, per_class: int) -> list[tuple[int, int]]:
+    """The (y0, x0) corners of a listed photo's PATCH_SIDE boxes, inside its middle half on each axis (the owner
+    centres the beans: drawn over the whole frame, 3 of the 15 first boxes held only tray and table), from a
+    generator keyed on the seed and the photo's path, so a photo's boxes depend on nothing else."""
+    rng = np.random.default_rng([REFERENCE_SEED, zlib.crc32(photo.encode())])
+    return [(int(rng.integers(h // 4, 3 * h // 4 - PATCH_SIDE + 1)),
+             int(rng.integers(w // 4, 3 * w // 4 - PATCH_SIDE + 1))) for _ in range(per_class)]
 
 
 def reference_patches(per_class: int) -> tuple[torch.Tensor, np.ndarray, list[str], dict[str, str]]:
     """(eval-transformed patches [N, 3, 224, 224], labels [N], class_ids, class_labels)."""
-    cfg = replace(RunConfig.from_params_yaml(), seed=REFERENCE_SEED)
-    pool = REPO_ROOT / REFERENCE_POOL
-    photos = reference_photos()
-    with tempfile.TemporaryDirectory() as tmp:
-        ref_dir = Path(tmp) / "reference"
-        for p in photos:
-            crop = pool / p
-            (ref_dir / crop.parent.name).mkdir(parents=True, exist_ok=True)
-            for f in (crop, bean_mask_path(crop)):
-                (ref_dir / crop.parent.name / f.name).symlink_to(f)
-        # Per folder, whatever classes.txt's format: a class's index seeds its boxes, so the fixture's
-        # classes are the listed folder ids in sorted order (ticket ML-3).
-        folders = sorted(folder_of(p) for p in photos)
-        classes = folder_classes(REPO_ROOT / cfg.classes_file).select(folders)
-        ds = build_capture_dataset(cfg, resolve_captures([ref_dir])[0], classes, per_class)
-        items = [ds[i] for i in range(len(ds))]
-    return (torch.stack([x for x, _ in items]), np.array([int(y) for _, y in items]), list(classes.keys),
-            dict(classes.labels))
+    cfg = RunConfig.from_params_yaml()
+    eval_tf = build_eval_transform(cfg.patch_resize)
+    photos = sorted(reference_photos(), key=folder_of)
+    # Per folder, whatever classes.txt's format: the fixture's classes are the listed folder ids, sorted (ML-3).
+    classes = folder_classes(REPO_ROOT / cfg.classes_file).select([folder_of(p) for p in photos])
+    xs, ys = [], []
+    for label, photo in enumerate(photos):
+        rgb = load_rgb_image(REPO_ROOT / photo)
+        for y0, x0 in reference_boxes(photo, *rgb.shape[:2], per_class):
+            xs.append(eval_tf(Image.fromarray(np.ascontiguousarray(rgb[y0:y0 + PATCH_SIDE, x0:x0 + PATCH_SIDE]))))
+            ys.append(label)
+    return torch.stack(xs), np.array(ys), list(classes.keys), dict(classes.labels)
