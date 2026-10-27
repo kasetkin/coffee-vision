@@ -6,6 +6,7 @@ Read before moving data between machines, pushing to the remote, or committing a
 
 - **Use `dvc push` here and `dvc pull` (or `dvc fetch`) on the other machine.** Both verify hashes. Copying `.dvc/cache` objects with rsync or scp is retired: an interrupted `rsync --partial --ignore-existing` once left a truncated object under its final name, the retry skipped it, and a VM run failed with "image file is truncated".
 - **Push explicit targets** (`dvc push models/<name>.pt.dvc`) and verify the objects. `dvc push --all-commits` has reported "Everything is up to date" while an object it collected was missing from the remote.
+- **After the host reboots**, the remote (`dvcnewremote`, `webappremote`: yappy's Tailscale name) may not resolve here: Docker regenerates the container's `/etc/resolv.conf` with the LAN's resolver only, which knows no `*.ts.net` name ("Name or service not known"). Put Tailscale's resolver first, in place (the file is bind-mounted): `{ echo nameserver 100.100.100.100; cat /etc/resolv.conf; } > /tmp/r && sudo tee /etc/resolv.conf < /tmp/r > /dev/null`. Seen 2026-10-22 and 2026-10-27.
 - `--all-commits` reads `.dvc/config` as of each commit. A remote declared in `.dvc/config.local` without a `url` makes every older commit fail with `ConfigError: expected 'url'`, logged as a WARNING with exit 0 (323 commits silently skipped once). Keep a local override self-sufficient: `dvc remote modify --local <remote> url ...`.
 
 ## Trusting the result
