@@ -11,10 +11,10 @@
     cannot exclude, nor fills a small hole inside a correct mask. The owner asks for a brush: hold e and drag to erase,
     hold w and drag to fill, with a see-through round cursor and a radius from 1 to 100 pixels set on the right
     panel. Written; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>,
-    P1&ndash;P3); P1&ndash;P2 implemented 2026-10-27; P3, the owner trying the brush, next.</p>
+    P1&ndash;P3); implemented and tried by the owner 2026-10-27; left for the owner to close.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-26; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>, P1&ndash;P3); P1&ndash;P2 done 2026-10-27 (<code>ac9f831</code>, <code>aaa0578</code>); P3, the owner's try, next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-26; D1&ndash;D9 decided 2026-10-26; planned (<a href="plan_seg_review_painter.html">plan</a>, P1&ndash;P3); P1&ndash;P3 done 2026-10-27 (<code>ac9f831</code>, <code>aaa0578</code>, <code>f9d5914</code>); every acceptance item met; left for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: segmenter labelling page</span></div>
@@ -202,10 +202,10 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>Holding e (w) and dragging with the left button over the photo erases (fills)
+    <li><span class="box done"></span><span>Holding e (w) and dragging with the left button over the photo erases (fills)
       a disc of the set radius along the path; the stroke shows as it is drawn, tinted see-through light red (light
       green) over the photo (D7).</span></li>
-    <li><span class="box"></span><span>The cursor over the photo, while e or w is held, is a circle of the brush's
+    <li><span class="box done"></span><span>The cursor over the photo, while e or w is held, is a circle of the brush's
       size with a thin border and a see-through inside, in one colour for erase and another for fill.</span></li>
     <li><span class="box done"></span><span>A number field on the right panel sets the radius, 1&ndash;100 screen pixels,
       clamped; the stroke is recorded with that radius in photo pixels (D1); typing in it triggers no page
@@ -259,6 +259,9 @@
     <div><div class="when">2026-10-27</div>The owner tries the brush on a scratch session (four training positives,
       xl0_v5, under <code>/tmp</code>): e and w work and the mask changes at Enter, but the strokes vanished after it.
       Decided as D10: every stroke so far stays tinted. Done in the page; the browser check goes on.</div>
+    <div><div class="when">2026-10-27</div>The owner, after D10: "'undo' and 'enter' work as intended now, I do not see
+      any problems." The two acceptance items that needed a screen are met. Every acceptance item ticked; Status stays
+      In progress for the owner to close.</div>
   </div>
 
   <footer>Related: <a href="ticket_green_origins_retrain.html">ML-9</a> (D7, the fence),

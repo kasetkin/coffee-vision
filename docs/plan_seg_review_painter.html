@@ -13,7 +13,7 @@
     existing label.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-26; Q1&ndash;Q3 answered (ticket D7, D9, D8); P1 and P2 done 2026-10-27 (<code>ac9f831</code>, <code>aaa0578</code>); P3, the owner's, next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-26; Q1&ndash;Q3 answered (ticket D7, D9, D8); P1&ndash;P3 done 2026-10-27 (<code>ac9f831</code>, <code>aaa0578</code>, <code>f9d5914</code>)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_seg_review_painter.html"><code>ticket_seg_review_painter.html</code></a> (ML-11)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -140,7 +140,7 @@
       <code>seg_review_pages.py</code> docstrings describe the brush; ADR 0015 gets its amendment (ticket D6): a
       label is the model's mask, fenced, then painted by the owner; a painted label is no reference for the point
       probe.</span></li>
-    <li><span class="box"></span><span>Checks: on a toy session (as the tests build), by hand in a browser: erase and
+    <li><span class="box done"></span><span>Checks: on a toy session (as the tests build), by hand in a browser: erase and
       fill tints, Enter changes the mask where the tint was, to within a pixel of its edge, resizing the window
       keeps the recorded radius in photo pixels, a digit typed in the field declines nothing;
       <code>scripts/check.sh</code> green.</span></li>
@@ -148,19 +148,19 @@
 
   <h2>5. P3 &mdash; The owner tries the brush <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started; ready: P2 done</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-27: the owner tried the brush on a scratch session (four training positives, xl0_v5, under <code>/tmp</code>, not a real session), asked for the strokes to stay tinted after Enter (ticket D10, <code>f9d5914</code>), then found no problem with the brush, Enter or undo</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Stop for the owner: use the brush on a few photos of the next labelling
+    <li><span class="box done"></span><span>Stop for the owner: use the brush on a few photos of the next labelling
       session, and say what to change, or close the ticket.</span></li>
   </ol>
 
   <h2>6. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: painting, records and refusals pinned by tests; old sessions untouched.</span></li>
-    <li><span class="box"></span><span>P2: the hand checks above, on a toy session.</span></li>
-    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+    <li><span class="box done"></span><span>P2: the hand checks above, on a toy session.</span></li>
+    <li><span class="box done"></span><span>Full suite green at each phase's last commit: <code>scripts/check.sh --full</code> passed on <code>f9d5914</code>, 2026-10-27.</span></li>
   </ul>
 
   <h3>Explicitly not in this change</h3>
@@ -190,6 +190,8 @@
     <div><div class="when">2026-10-27</div>P3 begun: the owner tries the brush on a scratch session. Strokes vanished
       after Enter; the owner wants them kept (ticket D10), so the page now tints every stroke so far, those carried
       from earlier rounds too.</div>
+    <div><div class="when">2026-10-27</div>The owner checks the page in a browser after D10 and finds no problem: P2's
+      hand check and P3 done. The ticket is left for the owner to close.</div>
   </div>
 
   <footer>Related: <a href="ticket_seg_review_painter.html">ML-11 ticket</a>, <code>coffeecv/seg_review.py</code>,
