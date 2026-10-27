@@ -102,9 +102,11 @@ LEGACY_ROUNDS = 3           # D14's: a session file without "rounds" was started
 REDRAW_OUTPUT = "multi3"     # D23: every redraw, in place of ML-2's single-output corrections
 LABEL_SPLITS = ("train", "validation")
 INDEX_FIELDS = ["id", "path", "photo_sha256", "mask_sha256", "height", "width", "area_frac", "pred_iou",
-                "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256", "fence"]
+                "include", "exclude", "model", "output", "threads", "weights_sha256", "decoder_sha256", "fence",
+                "strokes"]
 LABEL_FIELDS = ["id", "path", "photo_sha256", "source", "split", "status", "round", "mask", "mask_sha256",
-                "include", "exclude", "reason", "fence"]
+                "include", "exclude", "reason", "fence", "strokes"]
+STROKE_MODES = ("erase", "fill")
 
 
 def _now() -> str:
@@ -134,6 +136,36 @@ def fence_mask(mask: np.ndarray, fence: list[float]) -> np.ndarray:
 def _fence_of(row: dict | None) -> list[float] | None:
     """A row's fence; rows written before ML-9 have no such column."""
     return json.loads(row["fence"]) if row and row.get("fence") else None
+
+
+def paint_mask(mask: np.ndarray, strokes: list[dict]) -> np.ndarray:
+    """`mask` with the owner's brush `strokes` painted in, in order (ticket ML-11): a fill stroke sets, an erase
+    stroke clears, every pixel whose centre lies within `r` photo pixels of its path. The path is [x, y] in
+    fractions of the photo, mapped to pixels as `decode_points` maps a point (f * (side - 1)); a path of one
+    point paints a disc. Each segment is rasterised in its bounding box only, so a long stroke on a full-size
+    photo stays quick."""
+    out = mask.copy()
+    h, w = out.shape
+    for s in strokes:
+        r, value = s["r"], s["mode"] == "fill"
+        pts = np.asarray(s["path"], float) * (w - 1, h - 1)
+        for a, b in zip(pts, pts[1:] if len(pts) > 1 else pts):
+            x0, y0 = (max(0, math.floor(min(a[i], b[i]) - r)) for i in (0, 1))
+            x1, y1 = (min(side - 1, math.ceil(max(a[i], b[i]) + r)) for i, side in ((0, w), (1, h)))
+            if x0 > x1 or y0 > y1:
+                continue
+            xx = np.arange(x0, x1 + 1, dtype=float)[None, :] - a[0]       # broadcast, not a grid: 2.5x quicker
+            yy = np.arange(y0, y1 + 1, dtype=float)[:, None] - a[1]
+            dx, dy = b - a
+            length2 = dx * dx + dy * dy
+            t = np.clip((xx * dx + yy * dy) / length2, 0, 1) if length2 else 0.0
+            out[y0:y1 + 1, x0:x1 + 1][(xx - t * dx) ** 2 + (yy - t * dy) ** 2 <= r * r] = value
+    return out
+
+
+def _strokes_of(row: dict | None) -> list[dict]:
+    """A row's brush strokes; rows written before ML-11 have no such column, and read as none."""
+    return json.loads(row["strokes"]) if row and row.get("strokes") else []
 
 
 def _save_mask(mask: np.ndarray, path: Path) -> None:
@@ -299,14 +331,15 @@ class LabelSession:
         return self._cache[k][1]
 
     def _put(self, k: int, item: dict, mask: np.ndarray, iou: float, inc: list, exc: list, info: dict,
-             output: str, fence: list[float] | None = None) -> None:
+             output: str, fence: list[float] | None = None, strokes: list[dict] | None = None) -> None:
         _save_mask(mask, self.mask_path(item, k))
         self._put_row(k, {
             "id": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "mask_sha256": mask_sha256(mask),
             "height": mask.shape[0], "width": mask.shape[1], "area_frac": f"{mask.mean():.4f}",
             "pred_iou": f"{iou:.4f}", "include": json.dumps(inc), "exclude": json.dumps(exc), "model": info["model"],
             "output": output, "threads": torch.get_num_threads(), "weights_sha256": info["weights_sha256"],
-            "decoder_sha256": info["decoder_sha256"], "fence": json.dumps(fence) if fence else ""})
+            "decoder_sha256": info["decoder_sha256"], "fence": json.dumps(fence) if fence else "",
+            "strokes": json.dumps(strokes) if strokes else ""})
 
     def _put_row(self, k: int, row: dict) -> None:
         """Round k's index.csv with `row` in place of its photo's."""
@@ -330,6 +363,9 @@ class LabelSession:
 
     def fence(self, item: dict, k: int) -> list[float] | None:
         return _fence_of(self.row(item, k))
+
+    def strokes(self, item: dict, k: int) -> list[dict]:
+        return _strokes_of(self.row(item, k))
 
     # verdicts
     def verdicts(self) -> dict[tuple[str, int], dict]:
@@ -356,14 +392,17 @@ class LabelSession:
             "item": item["id"], "path": item["path"], "photo_sha256": item["sha256"], "source": item["source"],
             "split": item["split"], "round": st.round, "mask_sha256": cur["mask_sha256"], "model": cur["model"],
             "output": cur["output"], **self.points(item, st.round), "fence": self.fence(item, st.round),
-            "decision": decision,
+            "strokes": self.strokes(item, st.round), "decision": decision,
             "reason": None if decision == "accept" else reason, "reviewer": reviewer, "via": "seg_review",
             "ts": _now()})
         return self.state(item)
 
-    def redraw(self, item: dict, include: list, exclude: list, drawer, fence: list[float] | None = None) -> State:
+    def redraw(self, item: dict, include: list, exclude: list, drawer, fence: list[float] | None = None,
+               strokes: list[dict] | None = None) -> State:
         """The next round's mask from the box plus `include`/`exclude` (every point so far), cut to `fence` if
-        one is drawn, after a decline; or a replacement of that mask while it is not judged."""
+        one is drawn, then painted with `strokes` (every brush stroke so far, ticket ML-11 D3), after a decline;
+        or a replacement of that mask while it is not judged."""
+        strokes = strokes or []
         st = self.state(item)
         if st.status == "points":
             k, base = st.round + 1, st.round
@@ -371,14 +410,20 @@ class LabelSession:
             k, base = st.round, st.round
         else:
             raise _Refused(409, f"{st.status} in round {st.round}: decline the mask before redrawing")
-        if not include and not exclude and not fence:
-            raise _Refused(400, "no point and no fence")
-        if ({"include": include, "exclude": exclude}, fence) == (self.points(item, base), self.fence(item, base)):
-            raise _Refused(400, "no new point or fence since this mask was drawn")
+        if not include and not exclude and not fence and not strokes:
+            raise _Refused(400, "no point, no fence and no stroke")
+        side = max(int(self.row(item, base)["height"]), int(self.row(item, base)["width"]))
+        if any(s["r"] > side for s in strokes):
+            raise _Refused(400, f"strokes: a radius of at most the photo's long side, {side} pixels")
+        if ({"include": include, "exclude": exclude}, fence, strokes) == \
+                (self.points(item, base), self.fence(item, base), self.strokes(item, base)):
+            raise _Refused(400, "no new point, fence or stroke since this mask was drawn")
         mask, iou = drawer.redraw(item, include, exclude)
         if fence:
             mask = fence_mask(mask, fence)
-        self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT, fence)
+        if strokes:
+            mask = paint_mask(mask, strokes)
+        self._put(k, item, mask, iou, include, exclude, drawer.info(), REDRAW_OUTPUT, fence, strokes)
         return self.state(item)
 
     # a carried session
@@ -484,13 +529,15 @@ class LabelSession:
                         "mask": rel(self.mask_path(it, st.round)) if acc else "",
                         "mask_sha256": row["mask_sha256"] if acc else "",
                         "include": row["include"] if acc else "", "exclude": row["exclude"] if acc else "",
-                        "reason": st.reason or "", "fence": row.get("fence", "") if acc else ""})
+                        "reason": st.reason or "", "fence": row.get("fence", "") if acc else "",
+                        "strokes": row.get("strokes", "") if acc else ""})
         for e in self.negatives:
             f = self.mask_dir / "neg" / f"{e['id']}.png"
             out.append({"id": e["id"], "path": e["path"], "photo_sha256": e["sha256"], "source": e["source"],
                         "split": e["split"], "status": "negative", "round": "", "mask": rel(f),
                         "mask_sha256": mask_sha256(np.array(Image.open(f)) > 0) if f.exists() else "",
-                        "include": "", "exclude": "", "reason": "D14: negative, empty label", "fence": ""})
+                        "include": "", "exclude": "", "reason": "D14: negative, empty label", "fence": "",
+                        "strokes": ""})
         return out
 
     def write_labels(self) -> list[dict]:
@@ -543,6 +590,24 @@ def _fence(body: dict) -> list[float] | None:
     if not ok:
         raise _Refused(400, "fence: [x0, y0, x1, y1] fractions of the photo, x0 < x1 and y0 < y1, or none")
     return [float(c) for c in fence]
+
+
+def _strokes(body: dict) -> list[dict]:
+    """The brush strokes (ticket ML-11): each {"mode": "erase" | "fill", "r": photo pixels, "path": [[x, y], ...]
+    fractions of the photo}. The radius's upper bound, the photo's long side, is `LabelSession.redraw`'s check."""
+    strokes = body.get("strokes", [])
+    def number(c) -> bool:
+        return isinstance(c, (int, float)) and not isinstance(c, bool)
+    ok = isinstance(strokes, list) and all(
+        isinstance(s, dict) and set(s) == {"mode", "r", "path"} and s["mode"] in STROKE_MODES and
+        number(s["r"]) and s["r"] > 0 and isinstance(s["path"], list) and len(s["path"]) >= 1 and
+        all(isinstance(p, list) and len(p) == 2 and all(number(c) and 0 <= c <= 1 for c in p) for p in s["path"])
+        for s in strokes)
+    if not ok:
+        raise _Refused(400, 'strokes: a list of {"mode": "erase" | "fill", "r": > 0 photo pixels, '
+                            '"path": [[x, y], ...] fractions of the photo}')
+    return [{"mode": s["mode"], "r": float(s["r"]), "path": [[float(c) for c in p] for p in s["path"]]}
+            for s in strokes]
 
 
 def _decision(body: dict) -> tuple[str, str | None]:
@@ -613,12 +678,15 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
         st = session.state(it, verdicts)
         counts = Counter(session.state(x, verdicts).status for x in items)
         row = session.row(it, st.round) if st.round else None
+        size = session.row(it, 1)
         mine = verdicts.get((it["id"], st.round))
         info = {"i": i, "n": len(items), "item": it["id"], "source": it["source"], "split": it["split"],
                 "status": st.status, "round": st.round, "rounds": session.rounds, "reason": st.reason,
                 "model": row["model"] if row else None, "mask_sha256": row["mask_sha256"] if row else "",
                 "points": session.points(it, st.round) if st.round else {"include": [], "exclude": []},
                 "fence": session.fence(it, st.round) if st.round else None,
+                "strokes": session.strokes(it, st.round) if st.round else [],
+                "width": int(size["width"]) if size else None, "height": int(size["height"]) if size else None,
                 "decision": mine["decision"] if mine else None, "accepted": counts["accepted"],
                 "dropped": counts["dropped"], "todo": counts["judge"] + counts["points"] + counts["pending"],
                 "reasons": REASONS, "session": session.name}
@@ -650,8 +718,9 @@ def create_label_app(session: LabelSession, redrawer, rule: str, reviewer: str =
         it = get(i)
         body = request.get_json(force=True)
         include, exclude, fence = _points(body, "include"), _points(body, "exclude"), _fence(body)
+        strokes = _strokes(body)
         with lock:
-            return reply(i, session.redraw(it, include, exclude, redrawer, fence))
+            return reply(i, session.redraw(it, include, exclude, redrawer, fence, strokes))
 
     return app
 
@@ -938,12 +1007,13 @@ def print_report(rep: dict) -> None:
 
 
 def accepted_labels(session: str, mask_root: Path = MASK_ROOT) -> list[dict]:
-    """The accepted labels of a session's labels.csv (written by `status`): path, round, mask, points."""
+    """The accepted labels of a session's labels.csv (written by `status`): path, round, mask, points, fence and
+    brush strokes."""
     f = mask_root / session / "labels.csv"
     if not f.exists():
         raise ValueError(f"{rel(f)} missing: run `python -m coffeecv.seg_review status --session {session}`")
     return [{**r, "round": int(r["round"]), "include": json.loads(r["include"]), "exclude": json.loads(r["exclude"]),
-             "fence": _fence_of(r)} for r in read_csv(f) if r["status"] == "accepted"]
+             "fence": _fence_of(r), "strokes": _strokes_of(r)} for r in read_csv(f) if r["status"] == "accepted"]
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -71,6 +71,52 @@ def v(decision, reason=None):
     return {"decision": decision, "reason": reason}
 
 
+def disc(x, y, r, h=H, w=W) -> np.ndarray:
+    """The pixels whose centre lies within `r` of the point (x, y), fractions mapped as points are: f * (side - 1)."""
+    yy, xx = np.mgrid[:h, :w]
+    return (xx - x * (w - 1)) ** 2 + (yy - y * (h - 1)) ** 2 <= r * r
+
+
+class PaintMask(unittest.TestCase):
+    """Ticket ML-11: the owner's brush, a disc of radius r (photo pixels) along the path, set by fill and cleared
+    by erase, in order. The page's tint imitates this geometry (ticket R1)."""
+
+    def test_a_one_point_stroke_paints_a_disc(self):
+        m = seg_review.paint_mask(np.zeros((H, W), bool), [{"mode": "fill", "r": 7.5, "path": [[0.25, 0.5]]}])
+        self.assertTrue(np.array_equal(m, disc(0.25, 0.5, 7.5)))
+        self.assertGreater(m.sum(), 150)
+
+    def test_a_segment_paints_a_band_with_round_ends(self):
+        # (20, 50) to (100, 50) in pixels of a 201 x 101 mask, r 5
+        h, w = 101, 201
+        m = seg_review.paint_mask(np.zeros((h, w), bool),
+                                  [{"mode": "fill", "r": 5, "path": [[20 / 200, 0.5], [100 / 200, 0.5]]}])
+        yy, xx = np.mgrid[:h, :w]
+        band = (xx >= 20) & (xx <= 100) & (abs(yy - 50) <= 5)
+        want = band | disc(20 / 200, 0.5, 5, h, w) | disc(100 / 200, 0.5, 5, h, w)
+        self.assertTrue(np.array_equal(m, want))
+
+    def test_a_path_paints_every_segment_and_an_erase_clears(self):
+        path = [[0.2, 0.2], [0.6, 0.2], [0.6, 0.8]]
+        m = seg_review.paint_mask(np.ones((H, W), bool), [{"mode": "erase", "r": 3, "path": path}])
+        self.assertFalse(m[round(0.2 * (H - 1)), round(0.4 * (W - 1))])          # on the first segment
+        self.assertFalse(m[round(0.5 * (H - 1)), round(0.6 * (W - 1))])          # on the second
+        self.assertTrue(m[round(0.5 * (H - 1)), round(0.4 * (W - 1))])           # between them
+        self.assertTrue(m[round(0.2 * (H - 1)), round(0.6 * (W - 1)) + 4])       # just beyond the corner's disc
+
+    def test_strokes_apply_in_order_and_the_mask_is_not_changed_in_place(self):
+        base = np.zeros((H, W), bool)
+        fill, erase = ({"mode": mode, "r": 10, "path": [[0.5, 0.5]]} for mode in ("fill", "erase"))
+        self.assertFalse(seg_review.paint_mask(base, [fill, erase]).any())
+        self.assertTrue(np.array_equal(seg_review.paint_mask(base, [erase, fill]), disc(0.5, 0.5, 10)))
+        self.assertFalse(base.any())
+
+    def test_a_stroke_at_the_edge_is_clipped_to_the_photo(self):
+        m = seg_review.paint_mask(np.zeros((H, W), bool), [{"mode": "fill", "r": 4, "path": [[0, 0], [1, 0]]}])
+        yy, _ = np.mgrid[:H, :W]
+        self.assertTrue(np.array_equal(m, yy <= 4))
+
+
 class Progress(unittest.TestCase):
     """Where a photo is in the loop, from its masks per round and the verdicts on them (D14: up to 3 rounds; ADR
     0030: a session's own number, 7 since 2026-10-24)."""
@@ -285,6 +331,107 @@ class LabelSession(SessionFixture):
             wr.writeheader()
             wr.writerows(rows)
         self.assertIsNone(seg_review.accepted_labels("pass1", self.mask_root)[0]["fence"])
+
+    def test_strokes_paint_the_redraw_after_the_fence_and_are_recorded(self):
+        # Ticket ML-11: drawn, fenced, then painted; a fill outside the fence stays.
+        c = self.client()
+        self.post(c, "/decide/1", {"decision": "decline", "reason": "beans missed"})
+        fence = [0.3, 0.3, 0.7, 0.7]
+        strokes = [{"mode": "fill", "r": 6.0, "path": [[0.1, 0.1]]},
+                   {"mode": "erase", "r": 3.0, "path": [[0.45, 0.5], [0.55, 0.5]]}]
+        r = self.post(c, "/redraw/1", {"include": [[0.5, 0.5]], "exclude": [], "fence": fence, "strokes": strokes})
+        self.assertEqual((r["status"], r["round"]), ("judge", 2))
+        self.assertEqual(self.redrawer.calls[-1], ("pool__p1", [[0.5, 0.5]], []))     # the model sees no stroke
+        want = seg_review.paint_mask(self.fenced(rect(0.4, 0.4, 0.6, 0.6), fence), strokes)
+        self.assertTrue(want[round(0.1 * (H - 1)), round(0.1 * (W - 1))])          # filled outside the fence
+        self.assertFalse(want[round(0.5 * (H - 1)), round(0.5 * (W - 1))])         # erased inside
+        info = self.info(c, 1)
+        self.assertEqual((info["mask_sha256"], info["strokes"]), (mask_sha256(want), strokes))
+        self.assertEqual((info["width"], info["height"]), (W, H))
+        self.assertTrue(np.array_equal(np.array(Image.open(self.mask_root / "pass1" / "r2" / "pool__p1.png")) > 0,
+                                       want))
+        self.post(c, "/decide/1", {"decision": "accept"})
+        self.assertEqual(self.verdict_rows()[-1]["strokes"], strokes)
+        index = list(csv.DictReader((self.mask_root / "pass1" / "r2" / "index.csv").read_text().splitlines()))
+        self.assertEqual(json.loads(index[0]["strokes"]), strokes)
+        self.session.write_labels()
+        label = {r["id"]: r for r in seg_review.accepted_labels("pass1", self.mask_root)}["pool__p1"]
+        self.assertEqual((label["strokes"], label["fence"]), (strokes, fence))
+
+    def test_strokes_alone_redraw_and_carry_to_later_rounds(self):
+        # Ticket ML-11 D3, D4: a strokes-only Enter reruns the model on the points, and every stroke so far applies.
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "decline"})
+        first = {"mode": "erase", "r": 5, "path": [[0.2, 0.5]]}
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "strokes": [first]})
+        self.assertEqual((self.info(c, 0)["round"], self.redrawer.calls[-1]), (2, ("segmenter_positive__p0", [], [])))
+        self.assertEqual(self.info(c, 0)["strokes"], [{**first, "r": 5.0}])
+        self.post(c, "/decide/0", {"decision": "decline"})
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "strokes": [first]}, 400)        # nothing new
+        self.assertEqual(len(self.redrawer.calls), 1)
+        second = {"mode": "fill", "r": 4, "path": [[0.8, 0.5], [0.9, 0.5]]}
+        self.post(c, "/redraw/0", {"include": [[0.3, 0.3]], "exclude": [], "strokes": [first, second]})
+        info = self.info(c, 0)
+        self.assertEqual((info["round"], [s["mode"] for s in info["strokes"]]), (3, ["erase", "fill"]))
+        model = self.redrawer.redraw({"id": "x"}, [[0.3, 0.3]], [])[0]
+        self.assertEqual(info["mask_sha256"], mask_sha256(seg_review.paint_mask(model, [first, second])))
+        # a carried stroke undone (U, ticket D9) is a new prompt too; round 3, not judged yet, is replaced
+        self.post(c, "/redraw/0", {"include": [[0.3, 0.3]], "exclude": [], "strokes": [second]})
+        self.assertEqual(self.info(c, 0)["mask_sha256"], mask_sha256(seg_review.paint_mask(model, [second])))
+
+    def test_bad_strokes_are_refused(self):
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "decline"})
+        good = {"mode": "fill", "r": 3, "path": [[0.5, 0.5]]}
+        for bad in ("all", [{**good, "mode": "paint"}], [{**good, "r": 0}], [{**good, "r": -2}], [{**good, "r": True}],
+                    [{**good, "r": max(H, W) + 1}], [{**good, "path": []}], [{**good, "path": [[0.5, 1.2]]}],
+                    [{**good, "path": [[0.5]]}], [{**good, "path": [0.5, 0.5]}], [{"mode": "fill", "r": 3}],
+                    [{**good, "colour": "red"}], ["fill"]):
+            with self.subTest(strokes=bad):
+                self.post(c, "/redraw/0", {"include": [[0.5, 0.5]], "exclude": [], "strokes": bad}, 400)
+        self.assertEqual(self.redrawer.calls, [])
+        self.post(c, "/redraw/0", {"include": [], "exclude": [], "strokes": [{**good, "r": max(H, W)}]})
+
+    def test_rows_from_before_the_strokes_read_as_none(self):
+        # Sessions pass3-pass7 are DVC-tracked and are not rewritten: a missing column is no stroke.
+        c = self.client()
+        self.post(c, "/decide/0", {"decision": "decline"})
+        self.post(c, "/redraw/0", {"include": [[0.5, 0.5]], "exclude": []})
+        self.post(c, "/decide/0", {"decision": "accept"})
+        self.assertEqual((self.info(c, 0)["strokes"], self.verdict_rows()[-1]["strokes"]), ([], []))
+        for f in (self.mask_root / "pass1" / "r1" / "index.csv", self.mask_root / "pass1" / "r2" / "index.csv"):
+            rows = list(csv.DictReader(f.read_text().splitlines()))
+            with open(f, "w", newline="") as out:                   # an index.csv written before the column
+                wr = csv.DictWriter(out, fieldnames=[k for k in rows[0] if k != "strokes"], extrasaction="ignore")
+                wr.writeheader()
+                wr.writerows(rows)
+        session = self.open()
+        self.assertEqual(session.state(session.items[0]), ("accepted", 2, None))
+        self.assertEqual((session.strokes(session.items[0], 2), self.info(self.client(), 0)["strokes"]), ([], []))
+        session.write_labels()
+        f = self.mask_root / "pass1" / "labels.csv"
+        rows = list(csv.DictReader(f.read_text().splitlines()))
+        with open(f, "w", newline="") as out:                       # a labels.csv written before the column
+            wr = csv.DictWriter(out, fieldnames=[k for k in rows[0] if k != "strokes"], extrasaction="ignore")
+            wr.writeheader()
+            wr.writerows(rows)
+        self.assertEqual(seg_review.accepted_labels("pass1", self.mask_root)[0]["strokes"], [])
+
+    def test_a_recheck_keeps_a_painted_labels_strokes(self):
+        # Plan finding 4: recheck_in copies the index row whole, so the strokes come with the points and fence.
+        c = self.client()
+        self.post(c, "/decide/1", {"decision": "decline"})
+        strokes = [{"mode": "erase", "r": 4.0, "path": [[0.5, 0.5], [0.55, 0.55]]}]
+        self.post(c, "/redraw/1", {"include": [[0.5, 0.5]], "exclude": [], "strokes": strokes})
+        self.post(c, "/decide/1", {"decision": "accept"})
+        painted = self.info(c, 1)["mask_sha256"]
+        again = seg_review.LabelSession("pass2", self.entries, {"proposer": "prop", "redraw": "redraw",
+                                                                "recheck": "pass1", "rounds": 3},
+                                        self.labels_dir, self.mask_root)
+        again.prepare(self.proposer, self.redrawer)
+        info = self.info(seg_review.create_label_app(again, self.redrawer, "rule").test_client(), 1)
+        self.assertEqual((info["item"], info["round"], info["mask_sha256"], info["strokes"], info["points"]),
+                         ("pool__p1", 1, painted, strokes, {"include": [[0.5, 0.5]], "exclude": []}))
 
     def test_home_goes_to_the_first_photo_left_to_do_and_images_render(self):
         c = self.client()
