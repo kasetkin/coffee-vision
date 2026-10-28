@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 230 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 262 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,24 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-28: 32 Brazil and Kenya grinder-hopper photos
+
+- **New photos** (batch `2026-10-28`): 32 grinder-hopper photos shot on 2026-10-28, named
+  `20261028_HHMMSS_<phone>_<country>`: 28 Brazil and 4 Kenya (`Kenia` in the file names), on a Pixel 9 Pro, a
+  Galaxy Z Fold8 Ultra, a Galaxy Z Fold6 and a OnePlus (JPEG) and an iPhone 15 Pro Max (7 HEIC). Four Kenya photos show
+  a ring of beans round the hopper's cone, three Brazil ones beans filling the frame with no hopper wall.
+- **One photo held back**: a 33rd, `20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg`, is 16320x12240 (200 MP),
+  above Pillow's decompression-bomb limit (179 MP), which `load_rgb_image` keeps for the live site's uploads. Nothing
+  here can decode it, the strip's pixel check included, so it is outside the folder until the owner decides.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  nearest 0.79). No two are within ADR 0029's 3 s (the nearest, `131203`/`131207`, 4 s apart).
+- **Metadata** (ticket ML-3, D13): all 32 carried private tags (EXIF GPS, C2PA, the Apple and Samsung maker notes,
+  EXIF thumbnails) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 262 photos here clean. The HEICs keep their
+  thumbnail item (owner, 2026-10-05).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 32 (train 19, validation 5, test 8), with 32
+  pool photos topping the draw up to 262.
 
 ## 2026-10-27: 44 Colombia and Guatemala grinder-hopper photos
 
