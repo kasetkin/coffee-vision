@@ -9,10 +9,10 @@
   <p class="lede">The owner asked that the page stop sending the visitor's file as it is: a file that is not an image
     should be refused before it is sent, a 200 MP photo or a RAW file should not travel at full size, and the photo's
     private metadata should not reach the server. The design was settled in one discussion with the owner on
-    2026-10-28 (D1&ndash;D19). Planned in <a href="plan_browser_prepared_photo.html">the plan</a>; not implemented.</p>
+    2026-10-28 (D1&ndash;D19), and the plan's questions answered the same day (D20&ndash;D25). Planned in <a href="plan_browser_prepared_photo.html">the plan</a>; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D19 decided; planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D25 decided; planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: photo preparation on the device</span></div>
@@ -139,7 +139,7 @@
         <td>Turning, colour and resizing happen once, in our code (D9); P2's harness checks the result per browser
           engine.</td></tr>
       <tr><td class="id">R8</td><td><strong>The fallback still sends private metadata.</strong></td>
-        <td>Accepted for now (D1), with a visible note (D14); P5 asks again with the fallback's measured frequency.</td></tr>
+        <td>Accepted (D1, D24), with a visible note (D14).</td></tr>
     </tbody>
   </table></div>
 
@@ -233,6 +233,28 @@
       <tr><td class="id">D19</td><td>Order of work?</td>
         <td>Prototype on phones, privacy harness, evaluation, production page, the fallback asked again, deploy.</td>
         <td>Adopted, 2026-10-28; <a href="plan_browser_prepared_photo.html">the plan</a>.</td></tr>
+      <tr><td class="id">D20</td><td>The resolution cap (plan Q1)?</td>
+        <td>The least of 48 MP, what the slowest phone prepares in budget, and what the pool needs.</td>
+        <td><strong>48 MP</strong>, 2026-10-28: "48Mp for now, can be adjusted later."</td></tr>
+      <tr><td class="id">D21</td><td>How does the prototype reach the phones (plan Q2)?</td>
+        <td>(a) The dev machine over HTTPS on the LAN, with a local CA (mkcert) the phones trust once. (b) An unlinked
+          path on the live site.</td>
+        <td><strong>(a)</strong>, 2026-10-28, as recommended.</td></tr>
+      <tr><td class="id">D22</td><td>Does RAW, DNG included, stay in the browser (plan Q3)?</td>
+        <td>(a) Yes, where the phone can do it. (b) The original file.</td>
+        <td><strong>(a)</strong>, 2026-10-28: "if possible, then yes". P1 shows where it is possible; elsewhere the
+          original file.</td></tr>
+      <tr><td class="id">D23</td><td>JXL encoder effort (plan Q4)?</td>
+        <td>A fixed effort, from P1's time and size per effort.</td>
+        <td>2026-10-28: "start with middle, then select after testing": effort 5 until P1's numbers pick one.</td></tr>
+      <tr><td class="id">D24</td><td>D1 asked again: when is a file refused rather than sent as the original file (plan
+          Q5)?</td>
+        <td>(a) Only a non-image. (b) Also any photo the page cannot prepare, making privacy a guarantee.</td>
+        <td><strong>(a)</strong>, 2026-10-28: "if file is not an image". D1 and D14 stand.</td></tr>
+      <tr><td class="id">D25</td><td>The JXL distance (plan Q6)?</td>
+        <td>Chosen from P3's paired results and crops.</td>
+        <td>2026-10-28: "start with d=0.5 and select after testing as planned": d&nbsp;=&nbsp;0.5 from the prototype on,
+          replacing D5's starting 1.0, until the owner picks from P3.</td></tr>
     </tbody>
   </table></div>
 
@@ -267,6 +289,8 @@
       Claude (<code>/grill-with-docs</code>) on <code>main</code> at <code>711d794</code>. D1&ndash;D19 decided;
       glossary terms Preview, Local thumbnail, Prepared photo and Original file added;
       <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a> written. Planned, not implemented.</div>
+    <div><div class="when">2026-10-28</div>The owner answers the plan's Q1&ndash;Q6, recorded as D20&ndash;D25. Not
+      implemented.</div>
   </div>
 
   <footer>Related: <a href="plan_browser_prepared_photo.html">OPS-12 plan</a>,

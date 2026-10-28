@@ -13,12 +13,12 @@
     number is P3's evaluation.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; Q1&ndash;Q6 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; Q1&ndash;Q6 answered 2026-10-28 (OPS-12 D20&ndash;D25); not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_browser_prepared_photo.html"><code>ticket_browser_prepared_photo.html</code></a> (OPS-12)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-28</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 before P1's phone test</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
   <div class="callout info">
@@ -37,7 +37,7 @@
   <p>P1 decides whether WASM on a phone can prepare a 48 MP photo at all, and sets the cap (Q1) and the JXL effort
     (Q4) that P2&ndash;P4 use. P2 proves the output clean before any prepared photo is measured or served. P3 then
     measures what the prepared photo costs the model and is the only phase that changes a number. P4 builds the
-    production page on the settings P3 chose; P5 is the owner's check on phones and the fallback question; P6 deploys.</p>
+    production page on the settings P3 chose; P5 is the owner's check on phones; P6 deploys.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
     <tbody>
@@ -45,7 +45,7 @@
       <tr><td class="id">P2</td><td>Privacy and correctness harness</td><td>local</td><td>no</td></tr>
       <tr><td class="id">P3</td><td>Paired evaluation of JXL distance and the 90&deg; turn, crops for the owner <span class="pill sm open">stop</span></td><td>local</td><td>yes: val/test on prepared photos</td></tr>
       <tr><td class="id">P4</td><td>Production page, server log field, nginx headers, release build</td><td>local</td><td>no: the answer is unchanged</td></tr>
-      <tr><td class="id">P5</td><td>Owner's check on phones; the fallback asked again <span class="pill sm open">stop</span></td><td>owner</td><td>no</td></tr>
+      <tr><td class="id">P5</td><td>Owner's check on phones <span class="pill sm open">stop</span></td><td>owner</td><td>no</td></tr>
       <tr><td class="id">P6</td><td>Deploy and verify live</td><td>VM</td><td>no</td></tr>
     </tbody>
   </table></div>
@@ -58,32 +58,32 @@
     <tbody>
       <tr><td class="id">Q1</td><td>The resolution cap (D10), from P1's numbers: time and peak memory per phone at
           12, 24 and 48 MP, and the pool's resolution check.</td>
-        <td><span class="pill sm open">Open</span> The least of 48 MP, what the slowest phone prepares in about 5 s
-          without the tab being killed, and what the pool needs.</td><td>P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: "48Mp for now, can be adjusted later." (D20)</td><td>P3</td></tr>
       <tr><td class="id">Q2</td><td>How does the prototype reach the phones? Threads need HTTPS (callout, 1).</td>
-        <td><span class="pill sm open">Open</span> (a) The dev machine serves it over HTTPS on the LAN with a local
-          CA the phones trust once (mkcert). (b) An unlinked static path on the live site, which touches production
-          nginx. (a): nothing public changes.</td><td>P1</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: (a), as recommended: the dev machine over HTTPS on the
+          LAN, with a local CA (mkcert) the phones trust once; nothing public changes. (D21)</td><td>P1</td></tr>
       <tr><td class="id">Q3</td><td>Does RAW (DNG included) stay in the browser, or fall back to the original file?
           LibRaw's decode of a 50 MP RAW is the heaviest job in the design.</td>
-        <td><span class="pill sm open">Open</span> Stay in the browser if P1 shows it within the budget on the
-          slowest phone; otherwise fall back.</td><td>P4</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: "if possible, then yes": in the browser where P1 shows
+          the phone can do it; otherwise the original file. (D22)</td><td>P4</td></tr>
       <tr><td class="id">Q4</td><td>JXL encoder effort, from P1's time and size per effort at the cap.</td>
-        <td><span class="pill sm open">Open</span> The highest effort that keeps the slowest phone in budget.</td><td>P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: "start with middle, then select after testing":
+          effort 5 until P1's numbers pick one. (D23)</td><td>P3</td></tr>
       <tr><td class="id">Q5</td><td>D1 asked again: with WASM decoders, how often does the page fall back, and should a
           fallback become a refusal, making privacy a guarantee?</td>
-        <td><span class="pill sm open">Open</span> Decide on P5's fallback count; if fallbacks are rare, refuse.</td><td>P6</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: "if file is not an image": only a file that is not an
+          image is refused; a photo the page cannot prepare still goes as the original file, with the note. (D24)</td><td>P6</td></tr>
       <tr><td class="id">Q6</td><td>The JXL distance to ship, and whether the 90&deg; turn is accepted, from P3's paired
           results and crops (D5, D17).</td>
-        <td><span class="pill sm open">Open</span> The largest distance whose paired deltas do not agree in sign
-          against the original files, within 20 MB at the cap.</td><td>P4</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-10-28: "start with d=0.5 and select after testing as
+          planned": d&nbsp;=&nbsp;0.5 until the owner picks from P3. (D25)</td><td>P4</td></tr>
     </tbody>
   </table></div>
 
   <h2>3. P1 &mdash; WASM feasibility prototype and the pool's resolution check <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 before the phone test</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 answered</span></span></div>
   </div>
   <p>A throwaway page that does the whole preparation and reports its numbers, plus the toolchain the production page
     will keep. Nothing is uploaded; nothing in the live page changes.</p>
@@ -95,8 +95,8 @@
     <li><span class="box"></span><span>Codec packages for HEIC, JXL (decode and encode) and RAW, each reviewed for
       build provenance and recorded with version and source (D12); single- and multi-threaded builds (D11).</span></li>
     <li><span class="box"></span><span>The chain: native decode when full-resolution pixels are available, else WASM
-      (D8, D9); turn by Orientation; resize to a given MP with one fixed filter; JXL encode at d&nbsp;=&nbsp;1.0 and a
-      given effort. A readout of each step's time, the peak memory where the browser reports it, and the output's
+      (D8, D9); turn by Orientation; resize to a given MP with one fixed filter; JXL encode at a given distance and
+      given effort, starting at d&nbsp;=&nbsp;0.5 and effort 5 (D23, D25). A readout of each step's time, the peak memory where the browser reports it, and the output's
       size.</span></li>
     <li><span class="box"></span><span>Pool resolution check (Python): for each pool photo, the bean pitch at full
       resolution and the smallest MP at which its smallest patch (<code>patch_beans_min</code> &times; pitch) stays at
@@ -106,7 +106,8 @@
       the dataset at 12, 24 and 48 MP, and the 200 MP photo, each at efforts 3&ndash;7, in Chromium and Safari on the
       dev machine first.</span></li>
     <li><span class="box"></span><span>Stop for the owner: run it on the test phones (the Fold8 Ultra, an older
-      iPhone, a mid-range Android) and answer Q1, Q3 and Q4.</span></li>
+      iPhone, a mid-range Android); the owner confirms or moves the 48 MP cap (D20), says whether RAW stays in the
+      browser (D22) and picks the effort (D23).</span></li>
   </ol>
 
   <h2>4. P2 &mdash; Privacy and correctness harness</h2>
@@ -179,7 +180,7 @@
       release serves the built page.</span></li>
   </ol>
 
-  <h2>7. P5 &mdash; Owner's check on phones; the fallback asked again <span class="pill sm open">stop</span></h2>
+  <h2>7. P5 &mdash; Owner's check on phones <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
@@ -187,16 +188,15 @@
   <ol class="tasks">
     <li><span class="box"></span><span>The staged page served to the test phones as in P1; a count of fallbacks by
       format and phone over the owner's photos.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: try it, answer Q5, and say whether to deploy.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: try it and say whether to deploy.</span></li>
   </ol>
 
   <h2>8. P6 &mdash; Deploy and verify live</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q5</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Q5's answer applied, if it changes the fallback.</span></li>
     <li><span class="box"></span><span>Deploy by <code>docs/agents/deploy.md</code>; on the live domain, a prepared
       photo and an original file each answered, the COOP and COEP headers present, <code>upload_kind</code> in the
       request log.</span></li>
@@ -223,6 +223,10 @@
   <div class="log">
     <div><div class="when">2026-10-28</div>Claude reads ticket OPS-12 at <code>711d794</code> and writes this plan. 2
       findings not in the ticket; Q1&ndash;Q6 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-10-28</div>The owner answers Q1&ndash;Q6 (ticket D20&ndash;D25): a 48 MP cap for now;
+      the prototype served over HTTPS on the LAN; RAW in the browser where possible; effort 5 and
+      d&nbsp;=&nbsp;0.5 to start, each picked after testing; only a non-image is refused. P5 no longer asks about the
+      fallback. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_browser_prepared_photo.html">OPS-12 ticket</a>,
