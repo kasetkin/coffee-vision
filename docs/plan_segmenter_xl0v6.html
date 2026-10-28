@@ -55,6 +55,7 @@
       <tr><td class="id">P4</td><td>pass8 prepared; the owner labels <span class="pill sm open">stop</span></td><td>local, owner</td><td>labels</td></tr>
       <tr><td class="id">P5</td><td>XL0-v6 fine-tuned (seed 123); test masks of XL0-v5 and XL0-v6</td><td>local</td><td>yes</td></tr>
       <tr><td class="id">P6</td><td>The owner's blind comparison; adoption and threshold <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
+      <tr><td class="id">P6a</td><td>Three more seeds of XL0-v6 (ticket D12); the owner judges as D13 settles <span class="pill sm open">stop</span></td><td>local, owner</td><td>yes</td></tr>
       <tr><td class="id">P7</td><td>Re-crop, fixture, exp279 (seed 42), probe, ship</td><td>local</td><td>yes</td></tr>
       <tr><td class="id">P8</td><td>LiteRT export, pushes, deploy, docs</td><td>local, <code>webappremote</code></td><td>live model</td></tr>
       <tr><td class="id">P9</td><td>The owner reviews the re-crop sheets <span class="pill sm open">stop</span></td><td>owner</td><td>maybe <code>pool_exclude.csv</code></td></tr>
@@ -250,9 +251,36 @@
       dropped.</span></li>
   </ol>
 
+  <h2>8a. P6a &mdash; Three more seeds <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-28: prepared; started on the owner's command only</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6; the owner's command</span></div>
+  </div>
+  <p>Ticket D12: XL0-v6's recipe and pass10 at three more seeds, the seed the one difference from
+    <code>xl0_v6</code>. P5's run took 4 h 49 min, so the three take about 14.5 h one after another. They run one at a
+    time: the host has 12 cores and 13 GB of memory, and each run uses 8 threads.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>seg_xl0v6_finetune</code> gains <code>xl0_v6_s42</code>,
+      <code>xl0_v6_s7</code> and <code>xl0_v6_s2026</code> (pass10; seeds 42 and 7 from ADR 0002, 2026 a third), and
+      <code>seg_xl0v6_predict</code> the same three names; committed before the launch, the stage command unchanged
+      from P5's, so P5's toy proof stands.</span></li>
+    <li><span class="box"></span><span>On the owner's command, one launch from a clean tree:
+      <code>dvc repro -s</code> the three fine-tunes, then the three predictions, logged to
+      <code>outputs/ml13_xl0v6_seeds.log</code>. An interrupted run resumes from its slot (P2) when the same command
+      is rerun; finished stages are skipped.</span></li>
+    <li><span class="box"></span><span>Each card diffed against <code>xl0_v6.json</code>: <code>seed</code> the only
+      input that differs. Each seed's chosen epoch and score recorded beside XL0-v5's 0.964 and XL0-v6's
+      0.956.</span></li>
+    <li><span class="box"></span><span>The three checkpoints and mask folders pushed and every object verified on the
+      remote.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: judged as ticket D13 settles (recommended: the best
+      validation seed, blind and paired against XL0-v5, as P6), the report to <code>analysis/xl0v6/</code>. If a seed
+      is adopted, P6's adoption steps for it, then P7&ndash;P9; if none, the ticket stops.</span></li>
+  </ol>
+
   <h2>9. P7 &mdash; Re-crop, exp279, ship</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Dropped</span> <span class="tag">2026-10-28: XL0-v6 not adopted at P6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">On hold</span> <span class="tag">2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6 <span class="tag">Q3 answered (ticket D10)</span></span></div>
   </div>
   <p>No stop for the re-crop's review (D5); Claude picks and ships (D6), above D10's line.</p>
@@ -288,7 +316,7 @@
 
   <h2>10. P8 &mdash; Convert, push, deploy</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Dropped</span> <span class="tag">2026-10-28: XL0-v6 not adopted at P6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">On hold</span> <span class="tag">2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -303,7 +331,7 @@
 
   <h2>11. P9 &mdash; The owner's re-crop review <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Dropped</span> <span class="tag">2026-10-28: XL0-v6 not adopted at P6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">On hold</span> <span class="tag">2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -453,6 +481,10 @@
       done, XL0-v5 kept; P7&ndash;P9 dropped as P6 says. The fine-tune's wall clock: 4 h 49 min (10:29 to 15:18), of
       which 7.8 min loading, 4 h 30 min for epochs 1&ndash;13 (about 20.8 min each) and about 11 min for epoch 0's
       validation and the run's ending. XL0-v5's 23 epochs took 5 h 14 min.</div>
+    <div><div class="when">2026-10-28</div>Ticket D12, the owner: three more seeds of XL0-v6, pass10 and the same
+      recipe. P6a written and prepared (42, 7, 2026); P7&ndash;P9 on hold until a seed is adopted. Not started: the
+      owner gives the command. The disk has 8.6&nbsp;GB free, enough for the runs' checkpoints, resume state and
+      masks (under 0.3&nbsp;GB).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,

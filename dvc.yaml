@@ -341,6 +341,15 @@ stages:
       xl0_v6:
         labels: pass10
         seed: 123
+      xl0_v6_s42:
+        labels: pass10
+        seed: 42
+      xl0_v6_s7:
+        labels: pass10
+        seed: 7
+      xl0_v6_s2026:
+        labels: pass10
+        seed: 2026
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
@@ -370,6 +379,12 @@ stages:
         model: ${seg_ft.weights}:models/seg/xl0_v5.pt
       xl0_v6:
         model: ${seg_ft.weights}:models/seg/xl0_v6.pt
+      xl0_v6_s42:
+        model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
+      xl0_v6_s7:
+        model: ${seg_ft.weights}:models/seg/xl0_v6_s7.pt
+      xl0_v6_s2026:
+        model: ${seg_ft.weights}:models/seg/xl0_v6_s2026.pt
     do:
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v6/${key}
       deps:

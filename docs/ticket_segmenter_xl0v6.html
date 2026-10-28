@@ -15,7 +15,7 @@
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); the owner keeps XL0-v5 (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;), so P7&ndash;P9 are dropped as the plan says; nothing ships</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds, prepared, waiting for the owner's command (P6a); P7&ndash;P9 on hold</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -268,6 +268,20 @@
           2026-10-28.</td>
         <td>(b), 2026-10-28, as recommended: "we will use pass10 for XL0-v6". Labels remain the one difference from
           xl0_v5 (D3).</td></tr>
+      <tr><td class="id">D12</td><td>After P6 (XL0-v6 at seed 123 lost, 107 against 117 of 135), does XL0-v6 get
+          more seeds?</td>
+        <td>(a) Stop: XL0-v5 stays. (b) Three more seeds, pass10 and the same recipe, one at a time (about 15 h).</td>
+        <td><strong>(b)</strong>, 2026-10-28: "we will try 3 more seeds with the same dataset and other
+          hyperparameters". Seeds 42 and 7 (ADR 0002's other two) and 2026, Claude's pick for a third, as
+          <code>xl0_v6_s42</code>, <code>xl0_v6_s7</code>, <code>xl0_v6_s2026</code>; the seed is the one difference
+          from <code>xl0_v6</code>. Started on the owner's command only.</td></tr>
+      <tr><td class="id">D13</td><td>How are the three seeds judged?</td>
+        <td>(a) Claude shortlists the seed with the best validation score (the card's <code>chosen</code>); the owner
+          judges it blind and paired against XL0-v5 on the 135 test positives, as P6, with the test negatives'
+          emptiness (recommended: one session, and the shortlist uses validation only, not the test split). (b) One
+          blind session per seed against XL0-v5 (3 &times; 135). (c) No session if every seed scores below XL0-v5's
+          0.964: report and stop.</td>
+        <td>Open.</td></tr>
     </tbody>
   </table></div>
 
@@ -357,6 +371,9 @@
       or tiny 154 and 150 of 160. The owner: &ldquo;we will not adopt XL0-v6 in this variant&rdquo;. XL0-v5 stays the
       segmenter; P7&ndash;P9 are dropped. pass8&ndash;pass10, the photos of 2026-10-27 and 2026-10-28, and P2&ndash;P3's
       resume state stay.</div>
+    <div><div class="when">2026-10-28</div>D12 decided by the owner: three more seeds (42, 7, 2026) on pass10 with
+      the same recipe, about 15 h one at a time; started on the owner's command only. The plan gains P6a; P7&ndash;P9
+      are on hold until a seed is adopted. D13, how the seeds are judged, open.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
