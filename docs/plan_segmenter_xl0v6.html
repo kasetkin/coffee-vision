@@ -236,7 +236,7 @@
 
   <h2>8. P6 &mdash; The blind comparison <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-28: judged by the owner, report in analysis/xl0v6/; the owner's decision open</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
   </div>
   <ol class="tasks">
@@ -442,6 +442,12 @@
       pushed and all 594 objects verified on the remote. 81 of the 295 masks are identical. Empty masks, XL0-v5 then
       XL0-v6: negatives 125 and 114 of 160; segmenter positives 1 and 0 of 66; pool 0 and 0 of 66; internet positives
       2 and 1 of 3. A count, not a judgement: P6's blind paired comparison decides. Next: P6, the owner's.</div>
+    <div><div class="when">2026-10-28</div>P6: the owner judged session <code>xl0v6_test</code> (135 test
+      positives, blind and paired, XL0-v5 against XL0-v6; seed 2210). Passes: XL0-v5 117/135, XL0-v6 107/135; 16
+      only XL0-v5, 6 only XL0-v6, exact McNemar p = 0.0525. Pool 65 and 63 of 66; segmenter positives 52 and 44 of 69.
+      Test negatives empty or tiny (area &lt; 0.021008): 154 and 150 of 160. Report in
+      <code>analysis/xl0v6/paired_report.txt</code> and <code>.json</code>. XL0-v6 is not better on either; the owner
+      adopts it or keeps XL0-v5.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
