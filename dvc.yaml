@@ -332,6 +332,35 @@ stages:
       outs:
         - data/seg_masks_xl0v5/${key}
 
+  # ML-13 P5: XL0-v6, XL0-v5's recipe (params.yaml's seg_ft at lr 1e-4, 8 threads, seed 123) on the owner's pass10
+  # labels: pass8's re-review of every training and validation label and, carried through pass9 and pass10, the 50
+  # photos appended on 2026-10-28 (ticket D11). Labels are the one difference from seg_xl0v5_finetune@xl0_v5. One
+  # seed (D3). Resumes after a reboot through `dvc repro -s` (P2).
+  seg_xl0v6_finetune:
+    foreach:
+      xl0_v6:
+        labels: pass10
+        seed: 123
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
   # ML-13 P5 (R5): XL0-v5's and XL0-v6's masks of every test photo of the grown split (the 44 photos of 2026-10-27 and
   # their pool draw included), for the owner's blind paired review (D4). seg_xl0v5_predict is frozen, the record of
   # ML-12's sessions. XL0-v5's item first, while the owner labels pass8; XL0-v6's joins once it is fine-tuned.

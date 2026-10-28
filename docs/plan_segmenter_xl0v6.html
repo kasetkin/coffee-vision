@@ -217,12 +217,12 @@
 
   <h2>7. P5 &mdash; XL0-v6</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-27: XL0-v5's test masks done (seg_xl0v6_predict@xl0_v5); the fine-tune waits on pass8</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-28: the fine-tune on pass10 (ticket D11) running; XL0-v5's test masks to be rerun on the grown split</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>seg_xl0v6_finetune</code> in <code>dvc.yaml</code>: <code>xl0_v6</code> on
-      pass8, seed 123 (D3), 8 threads; its card diffed against <code>xl0_v5.json</code> key by key, the recipe keys
+      pass10 (ticket D11; pass8 until 2026-10-28), seed 123 (D3), 8 threads; its card diffed against <code>xl0_v5.json</code> key by key, the recipe keys
       (<code>seg_ft</code>, <code>seg_prompt</code>, <code>seg_mask_select</code>, <code>base_weights</code> and its
       hash, <code>frame</code>, <code>albumentations</code>, <code>threads</code>) all equal and only the labels
       differing among the inputs; the run's outputs (<code>sha256</code>, <code>chosen</code>, <code>history</code>)

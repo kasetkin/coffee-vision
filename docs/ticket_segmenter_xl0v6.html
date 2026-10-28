@@ -15,7 +15,7 @@
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); pass8 prepared, waiting for the owner (P4)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6's fine-tune running (P5)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -262,6 +262,12 @@
           0.8. It is very big margin, but it is my decision." Claude stops and reports instead of shipping if exp279's
           val macro-F1 is below 0.9 or any class's val F1 is below 0.8; otherwise it ships (D6). A drop smaller than that
           ships, and the paired report shows it.</td></tr>
+      <tr><td class="id">D11</td><td>Which labels does XL0-v6 train on? After pass8 the owner added 33 photos of
+          2026-10-28 and labelled them in pass9 and pass10, each carrying the one before.</td>
+        <td>(a) pass8, as D3 and the plan named it. (b) pass10: pass8's 352 labels and the 50 photos appended on
+          2026-10-28.</td>
+        <td>(b), 2026-10-28, as recommended: "we will use pass10 for XL0-v6". Labels remain the one difference from
+          xl0_v5 (D3).</td></tr>
     </tbody>
   </table></div>
 
@@ -340,6 +346,10 @@
       apart and close in content, fall in different splits under ADR 0029's 3&nbsp;s rule (folder README). P7's
       fixture draw is written but waits on branch <code>ml13-p7-fixture</code>: running Meta's code was not
       permitted in Claude's session. Next: the owner's pass8 (P4).</div>
+    <div><div class="when">2026-10-28</div>The owner labelled pass8 (352 accepted). The owner then added 33 Brazil
+      and Kenya photos (<code>a5f49a6</code>, <code>00262f9</code>; the 200&nbsp;MP one after <code>6185f45</code> let the
+      dataset tools read it), labelled in pass9 and pass10 (<code>84e73d5</code>, <code>fa4611f</code>). D11 decided:
+      XL0-v6 trains on pass10. ML-14 written for a parallel <code>strip_metadata</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
