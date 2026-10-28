@@ -439,8 +439,9 @@
       <code>xl0_v6</code> item.</div>
     <div><div class="when">2026-10-28</div>P5 done. <code>seg_xl0v6_predict</code> reran <code>@xl0_v5</code> on the
       grown split and ran <code>@xl0_v6</code>: 295 test photos each, about 11 min a model at 4 threads; both folders
-      pushed and all 594 objects verified on the remote. 81 of the 295 masks are identical. Empty masks, XL0-v5 then
-      XL0-v6: negatives 125 and 114 of 160; segmenter positives 1 and 0 of 66; pool 0 and 0 of 66; internet positives
+      pushed and all 594 objects verified on the remote. 81 of the 295 masks are identical. Masks whose <code>index.csv</code>
+      <code>area_frac</code> rounds to 0.0000, XL0-v5 then XL0-v6: negatives 125 and 114 of 160 (of which truly empty,
+      as P6's report counts: 119 and 86); segmenter positives 1 and 0 of 66; pool 0 and 0 of 66; internet positives
       2 and 1 of 3. A count, not a judgement: P6's blind paired comparison decides. Next: P6, the owner's.</div>
     <div><div class="when">2026-10-28</div>P6: the owner judged session <code>xl0v6_test</code> (135 test
       positives, blind and paired, XL0-v5 against XL0-v6; seed 2210). Passes: XL0-v5 117/135, XL0-v6 107/135; 16
