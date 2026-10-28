@@ -1,0 +1,185 @@
+<title>Strip photo metadata on several cores at once</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+
+<main>
+  <div class="eyebrow">Ticket ML-14 · coffee-vision · dataset tooling</div>
+  <h1>coffeecv.strip_metadata strips and checks several photos at once</h1>
+  <p class="lede">The owner asked for the metadata stripper to use more than one core. Today it handles one photo
+    at a time. For each photo it runs exiftool three times and decodes the full image twice, so a batch of 50 MP photos
+    keeps one core busy while the others sit idle. Written; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/strip_metadata.py</code>, <code>tests/test_strip_metadata.py</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-28</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-28.</strong> A new ticket to make the stripping tool run on several threads:
+      as far as the owner knows, it uses only one now.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today <code>python -m coffeecv.strip_metadata DIR... --manifest ...</code> strips and checks the photos one after
+    another, and a <code>--dry-run</code> checks them the same way. After this ticket, it works on several photos at
+    once, up to a <code>--jobs</code> count. Each photo gets the same checks and the same manifest row as before. The
+    rows and the report come out in the same order as before. The work splits into four parts:</p>
+  <ul>
+    <li>a pool of workers that run <code>strip_one</code>;</li>
+    <li>a <code>--jobs</code> argument;</li>
+    <li>keeping the manifest and the report in the same order;</li>
+    <li>a check that a parallel run writes what a serial run writes.</li>
+  </ul>
+
+  <h2>2. Background</h2>
+  <p>Read at <code>e3202a5</code>:</p>
+  <ul>
+    <li><b>One photo at a time.</b> <code>main</code> loops over <code>photos_under(dirs)</code> and calls
+      <code>strip_one(p, dry_run)</code> on each photo in turn (<code>coffeecv/strip_metadata.py</code>,
+      <code>main</code>). Nothing in the module starts a thread or a process, apart from exiftool's own subprocess.</li>
+    <li><b>The work per photo.</b> <code>strip_one</code> does the following:
+      <ul>
+        <li>reads the tags (<code>read_tags</code>: one <code>exiftool -j</code> process);</li>
+        <li>hashes the file;</li>
+        <li>decodes the photo for the pixel digest (<code>pixel_digest</code>: <code>load_rgb_image</code> and Pillow's
+          own decode, and for a HEIC every top-level and auxiliary image);</li>
+        <li>writes a stripped copy (a second exiftool process);</li>
+        <li>reads that copy's tags (a third);</li>
+        <li>decodes the copy again.</li>
+      </ul>
+      Most of the time goes into image decoding and exiftool starting up, and the steps for one photo share nothing
+      with those for another.</li>
+    <li><b>Each photo's work stays separate.</b> A real strip writes its temporary copy beside the photo, under a name
+      from <code>tempfile.mkstemp</code>, and moves it over the original with <code>os.replace</code>. A dry run writes
+      its copy to the system temp folder. Two workers never touch the same file.</li>
+    <li><b>The manifest is written once, at the end.</b> <code>main</code> collects the rows and calls
+      <code>append_manifest</code> after the last photo. The photos stripped so far have already been replaced on disk
+      by then. If the run is interrupted, they are stripped but have no row. A rerun finds them clean and records a row
+      with the same hash on both sides, so it does not record the tags that were removed. This is the case today, and
+      more photos in progress at once would make it more likely.</li>
+    <li><b>A precedent.</b> <code>coffeecv.find_duplicates</code> already runs on a
+      <code>ProcessPoolExecutor</code> with the <code>spawn</code> context and a <code>--jobs</code> argument (default
+      <code>os.cpu_count()</code>).</li>
+    <li><b>An example batch.</b> The batch of 2026-10-28 had 32 photos. Twelve were 50 MP or more (6144x8160 and
+      8160x6120 JPEGs, 5712x4284 HEICs), and each was decoded four times: the photo and the stripped copy, by
+      <code>load_rgb_image</code> and by Pillow's own decode.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>One photo at a time, on one core.</li>
+        <li>No way to choose the number of workers.</li>
+        <li>The manifest is appended once, after the last photo.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Up to <code>--jobs</code> photos at once.</li>
+        <li>The same checks and rows per photo. The manifest and the report are in photo order.</li>
+        <li>The manifest is written as D3 decides.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>What is stripped and checked.</strong> The deny list, the kept fields, the pixel, tag and audit checks,
+      and the Samsung trailer cut stay as they are. Parallel and serial runs give the same rows.</li>
+    <li><strong>The manifest's format.</strong> The same columns and header lines, and the same order: rows follow
+      <code>photos_under</code>'s sorted order, whatever order the workers finish in.</li>
+    <li><strong>How a photo is replaced.</strong> The new file is written beside the photo, checked, then moved over
+      the original with <code>os.replace</code>, so the cache file DVC links from the working tree is never written
+      through.</li>
+    <li><strong>The pre-commit leak check.</strong> <code>coffeecv.leak_check</code> reads image metadata on its own
+      and is not part of this ticket.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Memory runs out on large photos.</strong></td>
+        <td>A 50 MP photo decodes to about 150 MB of RGB, and the pixel check holds a photo and its copy, plus each
+          HEIC auxiliary image. With one worker per core on 12 cores, that is a few GB at the peak. D2 sets the default
+          worker count. A measurement on the 2026-10-28 batch decides it.</td></tr>
+      <tr><td class="id">R2</td><td><strong>An interrupted run loses the rows of the photos it has already stripped.</strong></td>
+        <td>This already happens (§2). More photos in progress at once means more are lost when a run is interrupted.
+          D3 decides whether to write each row as its photo is done.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The output changes order.</strong></td>
+        <td>Workers finish out of order. The progress lines may come out in that order, but the rows, the report and
+          the exit code must not depend on it. A test compares a parallel run with a serial one on the same
+          photos.</td></tr>
+      <tr><td class="id">R4</td><td><strong>A worker fails and the photo has no row.</strong></td>
+        <td>An exception in a worker (an undecodable photo, for example) must end as a failing row for that photo, as
+          a failed check does today, not as a lost row or an aborted run with photos half replaced.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Threads or processes?</td>
+        <td>(a) processes, a <code>ProcessPoolExecutor</code> with <code>spawn</code>, as
+          <code>find_duplicates</code> uses (recommended: the image decoding and hashing run in Python and hold the
+          GIL for part of the time); (b) threads, which are lighter, but only the exiftool subprocesses and part of the
+          decoding would overlap.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Default <code>--jobs</code>?</td>
+        <td>(a) <code>os.cpu_count()</code>, as <code>find_duplicates</code>; (b) a cap set by measured peak memory
+          (R1); (c) 1, so parallel runs happen only when asked for.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>When are manifest rows written?</td>
+        <td>(a) at the end, as today; (b) each row as its photo is done, so an interrupted run keeps its records (R2).
+          Rows would then be in completion order, unless they are sorted when the manifest is read or written.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>A <code>--jobs N</code> argument. The strip and the dry run both work on up
+      to N photos at once.</span></li>
+    <li><span class="box"></span><span>A parallel run and a serial run on the same photos give the same manifest rows
+      (timestamps aside), the same report and the same exit code. This is checked on a mixed set of JPEG, HEIC, DNG
+      and an already clean photo.</span></li>
+    <li><span class="box"></span><span>A worker that raises gives a failing row for its photo. The other photos are
+      still handled.</span></li>
+    <li><span class="box"></span><span>The wall time and peak memory of a dry run on <code>dataset/segmenter_positives</code>
+      (262 photos), before and after, are recorded in the ticket.</span></li>
+    <li><span class="box"></span><span>The module docstring describes <code>--jobs</code> and D3's manifest
+      behaviour.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Photos above Pillow's decompression-bomb limit. A 200 MP photo of 2026-10-28 cannot be decoded by
+      <code>load_rgb_image</code>, which the live site also uses for uploads. That is a separate decision.</li>
+    <li>Starting one long-lived exiftool process (<code>-stay_open</code>) per worker instead of one exiftool process
+      per call.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-28</div>Ticket written from the owner's request and a read of
+      <code>coffeecv/strip_metadata.py</code> and <code>coffeecv/find_duplicates.py</code> at <code>e3202a5</code>,
+      during ML-13's intake of the photos of 2026-10-28. Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (the intake that ran it),
+    <code>coffeecv/strip_metadata.py</code>, <code>coffeecv/find_duplicates.py</code>,
+    <code>dataset/segmenter_positives.README.md</code>.</footer>
+</main>
