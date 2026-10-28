@@ -2794,3 +2794,139 @@ stages:
       md5: 5c17c03e323767863109022dfd0fcb01.dir
       size: 1976268
       nfiles: 280
+  seg_xl0v6_finetune@xl0_v6:
+    cmd: python -m coffeecv.seg_finetune train --labels pass10 --seed 123 --name
+      xl0_v6 --threads 8
+    deps:
+    - path: coffeecv/augment.py
+      hash: md5
+      md5: 6a71865bf74fe4be33b956f443f35169
+      size: 4440
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_finetune.py
+      hash: md5
+      md5: 07213dc7975efd982c840c7843bce615
+      size: 33298
+    - path: data/ml5_labels/pass10
+      hash: md5
+      md5: 2149d08f654307fb644d9da55dc3d3f9.dir
+      size: 16094717
+      nfiles: 1273
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        augment:
+          colour:
+          - transform: ColorJitter
+            p: 0.8
+            args:
+              brightness: 0.2
+              contrast: 0.2
+              saturation: 0.2
+              hue: 0.0
+          - transform: PlanckianJitter
+            p: 0.3
+          compression:
+          - transform: ImageCompression
+            p: 0.3
+            args:
+              quality_range:
+              - 60
+              - 95
+          noise:
+          - transform: GaussNoise
+            p: 0.2
+            args:
+              std_range:
+              - 0.01
+              - 0.04
+        seg_ft:
+          weights: efficientvit_sam/efficientvit_sam_xl0.pt
+          augment:
+          - transform: HorizontalFlip
+            p: 0.5
+          - transform: VerticalFlip
+            p: 0.5
+          - transform: Affine
+            p: 0.5
+            args:
+              scale:
+              - 0.9
+              - 1.1
+              translate_percent:
+              - -0.05
+              - 0.05
+              rotate:
+              - -15
+              - 15
+              border_mode: 0
+              fill: 0
+              fill_mask: 255
+          - use: colour
+          - transform: HueSaturationValue
+            p: 0.3
+            args:
+              hue_shift_limit: 5
+              sat_shift_limit: 15
+              val_shift_limit: 10
+          - transform: RandomGamma
+            p: 0.3
+            args:
+              gamma_limit:
+              - 80
+              - 120
+          - use: compression
+          - transform: OneOf
+            p: 0.2
+            args:
+              transforms:
+              - transform: MotionBlur
+                p: 1.0
+                args:
+                  blur_limit:
+                  - 3
+                  - 7
+              - transform: Defocus
+                p: 1.0
+                args:
+                  radius:
+                  - 1
+                  - 3
+          - use: noise
+          epochs: 40
+          patience: 8
+          batch_size: 8
+          lr: 0.0001
+          lr_min: 1e-06
+          weight_decay: 0.0001
+          focal_weight: 20.0
+          dice_weight: 1.0
+          iou_weight: 1.0
+          focal_gamma: 2.0
+          focal_alpha: 0.25
+          neg_share: 0.5
+          point_share: 0.5
+          max_points: 3
+          select_min_area_frac: 0.083
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: models/seg/xl0_v6.json
+      hash: md5
+      md5: 28c5517bc08240bfc3d672f4ec2975ef
+      size: 8132
+    - path: models/seg/xl0_v6.pt
+      hash: md5
+      md5: 4f8198d6e9080e86911f9647a489f6af
+      size: 16265873
