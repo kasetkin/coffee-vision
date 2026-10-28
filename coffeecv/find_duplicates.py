@@ -30,7 +30,7 @@ import numpy as np
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image
+from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
 from coffeecv.strip_metadata import PHOTO_EXTENSIONS
 
 THUMB = 64

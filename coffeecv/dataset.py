@@ -28,6 +28,14 @@ from coffeecv.geometry import (
     sample_scaled_patch_boxes,
 )
 
+# Pillow refuses a photo above twice Image.MAX_IMAGE_PIXELS (89.5 MP by default, so 179 MP) as a possible
+# decompression bomb, and warns above it. The dataset's photos are the owner's own, and a phone's 200 MP mode
+# (16320x12240, 2026-10-28) is above the default, so a process that imports this module warns only above 268 MP and
+# refuses above 537 MP. The web service never imports it (webapp/deploy/release_manifest.py LIBRARY): an upload keeps
+# Pillow's default (tests/test_large_photos.py).
+DATASET_MAX_PIXELS = 2**28
+Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS
+
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 # "all" is every photo of the dirs passed (build_capture_dataset, the DINOv3
 # fixture); it gets its own stream component so its boxes don't coincide with
