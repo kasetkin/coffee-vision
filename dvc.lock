@@ -2769,8 +2769,8 @@ stages:
       size: 25053
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 70651dbeead97bac017c2f9f1489bf75
-      size: 306494
+      md5: 18c9490a8e5bc1b1be81ef56c4304885
+      size: 326254
     - path: models/seg/xl0_v5.pt
       hash: md5
       md5: 8ef98cd7988a445fbd7629358c82bc3f
@@ -2791,9 +2791,9 @@ stages:
     outs:
     - path: data/seg_masks_xl0v6/xl0_v5
       hash: md5
-      md5: 5c17c03e323767863109022dfd0fcb01.dir
-      size: 1976268
-      nfiles: 280
+      md5: 79c16e8caef1c293f3ebc23586a547c9.dir
+      size: 2165899
+      nfiles: 296
   seg_xl0v6_finetune@xl0_v6:
     cmd: python -m coffeecv.seg_finetune train --labels pass10 --seed 123 --name
       xl0_v6 --threads 8
@@ -2930,3 +2930,47 @@ stages:
       hash: md5
       md5: 4f8198d6e9080e86911f9647a489f6af
       size: 16265873
+  seg_xl0v6_predict@xl0_v6:
+    cmd: python -m coffeecv.seg_predict 
+      efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v6.pt --split test
+      --threads 4 --out data/seg_masks_xl0v6/xl0_v6
+    deps:
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: ccd4e9c2eefeb74c23b6bd4b37bb3e68
+      size: 5474
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 8c92fc5f010dee3aa5967efb8ec0f22f
+      size: 25053
+    - path: labels/ml5/seg_dataset.yaml
+      hash: md5
+      md5: 18c9490a8e5bc1b1be81ef56c4304885
+      size: 326254
+    - path: models/seg/xl0_v6.pt
+      hash: md5
+      md5: 4f8198d6e9080e86911f9647a489f6af
+      size: 16265873
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks_xl0v6/xl0_v6
+      hash: md5
+      md5: b3651455c585e4768d650e77bec340e6.dir
+      size: 2464213
+      nfiles: 296
