@@ -240,6 +240,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: validation
   group: dataset/2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083723300.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083945299.jpg
+  sha256: 15d65302c3cd7d648a9f043ee3180282364884b31b9e16401523fb10d8f0d3fc
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_009__Vietnam/PXL_20260807_083945299.jpg
 - path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130805009.jpg
   sha256: d80ce16dcfd8c03e71ba568643d003a9be0b81aacbcd0050df28d589fcffa86e
   source: pool
@@ -5637,6 +5643,11 @@ photos:
   source: segmenter_positive
   split: train
   group: dataset/segmenter_positives/20261028_112323_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/segmenter_positives/20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 27fc45d848a5670ddb1411046cba52e87527e136ba4d4866b64e5f735eabec44
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg
 - path: dataset/segmenter_positives/20261028_112353_Galaxy_Z_Fold8_Ultra_Brazil.jpg
   sha256: b754c380f5b42b30ff6bc8f6c7b7631de923d6e00cee5d706b57eb5d7347ad1e
   source: segmenter_positive
