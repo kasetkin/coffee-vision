@@ -15,7 +15,7 @@
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); the owner's decision open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); the owner keeps XL0-v5 (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;), so P7&ndash;P9 are dropped as the plan says; nothing ships</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -350,6 +350,13 @@
       and Kenya photos (<code>a5f49a6</code>, <code>00262f9</code>; the 200&nbsp;MP one after <code>6185f45</code> let the
       dataset tools read it), labelled in pass9 and pass10 (<code>84e73d5</code>, <code>fa4611f</code>). D11 decided:
       XL0-v6 trains on pass10. ML-14 written for a parallel <code>strip_metadata</code>.</div>
+    <div><div class="when">2026-10-28</div>XL0-v6 fine-tuned on pass10 (<code>12fccad</code>): 4 h 49 min wall
+      clock, 13 epochs, stopped by patience; epoch 5 chosen, validation score 0.956. Both models' test masks pushed
+      (<code>009c332</code>). The owner judged them blind and paired (<code>37f3bab</code>,
+      <code>analysis/xl0v6/</code>): XL0-v5 117/135, XL0-v6 107/135, exact McNemar p = 0.0525; test negatives empty
+      or tiny 154 and 150 of 160. The owner: &ldquo;we will not adopt XL0-v6 in this variant&rdquo;. XL0-v5 stays the
+      segmenter; P7&ndash;P9 are dropped. pass8&ndash;pass10, the photos of 2026-10-27 and 2026-10-28, and P2&ndash;P3's
+      resume state stay.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
