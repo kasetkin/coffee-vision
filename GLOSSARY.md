@@ -57,3 +57,21 @@ The share of planted defects the judge fails.
 
 **False-fail rate**:
 The share of unmodified base masks the judge fails.
+
+## Web page
+
+**Preview**:
+The first part of the web page's answer to a photo: the photo's thumbnail with its bean-region mask and box, as the server made them. Never the thumbnail alone.
+_Avoid_: Mask preview, first preview
+
+**Local thumbnail**:
+The visitor's photo as their own browser shows it, before anything is sent to the server or comes back from it.
+_Avoid_: Preview, first preview, local preview
+
+**Prepared photo**:
+The image the web page makes on the visitor's device from their photo and sends instead of it: turned upright, resized, re-encoded, with private metadata removed.
+_Avoid_: Converted photo, processed upload
+
+**Original file**:
+The visitor's photo file sent byte for byte, as the web page does only when it cannot make a prepared photo.
+_Avoid_: Raw upload (RAW is a format), fallback photo

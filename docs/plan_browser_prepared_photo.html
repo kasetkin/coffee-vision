@@ -1,0 +1,231 @@
+<title>Implementation plan: the web page prepares the photo on the device</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-12 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the web page prepares the photo on the device</h1>
+  <p class="lede">The order of work for <a href="ticket_browser_prepared_photo.html">ticket OPS-12</a>. Four strands:
+    whether phones can do the work at all (WASM decode, resize, JXL encode), whether the result is clean (the privacy
+    harness), whether the model minds (the paired evaluation), and the production page with its build and deploy.
+    Feasibility comes first because its numbers set the cap every later phase uses; the first step that changes a
+    number is P3's evaluation.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; Q1&ndash;Q6 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_browser_prepared_photo.html"><code>ticket_browser_prepared_photo.html</code></a> (OPS-12)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-28</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 before P1's phone test</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>711d794</code> and the design discussion behind the ticket. 2 things the
+      ticket does not cover turned up. They are folded in below, and the one that needs a decision is Q2 (§2).</p>
+    <ol>
+      <li><b>Cross-origin isolation needs a secure context.</b> <code>SharedArrayBuffer</code> (D11) works only over
+        HTTPS or on <code>localhost</code>, so a prototype served from the dev machine to a phone over the LAN gets no
+        threads. Q2.</li>
+      <li><b>Planted private tags cannot be committed.</b> The pre-commit leak check refuses a file with GPS or an
+        email address, so P2's fixtures are planted at test time into temporary copies, never stored.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 decides whether WASM on a phone can prepare a 48 MP photo at all, and sets the cap (Q1) and the JXL effort
+    (Q4) that P2&ndash;P4 use. P2 proves the output clean before any prepared photo is measured or served. P3 then
+    measures what the prepared photo costs the model and is the only phase that changes a number. P4 builds the
+    production page on the settings P3 chose; P5 is the owner's check on phones and the fallback question; P6 deploys.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>WASM feasibility prototype and the pool's resolution check <span class="pill sm open">stop</span></td><td>local, owner's phones</td><td>no: measurements only</td></tr>
+      <tr><td class="id">P2</td><td>Privacy and correctness harness</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>Paired evaluation of JXL distance and the 90&deg; turn, crops for the owner <span class="pill sm open">stop</span></td><td>local</td><td>yes: val/test on prepared photos</td></tr>
+      <tr><td class="id">P4</td><td>Production page, server log field, nginx headers, release build</td><td>local</td><td>no: the answer is unchanged</td></tr>
+      <tr><td class="id">P5</td><td>Owner's check on phones; the fallback asked again <span class="pill sm open">stop</span></td><td>owner</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>Deploy and verify live</td><td>VM</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code, the data or a phase's results, not from the ticket's decisions. Each has a
+    recommendation, which this plan assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>The resolution cap (D10), from P1's numbers: time and peak memory per phone at
+          12, 24 and 48 MP, and the pool's resolution check.</td>
+        <td><span class="pill sm open">Open</span> The least of 48 MP, what the slowest phone prepares in about 5 s
+          without the tab being killed, and what the pool needs.</td><td>P3</td></tr>
+      <tr><td class="id">Q2</td><td>How does the prototype reach the phones? Threads need HTTPS (callout, 1).</td>
+        <td><span class="pill sm open">Open</span> (a) The dev machine serves it over HTTPS on the LAN with a local
+          CA the phones trust once (mkcert). (b) An unlinked static path on the live site, which touches production
+          nginx. (a): nothing public changes.</td><td>P1</td></tr>
+      <tr><td class="id">Q3</td><td>Does RAW (DNG included) stay in the browser, or fall back to the original file?
+          LibRaw's decode of a 50 MP RAW is the heaviest job in the design.</td>
+        <td><span class="pill sm open">Open</span> Stay in the browser if P1 shows it within the budget on the
+          slowest phone; otherwise fall back.</td><td>P4</td></tr>
+      <tr><td class="id">Q4</td><td>JXL encoder effort, from P1's time and size per effort at the cap.</td>
+        <td><span class="pill sm open">Open</span> The highest effort that keeps the slowest phone in budget.</td><td>P3</td></tr>
+      <tr><td class="id">Q5</td><td>D1 asked again: with WASM decoders, how often does the page fall back, and should a
+          fallback become a refusal, making privacy a guarantee?</td>
+        <td><span class="pill sm open">Open</span> Decide on P5's fallback count; if fallbacks are rare, refuse.</td><td>P6</td></tr>
+      <tr><td class="id">Q6</td><td>The JXL distance to ship, and whether the 90&deg; turn is accepted, from P3's paired
+          results and crops (D5, D17).</td>
+        <td><span class="pill sm open">Open</span> The largest distance whose paired deltas do not agree in sign
+          against the original files, within 20 MB at the cap.</td><td>P4</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; WASM feasibility prototype and the pool's resolution check <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 before the phone test</span></span></div>
+  </div>
+  <p>A throwaway page that does the whole preparation and reports its numbers, plus the toolchain the production page
+    will keep. Nothing is uploaded; nothing in the live page changes.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Toolchain in <code>webapp/page/</code>: <code>package.json</code>,
+      <code>pnpm-lock.yaml</code>, Node pinned, TypeScript, one bundler; pnpm's install-script allow list empty unless a
+      codec needs one, each such entry named (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>).
+      Node and pnpm in the devcontainer. Compiled output ignored by git (D15).</span></li>
+    <li><span class="box"></span><span>Codec packages for HEIC, JXL (decode and encode) and RAW, each reviewed for
+      build provenance and recorded with version and source (D12); single- and multi-threaded builds (D11).</span></li>
+    <li><span class="box"></span><span>The chain: native decode when full-resolution pixels are available, else WASM
+      (D8, D9); turn by Orientation; resize to a given MP with one fixed filter; JXL encode at d&nbsp;=&nbsp;1.0 and a
+      given effort. A readout of each step's time, the peak memory where the browser reports it, and the output's
+      size.</span></li>
+    <li><span class="box"></span><span>Pool resolution check (Python): for each pool photo, the bean pitch at full
+      resolution and the smallest MP at which its smallest patch (<code>patch_beans_min</code> &times; pitch) stays at
+      or above <code>patch_store_size</code>; the distribution, and the share of photos that would fall below at 12,
+      16, 24 and 48 MP.</span></li>
+    <li><span class="box"></span><span>Serve the prototype to the phones as Q2 says; run it on a JPEG, HEIC and DNG of
+      the dataset at 12, 24 and 48 MP, and the 200 MP photo, each at efforts 3&ndash;7, in Chromium and Safari on the
+      dev machine first.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: run it on the test phones (the Fold8 Ultra, an older
+      iPhone, a mid-range Android) and answer Q1, Q3 and Q4.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; Privacy and correctness harness</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>D16: the exiftool audit stays the one guarantee; the TypeScript deny list is an implementation it checks.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The TypeScript deny list, ported from <code>coffeecv/strip_metadata.py</code>
+      (<code>DELETE_ARGS</code>, <code>DENY_GROUPS</code>, <code>DENY_TAGS</code>, the GPS and serial-number pattern):
+      EXIF and XMP copied into the JXL less what it removes, the ICC profile kept as bytes, Orientation written as 1
+      (D2, D3, D4).</span></li>
+    <li><span class="box"></span><span>Fixtures at test time: one real photo per format the server accepts, from the
+      dataset or made from one, copied to a temporary directory and given GPS, serial numbers, owner fields, maker
+      notes, C2PA and a thumbnail by exiftool; never committed.</span></li>
+    <li><span class="box"></span><span>Playwright (installed with pnpm) runs the preparation in Chromium, Firefox and
+      WebKit; Python checks each output with <code>strip_metadata</code>'s audit and also: every tag the stripping
+      keeps survives, Orientation is 1, the pixels match the source turned upright within JXL's error, the ICC bytes
+      are equal, the output is 8-bit; a non-image is refused by the magic-byte check (D14).</span></li>
+    <li><span class="box"></span><span>The harness in <code>scripts/check.sh</code>, in the tier that runs real-data
+      tests.</span></li>
+    <li><span class="box"></span><span>Checks: the harness green in all three engines; a planted tag deliberately
+      left in makes it fail.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; Paired evaluation of the JXL distance and the 90&deg; turn <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q1, Q4</span></div>
+  </div>
+  <p>D17, read under <code>docs/agents/experiments.md</code> and <a href="adr/0002-paired-multi-seed-evidence.md">ADR
+    0002</a>: the models do not change, only their input.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The models: the recipe of the model in the live release, at seeds 42, 123 and
+      7. If it lacks one of them, stop and ask.</span></li>
+    <li><span class="box"></span><span>Prepared val and test photos made by the shipping TypeScript in headless
+      Chromium, at the cap (Q1) and effort (Q4), for each arm: d&nbsp;=&nbsp;0, 0.1, 0.5, 1.0, 1.5, 2.0, and
+      d&nbsp;=&nbsp;1.0 turned 90&deg; from upright. Each arm's file sizes recorded; an arm above 20 MB is measured
+      but marked unshippable.</span></li>
+    <li><span class="box"></span><span>Each seed's model classifies the original files and every arm through
+      <code>classify_one</code>'s path; code committed before the run, the changed path run at toy scale first.</span></li>
+    <li><span class="box"></span><span>A page of 100% crops of about a dozen photos, the original beside each
+      distance, for the owner's eyes.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: per seed, val and test macro-F1 for the original files and
+      each arm, the paired deltas, their mean and range, per-class F1; the owner answers Q6.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Production page, log field, headers and release build</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, Q3, Q6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The page's script moves from <code>webapp/static/index.html</code> into
+      <code>webapp/page/</code>: the magic-byte check, the prepared photo at the chosen settings, the local thumbnail
+      at once, redrawn with the server's preview (D6), the original file with its one-line note on a fallback (D14),
+      codecs loaded only when needed.</span></li>
+    <li><span class="box"></span><span><code>webapp/app.py</code> logs <code>upload_kind</code> from a form field,
+      <code>prepared</code> or <code>original</code>, anything else as <code>unknown</code>; a test in
+      <code>tests/test_webapp_analyze.py</code>.</span></li>
+    <li><span class="box"></span><span>COOP and COEP in <code>webapp/deploy/coffee-cv.nginx.conf.template</code>
+      (D11); the page works single-threaded without them.</span></li>
+    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh</code>'s <code>build()</code> runs
+      <code>pnpm install --frozen-lockfile</code> and the build into the release; <code>release_manifest.py</code>
+      lists the built files; no Node on the VM.</span></li>
+    <li><span class="box"></span><span><code>coffeecv/infer.py</code>'s parity claim reworded for the prepared photo
+      (D3); <code>webapp/README.md</code> describes the preparation.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite and P2's harness green; a <code>--stage-only</code>
+      release serves the built page.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Owner's check on phones; the fallback asked again <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The staged page served to the test phones as in P1; a count of fallbacks by
+      format and phone over the owner's photos.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: try it, answer Q5, and say whether to deploy.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Deploy and verify live</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Q5's answer applied, if it changes the fallback.</span></li>
+    <li><span class="box"></span><span>Deploy by <code>docs/agents/deploy.md</code>; on the live domain, a prepared
+      photo and an original file each answered, the COOP and COEP headers present, <code>upload_kind</code> in the
+      request log.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: numbers for every phone, format and size; the pool's resolution
+      distribution.</span></li>
+    <li><span class="box"></span><span>P2: the harness green in three engines, and red on a planted tag left in.</span></li>
+    <li><span class="box"></span><span>P3: paired results printed; Q6 answered.</span></li>
+    <li><span class="box"></span><span>P4: no compiled output in git; the staged release serves the built page.</span></li>
+    <li><span class="box"></span><span>P6: verified on the live domain.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Building codecs from C ourselves (D12 option b), unless a package
+      fails P1's review.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-28</div>Claude reads ticket OPS-12 at <code>711d794</code> and writes this plan. 2
+      findings not in the ticket; Q1&ndash;Q6 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_browser_prepared_photo.html">OPS-12 ticket</a>,
+    <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>, <code>docs/agents/experiments.md</code>,
+    <code>docs/agents/deploy.md</code>, <code>webapp/static/index.html</code>, <code>coffeecv/strip_metadata.py</code>.</footer>
+</main>

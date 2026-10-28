@@ -1,0 +1,278 @@
+<title>The web page prepares the photo on the device before it uploads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-12 · coffee-vision · web page</div>
+  <h1>The web page checks, turns, resizes, strips and re-encodes a photo on the visitor's device, and uploads that instead of the file</h1>
+  <p class="lede">The owner asked that the page stop sending the visitor's file as it is: a file that is not an image
+    should be refused before it is sent, a 200 MP photo or a RAW file should not travel at full size, and the photo's
+    private metadata should not reach the server. The design was settled in one discussion with the owner on
+    2026-10-28 (D1&ndash;D19). Planned in <a href="plan_browser_prepared_photo.html">the plan</a>; not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D19 decided; planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Web page: photo preparation on the device</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/page/</code> (new, TypeScript), <code>webapp/static/index.html</code>, <code>webapp/app.py</code> (request log), <code>webapp/deploy/coffee-cv.nginx.conf.template</code>, <code>scripts/deploy_webapp.sh</code>, <code>webapp/deploy/release_manifest.py</code>, <code>coffeecv/infer.py</code> (docstring)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, phone tests)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-28</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until the deploy (plan P6). After it, the page sends a prepared photo (lossy JXL, upright, at most the cap, private metadata removed) or, when it cannot make one, the original file with a visible note; nginx sends COOP and COEP headers; the request log gains <code>upload_kind</code>. The server's endpoint, its answer and the models are unchanged.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-28.</strong> As it is now, the visitor can select and upload any file, and it is
+      parsed only on the server: a file that is not an image is reported only after the upload, an image can come in
+      a very inefficient format such as BMP or DNG, and all the private information inside a photo goes to the server.
+      A script should parse the file on the device; if it is a correct image, keep only the necessary part (the image
+      and its orientation, perhaps the F-number and other metadata without private information), reduce the pixels
+      (from 200 MP to at most 48 MP), encode them in an efficient modern format such as JXL with the metadata, show a
+      first view in the browser and send that image to the server. The steps after it stay as now: the preview, the
+      mask, the classification. TypeScript, not plain JavaScript.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the page posts the file the visitor picked to <code>/analyze</code>, and the server decodes it. After this
+    ticket the page makes a <strong>prepared photo</strong> on the device and posts that; it falls back to the
+    <strong>original file</strong> only when it cannot (D1). The page shows the <strong>local thumbnail</strong> at
+    once, then redraws with the server's <strong>preview</strong> when it arrives (D6). The work splits into a WASM
+    feasibility prototype on phones, a privacy and correctness harness, an evaluation that picks the JXL distance and
+    proves the 90&deg; turn harmless, the production page, and the deploy.</p>
+
+  <h2>2. Background</h2>
+  <p>Read from the code at <code>711d794</code> (main) and the design discussion of 2026-10-28.</p>
+  <ul>
+    <li><strong>A 200 MP photo fails on the site today.</strong> The web service keeps Pillow's decompression-bomb
+      limit, 179 MP (commit <code>6185f45</code>), and the Galaxy Z Fold8 Ultra's 200 MP photo is 16320&times;12240.
+      Uploads are capped at 20 MB by nginx and Flask (<code>MAX_UPLOAD_BYTES</code> in <code>webapp/app.py</code>).</li>
+    <li><strong>The server reads no metadata.</strong> <code>load_rgb_image</code> (<code>coffeecv/photo_io.py</code>)
+      ignores EXIF, Orientation included, and the ICC profile; training reads photos through it too. The dataset's
+      privacy rules are <code>coffeecv/strip_metadata.py</code>'s deny list (<code>DELETE_ARGS</code>,
+      <code>DENY_GROUPS</code>, <code>DENY_TAGS</code>, the GPS and serial-number pattern), checked by an exiftool
+      audit (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>).</li>
+    <li><strong>The models never saw a 90&deg; turn.</strong> Spatial augmentation is a horizontal flip, a vertical
+      flip and &plusmn;15&deg; (<code>params.yaml</code>): the two flips make 180&deg;, nothing makes 90&deg;. Browsers
+      apply Orientation when they decode, by default.</li>
+    <li><strong>Resolution matters only down to a point.</strong> A classifier patch is 4&ndash;7 beans across and is
+      stored at 448 px (<code>patch_beans_min</code>, <code>patch_beans_max</code>, <code>patch_store_size</code>), so
+      a photo can shrink until its patches fall below 448 px, a bean pitch of about 64&ndash;112 px.</li>
+    <li><strong>Browsers decode less than the server.</strong> No browser decodes RAW; Chrome and Firefox decode
+      neither HEIC nor JXL (Safari decodes both). No browser encodes JXL or AVIF: <code>canvas.toBlob</code> gives
+      JPEG, PNG and WebP. iOS Safari caps a canvas at about 16.7 MP, so a natively decoded photo above that cannot be
+      read at full size through a canvas.</li>
+    <li><strong>The page today</strong> (<code>webapp/static/index.html</code>) is one HTML file with an inline script,
+      loads nothing from another origin, and accepts JPEG, PNG, WebP, HEIC, AVIF, JXL and ten RAW extensions. nginx
+      sends no COOP or COEP header. The repo has no JavaScript toolchain.</li>
+    <li><strong>Releases are built on the dev machine</strong> and copied to the VM (<code>build()</code> in
+      <code>scripts/deploy_webapp.sh</code>), so a compiled page can be built there without Node on the VM.</li>
+    <li><strong>This reverses part of OPS-7 D8 on purpose.</strong> D8 had the server send a JPEG thumbnail "so the
+      browser never needs to decode HEIC/AVIF/JXL/RAW itself" (<a href="ticket_photos_and_answers_optimization.html">OPS-7</a>;
+      <code>_preview_part</code> in <code>webapp/app.py</code>). Here the browser decodes them. The server's thumbnail
+      stays (D6). <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (one upload, one
+      streamed answer, nothing held) is unaffected.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The visitor's file goes to the server byte for byte, with its GPS, serial numbers and maker notes.</li>
+        <li>A file that is not an image is refused by the server, after the upload.</li>
+        <li>A RAW file or a 200 MP photo travels at full size; a 200 MP photo is refused.</li>
+        <li>Nothing is shown until the server's preview arrives.</li>
+        <li>The model sees the photo's stored pixels, unturned.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The server gets a prepared photo: upright, at most the cap, 8-bit, its ICC profile kept, lossy JXL, with
+          the metadata the dataset's stripping would keep and nothing else.</li>
+        <li>A file that is not an image is refused on the device.</li>
+        <li>HEIC, JXL and RAW (DNG included) are decoded on the device, by the browser or by WASM.</li>
+        <li>The local thumbnail shows at once; the server's preview replaces it.</li>
+        <li>The original file is sent only when the page cannot prepare it, and the visitor is told.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The endpoint and its answer.</strong> One upload to <code>/analyze</code>, the preview then the
+      classification, nothing held (<a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>).</li>
+    <li><strong>What the server accepts.</strong> Every format it decodes today, because the original file can still
+      arrive (D1).</li>
+    <li><strong>The models and training.</strong> <code>load_rgb_image</code> keeps ignoring Orientation and ICC; no
+      retraining. Whether the prepared photo changes the model's answers is measured, not trained away (D17).</li>
+    <li><strong>The server's limits.</strong> Pillow's limit and the 20 MB cap stay; an original file above them is
+      refused as today.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A phone runs out of memory or time on a large photo.</strong></td>
+        <td>A 48 MP RGBA buffer is 192 MB before the encoder's own memory; iOS kills a tab at roughly 1&ndash;1.5 GB.
+          Plan P1 measures it on phones and sets the cap (D10); a failure falls back to the original file (D1).</td></tr>
+      <tr><td class="id">R2</td><td><strong>A second lossy compression moves the model's answers.</strong></td>
+        <td>The models trained on the phones' own JPEG and HEIC. P3 measures the paired val/test effect per JXL distance
+          (D17) before one is chosen (D5).</td></tr>
+      <tr><td class="id">R3</td><td><strong>The 90&deg; turn is input the models never trained on.</strong></td>
+        <td>Augmentation covers 180&deg;, not 90&deg; (§2). P3's turned arm measures it before shipping (D3).</td></tr>
+      <tr><td class="id">R4</td><td><strong>The TypeScript deny list misses a private tag.</strong></td>
+        <td>The browser has no exiftool. P2 plants private tags in real photos of every format and runs
+          <code>strip_metadata</code>'s exiftool audit on the page's output in Chromium, Firefox and WebKit (D16).</td></tr>
+      <tr><td class="id">R5</td><td><strong>A compromised JavaScript or WASM package.</strong></td>
+        <td>pnpm only, which runs no install script unless allowed by name (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>),
+          a frozen lockfile, packages reviewed for build provenance and served from our own origin (D12).</td></tr>
+      <tr><td class="id">R6</td><td><strong>The site and the CLI give different pixels for the same file.</strong></td>
+        <td>Accepted (D3, D5): the site classifies the prepared photo. <code>coffeecv/infer.py</code>'s parity claim is
+          reworded to say so.</td></tr>
+      <tr><td class="id">R7</td><td><strong>A browser's native decoder turns or colour-converts the photo on its own,
+          differently per browser.</strong></td>
+        <td>Turning, colour and resizing happen once, in our code (D9); P2's harness checks the result per browser
+          engine.</td></tr>
+      <tr><td class="id">R8</td><td><strong>The fallback still sends private metadata.</strong></td>
+        <td>Accepted for now (D1), with a visible note (D14); P5 asks again with the fallback's measured frequency.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Is privacy a guarantee or best effort?</td>
+        <td>(a) The original file is never sent; a photo the page cannot prepare is refused. (b) Best effort: the
+          original file is sent when the page cannot prepare one.</td>
+        <td><strong>(b)</strong>, 2026-10-28: "best effort for now". Asked again after the prototype (plan Q5).</td></tr>
+      <tr><td class="id">D2</td><td>Which metadata does a prepared photo carry?</td>
+        <td>(a) None. (b) A kept list, as <code>KEPT_TAGS</code>. (c) Everything the dataset's privacy stripping does not
+          remove: its deny list, ported to TypeScript.</td>
+        <td><strong>(c)</strong>, 2026-10-28: "any meta that is not stripped by privacy stripping code", over an allow
+          list. The server ignores it for now; it may log some for debugging later, each field its own decision.</td></tr>
+      <tr><td class="id">D3</td><td>Which way up are the sent pixels?</td>
+        <td>(a) Stored pixels, unturned, as training sees them. (b) Turned upright on the device.</td>
+        <td><strong>(b)</strong>, 2026-10-28, with Orientation written as 1. Augmentation does not cover 90&deg;, so
+          before shipping the shipped recipe is evaluated on photos turned 90&deg; (D17); the parity claim in
+          <code>coffeecv/infer.py</code> is reworded.</td></tr>
+      <tr><td class="id">D4</td><td>Colour space?</td>
+        <td>(a) Decode with no colour conversion and keep the ICC profile. (b) Convert to sRGB.</td>
+        <td><strong>(a)</strong>, 2026-10-28: "keep color profile and ICC info". The pixel values stay those training
+          reads; output is 8-bit, as <code>load_rgb_image</code>'s.</td></tr>
+      <tr><td class="id">D5</td><td>How is the prepared photo encoded?</td>
+        <td>(a) Lossless. (b) Lossy, high quality.</td>
+        <td><strong>(b)</strong>, 2026-10-28: JXL, starting at distance 1.0. The final distance is chosen by the owner
+          from P3: the crops compared by eye and the paired val/test metrics.</td></tr>
+      <tr><td class="id">D6</td><td>What does the page show, and what is it called?</td>
+        <td>The image shown on the device before any answer, against the preview of OPS-7 D8.</td>
+        <td>2026-10-28: the first thing shown is the <strong>local thumbnail</strong>; it is always built, then redrawn
+          with the server's preview when it arrives. The server's thumbnail stays in the preview. Both terms are in
+          <code>GLOSSARY.md</code>.</td></tr>
+      <tr><td class="id">D7</td><td>Language and package manager?</td>
+        <td>(a) TypeScript. (b) Rust to WASM. (c) Python in Pyodide.</td>
+        <td><strong>(a)</strong>, 2026-10-28. Packages with pnpm, never npm, against supply-chain attacks
+          (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>).</td></tr>
+      <tr><td class="id">D8</td><td>WASM or the browser's codecs only?</td>
+        <td>(a) Browser codecs only: JPEG out, a cap of about 16 MP for iOS's canvas. (b) WASM codecs.</td>
+        <td><strong>(b)</strong>, 2026-10-28: "we definitely will use WASM". WASM decoders for HEIC, JXL and RAW,
+          DNG included; the browser's own decoder is tried first.</td></tr>
+      <tr><td class="id">D9</td><td>When is the native decoder used, and who resizes, turns and converts?</td>
+        <td>(a) As below. (b) Leave them to the browser.</td>
+        <td><strong>(a)</strong>, 2026-10-28: the native decoder only when it can hand over full-resolution pixels,
+          else WASM (a large JPEG on iOS too); resizing with one fixed filter, turning and colour handling, each in
+          one place in our code, never in <code>createImageBitmap</code>.</td></tr>
+      <tr><td class="id">D10</td><td>Resolution cap and time budget?</td>
+        <td>A ceiling of 48 MP; the final cap is the least of 48 MP, what the slowest test phone prepares within
+          budget, and what the pool's patch sizes need.</td>
+        <td>2026-10-28: "we will see numbers when we implement, any reasonable number is okay". Set in P1 (plan Q1);
+          working budget about 5 s.</td></tr>
+      <tr><td class="id">D11</td><td>Threads in WASM?</td>
+        <td>(a) COOP and COEP headers for <code>SharedArrayBuffer</code>, with a single-threaded fallback. (b) Single
+          thread only.</td>
+        <td><strong>(a)</strong>, 2026-10-28.</td></tr>
+      <tr><td class="id">D12</td><td>Where do the WASM codecs come from?</td>
+        <td>(a) Published packages pinned by <code>pnpm-lock.yaml</code>. (b) Built here from C with Emscripten.</td>
+        <td><strong>(a)</strong>, 2026-10-28, each package's build provenance reviewed; served from our own origin,
+          never a CDN; each loaded only when a file needs it.</td></tr>
+      <tr><td class="id">D13</td><td>What are the two kinds of upload called?</td>
+        <td><strong>Prepared photo</strong> and <strong>original file</strong>.</td>
+        <td>Adopted, 2026-10-28; in <code>GLOSSARY.md</code>. Every request line logs <code>upload_kind</code>:
+          <code>prepared</code> or <code>original</code>.</td></tr>
+      <tr><td class="id">D14</td><td>How are non-images and fallbacks handled?</td>
+        <td>A magic-byte check against the formats the server accepts; on a fallback, (a) silent or (b) a one-line
+          note.</td>
+        <td>The check, and <strong>(b)</strong>, 2026-10-28; may change once the WASM work shows how often a fallback
+          happens.</td></tr>
+      <tr><td class="id">D15</td><td>Where is the page built?</td>
+        <td>(a) In <code>deploy_webapp.sh</code>'s <code>build()</code>, into the release. (b) Compiled output
+          committed.</td>
+        <td><strong>(a)</strong>, 2026-10-28: TypeScript in <code>webapp/page/</code>, Node pinned,
+          <code>pnpm install --frozen-lockfile</code>; compiled output never in git.</td></tr>
+      <tr><td class="id">D16</td><td>How is a prepared photo proved clean?</td>
+        <td>Real photos of every format with private tags planted at test time, run through the TypeScript in headless
+          browsers (Playwright), audited by <code>strip_metadata</code>'s exiftool audit; Orientation, upright pixels
+          and ICC bytes checked the same way.</td>
+        <td>Adopted, 2026-10-28.</td></tr>
+      <tr><td class="id">D17</td><td>How are the JXL distance and the 90&deg; turn evaluated?</td>
+        <td>The shipped recipe's models at seeds 42, 123 and 7, unchanged; arms: original files, prepared photos at
+          d&nbsp;=&nbsp;0, 0.1, 0.5, 1.0, 1.5, 2.0, and d&nbsp;=&nbsp;1.0 turned 90&deg;; prepared by the shipping
+          TypeScript in headless Chromium; paired val/test macro-F1 and per-class F1
+          (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>); a page of 100% crops for the owner's eyes.</td>
+        <td>Adopted, 2026-10-28; d&nbsp;=&nbsp;0.1 added by the owner ("if it is reasonable"), d&nbsp;=&nbsp;0 by Claude
+          as the reference that separates resizing and turning from compression. An arm that exceeds 20 MB is
+          measured but cannot ship unless the limit changes.</td></tr>
+      <tr><td class="id">D18</td><td>Does the design get an ADR?</td>
+        <td>(a) Now, proposed. (b) Not now.</td>
+        <td><strong>(b)</strong>, 2026-10-28: "no ADR for now".</td></tr>
+      <tr><td class="id">D19</td><td>Order of work?</td>
+        <td>Prototype on phones, privacy harness, evaluation, production page, the fallback asked again, deploy.</td>
+        <td>Adopted, 2026-10-28; <a href="plan_browser_prepared_photo.html">the plan</a>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>On the owner's test phones, a photo of every accepted format up to 200 MP
+      becomes a prepared photo within the budget, or falls back with the note.</span></li>
+    <li><span class="box"></span><span>P2's harness is green in Chromium, Firefox and WebKit: no deny-listed tag
+      survives, every tag the stripping keeps survives, Orientation is 1 and the pixels are upright, the ICC bytes are
+      unchanged, a non-image is refused before upload.</span></li>
+    <li><span class="box"></span><span>P3's paired results are printed and the owner has chosen the distance and
+      accepted the turn.</span></li>
+    <li><span class="box"></span><span>The page shows the local thumbnail, then the server's preview, then the
+      classification; the request log has <code>upload_kind</code>.</span></li>
+    <li><span class="box"></span><span>The page is built from <code>webapp/page/</code> with pnpm at deploy time and
+      no compiled output is in git.</span></li>
+    <li><span class="box"></span><span>Deployed and verified live by <code>docs/agents/deploy.md</code>.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Training on prepared photos, or applying Orientation in <code>load_rgb_image</code> (D3 option c, not taken).</li>
+    <li>Raising the server's 20 MB or Pillow limit.</li>
+    <li>The server reading or logging any metadata field (D2).</li>
+    <li>Classifying on the device: the server still runs the models.</li>
+    <li>An ADR for the design (D18).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-28</div>Ticket written from the owner's request and a design discussion with
+      Claude (<code>/grill-with-docs</code>) on <code>main</code> at <code>711d794</code>. D1&ndash;D19 decided;
+      glossary terms Preview, Local thumbnail, Prepared photo and Original file added;
+      <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a> written. Planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="plan_browser_prepared_photo.html">OPS-12 plan</a>,
+    <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>,
+    <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>, <code>webapp/app.py</code>,
+    <code>coffeecv/photo_io.py</code>, <code>coffeecv/strip_metadata.py</code>.</footer>
+</main>
