@@ -261,7 +261,7 @@
     time: the host has 12 cores and 13 GB of memory, and each run uses 8 threads.</p>
   <ol class="tasks">
     <li><span class="box"></span><span><code>seg_xl0v6_finetune</code> gains <code>xl0_v6_s42</code>,
-      <code>xl0_v6_s7</code> and <code>xl0_v6_s2026</code> (pass10; seeds 42 and 7 from ADR 0002, 2026 a third), and
+      <code>xl0_v6_s7</code> and <code>xl0_v6_s239</code> (pass10; seeds 42 and 7 from ADR 0002, 239 a third), and
       <code>seg_xl0v6_predict</code> the same three names; committed before the launch, the stage command unchanged
       from P5's, so P5's toy proof stands.</span></li>
     <li><span class="box"></span><span>On the owner's command, one launch from a clean tree:
@@ -482,7 +482,7 @@
       which 7.8 min loading, 4 h 30 min for epochs 1&ndash;13 (about 20.8 min each) and about 11 min for epoch 0's
       validation and the run's ending. XL0-v5's 23 epochs took 5 h 14 min.</div>
     <div><div class="when">2026-10-28</div>Ticket D12, the owner: three more seeds of XL0-v6, pass10 and the same
-      recipe. P6a written and prepared (42, 7, 2026); P7&ndash;P9 on hold until a seed is adopted. Not started: the
+      recipe. P6a written and prepared (42, 7, 239); P7&ndash;P9 on hold until a seed is adopted. Not started: the
       owner gives the command. The disk has 8.6&nbsp;GB free, enough for the runs' checkpoints, resume state and
       masks (under 0.3&nbsp;GB).</div>
   </div>
