@@ -283,7 +283,7 @@
 
   <h2>9. P7 &mdash; Re-crop, exp279, ship</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14); fixture regenerated, re-crop running</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14); exp279 val 0.9680, above D10, shipped as dino3b16_segxl0v6_country_aug8_s42</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6 <span class="tag">Q3 answered (ticket D10)</span></span></div>
   </div>
   <p>No stop for the re-crop's review (D5); Claude picks and ships (D6), above D10's line.</p>
@@ -319,7 +319,7 @@
 
   <h2>10. P8 &mdash; Convert, push, deploy</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14), after P7</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14); export, tests, docs and pushes done; deploy next</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -519,6 +519,17 @@
       <code>ml13-p7-fixture</code> merged (<code>a58e940</code>) and <code>scripts/make_dinov3_fixture.py</code> run
       by Claude as D9 allows (<code>61b2b21</code>); <code>test_dino_backbone</code> passes. The re-crop of every
       session started.</div>
+    <div><div class="when">2026-10-29</div>P7 done. The re-crop (<code>4602691</code>): 1,261 of 1,379 masks and 1,011
+      crop boxes changed, median area change 0, one D18 fallback (<code>analysis/xl0v6/recrop_report.txt</code>, sheets in
+      <code>outputs/xl0v6_recrop_review/</code> for P9). exp279 (<code>e607e49</code>, 2 h 31 min): only the decoder
+      and the threshold differ from exp276's config; val 0.9680, test 0.9775 against exp276's 0.9718 and 0.9813, inside
+      exp276&ndash;278's seed spread; lowest class val F1 Guatemala 0.922, above D10. Beside the live model on exp279's
+      test patches: 0.9775 against 0.9775, every photo right for both; one seed, as the report says (R4;
+      <code>analysis/xl0v6/live_baseline.txt</code>, <code>38b79a1</code>). Shipped as
+      <code>dino3b16_segxl0v6_country_aug8_s42</code>; probe refit on 194 bean photos and 453 negatives; ood_eval
+      160/160 negatives caught, 0/135 positives refused (<code>f1c80c0</code>). P8: LiteRT export within D7's bars
+      on 13 fixtures (<code>dfbb4d2</code>); tests and the webapp's default moved (<code>9c7e7c5</code>); DVC pushed,
+      3,570 of 3,581 objects verified on the remote, the other 11 the segmenter cards in git.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
