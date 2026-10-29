@@ -253,7 +253,7 @@
 
   <h2>8a. P6a &mdash; Three more seeds <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: seed 42 done (epoch 32, score 0.982), masks pushed; seeds 7 and 239 stopped by the owner</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: seed 42 done (epoch 32, score 0.982), masks pushed; seeds 7 and 239 stopped by the owner; seed 42 judged by the owner, the decision open</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6; the owner's command</span></div>
   </div>
   <p>Ticket D12: XL0-v6's recipe and pass10 at three more seeds, the seed the one difference from
@@ -503,6 +503,14 @@
       or tiny (area &lt; 0.021008): XL0-v5 119 / 154, XL0-v6 86 / 150, <code>xl0_v6_s42</code> 154 / 156. Test
       positives with an empty mask: XL0-v5 2 of 135 (internet_beans_002 and 003), <code>xl0_v6_s42</code> 3 (those two
       and <code>IMG_20261016_120539</code>).</div>
+    <div><div class="when">2026-10-29</div>The owner judged session <code>xl0v6_s42_test</code> (135 test positives,
+      blind and paired, XL0-v5 against <code>xl0_v6_s42</code>; 7 identical masks). Passes: XL0-v5 115/135,
+      <code>xl0_v6_s42</code> 122/135; 10 only XL0-v5, 17 only seed 42, exact McNemar p = 0.248. Pool 64 and 63 of 66;
+      segmenter positives 51 and 59 of 69. Test negatives empty / empty or tiny: 119 / 154 and 154 / 156 of 160.
+      Report in <code>analysis/xl0v6/paired_s42_report.txt</code> and <code>.json</code>. XL0-v5's 135 masks were
+      the same in both of the owner's sessions; 10 were judged differently (P6 117/135, this session 115/135), so a
+      difference of a few photos is within the judgement's own spread. The owner adopts seed 42 or keeps
+      XL0-v5.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
