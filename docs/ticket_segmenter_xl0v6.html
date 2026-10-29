@@ -15,7 +15,7 @@
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds (P6a): seed 42 done 2026-10-29, epoch 32, score 0.982; seeds 7 and 239 stopped by the owner; judged blind against XL0-v5: 122 against 115 of 135 (p = 0.248); D14: the owner adopts <code>xl0_v6_s42</code> (2026-10-29); P7 done 2026-10-29: exp279 val 0.9680, shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>; P8 deploying, P9 next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds (P6a): seed 42 done 2026-10-29, epoch 32, score 0.982; seeds 7 and 239 stopped by the owner; judged blind against XL0-v5: 122 against 115 of 135 (p = 0.248); D14: the owner adopts <code>xl0_v6_s42</code> (2026-10-29); P7 done 2026-10-29: exp279 val 0.9680, shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>; P8 done 2026-10-29: live from <code>0052813</code> and verified on the domain; P9, the owner&rsquo;s re-crop review, next</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -393,6 +393,12 @@
       the live model on the same test patches (0.9775 each). Shipped by Claude (D6) as
       <code>dino3b16_segxl0v6_country_aug8_s42</code>; its OOD probe caught 160/160 test negatives and refused 0/135
       bean photos. Converted for LiteRT, pushed and verified; the deploy follows.</div>
+    <div><div class="when">2026-10-29</div><code>dino3b16_segxl0v6_country_aug8_s42</code> live from <code>0052813</code>
+      (release <code>20261029T1637Z-0052813</code>), verified on the domain: <code>/analyze</code> 8.4 s server-side,
+      the preview at 2.1 s. The release passed its GPU smoke and <code>--compare</code> within D7's bars (12 photos, no
+      top-1 change). Its upload took 146 s, not about an hour: the two graphs identical to the live release's were
+      copied on the host (the owner's request; OPS-13). Next: P9, the owner's review of the re-crop's sheets in
+      <code>outputs/xl0v6_recrop_review/</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
