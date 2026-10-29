@@ -253,7 +253,7 @@
 
   <h2>8a. P6a &mdash; Three more seeds <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-28: prepared; started on the owner's command only</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: seed 42 done (epoch 32, score 0.982), masks pushed; seeds 7 and 239 stopped by the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6; the owner's command</span></div>
   </div>
   <p>Ticket D12: XL0-v6's recipe and pass10 at three more seeds, the seed the one difference from
@@ -491,6 +491,18 @@
     <div><div class="when">2026-10-28</div>The third seed is 239, not 2026 (owner: a year misleads as a file name
       suffix). D13 is the owner's once all three runs finish. The owner asked for every seed's test masks to be ready
       before the owner is called.</div>
+    <div><div class="when">2026-10-29</div>P6a launched 2026-10-28 18:58 from <code>27ee6da</code>, the three seeds
+      one after another, each followed by its test masks. <code>xl0_v6_s42</code> ran all 40 epochs (best epoch 17 at
+      0.959, then 25, then 32): chosen epoch 32, val mIoU 0.976, negatives left empty 0.988, score 0.982; from epoch
+      26 on every epoch scored 0.966&ndash;0.982. About 13 h 50 min, 20.6 min an epoch. Its card differs from
+      <code>xl0_v6.json</code> only in <code>seed</code>, <code>name</code> and the run's outputs. Its masks of the 295
+      test photos took 11 min. The 14.5 h estimate assumed P5's 13 epochs; it was wrong. At 09:00 the owner stopped
+      seeds 7 and 239 (&ldquo;abort seed 7 and seed 239 training. I want to see seed 42 result now&rdquo;): seed 7 was
+      loading, no epoch or resume state written. <code>models/seg/xl0_v6_s42.pt</code> and
+      <code>data/seg_masks_xl0v6/xl0_v6_s42</code> pushed, 298 objects verified. Test negatives (160), empty / empty
+      or tiny (area &lt; 0.021008): XL0-v5 119 / 154, XL0-v6 86 / 150, <code>xl0_v6_s42</code> 154 / 156. Test
+      positives with an empty mask: XL0-v5 2 of 135 (internet_beans_002 and 003), <code>xl0_v6_s42</code> 3 (those two
+      and <code>IMG_20261016_120539</code>).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
