@@ -1,0 +1,24 @@
+config: models/dino3b16_segxl0v6_country_aug8_s42.json (training_config)
+scoring 295 test photos of /workspace/labels/ml5/seg_dataset.yaml with no TTA, 40 patches; the classifier's train split holds 956 photos
+
+test split, probe threshold 0.5 (fixed, ADR 0016)
+negatives caught at 0.5: 160/160 (100%, 95% CI 98%-100%)
+    2026-09-11__user_samerig: 15/15 (100%, 95% CI 80%-100%)
+    2026-09__internet_proxy: 25/25 (100%, 95% CI 87%-100%)
+    user_realworld: 120/120 (100%, 95% CI 97%-100%)
+segmenter on the test negatives (beside the probe, not a guard; D9, D22):
+  all: empty mask: 154/160, empty or tiny (area < 0.028521): 156/160
+    2026-09-11__user_samerig: empty mask: 15/15, empty or tiny (area < 0.028521): 15/15
+    2026-09__internet_proxy: empty mask: 20/25, empty or tiny (area < 0.028521): 22/25
+    user_realworld: empty mask: 119/120, empty or tiny (area < 0.028521): 119/120
+positives refused at 0.5:
+  segmenter_positive, trained on: 0/14 (0%, 95% CI 0%-22%)
+  segmenter_positive, not trained on: 0/52 (0%, 95% CI 0%-7%)
+  pool, trained on: 0/50 (0%, 95% CI 0%-7%)
+  pool, not trained on: 0/16 (0%, 95% CI 0%-19%)
+  internet_positive, trained on: none
+  internet_positive, not trained on: 0/3 (0%, 95% CI 0%-56%)
+  all, trained on: 0/64 (0%, 95% CI 0%-6%)
+  all, not trained on: 0/71 (0%, 95% CI 0%-5%)
+
+Wrote analysis/xl0v6/ood_eval.json
