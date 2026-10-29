@@ -168,8 +168,11 @@ def report(runs: list[int], out: Path) -> None:
         "unseen by the live model": lambda r: (r["folder_id"], r["photo"]) not in trained,
     }
     result: dict = {"runs": {}, "live": LIVE, "live_trained_photos": len(trained)}
-    lines = [f"ML-13: exp{runs[0]}-{runs[-1]} beside the live model {LIVE} (exp{LIVE_EXP}) on the same test "
+    span_name = f"exp{runs[0]}" if len(runs) == 1 else f"exp{runs[0]}-{runs[-1]}"
+    lines = [f"ML-13: {span_name} beside the live model {LIVE} (exp{LIVE_EXP}) on the same test "
              "patches, xl0_v6_s42 crops", ""]
+    if len(runs) == 1:  # the plan's R4: a one-seed comparison says so
+        lines[-1:-1] = ["One seed: the deltas below are one patch draw, not a mean over seeds (plan R4)."]
     for exp in runs:
         d = run_dir(exp)
         metrics = json.loads((d / "metrics.json").read_text())
