@@ -335,7 +335,9 @@ stages:
   # ML-13 P5: XL0-v6, XL0-v5's recipe (params.yaml's seg_ft at lr 1e-4, 8 threads, seed 123) on the owner's pass10
   # labels: pass8's re-review of every training and validation label and, carried through pass9 and pass10, the 50
   # photos appended on 2026-10-28 (ticket D11). Labels are the one difference from seg_xl0v5_finetune@xl0_v5. One
-  # seed (D3). Resumes after a reboot through `dvc repro -s` (P2).
+  # seed (D3). Resumes after a reboot through `dvc repro -s` (P2). P6a (ticket D12): seed 42, the seed the one
+  # difference from xl0_v6; seeds 7 and 239 stopped by the owner before their first epoch (2026-10-29), their items
+  # removed. The owner adopted xl0_v6_s42 (D14).
   seg_xl0v6_finetune:
     foreach:
       xl0_v6:
@@ -344,12 +346,6 @@ stages:
       xl0_v6_s42:
         labels: pass10
         seed: 42
-      xl0_v6_s7:
-        labels: pass10
-        seed: 7
-      xl0_v6_s239:
-        labels: pass10
-        seed: 239
     do:
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
@@ -373,6 +369,7 @@ stages:
   # ML-13 P5 (R5): XL0-v5's and XL0-v6's masks of every test photo of the grown split (the 44 photos of 2026-10-27 and
   # their pool draw included), for the owner's blind paired review (D4). seg_xl0v5_predict is frozen, the record of
   # ML-12's sessions. XL0-v5's item first, while the owner labels pass8; XL0-v6's joins once it is fine-tuned.
+  # Frozen 2026-10-29: the record the owner's blind paired sessions judged (xl0v6_test, xl0v6_s42_test).
   seg_xl0v6_predict:
     foreach:
       xl0_v5:
@@ -381,11 +378,8 @@ stages:
         model: ${seg_ft.weights}:models/seg/xl0_v6.pt
       xl0_v6_s42:
         model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
-      xl0_v6_s7:
-        model: ${seg_ft.weights}:models/seg/xl0_v6_s7.pt
-      xl0_v6_s239:
-        model: ${seg_ft.weights}:models/seg/xl0_v6_s239.pt
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_xl0v6/${key}
       deps:
         - coffeecv/seg_predict.py
