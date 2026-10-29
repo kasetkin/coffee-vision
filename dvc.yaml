@@ -409,6 +409,7 @@ stages:
       dino3b16_segxl0v3_country_aug8_s123: {seg: xl0_v3}
       dino3b16_segxl0v4_country_aug8_s42: {seg: xl0_v4}
       dino3b16_segxl0v5_country_aug8_s42: {seg: xl0_v5}
+      dino3b16_segxl0v6_country_aug8_s42: {seg: xl0_v6_s42}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split
