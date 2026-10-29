@@ -187,6 +187,15 @@
       from <code>scripts/deploy_webapp.sh</code>, <code>webapp/deploy/release_manifest.py</code>,
       <code>docs/agents/deploy.md</code> and a comparison of the XL0-v5 and ML-13 exports at <code>0052813</code>.
       Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-29</div>Tried by hand in ML-13's deploy, at the owner's request: with the upload on
+      <code>dino_b8.tflite</code>, the live release's <code>encoder.tflite</code> and <code>dino_b8.tflite</code> (md5
+      checked on the host) were copied into the new release's folder on the host, the running rsync attempt stopped, and
+      its <code>.rsync-partial</code> removed before the script's retry. The retry sent only what was missing; the
+      script's md5 check of every file and its listing check passed; the upload step took 146 s, the first attempt
+      included. The staged tree's files carry the build's time, not the cache's, so rsync's size-and-time check did not
+      skip the copies: it sent them as deltas against the identical files on the host, which cost seconds. A build-side
+      step that seeds the release folder on the host by content before the rsync, keeping today's checks after it, is
+      enough for D1 (a). Not implemented in the script.</div>
   </div>
 
   <footer>Related: <a href="ticket_webapp_release_isolation.html">OPS-1</a>,
