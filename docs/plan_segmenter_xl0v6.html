@@ -253,7 +253,7 @@
 
   <h2>8a. P6a &mdash; Three more seeds <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: seed 42 done (epoch 32, score 0.982), masks pushed; seeds 7 and 239 stopped by the owner; seed 42 judged by the owner, the decision open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-29: seed 42 (epoch 32, score 0.982) judged by the owner and adopted (ticket D14); seeds 7 and 239 stopped by the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6; the owner's command</span></div>
   </div>
   <p>Ticket D12: XL0-v6's recipe and pass10 at three more seeds, the seed the one difference from
@@ -283,7 +283,7 @@
 
   <h2>9. P7 &mdash; Re-crop, exp279, ship</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">on hold 2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14); fixture regenerated, re-crop running</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, P6 <span class="tag">Q3 answered (ticket D10)</span></span></div>
   </div>
   <p>No stop for the re-crop's review (D5); Claude picks and ships (D6), above D10's line.</p>
@@ -319,7 +319,7 @@
 
   <h2>10. P8 &mdash; Convert, push, deploy</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">on hold 2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14), after P7</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -334,7 +334,7 @@
 
   <h2>11. P9 &mdash; The owner's re-crop review <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">on hold 2026-10-28: XL0-v6 at seed 123 not adopted at P6; returns if a seed of P6a is adopted</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">2026-10-29: for xl0_v6_s42 (ticket D14), after P7</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
@@ -511,6 +511,14 @@
       the same in both of the owner's sessions; 10 were judged differently (P6 117/135, this session 115/135), so a
       difference of a few photos is within the judgement's own spread. The owner adopts seed 42 or keeps
       XL0-v5.</div>
+    <div><div class="when">2026-10-29</div>Ticket D14: the owner adopts <code>xl0_v6_s42</code> and asks for the next
+      steps. P6's adoption steps for it: tiny-mask threshold re-derived, 0.021008 to 0.028521 (half of
+      <code>IMG_20261022_110423</code>'s 0.057042; <code>31d40a6</code>); named in <code>NAMED_SEGMENTERS</code>
+      (<code>05eef0b</code>); <code>params.yaml</code> moved, <code>seg_xl0v6_predict</code>'s hashes recorded and
+      the stage frozen, seeds 7 and 239 out of <code>dvc.yaml</code> (<code>a0539f2</code>). P7: branch
+      <code>ml13-p7-fixture</code> merged (<code>a58e940</code>) and <code>scripts/make_dinov3_fixture.py</code> run
+      by Claude as D9 allows (<code>61b2b21</code>); <code>test_dino_backbone</code> passes. The re-crop of every
+      session started.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13 ticket</a>,
