@@ -1,0 +1,199 @@
+<title>A Deploy Sends Each File Once</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-13 · coffee-vision · deploy</div>
+  <h1>A deploy reuses any file the host already holds with the same content, so a file crosses the link once</h1>
+  <p class="lede">The link to the web host is slow, about 14 MB a minute, and a release of a new model name sends its
+    whole LiteRT export again, about 815 MB and an hour, although nearly all of it is already on the host. The owner
+    asks for each file to be uploaded once where possible, reusing a file the host holds when its hash matches. Written
+    2026-10-29, during ML-13's deploy; decisions open, not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-29; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Deploy: upload time</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>scripts/deploy_webapp.sh</code> (build, upload, the staged release's checks), <code>webapp/deploy/release_manifest.py</code>, <code>docs/agents/deploy.md</code>, <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-29</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None to what the site serves: a release holds the same bytes, checked the same way before it runs. The deploy's upload step changes.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">found in ML-13's deploy (plan P8)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-29.</strong> "Create ticket for deploy optimization: link speed is slow and I want to
+      upload things only once if possible and it probably is okay to reuse files by content if hash is the same (if we
+      use good enough hash)."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a deploy reuses a file already on the host only at the same path in an earlier release. A new model name is a
+    new path, so its whole export is sent again, though most of its bytes are the same graphs the live release already
+    serves. After this ticket, the deploy matches files by content: a file the host already holds with the same hash
+    is copied there, not sent, and only what the host lacks crosses the link. Two parts: reuse from the releases on the
+    host, and, per D1, reuse from the DVC store on the same host, which every model reaches first (ADR 0028).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>How the upload reuses today.</strong> <code>scripts/deploy_webapp.sh</code> uploads the staged release
+      with <code>rsync --copy-dest</code> against the current release and the newest others on the host: a file found
+      unchanged <em>at the same relative path</em> is copied on the host, and a changed one is sent as a delta. The copy
+      is "a full copy, never a hard link -- each release stays independent". Only <code>current</code> and
+      <code>previous</code> are kept (<code>prune</code>).</li>
+    <li><strong>What a new model name costs.</strong> The export lives at <code>models/&lt;name&gt;.litert/</code>, so
+      a new name matches nothing. <code>docs/agents/deploy.md</code>: "The first release of a new model name uploads its
+      ~780-820 MB in full (55 min to <code>webappremote</code> on 2026-10-17)", and ML-8 found only
+      <code>head.npz</code> differing (2026-10-20). ML-12's staged deploy took 66 min (2026-10-27).</li>
+    <li><strong>How much is new, measured 2026-10-29</strong> (XL0-v5's export against ML-13's, by md5):
+      <code>encoder.tflite</code> (452.0 MB) and <code>dino_b8.tflite</code> (343.0 MB) identical, and
+      <code>convert.json</code>; <code>decoder.tflite</code> (20.6 MB), <code>head.npz</code> (62 KB),
+      <code>manifest.json</code> and <code>check.json</code> differ. 795 of 816 MB is already on the host in the live
+      release.</li>
+    <li><strong>The link.</strong> ML-13's DVC push ran at 13-15 MB a minute to the same host (2026-10-29).</li>
+    <li><strong>The DVC store already sends each object once.</strong> It is content-addressed by md5:
+      ML-13's push sent the new decoder (its object dated 2026-10-29) and not the encoder or DINOv3 graphs, whose
+      objects have been there since 2026-10-15. Every model reaches it before a deploy (ADR 0028,
+      <code>docs/agents/dvc.md</code>). Today only the deploy sends the same bytes again.</li>
+    <li><strong>The DVC store and the releases share a disk.</strong> <code>dvcnewremote</code> and
+      <code>webappremote</code> are both yappy (<code>docs/agents/dvc.md</code>); 90 GB free on its one filesystem
+      (2026-10-29). The store is <code>/home/sun/dvc-store</code>, owned by <code>sun</code>, and
+      <code>/home/sun</code> is mode 700, so the deploy's user, <code>coffee-deploy</code>, cannot read it today.</li>
+    <li><strong>The digests a release is checked against.</strong> <code>release_manifest.py</code> lists the DVC
+      files (the export, the checkpoint) by the md5 in <code>dvc.lock</code> and the <code>.dvc</code> pointers, and
+      the pinned files by sha256. After the upload, and again when a staged release is reused, every file is checked on
+      the host against its digest: md5 for a 32-character digest, sha256 otherwise; <code>check_staged_listing</code>
+      then requires the release to hold exactly the manifest's files.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A file is reused only at the same path in a release on the host.</li>
+        <li>A new model name sends its whole export, about 815 MB, about an hour.</li>
+        <li>Bytes the DVC push already put on the host are sent again by the deploy.</li>
+        <li>DVC files are checked on the host by md5.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A file is reused wherever the host holds the same content (D1's sources), at any path.</li>
+        <li>A new model name sends only what the host lacks: about 21 MB for ML-13's export, under 2 minutes.</li>
+        <li>With D1 (b) or (c), a file the DVC push sent is not sent again.</li>
+        <li>A reused file is accepted only when its hash on the host matches (D2); otherwise it is sent.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Releases stay independent</strong> (ADR 0008). A reused file is copied into the new release, never
+      hard-linked, as <code>--copy-dest</code> does today, unless D3 says otherwise.</li>
+    <li><strong>What runs is checked before it runs.</strong> Every file of the release is checked on the host against
+      the manifest, and the release holds exactly the manifest's files, before the smoke, <code>--compare</code> and the
+      flip.</li>
+    <li><strong>The DVC store is not written by a deploy.</strong> It stays the archive (ADR 0028); the deploy only
+      reads it.</li>
+    <li><strong>The order of a deploy</strong>: only pushed commits on <code>origin/main</code>, the live service
+      stopped only once everything is on the host (ADR 0026), the smoke, <code>--compare</code>, the flip.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A reused copy on the host is damaged</strong> (a disk error in an old
+        release or the store).</td>
+        <td>The same check as an uploaded file: its hash computed on the host after the copy, against the manifest; a
+          mismatch sends the file instead. A file that fails twice stops the deploy.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Two different files with the same hash.</strong></td>
+        <td>By accident, negligible for md5 or sha256 at this scale. On purpose, md5 collisions are cheap to make;
+          sha256's are not known. Only someone who can already write to the host could plant one. D2 decides the
+          hash.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The deploy's user reads the DVC store</strong> (D1 (b), (c)).</td>
+        <td><code>/home/sun</code> is mode 700 today. Read access for <code>coffee-deploy</code> only (a group, or the
+          store moved out of <code>/home/sun</code>), never write; set up once on the host, recorded in
+          <code>webapp/README.md</code>'s host setup.</td></tr>
+      <tr><td class="id">R4</td><td><strong>The DVC remote moves off the web host.</strong></td>
+        <td>The store path then holds nothing for the deploy, which falls back to the releases, then the upload: slower,
+          never wrong. The deploy reads the store at a configured path on the web host; it does not assume the DVC
+          remote's URL.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A change to the deploy script breaks a live deploy.</strong></td>
+        <td><code>scripts/rehearse_deploy_local.sh</code> before it is used (<code>docs/agents/deploy.md</code>), and the
+          first real use is a <code>--stage-only</code> run.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Where may a deploy take a file from instead of sending it?</td>
+        <td>(a) The releases on the host (<code>current</code>, <code>previous</code>), matched by content. Saves 795
+          of 816 MB for ML-13's export; the decoder and head are still sent. (b) The DVC store on the host, matched by
+          the md5 it is named by: everything the DVC push sent, so model files cross the link once. Needs R3's read
+          access. (c) Both, in that order, then the upload. Recommended: (c). (a) alone is the smaller change and takes
+          most of the gain; (b) is what makes it "once".</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Which hash decides that a file on the host is the file the release needs?</td>
+        <td>(a) md5, as <code>dvc.lock</code> records and today's check uses. (b) sha256: the manifest carries it for
+          every file (computed locally from the DVC cache when the release is built), a candidate is found by size and
+          md5, and the copy is accepted only when its sha256 on the host matches. Hashing 816 MB on the host costs a few
+          seconds. Recommended: (b).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>Copy or link a reused file?</td>
+        <td>(a) A full copy, as today: each release stays independent (ADR 0008), 816 MB more disk per release. (b) A
+          hard link: no extra disk, but releases then share inodes, and a change to one changes the other. Recommended:
+          (a); disk is not short (90 GB free).</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>A <code>--stage-only</code> deploy of a model whose export shares graphs with
+      the live release sends only the files the host does not hold: for an export like ML-13's, about 21 MB, measured
+      from rsync's sent bytes and the step's time in the log.</span></li>
+    <li><span class="box"></span><span>The deploy log says, per file, whether it was reused (and from where) or sent.</span></li>
+    <li><span class="box"></span><span>Every file of the staged release is checked on the host against D2's hash
+      before the smoke; a reused file that fails is sent instead, and the release holds exactly the manifest's
+      files.</span></li>
+    <li><span class="box"></span><span>With D1 (b) or (c): a file in the DVC store on the host is copied from there,
+      and the deploy still works, sending everything, when the store is absent or unreadable.</span></li>
+    <li><span class="box"></span><span><code>scripts/rehearse_deploy_local.sh</code> passes, with a case where a
+      reused file is corrupt.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/deploy.md</code>'s paragraph on a new model name's upload
+      says what is sent now; ADR 0008 amended if D1 or D3 changes where a release's bytes come from.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The link itself (its speed, the Tailscale route).</li>
+    <li>The release's Python environment: <code>uv</code> builds it on the host from its own downloads, not over this
+      link.</li>
+    <li>Sharing graphs between model exports in the repo or the DVC cache (one encoder file for every model): the DVC
+      cache already stores each object once.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-29</div>Ticket written from the owner's request during ML-13's deploy (plan P8),
+      from <code>scripts/deploy_webapp.sh</code>, <code>webapp/deploy/release_manifest.py</code>,
+      <code>docs/agents/deploy.md</code> and a comparison of the XL0-v5 and ML-13 exports at <code>0052813</code>.
+      Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_webapp_release_isolation.html">OPS-1</a>,
+    <a href="ticket_deploy_memory_headroom.html">OPS-10</a>,
+    <a href="ticket_segmenter_xl0v6.html">ML-13</a>,
+    <a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>,
+    <a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>,
+    <a href="adr/0028-the-dvc-cache-is-never-the-last-copy.md">ADR 0028</a>,
+    <a href="agents/deploy.md">docs/agents/deploy.md</a>, <a href="agents/dvc.md">docs/agents/dvc.md</a>.</footer>
+</main>
