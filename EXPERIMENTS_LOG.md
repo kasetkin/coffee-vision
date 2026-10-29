@@ -3104,5 +3104,5 @@ as exp276's (3 excluded); none was added, so the split is exp276's. One seed (42
   trained on (`analysis/xl0v6/ood_eval.txt`). XL0-v6 alone leaves 154/160 test negatives with an empty mask and
   156/160 empty or under the threshold (XL0-v5: 119/160 and 154/160); the probe stays the guard. LiteRT export: D7's
   check passed on 13 fixtures.
-- The changed crops trained before the owner saw them (ML-13 D5); the review sheets are
-  `outputs/xl0v6_recrop_review/` (P9).
+- The changed crops trained before the owner saw them (ML-13 D5); the owner reviewed the review sheets
+  (`outputs/xl0v6_recrop_review/`, P9) on 2026-10-29 and found them okay. Live 2026-10-29.

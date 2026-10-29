@@ -12,10 +12,10 @@
     positive's label on the labelling page, fixing masks with ML-11's brush; a new segmenter, XL0-v6, is fine-tuned on
     those labels at one seed; and, because a new segmenter changes every crop, the classifier is retrained at one seed
     and shipped. Both training scripts also learn to resume after a host reboot (D7, D8). Written; D1&ndash;D10 decided;
-    planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
+    planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); implemented; <code>dino3b16_segxl0v6_country_aug8_s42</code> live 2026-10-29; closed by the owner 2026-10-29.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds (P6a): seed 42 done 2026-10-29, epoch 32, score 0.982; seeds 7 and 239 stopped by the owner; judged blind against XL0-v5: 122 against 115 of 135 (p = 0.248); D14: the owner adopts <code>xl0_v6_s42</code> (2026-10-29); P7 done 2026-10-29: exp279 val 0.9680, shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>; P8 done 2026-10-29: live from <code>0052813</code> and verified on the domain; P9, the owner&rsquo;s re-crop review, next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-10-29 by the owner; written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds (P6a): seed 42 done 2026-10-29, epoch 32, score 0.982; seeds 7 and 239 stopped by the owner; judged blind against XL0-v5: 122 against 115 of 135 (p = 0.248); D14: the owner adopts <code>xl0_v6_s42</code> (2026-10-29); P7 done 2026-10-29: exp279 val 0.9680, shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>; P8 done 2026-10-29: live from <code>0052813</code> and verified on the domain; P9 done 2026-10-29: the owner found the re-crop's sheets okay</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -293,32 +293,33 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The 44 photos stripped (a dry run then finds them clean), checked for duplicates
+    <li><span class="box done"></span><span>The 44 photos stripped (a dry run then finds them clean), checked for duplicates
       with <code>coffeecv.find_duplicates</code>, in DVC and pushed; manifest rows (batch <code>2026-10-27</code>) and a
       README section.</span></li>
-    <li><span class="box"></span><span>The segmenter dataset appended (<code>seg_dataset build</code>), no listed entry
+    <li><span class="box done"></span><span>The segmenter dataset appended (<code>seg_dataset build</code>), no listed entry
       changed; <code>test_seg_dataset</code> and <code>test_segmenter_positives</code> pass in full.</span></li>
-    <li><span class="box"></span><span><code>seg_finetune</code> writes its best checkpoint and its resume state after
+    <li><span class="box done"></span><span><code>seg_finetune</code> writes its best checkpoint and its resume state after
       every epoch and resumes from them; a toy run interrupted and resumed gives the same checkpoint as one run straight
       through; a run with other inputs deletes the leftovers and starts fresh.</span></li>
-    <li><span class="box"></span><span><code>fit_frozen_head</code> saves its computed features and resumes from them (D8), proved the same way;
+    <li><span class="box done"></span><span><code>fit_frozen_head</code> saves its computed features and resumes from them (D8), proved the same way;
       they are gone after the run; ADR 0025 amended.</span></li>
-    <li><span class="box"></span><span>pass8 done: every training and validation positive judged by the owner, its
+    <li><span class="box done"></span><span>pass8 done: every training and validation positive judged by the owner, its
       labels in DVC and its verdicts in git; <code>seg_review status</code> reports accepted, dropped and painted per
       source.</span></li>
-    <li><span class="box"></span><span>XL0-v6 (seed 123) fine-tuned in its own DVC stage; its best epoch and score
+    <li><span class="box done"></span><span>XL0-v6 (seed 123) fine-tuned in its own DVC stage; its best epoch and score
       recorded.</span></li>
-    <li><span class="box"></span><span>XL0-v6 judged blind against XL0-v5 on the test split, adopted as
+    <li><span class="box done"></span><span>XL0-v6 judged blind against XL0-v5 on the test split, adopted as
       <code>xl0_v6</code> if the owner's verdicts favour it, its threshold re-derived; the report in
-      <code>analysis/xl0v6/</code>.</span></li>
-    <li><span class="box"></span><span>Every session re-cropped (<code>segcrop</code> stages, then
+      <code>analysis/xl0v6/</code>. Seed 123 judged and not adopted; seed 42 judged the same way and adopted as
+      <code>xl0_v6_s42</code> (D12&ndash;D14).</span></li>
+    <li><span class="box done"></span><span>Every session re-cropped (<code>segcrop</code> stages, then
       <code>merge_segpool</code>), coverage changes reported, sheets for the owner's later review (D5).</span></li>
-    <li><span class="box"></span><span>The DINOv3 fixture's 15 input patches drawn from the original photos in
+    <li><span class="box done"></span><span>The DINOv3 fixture's 15 input patches drawn from the original photos in
       <code>dataset/</code>, the fixture regenerated one last time, and its step gone from experiments.md's "Changing
       the segmenter"; <code>test_dino_backbone</code> passes before and after the re-crop (D9).</span></li>
-    <li><span class="box"></span><span>exp279 (seed 42) as a recorded run, paired with exp276 with per-class F1, its
+    <li><span class="box done"></span><span>exp279 (seed 42) as a recorded run, paired with exp276 with per-class F1, its
       OOD probe refit and measured with <code>ood_eval</code>; the report says it is one seed.</span></li>
-    <li><span class="box"></span><span>The candidate converted within ML-7 D7's bars; DVC pushed and every object verified
+    <li><span class="box done"></span><span>The candidate converted within ML-7 D7's bars; DVC pushed and every object verified
       on the remote; main pushed; deployed and verified on the domain (D6); <code>docs/status.md</code>, the README and
       <code>docs/inference_path.html</code> updated.</span></li>
   </ul>
@@ -399,6 +400,8 @@
       top-1 change). Its upload took 146 s, not about an hour: the two graphs identical to the live release's were
       copied on the host (the owner's request; OPS-13). Next: P9, the owner's review of the re-crop's sheets in
       <code>outputs/xl0v6_recrop_review/</code>.</div>
+    <div><div class="when">2026-10-29</div>P9: the owner reviewed the re-crop's sheets in
+      <code>outputs/xl0v6_recrop_review/</code>: "they are okay". No crop excluded. Closed by the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,
