@@ -1,0 +1,14 @@
+{
+  "session": "pass9",
+  "proposer": "xl0_v5",
+  "redraw": "xl0_v5",
+  "redraw_output": "multi3",
+  "splits": [
+    "train",
+    "validation"
+  ],
+  "carry": "pass8",
+  "recheck": null,
+  "rounds": 7,
+  "created": "2026-10-28T08:53:20+00:00"
+}

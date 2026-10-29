@@ -3074,3 +3074,35 @@ a tiny-mask threshold of 0.021008, half the smallest non-empty test-positive mas
 - The changed crops trained before the owner saw them (the owner's go, 2026-10-26); the owner reviewed their 28
   review sheets on 2026-10-27 and found them okay (`analysis/xl0v5/recrop_report.txt`: the re-crop against
   XL0-v4's crops).
+
+### exp279: the classifier on XL0-v6's crops (2026-10-29)
+
+ML-9's recipe unchanged (600/160/160 patches per class, frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8 augmented
+views per training patch at weight 1/9) on new crops: every session re-cropped with the XL0-v6 segmenter
+(`xl0_v6_s42`, seed 42 of its pass10 fine-tune, adopted by the owner on the test split, ticket
+[ML-13](docs/ticket_segmenter_xl0v6.html) D14) at a tiny-mask threshold of 0.028521, half the smallest non-empty
+test-positive mask the owner accepted (`analysis/xl0v6/paired_s42_report.txt`). The pool is the same 1,376 photos
+as exp276's (3 excluded); none was added, so the split is exp276's. One seed (42): ML-13 D6 ships the one run. 2 h 31 min.
+
+| seed | exp | val, unaug | val, aug | test, unaug | test, aug |
+|---|---|---|---|---|---|
+| 42 | 279 | 0.9656 | 0.9680 | 0.9680 | 0.9775 |
+
+- Paired with exp276 (same seed, same photos, XL0-v5's crops): val -0.0038, test -0.0038 (augmented heads), inside
+  exp276-278's seed spread (val 0.9614-0.9718, test 0.9694-0.9813). Per class on val, Colombia -0.013 and Guatemala
+  -0.012 move most; Peru +0.003. Only the decoder and the threshold differ in the config.
+- The live model, `dino3b16_segxl0v5_country_aug8_s42`, scored on exp279's own test patches (XL0-v6's crops; neither
+  trained on any of the 209 photos): patch macro-F1 0.9775 against 0.9775, photo accuracy 1.000 against 1.000, no
+  class apart by more than 0.006 (`analysis/xl0v6/live_baseline.txt`). This compares the classifiers, not the
+  pipelines: on these crops, the head trained on them adds nothing measurable over the one that was not.
+- The re-crop (`analysis/xl0v6/recrop_report.txt`): 1,261 of 1,379 masks and 1,011 crop boxes changed, median area
+  change 0; 2 photos gained over 5% of their area, 4 lost over 5%. One D18 fallback, an all-beans close-up
+  (Indonesia Java, on test).
+- **Shipped exp279** (above ML-13 D10's line: val macro-F1 0.9, every class 0.8) as
+  `dino3b16_segxl0v6_country_aug8_s42`. OOD probe refit on 194 bean photos and 453 negatives; on the segmenter test
+  split (295 photos, grown since ML-12's 255) 160/160 negatives caught, 0/135 positives refused, 71 of them not
+  trained on (`analysis/xl0v6/ood_eval.txt`). XL0-v6 alone leaves 154/160 test negatives with an empty mask and
+  156/160 empty or under the threshold (XL0-v5: 119/160 and 154/160); the probe stays the guard. LiteRT export: D7's
+  check passed on 13 fixtures.
+- The changed crops trained before the owner saw them (ML-13 D5); the review sheets are
+  `outputs/xl0v6_recrop_review/` (P9).

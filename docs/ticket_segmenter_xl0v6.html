@@ -11,11 +11,11 @@
     DVC, manifest, segmenter dataset. Second, and the main point: the owner re-reviews every training and validation
     positive's label on the labelling page, fixing masks with ML-11's brush; a new segmenter, XL0-v6, is fine-tuned on
     those labels at one seed; and, because a new segmenter changes every crop, the classifier is retrained at one seed
-    and shipped. Both training scripts also learn to resume after a host reboot (D7, D8). Written; D1&ndash;D9 decided;
+    and shipped. Both training scripts also learn to resume after a host reboot (D7, D8). Written; D1&ndash;D10 decided;
     planned (<a href="plan_segmenter_xl0v6.html">plan</a>, P1&ndash;P9); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-27; D1&ndash;D9 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-27; D1&ndash;D10 decided 2026-10-27; planned 2026-10-27 (P1&ndash;P9), plan reviewed and amended; P1&ndash;P3 done 2026-10-27 (0d415e9, b2e660f, 98eb6c9, 296956f); P4 done 2026-10-28 (pass8, then pass9 and pass10 for the photos of 2026-10-28; D11: XL0-v6 on pass10); XL0-v6 fine-tuned 2026-10-28, epoch 5 chosen, score 0.956; P5 done, both models' test masks pushed; P6 judged 2026-10-28: XL0-v5 117/135, XL0-v6 107/135 (p = 0.0525); XL0-v6 at seed 123 not adopted (&ldquo;we will not adopt XL0-v6 in this variant&rdquo;); D12: three more seeds (P6a): seed 42 done 2026-10-29, epoch 32, score 0.982; seeds 7 and 239 stopped by the owner; judged blind against XL0-v5: 122 against 115 of 135 (p = 0.248); D14: the owner adopts <code>xl0_v6_s42</code> (2026-10-29); P7 done 2026-10-29: exp279 val 0.9680, shipped as <code>dino3b16_segxl0v6_country_aug8_s42</code>; P8 deploying, P9 next</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data and model: new photos, segmenter labels and fine-tune, training resume, re-crop, classifier retrain, release</span></div>
@@ -148,7 +148,8 @@
     <li><strong>The segmenter dataset's rules</strong>: append-only, the pool side drawn to match the positives (ML-5
       D12), shots grouped within 3 s (ADR 0029).</li>
     <li><strong>The classifier's pool</strong>: no photo joins or leaves it (D1), so exp279's split is exp276's.</li>
-    <li><strong>The recipes</strong>: XL0-v6's card differs from <code>xl0_v5.json</code>'s only in the labels;
+    <li><strong>The recipes</strong>: XL0-v6's card differs from <code>xl0_v5.json</code>'s recipe keys only in the
+      labels;
       exp279's config differs from exp276's only in the decoder and the threshold. A resumed run trains as an
       uninterrupted one would (D7).</li>
     <li><strong>The OOD guard</strong>: a probe at the fixed 0.5 (<a href="adr/0016-ood-guard-probe-at-fixed-half.md">ADR
@@ -177,10 +178,12 @@
       <tr><td class="id">R4</td><td><strong>One seed each departs from ADR 0002.</strong></td>
         <td><a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a> asks for seeds 42, 123 and 7, paired: seed
           spread here is larger than the effects measured, and single-seed wins have reversed. The fine-tune's score swung
-          0.635&ndash;0.973 between epochs and seeds (ML-12 R2). The owner's decision for this ticket (D3, D6), not a
-          change to the ADR. Mitigation: each run is paired with its predecessor at the same seed (XL0-v6 with
-          <code>xl0_v5</code> at 123, exp279 with exp276 at 42), so the labels and the crops are each the one
-          difference; the segmenter is adopted on the owner's blind judgement, not its score; the report says it is one
+          0.635&ndash;0.973 between epochs and seeds (ML-12 R2). The ADR also has the work print the paired results and
+          stop for the owner to decide; D6 departs from that too, as ML-12 D6 did, with Claude shipping. The owner's
+          decisions for this ticket (D3, D6), not a change to the ADR. Mitigation: each run is paired with its
+          predecessor at the same seed (XL0-v6 with <code>xl0_v5</code> at 123, exp279 with exp276 at 42), so the labels
+          and the crops are each the one difference; the segmenter is adopted on the owner's blind judgement, not its
+          score; the classifier ships only above a line drawn before the run (D10); the report says it is one
           seed.</td></tr>
       <tr><td class="id">R5</td><td><strong>The blind comparison is on a grown test split.</strong></td>
         <td>About 117 test positives, not ML-12's 91 (95 since 2026-10-26). XL0-v5 is predicted on the same photos in
@@ -250,6 +253,41 @@
           <code>dataset/</code>, which no re-crop touches, and regenerate it one last time. (c) Skip the test until a
           backbone change needs it.</td>
         <td><strong>(b)</strong>, 2026-10-27, as recommended. Claude runs Meta's code that one time (plan P7).</td></tr>
+      <tr><td class="id">D10</td><td>When does Claude stop instead of shipping exp279? P7's "clearly below exp276" drew
+          no line (plan Q3). exp276&ndash;278's val macro-F1: 0.9614&ndash;0.9718; per class up to 0.044 apart.</td>
+        <td>(a) Val macro-F1 below 0.9614, or a class's val F1 more than 0.05 below exp276's. (b) A looser floor (0.956,
+          0.08). (c) Val macro-F1 at least exp276's 0.9718. (d) No numeric line, only a broken run. (e) Always stop for
+          the owner. (f) The owner's own line.</td>
+        <td><strong>(f)</strong>, 2026-10-27: "stop only if macro-F1 is lower than 0.9 or any class val F1 lower than
+          0.8. It is very big margin, but it is my decision." Claude stops and reports instead of shipping if exp279's
+          val macro-F1 is below 0.9 or any class's val F1 is below 0.8; otherwise it ships (D6). A drop smaller than that
+          ships, and the paired report shows it.</td></tr>
+      <tr><td class="id">D11</td><td>Which labels does XL0-v6 train on? After pass8 the owner added 33 photos of
+          2026-10-28 and labelled them in pass9 and pass10, each carrying the one before.</td>
+        <td>(a) pass8, as D3 and the plan named it. (b) pass10: pass8's 352 labels and the 50 photos appended on
+          2026-10-28.</td>
+        <td>(b), 2026-10-28, as recommended: "we will use pass10 for XL0-v6". Labels remain the one difference from
+          xl0_v5 (D3).</td></tr>
+      <tr><td class="id">D12</td><td>After P6 (XL0-v6 at seed 123 lost, 107 against 117 of 135), does XL0-v6 get
+          more seeds?</td>
+        <td>(a) Stop: XL0-v5 stays. (b) Three more seeds, pass10 and the same recipe, one at a time (about 15 h).</td>
+        <td><strong>(b)</strong>, 2026-10-28: "we will try 3 more seeds with the same dataset and other
+          hyperparameters". Seeds 42 and 7 (ADR 0002's other two) and 239, the owner's pick for a third (Claude's 2026 replaced: misleading as a file name suffix), as
+          <code>xl0_v6_s42</code>, <code>xl0_v6_s7</code>, <code>xl0_v6_s239</code>; the seed is the one difference
+          from <code>xl0_v6</code>. Started on the owner's command only.</td></tr>
+      <tr><td class="id">D13</td><td>How are the three seeds judged?</td>
+        <td>(a) Claude shortlists the seed with the best validation score (the card's <code>chosen</code>); the owner
+          judges it blind and paired against XL0-v5 on the 135 test positives, as P6, with the test negatives'
+          emptiness (recommended: one session, and the shortlist uses validation only, not the test split). (b) One
+          blind session per seed against XL0-v5 (3 &times; 135). (c) No session if every seed scores below XL0-v5's
+          0.964: report and stop.</td>
+        <td>Settled by the owner on 2026-10-29: seeds 7 and 239 stopped ("abort seed 7 and seed 239 training. I want to
+          see seed 42 result now"); seed 42 judged blind and paired against XL0-v5, as P6 (122 against 115 of 135, p =
+          0.248; test negatives empty 154 against 119 of 160).</td></tr>
+      <tr><td class="id">D14</td><td>Is <code>xl0_v6_s42</code> adopted as the segmenter?</td>
+        <td>(a) Adopt it: P6's adoption steps, then P7&ndash;P9. (b) Keep XL0-v5.</td>
+        <td><strong>(a)</strong>, 2026-10-29: "adopt V6-seed42, this is my decision, write it to the ticket and
+          continue with next plan steps". The ship rules of D6 and D10 apply to exp279 on its crops.</td></tr>
     </tbody>
   </table></div>
 
@@ -313,6 +351,48 @@
       why the DINOv3 fixture must be regenerated at all.</div>
     <div><div class="when">2026-10-27</div>The owner answers plan Q2 as D9: the fixture's inputs move to the original
       photos and it is regenerated one last time. Every decision and plan question answered.</div>
+    <div><div class="when">2026-10-27</div>The plan reviewed against the code and amended at the owner's request: both
+      resume fingerprints cover every input a run reads, toy and smoke runs cannot delete a real run's resume state,
+      the classifier's saved views keep its batches whole, and the fixture's draw from the originals needs no mask (plan
+      Activity). R4 now names D6's departure from the ADR's owner decision. Plan Q3 open: the line below which Claude
+      stops instead of shipping exp279.</div>
+    <div><div class="when">2026-10-27</div>The owner answers plan Q3 as D10: Claude stops instead of shipping only if
+      exp279's val macro-F1 is below 0.9 or a class's val F1 below 0.8. Every decision and plan question
+      answered.</div>
+    <div><div class="when">2026-10-27</div>P1&ndash;P3 done (plan Activity): the 44 photos stripped, in DVC and
+      pushed, in the segmenter dataset (1,084 photos; train 26, validation 6, test 12 of them); the fine-tune and the
+      classifier fit resume after a reboot, each proved at toy scale and through the entry point against an
+      uninterrupted run and the code before. pass8 prepared (352 positives). Two pairs of the new photos, 5&nbsp;s
+      apart and close in content, fall in different splits under ADR 0029's 3&nbsp;s rule (folder README). P7's
+      fixture draw is written but waits on branch <code>ml13-p7-fixture</code>: running Meta's code was not
+      permitted in Claude's session. Next: the owner's pass8 (P4).</div>
+    <div><div class="when">2026-10-28</div>The owner labelled pass8 (352 accepted). The owner then added 33 Brazil
+      and Kenya photos (<code>a5f49a6</code>, <code>00262f9</code>; the 200&nbsp;MP one after <code>6185f45</code> let the
+      dataset tools read it), labelled in pass9 and pass10 (<code>84e73d5</code>, <code>fa4611f</code>). D11 decided:
+      XL0-v6 trains on pass10. ML-14 written for a parallel <code>strip_metadata</code>.</div>
+    <div><div class="when">2026-10-28</div>XL0-v6 fine-tuned on pass10 (<code>12fccad</code>): 4 h 49 min wall
+      clock, 13 epochs, stopped by patience; epoch 5 chosen, validation score 0.956. Both models' test masks pushed
+      (<code>009c332</code>). The owner judged them blind and paired (<code>37f3bab</code>,
+      <code>analysis/xl0v6/</code>): XL0-v5 117/135, XL0-v6 107/135, exact McNemar p = 0.0525; test negatives empty
+      or tiny 154 and 150 of 160. The owner: &ldquo;we will not adopt XL0-v6 in this variant&rdquo;. XL0-v5 stays the
+      segmenter; P7&ndash;P9 are dropped. pass8&ndash;pass10, the photos of 2026-10-27 and 2026-10-28, and P2&ndash;P3's
+      resume state stay.</div>
+    <div><div class="when">2026-10-28</div>D12 decided by the owner: three more seeds (42, 7, 239) on pass10 with
+      the same recipe, about 15 h one at a time; started on the owner's command only. The plan gains P6a; P7&ndash;P9
+      are on hold until a seed is adopted. D13, how the seeds are judged, open.</div>
+    <div><div class="when">2026-10-29</div><code>xl0_v6_s42</code>: 40 epochs, chosen epoch 32, validation score
+      0.982 (XL0-v5 0.964 on pass7's smaller validation set; <code>xl0_v6</code> 0.956). Test negatives empty or tiny:
+      156 of 160 (XL0-v5 154). The owner stopped seeds 7 and 239 to see seed 42's result. Model and masks pushed and
+      verified.</div>
+    <div><div class="when">2026-10-29</div>The owner judged <code>xl0_v6_s42</code> blind and paired against XL0-v5
+      (<code>17593f7</code>): 122 against 115 of 135, p = 0.248; segmenter positives 59 against 51 of 69; test
+      negatives empty 154 against 119 of 160. D14: the owner adopts <code>xl0_v6_s42</code> and asks for the next
+      plan steps: P6's adoption steps for it, then P7&ndash;P9.</div>
+    <div><div class="when">2026-10-29</div>Every session re-cropped with <code>xl0_v6_s42</code>; exp279 trained on the
+      crops: val macro-F1 0.9680, test 0.9775 (exp276 on XL0-v5's crops: 0.9718, 0.9813), above D10's line; level with
+      the live model on the same test patches (0.9775 each). Shipped by Claude (D6) as
+      <code>dino3b16_segxl0v6_country_aug8_s42</code>; its OOD probe caught 160/160 test negatives and refused 0/135
+      bean photos. Converted for LiteRT, pushed and verified; the deploy follows.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v5.html">ML-12</a>,

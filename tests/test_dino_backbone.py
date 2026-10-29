@@ -2,8 +2,9 @@
 
 Run from the repo root:  python -m unittest discover -s tests -p "test_dino*" -v
 
-Every model input here is real: bean patches drawn from the DVC-tracked pool's listed crops
-(coffeecv_dino/reference_photos.txt) by coffeecv_dino.reference. The weights and the crops are not in git, so tests that need them skip (with a
+Every model input here is real: bean patches drawn from the DVC-tracked original photos listed in
+coffeecv_dino/reference_photos.txt by coffeecv_dino.reference (since ticket ML-13, D9; the pool's crops of them
+before, so a re-crop no longer moves the fixture). The weights and the crops are not in git, so tests that need them skip (with a
 pointer) on a clone that has not obtained them -- see models_pretrained/README.md.
 """
 import re
@@ -45,9 +46,10 @@ class TestDinov3Loader(unittest.TestCase):
             f = self.bb.features(self.x)
         for readout in ("cls", "cls_mean"):
             np.testing.assert_allclose(f[readout].numpy(), self.ref[readout], atol=1e-4, rtol=0,
-                                       err_msg=f"{readout} drifted from Meta's reference (the pool re-cropped? "
-                                               "regenerate the fixture: docs/agents/experiments.md, "
-                                               "'Changing the segmenter')")
+                                       err_msg=f"{readout} drifted from Meta's reference: the backbone, its loader or "
+                                               "the reference draw changed (a re-crop cannot move it since "
+                                               "ML-13 D9); regenerate the fixture only for a change to the list "
+                                               "or the draw: scripts/make_dinov3_fixture.py")
 
     def test_rope_periods_are_the_checkpoints(self):
         rope = self.bb.model.rope

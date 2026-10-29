@@ -1,0 +1,93 @@
+{
+ "runs": {
+  "279": {
+   "seed": 42,
+   "val_macro_f1": 0.9679997435135356,
+   "test_macro_f1": 0.9775256609998542,
+   "subsets": {
+    "all": {
+     "candidate": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9775256609998542,
+      "per_class_f1": {
+       "Ethiopia": 0.9813664596273292,
+       "Kenya": 0.9444444444444444,
+       "Colombia": 0.95625,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9559748427672956,
+       "Brazil": 0.9781931464174455,
+       "Vietnam": 0.9968847352024922,
+       "Indonesia": 0.99375,
+       "Peru": 0.9777777777777777,
+       "Rwanda": 0.9968652037617555
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     },
+     "live": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9775120292975092,
+      "per_class_f1": {
+       "Ethiopia": 0.9751552795031055,
+       "Kenya": 0.9473684210526315,
+       "Colombia": 0.9532710280373832,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9526813880126183,
+       "Brazil": 0.9813664596273292,
+       "Vietnam": 1.0,
+       "Indonesia": 0.9968652037617555,
+       "Peru": 0.9777777777777777,
+       "Rwanda": 0.9968847352024922
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     }
+    },
+    "unseen by the live model": {
+     "candidate": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9775256609998542,
+      "per_class_f1": {
+       "Ethiopia": 0.9813664596273292,
+       "Kenya": 0.9444444444444444,
+       "Colombia": 0.95625,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9559748427672956,
+       "Brazil": 0.9781931464174455,
+       "Vietnam": 0.9968847352024922,
+       "Indonesia": 0.99375,
+       "Peru": 0.9777777777777777,
+       "Rwanda": 0.9968652037617555
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     },
+     "live": {
+      "patches": 1600,
+      "photos": 209,
+      "macro_f1": 0.9775120292975092,
+      "per_class_f1": {
+       "Ethiopia": 0.9751552795031055,
+       "Kenya": 0.9473684210526315,
+       "Colombia": 0.9532710280373832,
+       "CostaRica": 0.99375,
+       "Guatemala": 0.9526813880126183,
+       "Brazil": 0.9813664596273292,
+       "Vietnam": 1.0,
+       "Indonesia": 0.9968652037617555,
+       "Peru": 0.9777777777777777,
+       "Rwanda": 0.9968847352024922
+      },
+      "photo_accuracy": 1.0,
+      "photos_wrong": []
+     }
+    }
+   }
+  }
+ },
+ "live": "dino3b16_segxl0v5_country_aug8_s42",
+ "live_trained_photos": 958
+}

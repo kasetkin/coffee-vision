@@ -34,7 +34,7 @@ PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.
                     if line.startswith("smoke "))
 # The model webapp.app will load: COFFEE_CV_CHECKPOINT, else the same default as its CHECKPOINT. The literal is
 # repeated because webapp.app cannot be imported to read it before this check: the import loads the model.
-MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v5_country_aug8_s42.pt")
+MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v6_country_aug8_s42.pt")
 
 
 def _post(client, data: bytes, skip_crop: bool = False, buffered: bool = True):

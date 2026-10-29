@@ -22,6 +22,15 @@ numbers.
   only difference between them: the augmented one is the run's head, the unaugmented one is archived beside it
   (`model_unaugmented.pt`, metrics.json `arms`), ADR 0002's paired print within one run. The ResNet era's
   patch-sampling augmentation set in params.yaml is refused here (`frozen_config`): this path applies none of it.
+- **Embeddings saved as it goes, for a resume** (ticket ML-13 D8, ADR 0025 amended). Each split's embeddings,
+  labels and provenance when the split is embedded, and the training views' embeddings in chunks of
+  VIEW_CHUNK_BATCHES whole batches (so a resumed run batches the same views together), go to
+  <out>/features/<fingerprint>/ (`FeatureStore`). The same command run again after a reboot loads what its
+  fingerprint matches (`feature_fingerprint`: seed, --smoke, threads, config, backbone, crops' version in dvc.lock,
+  the files a fit reads; not the git commit) and embeds the rest; it fits what an uninterrupted run fits. The
+  files go once the seed's run directory is written, and a run first deletes every other run's under its --out
+  (a --smoke run's out is <out>/smoke/, so it never touches a real run's). A real run archived a seed before the
+  reboot: rerun the remaining seeds with --start-exp moved on, as the ids already taken are refused.
 - **Seeds only vary the patch draw** (the head is convex). Each seed is archived; the one to ship is
   chosen on val macro-F1, never test, and shipping is a separate, explicit step.
 
@@ -43,13 +52,14 @@ import json
 import shutil
 import socket
 import time
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
 import torch
+import yaml
 from PIL import Image
 
 from coffeecv import augment, model_io
@@ -58,11 +68,13 @@ from coffeecv.backbones import SPECS, FrozenBackbone, assert_input_size, build_b
 from coffeecv.class_list import folder_classes, load_classes
 from coffeecv.config import OUTPUTS_DIR, REPO_ROOT, RunConfig, build_env_block, config_to_dict, set_seed
 from coffeecv.dino_classifier import is_frozen_model, save_frozen_checkpoint
-from coffeecv.dataset import CAPTURES
+from coffeecv.dataset import CAPTURES, PatchMeta
 from coffeecv.fold_data import build_fold_datasets
+from coffeecv.geometry import Region
 from coffeecv.infer import classes_path_for
 from coffeecv.linear_head import cross_entropy, fit_head, fit_head_at, predict
 from coffeecv.metrics import build_metrics_json, compute_split_metrics, write_predictions_csv
+from coffeecv.repo_files import atomic_write, differing_keys, remove_tree, tree_sha256
 from coffeecv.repro_utils import dirty_provenance_paths, stale_crop_stages
 from coffeecv.transforms import build_eval_transform
 
@@ -72,6 +84,12 @@ MODELS_DIR = REPO_ROOT / "models"
 DEFAULT_C = 0.1
 DEFAULT_C_RULE = "fixed default: the lower median of exp240-251's per-fold val picks, frozen 2026-09-30 (ML-1 D3)"
 EMBED_BATCH = 32
+# The training views' embeddings go to disk in chunks of whole EMBED_BATCHes (ML-13 P3): 3,200 views, 400 patches at
+# 8 views, ~10 MB at ViT-B/16. Every batch then holds the views an uninterrupted run batches together.
+VIEW_CHUNK_BATCHES = 100
+FEATURES_DIR = "features"       # <out>/features/<fingerprint key>/: a run's saved embeddings (D8)
+# What a fit reads that its fingerprint hashes, beside params.yaml's classes file (feature_fingerprint).
+FEATURE_INPUTS = ("coffeecv", "coffeecv_dino", "params.yaml", "labels/ml3/pool_exclude.csv")
 SMOKE_BUDGET = dict(train_patches_per_class=6, val_patches_per_class=3, test_patches_per_class=3)
 SHIFT_PATCHES = 16      # --smoke: the training patches each transform alone is applied to (its embedding shift)
 HEAD_AUGMENT_KEYS = ("views", "patch", "input")
@@ -180,24 +198,43 @@ def embed(ds, bb: FrozenBackbone, readout: str) -> tuple[np.ndarray, np.ndarray,
 
 
 @torch.no_grad()
-def embed_views(patches: list[np.ndarray], indices, bb: FrozenBackbone, readout: str, aug: HeadAugment,
-                seed: int) -> tuple[np.ndarray, float]:
-    """([len(indices), aug.views, D] embeddings of every view of each patch, backbone ms per view). Views are
-    made and embedded EMBED_BATCH at a time and dropped; nothing is written."""
+def embed_views(patches: list[np.ndarray] | None, indices, bb: FrozenBackbone, readout: str, aug: HeadAugment,
+                seed: int, store: "FeatureStore | None" = None) -> tuple[np.ndarray, float, float]:
+    """([len(indices), aug.views, D] embeddings of every view of each patch, backbone ms per view, seconds). Views
+    are made and embedded EMBED_BATCH at a time and dropped; no view is written. With `store`, the embeddings go
+    to disk a chunk of VIEW_CHUNK_BATCHES batches at a time, and a chunk already there is loaded, not embedded
+    (`patches` may then be None if every chunk is)."""
     eval_tf = build_eval_transform(aug.resize)
     jobs = [(row, i, k) for row, i in enumerate(indices) for k in range(aug.views)]
-    feats, spent = None, 0.0
-    for start in range(0, len(jobs), EMBED_BATCH):
-        chunk = jobs[start:start + EMBED_BATCH]
-        x = torch.stack([eval_tf(Image.fromarray(aug.view(patches[i], seed, i, k))) for _, i, k in chunk])
-        t = time.perf_counter()
-        f = bb.features(x)[readout].float().numpy()
-        spent += time.perf_counter() - t
+    size = VIEW_CHUNK_BATCHES * EMBED_BATCH
+    feats, spent, wall, loaded = None, 0.0, 0.0, 0
+    for c, first in enumerate(range(0, len(jobs), size)):
+        part = jobs[first:first + size]
+        saved = store.load_chunk(c) if store is not None else None
+        if saved is not None:
+            f_part, rec = saved
+            loaded += 1
+        else:
+            t0, rec = time.perf_counter(), {"spent": 0.0}
+            f_part = []
+            for start in range(0, len(part), EMBED_BATCH):
+                batch = part[start:start + EMBED_BATCH]
+                x = torch.stack([eval_tf(Image.fromarray(aug.view(patches[i], seed, i, k))) for _, i, k in batch])
+                t = time.perf_counter()
+                f_part.append(bb.features(x)[readout].float().numpy())
+                rec["spent"] += time.perf_counter() - t
+            f_part = np.concatenate(f_part)
+            rec["wall"] = time.perf_counter() - t0
+            if store is not None:
+                store.save_chunk(c, f_part, rec)
+        spent, wall = spent + rec["spent"], wall + rec["wall"]
         if feats is None:
-            feats = np.empty((len(indices), aug.views, f.shape[1]), np.float32)
-        for (row, _, k), v in zip(chunk, f):
+            feats = np.empty((len(indices), aug.views, f_part.shape[1]), np.float32)
+        for (row, _, k), v in zip(part, f_part):
             feats[row, k] = v
-    return feats, 1000 * spent / max(len(jobs), 1)
+    if store is not None and loaded:
+        log(f"{loaded} of {n_view_chunks(len(jobs))} view chunks loaded from {store.dir}")
+    return feats, 1000 * spent / max(len(jobs), 1), wall
 
 
 def transform_shifts(patches: list[np.ndarray], X: np.ndarray, bb: FrozenBackbone, readout: str,
@@ -212,6 +249,129 @@ def transform_shifts(patches: list[np.ndarray], X: np.ndarray, bb: FrozenBackbon
         V = embed_views(patches, idx, bb, readout, alone, seed)[0][:, 0]
         out[name] = round(float(np.mean(np.sum(base * V / np.linalg.norm(V, axis=1, keepdims=True), axis=1))), 4)
     return out
+
+
+# ---------------------------------------------------------------- saved features, for a resume (ML-13 D8, P3)
+
+def crops_version(cfg: RunConfig) -> dict:
+    """dvc.lock's hash of each crop directory the fit reads (merge_segpool's output, for the pool)."""
+    lock = yaml.safe_load((REPO_ROOT / "dvc.lock").read_text())
+    outs = {o["path"]: o.get("md5") for st in lock["stages"].values() for o in st.get("outs") or []}
+    return {d: outs.get(d) for d in cfg.train_capture_dirs}
+
+
+def feature_fingerprint(bb: FrozenBackbone, readout: str, cfg: RunConfig, aug: HeadAugment | None,
+                        smoke: bool) -> dict:
+    """What a seed's embeddings depend on, so saved ones are loaded only by the run that would compute them: the
+    seed, --smoke, the threads and the batching, the run's config and head_augment, the backbone and its weights,
+    the library versions, the crops' version in dvc.lock, and the files a fit reads (FEATURE_INPUTS and the classes
+    file). Not the git commit: a commit of docs during a run would throw away its hours. One flat dict, so a
+    mismatch names its keys."""
+    import timm
+    return {"seed": cfg.seed, "smoke": smoke, "threads": torch.get_num_threads(), "embed_batch": EMBED_BATCH,
+            "view_chunk_batches": VIEW_CHUNK_BATCHES, "backbone": bb.name, "readout": readout,
+            "weights_sha256": bb.weights_sha256, "torch": str(torch.__version__), "timm": timm.__version__,
+            "config": json.dumps(config_to_dict(cfg), sort_keys=True),
+            "head_augment": json.dumps(aug.record() if aug is not None else None, sort_keys=True),
+            "crops": json.dumps(crops_version(cfg), sort_keys=True),
+            **{f"sha256 {p}": tree_sha256(REPO_ROOT / p) for p in (*FEATURE_INPUTS, cfg.classes_file)}}
+
+
+def n_view_chunks(n_views: int) -> int:
+    return -(-n_views // (VIEW_CHUNK_BATCHES * EMBED_BATCH))
+
+
+def fingerprint_key(fingerprint: dict) -> str:
+    return hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def clear_feature_leftovers(out: Path, keep: list[dict]) -> None:
+    """Delete every run's saved features under `out` but those with a fingerprint in `keep` (D8: nothing from one
+    experiment stays on disk into the next), each logged with what differs from keep[0]."""
+    root, wanted = out / FEATURES_DIR, {fingerprint_key(f) for f in keep}
+    for d in sorted(root.iterdir()) if root.is_dir() else ():
+        if d.name in wanted:
+            continue
+        try:
+            saved = json.loads((d / "fingerprint.json").read_text())
+            differ = ", ".join(differing_keys(saved, keep[0]))
+        except (OSError, ValueError):
+            differ = "unreadable"
+        log(f"deleting another run's saved features {d} ({differ} differ)")
+        remove_tree(d)
+
+
+class FeatureStore:
+    """One seed's saved embeddings, <out>/features/<fingerprint key>/ (ticket ML-13 D8, plan P3): each split's
+    embeddings, labels and provenance once the split is embedded, the training views' embeddings a chunk at a
+    time, the smoke run's transform shifts. Every file is written atomically (a temporary file, flushed, then
+    renamed), its .json last, so a file without its .json is ignored. Never an augmented image (ADR 0025)."""
+
+    def __init__(self, out: Path, fingerprint: dict):
+        self.fingerprint = fingerprint
+        self.dir = out / FEATURES_DIR / fingerprint_key(fingerprint)
+
+    def _write(self, name: str, write) -> None:
+        if name != "fingerprint.json" and not (self.dir / "fingerprint.json").exists():
+            self._write("fingerprint.json", lambda f: f.write(json.dumps(self.fingerprint, indent=1).encode()))
+        atomic_write(self.dir / name, write)
+
+    def _json(self, name: str, rec) -> None:
+        self._write(f"{name}.json", lambda f: f.write(json.dumps(rec).encode()))
+
+    def _load_json(self, name: str):
+        try:
+            return json.loads((self.dir / f"{name}.json").read_text())
+        except (OSError, ValueError):
+            return None
+
+    def save_split(self, split: str, X: np.ndarray, y: np.ndarray, rec: dict) -> None:
+        self._write(f"{split}.npz", lambda f: np.savez(f, X=X, y=y))
+        self._json(split, rec)
+
+    def load_split(self, split: str) -> tuple[np.ndarray, np.ndarray, dict] | None:
+        rec = self._load_json(split)
+        if rec is None:
+            return None
+        with np.load(self.dir / f"{split}.npz") as z:
+            return z["X"], z["y"], rec
+
+    @staticmethod
+    def _chunk(c: int) -> str:
+        return f"views_{c:04d}"
+
+    def save_chunk(self, c: int, feats: np.ndarray, rec: dict) -> None:
+        self._write(f"{self._chunk(c)}.npy", lambda f: np.save(f, feats))
+        self._json(self._chunk(c), rec)
+
+    def load_chunk(self, c: int) -> tuple[np.ndarray, dict] | None:
+        rec = self._load_json(self._chunk(c))
+        return None if rec is None else (np.load(self.dir / f"{self._chunk(c)}.npy"), rec)
+
+    def needs_patches(self, split: str, views: int, smoke: bool) -> bool:
+        """Whether `split`'s patches must be built again: its embeddings are not saved, or (`views` > 0, the
+        training split of an augmented run) a view chunk is missing, or a smoke run's shifts are."""
+        saved = self._load_json(split)
+        if saved is None:
+            return True
+        if not views:
+            return False
+        chunks = range(n_view_chunks(saved["size"] * views))
+        return (any(self._load_json(self._chunk(c)) is None for c in chunks)
+                or (smoke and self.load_shifts() is None))
+
+    def save_shifts(self, shifts: dict) -> None:
+        self._json("shifts", shifts)
+
+    def load_shifts(self) -> dict | None:
+        return self._load_json("shifts")
+
+    def drop(self) -> None:
+        remove_tree(self.dir)
+
+
+def patch_meta(d: dict) -> PatchMeta:
+    return PatchMeta(**{**d, "box": Region(**d["box"])})
 
 
 class Arm(StrEnum):
@@ -257,38 +417,60 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     aug = HeadAugment.from_config(cfg)
     assert_input_size(bb, cfg.patch_resize)
     set_seed(seed)
+    # ML-13 D8: what this seed embeds is saved as it goes, and what an earlier, interrupted run of it saved is
+    # loaded instead of embedded again. Each split's boxes come from generators keyed on (seed, class, photo,
+    # split), so a split built alone is the one an uninterrupted run builds.
+    store = FeatureStore(out, feature_fingerprint(bb, readout, cfg, aug, smoke))
     eval_tf = build_eval_transform(cfg.patch_resize)
     X, y, sizes, ms, seg, meta = {}, {}, {}, {}, {}, {}
     views = shifts = None
     views_s = 0.0
     class_ids = class_labels = captures = None
     for split in ("train", "val", "test"):
-        t = time.perf_counter()
-        fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=(split,))
-        ds = getattr(fold, split)
-        built = time.perf_counter() - t
-        X[split], y[split], ms[split] = embed(ds, bb, readout)
-        sizes[split] = len(ds)
-        meta[split] = list(ds.meta)
-        class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
-        log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
-        if split == "train" and aug is not None:
-            # ADR 0025: the training patches' views, from the patches in memory; only embeddings are kept.
+        saved = store.load_split(split)
+        with_views = split == "train" and aug is not None
+        ds = fold = None
+        if store.needs_patches(split, aug.views if with_views else 0, smoke):
             t = time.perf_counter()
-            views, ms["train_views"] = embed_views(ds.patches, range(len(ds)), bb, readout, aug, seed)
-            views_s = time.perf_counter() - t
+            fold = build_fold_datasets(cfg, eval_tf, eval_tf, only=(split,))
+            ds = getattr(fold, split)
+            built = time.perf_counter() - t
+        if saved is None:
+            X[split], y[split], ms[split] = embed(ds, bb, readout)
+            sizes[split] = len(ds)
+            meta[split] = list(ds.meta)
+            class_ids, class_labels, captures = fold.class_ids, fold.class_labels, [c.name for c in fold.captures]
+            if ds.bean_share_rule is not None:
+                # D17/D18 per split: photos with no mask (whole photo, every box accepted) and patches the
+                # rule had to top up below the bean-share bar.
+                seg[split] = {"fallback_photos": sorted(ds.fallback_photos), "patches_below_share": ds.n_below_share}
+            store.save_split(split, X[split], y[split], {
+                "size": sizes[split], "ms": ms[split], "meta": [asdict(m) for m in meta[split]],
+                "class_ids": class_ids, "class_labels": class_labels, "captures": captures, "seg": seg.get(split)})
+            log(f"s{seed}: {split:5s} {len(ds)} patches, built in {built:.0f}s, embedded at {ms[split]:.1f} ms/img")
+        else:
+            X[split], y[split], rec = saved
+            sizes[split], ms[split], meta[split] = rec["size"], rec["ms"], [patch_meta(m) for m in rec["meta"]]
+            class_ids, class_labels, captures = rec["class_ids"], rec["class_labels"], rec["captures"]
+            if rec["seg"] is not None:
+                seg[split] = rec["seg"]
+            log(f"s{seed}: {split:5s} {sizes[split]} patches loaded from {store.dir}")
+        if with_views:
+            # ADR 0025: the training patches' views, from the patches in memory; only embeddings are kept.
+            views, ms["train_views"], views_s = embed_views(ds.patches if ds is not None else None,
+                                                            range(sizes["train"]), bb, readout, aug, seed, store)
             log(f"s{seed}: train {aug.views} views of each patch embedded in {views_s / 60:.1f} min "
                 f"({1000 * views_s / max(views.shape[0] * views.shape[1], 1):.1f} ms/view all in, "
                 f"{ms['train_views']:.1f} ms/view in the backbone)")
             if smoke:
-                shifts = transform_shifts(ds.patches, X["train"], bb, readout, aug, seed)
+                shifts = store.load_shifts()
+                if shifts is None:
+                    shifts = transform_shifts(ds.patches, X["train"], bb, readout, aug, seed)
+                    store.save_shifts(shifts)
                 log(f"s{seed}: mean cosine of a view to its patch, each transform alone: {shifts}")
-        if ds.bean_share_rule is not None:
-            # D17/D18 per split: photos with no mask (whole photo, every box accepted) and patches the
-            # rule had to top up below the bean-share bar.
-            seg[split] = {"fallback_photos": sorted(ds.fallback_photos), "patches_below_share": ds.n_below_share}
-            log(f"s{seed}: {split:5s} {len(ds.fallback_photos)} D18 fallback photos, "
-                f"{ds.n_below_share} patches below the D17 bean share")
+        if split in seg:
+            log(f"s{seed}: {split:5s} {len(seg[split]['fallback_photos'])} D18 fallback photos, "
+                f"{seg[split]['patches_below_share']} patches below the D17 bean share")
         del fold, ds
         gc.collect()
 
@@ -351,6 +533,7 @@ def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: 
     for s in ("val", "test"):
         write_predictions_csv(run_dir / f"predictions_{s}.csv", y[s], run.preds[s], class_ids, meta[s],
                               run.probs[s])
+    store.drop()                       # D8: the run directory is written; its saved features go
     for name, a in arms.items():
         r = a.record
         log(f"s{seed}: {name.value:11s} C={C:g} ({'converged' if r['converged'] else 'NOT CONVERGED'}, "
@@ -513,10 +696,16 @@ def main(argv: list[str] | None = None) -> int:
     C_rule = DEFAULT_C_RULE if C == DEFAULT_C else "set on the command line (--C)"
     log(f"{args.backbone}/{args.readout}: C={C:g}, {C_rule}; torch threads {torch.get_num_threads()}")
     bb = build_backbone(args.backbone)
-    out = Path(args.out)
+    # ML-13 D8: before anything is embedded, every other run's saved features go, a --smoke run's only from smoke/.
+    out = Path(args.out) / ("smoke" if args.smoke else "")
+    keep = []
+    for seed in args.seeds:
+        cfg = frozen_config(bb.name, seed, args.smoke)
+        keep.append(feature_fingerprint(bb, args.readout, cfg, HeadAugment.from_config(cfg), args.smoke))
+    clear_feature_leftovers(out, keep)
     for i, seed in enumerate(args.seeds):
         t = time.perf_counter()
-        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out / ("smoke" if args.smoke else ""), args.smoke)
+        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out, args.smoke)
         log(f"s{seed}: done in {(time.perf_counter() - t) / 60:.1f} min")
         if args.smoke:
             continue

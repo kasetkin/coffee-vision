@@ -1,0 +1,13 @@
+test positives, judged blind and paired (D22): xl0_v5 vs xl0_v6
+  pool                 n= 66  both pass  63  xl0_v5 only  2  xl0_v6 only  0  both fail  1  |  xl0_v5 65/66  xl0_v6 63/66  |  exact McNemar p = 0.5
+  segmenter_positive   n= 69  both pass  38  xl0_v5 only 14  xl0_v6 only  6  both fail 11  |  xl0_v5 52/69  xl0_v6 44/69  |  exact McNemar p = 0.115
+  overall              n=135  both pass 101  xl0_v5 only 16  xl0_v6 only  6  both fail 12  |  xl0_v5 117/135  xl0_v6 107/135  |  exact McNemar p = 0.0525
+test negatives, empty / empty or tiny (area < 0.021008):
+  xl0_v5               119/160 empty, 154/160 empty or tiny
+    2026-09-11__user_samerig                         14/15 empty, 14/15 empty or tiny
+    2026-09__internet_proxy                          17/25 empty, 22/25 empty or tiny
+    user_realworld                                   88/120 empty, 118/120 empty or tiny
+  xl0_v6               86/160 empty, 150/160 empty or tiny
+    2026-09-11__user_samerig                         12/15 empty, 14/15 empty or tiny
+    2026-09__internet_proxy                          14/25 empty, 21/25 empty or tiny
+    user_realworld                                   60/120 empty, 115/120 empty or tiny

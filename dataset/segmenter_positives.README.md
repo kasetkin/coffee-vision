@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 176 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 263 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,42 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-28: 33 Brazil and Kenya grinder-hopper photos
+
+- **New photos** (batch `2026-10-28`): 33 grinder-hopper photos shot on 2026-10-28, named
+  `20261028_HHMMSS_<phone>_<country>`: 29 Brazil and 4 Kenya (`Kenia` in the file names), on a Pixel 9 Pro, a
+  Galaxy Z Fold8 Ultra, a Galaxy Z Fold6 and a OnePlus (JPEG) and an iPhone 15 Pro Max (7 HEIC). Four Kenya photos show
+  a ring of beans round the hopper's cone, three Brazil ones beans filling the frame with no hopper wall.
+- **A 200 MP photo**: `20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg` is 16320x12240, above Pillow's
+  decompression-bomb limit (179 MP), so it was held outside the folder while the other 32 came in. It joined the same
+  day, once `coffeecv.dataset` raised the limit for the dataset tools (`DATASET_MAX_PIXELS`, 537 MP; the web service
+  keeps Pillow's). Its strip's pixel check peaks at 2.5 GB.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  nearest 0.79). No two are within ADR 0029's 3 s (the nearest, `131203`/`131207`, 4 s apart).
+- **Metadata** (ticket ML-3, D13): all 33 carried private tags (EXIF GPS, C2PA, the Apple and Samsung maker notes,
+  EXIF thumbnails) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 263 photos here clean. The HEICs keep their
+  thumbnail item (owner, 2026-10-05).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 33 (train 20, validation 5, test 8), with 33
+  pool photos topping the draw up to 263.
+
+## 2026-10-27: 44 Colombia and Guatemala grinder-hopper photos
+
+- **New photos** (batch `2026-10-27`, ticket ML-13): 44 grinder-hopper photos shot on 2026-10-27, named
+  `20261027_HHMMSS_<phone>_<country>`: 20 Colombia (Pixel 9 Pro, OnePlus, KB2005, G8441; JPEG) and 24 Guatemala
+  (18 JPEG, OnePlus and G8441, and 6 Pixel 9 Pro DNG raws). They stay segmenter positives, none in the classifier's
+  pool (the owner, ML-13 D1).
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  no pair at 0.97). Three pairs within the batch are close (0.877-0.886) and listed for a look: `111137`/`111142`
+  and `131255`/`131300`, 5 s apart each, and `114544`/`114546`, 2 s apart. Only the last is one group (ADR 0029's
+  3 s); the first two pairs fall in different splits, as the rule has it.
+- **Metadata** (ticket ML-3, D13): all 44 carried private tags (EXIF GPS, C2PA, the Sony maker note, the HDR+
+  maker note, EXIF thumbnails) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 230 photos here clean. The six DNGs keep their RAW
+  preview (owner, 2026-10-05).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 44 (train 26, validation 6, test 12), with 44
+  pool photos topping the draw up to 230.
 
 ## 2026-10-26: 10 grinder-hopper photos whose masks the owner declined
 

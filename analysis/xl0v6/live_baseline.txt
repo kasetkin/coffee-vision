@@ -1,0 +1,35 @@
+ML-13: exp279 beside the live model dino3b16_segxl0v5_country_aug8_s42 (exp276) on the same test patches, xl0_v6_s42 crops
+One seed: the deltas below are one patch draw, not a mean over seeds (plan R4).
+
+candidate val macro-F1  0.9680-0.9680 (mean 0.9680)
+candidate test macro-F1 0.9775-0.9775 (mean 0.9775)
+
+test, all: 209 photos, 1600 patches (seed 42)
+  candidate patch macro-F1 0.9775-0.9775 (mean 0.9775)   photo accuracy 1.0000-1.0000 (mean 1.0000)
+  live      patch macro-F1 0.9775-0.9775 (mean 0.9775)   photo accuracy 1.0000-1.0000 (mean 1.0000)
+  per class, F1 mean over seeds (candidate / live / delta):
+    Ethiopia   0.9814 / 0.9752 / +0.0062
+    Kenya      0.9444 / 0.9474 / -0.0029
+    Colombia   0.9563 / 0.9533 / +0.0030
+    CostaRica  0.9938 / 0.9938 / +0.0000
+    Guatemala  0.9560 / 0.9527 / +0.0033
+    Brazil     0.9782 / 0.9814 / -0.0032
+    Vietnam    0.9969 / 1.0000 / -0.0031
+    Indonesia  0.9938 / 0.9969 / -0.0031
+    Peru       0.9778 / 0.9778 / +0.0000
+    Rwanda     0.9969 / 0.9969 / -0.0000
+
+test, unseen by the live model: 209 photos, 1600 patches (seed 42)
+  candidate patch macro-F1 0.9775-0.9775 (mean 0.9775)   photo accuracy 1.0000-1.0000 (mean 1.0000)
+  live      patch macro-F1 0.9775-0.9775 (mean 0.9775)   photo accuracy 1.0000-1.0000 (mean 1.0000)
+  per class, F1 mean over seeds (candidate / live / delta):
+    Ethiopia   0.9814 / 0.9752 / +0.0062
+    Kenya      0.9444 / 0.9474 / -0.0029
+    Colombia   0.9563 / 0.9533 / +0.0030
+    CostaRica  0.9938 / 0.9938 / +0.0000
+    Guatemala  0.9560 / 0.9527 / +0.0033
+    Brazil     0.9782 / 0.9814 / -0.0032
+    Vietnam    0.9969 / 1.0000 / -0.0031
+    Indonesia  0.9938 / 0.9969 / -0.0031
+    Peru       0.9778 / 0.9778 / +0.0000
+    Rwanda     0.9969 / 0.9969 / -0.0000

@@ -39,8 +39,19 @@ with cosine decay to lr_min; the epoch with the best selection score is kept: (m
 empty-or-tiny share) / 2, tiny meaning under seg_ft.select_min_area_frac (the fine-tune's own; params.yaml
 seg_min_area_frac is serving's, ML-5 P11). Stops after `patience` epochs without a better score.
 
+Resume (ticket ML-13 D7, D8; plan P2): after every epoch the run writes, atomically, outputs/seg_finetune/<name>/
+resume.pt: the epoch, the decoder, the optimizer, the schedule, the torch, numpy and augmentation random states, the
+best epoch's decoder and metrics, the history, and a fingerprint of what the run reads (run_fingerprint). Run again
+with the same arguments (dvc repro -s after a reboot), it rebuilds the photos and validation encodings and
+continues at the next epoch, training as an uninterrupted run would. A state with another fingerprint is deleted
+and the run starts fresh; a run deletes every other name's slot when it starts, except a toy run (a name ending
+_toy), which touches its own only; the slot goes once the model and its card are written. It is not a DVC output:
+DVC deletes those before it reruns a stage. A reboot after the model is written and before DVC writes dvc.lock
+leaves the model and no slot: then `dvc commit` the stage (after checking the card's chosen), do not rerun it.
+
 Out: models/seg/<name>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params with the pipeline,
-albumentations' version, label session and label-set hash, history, the chosen epoch).
+albumentations' version, label session and label-set hash, history, the chosen epoch, the epochs a run resumed
+at).
 segment_beans.SegParams(weights=..., decoder=...) loads it over the pretrained weights it was fine-tuned from,
 which the card's base_weights names (segment_beans.decoder_base).
 """
@@ -54,7 +65,7 @@ import math
 import time
 from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
-from typing import Callable, Iterator
+from typing import Iterator
 
 import cv2
 import numpy as np
@@ -65,11 +76,15 @@ from PIL import Image
 from coffeecv import augment, model_io
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import read_csv, sha256_file
+from coffeecv.repo_files import atomic_write, differing_keys, read_csv, remove_tree, sha256_file, tree_sha256
 from coffeecv.sam_loader import build_sam, variant_of
 
 LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <session>/labels.csv
 MODEL_DIR = REPO_ROOT / "models" / "seg"
+RESUME_ROOT = REPO_ROOT / "outputs" / "seg_finetune"   # <name>/resume.pt, a run's slot (ML-13 P2); not a DVC output
+TOY_SUFFIX = "_toy"               # a toy run touches its own slot only
+CODE_DEPS = ("coffeecv/seg_finetune.py", "coffeecv/augment.py", "coffeecv/sam_loader.py",
+             "third_party/efficientvit/efficientvit")   # the fine-tune stages' code deps in dvc.yaml (a test holds them)
 LOW = 256                         # the decoder's low-res logits
 PROMPT_FRAME = 1024               # SAM's prompt coordinates (model.image_size[0])
 IGNORE = 255
@@ -130,17 +145,48 @@ def compose_augment(spec, seed: int):
     return augment.build(spec, where="seg_ft.augment", seed=seed, check=_fill_mask_is_ignore)
 
 
-def build_augment(spec, seed: int) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
-    """(photo HxWx3 uint8, label HxW uint8) -> the same, augmented by `spec` (seg_ft.augment) in a stream seeded
-    by `seed`: a spatial transform moves the label with the photo, a pixel transform leaves it as it is."""
-    if not spec:
-        return lambda rgb, label: (rgb, label)
-    pipe = compose_augment(spec, seed)
+class Augmenter:
+    """(photo HxWx3 uint8, label HxW uint8) -> the same, augmented by seg_ft.augment in a stream seeded by the
+    run's seed: a spatial transform moves the label with the photo, a pixel transform leaves it as it is.
 
-    def augment_sample(rgb: np.ndarray, label: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        out = pipe(image=rgb, mask=label)
+    The stream's state, for a resume (ML-13 P2): albumentations 2.0.8 seeds the Compose and each transform in it,
+    nested ones included, with a numpy and a Python generator of its own; `rng_state` holds every pair, in the
+    order the tree is walked, and `set_rng_state` restores them in place."""
+
+    def __init__(self, spec, seed: int):
+        self.pipe = compose_augment(spec, seed) if spec else None
+
+    def __call__(self, rgb: np.ndarray, label: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if self.pipe is None:
+            return rgb, label
+        out = self.pipe(image=rgb, mask=label)
         return out["image"], out["mask"]
-    return augment_sample
+
+    def _nodes(self) -> list:
+        A = augment.albumentations()
+
+        def walk(t):
+            yield t
+            if isinstance(t, A.BaseCompose):
+                for c in t.transforms:
+                    yield from walk(c)
+        return list(walk(self.pipe)) if self.pipe is not None else []
+
+    def rng_state(self) -> list:
+        return [(t.random_generator.bit_generator.state, t.py_random.getstate()) for t in self._nodes()]
+
+    def set_rng_state(self, state: list) -> None:
+        nodes = self._nodes()
+        if len(state) != len(nodes):
+            raise ValueError(f"augment state of {len(state)} transforms for a pipeline of {len(nodes)}")
+        for t, (np_state, py_state) in zip(nodes, state):
+            t.random_generator.bit_generator.state = np_state
+            t.py_random.setstate(py_state)
+
+
+def build_augment(spec, seed: int) -> Augmenter:
+    """`spec` (seg_ft.augment) as an Augmenter seeded by `seed`."""
+    return Augmenter(spec, seed)
 
 
 # ---------------------------------------------------------------- geometry
@@ -289,6 +335,66 @@ def epoch_batches(data: TrainSet, p: FtParams, rng: np.random.Generator, aug) ->
         yield [data.sample(int(i), aug) for i in batch], with_points
 
 
+# ---------------------------------------------------------------- resume after a reboot (ML-13 D7, D8; plan P2)
+
+def run_fingerprint(seed: int, name: str, cfg: RunConfig, p: FtParams, rows: list[dict], weights_sha256: str) -> dict:
+    """What a run reads, so a resume continues only the run it was saved by: what the fine-tune stage in dvc.yaml
+    lists (code, labels, base weights, params seg_ft (--lr applied, its shared groups expanded), augment,
+    seg_prompt and seg_mask_select), with the seed, the name, the threads and the library versions. One flat dict,
+    so a mismatch names its keys."""
+    return {"seed": seed, "name": name, "threads": torch.get_num_threads(), "torch": str(torch.__version__),
+            "albumentations": augment.version(), "label_set_sha256": label_set_sha256(rows),
+            "base_weights_sha256": weights_sha256, "seg_ft": json.dumps(asdict(p), sort_keys=True),
+            "augment": json.dumps(cfg.augment, sort_keys=True), "seg_prompt": cfg.seg_prompt,
+            "seg_mask_select": cfg.seg_mask_select,
+            **{f"sha256 {d}": tree_sha256(REPO_ROOT / d) for d in CODE_DEPS}}
+
+
+def drop_slot(name: str) -> None:
+    """Delete a run's slot, and RESUME_ROOT once empty."""
+    remove_tree(RESUME_ROOT / name)
+
+
+class ResumeSlot:
+    """A run's resume state, RESUME_ROOT/<name>/resume.pt, written after every epoch (D7): the epoch, the
+    decoder, the optimizer, the schedule, the torch, numpy and augmentation random states, the best epoch's
+    decoder and metrics, the history, and the run's fingerprint. Outside DVC's outputs, which DVC deletes before it
+    reruns a stage. Leftovers go (D8): `open` deletes every other name's slot, unless this run is a toy (`_toy`),
+    so a toy run cannot delete an interrupted real run's hours; a state in this slot with another fingerprint is
+    deleted and the run starts fresh."""
+
+    def __init__(self, name: str, fingerprint: dict):
+        self.name, self.fingerprint = name, fingerprint
+        self.file = RESUME_ROOT / name / "resume.pt"
+
+    def open(self) -> dict | None:
+        """The state to resume from, or None to start fresh, after the leftovers are deleted."""
+        if not self.name.endswith(TOY_SUFFIX) and RESUME_ROOT.is_dir():
+            for other in sorted(RESUME_ROOT.iterdir()):
+                if other.name != self.name:
+                    print(f"deleting another run's resume state: {other}", flush=True)
+                    drop_slot(other.name)
+        if not self.file.exists():
+            return None
+        try:
+            state = torch.load(self.file, map_location="cpu", weights_only=True)
+            saved = state["fingerprint"]
+        except Exception as e:                       # noqa: BLE001 -- unreadable is a leftover too
+            print(f"resume state {self.file} unreadable ({e}): deleted, starting fresh", flush=True)
+            drop_slot(self.name)
+            return None
+        if saved != self.fingerprint:
+            differ = differing_keys(saved, self.fingerprint)
+            print(f"resume state {self.file} is another run's ({', '.join(differ)} differ): deleted, starting fresh",
+                  flush=True)
+            drop_slot(self.name)
+            return None
+        return state
+
+    def save(self, state: dict) -> None:
+        atomic_write(self.file, lambda f: torch.save({**state, "fingerprint": self.fingerprint}, f))
+
+
 # ---------------------------------------------------------------- the decoder pass and the loss
 
 def decode(model, emb: torch.Tensor, box: torch.Tensor, k: int,
@@ -377,12 +483,15 @@ def evaluate(model, sel: Selection, k: int, min_area_frac: float) -> dict:
     return {"val_miou": miou, "neg_select_empty": neg, "score": float(np.nanmean([miou, neg]))}
 
 
-def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict]) -> dict:
+def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict], name: str) -> dict:
+    """The fine-tune, resumed from `name`'s slot when it holds this run's state (ResumeSlot)."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     predictor, wsha = build_sam(p.weights)
     model = predictor.model
     frame = encoder_frame(model)
+    slot = ResumeSlot(name, run_fingerprint(seed, name, cfg, p, rows, wsha))
+    resume = slot.open()
     t0 = time.perf_counter()
     data, sel = TrainSet(rows, encoder_frame(model)), Selection(rows, model)
     print(f"loaded {len(data.pos)} positives and {len(data.neg)} negatives to train on, encoded {len(sel.val)} + "
@@ -396,12 +505,26 @@ def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict]) -> dict:
     steps = math.ceil(len(data.pos) / n_pos)
     opt = torch.optim.AdamW(model.mask_decoder.parameters(), lr=p.lr, weight_decay=p.weight_decay)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=p.epochs * steps, eta_min=p.lr_min)
-    model.mask_decoder.eval()
-    history = [{"epoch": 0, **evaluate(model, sel, k, p.select_min_area_frac)}]
-    print(f"seed {seed}: batch {n_pos}+{n_neg}, {steps} steps/epoch, point batches {p.point_share}; augment "
-          f"{[t['transform'] for t in p.augment]}; epoch 0 {history[0]}", flush=True)
-    best = dict(history[0], state={n: t.clone() for n, t in model.mask_decoder.state_dict().items()})
-    for epoch in range(1, p.epochs + 1):
+    if resume is None:
+        model.mask_decoder.eval()
+        history = [{"epoch": 0, **evaluate(model, sel, k, p.select_min_area_frac)}]
+        print(f"seed {seed}: batch {n_pos}+{n_neg}, {steps} steps/epoch, point batches {p.point_share}; augment "
+              f"{[t['transform'] for t in p.augment]}; epoch 0 {history[0]}", flush=True)
+        best = dict(history[0], state={n: t.clone() for n, t in model.mask_decoder.state_dict().items()})
+        start, resumed_at = 1, []
+    else:
+        model.mask_decoder.load_state_dict(resume["decoder"])
+        opt.load_state_dict(resume["optimizer"])
+        sched.load_state_dict(resume["scheduler"])
+        torch.set_rng_state(resume["torch_rng"])
+        rng.bit_generator.state = resume["numpy_rng"]
+        aug.set_rng_state(resume["augment_rng"])
+        history, best = resume["history"], resume["best"]
+        start = p.epochs + 1 if resume["stopped"] else resume["epoch"] + 1
+        resumed_at = [*resume["resumed_at"], resume["epoch"] + 1]
+        print(f"seed {seed}: resuming at epoch {resume['epoch'] + 1} from {slot.file} (best so far epoch "
+              f"{best['epoch']}, score {best['score']:.4f})", flush=True)
+    for epoch in range(start, p.epochs + 1):
         model.mask_decoder.train()
         t0 = time.perf_counter()
         sums = {"total": 0.0, "focal": 0.0, "dice": 0.0, "iou_mse": 0.0}
@@ -432,13 +555,19 @@ def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict]) -> dict:
                "lr": sched.get_last_lr()[0], "seconds": round(time.perf_counter() - t0, 1)}
         history.append(row)
         print(json.dumps(row), flush=True)
-        if ev["score"] > best["score"]:
+        better = ev["score"] > best["score"]
+        if better:
             best = dict(ev, epoch=epoch, state={n: t.clone() for n, t in model.mask_decoder.state_dict().items()})
-        elif epoch - best["epoch"] >= p.patience:
+        stopped = not better and epoch - best["epoch"] >= p.patience
+        slot.save({"epoch": epoch, "stopped": stopped, "decoder": model.mask_decoder.state_dict(),
+                   "optimizer": opt.state_dict(), "scheduler": sched.state_dict(), "torch_rng": torch.get_rng_state(),
+                   "numpy_rng": rng.bit_generator.state, "augment_rng": aug.rng_state(), "best": best,
+                   "history": history, "resumed_at": resumed_at})
+        if stopped:
             print(f"no better score for {p.patience} epochs; stopping", flush=True)
             break
     return {"seed": seed, "best": {a: b for a, b in best.items() if a != "state"}, "state": best["state"],
-            "history": history, "weights_sha256": wsha, "k": k, "frame": frame}
+            "history": history, "weights_sha256": wsha, "k": k, "frame": frame, "resumed_at": resumed_at}
 
 
 def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str) -> Path:
@@ -452,7 +581,8 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str)
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
             "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select, "frame": res["frame"],
             "albumentations": augment.version(),
-            "chosen": res["best"], "history": res["history"], "threads": torch.get_num_threads()}
+            "chosen": res["best"], "history": res["history"], "threads": torch.get_num_threads(),
+            "resumed_at": res["resumed_at"]}
     out.with_suffix(".json").write_text(json.dumps(card, indent=2) + "\n")
     return out
 
@@ -475,8 +605,9 @@ def main(argv: list[str] | None = None) -> None:
             ap.error("--lr must be positive")
         p = replace(p, lr=args.lr)
     rows = label_rows(args.labels)
-    res = train(args.seed, cfg, p, rows)
+    res = train(args.seed, cfg, p, rows, args.name)
     out = write_model(res, cfg, p, label_set(args.labels, rows), args.name)
+    drop_slot(args.name)
     print(f"wrote {out.relative_to(REPO_ROOT)}: epoch {res['best']['epoch']}, score {res['best']['score']:.4f}")
 
 
