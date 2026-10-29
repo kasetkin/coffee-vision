@@ -141,7 +141,7 @@ class TestCropMethodRestores(unittest.TestCase):
 
     def test_a_card_without_it_is_the_tray_heuristic(self):
         # Every card before P3 lacked the field. None ships any more, so: today's card with it removed.
-        name = "dino3b16_segxl0v5_country_aug8_s42"
+        name = "dino3b16_segxl0v6_country_aug8_s42"
         card = json.loads((REPO_ROOT / "models" / f"{name}.json").read_text())
         old = {k: v for k, v in card["training_config"].items() if k != "crop_method" and not k.startswith("seg_")}
         restored = self.restored(old, REPO_ROOT / "models" / f"{name}.classes.txt")
