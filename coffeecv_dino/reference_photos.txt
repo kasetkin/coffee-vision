@@ -2,7 +2,9 @@
 # The photos whose pool crops the reference used from ticket ML-8 P5 (2026-10-19; class_015 from ML-9 P5,
 # 2026-10-23); since ML-13 (D9, 2026-10-27) the originals themselves, so no re-crop changes the fixture.
 # IMG_20261008_092817 is random_date_raccoon's, not its copy in segmenter_positives. Changing a line means
-# regenerating tests/fixtures/dinov3_vits16_reference.npz (scripts/make_dinov3_fixture.py).
+# regenerating tests/fixtures/dinov3_vits16_reference.npz (scripts/make_dinov3_fixture.py), except a rename: a
+# renamed photo keeps the path the fixture was drawn by as a second field, its draw key (ticket ML-14 D16; the owner
+# renamed class_014's on 2026-10-30).
 dataset/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6301D.HEIC
 dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6279D.HEIC
 dataset/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6257D.HEIC
@@ -16,5 +18,5 @@ dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
 dataset/2026-09-11__sony/class_011__Peru_Minca/PIC_20260911_124657.JPG
 dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_145542.JPG
 dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260926_122041643.jpg
-dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg
+dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg  dataset/random_date_raccoon/class_014__Colombia_Excelso/PXL_20260927_105921144.jpg
 dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085406116.jpg

@@ -14,7 +14,7 @@
     (2026-10-30); D14 accepts the measured peak.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D15 decided 2026-10-30; P1&ndash;P5 done 2026-10-30 (<code>db4e44c</code>&ndash;<code>c4de0cb</code>, merged in <code>9259ec1</code>); D15's default <code>--jobs</code> after; for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D16 decided 2026-10-30; P1&ndash;P6 done 2026-10-30 (<code>db4e44c</code>&ndash;<code>c4de0cb</code>, merged in <code>9259ec1</code>); D15's default <code>--jobs</code> after; for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -293,6 +293,13 @@
           memory term, so that a machine with less free does not start 10: <code>min(os.cpu_count(), 10, (memory
           available + swap free) // 1 GB)</code>, read at the start; 10 here (12 cores, about 6.8 + 10 GB free).</td>
         <td>2026-10-30, the owner: "raise default number of jobs from 6 to 10"; the formula as recommended.</td></tr>
+      <tr><td class="id">D16</td><td>The DINOv3 fixture failed after the owner renamed its Colombia reference photo
+          (bytes unchanged): ML-13 D9 meant Meta's code to run one last time, but the draw is seeded on the path.</td>
+        <td>(a) Regenerate with Meta's code at every rename. (b) A line of
+          <code>coffeecv_dino/reference_photos.txt</code> may carry the key its boxes are drawn by (by default its path);
+          the fixture records the keys and each photo's sha256, so a rename needs only the line's key and a different
+          photo fails plainly. Meta's code then runs only for another photo, another draw or a backbone change.</td>
+        <td><strong>(b)</strong>, 2026-10-30: the owner, "add this to the plan ml-14 and implement" (plan P6).</td></tr>
     </tbody>
   </table></div>
 
@@ -397,6 +404,14 @@
       pending). The scripts written during this ticket, each run on real photos or real runs of the stripper, are
       committed in <code>analysis/ml14/</code> (<code>README.md</code> there): the decode factors (P3), the D11
       measurements and their output (P5), and the Ctrl-C checks of P4.</div>
+    <div><div class="when">2026-10-30</div>The records in use followed the owner's 31 renames (<code>9cd78bf</code>):
+      <code>labels/ml5/seg_dataset.yaml</code>, <code>dataset/segmenter_positives.manifest.csv</code> and
+      <code>coffeecv_dino/reference_photos.txt</code>; older records keep the old names. One of them was class_014's
+      DINOv3 reference photo, and the fixture's draw, seeded on the path, moved with it (ML-13 D9 had meant Meta's code
+      to run one last time). The owner decided D16 (plan P6): a reference line may carry the key its boxes are drawn
+      by, the renamed photo keeps its old path as its key, and the fixture records the keys and each photo's sha256.
+      Done without Meta's code, its outputs unchanged; the full tier, 648 tests, green. The stripped photos of the day
+      are on the DVC remote, every object checked there. For the owner to close.</div>
   </div>
 
   <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,

@@ -4,10 +4,12 @@ Run from the repo root:  python -m unittest discover -s tests -p "test_dino*" -v
 
 Every model input here is real: bean patches drawn from the DVC-tracked original photos listed in
 coffeecv_dino/reference_photos.txt by coffeecv_dino.reference (since ticket ML-13, D9; the pool's crops of them
-before, so a re-crop no longer moves the fixture). The weights and the crops are not in git, so tests that need them skip (with a
+before, so a re-crop no longer moves the fixture; since ML-14 D16 a renamed photo keeps its draw key, so a rename
+does not either). The weights and the crops are not in git, so tests that need them skip (with a
 pointer) on a clone that has not obtained them -- see models_pretrained/README.md.
 """
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,7 +17,8 @@ import numpy as np
 import torch
 
 from coffeecv.backbones import MODELS_PRETRAINED, SPECS, assert_input_size, build_backbone
-from coffeecv_dino.reference import have_reference_data, reference_patches
+from coffeecv.repo_files import sha256_file
+from coffeecv_dino.reference import folder_of, have_reference_data, reference_entries, reference_patches
 
 from tests._tiers import real_data
 
@@ -23,6 +26,21 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "tests" / "fixtures" / "dinov3_vits16_reference.npz"
 HAVE_V3 = (MODELS_PRETRAINED / SPECS["dinov3_vits16"].weights).exists() and have_reference_data()
 SKIP_V3 = "DINOv3 weights or the reference crops are missing -- run models_pretrained/verify.py / dvc pull"
+
+
+class TestReferenceList(unittest.TestCase):
+    """ML-14 D16: a line may name the key its boxes are drawn by, so a renamed photo keeps its draw."""
+
+    def test_a_lines_draw_key_defaults_to_its_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            listing = Path(d) / "reference_photos.txt"
+            listing.write_text("# a comment\n"
+                               "dataset/s/class_001__A/new_name.jpg  dataset/s/class_001__A/old_name.jpg\n"
+                               "\n"
+                               "dataset/s/class_002__B/photo.jpg\n")
+            self.assertEqual(reference_entries(listing),
+                             [("dataset/s/class_001__A/new_name.jpg", "dataset/s/class_001__A/old_name.jpg"),
+                              ("dataset/s/class_002__B/photo.jpg", "dataset/s/class_002__B/photo.jpg")])
 
 
 @real_data
@@ -48,8 +66,16 @@ class TestDinov3Loader(unittest.TestCase):
             np.testing.assert_allclose(f[readout].numpy(), self.ref[readout], atol=1e-4, rtol=0,
                                        err_msg=f"{readout} drifted from Meta's reference: the backbone, its loader or "
                                                "the reference draw changed (a re-crop cannot move it since "
-                                               "ML-13 D9); regenerate the fixture only for a change to the list "
-                                               "or the draw: scripts/make_dinov3_fixture.py")
+                                               "ML-13 D9, nor a rename since ML-14 D16); regenerate the fixture only "
+                                               "for another photo or draw: scripts/make_dinov3_fixture.py")
+
+    def test_the_list_is_the_photos_the_fixture_was_drawn_from(self):
+        """The fixture's outputs hold for these draw keys and these bytes; a photo renamed keeps its key, a different
+        photo is a new reference and needs Meta's code (scripts/make_dinov3_fixture.py)."""
+        entries = sorted(reference_entries(), key=lambda e: folder_of(e[0]))
+        self.assertEqual([k for _, k in entries], list(self.ref["draw_keys"]))
+        for (photo, _), sha in zip(entries, self.ref["photo_sha256"]):
+            self.assertEqual(sha256_file(REPO / photo), sha, f"{photo} is not the photo the fixture was drawn from")
 
     def test_rope_periods_are_the_checkpoints(self):
         rope = self.bb.model.rope

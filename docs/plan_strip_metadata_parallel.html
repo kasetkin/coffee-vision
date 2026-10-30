@@ -13,7 +13,7 @@
     what P4's ordered results feed. No phase changes a manifest row's values; P5 is the owner's stop.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-30; no questions open; P1&ndash;P5 done 2026-10-30</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-30; no questions open; P1&ndash;P6 done 2026-10-30 (P6 added by ticket D16)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_strip_metadata_parallel.html"><code>ticket_strip_metadata_parallel.html</code></a> (ML-14)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -52,6 +52,7 @@
       <tr><td class="id">P3</td><td>The memory ceiling, <code>--max-memory</code> (D13)</td><td>local</td><td>no, below the ceiling</td></tr>
       <tr><td class="id">P4</td><td>The pool, <code>--jobs</code>, Ctrl-C in parallel (D1, D3, D4, D12)</td><td>local</td><td>no: rows equal the serial run's</td></tr>
       <tr><td class="id">P5</td><td>Measurements, docstring; the owner checks D12's 1 GB <span class="pill sm open">stop</span></td><td>local, owner</td><td>timings only</td></tr>
+      <tr><td class="id">P6</td><td>The DINOv3 fixture's draw keyed so a rename never moves it (D16), found by this ticket's first real run</td><td>local</td><td>no: Meta's outputs unchanged</td></tr>
     </tbody>
   </table></div>
 
@@ -206,7 +207,32 @@
       memory.</span></li>
   </ol>
 
-  <h2>8. Verification</h2>
+  <h2>8. P6 &mdash; A rename never moves the DINOv3 fixture's draw</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-30, the commit adding this phase's Done</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>D16. Added after P5: the owner renamed 31 photos of <code>random_date_raccoon/class_014__Colombia_Excelso</code> on
+    2026-10-30, one of them the class's reference photo in <code>coffeecv_dino/reference_photos.txt</code>. ML-13 D9
+    moved the fixture's input to the original photos so that it would need Meta's code one last time, but
+    <code>reference_boxes</code> seeds each photo's boxes on its path, so the rename moved that class's patch and
+    <code>test_dino_backbone.test_matches_meta_reference</code> failed on one row of fifteen, the pixels unchanged.</p>
+  <ul class="checks">
+    <li><span class="box done"></span><span><code>coffeecv_dino/reference.py</code>: a line of the list may carry a second
+      field, the key its boxes are drawn by; it defaults to the photo's path. <code>reference_patches</code> draws by
+      the key and reads the pixels at the path.</span></li>
+    <li><span class="box done"></span><span><code>reference_photos.txt</code>: the renamed photo's line keeps its old path as
+      its key.</span></li>
+    <li><span class="box done"></span><span>The fixture records each class's draw key and its photo's sha256, added to the
+      existing <code>.npz</code> without running Meta's code (its outputs unchanged);
+      <code>scripts/make_dinov3_fixture.py</code> writes both.</span></li>
+    <li><span class="box done"></span><span>Tests: a line's key, given or not, is what the draw uses (fast); the list's keys
+      are the fixture's and each listed photo's bytes are the ones Meta's outputs came from, so a different photo
+      fails with that said (full tier); <code>test_matches_meta_reference</code> passes again.</span></li>
+    <li><span class="box done"></span><span>Checks: the full suite green.</span></li>
+  </ul>
+
+  <h2>9. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: importing <code>coffeecv.strip_metadata</code> imports no torch; the 200 MP
       photo decodes; <code>tests/test_large_photos.py</code> green.</span></li>
@@ -218,6 +244,8 @@
       worker's exception is a failing row; a SIGINT leaves every replaced photo with its row.</span></li>
     <li><span class="box done"></span><span>P5: the four measurements in the ticket; the owner has looked at the
       peak.</span></li>
+    <li><span class="box done"></span><span>P6: renaming a reference photo needs only its line's key; Meta's code is
+      needed only for another photo, another draw or a backbone change.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -247,6 +275,15 @@
       owner.</div>
     <div><div class="when">2026-10-30</div>The owner accepts the peak at P5's stop (ticket D14): D12's 1 GB a worker
       stays. P5 done; the plan is done.</div>
+    <div><div class="when">2026-10-30</div>The owner adds P6 (ticket D16): the fixture's draw keyed so that a rename,
+      like the 31 of 2026-10-30, never needs Meta's code. In progress.</div>
+    <div><div class="when">2026-10-30</div>P6 done: a reference line may carry its draw key
+      (<code>reference_entries</code>); the renamed Colombia photo keeps its old path as its key; the fixture gained
+      <code>draw_keys</code> and <code>photo_sha256</code> and its <code>photos</code> the current paths, Meta's outputs
+      bit for bit as they were, without running Meta's code. A fast test of the key's parsing; a full-tier test that
+      the list's keys and bytes are the fixture's (red, with the Meta comparison, when the key is dropped).
+      <code>docs/agents/experiments.md</code> says a rename needs no rerun. The full tier: 648 tests green. The plan
+      is done.</div>
   </div>
 
   <footer>Related: <a href="ticket_strip_metadata_parallel.html">ML-14 ticket</a>,
