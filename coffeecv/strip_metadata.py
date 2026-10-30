@@ -37,14 +37,19 @@ import argparse
 import csv
 import hashlib
 import json
+import multiprocessing
 import os
 import re
 import shutil
+import signal
 import struct
 import subprocess
 import sys
 import tempfile
 from collections import Counter, defaultdict
+from collections.abc import Iterator
+from concurrent.futures import Future, ProcessPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -121,17 +126,23 @@ class StripError(Exception):
     """A photo failed a check; its original is untouched."""
 
 
+def exiftool(*args: str) -> subprocess.CompletedProcess:
+    """exiftool, in a process group of its own: a Ctrl-C at the terminal reaches the run, which decides what stops
+    (ML-14 D4), and not exiftool, whose own SIGINT handler would fail a photo the run is waiting to finish."""
+    return subprocess.run(["exiftool", *args], capture_output=True, text=True, process_group=0)
+
+
 def exiftool_version() -> str:
-    return subprocess.run(["exiftool", "-ver"], capture_output=True, text=True, check=True).stdout.strip()
+    proc = exiftool("-ver")
+    proc.check_returncode()
+    return proc.stdout.strip()
 
 
 def read_tags(path: Path) -> dict[str, object]:
     """Every tag of `path` as {"Family0:Family1:Tag": value}, embedded documents and unknown tags included,
     binary values as "base64:..." so they compare as bytes, and the ICC profile's raw bytes as their own tag."""
     # -ICC_Profile adds the profile as one binary block (by default only its decoded fields are listed).
-    proc = subprocess.run(["exiftool", "-j", "-b", "-a", "-G0:1", "-ee", "-u", "-q", "-q", "-all", "-ICC_Profile",
-                           str(path)],
-                          capture_output=True, text=True)
+    proc = exiftool("-j", "-b", "-a", "-G0:1", "-ee", "-u", "-q", "-q", "-all", "-ICC_Profile", str(path))
     if proc.returncode not in (0, 1) or not proc.stdout.strip():
         raise StripError(f"exiftool could not read {path.name}: {proc.stderr.strip()}")
     doc = json.loads(proc.stdout)[0]
@@ -386,8 +397,7 @@ def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
     tmp = Path(tmp_name)
     try:
         tmp.unlink()                                 # exiftool -o refuses to overwrite
-        proc = subprocess.run(["exiftool", "-q", "-q", *DELETE_ARGS, "-o", str(tmp), str(path)],
-                              capture_output=True, text=True)
+        proc = exiftool("-q", "-q", *DELETE_ARGS, "-o", str(tmp), str(path))
         if proc.returncode != 0 or not tmp.exists():
             row["problems"].append(f"exiftool failed: {(proc.stderr or proc.stdout).strip()}")
             return row
@@ -540,6 +550,95 @@ def resume_check(photos: list[Path], done: dict[str, dict]) -> tuple[list[Path],
     return todo, changed
 
 
+@contextmanager
+def _sigint_deferred() -> Iterator[None]:
+    """A Ctrl-C during the block is handled as it ends, not inside it. A handler, not a blocked signal: with a
+    pool's threads running, a SIGINT the main thread blocks is taken by another thread and still raised here."""
+    caught = []
+    old = signal.signal(signal.SIGINT, lambda *_: caught.append(True))
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, old)
+        if caught and callable(old):
+            old(signal.SIGINT, None)
+
+
+class Rows:
+    """A run's rows, taken in photo order: each one's progress line, then its manifest row if it is good (ML-14 D3,
+    D9). A Ctrl-C lands between two rows, never inside one, so every row taken is in the manifest."""
+
+    def __init__(self, photos: list[Path], writer: ManifestWriter | None):
+        self.rows: list[dict] = []
+        self._index, self._n, self._writer = {p: i for i, p in enumerate(photos, 1)}, len(photos), writer
+
+    def take(self, path: Path, row: dict) -> None:
+        with _sigint_deferred():
+            self.rows.append(row)
+            status = "FAIL " + "; ".join(row["problems"]) if row["problems"] else (
+                f"{len(row['removed'].split())} tags" if row["removed"] else "clean")
+            print(f"[{self._index[path]}/{self._n}] {row['path']}: {status}", flush=True)
+            if self._writer and not row["problems"]:
+                self._writer.write(row)
+
+
+def _ignore_sigint() -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _result(path: Path, future: Future) -> dict:
+    """A worker's row; a pool broken under it (a worker killed, by the kernel's OOM killer say) is a failing row."""
+    try:
+        return future.result()
+    except Exception as e:
+        row = new_row(path)
+        row["problems"] = [f"error: {type(e).__name__}: {e}"]
+        return row
+
+
+def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: bool, rows: Rows) -> bool:
+    """run_one on `workers` spawned processes for every photo in `checked` without a row yet, each row taken in
+    photo order as soon as it and every row before it are done (ML-14 D3). Returns True if a Ctrl-C stopped it.
+
+    Workers ignore SIGINT. The first Ctrl-C cancels the photos not yet started, waits for those in progress and takes
+    every row done, in photo order, leaving out the photos that never ran (D4); a rerun does them. A second Ctrl-C
+    terminates the workers at once: the photos they had keep their originals, beside them a temporary copy."""
+    # spawn: rawpy's LibRaw runs OpenMP, which can deadlock in a forked worker (as in coffeecv.find_duplicates)
+    pool = ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"), initializer=_ignore_sigint)
+    futures: dict[Path, Future] = {p: pool.submit(run_one, p, dry_run) for p, row in checked if row is None}
+    try:
+        for p, row in checked:
+            rows.take(p, row or _result(p, futures[p]))
+    except KeyboardInterrupt:
+        # Cancelled here, not by shutdown(cancel_futures=True): that cancels in the pool's own thread, later, and
+        # concurrent.futures.wait never counts a future cancelled that way as done (CPython 3.12).
+        for f in futures.values():
+            f.cancel()                                  # the photos not started; those in progress go on
+        pool.shutdown(wait=False)
+        running = [f for f in futures.values() if not f.done()]
+        print(f"\nstopping: waiting for the {len(running)} photos already handed to the workers; Ctrl-C again to "
+              f"stop at once",
+              file=sys.stderr, flush=True)
+        try:
+            for f in running:
+                f.exception()                           # waits until it is done
+            pool.shutdown()
+        except KeyboardInterrupt:
+            for proc in multiprocessing.active_children():
+                proc.terminate()
+            print("stopped at once: the photos in progress keep their originals; their temporary copies "
+                  "(.<name>.*) are beside them", file=sys.stderr, flush=True)
+        for p, row in checked[len(rows.rows):]:
+            f = futures.get(p)
+            if row is None and f is not None and f.done() and not f.cancelled() and f.exception() is None:
+                row = f.result()
+            if row is not None:
+                rows.take(p, row)
+        return True
+    pool.shutdown()
+    return False
+
+
 def report(rows: list[dict], other: list[Path], out) -> None:
     """What went (or would go), per top-level folder."""
     by_folder: dict[str, list[dict]] = defaultdict(list)
@@ -569,6 +668,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="strip copies and check them; change nothing")
     ap.add_argument("--report", type=Path, help="also write the per-folder report here")
     ap.add_argument("--header", action="append", default=[], help="extra '# ...' line for a new manifest")
+    ap.add_argument("--jobs", type=int,
+                    help="photos at once, each in its own process [min(CPU cores, GB of memory available at the start)]")
     ap.add_argument("--max-memory", type=float,
                     help="GB one photo's decode may take; a photo above it fails undecoded [available at the start, "
                          "less 1 GB]")
@@ -579,7 +680,10 @@ def main(argv: list[str] | None = None) -> int:
     photos, other = photos_under([d.resolve() if not d.is_absolute() else d for d in args.dirs])
     started = datetime.now(timezone.utc)
     version = exiftool_version()
-    budget = int(args.max_memory * GB) if args.max_memory is not None else available_memory() - GB
+    available = available_memory()
+    budget = int(args.max_memory * GB) if args.max_memory is not None else available - GB
+    # About 1 GB a worker: the peak of a 50 MP photo, 0.5 GB, plus exiftool and the imports (ML-14 D12).
+    jobs = args.jobs if args.jobs is not None else max(1, min(os.cpu_count() or 1, available // GB))
     todo = photos
     if args.manifest and not args.dry_run:
         todo, changed = resume_check(photos, read_manifest(args.manifest))
@@ -590,28 +694,24 @@ def main(argv: list[str] | None = None) -> int:
     header = [f"ML-3 D13 strip manifest: coffeecv/strip_metadata.py, exiftool {version}",
               f"started {started.isoformat(timespec='seconds')}", "exiftool " + " ".join(DELETE_ARGS), *args.header]
     writer = ManifestWriter(args.manifest, header) if args.manifest and not args.dry_run else None
-    index = {p: i for i, p in enumerate(photos, 1)}
-    rows: list[dict] = []
+    checked = [(p, too_big(p, budget)) for p in todo]
+    # One photo for the workers, or --jobs 1: in this process, with no pool (D7).
+    workers = min(jobs, sum(1 for _, row in checked if row is None))
+    taken = Rows(photos, writer)
     interrupted = False
-
-    def take(p: Path, row: dict) -> None:
-        """A photo's row, in photo order: its progress line, then its manifest row if it is good (D9, D3)."""
-        rows.append(row)
-        status = "FAIL " + "; ".join(row["problems"]) if row["problems"] else (
-            f"{len(row['removed'].split())} tags" if row["removed"] else "clean")
-        print(f"[{index[p]}/{len(photos)}] {row['path']}: {status}", flush=True)
-        if writer and not row["problems"]:
-            writer.write(row)
-
     try:
-        for p in todo:
-            take(p, too_big(p, budget) or run_one(p, args.dry_run))
+        if workers > 1:
+            interrupted = run_pool(checked, workers, args.dry_run, taken)
+        else:
+            for p, row in checked:
+                taken.take(p, row or run_one(p, args.dry_run))
     except KeyboardInterrupt:
         # strip_one's finally has removed its temporary file; every row taken is in the manifest already.
         interrupted = True
     finally:
         if writer:
             writer.close()
+    rows = taken.rows
     good = [r for r in rows if not r["problems"]]
     out_files = [sys.stdout] + ([open(args.report, "w")] if args.report else [])
     for out in out_files:
@@ -624,6 +724,7 @@ def main(argv: list[str] | None = None) -> int:
     for out in out_files[1:]:
         out.close()
     return 130 if interrupted else 1 if len(good) != len(rows) else 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

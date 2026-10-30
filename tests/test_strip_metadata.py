@@ -12,7 +12,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import shutil
+import signal
 import struct
 import subprocess
 import sys
@@ -270,7 +272,7 @@ class TestStrip(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")
 class TestRun(unittest.TestCase):
-    """ML-14 P2: a run over several photos, one at a time. An exception is a failing row (D5), the resume check
+    """ML-14 P2: a run over several photos, one at a time (--jobs 1: a mock does not reach a spawned worker). An exception is a failing row (D5), the resume check
     comes before any work (D6), and each good row is in the manifest as soon as its photo is done (D10)."""
 
     @classmethod
@@ -296,7 +298,7 @@ class TestRun(unittest.TestCase):
             return real(path, *args)
 
         with mock.patch.object(sm, "strip_one", strip_one):
-            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest))
+            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest), "--jobs", "1")
         self.assertEqual(code, 1)
         self.assertIn("b.jpg: FAIL error: StripError: exiftool could not read b.jpg", out)
         self.assertEqual([Path(r["path"]).name for r in manifest_rows(self.manifest)], ["a.jpg", "c.jpg"])
@@ -321,7 +323,7 @@ class TestRun(unittest.TestCase):
 
         sha = sm.sha256_file(c)
         with mock.patch.object(sm, "strip_one", strip_one):
-            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest))
+            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest), "--jobs", "1")
         self.assertEqual(code, 130)
         self.assertIn("STOPPED by Ctrl-C: 1 of 3 photos not done", out)
         rows = manifest_rows(self.manifest)
@@ -396,6 +398,112 @@ class TestMemoryCeiling(unittest.TestCase):
     def test_estimate_of_the_200_mp_photo_covers_its_measured_peak(self):
         self.assertGreaterEqual(sm.estimate_decode_bytes(GALAXY_200MP), 1.95e9)   # measured 2026-10-30
 
+
+
+@unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")
+class TestPool(unittest.TestCase):
+    """ML-14 P4: several photos at once on spawned workers. A mock does not reach a spawned worker, so every
+    behaviour checked in a worker is a real file's."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def mixed_set(self, folder: Path, real: tuple[Path, ...] = ()) -> Path:
+        """JPEG and HEIC fixtures with private tags, an already clean JPEG, and the `real` photos with private tags
+        added back."""
+        folder.mkdir()
+        write_fixture(folder / "a.jpg")
+        write_fixture(folder / "b.heic")
+        Image.fromarray(np.random.default_rng(1).integers(0, 255, (48, 64, 3), dtype=np.uint8)).save(folder / "c.jpg")
+        for photo in real:
+            shutil.copyfile(photo, folder / photo.name)
+            subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE[:5], str(folder / photo.name)], check=True)
+        return folder
+
+    def run_on(self, folder: Path, *argv: str) -> tuple[int, str, list[dict], dict[str, str]]:
+        """main's exit code, output and manifest rows with `folder` taken out, and each photo's sha256 by name."""
+        manifest = folder.with_suffix(".csv")
+        code, out = run_main(str(folder), *(["--dry-run"] if "--dry-run" in argv else ["--manifest", str(manifest)]),
+                             *[a for a in argv if a != "--dry-run"])
+        rows = manifest_rows(manifest) if manifest.exists() else []
+        for r in rows:
+            r["path"] = Path(r["path"]).name
+        return (code, out.replace(str(folder), "<dir>"), rows,
+                {p.name: sm.sha256_file(p) for p in sorted(folder.iterdir())})
+
+    def assert_parallel_matches_serial(self, real: tuple[Path, ...] = ()):
+        photos = self.mixed_set(self.tmp / "photos", real)
+        for mode in ([], ["--dry-run"]):
+            with self.subTest(mode=mode):
+                runs = []
+                for jobs in ("1", "3"):
+                    folder = self.tmp / f"jobs{jobs}{''.join(mode)}"
+                    shutil.copytree(photos, folder)
+                    runs.append(self.run_on(folder, "--jobs", jobs, *mode))
+                serial, parallel = runs
+                self.assertEqual(parallel, serial)
+                self.assertEqual(serial[0], 0)
+                self.assertEqual(serial[1].count("\n[") + serial[1].startswith("["), 3 + len(real))
+                self.assertEqual([r["path"] for r in serial[2]], [] if mode else sorted(serial[3]))
+
+    @real_data
+    def test_a_parallel_run_matches_a_serial_one(self):
+        self.assert_parallel_matches_serial()
+
+    @real_data
+    @unittest.skipUnless(DNG.exists() and IPHONE16.exists(), "the DNG and iPhone HEIC are not present (dvc pull)")
+    def test_a_parallel_run_matches_a_serial_one_on_real_photos(self):
+        self.assert_parallel_matches_serial((DNG, IPHONE16))
+
+    @real_data
+    def test_an_exception_in_a_worker_is_a_failing_row(self):
+        photos = self.mixed_set(self.tmp / "photos")
+        whole = write_fixture(self.tmp / "whole.jpg").read_bytes()
+        (photos / "b2.jpg").write_bytes(whole[:len(whole) // 2])          # decodes no further than its middle
+        sha = sm.sha256_file(photos / "b2.jpg")
+        code, out, rows, _ = self.run_on(photos, "--jobs", "2")
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"<dir>/b2\.jpg: FAIL error: OSError: image file is truncated")
+        self.assertEqual([r["path"] for r in rows], ["a.jpg", "b.heic", "c.jpg"])
+        self.assertEqual(sm.sha256_file(photos / "b2.jpg"), sha)
+
+    @real_data
+    def test_a_ctrl_c_leaves_every_stripped_photo_with_its_row(self):
+        """D4: a Ctrl-C at a terminal reaches the whole process group; the workers ignore it, the run cancels the
+        photos not started, waits for those in progress and writes every row done."""
+        photos, manifest = self.tmp / "photos", self.tmp / "manifest.csv"
+        photos.mkdir()
+        fixture = write_fixture(self.tmp / "fixture.jpg")
+        for i in range(12):
+            shutil.copyfile(fixture, photos / f"{i:02}.jpg")
+        original = sm.sha256_file(fixture)
+        cmd = [sys.executable, "-m", "coffeecv.strip_metadata", str(photos), "--manifest", str(manifest), "--jobs", "2"]
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                start_new_session=True)
+        self.addCleanup(lambda: proc.poll() is None and os.killpg(proc.pid, signal.SIGKILL))
+        self.assertTrue(proc.stdout.readline().startswith("[1/12] "))
+        os.killpg(proc.pid, signal.SIGINT)
+        out, err = proc.communicate(timeout=60)
+        self.assertEqual(proc.returncode, 130, err)
+        self.assertIn("stopping: waiting for the", err)
+        self.assertIn("STOPPED by Ctrl-C", out)
+        self.assertNotIn("FAIL", out)                          # the photos in progress finished, exiftool too
+        rows = {Path(r["path"]).name: r for r in manifest_rows(manifest)}
+        changed = {p.name for p in photos.iterdir() if sm.sha256_file(p) != original}
+        self.assertEqual(set(rows), changed)
+        self.assertLess(len(changed), 12)                       # the Ctrl-C did stop the run
+        for name, r in rows.items():
+            self.assertEqual(r["sha256_after"], sm.sha256_file(photos / name), name)
+        self.assertEqual([p.name for p in photos.iterdir() if p.name.startswith(".")], [])
+        # A rerun leaves the photos done alone and strips the rest.
+        done = len(rows)
+        self.assertEqual(run_main(str(photos), "--manifest", str(manifest), "--jobs", "2")[0], 0)
+        rows = manifest_rows(manifest)
+        self.assertEqual(sorted(Path(r["path"]).name for r in rows), [f"{i:02}.jpg" for i in range(12)])
+        self.assertEqual(sum(1 for line in manifest.read_text().splitlines() if line.startswith("# started")), 1)
+        self.assertEqual(len(rows) - done, 12 - done)
+        self.assertTrue(all(sm.sha256_file(photos / Path(r["path"]).name) == r["sha256_after"] for r in rows))
 
 if __name__ == "__main__":
     unittest.main()
