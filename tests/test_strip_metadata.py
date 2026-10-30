@@ -10,6 +10,7 @@ Needs exiftool (libimage-exiftool-perl, in the devcontainer).
 from __future__ import annotations
 
 import csv
+import io
 import json
 import shutil
 import struct
@@ -17,6 +18,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -50,6 +53,17 @@ def write_fixture(path: Path) -> Path:
     im.save(path, exif=exif.tobytes(), icc_profile=icc, quality=90)
     subprocess.run(["exiftool", "-q", "-overwrite_original", *PRIVATE, str(path)], check=True)
     return path
+
+
+def manifest_rows(path: Path) -> list[dict]:
+    return list(csv.DictReader(line for line in path.read_text().splitlines() if not line.startswith("#")))
+
+
+def run_main(*argv: str) -> tuple[int, str]:
+    """sm.main's exit code and what it printed."""
+    with redirect_stdout(io.StringIO()) as out:
+        code = sm.main(list(argv))
+    return code, out.getvalue()
 
 
 def samsung_trailer(blocks: dict[int, tuple[bytes, bytes]]) -> bytes:
@@ -252,6 +266,90 @@ class TestStrip(unittest.TestCase):
         self.assertIn("EXIF:GPS:GPSLatitude", row["removed"].split())
         self.assertEqual(row["problems"], [])
         self.assertEqual(row["notes"], ["RAW preview image stays (owner, 2026-10-05)"])
+
+
+@unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")
+class TestRun(unittest.TestCase):
+    """ML-14 P2: a run over several photos, one at a time. An exception is a failing row (D5), the resume check
+    comes before any work (D6), and each good row is in the manifest as soon as its photo is done (D10)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fixture_dir = Path(tempfile.mkdtemp())
+        cls.addClassCleanup(shutil.rmtree, cls.fixture_dir)
+        cls.fixture = write_fixture(cls.fixture_dir / "fixture.jpg")
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        (self.tmp / "photos").mkdir()
+        self.photos = [Path(shutil.copyfile(self.fixture, self.tmp / "photos" / f"{c}.jpg")) for c in "abc"]
+        self.manifest = self.tmp / "manifest.csv"
+
+    def test_an_exception_is_a_failing_row_and_the_run_goes_on(self):
+        real, b = sm.strip_one, self.photos[1]
+        sha = sm.sha256_file(b)
+
+        def strip_one(path, *args):
+            if path == b:
+                raise sm.StripError("exiftool could not read b.jpg")
+            return real(path, *args)
+
+        with mock.patch.object(sm, "strip_one", strip_one):
+            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest))
+        self.assertEqual(code, 1)
+        self.assertIn("b.jpg: FAIL error: StripError: exiftool could not read b.jpg", out)
+        self.assertEqual([Path(r["path"]).name for r in manifest_rows(self.manifest)], ["a.jpg", "c.jpg"])
+        self.assertEqual(sm.sha256_file(b), sha)
+
+    def test_a_changed_manifest_photo_stops_the_run_before_any_work(self):
+        a, b, c = self.photos
+        self.assertEqual(run_main(str(c), "--manifest", str(self.manifest))[0], 0)
+        c.write_bytes(c.read_bytes() + b"changed")             # no longer the recorded sha256_after
+        manifest, shas = self.manifest.read_bytes(), [sm.sha256_file(p) for p in (a, b)]
+        self.assertEqual(run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest))[0], 1)
+        self.assertEqual([sm.sha256_file(p) for p in (a, b)], shas)
+        self.assertEqual(self.manifest.read_bytes(), manifest)
+
+    def test_an_interrupted_run_keeps_the_rows_of_the_photos_done(self):
+        real, c = sm.strip_one, self.photos[2]
+
+        def strip_one(path, *args):
+            if path == c:
+                raise KeyboardInterrupt
+            return real(path, *args)
+
+        sha = sm.sha256_file(c)
+        with mock.patch.object(sm, "strip_one", strip_one):
+            code, out = run_main(str(self.tmp / "photos"), "--manifest", str(self.manifest))
+        self.assertEqual(code, 130)
+        self.assertIn("STOPPED by Ctrl-C: 1 of 3 photos not done", out)
+        rows = manifest_rows(self.manifest)
+        self.assertEqual([Path(r["path"]).name for r in rows], ["a.jpg", "b.jpg"])
+        self.assertEqual([r["sha256_after"] for r in rows], [sm.sha256_file(p) for p in self.photos[:2]])
+        self.assertEqual(sm.sha256_file(c), sha)
+
+    def test_a_new_manifests_start_time_is_the_runs_start(self):
+        start = datetime(2026, 10, 30, 10, 0, 0, tzinfo=timezone.utc)
+        clock = [start]
+        real = sm.strip_one
+
+        def strip_one(*args):                                   # each photo takes an hour on this clock
+            clock[0] += timedelta(hours=1)
+            return real(*args)
+
+        fake = SimpleNamespace(now=lambda tz=None: clock[0])
+        with mock.patch.object(sm, "datetime", fake), mock.patch.object(sm, "strip_one", strip_one):
+            self.assertEqual(run_main(str(self.photos[0]), "--manifest", str(self.manifest))[0], 0)
+        self.assertIn("# started 2026-10-30T10:00:00+00:00", self.manifest.read_text().splitlines())
+
+    def test_a_run_with_no_good_row_writes_no_manifest(self):
+        with mock.patch.object(sm, "DELETE_ARGS", sm.DELETE_ARGS + ["-ifd0:orientation="]):
+            code, out = run_main(str(self.photos[0]), "--manifest", str(self.manifest))
+        self.assertEqual(code, 1)
+        self.assertIn("kept field lost", out)
+        self.assertFalse(self.manifest.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

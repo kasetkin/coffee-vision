@@ -341,15 +341,26 @@ def samsung_trailer_start(data: bytes) -> int | None:
     return min(starts, default=h)
 
 
-def strip_one(path: Path, dry_run: bool) -> dict:
+def manifest_key(path: Path) -> str:
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
+
+
+def new_row(path: Path) -> dict:
+    """A photo's row before anything is known: its manifest fields empty, no problems, no notes."""
+    return {"path": manifest_key(path), "sha256_before": "", "sha256_after": "", "pixel_sha256": "",
+            "removed": "", "problems": [], "notes": []}
+
+
+def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
     """Strip `path` (or, with dry_run, only check what stripping would do). Returns its manifest row
-    plus "problems"; raises nothing for a failed check -- the row says so and the original is kept."""
+    plus "problems"; raises nothing for a failed check -- the row says so and the original is kept.
+    `row` (new_row's), if given, is filled in place, so a caller that catches an exception keeps what was
+    found before it (run_one)."""
+    row = new_row(path) if row is None else row
     before = read_tags(path)
     sha_before = sha256_file(path)
     pix_before = pixel_digest(path)
-    row = {"path": str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path),
-           "sha256_before": sha_before, "sha256_after": sha_before, "pixel_sha256": pix_before,
-           "removed": "", "problems": [], "notes": []}
+    row.update(sha256_before=sha_before, sha256_after=sha_before, pixel_sha256=pix_before)
     if path.suffix.lower() in HEIF_EXTENSIONS:
         # A HEIF thumbnail is an image item, not a tag: exiftool can neither list nor remove it.
         n = sum(len(img.info.get("thumbnails") or []) for img in pillow_heif.open_heif(str(path)))
@@ -398,6 +409,18 @@ def strip_one(path: Path, dry_run: bool) -> dict:
         tmp.unlink(missing_ok=True)
 
 
+def run_one(path: Path, dry_run: bool) -> dict:
+    """strip_one, with an exception made a failing row for its photo (ML-14 D5): the run goes on, and the
+    photo, whose original strip_one replaces only after every check, keeps its bytes. A KeyboardInterrupt is
+    not an Exception and still stops the run."""
+    row = new_row(path)
+    try:
+        return strip_one(path, dry_run, row)
+    except Exception as e:
+        row["problems"] = [f"error: {type(e).__name__}: {e}"]
+        return row
+
+
 def photos_under(dirs: list[Path]) -> tuple[list[Path], list[Path]]:
     """(photos, other files) under `dirs` (a file stands for itself), sorted; symlinks followed (DVC's
     working tree may link)."""
@@ -417,15 +440,54 @@ def read_manifest(path: Path) -> dict[str, dict]:
     return {r["path"]: r for r in rows}
 
 
+class ManifestWriter:
+    """Appends rows to a manifest one at a time, each flushed as it is written (ML-14 D10, no fsync). A new
+    manifest gets its header lines and columns just before its first row, so a run with no row writes no file."""
+
+    def __init__(self, path: Path, header: list[str]):
+        self.path, self.header, self._f, self._w = path, header, None, None
+
+    def write(self, row: dict) -> None:
+        if self._f is None:
+            new = not self.path.exists()
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._f = open(self.path, "a", newline="")
+            if new:
+                self._f.writelines(f"# {line}\n" for line in self.header)
+                csv.writer(self._f).writerow(MANIFEST_FIELDS)
+            self._w = csv.DictWriter(self._f, fieldnames=MANIFEST_FIELDS, extrasaction="ignore")
+        self._w.writerow(row)
+        self._f.flush()
+
+    def close(self) -> None:
+        if self._f is not None:
+            self._f.close()
+
+    def __enter__(self) -> ManifestWriter:
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+
 def append_manifest(path: Path, rows: list[dict], header: list[str]) -> None:
-    new = not path.exists()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", newline="") as f:
-        if new:
-            f.writelines(f"# {line}\n" for line in header)
-            csv.writer(f).writerow(MANIFEST_FIELDS)
-        w = csv.DictWriter(f, fieldnames=MANIFEST_FIELDS, extrasaction="ignore")
-        w.writerows(rows)
+    with ManifestWriter(path, header) as w:
+        for r in rows:
+            w.write(r)
+
+
+def resume_check(photos: list[Path], done: dict[str, dict]) -> tuple[list[Path], list[str]]:
+    """(the photos still to do, the manifest keys whose photo's bytes are not their recorded sha256_after). A
+    photo in the manifest with its recorded bytes is done; one with other bytes was changed after its row, and
+    the run must not touch anything (ML-14 D6)."""
+    todo, changed = [], []
+    for p in photos:
+        key = manifest_key(p)
+        if key not in done:
+            todo.append(p)
+        elif sha256_file(p) != done[key]["sha256_after"]:
+            changed.append(key)
+    return todo, changed
 
 
 def report(rows: list[dict], other: list[Path], out) -> None:
@@ -462,37 +524,52 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--manifest is required unless --dry-run")
 
     photos, other = photos_under([d.resolve() if not d.is_absolute() else d for d in args.dirs])
-    done = read_manifest(args.manifest) if args.manifest else {}
+    started = datetime.now(timezone.utc)
     version = exiftool_version()
-    rows = []
-    for i, p in enumerate(photos, 1):
-        key = str(p.relative_to(REPO_ROOT)) if p.is_relative_to(REPO_ROOT) else str(p)
-        if key in done and not args.dry_run:
-            if sha256_file(p) != done[key]["sha256_after"]:
-                print(f"  {key}: in the manifest, but its bytes are not the recorded sha256_after", file=sys.stderr)
-                return 1
-            continue
-        row = strip_one(p, args.dry_run)
+    todo = photos
+    if args.manifest and not args.dry_run:
+        todo, changed = resume_check(photos, read_manifest(args.manifest))
+        for key in changed:
+            print(f"  {key}: in the manifest, but its bytes are not the recorded sha256_after", file=sys.stderr)
+        if changed:
+            return 1
+    header = [f"ML-3 D13 strip manifest: coffeecv/strip_metadata.py, exiftool {version}",
+              f"started {started.isoformat(timespec='seconds')}", "exiftool " + " ".join(DELETE_ARGS), *args.header]
+    writer = ManifestWriter(args.manifest, header) if args.manifest and not args.dry_run else None
+    index = {p: i for i, p in enumerate(photos, 1)}
+    rows: list[dict] = []
+    interrupted = False
+
+    def take(p: Path, row: dict) -> None:
+        """A photo's row, in photo order: its progress line, then its manifest row if it is good (D9, D3)."""
         rows.append(row)
         status = "FAIL " + "; ".join(row["problems"]) if row["problems"] else (
             f"{len(row['removed'].split())} tags" if row["removed"] else "clean")
-        print(f"[{i}/{len(photos)}] {key}: {status}", flush=True)
+        print(f"[{index[p]}/{len(photos)}] {row['path']}: {status}", flush=True)
+        if writer and not row["problems"]:
+            writer.write(row)
+
+    try:
+        for p in todo:
+            take(p, run_one(p, args.dry_run))
+    except KeyboardInterrupt:
+        # strip_one's finally has removed its temporary file; every row taken is in the manifest already.
+        interrupted = True
+    finally:
+        if writer:
+            writer.close()
     good = [r for r in rows if not r["problems"]]
-    if args.manifest and not args.dry_run:
-        header = [f"ML-3 D13 strip manifest: coffeecv/strip_metadata.py, exiftool {version}",
-                  f"started {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
-                  "exiftool " + " ".join(DELETE_ARGS), *args.header]
-        append_manifest(args.manifest, good, header)
     out_files = [sys.stdout] + ([open(args.report, "w")] if args.report else [])
     for out in out_files:
+        if interrupted:
+            print(f"STOPPED by Ctrl-C: {len(todo) - len(rows)} of {len(todo)} photos not done", file=out)
         print(f"{'DRY RUN: ' if args.dry_run else ''}exiftool {version}; {len(rows)} photos checked, "
               f"{sum(1 for r in good if r['removed'])} {'would be ' if args.dry_run else ''}stripped, "
               f"{len(rows) - len(good)} failing", file=out)
         report(rows, other, out)
     for out in out_files[1:]:
         out.close()
-    return 1 if len(good) != len(rows) else 0
-
+    return 130 if interrupted else 1 if len(good) != len(rows) else 0
 
 if __name__ == "__main__":
     sys.exit(main())
