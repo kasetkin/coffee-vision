@@ -9,11 +9,11 @@
   <h1>coffeecv.strip_metadata strips and checks several photos at once</h1>
   <p class="lede">The owner asked for the metadata stripper to use more than one core. Today it handles one photo
     at a time. For each photo it runs exiftool three times and decodes the full image twice, so a batch of 50 MP photos
-    keeps one core busy while the others sit idle. Written; not planned, not implemented.</p>
+    keeps one core busy while the others sit idle. Written; D1&ndash;D3 decided; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; not planned, not implemented</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D3 decided 2026-10-30; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/strip_metadata.py</code>, <code>tests/test_strip_metadata.py</code></span></div>
@@ -89,7 +89,7 @@
       <ul>
         <li>Up to <code>--jobs</code> photos at once.</li>
         <li>The same checks and rows per photo. The manifest and the report are in photo order.</li>
-        <li>The manifest is written as D3 decides.</li>
+        <li>Each manifest row is written as soon as its photo and every photo before it are done (D3).</li>
       </ul>
     </div>
   </div>
@@ -137,15 +137,22 @@
           <code>find_duplicates</code> uses (recommended: the image decoding and hashing run in Python and hold the
           GIL for part of the time); (b) threads, which are lighter, but only the exiftool subprocesses and part of the
           decoding would overlap.</td>
-        <td>Open.</td></tr>
+        <td><strong>(a)</strong>, 2026-10-30, as recommended: a <code>ProcessPoolExecutor</code> with
+          <code>spawn</code>, as <code>find_duplicates</code> uses.</td></tr>
       <tr><td class="id">D2</td><td>Default <code>--jobs</code>?</td>
         <td>(a) <code>os.cpu_count()</code>, as <code>find_duplicates</code>; (b) a cap set by measured peak memory
           (R1); (c) 1, so parallel runs happen only when asked for.</td>
-        <td>Open.</td></tr>
+        <td><strong>(b)</strong>, 2026-10-30, as recommended: <code>--jobs</code> is built with a provisional
+          default of <code>os.cpu_count()</code>; the peak memory per worker is then measured on the 2026-10-28 batch
+          (its 50 MP photos), and the owner sets the cap from that measurement.</td></tr>
       <tr><td class="id">D3</td><td>When are manifest rows written?</td>
         <td>(a) at the end, as today; (b) each row as its photo is done, so an interrupted run keeps its records (R2).
-          Rows would then be in completion order, unless they are sorted when the manifest is read or written.</td>
-        <td>Open.</td></tr>
+          Rows would then be in completion order, unless they are sorted when the manifest is read or written.
+          (c) Each row as soon as its photo and every photo before it are done: results come back in submission order
+          (as <code>pool.map</code> gives them), so the rows stay in <code>photos_under</code>'s order, and an
+          interrupted run loses only the rows of the photos still in progress. An exception in a worker is caught in
+          the worker and becomes a failing row for its photo (R4).</td>
+        <td><strong>(c)</strong>, 2026-10-30, as recommended.</td></tr>
     </tbody>
   </table></div>
 
@@ -177,6 +184,11 @@
     <div><div class="when">2026-10-28</div>Ticket written from the owner's request and a read of
       <code>coffeecv/strip_metadata.py</code> and <code>coffeecv/find_duplicates.py</code> at <code>e3202a5</code>,
       during ML-13's intake of the photos of 2026-10-28. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-30</div>The owner decided D1&ndash;D3 as recommended: processes with
+      <code>spawn</code> (D1); a default <code>--jobs</code> capped by measured peak memory, provisionally
+      <code>os.cpu_count()</code> until the measurement (D2); each row written once its photo and every earlier one are
+      done, in photo order (D3, an option added with the recommendation). Triage set to <code>ready-for-agent</code>.
+      Implementation held by the owner; not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (the intake that ran it),
