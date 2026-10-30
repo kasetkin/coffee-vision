@@ -1,0 +1,243 @@
+<title>Implementation plan: strip photo metadata on several cores at once</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-14 · coffee-vision · implementation</div>
+  <h1>Implementation plan: strip photo metadata on several cores at once</h1>
+  <p class="lede">The order of work for <a href="ticket_strip_metadata_parallel.html">ticket ML-14</a>. Three strands:
+    the stripper without torch (P1); the serial run made safe, with failing rows, the resume check first, rows written
+    as they come and a memory ceiling (P2, P3); then the pool (P4) and the measurements (P5). The serial work comes
+    first because <code>--jobs 1</code> is what the parallel run is checked against (D7), and P2's per-row writing is
+    what P4's ordered results feed. No phase changes a manifest row's values; P5 is the owner's stop.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-30; no questions open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_strip_metadata_parallel.html"><code>ticket_strip_metadata_parallel.html</code></a> (ML-14)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-30</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>413f7b4</code> and the measurements of 2026-10-30 (ticket §2), during the
+      owner's review that decided D4&ndash;D13. Three things matter for the build and are not decisions:</p>
+    <ol>
+      <li><b>A mock does not reach a spawned worker.</b> The existing tests in <code>tests/test_strip_metadata.py</code>
+        patch module functions; under <code>spawn</code> a worker imports the module afresh. P4's tests use real files
+        for every behaviour they check in a worker: a truncated JPEG for an exception, the JPEG and HEIC fixtures that
+        <code>write_fixture</code> makes, the DNG and iPhone HEIC the suite already names (under
+        <code>@real_data</code>).</li>
+      <li><b><code>tests/test_large_photos.py</code> already pins the limits.</b> It checks, in a fresh interpreter,
+        Pillow's limit and whether <code>coffeecv.dataset</code> got imported. P1 must leave it green: the web service
+        keeps Pillow's default.</li>
+      <li><b>Peak memory of a parallel run is the sum over processes.</b> <code>ru_maxrss</code> and
+        <code>/usr/bin/time</code> give one process's peak. P5 samples the summed RSS of the run's process tree with a
+        throwaway script outside the repo.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 is a move with no behaviour change, checked by the import test and by every pixel digest staying the same. P2
+    and P3 change what a serial run does on an error, a mismatch, a Ctrl-C or a huge photo, and nothing about the rows of
+    a run that has none of these. P4 adds the pool, checked row for row against P2's serial run. P5 measures and stops
+    for the owner.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>No torch in the stripper; the 537 MP limit kept (D8)</td><td>local</td><td>no: the same <code>pixel_sha256</code></td></tr>
+      <tr><td class="id">P2</td><td>The serial run: failing rows, resume check first, rows as they come, Ctrl-C (D5, D6, D7, D9, D10)</td><td>local</td><td>no: the same rows</td></tr>
+      <tr><td class="id">P3</td><td>The memory ceiling, <code>--max-memory</code> (D13)</td><td>local</td><td>no, below the ceiling</td></tr>
+      <tr><td class="id">P4</td><td>The pool, <code>--jobs</code>, Ctrl-C in parallel (D1, D3, D4, D12)</td><td>local</td><td>no: rows equal the serial run's</td></tr>
+      <tr><td class="id">P5</td><td>Measurements, docstring; the owner checks D12's 1 GB <span class="pill sm open">stop</span></td><td>local, owner</td><td>timings only</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None open. The questions of the owner's review on 2026-10-30 were answered there and are the ticket's D4&ndash;D13.
+    A question that turns up while building goes here as Q1.</p>
+
+  <h2>3. P1 &mdash; No torch in the stripper</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>D8. <code>strip_metadata</code> takes <code>load_rgb_image</code> and <code>RAW_EXTENSIONS</code> from
+    <code>coffeecv.photo_io</code> instead of <code>coffeecv.dataset</code>, which imports torch. The 537 MP limit that
+    <code>dataset</code> sets on import has to come along, without <code>photo_io</code> setting it for the web
+    service.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Move <code>DATASET_MAX_PIXELS = 2**28</code> and its comment from
+      <code>coffeecv/dataset.py</code> to <code>coffeecv/photo_io.py</code>. <code>photo_io</code> defines it and does
+      not assign <code>Image.MAX_IMAGE_PIXELS</code>; <code>dataset</code> imports it and keeps its assignment, and
+      re-exports the name as it does <code>load_rgb_image</code>.</span></li>
+    <li><span class="box"></span><span><code>coffeecv/strip_metadata.py</code>: import from <code>photo_io</code>, and
+      set <code>Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS</code> at module level, so a spawned worker that imports the
+      module gets it too. The docstring names the limit.</span></li>
+    <li><span class="box"></span><span>A test, in a fresh interpreter: importing <code>coffeecv.strip_metadata</code>
+      leaves <code>torch</code> out of <code>sys.modules</code> and sets the limit to <code>DATASET_MAX_PIXELS</code>.
+      Another (<code>@real_data</code>): <code>pixel_digest</code> of the 200 MP photo,
+      <code>dataset/segmenter_positives/20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg</code>, runs without a
+      decompression-bomb error.</span></li>
+    <li><span class="box"></span><span>Checks: <code>tests/test_large_photos.py</code> and
+      <code>tests/test_strip_metadata.py</code> green; the full suite green.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The serial run: failing rows, resume check first, rows as they come</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>Reshapes <code>main</code> into the steps P4 parallelises, still one photo at a time. The order of a run:</p>
+  <ol>
+    <li>List the photos (<code>photos_under</code>) and take the start time (D10).</li>
+    <li>The resume check (D6): every photo whose key is in the manifest is hashed; any mismatch prints the photo, as
+      today, and returns 1 before any photo is touched. The photos that pass are left out of the work list. Skipped
+      under <code>--dry-run</code>, as today.</li>
+    <li>Each photo in the work list goes through <code>run_one(path, dry_run)</code>, a new module-level function (P4
+      submits it to workers) that calls <code>strip_one</code> and turns an <code>Exception</code> into a failing row
+      for the photo: <code>problems = [f"error: {type(e).__name__}: {e}"]</code>, its other fields as
+      <code>strip_one</code>'s first row has them, or the path and empty hashes if it failed before that (D5).
+      <code>BaseException</code> is not caught.</li>
+    <li>Each row as it comes, in photo order (D9, D10): its progress line, as today's; then, if it is a good row and
+      there is a manifest and no <code>--dry-run</code>, it is appended and flushed. A small writer object holds the
+      open file: it writes the header (with the start time) just before the first row of a new manifest, so a run with
+      no good row writes no file.</li>
+    <li>The report and the exit code, as today, from all the rows.</li>
+  </ol>
+  <p>A Ctrl-C at <code>--jobs 1</code> raises <code>KeyboardInterrupt</code> in <code>strip_one</code>; its
+    <code>finally</code> removes the temporary file, and the rows written so far stay. The one row it can lose is the
+    photo replaced on disk in the instant before its row is written, as today. The writer closes in a
+    <code>finally</code>.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>run_one</code>, the resume check before any work, the manifest writer, the
+      start time; <code>main</code> rebuilt on them.</span></li>
+    <li><span class="box"></span><span>Tests: a photo whose <code>strip_one</code> raises (mocked) gets a failing row,
+      the photos after it are stripped and in the manifest, and the exit code is 1; a manifest photo with changed bytes
+      gives exit code 1 with every other photo's bytes unchanged and no row added; an interruption (a mocked
+      <code>strip_one</code> raising <code>KeyboardInterrupt</code> on the third photo) leaves the first two photos'
+      rows in the manifest; a new manifest's header carries a start time taken before the first photo; a run whose only
+      photo fails writes no manifest.</span></li>
+    <li><span class="box"></span><span>Checks: the existing tests unchanged and green (the rows of a run without errors
+      are what they were); the full suite green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The memory ceiling</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
+  </div>
+  <p>D13 (a). Before a photo is handed to <code>run_one</code>, the main process reads its dimensions from the header
+    (Pillow's <code>Image.open(...).size</code> for JPEG and PNG, which reads no pixels; <code>pillow_heif</code> for
+    HEIC, every top-level image; <code>rawpy</code>'s sizes for RAW) and estimates its decode memory as width &times;
+    height &times; a factor per format. Above the ceiling it gets a failing row, <code>too big: about N GB to decode,
+    budget M GB</code>, and is never decoded; its original is untouched, it gets no manifest row, the exit code is 1.
+    The ceiling is the memory available at the start (<code>/proc/meminfo</code>'s <code>MemAvailable</code>, else
+    <code>os.sysconf</code>) minus 1 GB, or <code>--max-memory GB</code>. P4's D12 default reads the same figure, so one
+    helper returns it. A photo whose header cannot be read is not failed here: <code>run_one</code> meets the same error
+    and makes it a failing row.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The factors, measured: peak RSS above the imports of <code>pixel_digest</code> on
+      a JPEG, a PNG, a HEIC with auxiliary images and a DNG, each in its own process, divided by its pixel count (for
+      RAW, rawpy's output size). Written as constants with the measurement and its date in a comment, rounded up. The
+      measurement of 2026-10-30 (ticket §2) gives about 10 bytes per pixel for a JPEG and a HEIC.</span></li>
+    <li><span class="box"></span><span><code>estimate_decode_bytes(path)</code>, <code>available_memory()</code>,
+      <code>--max-memory</code>, and the check in <code>main</code> before <code>run_one</code>. The report lists the
+      too-big rows under its usual <code>FAIL</code> lines.</span></li>
+    <li><span class="box"></span><span>Tests: with <code>--max-memory 0.001</code> a fixture photo gets the
+      <code>too big</code> row, keeps its bytes and gets no manifest row, and the exit code is 1; with the default
+      ceiling the fixtures run as before. <code>estimate_decode_bytes</code> on each fixture format is within its factor
+      of the pixel count.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; The pool</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3</span></div>
+  </div>
+  <p>D1, D3, D4, D7, D12. <code>--jobs N</code>, default <code>min(os.cpu_count(), available_memory() // 1 GB)</code>,
+    at least 1. At <code>--jobs 1</code> nothing changes from P3 (D7). Above 1, a
+    <code>ProcessPoolExecutor(N, mp_context=spawn)</code> as in <code>find_duplicates</code>, with an initializer that
+    sets SIGINT to ignored in each worker. The main process submits <code>run_one</code> for every photo that passed the
+    ceiling, in photo order, keeps the futures in that order, and takes each result in turn: the ceiling's failing rows
+    take their place in the same order. Each result goes through P2's row step, so the progress lines and the manifest
+    stay in photo order (D3, D9).</p>
+  <p>On a <code>KeyboardInterrupt</code> in the main process (D4): print that the run is stopping;
+    <code>shutdown(wait=False, cancel_futures=True)</code>; wait for the futures already running; then write, in photo
+    order, every row whose future is done, skipping those cancelled, and exit 130 after the report. A second
+    <code>KeyboardInterrupt</code> during that wait leaves at once: the workers are terminated, and their temporary files
+    are beside their photos under a <code>.</code>-prefixed name that <code>photos_under</code> skips.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>--jobs</code>, the pool, the ordered results, the Ctrl-C handling.</span></li>
+    <li><span class="box"></span><span>Test: on a mixed set (the JPEG and HEIC fixtures with private tags, an already
+      clean JPEG, and under <code>@real_data</code> the DNG and the iPhone HEIC the suite names, copied to a temporary
+      folder), <code>--jobs 1</code> and <code>--jobs 3</code> give the same manifest rows, the same report, the same
+      exit code and the same bytes on disk. Under <code>--dry-run</code> as well.</span></li>
+    <li><span class="box"></span><span>Test: a truncated JPEG in the set gets a failing row from its spawned worker, and
+      the other photos are stripped and in the manifest.</span></li>
+    <li><span class="box"></span><span>Test: <code>python -m coffeecv.strip_metadata</code> in a subprocess on a dozen
+      fixtures at <code>--jobs 2</code>, sent SIGINT after its first progress line: every photo whose bytes changed has
+      its row, every row's <code>sha256_after</code> is its photo's bytes, no <code>.</code>-prefixed temporary file is
+      left, and a rerun strips the rest and appends their rows.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green, both tiers.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Measurements and docstring <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <p>D11. Four runs before (at <code>413f7b4</code>'s code, serial only) and after (<code>--jobs 1</code> and the
+    default): a dry run on <code>dataset/segmenter_positives</code> (the clean path), and a dry run on a copy of it in
+    <code>/tmp</code> with the test suite's private tags added back by exiftool (the full strip). Wall time, and the
+    peak of the summed RSS of the process tree, sampled every 0.2 s by a script outside the repo. Nothing under
+    <code>dataset/</code> is written; the copy is deleted after.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The runs, recorded in the ticket's Activity as a table, with the default
+      <code>--jobs</code> it chose and the ceiling.</span></li>
+    <li><span class="box"></span><span>The module docstring: <code>--jobs</code> and its default,
+      <code>--max-memory</code> and the ceiling, rows written in photo order as they are done, a Ctrl-C (D4), a failing
+      row for an exception (D5), the resume check first (D6).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the peak against the free memory. If the default
+      <code>--jobs</code> came near it, the owner sets a different per-worker budget, or opens D13 (b), admission by
+      memory.</span></li>
+  </ol>
+
+  <h2>8. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: importing <code>coffeecv.strip_metadata</code> imports no torch; the 200 MP
+      photo decodes; <code>tests/test_large_photos.py</code> green.</span></li>
+    <li><span class="box"></span><span>P2: an exception, a resume mismatch and an interruption behave as D5, D6 and
+      D10 say; the rows of a run without them are unchanged.</span></li>
+    <li><span class="box"></span><span>P3: a photo above the ceiling fails before it is decoded, its original
+      untouched.</span></li>
+    <li><span class="box"></span><span>P4: parallel and serial runs give the same rows, report, exit code and bytes; a
+      worker's exception is a failing row; a SIGINT leaves every replaced photo with its row.</span></li>
+    <li><span class="box"></span><span>P5: the four measurements in the ticket; the owner has looked at the
+      peak.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope": a long-lived exiftool per worker, admission by memory, a single
+      decode of an RGB JPEG or PNG in <code>pixel_digest</code>, fewer copies in <code>load_rgb_image</code>.</li>
+    <li>Parallel hashing in the resume check: it reads files without decoding them, and stays serial in the main
+      process.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-30</div>Claude reads ticket ML-14 at <code>413f7b4</code>, after the owner's
+      review that decided D4&ndash;D13, and writes this plan. Three findings for the build, none needing a decision; no
+      questions open. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_strip_metadata_parallel.html">ML-14 ticket</a>,
+    <code>coffeecv/strip_metadata.py</code>, <code>coffeecv/photo_io.py</code>, <code>coffeecv/dataset.py</code>,
+    <code>coffeecv/find_duplicates.py</code>, <code>tests/test_strip_metadata.py</code>,
+    <code>tests/test_large_photos.py</code>.</footer>
+</main>
