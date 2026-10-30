@@ -47,8 +47,10 @@ A run (ticket ML-14):
     manifest gets its header with its first row, with the run's start time (D10);
   - a Ctrl-C cancels the photos not yet handed to the workers, waits for the others and writes every row done,
     then the report, and exits 130; a rerun does the rest (D4). A second Ctrl-C stops at once: the photos then
-    in progress keep their originals, each with a temporary copy (.<name>.*) beside it: a rerun skips it,
-    and it is deleted by hand before the folder is added to DVC.
+    in progress keep their originals (one its worker replaced in the instant before is left without its row),
+    each with a temporary copy (.<name>.*) beside it: a rerun skips it, and it is deleted by hand before the
+    folder is added to DVC. At --jobs 1, likewise, a Ctrl-C in the instant between a photo's replacement and
+    its row loses that row.
 """
 from __future__ import annotations
 
@@ -389,6 +391,13 @@ def new_row(path: Path) -> dict:
             "removed": "", "problems": [], "notes": []}
 
 
+def failing_row(path: Path, problem: str, row: dict | None = None) -> dict:
+    """`row` (by default a new one for `path`) with `problem` as its only problem."""
+    row = new_row(path) if row is None else row
+    row["problems"] = [problem]
+    return row
+
+
 def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
     """Strip `path` (or, with dry_run, only check what stripping would do). Returns its manifest row
     plus "problems"; raises nothing for a failed check -- the row says so and the original is kept.
@@ -483,9 +492,7 @@ def too_big(path: Path, budget: int) -> dict | None:
         return None
     if need <= budget:
         return None
-    row = new_row(path)
-    row["problems"] = [f"too big: about {need / GB:.3g} GB to decode, budget {budget / GB:.3g} GB"]
-    return row
+    return failing_row(path, f"too big: about {need / GB:.3g} GB to decode, budget {budget / GB:.3g} GB (--max-memory)")
 
 
 def run_one(path: Path, dry_run: bool) -> dict:
@@ -496,8 +503,7 @@ def run_one(path: Path, dry_run: bool) -> dict:
     try:
         return strip_one(path, dry_run, row)
     except Exception as e:
-        row["problems"] = [f"error: {type(e).__name__}: {e}"]
-        return row
+        return failing_row(path, f"error: {type(e).__name__}: {e}", row)
 
 
 def photos_under(dirs: list[Path]) -> tuple[list[Path], list[Path]]:
@@ -612,19 +618,18 @@ def _result(path: Path, future: Future) -> dict:
     try:
         return future.result()
     except Exception as e:
-        row = new_row(path)
-        row["problems"] = [f"error: {type(e).__name__}: {e}"]
-        return row
+        return failing_row(path, f"error: {type(e).__name__}: {e}")
 
 
 def _stop_at_once(futures: dict[Path, Future]) -> None:
-    """Cancels the photos not started and terminates the workers: the photos in progress keep their originals."""
+    """Cancels the photos not started and terminates the workers: a photo in progress keeps its original, unless its
+    worker had replaced it in the instant before, which leaves it stripped and without its row."""
     for f in futures.values():
         f.cancel()
     for proc in multiprocessing.active_children():
         proc.terminate()
-    print("stopped at once: the photos in progress keep their originals; their temporary copies (.<name>.*) are "
-          "beside them, to be deleted", file=sys.stderr, flush=True)
+    print("stopped at once: the photos in progress keep their originals (one replaced in the instant before has no "
+          "row); their temporary copies (.<name>.*) are beside them, to be deleted", file=sys.stderr, flush=True)
 
 
 def _take_done(checked: list[tuple[Path, dict | None]], futures: dict[Path, Future], rows: Rows, show: bool) -> None:
@@ -643,18 +648,17 @@ def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: boo
 
     Workers ignore SIGINT. The first Ctrl-C cancels the photos not yet started, waits for those in progress and takes
     every row done, in photo order, leaving out the photos that never ran (D4); a rerun does them. A second Ctrl-C
-    terminates the workers at once: the photos they had keep their originals, beside them a temporary copy."""
+    terminates the workers at once (_stop_at_once)."""
     # spawn: rawpy's LibRaw runs OpenMP, which can deadlock in a forked worker (as in coffeecv.find_duplicates).
     # The workers are spawned (by submit) while this process ignores SIGINT, so they ignore it from birth: a Ctrl-C
     # during a worker's imports, before its initializer runs, would kill it and break the pool.
     old_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    futures: dict[Path, Future] = {}
     try:
         pool = ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"),
                                    initializer=_ignore_sigint)
-        futures: dict[Path, Future] = {p: pool.submit(run_one, p, dry_run) for p, row in checked if row is None}
-    finally:
-        signal.signal(signal.SIGINT, old_handler)
-    try:
+        futures.update((p, pool.submit(run_one, p, dry_run)) for p, row in checked if row is None)
+        signal.signal(signal.SIGINT, old_handler)       # inside the try: a Ctrl-C from here on is handled below
         for p, row in checked:
             rows.take(p, row or _result(p, futures[p]))
     except KeyboardInterrupt:
@@ -665,8 +669,7 @@ def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: boo
         pool.shutdown(wait=False)
         running = [f for f in futures.values() if not f.done()]
         print(f"\nstopping: waiting for the {len(running)} photos already handed to the workers; Ctrl-C again to "
-              f"stop at once",
-              file=sys.stderr, flush=True)
+              f"stop at once", file=sys.stderr, flush=True)
         try:
             for f in running:
                 f.exception()                           # waits until it is done
@@ -676,6 +679,7 @@ def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: boo
         _take_done(checked, futures, rows, show=True)
         return True
     except BaseException:
+        signal.signal(signal.SIGINT, old_handler)
         # A row that cannot be taken (the manifest's disk full, or stdout closed, say): no worker may strip a photo
         # whose row will not be written, and the photos already done keep their rows if the manifest takes them.
         _stop_at_once(futures)

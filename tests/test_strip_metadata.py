@@ -20,7 +20,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -62,8 +62,8 @@ def manifest_rows(path: Path) -> list[dict]:
 
 
 def run_main(*argv: str) -> tuple[int, str]:
-    """sm.main's exit code and what it printed."""
-    with redirect_stdout(io.StringIO()) as out:
+    """sm.main's exit code and what it printed on stdout."""
+    with redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()):
         code = sm.main(list(argv))
     return code, out.getvalue()
 
@@ -369,7 +369,7 @@ class TestMemoryCeiling(unittest.TestCase):
         with mock.patch.object(sm, "pixel_digest", side_effect=AssertionError("decoded")):
             code, out = run_main(str(path), "--manifest", str(manifest), "--max-memory", "0.00001")
         self.assertEqual(code, 1)
-        self.assertRegex(out, r"a\.jpg: FAIL too big: about [0-9.e-]+ GB to decode, budget 1e-05 GB")
+        self.assertRegex(out, r"a\.jpg: FAIL too big: about [0-9.e-]+ GB to decode, budget 1e-05 GB \(--max-memory\)")
         self.assertEqual(sm.sha256_file(path), sha)
         self.assertFalse(manifest.exists())
 
@@ -410,10 +410,11 @@ class TestPool(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp)
 
     def mixed_set(self, folder: Path, real: tuple[Path, ...] = ()) -> Path:
-        """JPEG and HEIC fixtures with private tags, an already clean JPEG, and the `real` photos with private tags
-        added back."""
+        """JPEG and HEIC fixtures with private tags, an already clean JPEG, a truncated JPEG that fails, and the
+        `real` photos with private tags added back."""
         folder.mkdir()
-        write_fixture(folder / "a.jpg")
+        whole = write_fixture(folder / "a.jpg").read_bytes()
+        (folder / "a2.jpg").write_bytes(whole[:len(whole) // 2])         # decodes no further than its middle
         write_fixture(folder / "b.heic")
         Image.fromarray(np.random.default_rng(1).integers(0, 255, (48, 64, 3), dtype=np.uint8)).save(folder / "c.jpg")
         for photo in real:
@@ -443,9 +444,10 @@ class TestPool(unittest.TestCase):
                     runs.append(self.run_on(folder, "--jobs", jobs, *mode))
                 serial, parallel = runs
                 self.assertEqual(parallel, serial)
-                self.assertEqual(serial[0], 0)
-                self.assertEqual(serial[1].count("\n[") + serial[1].startswith("["), 3 + len(real))
-                self.assertEqual([r["path"] for r in serial[2]], [] if mode else sorted(serial[3]))
+                self.assertEqual(serial[0], 1)
+                self.assertIn("a2.jpg: FAIL error: OSError: image file is truncated", serial[1])
+                self.assertEqual(serial[1].count("\n[") + serial[1].startswith("["), 4 + len(real))
+                self.assertEqual([r["path"] for r in serial[2]], [] if mode else sorted(set(serial[3]) - {"a2.jpg"}))
 
     @real_data
     def test_a_parallel_run_matches_a_serial_one(self):
@@ -459,14 +461,12 @@ class TestPool(unittest.TestCase):
     @real_data
     def test_an_exception_in_a_worker_is_a_failing_row(self):
         photos = self.mixed_set(self.tmp / "photos")
-        whole = write_fixture(self.tmp / "whole.jpg").read_bytes()
-        (photos / "b2.jpg").write_bytes(whole[:len(whole) // 2])          # decodes no further than its middle
-        sha = sm.sha256_file(photos / "b2.jpg")
+        sha = sm.sha256_file(photos / "a2.jpg")
         code, out, rows, _ = self.run_on(photos, "--jobs", "2")
         self.assertEqual(code, 1)
-        self.assertRegex(out, r"<dir>/b2\.jpg: FAIL error: OSError: image file is truncated")
+        self.assertRegex(out, r"<dir>/a2\.jpg: FAIL error: OSError: image file is truncated")
         self.assertEqual([r["path"] for r in rows], ["a.jpg", "b.heic", "c.jpg"])
-        self.assertEqual(sm.sha256_file(photos / "b2.jpg"), sha)
+        self.assertEqual(sm.sha256_file(photos / "a2.jpg"), sha)
 
     @real_data
     def test_a_ctrl_c_leaves_every_stripped_photo_with_its_row(self):
