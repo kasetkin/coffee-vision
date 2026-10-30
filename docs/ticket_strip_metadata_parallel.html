@@ -14,7 +14,7 @@
     (2026-10-30); D14 accepts the measured peak.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D14 decided 2026-10-30; P1&ndash;P5 done 2026-10-30 (<code>db4e44c</code>&ndash;<code>c4de0cb</code>, merged in <code>9259ec1</code>); for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D15 decided 2026-10-30; P1&ndash;P5 done 2026-10-30 (<code>db4e44c</code>&ndash;<code>c4de0cb</code>, merged in <code>9259ec1</code>); D15's default <code>--jobs</code> after; for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -288,6 +288,11 @@
           budget; (c) open D13 (b), admission by memory.</td>
         <td><strong>(a)</strong>, 2026-10-30: 4 GB is fine, and 8 GB would be, with 10 GB of swap free. D13 (b) stays
           out of scope.</td></tr>
+      <tr><td class="id">D15</td><td>The default <code>--jobs</code>, raised (supersedes D12's formula).</td>
+        <td>The owner asked for 10 workers by default instead of D12's 6 on this machine. Claude recommended keeping a
+          memory term, so that a machine with less free does not start 10: <code>min(os.cpu_count(), 10, (memory
+          available + swap free) // 1 GB)</code>, read at the start; 10 here (12 cores, about 6.8 + 10 GB free).</td>
+        <td>2026-10-30, the owner: "raise default number of jobs from 6 to 10"; the formula as recommended.</td></tr>
     </tbody>
   </table></div>
 
@@ -375,6 +380,10 @@
       Ctrl-C's message saying that a photo replaced in the instant before has no row, and the parity tests with a failing
       photo. The full tier there: 641 of 643 green, the 2 errors the uncommitted photos in
       <code>dataset/random_date_raccoon</code>. For the owner to close.</div>
+    <div><div class="when">2026-10-30</div>The owner raised the default <code>--jobs</code> from 6 to 10 (D15): now
+      <code>min(CPU cores, 10, GB of memory and swap free at the start)</code>, which is 10 on this machine. A fast-tier
+      test checks the default for four machines (cores, memory and swap mocked). D13's per-photo ceiling is unchanged:
+      it counts memory only, not swap.</div>
   </div>
 
   <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,
