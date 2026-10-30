@@ -384,6 +384,19 @@
       <code>min(CPU cores, 10, GB of memory and swap free at the start)</code>, which is 10 on this machine. A fast-tier
       test checks the default for four machines (cores, memory and swap mocked). D13's per-photo ceiling is unchanged:
       it counts memory only, not swap.</div>
+    <div><div class="when">2026-10-30</div>The stripper's first run on real new photos, with the D15 default: the owner's
+      photos of 2026-10-30 in <code>dataset/random_date_raccoon/class_014__Colombia_Excelso</code> and
+      <code>dataset/segmenter_positives</code>. A dry run checked all 328 photos of the two folders, 34 with private
+      tags (GPS, C2PA, Sony maker notes, thumbnails, Google's HDR+ maker note), 0 failing; then <code>python -m
+      coffeecv.strip_metadata &lt;the two folders&gt; --manifest labels/ml3/strip_manifest.csv</code>: 203 photos to do
+      (125 already in the manifest with their bytes), 10 at once, a budget of 8.55 GB a photo; 34 stripped, 0 failing,
+      exit 0, 203 rows appended. The other 169 rows are photos already clean with no row under their present path
+      (159 with bytes recorded under another, among them 31 the owner renamed in <code>class_014__Colombia_Excelso</code>):
+      rows under the new paths, as earlier moves had. The manifest's rows are not committed yet: they go with the
+      photos' <code>dvc add</code>, and the records of the 31 renames are still to be updated (the owner's call
+      pending). The scripts written during this ticket, each run on real photos or real runs of the stripper, are
+      committed in <code>analysis/ml14/</code> (<code>README.md</code> there): the decode factors (P3), the D11
+      measurements and their output (P5), and the Ctrl-C checks of P4.</div>
   </div>
 
   <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,

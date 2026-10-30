@@ -1,0 +1,7 @@
+before 413f7b4, clean path	wall 132.7 s	peak 2.48 GB (1 processes)	available at start 6.3 GB	rc 0	DRY RUN: exiftool 13.25; 263 photos checked, 0 would be stripped, 0 failing
+before 413f7b4, full strip	wall 353.0 s	peak 2.31 GB (1 processes)	available at start 6.3 GB	rc 1	DRY RUN: exiftool 13.25; 263 photos checked, 255 would be stripped, 8 failing
+after, --jobs 1, clean path	wall 130.5 s	peak 2.20 GB (1 processes)	available at start 6.7 GB	rc 0	263 photos to do, 1 at once (--jobs 1); decode budget 5.77 GB a photo / DRY RUN: exiftool 13.25; 263 photos checked, 0 would be stripped, 0 failing
+after, --jobs 1, full strip	wall 335.7 s	peak 2.03 GB (1 processes)	available at start 6.6 GB	rc 1	263 photos to do, 1 at once (--jobs 1); decode budget 5.79 GB a photo / DRY RUN: exiftool 13.25; 263 photos checked, 255 would be stripped, 8 failing
+after, default --jobs, clean path	wall 42.8 s	peak 3.92 GB (8 processes)	available at start 6.8 GB	rc 0	263 photos to do, 6 at once (--jobs 6); decode budget 5.9 GB a photo / DRY RUN: exiftool 13.25; 263 photos checked, 0 would be stripped, 0 failing
+after, default --jobs, full strip	wall 100.9 s	peak 3.98 GB (8 processes)	available at start 6.8 GB	rc 1	263 photos to do, 6 at once (--jobs 6); decode budget 5.97 GB a photo / DRY RUN: exiftool 13.25; 263 photos checked, 255 would be stripped, 8 failing
+ALL DONE
