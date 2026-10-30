@@ -351,5 +351,51 @@ class TestRun(unittest.TestCase):
         self.assertFalse(self.manifest.exists())
 
 
+
+@unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")
+class TestMemoryCeiling(unittest.TestCase):
+    """ML-14 P3, D13 (a): a photo whose decode would need more memory than the budget fails before it is
+    decoded, its original untouched, rather than run the machine out of memory."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def test_a_photo_above_the_ceiling_fails_untouched(self):
+        path, manifest = write_fixture(self.tmp / "a.jpg"), self.tmp / "manifest.csv"
+        sha = sm.sha256_file(path)
+        with mock.patch.object(sm, "pixel_digest", side_effect=AssertionError("decoded")):
+            code, out = run_main(str(path), "--manifest", str(manifest), "--max-memory", "0.00001")
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"a\.jpg: FAIL too big: about [0-9.e-]+ GB to decode, budget 1e-05 GB")
+        self.assertEqual(sm.sha256_file(path), sha)
+        self.assertFalse(manifest.exists())
+
+    def test_estimate_per_format(self):
+        """Measured on 2026-10-30 (ML-14 P3), peak memory above the imports: 10 bytes per pixel for a JPEG,
+        12 for an RGBA PNG, 11 for a HEIC, 13 for a DNG. The estimate must not be below any of them."""
+        pixels = 64 * 96
+        im = Image.fromarray(np.zeros((64, 96, 4), np.uint8))
+        im.save(self.tmp / "a.png")
+        for path, at_least in [(write_fixture(self.tmp / "a.jpg"), 10), (self.tmp / "a.png", 12),
+                               (write_fixture(self.tmp / "a.heic"), 11)]:
+            self.assertGreaterEqual(sm.estimate_decode_bytes(path), at_least * pixels, path.name)
+            self.assertLess(sm.estimate_decode_bytes(path), 16 * pixels, path.name)
+
+    @real_data
+    @unittest.skipUnless(DNG.exists(), "the 2026-07-24 DNGs are not present (dvc pull)")
+    def test_estimate_of_a_dng_is_from_its_output_size(self):
+        import rawpy
+        with rawpy.imread(str(DNG)) as raw:
+            pixels = raw.sizes.width * raw.sizes.height
+        self.assertGreaterEqual(sm.estimate_decode_bytes(DNG), 13 * pixels)
+        self.assertLess(sm.estimate_decode_bytes(DNG), 16 * pixels)
+
+    @real_data
+    @unittest.skipUnless(GALAXY_200MP.exists(), "the 2026-10-28 200 MP photo is not present (dvc pull)")
+    def test_estimate_of_the_200_mp_photo_covers_its_measured_peak(self):
+        self.assertGreaterEqual(sm.estimate_decode_bytes(GALAXY_200MP), 1.95e9)   # measured 2026-10-30
+
+
 if __name__ == "__main__":
     unittest.main()

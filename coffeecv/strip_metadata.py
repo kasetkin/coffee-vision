@@ -108,6 +108,14 @@ LAYOUT_TAGS = {"MPImageStart", "MPImageLength", "FileSize", "ExifByteOrder", "XM
 
 MANIFEST_FIELDS = ["path", "sha256_before", "sha256_after", "pixel_sha256", "removed"]
 
+GB = 10**9
+# pixel_digest's peak memory above the imports, per pixel, measured 2026-10-30 (ticket ML-14 P3; each photo in its
+# own process, 12-200 MP, the same at every size): a JPEG 10.0 (RGB or grey), an RGBA PNG 12.0, a HEIC 11.0 (per
+# pixel of its top-level images, Apple's auxiliary images included), a DNG 13.0 (per pixel of rawpy's output size).
+# Rounded up. The stripped copy is decoded after the photo, never beside it.
+DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".heic": 12, ".heif": 12,
+                          **dict.fromkeys(RAW_EXTENSIONS, 14)}
+
 
 class StripError(Exception):
     """A photo failed a check; its original is untouched."""
@@ -409,6 +417,48 @@ def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
         tmp.unlink(missing_ok=True)
 
 
+def estimate_decode_bytes(path: Path) -> int:
+    """About the memory pixel_digest needs for `path`, from its dimensions in the file's header: nothing is
+    decoded. Raises what opening the file raises."""
+    ext = path.suffix.lower()
+    if ext in RAW_EXTENSIONS:
+        with rawpy.imread(str(path)) as raw:
+            pixels = raw.sizes.width * raw.sizes.height
+    elif ext in HEIF_EXTENSIONS:
+        pixels = sum(img.size[0] * img.size[1] for img in pillow_heif.open_heif(str(path)))
+    else:
+        with Image.open(path) as im:
+            pixels = im.size[0] * im.size[1]
+    return pixels * DECODE_BYTES_PER_PIXEL[ext]
+
+
+def available_memory() -> int:
+    """Bytes of memory available now: /proc/meminfo's MemAvailable, else the free physical pages."""
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+    except OSError:
+        pass
+    return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+
+
+def too_big(path: Path, budget: int) -> dict | None:
+    """A failing row for `path` if decoding it would need more than `budget` bytes, else None (ML-14 D13): it fails
+    rather than run the machine out of memory, and not as a skip, which would let it keep its private tags and the
+    run pass. A header that cannot be read is left to run_one, which meets the same error."""
+    try:
+        need = estimate_decode_bytes(path)
+    except Exception:
+        return None
+    if need <= budget:
+        return None
+    row = new_row(path)
+    row["problems"] = [f"too big: about {need / GB:.3g} GB to decode, budget {budget / GB:.3g} GB"]
+    return row
+
+
 def run_one(path: Path, dry_run: bool) -> dict:
     """strip_one, with an exception made a failing row for its photo (ML-14 D5): the run goes on, and the
     photo, whose original strip_one replaces only after every check, keeps its bytes. A KeyboardInterrupt is
@@ -519,6 +569,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="strip copies and check them; change nothing")
     ap.add_argument("--report", type=Path, help="also write the per-folder report here")
     ap.add_argument("--header", action="append", default=[], help="extra '# ...' line for a new manifest")
+    ap.add_argument("--max-memory", type=float,
+                    help="GB one photo's decode may take; a photo above it fails undecoded [available at the start, "
+                         "less 1 GB]")
     args = ap.parse_args(argv)
     if not args.dry_run and not args.manifest:
         ap.error("--manifest is required unless --dry-run")
@@ -526,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
     photos, other = photos_under([d.resolve() if not d.is_absolute() else d for d in args.dirs])
     started = datetime.now(timezone.utc)
     version = exiftool_version()
+    budget = int(args.max_memory * GB) if args.max_memory is not None else available_memory() - GB
     todo = photos
     if args.manifest and not args.dry_run:
         todo, changed = resume_check(photos, read_manifest(args.manifest))
@@ -551,7 +605,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         for p in todo:
-            take(p, run_one(p, args.dry_run))
+            take(p, too_big(p, budget) or run_one(p, args.dry_run))
     except KeyboardInterrupt:
         # strip_one's finally has removed its temporary file; every row taken is in the manifest already.
         interrupted = True
