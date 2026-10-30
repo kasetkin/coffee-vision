@@ -16,5 +16,5 @@ dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
 dataset/2026-09-11__sony/class_011__Peru_Minca/PIC_20260911_124657.JPG
 dataset/2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_145542.JPG
 dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260926_122041643.jpg
-dataset/random_date_raccoon/class_014__Colombia_Excelso/PXL_20260927_105921144.jpg
+dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg
 dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085406116.jpg
