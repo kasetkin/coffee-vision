@@ -389,9 +389,10 @@ class CommittedFile(unittest.TestCase):
         # (2026-10-25), its entry with it: the one exception to append-only (D11). 2026-10-26 the 10 positives whose
         # masks the owner declined and the pool draw's 10. 2026-10-27 the 44 Colombia and Guatemala positives (ML-13
         # D1) and the pool draw's 44. 2026-10-28 32 Brazil and Kenya positives and the pool draw's 32,
-        # then the day's 200 MP photo, once the dataset tools read it, and the pool draw's 1.
+        # then the day's 200 MP photo, once the dataset tools read it, and the pool draw's 1. 2026-10-30 7 Brazil
+        # positives and the pool draw's 7.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 263, "pool": 263, "negative": 613, "internet_positive": 11})
+                         {"segmenter_positive": 270, "pool": 270, "negative": 613, "internet_positive": 11})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}

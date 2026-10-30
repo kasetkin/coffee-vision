@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 263 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 270 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,23 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-10-30: 7 Brazil grinder-hopper photos
+
+- **New photos** (batch `2026-10-30`): 7 grinder-hopper photos of Brazil beans, shot on a Pixel 9 Pro on 2026-10-29
+  between 11:15:00 and 11:16:10 local, named `20261029_HHMMSS_Pixel_9_Pro_Brazil`: three from above with the counter
+  around the hopper (one wide, with a person beside it), one close from above, two close with beans filling the frame
+  or against the hopper wall, and one from the side (landscape). Two are 50 MP (6144x8160), the others 12 MP.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  nearest 0.69). No two are within ADR 0029's 3 s (the nearest, `111604`/`111610`, 6 s apart).
+- **Metadata** (ticket ML-3, D13): all 7 carried private tags (EXIF GPS, C2PA, Google's HDR+ maker note, EXIF
+  thumbnails) and were stripped with `coffeecv.strip_metadata`, the first run of ticket ML-14's parallel stripper,
+  0 checks failing; rows in `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 270 photos here clean.
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 7 (train 4, validation 1, test 2), with 7
+  pool photos topping the draw up to 270.
+- **Renamed originals**: the same day the owner renamed 31 photos of `random_date_raccoon/class_014__Colombia_Excelso`
+  (bytes unchanged) to the `YYYYMMDD_HHMMSS_<phone>_Colombia` form; the 7 `duplicate_of` entries naming them here
+  follow the new names. The copies here keep their own file names.
 
 ## 2026-10-28: 33 Brazil and Kenya grinder-hopper photos
 
