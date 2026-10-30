@@ -26,17 +26,21 @@ ARG USER_GID=1000
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 
-# Dirs this user owns: bash history, Claude config, Jupyter/IPython state, uv cache
+# Dirs this user owns: bash and zsh history, Claude config, Jupyter/IPython state, uv cache
 # (all volume-mounted), workspace.
 RUN mkdir -p /commandhistory /workspace /home/$USERNAME/.claude \
         /home/$USERNAME/.ipython /home/$USERNAME/.jupyter /home/$USERNAME/.cache/uv \
-    && touch /commandhistory/.bash_history \
+    && touch /commandhistory/.bash_history /commandhistory/.zsh_history \
     && chown -R $USERNAME:$USERNAME /commandhistory /workspace /home/$USERNAME/.claude \
         /home/$USERNAME/.ipython /home/$USERNAME/.jupyter /home/$USERNAME/.cache
 
-# Persist history to that volume, flushed after every command.
+# Persist history to that volume, flushed after every command. zsh's goes in ~/.zshenv: the
+# common-utils feature writes ~/.zshrc after this build, and oh-my-zsh keeps a HISTFILE already set
+# (its share_history option writes each command as it runs).
 RUN echo "export PROMPT_COMMAND='history -a'" >> /home/$USERNAME/.bashrc \
-    && echo "export HISTFILE=/commandhistory/.bash_history" >> /home/$USERNAME/.bashrc
+    && echo "export HISTFILE=/commandhistory/.bash_history" >> /home/$USERNAME/.bashrc \
+    && echo "HISTFILE=/commandhistory/.zsh_history" >> /home/$USERNAME/.zshenv \
+    && chown $USERNAME:$USERNAME /home/$USERNAME/.zshenv
 
 # uv, the version both pyproject.toml and webapp/pyproject.toml require. Version and
 # tarball sha256 match UV_VERSION/UV_TARBALL_SHA256 in scripts/deploy_webapp.sh.
