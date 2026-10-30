@@ -16,7 +16,7 @@ from coffeecv.bean_scale import estimate_bean_pitch
 from coffeecv.class_list import ClassList
 # load_rgb_image and RAW_EXTENSIONS moved to coffeecv.photo_io (ticket ML-7 P8: the web service decodes photos
 # without importing torch); imported here for the callers that read them from this module.
-from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image  # noqa: F401
+from coffeecv.photo_io import DATASET_MAX_PIXELS, RAW_EXTENSIONS, load_rgb_image  # noqa: F401
 from coffeecv.geometry import (
     Region,
     assert_jitter_fits,
@@ -28,12 +28,9 @@ from coffeecv.geometry import (
     sample_scaled_patch_boxes,
 )
 
-# Pillow refuses a photo above twice Image.MAX_IMAGE_PIXELS (89.5 MP by default, so 179 MP) as a possible
-# decompression bomb, and warns above it. The dataset's photos are the owner's own, and a phone's 200 MP mode
-# (16320x12240, 2026-10-28) is above the default, so a process that imports this module warns only above 268 MP and
-# refuses above 537 MP. The web service never imports it (webapp/deploy/release_manifest.py LIBRARY): an upload keeps
-# Pillow's default (tests/test_large_photos.py).
-DATASET_MAX_PIXELS = 2**28
+# The dataset's pixel limit (coffeecv.photo_io DATASET_MAX_PIXELS): a process that imports this module warns only
+# above 268 MP and refuses above 537 MP. The web service never imports it (webapp/deploy/release_manifest.py
+# LIBRARY): an upload keeps Pillow's default (tests/test_large_photos.py).
 Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS
 
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
