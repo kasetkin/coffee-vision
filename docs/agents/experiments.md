@@ -25,7 +25,7 @@ A new segmenter decoder or tiny-mask threshold in `params.yaml` (`seg_decoder`, 
 2. Retrain the classifier as a recorded run (seeds 42/123/7) and compare against the previous segmenter's runs; refit the OOD probe on the shipped candidate.
 3. Convert the shipped candidate for serving (below).
 
-The DINOv3 fixture (`tests/fixtures/dinov3_vits16_reference.npz`) is no step here since ML-13 (D9): its patches come from the original photos listed in `coffeecv_dino/reference_photos.txt`, which no re-crop touches. Until then every re-crop turned `test_dino_backbone.test_matches_meta_reference` red and the fixture was regenerated (ML-3 P2b, ML-5 P11, ML-6 P8, ML-8 P5, XL0-v5). Regenerate it (`python scripts/make_dinov3_fixture.py`, which clones and runs Meta's dinov3 at a pinned commit; the owner runs it, or says Claude may) only when the list or the draw changes.
+The DINOv3 fixture (`tests/fixtures/dinov3_vits16_reference.npz`) is no step here since ML-13 (D9): its patches come from the original photos listed in `coffeecv_dino/reference_photos.txt`, which no re-crop touches. Until then every re-crop turned `test_dino_backbone.test_matches_meta_reference` red and the fixture was regenerated (ML-3 P2b, ML-5 P11, ML-6 P8, ML-8 P5, XL0-v5). Regenerate it (`python scripts/make_dinov3_fixture.py`, which clones and runs Meta's dinov3 at a pinned commit; the owner runs it, or says Claude may) only for another photo, another draw or a backbone change. A renamed reference photo needs no rerun: its line keeps the old path as its draw key (ML-14 D16), and `test_dino_backbone` holds the list to the fixture's keys and photo hashes.
 
 ## Converting a candidate for serving
 

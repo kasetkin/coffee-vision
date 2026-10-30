@@ -6,8 +6,8 @@ License covers the code as well as the weights, and a public repo must not redis
 fixture holds only model *outputs*, which the licence does not restrict. The input is real: one bean
 patch per class from the listed original photos (coffeecv_dino/reference_photos.txt), drawn by
 coffeecv_dino.reference exactly as the test redraws it. Since ticket ML-13 (D9) the draw reads the originals in
-dataset/, not the pool's crops, so a re-crop leaves the fixture as it is; only a change to the list, the draw or
-the backbone calls for this script.
+dataset/, not the pool's crops, so a re-crop leaves the fixture as it is; since ML-14 (D16) a renamed photo keeps its
+draw key in the list, so a rename does too. Only another photo, another draw or a backbone change calls for this script.
 
     python scripts/make_dinov3_fixture.py                 # clones facebookresearch/dinov3 into a temp dir
     python scripts/make_dinov3_fixture.py --repo /path/to/existing/clone
@@ -26,7 +26,8 @@ import numpy as np
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coffeecv_dino.reference import PATCH_SIDE, REFERENCE_SEED, reference_patches, reference_photos  # noqa: E402
+from coffeecv.repo_files import sha256_file  # noqa: E402
+from coffeecv_dino.reference import PATCH_SIDE, REFERENCE_SEED, folder_of, reference_entries, reference_patches  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 META_URL = "https://github.com/facebookresearch/dinov3.git"
@@ -60,7 +61,12 @@ def main() -> int:
         cls = out["x_norm_clstoken"].numpy()
         cls_mean = np.concatenate([cls, out["x_norm_patchtokens"].mean(dim=1).numpy()], axis=1)
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(OUT, cls=cls, cls_mean=cls_mean, patch_side=PATCH_SIDE, photos=np.array(reference_photos()),
+    # In the patches' order (by class folder): each photo, the key its boxes were drawn by and its bytes' sha256, which
+    # the test holds the list to (ML-14 D16).
+    entries = sorted(reference_entries(), key=lambda e: folder_of(e[0]))
+    np.savez(OUT, cls=cls, cls_mean=cls_mean, patch_side=PATCH_SIDE, photos=np.array([p for p, _ in entries]),
+             draw_keys=np.array([k for _, k in entries]),
+             photo_sha256=np.array([sha256_file(REPO_ROOT / p) for p, _ in entries]),
              seed=REFERENCE_SEED, per_class=PER_CLASS,
              class_ids=np.array(class_ids), meta_commit=META_COMMIT, weights=WEIGHTS.name)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}: cls {cls.shape}, cls_mean {cls_mean.shape} "
