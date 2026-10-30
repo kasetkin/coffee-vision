@@ -9,14 +9,15 @@
   <h1>coffeecv.strip_metadata strips and checks several photos at once</h1>
   <p class="lede">The owner asked for the metadata stripper to use more than one core. Today it handles one photo
     at a time. For each photo it runs exiftool three times and decodes the full image twice, so a batch of 50 MP photos
-    keeps one core busy while the others sit idle. Written; D1&ndash;D3 decided; not planned, not implemented.</p>
+    keeps one core busy while the others sit idle. Written; D1&ndash;D13 decided; planned
+    (<a href="plan_strip_metadata_parallel.html">plan</a>, P1&ndash;P5); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D3 decided 2026-10-30; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D3 decided 2026-10-30; D4&ndash;D13 decided 2026-10-30; planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/strip_metadata.py</code>, <code>tests/test_strip_metadata.py</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/strip_metadata.py</code>, <code>tests/test_strip_metadata.py</code>, <code>coffeecv/photo_io.py</code> and <code>coffeecv/dataset.py</code> (the pixel limit, D8)</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-28</span></div>
@@ -32,12 +33,15 @@
   <p>Today <code>python -m coffeecv.strip_metadata DIR... --manifest ...</code> strips and checks the photos one after
     another, and a <code>--dry-run</code> checks them the same way. After this ticket, it works on several photos at
     once, up to a <code>--jobs</code> count. Each photo gets the same checks and the same manifest row as before. The
-    rows and the report come out in the same order as before. The work splits into four parts:</p>
+    rows and the report come out in the same order as before. The work splits into six parts:</p>
   <ul>
-    <li>a pool of workers that run <code>strip_one</code>;</li>
-    <li>a <code>--jobs</code> argument;</li>
-    <li>keeping the manifest and the report in the same order;</li>
-    <li>a check that a parallel run writes what a serial run writes.</li>
+    <li>a pool of workers that run <code>strip_one</code>, without torch (D1, D8);</li>
+    <li>a <code>--jobs</code> argument, its default set by free memory (D7, D12);</li>
+    <li>keeping the manifest, the progress lines and the report in the same order, with each row written as soon as
+      it can be (D3, D9, D10);</li>
+    <li>a run that survives a failing photo and a Ctrl-C without losing rows (D4, D5, D6);</li>
+    <li>a ceiling on the memory one photo may need to decode (D13);</li>
+    <li>a check that a parallel run writes what a serial run writes, and measurements before and after (D11).</li>
   </ul>
 
   <h2>2. Background</h2>
@@ -73,6 +77,52 @@
       8160x6120 JPEGs, 5712x4284 HEICs), and each was decoded four times: the photo and the stripped copy, by
       <code>load_rgb_image</code> and by Pillow's own decode.</li>
   </ul>
+  <p>Read again at <code>413f7b4</code> and measured on 2026-10-30, during the owner's review of the ticket:</p>
+  <ul>
+    <li><b>An exception aborts the run today.</b> <code>strip_one</code> turns a failed check into a failing row, but
+      not an exception: a <code>StripError</code> from <code>read_tags</code> or <code>_heif_meta</code>, or a decode
+      error, ends <code>main</code> before <code>append_manifest</code>, so every photo already replaced on disk is left
+      without a row (D5).</li>
+    <li><b>The resume check aborts mid-run.</b> A photo already in the manifest whose bytes are not its
+      <code>sha256_after</code> makes <code>main</code> return 1 where the loop reaches it, after the photos before it
+      have been stripped, and with no rows written (D6).</li>
+    <li><b>Every worker would import torch.</b> <code>strip_metadata</code> takes <code>load_rgb_image</code> from
+      <code>coffeecv.dataset</code>, which imports torch: 2.5&ndash;3.5 s and 323 MB per process. Importing
+      <code>coffeecv.photo_io</code> instead costs 0.3 s and 40 MB. <code>coffeecv.dataset</code> is also what raises
+      Pillow's pixel limit to 537 MP (<code>6185f45</code>), so the limit has to move with the import (D8).</li>
+    <li><b>The peak memory is in the decode.</b> <code>pixel_digest</code> returns a hash, so a photo and its stripped
+      copy are never decoded at the same time. The peak is inside <code>load_rgb_image</code>, which holds about three
+      copies of the image at once: 1.9 GB above the imports for a 200 MP JPEG, about 10 bytes per pixel. Hashing the
+      array's buffer instead of a <code>tobytes()</code> copy does not lower it.</li>
+    <li><b>Most photos to hand are already stripped.</b> A dry run on a stripped photo returns early: one exiftool
+      process and one <code>pixel_digest</code>, against three and two for a photo with tags to remove. Timing a full
+      strip needs copies with private tags added back (D11).</li>
+    <li><b>Measured per photo</b> (one dry run each, in its own process, on copies in <code>/tmp</code>; the full strip
+      on a copy with the test suite's private tags added back):
+      <div class="table-wrap"><table>
+        <thead><tr><th>Photo</th><th>Clean path</th><th>Full strip</th><th>Peak RSS, full strip (torch imported)</th></tr></thead>
+        <tbody>
+          <tr><td>12 MP JPEG</td><td>0.6 s</td><td>1.2 s</td><td>0.45 GB</td></tr>
+          <tr><td>12 MP HEIC</td><td>0.7 s</td><td>1.2 s</td><td>0.50 GB</td></tr>
+          <tr><td>49 MP HEIC</td><td>2.8 s</td><td>3.7 s</td><td>0.95 GB</td></tr>
+          <tr><td>50 MP JPEG</td><td>1.9 s</td><td>2.5 s</td><td>0.86 GB</td></tr>
+          <tr><td>DNG</td><td>4.3 s</td><td>8.2 s</td><td>0.95 GB</td></tr>
+          <tr><td>200 MP JPEG</td><td>8.1 s</td><td>12.1 s</td><td>2.45 GB</td></tr>
+        </tbody>
+      </table></div>
+      Decoding is 70&ndash;90% of each photo's time and each exiftool process 0.2&ndash;0.4 s, so a full strip takes
+      1.3&ndash;2 times the clean path. The parallel run makes no photo faster; it runs them side by side. From the mix
+      in <code>dataset/segmenter_positives</code>, a serial run is estimated at about 4 min on the clean path and 7 min
+      for a full strip; it can never be shorter than its slowest photo. The machine has 12 cores and 13 GB, about 8 GB
+      of it free: 12 workers on 50 MP photos need about 7.7 GB without torch and about 11 GB with it.</li>
+    <li><b>Other decoders.</b> The nomacs viewer decodes through Qt's <code>QImageReader</code> (libjpeg-turbo; HEIC
+      through kimageformats and libheif), LibRaw and exiv2, at full size, with no scaled or tiled decode and Qt's
+      allocation limit left as it is. These are the libraries Pillow, pillow-heif and rawpy already wrap. OpenCV 5 is
+      installed but uses the same libjpeg-turbo and is not what training decodes; pyvips could stream a decode but is a
+      new system dependency and also not training's decoder; a scaled decode (Pillow's <code>draft</code>, LibRaw's
+      half size) cannot prove the pixels unchanged. The 200 MP photo needs no new library: Pillow decodes it in about
+      5 s under the dataset's 537 MP limit (D8).</li>
+  </ul>
 
   <h2>3. Before and after</h2>
   <div class="compare">
@@ -82,14 +132,20 @@
         <li>One photo at a time, on one core.</li>
         <li>No way to choose the number of workers.</li>
         <li>The manifest is appended once, after the last photo.</li>
+        <li>An exception, a resume-check mismatch or a Ctrl-C ends the run with the rows of the photos already
+          stripped unwritten.</li>
+        <li>No limit on the memory one photo may take, apart from Pillow's 537 MP.</li>
       </ul>
     </div>
     <div>
       <h3>After</h3>
       <ul>
-        <li>Up to <code>--jobs</code> photos at once.</li>
-        <li>The same checks and rows per photo. The manifest and the report are in photo order.</li>
+        <li>Up to <code>--jobs</code> photos at once; by default as many as free memory allows (D12).</li>
+        <li>The same checks and rows per photo. The manifest, the progress lines and the report are in photo order.</li>
         <li>Each manifest row is written as soon as its photo and every photo before it are done (D3).</li>
+        <li>An exception gives a failing row (D5); the resume check runs before any work (D6); a Ctrl-C writes every
+          finished row (D4).</li>
+        <li>A photo that would need more memory than the budget fails before it is decoded (D13).</li>
       </ul>
     </div>
   </div>
@@ -97,9 +153,11 @@
   <h2>4. What does not change</h2>
   <ul>
     <li><strong>What is stripped and checked.</strong> The deny list, the kept fields, the pixel, tag and audit checks,
-      and the Samsung trailer cut stay as they are. Parallel and serial runs give the same rows.</li>
+      and the Samsung trailer cut stay as they are. Parallel and serial runs give the same rows. So does
+      <code>pixel_digest</code>: a photo's <code>pixel_sha256</code> is what it was before this ticket.</li>
     <li><strong>The manifest's format.</strong> The same columns and header lines, and the same order: rows follow
-      <code>photos_under</code>'s sorted order, whatever order the workers finish in.</li>
+      <code>photos_under</code>'s sorted order, whatever order the workers finish in. Only the header's
+      <code>started</code> time changes, to the run's real start (D10).</li>
     <li><strong>How a photo is replaced.</strong> The new file is written beside the photo, checked, then moved over
       the original with <code>os.replace</code>, so the cache file DVC links from the working tree is never written
       through.</li>
@@ -112,19 +170,28 @@
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>Memory runs out on large photos.</strong></td>
-        <td>A 50 MP photo decodes to about 150 MB of RGB, and the pixel check holds a photo and its copy, plus each
-          HEIC auxiliary image. With one worker per core on 12 cores, that is a few GB at the peak. D2 sets the default
-          worker count. A measurement on the 2026-10-28 batch decides it.</td></tr>
+        <td>Corrected 2026-10-30: the pixel check never holds a photo and its copy at once (§2). The peak is one
+          decode inside <code>load_rgb_image</code>, about 10 bytes per pixel: 0.5 GB for a 50 MP photo, 1.9 GB for a
+          200 MP one, plus 40 MB of imports per worker once torch is gone (D8). D12 sets the default worker count from
+          free memory, and D13 fails a photo too big for the budget before it is decoded.</td></tr>
       <tr><td class="id">R2</td><td><strong>An interrupted run loses the rows of the photos it has already stripped.</strong></td>
         <td>This already happens (§2). More photos in progress at once means more are lost when a run is interrupted.
-          D3 decides whether to write each row as its photo is done.</td></tr>
+          D3 writes each row once its photo and every earlier one are done. That still leaves the photos that finished
+          behind a slower earlier one; D4 writes those too on a Ctrl-C.</td></tr>
       <tr><td class="id">R3</td><td><strong>The output changes order.</strong></td>
         <td>Workers finish out of order. The progress lines may come out in that order, but the rows, the report and
           the exit code must not depend on it. A test compares a parallel run with a serial one on the same
           photos.</td></tr>
       <tr><td class="id">R4</td><td><strong>A worker fails and the photo has no row.</strong></td>
         <td>An exception in a worker (an undecodable photo, for example) must end as a failing row for that photo, as
-          a failed check does today, not as a lost row or an aborted run with photos half replaced.</td></tr>
+          a failed check does, not as a lost row or an aborted run with photos half replaced. Corrected 2026-10-30:
+          today an exception aborts the whole run (§2), so D5 changes the serial run as well.</td></tr>
+      <tr><td class="id">R5</td><td><strong>Several big photos run at once.</strong></td>
+        <td>D13 bounds one photo, not the sum: eight workers that each take a 200 MP photo would need about 16 GB.
+          D12's default assumes about 1 GB per worker, which holds for the photos to hand (one 200 MP photo among the 263 in
+          <code>segmenter_positives</code>). If a run does run out of memory, the fallback is admission by memory: a
+          photo is submitted only while the estimates in flight, its own included, fit the budget (Out of
+          scope).</td></tr>
     </tbody>
   </table></div>
 
@@ -144,7 +211,7 @@
           (R1); (c) 1, so parallel runs happen only when asked for.</td>
         <td><strong>(b)</strong>, 2026-10-30, as recommended: <code>--jobs</code> is built with a provisional
           default of <code>os.cpu_count()</code>; the peak memory per worker is then measured on the 2026-10-28 batch
-          (its 50 MP photos), and the owner sets the cap from that measurement.</td></tr>
+          (its 50 MP photos), and the owner sets the cap from that measurement. The cap is D12.</td></tr>
       <tr><td class="id">D3</td><td>When are manifest rows written?</td>
         <td>(a) at the end, as today; (b) each row as its photo is done, so an interrupted run keeps its records (R2).
           Rows would then be in completion order, unless they are sorted when the manifest is read or written.
@@ -152,7 +219,68 @@
           (as <code>pool.map</code> gives them), so the rows stay in <code>photos_under</code>'s order, and an
           interrupted run loses only the rows of the photos still in progress. An exception in a worker is caught in
           the worker and becomes a failing row for its photo (R4).</td>
-        <td><strong>(c)</strong>, 2026-10-30, as recommended.</td></tr>
+        <td><strong>(c)</strong>, 2026-10-30, as recommended. Refined by D4: with results taken in submission order,
+          photos that finish behind a slower earlier one wait for it, so an interruption would lose their rows too.</td></tr>
+      <tr><td class="id">D4</td><td>What does a Ctrl-C do?</td>
+        <td>(a) As D3 stands: the rows of the photos in progress, and of those finished behind a slower earlier one, are
+          lost. (b) Workers ignore SIGINT. On the first Ctrl-C the main process cancels the photos not yet started, waits
+          for the running ones, and writes every finished row in photo order, leaving gaps where photos never ran; a
+          rerun appends the gaps, as reruns already append. A second Ctrl-C aborts at once.</td>
+        <td><strong>(b)</strong>, 2026-10-30, as recommended. An interrupted run then loses no rows unless it is
+          killed outright.</td></tr>
+      <tr><td class="id">D5</td><td>What does an exception do?</td>
+        <td>A wrapper around <code>strip_one</code> catches <code>Exception</code> (not <code>BaseException</code>, so a
+          Ctrl-C stays D4's) and makes it a failing row for its photo, e.g. <code>error: StripError: ...</code>; the run
+          goes on. The same at <code>--jobs 1</code>, which changes today's serial run (§2). A failing row goes to the
+          report and the exit code, never to the manifest, as today.</td>
+        <td>2026-10-30, as recommended.</td></tr>
+      <tr><td class="id">D6</td><td>When does the resume check run?</td>
+        <td>Every photo already in the manifest is hashed in the main process before any work starts. A mismatch exits
+          1 with nothing changed.</td>
+        <td>2026-10-30, as recommended.</td></tr>
+      <tr><td class="id">D7</td><td>What does <code>--jobs 1</code> do?</td>
+        <td>(a) It runs in the main process, with no pool. (b) It runs a pool of one.</td>
+        <td><strong>(a)</strong>, 2026-10-30, as recommended. It is the serial run the acceptance compares against: no
+          spawn, a debugger works, and the existing tests that mock keep working. The parallel tests use real files,
+          since a mock does not reach a spawned worker.</td></tr>
+      <tr><td class="id">D8</td><td>How do workers avoid torch, and which decoder and pixel limit do they use?</td>
+        <td>Import <code>load_rgb_image</code> from <code>coffeecv.photo_io</code>. <code>DATASET_MAX_PIXELS</code> moves
+          to <code>photo_io</code>, unassigned there, and <code>dataset</code> and <code>strip_metadata</code> each set
+          Pillow's limit to it; <code>photo_io</code> itself must not, as the web service imports it and keeps Pillow's
+          default (<code>6185f45</code>). Alternatives looked at (§2): leave torch in every worker; drop to Pillow's
+          179 MP; OpenCV, pyvips, or a scaled decode.</td>
+        <td>2026-10-30, as recommended, after the owner asked for the libraries that load big photos, nomacs's
+          included, to be compared (§2): Pillow stays, without torch, at 537 MP.</td></tr>
+      <tr><td class="id">D9</td><td>In which order do the progress lines come?</td>
+        <td>(a) In photo order, each printed when its row is written. (b) In completion order.</td>
+        <td><strong>(a)</strong>, 2026-10-30, as recommended: the same output at any <code>--jobs</code>, matching the
+          manifest. A slow photo holds back the lines after it.</td></tr>
+      <tr><td class="id">D10</td><td>How is the manifest written?</td>
+        <td>A new manifest gets its header with the first good row, as today, so a run with no good row writes no file.
+          The header's <code>started</code> is taken at the run's start (today it is taken after the loop). Each row is
+          flushed as it is written, with no <code>fsync</code>.</td>
+        <td>2026-10-30, as recommended.</td></tr>
+      <tr><td class="id">D11</td><td>What does the acceptance measure?</td>
+        <td>(a) A dry run on <code>dataset/segmenter_positives</code> only, which takes the clean path (§2). (b) That,
+          and a dry run on a copy of the folder in <code>/tmp</code> with private tags added back, which takes the
+          full-strip path; each serial and at the default <code>--jobs</code>.</td>
+        <td><strong>(b)</strong>, 2026-10-30. Nothing under <code>dataset/</code> is written.</td></tr>
+      <tr><td class="id">D12</td><td>The cap D2 asks for.</td>
+        <td>(a) A fixed default the owner picks. (b) <code>min(os.cpu_count(), available memory // 1 GB)</code>, read
+          at the start. (c) A fixed default plus a check on each photo's size before it is submitted.</td>
+        <td><strong>(b)</strong>, 2026-10-30, as recommended, with D13 added: about 8 workers on this machine. The
+          1 GB is from the measurement in §2.</td></tr>
+      <tr><td class="id">D13</td><td>How is a photo too big to decode caught?</td>
+        <td>The main process reads each photo's dimensions from its header, decoding nothing, and estimates its decode
+          memory: about 10 bytes per pixel (§2), with a factor per format (JPEG and PNG, HEIC, RAW from rawpy's sizes)
+          measured in the plan. (a) A ceiling only: a photo whose estimate is above it fails before it is decoded;
+          <code>--jobs</code> stays D12's. (b) The ceiling, plus admission by memory: a photo is submitted only while the
+          estimates in flight, its own included, fit the budget. The ceiling is the memory available at the start
+          minus 1 GB, or <code>--max-memory</code>. A photo above it gets a failing row, "too big: about N GB to decode,
+          budget M GB": its original untouched, no manifest row, exit code 1. Not a skip with a warning, which would
+          let a photo keep its private tags and the run pass.</td>
+        <td><strong>(a)</strong>, 2026-10-30, with (b) kept as the fallback if a run runs out of memory (R5, Out of
+          scope). The ceiling and the over-ceiling row as recommended.</td></tr>
     </tbody>
   </table></div>
 
@@ -164,19 +292,32 @@
       (timestamps aside), the same report and the same exit code. This is checked on a mixed set of JPEG, HEIC, DNG
       and an already clean photo.</span></li>
     <li><span class="box"></span><span>A worker that raises gives a failing row for its photo. The other photos are
-      still handled.</span></li>
-    <li><span class="box"></span><span>The wall time and peak memory of a dry run on <code>dataset/segmenter_positives</code>
-      (262 photos), before and after, are recorded in the ticket.</span></li>
-    <li><span class="box"></span><span>The module docstring describes <code>--jobs</code> and D3's manifest
-      behaviour.</span></li>
+      still handled. The same at <code>--jobs 1</code> (D5).</span></li>
+    <li><span class="box"></span><span>A manifest photo whose bytes are not its <code>sha256_after</code> ends the run
+      with exit code 1 before any photo is touched (D6).</span></li>
+    <li><span class="box"></span><span>A Ctrl-C during a parallel strip leaves every photo replaced on disk with its
+      manifest row (D4).</span></li>
+    <li><span class="box"></span><span>Importing <code>coffeecv.strip_metadata</code> does not import torch, the
+      200 MP photo still decodes, and the web service keeps Pillow's default limit (D8).</span></li>
+    <li><span class="box"></span><span>A photo above the memory ceiling gets a failing row before it is decoded, its
+      original untouched (D13).</span></li>
+    <li><span class="box"></span><span>The wall time and peak memory, before and after, serial and at the default
+      <code>--jobs</code>, of a dry run on <code>dataset/segmenter_positives</code> and of a dry run on a
+      <code>/tmp</code> copy of it with private tags added back, are recorded in the ticket (D11).</span></li>
+    <li><span class="box"></span><span>The module docstring describes <code>--jobs</code>, <code>--max-memory</code>,
+      D3's and D4's manifest behaviour and D13's ceiling.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
-    <li>Photos above Pillow's decompression-bomb limit. A 200 MP photo of 2026-10-28 cannot be decoded by
-      <code>load_rgb_image</code>, which the live site also uses for uploads. That is a separate decision.</li>
     <li>Starting one long-lived exiftool process (<code>-stay_open</code>) per worker instead of one exiftool process
       per call.</li>
+    <li>Admission by memory (D13 (b)): the fallback if D13's ceiling and D12's default are not enough (R5).</li>
+    <li>Decoding an RGB JPEG or PNG once instead of twice in <code>pixel_digest</code> (<code>load_rgb_image</code>
+      and Pillow's own decode give the same pixels). It would roughly halve a JPEG's decode time, but it changes the
+      photo's <code>pixel_sha256</code> against earlier manifest rows, against §4.</li>
+    <li>Fewer copies inside <code>load_rgb_image</code>, which would lower the peak (§2). Training and serving share
+      that function.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -189,9 +330,18 @@
       <code>os.cpu_count()</code> until the measurement (D2); each row written once its photo and every earlier one are
       done, in photo order (D3, an option added with the recommendation). Triage set to <code>ready-for-agent</code>.
       Implementation held by the owner; not planned, not implemented.</div>
+    <div><div class="when">2026-10-30</div>The owner's review of the ticket with Claude (<code>/grill-with-docs</code>),
+      against the code at <code>413f7b4</code>. Findings and measurements added to §2. R1 and R4 corrected, R2 extended,
+      R5 added. The owner decided D4&ndash;D13: D4 (b), D5, D6, D7 (a), D9 (a), D10 and D12 (b) as recommended; D8 as
+      recommended after asking for the libraries that load big photos, nomacs's included, to be compared; D11 (b);
+      D13 (a), with (b) kept as the fallback. The 200 MP item left Out of scope, as <code>6185f45</code> made it
+      decodable; three items joined it. <code>GLOSSARY.md</code> unchanged, no ADR. Plan written
+      (<a href="plan_strip_metadata_parallel.html">plan_strip_metadata_parallel.html</a>, P1&ndash;P5). Not
+      implemented.</div>
   </div>
 
-  <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (the intake that ran it),
+  <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,
+    <a href="ticket_segmenter_xl0v6.html">ML-13</a> (the intake that ran it),
     <code>coffeecv/strip_metadata.py</code>, <code>coffeecv/find_duplicates.py</code>,
     <code>dataset/segmenter_positives.README.md</code>.</footer>
 </main>
