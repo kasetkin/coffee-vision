@@ -1,6 +1,6 @@
 """Lossless removal of private metadata from dataset photos (ticket ML-3, D13).
 
-    python -m coffeecv.strip_metadata DIR... --manifest labels/ml3/strip_manifest.csv
+    python -m coffeecv.strip_metadata DIR... --manifest labels/ml3/strip_manifest.csv [--jobs N] [--max-memory GB]
     python -m coffeecv.strip_metadata DIR... --dry-run [--report FILE]   # what would go; nothing is written
 
 D13.1 as a deny list: GPS (EXIF, XMP and any GPS* tag), maker notes (Sony face info, Apple, Google HDR+
@@ -16,10 +16,10 @@ checked, and only then moved over the original (a new inode: a DVC cache file li
 tree is never written through). The checks, all of which must pass:
 
   - pixels: the decoded image is equal before and after -- `photo_io.load_rgb_image` (rawpy for a RAW
-    file; up to photo_io's DATASET_MAX_PIXELS, 537 MP, as training decodes), and Pillow's own decode in the file's mode, so a PNG's alpha counts too; for HEIC every
-    top-level image and every auxiliary image (Apple's gain map, depth), and an auxiliary image pillow-heif
-    cannot decode (10-bit, ML-6 D10) by its stored bytes: coded data, properties and tiles; for RAW the
-    sensor data as well;
+    file; up to photo_io's DATASET_MAX_PIXELS, 537 MP, as training decodes), and Pillow's own decode in the
+    file's mode, so a PNG's alpha counts too; for HEIC every top-level image and every auxiliary image
+    (Apple's gain map, depth), and an auxiliary image pillow-heif cannot decode (10-bit, ML-6 D10) by its
+    stored bytes: coded data, properties and tiles; for RAW the sensor data as well;
   - every other tag survives byte for byte: binary tags (an MPF gain map, the ICC profile) are compared
     as bytes, and the kept fields D13 names -- Orientation, ICC profile, Make, Model, DateTimeOriginal,
     the exposure tags -- must be present after if they were before. load_rgb_image ignores Orientation
@@ -30,6 +30,25 @@ tree is never written through). The checks, all of which must pass:
 The manifest gets one row per photo: path, sha256_before, sha256_after, pixel_sha256, removed (the
 deny-listed tags that went). It is the re-key map for ticket ML-3 P3 and the record of D13. A photo with
 nothing to remove gets a row with the same hash on both sides.
+
+A run (ticket ML-14):
+
+  - the manifest first: a photo in it whose bytes are not its recorded sha256_after exits 1 before any photo
+    is touched; the photos in it with their recorded bytes are left alone (D6);
+  - up to --jobs photos at once, each in a spawned process of its own; by default min(CPU cores, GB of memory
+    available at the start), about 1 GB a worker (D12). --jobs 1, or one photo to do, runs in this process;
+  - a photo whose decode would need more memory than the budget (estimate_decode_bytes, from its header) fails
+    before it is decoded, "too big: about N GB to decode, budget M GB", its original untouched; the budget is
+    --max-memory GB, by default the memory available at the start less 1 GB (D13);
+  - an exception for one photo is a failing row, "error: <type>: <message>", and the run goes on (D5). A
+    failing row counts in the report and the exit code (1), never in the manifest;
+  - each good row is appended to the manifest, flushed, as soon as its photo and every photo before it are
+    done: the progress lines, the rows and the report are in photo order at any --jobs (D3, D9). A new
+    manifest gets its header with its first row, with the run's start time (D10);
+  - a Ctrl-C cancels the photos not yet handed to the workers, waits for the others and writes every row done,
+    then the report, and exits 130; a rerun does the rest (D4). A second Ctrl-C stops at once: the photos then
+    in progress keep their originals, each with a temporary copy (.<name>.*) beside it: a rerun skips it,
+    and it is deleted by hand before the folder is added to DVC.
 """
 from __future__ import annotations
 
@@ -727,6 +746,8 @@ def main(argv: list[str] | None = None) -> int:
     checked = [(p, too_big(p, budget)) for p in todo]
     # One photo for the workers, or --jobs 1: in this process, with no pool (D7).
     workers = min(jobs, sum(1 for _, row in checked if row is None))
+    print(f"{len(todo)} photos to do, {max(workers, 1)} at once (--jobs {jobs}); decode budget {budget / GB:.3g} GB "
+          f"a photo", file=sys.stderr, flush=True)
     taken = Rows(photos, writer)
     interrupted = False
     try:

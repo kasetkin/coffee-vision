@@ -10,10 +10,11 @@
   <p class="lede">The owner asked for the metadata stripper to use more than one core. Today it handles one photo
     at a time. For each photo it runs exiftool three times and decodes the full image twice, so a batch of 50 MP photos
     keeps one core busy while the others sit idle. Written; D1&ndash;D13 decided; planned
-    (<a href="plan_strip_metadata_parallel.html">plan</a>, P1&ndash;P5); not implemented.</p>
+    (<a href="plan_strip_metadata_parallel.html">plan</a>, P1&ndash;P5); P1&ndash;P4 implemented and P5 measured
+    (2026-10-30), at P5's stop for the owner.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D3 decided 2026-10-30; D4&ndash;D13 decided 2026-10-30; planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D13 decided 2026-10-30; P1&ndash;P4 done 2026-10-30 (<code>db4e44c</code>, <code>684679d</code>, <code>689d242</code>, <code>494f177</code>, <code>d086222</code>), P5 measured; waiting for the owner at P5's stop</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -338,6 +339,30 @@
       decodable; three items joined it. <code>GLOSSARY.md</code> unchanged, no ADR. Plan written
       (<a href="plan_strip_metadata_parallel.html">plan_strip_metadata_parallel.html</a>, P1&ndash;P5). Not
       implemented.</div>
+    <div><div class="when">2026-10-30</div>Claude implemented P1&ndash;P4 (<code>db4e44c</code>, <code>684679d</code>,
+      <code>689d242</code>, <code>494f177</code>, <code>d086222</code>) and measured P5 (D11). The decode factors, measured
+      for D13: 10.0 bytes per pixel for a JPEG, 12.0 for an RGBA PNG, 11.0 for a HEIC and 13.0 for a DNG, the same from
+      12 to 200 MP; written rounded up (11, 13, 12, 14). Building P4 found three things no decision covered, each fixed
+      and tested: <code>concurrent.futures.wait</code> never returns for a future that
+      <code>shutdown(cancel_futures=True)</code> cancelled (CPython 3.12), which hung a Ctrl-C; exiftool's own SIGINT
+      handler failed the photos in progress on a Ctrl-C, so exiftool runs in a process group of its own; and a Ctrl-C
+      during a worker's imports broke the pool, so the workers are spawned with SIGINT ignored. Dry runs (D11), one at a
+      time on this machine (12 cores, 13 GB), the peak being the summed RSS of the run's process tree sampled every
+      0.2 s (shared library pages counted once per process, so a little high):
+      <div class="table-wrap"><table>
+        <thead><tr><th>Run</th><th>Workers</th><th>Clean path<br>(<code>dataset/segmenter_positives</code>)</th><th>Full strip<br>(a <code>/tmp</code> copy, private tags added back)</th><th>Peak, clean / full</th><th>Available at start</th></tr></thead>
+        <tbody>
+          <tr><td>Before, <code>413f7b4</code></td><td>1</td><td>132.7 s</td><td>353.0 s</td><td>2.48 / 2.31 GB</td><td>6.3 GB</td></tr>
+          <tr><td>After, <code>--jobs 1</code></td><td>1</td><td>130.5 s</td><td>335.7 s</td><td>2.20 / 2.03 GB</td><td>6.7 / 6.6 GB</td></tr>
+          <tr><td>After, default <code>--jobs</code></td><td>6 (min(12 cores, 6 GB))</td><td>42.8 s</td><td>100.9 s</td><td>3.92 / 3.98 GB (8 processes)</td><td>6.8 GB</td></tr>
+        </tbody>
+      </table></div>
+      The ceiling (D13) was 5.8&ndash;6.0 GB a photo; no photo reached it. Every run checked 263 photos. The clean path
+      found nothing to strip; the full strip would strip 255, with the same 8 failing before and after: Pixel JPEGs of
+      2026-08-09 and 2026-08-24 that have no IFD0, which adding the private tags creates, and which the strip then drops
+      with its resolution tags (an artefact of the copy, not of the photos). The default run peaked at 4.0 of 6.8 GB
+      available, about 0.6 GB a worker against D12's 1 GB. Nothing under <code>dataset/</code> was written. Stop for the
+      owner (P5): the peak against the free memory.</div>
   </div>
 
   <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,
