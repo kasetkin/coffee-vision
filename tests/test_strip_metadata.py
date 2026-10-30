@@ -458,6 +458,19 @@ class TestPool(unittest.TestCase):
     def test_a_parallel_run_matches_a_serial_one_on_real_photos(self):
         self.assert_parallel_matches_serial((DNG, IPHONE16))
 
+    def test_the_default_jobs(self):
+        """D15 (owner, 2026-10-30): min(CPU cores, 10, GB of memory and swap free at the start)."""
+        photo = self.tmp / "clean.jpg"                         # nothing to strip: the short path
+        Image.fromarray(np.zeros((8, 8, 3), np.uint8)).save(photo)
+        for cores, memory, swap, jobs in [(12, 6.8, 10.0, 10), (4, 6.8, 10.0, 4), (12, 2.5, 0.5, 3), (12, 0.2, 0.0, 1)]:
+            with self.subTest(cores=cores, memory=memory, swap=swap), \
+                    mock.patch.object(sm.os, "cpu_count", return_value=cores), \
+                    mock.patch.object(sm, "available_memory", return_value=int(memory * 1e9)), \
+                    mock.patch.object(sm, "free_swap", return_value=int(swap * 1e9)), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as err:
+                sm.main([str(photo), "--dry-run", "--max-memory", "8"])
+            self.assertIn(f"(--jobs {jobs})", err.getvalue())
+
     @real_data
     def test_an_exception_in_a_worker_is_a_failing_row(self):
         photos = self.mixed_set(self.tmp / "photos")

@@ -35,8 +35,8 @@ A run (ticket ML-14):
 
   - the manifest first: a photo in it whose bytes are not its recorded sha256_after exits 1 before any photo
     is touched; the photos in it with their recorded bytes are left alone (D6);
-  - up to --jobs photos at once, each in a spawned process of its own; by default min(CPU cores, GB of memory
-    available at the start), about 1 GB a worker (D12). --jobs 1, or one photo to do, runs in this process;
+  - up to --jobs photos at once, each in a spawned process of its own; by default min(CPU cores, 10, GB of memory
+    and swap free at the start), about 1 GB a worker (D15). --jobs 1, or one photo to do, runs in this process;
   - a photo whose decode would need more memory than the budget (estimate_decode_bytes, from its header) fails
     before it is decoded, "too big: about N GB to decode, budget M GB", its original untouched; the budget is
     --max-memory GB, by default the memory available at the start less 1 GB (D13);
@@ -141,6 +141,7 @@ GB = 10**9
 # Rounded up. The stripped copy is decoded after the photo, never beside it.
 DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".heic": 12, ".heif": 12,
                           **dict.fromkeys(RAW_EXTENSIONS, 14)}
+MAX_DEFAULT_JOBS = 10                       # the owner's, 2026-10-30 (ML-14 D15)
 
 
 class StripError(Exception):
@@ -470,16 +471,27 @@ def estimate_decode_bytes(path: Path) -> int:
     return pixels * DECODE_BYTES_PER_PIXEL[ext]
 
 
-def available_memory() -> int:
-    """Bytes of memory available now: /proc/meminfo's MemAvailable, else the free physical pages."""
+def _meminfo(field: str) -> int | None:
+    """A /proc/meminfo field in bytes, or None where there is none."""
     try:
         with open("/proc/meminfo") as f:
             for line in f:
-                if line.startswith("MemAvailable:"):
+                if line.startswith(f"{field}:"):
                     return int(line.split()[1]) * 1024
     except OSError:
         pass
-    return os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+    return None
+
+
+def available_memory() -> int:
+    """Bytes of memory available now: /proc/meminfo's MemAvailable, else the free physical pages."""
+    available = _meminfo("MemAvailable")
+    return available if available is not None else os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")
+
+
+def free_swap() -> int:
+    """Bytes of swap free now (/proc/meminfo's SwapFree), 0 where unknown."""
+    return _meminfo("SwapFree") or 0
 
 
 def too_big(path: Path, budget: int) -> dict | None:
@@ -722,7 +734,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--report", type=Path, help="also write the per-folder report here")
     ap.add_argument("--header", action="append", default=[], help="extra '# ...' line for a new manifest")
     ap.add_argument("--jobs", type=int,
-                    help="photos at once, each in its own process [min(CPU cores, GB of memory available at the start)]")
+                    help="photos at once, each in its own process [min(CPU cores, 10, GB of memory and swap free at the "
+                         "start)]")
     ap.add_argument("--max-memory", type=float,
                     help="GB one photo's decode may take; a photo above it fails undecoded [available at the start, "
                          "less 1 GB]")
@@ -735,8 +748,10 @@ def main(argv: list[str] | None = None) -> int:
     version = exiftool_version()
     available = available_memory()
     budget = int(args.max_memory * GB) if args.max_memory is not None else available - GB
-    # About 1 GB a worker: the peak of a 50 MP photo, 0.5 GB, plus exiftool and the imports (ML-14 D12).
-    jobs = args.jobs if args.jobs is not None else max(1, min(os.cpu_count() or 1, available // GB))
+    # At most 10, about 1 GB a worker of the memory and swap free (ML-14 D15, the owner, 2026-10-30): a worker
+    # peaked at 0.6 GB on segmenter_positives (D14), and the swap takes a run of several big photos at once.
+    jobs = args.jobs if args.jobs is not None else max(1, min(os.cpu_count() or 1, MAX_DEFAULT_JOBS,
+                                                              (available + free_swap()) // GB))
     todo = photos
     if args.manifest and not args.dry_run:
         todo, changed = resume_check(photos, read_manifest(args.manifest))
