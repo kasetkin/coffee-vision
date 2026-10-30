@@ -13,7 +13,7 @@
     what P4's ordered results feed. No phase changes a manifest row's values; P5 is the owner's stop.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-30; no questions open; P1&ndash;P4 done 2026-10-30; P5 measured, at its stop for the owner</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-10-30; no questions open; P1&ndash;P5 done 2026-10-30</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_strip_metadata_parallel.html"><code>ticket_strip_metadata_parallel.html</code></a> (ML-14)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -187,7 +187,7 @@
 
   <h2>7. P5 &mdash; Measurements and docstring <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-10-30; measured, waiting for the owner</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-10-30, <code>68d5afc</code>; the owner accepted the peak (ticket D14)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>D11. Four runs before (at <code>413f7b4</code>'s code, serial only) and after (<code>--jobs 1</code> and the
@@ -201,7 +201,7 @@
     <li><span class="box done"></span><span>The module docstring: <code>--jobs</code> and its default,
       <code>--max-memory</code> and the ceiling, rows written in photo order as they are done, a Ctrl-C (D4), a failing
       row for an exception (D5), the resume check first (D6).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: the peak against the free memory. If the default
+    <li><span class="box done"></span><span>Stop for the owner: the peak against the free memory. If the default
       <code>--jobs</code> came near it, the owner sets a different per-worker budget, or opens D13 (b), admission by
       memory.</span></li>
   </ol>
@@ -216,7 +216,7 @@
       untouched.</span></li>
     <li><span class="box done"></span><span>P4: parallel and serial runs give the same rows, report, exit code and bytes; a
       worker's exception is a failing row; a SIGINT leaves every replaced photo with its row.</span></li>
-    <li><span class="box"></span><span>P5: the four measurements in the ticket; the owner has looked at the
+    <li><span class="box done"></span><span>P5: the four measurements in the ticket; the owner has looked at the
       peak.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
@@ -245,6 +245,8 @@
       uncommitted photos of 2026-10-30 in <code>dataset/random_date_raccoon</code> (158 files against its
       <code>.dvc</code>'s 131), not on this change. P5's measurements are in the ticket's Activity; waiting for the
       owner.</div>
+    <div><div class="when">2026-10-30</div>The owner accepts the peak at P5's stop (ticket D14): D12's 1 GB a worker
+      stays. P5 done; the plan is done.</div>
   </div>
 
   <footer>Related: <a href="ticket_strip_metadata_parallel.html">ML-14 ticket</a>,

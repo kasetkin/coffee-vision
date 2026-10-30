@@ -10,11 +10,11 @@
   <p class="lede">The owner asked for the metadata stripper to use more than one core. Today it handles one photo
     at a time. For each photo it runs exiftool three times and decodes the full image twice, so a batch of 50 MP photos
     keeps one core busy while the others sit idle. Written; D1&ndash;D13 decided; planned
-    (<a href="plan_strip_metadata_parallel.html">plan</a>, P1&ndash;P5); P1&ndash;P4 implemented and P5 measured
-    (2026-10-30), at P5's stop for the owner.</p>
+    (<a href="plan_strip_metadata_parallel.html">plan</a>, P1&ndash;P5); P1&ndash;P5 done
+    (2026-10-30); D14 accepts the measured peak.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D13 decided 2026-10-30; P1&ndash;P4 done 2026-10-30 (<code>db4e44c</code>, <code>684679d</code>, <code>689d242</code>, <code>494f177</code>, <code>d086222</code>), P5 measured; waiting for the owner at P5's stop</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-28; D1&ndash;D14 decided 2026-10-30; P1&ndash;P5 done 2026-10-30 (<code>db4e44c</code>&ndash;<code>c4de0cb</code>, merged in <code>9259ec1</code>); for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -282,6 +282,12 @@
           let a photo keep its private tags and the run pass.</td>
         <td><strong>(a)</strong>, 2026-10-30, with (b) kept as the fallback if a run runs out of memory (R5, Out of
           scope). The ceiling and the over-ceiling row as recommended.</td></tr>
+      <tr><td class="id">D14</td><td>P5's stop: is the default run's peak, measured against the free memory, acceptable?</td>
+        <td>The default <code>--jobs</code> (6 workers here) peaked at 4.0 GB of the 6.8 GB available, about 0.6 GB a
+          worker against D12's 1 GB (Activity, 2026-10-30). (a) Keep D12's 1 GB a worker; (b) a different per-worker
+          budget; (c) open D13 (b), admission by memory.</td>
+        <td><strong>(a)</strong>, 2026-10-30: 4 GB is fine, and 8 GB would be, with 10 GB of swap free. D13 (b) stays
+          out of scope.</td></tr>
     </tbody>
   </table></div>
 
@@ -363,6 +369,12 @@
       with its resolution tags (an artefact of the copy, not of the photos). The default run peaked at 4.0 of 6.8 GB
       available, about 0.6 GB a worker against D12's 1 GB. Nothing under <code>dataset/</code> was written. Stop for the
       owner (P5): the peak against the free memory.</div>
+    <div><div class="when">2026-10-30</div>The owner, at P5's stop: the 4 GB peak is fine, and 8 GB would be, with
+      10 GB of swap free (D14): D12's 1 GB a worker stays, D13 (b) stays out of scope. P5 done; every phase of the plan
+      is done. Also in <code>c4de0cb</code>, after <code>/code-review</code>: one <code>failing_row</code>, the second
+      Ctrl-C's message saying that a photo replaced in the instant before has no row, and the parity tests with a failing
+      photo. The full tier there: 641 of 643 green, the 2 errors the uncommitted photos in
+      <code>dataset/random_date_raccoon</code>. For the owner to close.</div>
   </div>
 
   <footer>Related: <a href="plan_strip_metadata_parallel.html">plan</a>,
