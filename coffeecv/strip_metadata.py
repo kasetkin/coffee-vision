@@ -15,8 +15,8 @@ exiftool edits metadata without re-encoding image data. Each photo is written to
 checked, and only then moved over the original (a new inode: a DVC cache file linked from the working
 tree is never written through). The checks, all of which must pass:
 
-  - pixels: the decoded image is equal before and after -- `dataset.load_rgb_image` (rawpy for a RAW
-    file), and Pillow's own decode in the file's mode, so a PNG's alpha counts too; for HEIC every
+  - pixels: the decoded image is equal before and after -- `photo_io.load_rgb_image` (rawpy for a RAW
+    file; up to photo_io's DATASET_MAX_PIXELS, 537 MP, as training decodes), and Pillow's own decode in the file's mode, so a PNG's alpha counts too; for HEIC every
     top-level image and every auxiliary image (Apple's gain map, depth), and an auxiliary image pillow-heif
     cannot decode (10-bit, ML-6 D10) by its stored bytes: coded data, properties and tiles; for RAW the
     sensor data as well;
@@ -54,8 +54,12 @@ import rawpy
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import RAW_EXTENSIONS, load_rgb_image
+from coffeecv.photo_io import DATASET_MAX_PIXELS, RAW_EXTENSIONS, load_rgb_image
 from coffeecv.repo_files import sha256_file
+
+# The dataset's limit, not Pillow's: the 200 MP photos must decode. Set here, not by the caller, so a worker that
+# imports this module gets it too; photo_io, not coffeecv.dataset, so no process here imports torch (ML-14 D8).
+Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS
 
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"} | RAW_EXTENSIONS
 HEIF_EXTENSIONS = {".heic", ".heif"}

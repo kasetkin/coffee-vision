@@ -10,9 +10,11 @@ Needs exiftool (libimage-exiftool-perl, in the devcontainer).
 from __future__ import annotations
 
 import csv
+import json
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,6 +34,8 @@ HAVE_EXIFTOOL = shutil.which("exiftool") is not None
 DNG = REPO_ROOT / "dataset/2026-07-24__first_pictures/dng/PXL_20260724_114105353.RAW-02.ORIGINAL.dng"
 # ML-6 D10: two of its auxiliary images are 10-bit, which pillow-heif cannot decode.
 IPHONE16 = REPO_ROOT / "dataset/segmenter_positives/IMG_7252.HEIC"
+# 16320x12240, above Pillow's own limit (tests/test_large_photos.py).
+GALAXY_200MP = REPO_ROOT / "dataset/segmenter_positives/20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg"
 PRIVATE = ["-GPSLatitude=48.1", "-GPSLatitudeRef=N", "-GPSLongitude=11.5", "-GPSLongitudeRef=E",
            "-Artist=Someone", "-SerialNumber=SN123", "-ExifIFD:DateTimeOriginal=2026:10:05 10:00:00"]
 
@@ -71,6 +75,24 @@ def flip_coded_byte(path: Path, item_id: int) -> None:
     b = bytearray(path.read_bytes())
     b[off + length // 2] ^= 1
     path.write_bytes(bytes(b))
+
+
+class TestImports(unittest.TestCase):
+    """ML-14 D8: a worker spawned for the strip imports the module afresh; it must not pay for torch, and it
+    must get the dataset's pixel limit, not Pillow's."""
+
+    def test_no_torch_and_the_dataset_pixel_limit(self):
+        code = ("import json, sys\nfrom PIL import Image\nimport coffeecv.strip_metadata\n"
+                "from coffeecv.photo_io import DATASET_MAX_PIXELS\n"
+                "print(json.dumps(['torch' in sys.modules, Image.MAX_IMAGE_PIXELS, DATASET_MAX_PIXELS]))")
+        out = subprocess.run([sys.executable, "-c", code], cwd=REPO_ROOT, capture_output=True, text=True, timeout=300)
+        self.assertEqual(out.returncode, 0, out.stderr[-2000:])
+        self.assertEqual(json.loads(out.stdout.splitlines()[-1]), [False, 2**28, 2**28])
+
+    @real_data
+    @unittest.skipUnless(GALAXY_200MP.exists(), "the 2026-10-28 200 MP photo is not present (dvc pull)")
+    def test_a_200_mp_photo_digests(self):
+        self.assertRegex(sm.pixel_digest(GALAXY_200MP), r"^[0-9a-f]{64}$")
 
 
 @unittest.skipUnless(HAVE_EXIFTOOL, "exiftool is not installed (libimage-exiftool-perl)")

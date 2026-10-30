@@ -22,6 +22,13 @@ pillow_heif.register_heif_opener()
 # register, so load_rgb_image branches explicitly instead.
 RAW_EXTENSIONS = {".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef", ".srw"}
 
+# Pillow refuses a photo above twice Image.MAX_IMAGE_PIXELS (89.5 MP by default, so 179 MP) as a possible
+# decompression bomb, and warns above it. The dataset's photos are the owner's own, and a phone's 200 MP mode
+# (16320x12240, 2026-10-28) is above the default. The dataset tools (coffeecv.dataset, coffeecv.strip_metadata) set
+# Image.MAX_IMAGE_PIXELS to this; this module must not, as the web service imports it and keeps Pillow's default
+# for an upload (tests/test_large_photos.py, ticket ML-14 D8).
+DATASET_MAX_PIXELS = 2**28
+
 
 def load_rgb_image(path: Path) -> np.ndarray:
     if path.suffix.lower() in RAW_EXTENSIONS:
