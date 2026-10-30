@@ -572,14 +572,16 @@ class Rows:
         self.rows: list[dict] = []
         self._index, self._n, self._writer = {p: i for i, p in enumerate(photos, 1)}, len(photos), writer
 
-    def take(self, path: Path, row: dict) -> None:
+    def take(self, path: Path, row: dict, show: bool = True) -> None:
+        """The manifest row before the progress line: a photo done keeps its row if the printing fails."""
         with _sigint_deferred():
             self.rows.append(row)
-            status = "FAIL " + "; ".join(row["problems"]) if row["problems"] else (
-                f"{len(row['removed'].split())} tags" if row["removed"] else "clean")
-            print(f"[{self._index[path]}/{self._n}] {row['path']}: {status}", flush=True)
             if self._writer and not row["problems"]:
                 self._writer.write(row)
+            if show:
+                status = "FAIL " + "; ".join(row["problems"]) if row["problems"] else (
+                    f"{len(row['removed'].split())} tags" if row["removed"] else "clean")
+                print(f"[{self._index[path]}/{self._n}] {row['path']}: {status}", flush=True)
 
 
 def _ignore_sigint() -> None:
@@ -596,6 +598,26 @@ def _result(path: Path, future: Future) -> dict:
         return row
 
 
+def _stop_at_once(futures: dict[Path, Future]) -> None:
+    """Cancels the photos not started and terminates the workers: the photos in progress keep their originals."""
+    for f in futures.values():
+        f.cancel()
+    for proc in multiprocessing.active_children():
+        proc.terminate()
+    print("stopped at once: the photos in progress keep their originals; their temporary copies (.<name>.*) are "
+          "beside them, to be deleted", file=sys.stderr, flush=True)
+
+
+def _take_done(checked: list[tuple[Path, dict | None]], futures: dict[Path, Future], rows: Rows, show: bool) -> None:
+    """Takes, in photo order, every row not yet taken that is ready, leaving out the photos never done."""
+    for p, row in checked[len(rows.rows):]:
+        f = futures.get(p)
+        if row is None and f is not None and f.done() and not f.cancelled() and f.exception() is None:
+            row = f.result()
+        if row is not None:
+            rows.take(p, row, show)
+
+
 def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: bool, rows: Rows) -> bool:
     """run_one on `workers` spawned processes for every photo in `checked` without a row yet, each row taken in
     photo order as soon as it and every row before it are done (ML-14 D3). Returns True if a Ctrl-C stopped it.
@@ -603,9 +625,16 @@ def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: boo
     Workers ignore SIGINT. The first Ctrl-C cancels the photos not yet started, waits for those in progress and takes
     every row done, in photo order, leaving out the photos that never ran (D4); a rerun does them. A second Ctrl-C
     terminates the workers at once: the photos they had keep their originals, beside them a temporary copy."""
-    # spawn: rawpy's LibRaw runs OpenMP, which can deadlock in a forked worker (as in coffeecv.find_duplicates)
-    pool = ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"), initializer=_ignore_sigint)
-    futures: dict[Path, Future] = {p: pool.submit(run_one, p, dry_run) for p, row in checked if row is None}
+    # spawn: rawpy's LibRaw runs OpenMP, which can deadlock in a forked worker (as in coffeecv.find_duplicates).
+    # The workers are spawned (by submit) while this process ignores SIGINT, so they ignore it from birth: a Ctrl-C
+    # during a worker's imports, before its initializer runs, would kill it and break the pool.
+    old_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        pool = ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn"),
+                                   initializer=_ignore_sigint)
+        futures: dict[Path, Future] = {p: pool.submit(run_one, p, dry_run) for p, row in checked if row is None}
+    finally:
+        signal.signal(signal.SIGINT, old_handler)
     try:
         for p, row in checked:
             rows.take(p, row or _result(p, futures[p]))
@@ -624,17 +653,18 @@ def run_pool(checked: list[tuple[Path, dict | None]], workers: int, dry_run: boo
                 f.exception()                           # waits until it is done
             pool.shutdown()
         except KeyboardInterrupt:
-            for proc in multiprocessing.active_children():
-                proc.terminate()
-            print("stopped at once: the photos in progress keep their originals; their temporary copies "
-                  "(.<name>.*) are beside them", file=sys.stderr, flush=True)
-        for p, row in checked[len(rows.rows):]:
-            f = futures.get(p)
-            if row is None and f is not None and f.done() and not f.cancelled() and f.exception() is None:
-                row = f.result()
-            if row is not None:
-                rows.take(p, row)
+            _stop_at_once(futures)
+        _take_done(checked, futures, rows, show=True)
         return True
+    except BaseException:
+        # A row that cannot be taken (the manifest's disk full, or stdout closed, say): no worker may strip a photo
+        # whose row will not be written, and the photos already done keep their rows if the manifest takes them.
+        _stop_at_once(futures)
+        try:
+            _take_done(checked, futures, rows, show=False)
+        except Exception:
+            pass                                        # the error raised below may be the manifest's own
+        raise
     pool.shutdown()
     return False
 
