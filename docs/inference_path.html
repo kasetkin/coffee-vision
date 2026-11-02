@@ -292,6 +292,21 @@
   </div>
 
   <div class="callout">
+    <b>Before <code>app.py</code></b> (ticket OPS-15, ADR 0031, live 2026-11-02): the photo reaches the app through
+    two hosts. The proxy that serves the domain reads the TLS session's SNI in its <code>stream {}</code> block and
+    hands it to <b>the front</b>, an nginx site on the same machine that terminates TLS, serves the page, lets one
+    <code>/analyze</code> through at a time and refuses a body over 5 MB (413). Its check service,
+    <code>webapp/front/check_service.py</code>, reads the form and checks the photo's first bytes (and a RAW file's
+    extension) against the formats the public contract names (<code>upload_check.py</code>; GIF, BMP and a plain
+    TIFF are refused there, though Pillow would open them), then forwards the visitor's bytes unchanged over the tailnet, in
+    plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and <code>analyze()</code>. Nothing
+    is decoded before <code>analyze()</code>, so every pixel the model sees comes from the code path training uses.
+    The two streamed parts come back the same way, unbuffered at each hop. A photo the front refuses never crosses
+    the inference host's slow link; while the app is down, the front answers <code>503</code>, "the classifier is
+    offline".
+  </div>
+
+  <div class="callout">
     <b>On "votes":</b> there is one frozen DINOv3 backbone and one linear head, no ensemble. What plays the role of
     voting is <b>averaging</b>: 40 patches cut from the photo's bean region, each scored once, their softmax
     probabilities mean-averaged into one vector over the 10 countries. The answer ranks all 10 by that vector.

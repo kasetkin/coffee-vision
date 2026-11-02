@@ -226,9 +226,9 @@
     <li><b>Name the question before the field.</b> A field earns a place in the schema by answering a maintenance, incident, or bottleneck question you can state in one sentence. "Might be useful someday" doesn't qualify.</li>
     <li><b>No persistent identifiers.</b> No cookies, no fingerprinting, no per-visitor ID that outlives one request.</li>
     <li><b>A request ID stitches log lines, not visitors.</b> It ties nginx's line and the app's line about the <i>same</i> HTTP call together. It is never reused across two different calls, so it can't become a tracking ID by accident.</li>
-    <li><b>Everything stays on the one VM.</b> No third-party log shipping or SaaS sink &mdash; that would turn a config decision into a data-processor relationship with its own paperwork.</li>
+    <li><b>Everything stays on our own hosts</b> (two since OPS-15: the front and the inference host). No third-party log shipping or SaaS sink &mdash; that would turn a config decision into a data-processor relationship with its own paperwork.</li>
     <li><b>Retention is enforced by config, not memory.</b> Every log tier gets an explicit auto-expiry, set in <code>journald</code>/<code>logrotate</code>, not "someone remembers to clean it up."</li>
-    <li><b>IP addresses are personal data.</b> Treated that way by default: for now, that means not logged at all, in any form &mdash; see &sect;03-C.</li>
+    <li><b>IP addresses are personal data.</b> Treated that way by default: never logged per request, at any layer; since OPS-15, one line per TLS session on the front, kept 30 days &mdash; see &sect;03-C.</li>
   </ol>
 
   <h2><span class="n">03</span>What to log &mdash; by category</h2>
@@ -268,18 +268,25 @@
   <div class="table-wrap"><table>
     <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
     <tbody>
-      <tr><td>client IP, raw or masked</td><td class="why">would help block a specific abusive source mid-incident &mdash; not worth collecting anything until that's a real problem, not a hypothetical one</td><td><span class="pill exclude">exclude, for now</span></td></tr>
+      <tr><td>client IP, per request</td><td class="why">would tie an IP to each photo's verdict and timing &mdash; more than any question here needs</td><td><span class="pill exclude">exclude</span></td></tr>
+      <tr><td>client IP, per TLS session</td><td class="why">blocks a specific abusive source mid-incident; the session's time places it beside the front's request lines, without a join key (OPS-15 D20)</td><td><span class="pill minimize">collect, 30 days</span></td></tr>
       <tr><td>raw User-Agent string</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
       <tr><td>coarse UA category (OS + browser family)</td><td class="why">HEIC/AVIF decode failures cluster by browser family &mdash; this is the actual useful signal</td><td><span class="pill collect">collect</span></td></tr>
       <tr><td>Referer header</td><td class="why">single-page app, one entry point &mdash; adds nothing</td><td><span class="pill exclude">exclude</span></td></tr>
     </tbody>
   </table></div>
   <p class="section-note" style="margin-top:10px;">
-    Neither the Flask app's logger nor nginx's access log captures the client's IP address, in any form,
-    for now &mdash; not even masked. Nothing in &sect;03's other categories needs it, and the service is
-    already capped at one concurrent request by <code>limit_conn</code>, which bounds what an
-    unidentified abusive source can do regardless. Worth revisiting if a real incident ever needs to
-    block one specific source rather than wait it out.
+    Since OPS-15 (D20, live 2026-11-02) the visitor's IP is in one file only:
+    <code>/var/log/nginx/coffee-cv-front.sessions</code> on the front (the proxy), written by the proxy's
+    <code>stream {}</code> block when a TLS session for the domain ends: its end time, the address, its
+    length and the bytes each way (<code>webapp/deploy/coffee-cv-stream.conf.template</code>), rotated at
+    30 days. That block is the only place the address is known: it passes no PROXY protocol header, since
+    its other targets do not speak it, so the front's nginx sees every visitor as <code>127.0.0.1</code>.
+    No request line carries an IP: not the front's <code>coffee-cv-front.access</code>, not the check
+    service's journal line, not the inference host's <code>coffee-cv.access</code> or
+    <code>app.jsonl</code> (the front clears <code>X-Real-IP</code>, <code>X-Forwarded-For</code> and
+    <code>Forwarded</code>, so a forged one never reaches it). Before OPS-15 no IP was logged at all;
+    the service is still capped at one concurrent request by <code>limit_conn</code>, now at the front.
   </p>
 
   <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">D &middot; Errors and exceptions</h3>
@@ -322,7 +329,7 @@
       <li>EXIF metadata, including GPS tags &mdash; moot today since nothing reads EXIF, stated here so it stays true if that ever changes</li>
       <li>Full raw User-Agent string beyond the short-lived window needed to derive the coarse category</li>
       <li>Any cookie, session token, or device fingerprint &mdash; none exist today; logging is not a reason to add one</li>
-      <li>Client IP address, in any form, at any layer (for now &mdash; see &sect;03-C)</li>
+      <li>Client IP address beside any request, in any form, at any layer: only the front's per-session log holds it (&sect;03-C)</li>
     </ul>
   </div>
 
@@ -347,7 +354,9 @@
     <thead><tr><th>Tier</th><th>Contents</th><th>Retention</th><th>Enforced by</th></tr></thead>
     <tbody>
       <tr><td>App structured log</td><td class="why">categories A, B, D, E as one JSON line per request</td><td class="why">365 days</td><td class="why">dedicated file + logrotate, daily, compressed &mdash; not <code>journald</code> at this duration: a year of this would compete with the system journal's own retention budget for everything else on the box</td></tr>
-      <tr><td>nginx access log</td><td class="why">UA category, status, path, request_id &mdash; no client IP (see &sect;03-C)</td><td class="why">365 days</td><td class="why">logrotate, rotate daily, compress, keep 365</td></tr>
+      <tr><td>nginx access log, the inference host (<code>coffee-cv.access</code>)</td><td class="why">UA category, status, path, request_id &mdash; no client IP (see &sect;03-C)</td><td class="why">365 days</td><td class="why">logrotate, rotate daily, compress, keep 365</td></tr>
+      <tr><td>nginx access log, the front (<code>coffee-cv-front.access</code>)</td><td class="why">status, path, time, bytes; nginx's own <code>$request_id</code>, then the app's (&ldquo;-&rdquo; for a request refused at the front) &mdash; no client IP</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365</td></tr>
+      <tr><td>session log, the front (<code>coffee-cv-front.sessions</code>)</td><td class="why">the visitor's IP per TLS session, its end time, length and bytes (&sect;03-C)</td><td class="why">30 days</td><td class="why">logrotate on the proxy, daily, compress, keep 30</td></tr>
       <tr><td>Aggregated daily/hourly rollups (F)</td><td class="why">counts and percentiles only &mdash; no per-request rows</td><td class="why">indefinite</td><td class="why">not personal data once aggregated &mdash; no individual request is recoverable from it</td></tr>
     </tbody>
   </table></div>
@@ -399,6 +408,6 @@
   </ul>
 
   <footer>
-    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-web.service.template &middot; webapp/README.md
+    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-front.nginx.conf.template &middot; webapp/deploy/coffee-cv-stream.conf.template &middot; webapp/deploy/coffee-cv-web.service.template &middot; webapp/README.md
   </footer>
 </main>
