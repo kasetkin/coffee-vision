@@ -50,11 +50,24 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
     """yappy's side: records each request, then answers as `reply` says."""
 
     seen: list[dict] = []
-    reply = "stream"   # stream: two parts a second apart; or an int, a plain status with a JSON body
+    # stream: two parts a second apart; cut: the first part of a chunked answer, then the connection dropped;
+    # garbage: not HTTP; or an int, a plain status with a JSON body
+    reply = "stream"
+    release = threading.Event()   # set: answer at once; cleared: hold the answer until it is set
 
     def do_POST(self):  # noqa: N802
         body = self.rfile.read(int(self.headers["Content-Length"]))
         FakeInferenceHost.seen.append({"path": self.path, "headers": dict(self.headers), "body": body})
+        FakeInferenceHost.release.wait(10)
+        if FakeInferenceHost.reply == "garbage":
+            self.wfile.write(b"this is not an HTTP answer\r\n\r\n")
+            return
+        if FakeInferenceHost.reply == "cut":
+            self.wfile.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nTransfer-Encoding: chunked\r\n\r\n"
+                             b'14\r\n{"part": "preview"}\n\r\n')
+            self.wfile.flush()
+            self.close_connection = True
+            return
         if FakeInferenceHost.reply != "stream":
             payload = json.dumps({"error": f"inference host says {FakeInferenceHost.reply}"}).encode()
             self.send_response(FakeInferenceHost.reply)
@@ -76,6 +89,9 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
 
     def log_message(self, *args):
         pass
+
+
+FakeInferenceHost.release.set()   # answering at once unless a test holds it (tests/test_front_site.py uses it too)
 
 
 class CheckService(unittest.TestCase):
@@ -103,6 +119,7 @@ class CheckService(unittest.TestCase):
     def setUp(self):
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
+        FakeInferenceHost.release.set()
 
     def post(self, body: bytes, server=None, headers: dict | None = None, path: str = "/analyze"):
         """Opens the request; the caller reads the response. Returns (connection, response)."""
@@ -192,6 +209,67 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
 
+    def test_a_cut_answer_ends_the_visitors_answer_where_it_was_cut(self):
+        FakeInferenceHost.reply = "cut"
+        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
+            _, resp = self.post(form("beans.jpg", JPEG))
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.read(), b'{"part": "preview"}\n')
+            time.sleep(0.2)
+        self.assertIn("cut after", log.call_args[0][0])
+
+    def test_an_answer_that_is_not_http_is_offline(self):
+        FakeInferenceHost.reply = "garbage"
+        self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+
+    def test_a_query_string_still_reaches_the_app(self):
+        _, resp = self.post(form("beans.jpg", JPEG), path="/analyze?source=agent")
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(FakeInferenceHost.seen[0]["path"], "/analyze?source=agent")
+
+    def test_a_request_without_a_length_is_refused(self):
+        for length in (None, "many"):
+            with self.subTest(length=length), socket.create_connection(self.service.server_address, timeout=10) as s:
+                head = "POST /analyze HTTP/1.1\r\nHost: front\r\n"
+                head += f"Content-Length: {length}\r\n" if length else ""
+                s.sendall((head + "\r\n").encode())
+                reply = b""
+                while chunk := s.recv(4096):   # the service closes the connection after its answer
+                    reply += chunk
+                self.assertRegex(reply, rb"^HTTP/1\.[01] (400|411) ")
+                self.assertIn(b'"error"', reply)
+        self.assertEqual(FakeInferenceHost.seen, [])
+
+    def test_the_cap_is_the_photos_own_size_not_the_forms(self):
+        photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))   # exactly 5 MB: the form around it is larger
+        _, resp = self.post(form("beans.jpg", photo, skip_crop=True))
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        status, payload = self.answer(form("beans.jpg", photo + b"\x00"))
+        self.assertEqual((status, payload), (413, {"error": "this photo is 5.1 MB; the limit is 5 MB"}))
+
+    def test_one_photo_crosses_at_a_time(self):
+        """The front's nginx frees its gate when a visitor leaves; the crossing it started goes on (D11)."""
+        FakeInferenceHost.release.clear()
+        first = threading.Thread(target=lambda: self.post(form("beans.jpg", JPEG))[1].read())
+        first.start()
+        for _ in range(100):
+            if FakeInferenceHost.seen:
+                break
+            time.sleep(0.02)
+        status, payload = self.answer(form("beans.jpg", JPEG))
+        FakeInferenceHost.release.set()
+        first.join(10)
+        self.assertEqual((status, payload), (503, {"error": "the classifier is busy with another photo"}))
+        self.assertEqual(len(FakeInferenceHost.seen), 1)
+
+    def test_a_browsers_form_in_any_case_and_an_encoded_filename(self):
+        body = form("beans.jpg", JPEG).replace(b'filename="beans.jpg"', b"filename*=utf-8''caf%C3%A9.jpg")
+        _, resp = self.post(body, headers={"Content-Type": f"Multipart/Form-Data; boundary={BOUNDARY}"})
+        resp.read()
+        self.assertEqual(resp.status, 200)
+
 
 class Options(unittest.TestCase):
     """Under systemd the unit gives no flags: front.env, in the release, names the address and the inference host."""
@@ -204,6 +282,9 @@ class Options(unittest.TestCase):
     def test_a_flag_wins(self):
         self.assertEqual(check_service.options(["--listen", "127.0.0.1:9"], self.ENV),
                          (("127.0.0.1", 9), "http://inference.test:12346"))
+
+    def test_an_ipv6_address(self):
+        self.assertEqual(check_service.options(["--listen", "[::1]:8100"], self.ENV)[0], ("::1", 8100))
 
     def test_neither_is_refused(self):
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):

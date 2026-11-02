@@ -283,6 +283,17 @@
       message after 21 s) and offline (at once, one request); the page loads while offline. The browser check found
       a bug older than this ticket: a photo picked again was not a change, so it was not sent, and "try again" did
       nothing; the page now empties its file input once read.</div>
+    <div><div class="when">2026-11-02</div>P1 and P3 reviewed (standards and spec, in parallel); fixed: an answer cut
+      mid-stream or not HTTP raised past the service's handling (it caught <code>OSError</code>, not
+      <code>http.client.HTTPException</code>); a query string gave a 404; a missing or bad <code>Content-Length</code>
+      got no answer; the 5 MB cap measured the whole form, not the photo the page measures (the photo is now capped
+      itself, the body at 5 MB plus 64 KB); the front's nginx freed its gate while a photo was still crossing (the
+      check service now holds a lock for each crossing and answers busy, and its nginx outwaits it, 130 s); a refusal
+      at the front had no id to join its IP line to its access line (both carry nginx's <code>$request_id</code>);
+      a repeated header was forwarded once; an encoded filename (RFC 5987), a form's content type in another case
+      and an IPv6 listen address were refused. Left as they are: the format check refuses GIF, BMP and a plain TIFF,
+      which the contract never named; the inference host's own busy 503 is nginx's HTML page, relayed, which the page
+      and <code>llms.txt</code> treat as busy.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

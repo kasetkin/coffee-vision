@@ -189,8 +189,15 @@ http {{
         self.assertEqual(seen["headers"]["X-Real-IP"], VISITOR)
 
     def test_a_photo_over_5_mb_is_refused_at_the_front(self):
-        status, payload = self.answer(form("beans.jpg", JPEG + b"\x00" * (5 * 2**20)))
-        self.assertEqual((status, payload), (413, {"error": "this photo is over the 5 MB limit"}))
+        photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))
+        resp = self.visit("POST", "/analyze", form("beans.jpg", photo))   # exactly 5 MB: its form is larger
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        FakeInferenceHost.seen.clear()
+        self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00")),   # the check service's 413
+                         (413, {"error": "this photo is 5.1 MB; the limit is 5 MB"}))
+        self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00" * 2**20)),   # nginx's, before it
+                         (413, check_service.TOO_LARGE))
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_a_file_that_is_not_an_image_is_refused_at_the_front(self):
@@ -204,17 +211,17 @@ http {{
         first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
         status, payload = self.answer(form("beans.jpg", JPEG))
         first.read()
-        self.assertEqual((status, payload), (503, {"error": "the classifier is busy with another photo"}))
+        self.assertEqual((status, payload), (503, check_service.BUSY))
         self.assertEqual(len(FakeInferenceHost.seen), 1)
 
     def test_the_inference_host_down_is_offline(self):
         FakeInferenceHost.reply = 502
-        self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+        self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
 
     def test_the_check_service_stopped_is_offline_and_the_page_stays_up(self):
         self.stop_check_service()   # a deploy stops it (D14)
         try:
-            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
             resp = self.visit("GET", "/")
             resp.read()
             self.assertEqual(resp.status, 200)
@@ -233,6 +240,15 @@ http {{
             with self.subTest(log=p.name):
                 self.assertIn(NGINX_LOG_DIR + p.name, rotate, "a log nothing rotates")
                 self.assertIn("abcd1234", p.read_text(), "a line that cannot be joined to the app's log")
+
+    def test_a_refusal_at_the_front_joins_its_ip_line_to_its_access_line(self):
+        """No app request id for what never reached the app: nginx's own joins the two files (D18)."""
+        self.answer(form("beans.jpg", b"some text"))
+        ip_line = (self.logs / "coffee-cv-front.ip").read_text().splitlines()[-1]
+        access_line = (self.logs / "coffee-cv-front.access").read_text().splitlines()[-1]
+        self.assertIn(VISITOR, ip_line)
+        self.assertIn(" 400 ", access_line)
+        self.assertEqual(ip_line.split()[1], access_line.split()[1], "the two lines share no id")
 
 
 def logrotate_days() -> dict[str, int]:
