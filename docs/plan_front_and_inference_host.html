@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P4 done 2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P4 done 2026-11-02; P5 at the owner's stop</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -175,8 +175,8 @@
 
   <h2>7. P5 &mdash; Preparing the proxy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02: the script written; at the owner's stop (run it, add the alias)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P4 done</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>webapp/deploy/setup_front.sh</code>, run once as root: the
@@ -312,6 +312,19 @@
       it passed: a reused front release was refused for its <code>BUILD_INFO.json</code> (its build time), and a stale
       one-host <code>rollback_links</code> left below the new one swapped the inference host twice. The logrotate rules
       stay <code>--bootstrap</code>'s on the inference host and P5's setup on the front.</div>
+    <div><div class="when">2026-11-02</div>P5's script written, not run: <code>webapp/deploy/setup_front.sh</code>, run
+      by the owner from a checkout, drives the proxy as root through the owner's own <code>webproxy</code> alias (the
+      deploy never uses it, D9). On the proxy it creates <code>coffee-deploy</code> (the key of the
+      <code>webproxy</code> alias may log in as it) and <code>coffee-cv-front</code>; a sudoers file allowing the
+      deploy user exactly the five commands the deploy runs there (stop, start and restart
+      <code>coffee-cv-front</code>, <code>nginx -t</code>, <code>systemctl reload nginx</code>; checked by
+      <code>visudo</code> here); uv and the managed Python 3.12 the deploy pins, read from
+      <code>scripts/deploy_webapp.sh</code>; the release directory; the unit, enabled, not started; conf.d's include,
+      a glob that matches nothing until the first deploy, then <code>nginx -t</code>; and the logrotate rules. It
+      refuses a proxy whose <code>nginx.conf</code> does not include <code>conf.d</code>, which it does not edit (D8).
+      Checked here with <code>--print</code>, <code>bash -n</code> and shellcheck on both it and the script it
+      sends; it cannot run in this container. At the owner's stop: run it, and add the <code>webproxy-deploy</code>
+      alias it prints.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a
