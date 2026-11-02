@@ -187,6 +187,14 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { #spinner { animation-duration: 2.5s; } }
+  /* What the wait is, under the circle (ticket OPS-15 D16): only while the photo crosses to the classifier. */
+  #progress-note {
+    display: none;
+    margin-top: 0.5rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
   .result-box {
     padding: 0.9rem 1rem;
     border-radius: 0.5rem;
@@ -231,6 +239,7 @@
     <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
     <div id="spinner" role="status" aria-label="Working"></div>
+    <div id="progress-note" aria-live="polite"></div>
   </div>
 
   <div id="result"></div>
@@ -250,6 +259,7 @@ const cropNote = document.getElementById('crop-note');
 const cropToggleBtn = document.getElementById('crop-toggle-btn');
 const photoLabel = document.getElementById('photo-label');
 const spinner = document.getElementById('spinner');
+const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
 
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
@@ -267,6 +277,16 @@ const BUSY = 'The server is busy with another photo -- try again in a few second
 // answers 503 at once while another visitor's photo is in flight, so a 503
 // is retried after these waits, the circle spinning, before BUSY shows.
 const BUSY_RETRY_S = [3, 6, 12];
+// The front's answer while the classifier cannot be reached (ticket OPS-15 D12): a 503 like busy, told apart by its
+// body (webapp/front/check_service.py's OFFLINE, held equal by tests/test_agent_files.py), and not retried: the
+// classifier is down for minutes, not seconds.
+const OFFLINE_ERROR = 'the classifier is offline';
+const OFFLINE = 'The classifier is offline -- try again in a few minutes.';
+// The front's cap (ticket OPS-15 D15, check_service.py's MAX_UPLOAD_BYTES, held equal by the same test): a larger
+// photo is refused here, before it is uploaded, since the front would refuse it after.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Once the upload has left the browser (D16): the photo still has to cross to the classifier, about 20 s for 5 MB.
+const SENDING = 'Sending to the classifier...';
 
 function hide(...elements) {
   for (const el of elements) el.style.display = 'none';
@@ -392,13 +412,23 @@ let currentUpload = 0;
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
+  // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
+  fileInput.value = '';
   currentUpload++;
   resultEl.innerHTML = '';
   hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
   lastCropBox = null;
   lastMask = null;
   lastFile = file || null;
-  if (file) analyze(file, false);
+  if (!file) return;
+  if (file.size > MAX_UPLOAD_BYTES) {
+    // Rounded up, so a photo just over the limit never reads as exactly the limit.
+    const mb = Math.ceil(file.size / 2 ** 20 * 10) / 10;
+    renderRefused(`This photo is ${mb.toFixed(1)} MB; the limit is ${MAX_UPLOAD_BYTES / 2 ** 20} MB.`);
+    lastFile = null;
+    return;
+  }
+  analyze(file, false);
 });
 
 // While a photo is in flight (OPS-7 D3, D4): the circle spins and Choose
@@ -408,6 +438,12 @@ function setBusy(busy) {
   fileInput.disabled = busy;
   photoLabel.classList.toggle('disabled', busy);
   spinner.style.display = busy ? 'block' : 'none';
+  if (!busy) showSending(false);
+}
+
+function showSending(on) {
+  progressNote.textContent = on ? SENDING : '';
+  progressNote.style.display = on ? 'block' : 'none';
 }
 
 // One upload to POST /analyze (ticket OPS-7, ADR 0023); its answer streams
@@ -421,16 +457,18 @@ async function analyze(file, skipCrop) {
     const res = await postAnalyze(file, skipCrop, isStale);
     if (isStale()) return;
     if (!res.ok) {
-      // Before the stream: nginx's 503 (an HTML page), or the app's 400 with
-      // a JSON error (an unreadable photo).
-      const data = res.status === 503 ? {} : await res.json().catch(() => ({}));
+      // Before the stream: a JSON error from the front (busy, offline, too
+      // large, not an image) or the app (an unreadable photo), or the
+      // classifier's own busy 503, an HTML page (ticket OPS-15).
+      const data = await res.json().catch(() => ({}));
       if (isStale()) return;
-      renderRefused(res.status === 503 ? BUSY : (data.error || 'Something went wrong -- try a different photo.'));
+      renderRefused(refusalFor(res.status, data));
       return;
     }
     let previewPart = null, answered = false;
-    for await (const part of readParts(res)) {
+    for await (const part of res.parts()) {
       if (isStale()) return;
+      showSending(false);
       if (part.part === 'preview') {
         previewPart = part;
         await showPreview(part, isStale);
@@ -457,38 +495,87 @@ async function analyze(file, skipCrop) {
   }
 }
 
+// What a refusal before the stream says. A 503 is busy unless the front says
+// the classifier is offline (ticket OPS-15 D12).
+function refusalFor(status, data) {
+  if (status === 503) return data.error === OFFLINE_ERROR ? OFFLINE : BUSY;
+  return data.error || 'Something went wrong -- try a different photo.';
+}
+
 // The upload, sent again after each of BUSY_RETRY_S's waits while nginx
-// answers 503 (plan Q1); the last answer, whatever it is, goes back.
+// answers busy (plan Q1); the last answer, whatever it is, goes back. An
+// offline 503 goes back at once (ticket OPS-15 D12).
 async function postAnalyze(file, skipCrop, isStale) {
   for (let attempt = 0; ; attempt++) {
     const form = new FormData();
     form.append('photo', file);
     if (skipCrop) form.append('skip_crop', '1');
-    const res = await fetch('/analyze', { method: 'POST', body: form });
+    const res = await send(form, () => { if (!isStale()) showSending(true); });
     if (res.status !== 503 || attempt >= BUSY_RETRY_S.length || isStale()) return res;
+    if ((await res.json().catch(() => ({}))).error === OFFLINE_ERROR) return res;
+    showSending(false);
     await new Promise(resolve => setTimeout(resolve, BUSY_RETRY_S[attempt] * 1000));
     if (isStale()) return res;
   }
 }
 
-// The answer's lines as they arrive. A line can span chunks, and a character
-// can span two, hence the streaming decoder and the carried-over remainder.
-async function* readParts(res) {
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    pending += done ? decoder.decode() : decoder.decode(value, { stream: true });
-    let nl;
-    while ((nl = pending.indexOf('\n')) >= 0) {
-      const line = pending.slice(0, nl);
-      pending = pending.slice(nl + 1);
-      if (line.trim()) yield JSON.parse(line);
+// One upload by XMLHttpRequest, not fetch (ticket OPS-15 D16): only it says
+// when the upload has left the browser (onSent), and from then on the wait is
+// the photo crossing to the classifier, then the model. Resolves once the
+// status is in, like fetch, with the answer still arriving: json() waits for
+// the whole body; parts() yields the answer's lines as they complete
+// (ADR 0023), from responseText, which grows as each line arrives. A network
+// failure rejects before the status, and makes parts() throw after it, as
+// fetch and its body's stream did.
+function send(form, onSent) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let ended = false, failed = false, wake = null;
+    const changed = () => {
+      if (wake) { const w = wake; wake = null; w(); }
+    };
+    const done = new Promise(r => xhr.addEventListener('loadend', r));
+    const answer = {
+      get status() { return xhr.status; },
+      get ok() { return xhr.status >= 200 && xhr.status < 300; },
+      json: () => done.then(() => JSON.parse(xhr.responseText)),
+      async *parts() {
+        let taken = 0;
+        for (;;) {
+          // `ended` read with the text: once the request has ended, the text is all of it.
+          const text = xhr.responseText, finished = ended;
+          let nl;
+          while ((nl = text.indexOf('\n', taken)) >= 0) {
+            const line = text.slice(taken, nl);
+            taken = nl + 1;
+            if (line.trim()) yield JSON.parse(line);
+          }
+          if (finished) {
+            if (failed) throw new Error('the answer was cut off');
+            if (text.slice(taken).trim()) yield JSON.parse(text.slice(taken));
+            return;
+          }
+          // More may have come in while a part was being shown: read it before waiting for the next event.
+          if (xhr.responseText.length === text.length && !ended) await new Promise(r => { wake = r; });
+        }
+      },
+    };
+    xhr.upload.addEventListener('load', onSent);
+    xhr.addEventListener('readystatechange', () => {
+      if (xhr.readyState >= XMLHttpRequest.HEADERS_RECEIVED && xhr.status) resolve(answer);
+    });
+    xhr.addEventListener('progress', changed);
+    xhr.addEventListener('load', () => { ended = true; resolve(answer); changed(); });
+    for (const type of ['error', 'abort', 'timeout']) {
+      xhr.addEventListener(type, () => {
+        ended = failed = true;
+        reject(new Error(`the upload failed (${type})`));   // nothing, once the status is in
+        changed();
+      });
     }
-    if (done) break;
-  }
-  if (pending.trim()) yield JSON.parse(pending);
+    xhr.open('POST', '/analyze');
+    xhr.send(form);
+  });
 }
 
 // The preview part (D8): the server's JPEG thumbnail, never the file itself

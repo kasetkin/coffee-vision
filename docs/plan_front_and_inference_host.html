@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19); P1, P2 done 2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P3 done 2026-11-02</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -68,6 +68,17 @@
         <td><span class="pill sm ok">Answered</span> 2026-11-02, as recommended (ticket D19). The standard library's <code>http.server</code>
           (<code>ThreadingHTTPServer</code>) on loopback under systemd, behind the front's nginx. The gate admits one
           request at a time (D11), so it never needs more; OPS-8's queue revisits it.</td><td>P1</td></tr>
+      <tr><td class="id">Q3</td><td>How does the front learn the visitor's IP (D13, D18)? The proxy's stream block hands
+        the TLS connection to the front's local port, so the front's nginx sees every visitor as
+        <code>127.0.0.1</code> unless the stream server sends the PROXY protocol. <code>proxy_protocol</code> is set per
+        stream <code>server</code>, not per map entry, so turning it on there reaches every site the map serves. Found at
+        P3, 2026-11-02; the proxy's configuration was not read (the session was not allowed to).</td>
+        <td><span class="pill sm open">Open</span> The stream server sends the PROXY protocol, and every local target
+          of the map accepts it: the front's TLS port with <code>listen ... proxy_protocol</code> and
+          <code>real_ip_header proxy_protocol</code>, set from <code>127.0.0.1</code> only. If the other sites cannot take
+          it, a second stream server on its own address, for this domain alone, is the other way. P3 is built on this
+          recommendation; the front's <code>listen</code> line and its two <code>real_ip</code> lines are all that
+          change otherwise.</td><td>P3 (the front's log), P6</td></tr>
     </tbody>
   </table></div>
 
@@ -117,8 +128,8 @@
 
   <h2>5. P3 &mdash; The front's site and the page</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>, on Q3's recommendation; ships with P1&ndash;P4 at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 done, Q1 answered (ticket D18); Q3 open, its recommendation assumed</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>A front site template: TLS on a local port for the stream map to reach (the
@@ -251,6 +262,27 @@
       5 MB is read and dropped before the 413, so the sender sees the 413, not a reset. Measured locally from the
       service's own uv environment: RSS 25 MB idle, 40 MB peak with a 5 MB upload in flight (VmHWM, 2026-11-02); the
       proxy's own figure is P6's.</div>
+    <div><div class="when">2026-11-02</div>P3 implemented on <code>ops15-impl</code>, on the recommendation of Q3, added
+      today: the front sees the visitor's address only if the proxy's stream server sends the PROXY protocol, which is
+      set per stream server and so reaches the proxy's other sites. The site is
+      <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code> (TLS on a loopback port with
+      <code>proxy_protocol</code>, the page and the agent files from the release, <code>/analyze</code> to the check
+      service with the gate, the 5 MB cap and a 75 s read timeout), with
+      <code>coffee-cv-front.logrotate.template</code> (the access log 365 days, <code>coffee-cv-front.ip</code> 30). Its
+      own refusals are JSON: 413 "this photo is over the 5 MB limit", 503 "the classifier is busy with another photo",
+      and 503 "the classifier is offline" for a 502 or 504 of its own, so the page stays up and says offline while a
+      deploy has the check service stopped (D14). <code>tests/test_front_site.py</code> serves it in a real nginx
+      behind a stream map with the PROXY protocol, the real check service and a fake inference host, the visitor on
+      <code>127.0.0.5</code>. The page refuses a photo over 5 MB before uploading it, says offline apart from busy
+      without retrying, and says "Sending to the classifier..." once the upload has left the browser: it uploads by
+      <code>XMLHttpRequest</code>, the one API that reports that, and reads the streamed parts from its growing
+      <code>responseText</code>. <code>llms.txt</code> and <code>openapi.json</code> state 5 MB, the 413 and both 503s;
+      <code>tests/test_agent_files.py</code> holds the page's and the files' limit and offline string to the check
+      service's. Checked in headless Chromium against a local front and a fake inference host: a small photo (the
+      sending note, then the answer), a 6 MB photo (refused by the page, nothing crossed), busy (retried, then the busy
+      message after 21 s) and offline (at once, one request); the page loads while offline. The browser check found
+      a bug older than this ticket: a photo picked again was not a change, so it was not sent, and "try again" did
+      nothing; the page now empties its file input once read.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

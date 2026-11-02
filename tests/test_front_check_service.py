@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -80,6 +81,8 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
 class CheckService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # The service's one line per request, to stderr under systemd, kept out of the test output.
+        cls.enterClassContext(mock.patch.object(check_service.CheckHandler, "log_line"))
         cls.inference = ThreadingHTTPServer(("127.0.0.1", 0), FakeInferenceHost)
         threading.Thread(target=cls.inference.serve_forever, daemon=True).start()
         cls.service = cls.serve(f"http://127.0.0.1:{cls.inference.server_address[1]}")

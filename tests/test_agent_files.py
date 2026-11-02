@@ -22,6 +22,9 @@ APP_SRC = (REPO / "webapp" / "app.py").read_text()
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import APP  # noqa: E402
 
+sys.path.insert(0, str(REPO / "webapp" / "front"))
+import check_service  # noqa: E402
+
 LLMS = (STATIC / "llms.txt").read_text()
 OPENAPI = json.loads((STATIC / "openapi.json").read_text())
 ARD = json.loads((STATIC / ".well-known" / "ard.json").read_text())
@@ -65,6 +68,34 @@ class AgentFilesMatchApp(unittest.TestCase):
         self.assertEqual(set(schemas["ClassificationPart"]["properties"]["verdict"]["enum"]), verdicts)
         for verdict in verdicts:
             self.assertIn(f"`{verdict}`", LLMS, f"llms.txt does not describe the verdict {verdict}")
+
+
+class AgentFilesAndPageStateTheFrontsAnswers(unittest.TestCase):
+    """The front refuses before the inference host sees a photo (ticket OPS-15): its cap and its offline answer are
+    what the page and the agent files must state, not the app's 20 MB, which only the inference host keeps (D15)."""
+
+    LIMIT_MB = check_service.MAX_UPLOAD_BYTES // 2**20
+
+    def test_every_size_limit_stated_is_the_fronts(self):
+        for name, text in (("llms.txt", LLMS), ("openapi.json", json.dumps(OPENAPI))):
+            with self.subTest(file=name):
+                limits = set(re.findall(r"(\d+) MB", text))
+                self.assertEqual(limits, {str(self.LIMIT_MB)}, f"{name} states a limit other than the front's")
+
+    def test_the_pages_limit_is_the_fronts(self):
+        m = re.search(r"const MAX_UPLOAD_BYTES = (\d+) \* 1024 \* 1024;", INDEX)
+        self.assertIsNotNone(m, "index.html has no MAX_UPLOAD_BYTES constant")
+        self.assertEqual(int(m[1]) * 2**20, check_service.MAX_UPLOAD_BYTES)
+
+    def test_the_page_and_the_agent_files_know_offline_from_busy(self):
+        offline = check_service.OFFLINE["error"]
+        self.assertIn(f"const OFFLINE_ERROR = '{offline}';", INDEX)
+        self.assertIn(f'{{"error": "{offline}"}}', LLMS)
+        responses = OPENAPI["paths"]["/analyze"]["post"]["responses"]
+        self.assertIn(offline, json.dumps(responses["503"]))
+        self.assertIn("busy", json.dumps(responses["503"]))
+        self.assertEqual(responses["413"]["content"]["application/json"]["schema"],
+                         {"$ref": "#/components/schemas/Error"})
 
 
 class AgentFilesAreWellFormed(unittest.TestCase):

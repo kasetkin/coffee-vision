@@ -9,14 +9,15 @@ ENV DEVCONTAINER=true
 ENV RUSTICL_ENABLE=radeonsi
 
 # Dev tools, Mesa OpenCL (AMD iGPU), libgl1 (cv2 needs it), exiftool (coffeecv.strip_metadata, ticket
-# ML-3 D13; its version is recorded in each strip manifest), nginx-light (tests/test_inference_site.py serves the
-# inference host's rendered site in it, ticket OPS-15; never started as a service here).
+# ML-3 D13; its version is recorded in each strip manifest), nginx-light and its stream module
+# (tests/test_inference_site.py and tests/test_front_site.py serve the rendered sites in it, the front's behind a
+# stream map like the proxy's, ticket OPS-15; never started as a service here).
 # Kept in one RUN: apt clean in a later layer wouldn't shrink the image.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         less git procps sudo curl ca-certificates \
         mesa-opencl-icd ocl-icd-libopencl1 clinfo libgl1 libglib2.0-0 \
-        libimage-exiftool-perl nginx-light \
+        libimage-exiftool-perl nginx-light libnginx-mod-stream \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

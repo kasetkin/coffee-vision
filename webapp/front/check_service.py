@@ -68,7 +68,7 @@ class CheckHandler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         t0 = time.monotonic()
         outcome = self.analyze() if self.path == "/analyze" else self.json(404, {"error": "not found"})
-        sys.stderr.write(f"{self.command} {self.path} {outcome} {round((time.monotonic() - t0) * 1000)}ms\n")
+        self.log_line(f"{self.command} {self.path} {outcome} {round((time.monotonic() - t0) * 1000)}ms")
 
     def do_GET(self):  # noqa: N802
         self.json(405 if self.path == "/analyze" else 404, {"error": "use POST /analyze"})
@@ -137,6 +137,9 @@ class CheckHandler(BaseHTTPRequestHandler):
 
     def log_message(self, *args):
         pass   # do_POST logs its own line, without the client address http.server would print
+
+    def log_line(self, line: str) -> None:
+        sys.stderr.write(line + "\n")
 
 
 def make_server(listen: tuple[str, int], inference_url: str) -> ThreadingHTTPServer:
