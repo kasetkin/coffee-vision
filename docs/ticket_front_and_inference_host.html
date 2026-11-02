@@ -12,7 +12,7 @@
     the tailnet. Decided in a grilling session on 2026-11-02 (D1&ndash;D17); planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-02; D1&ndash;D20 decided; planned (<a href="plan_front_and_inference_host.html">plan</a>); P1&ndash;P6 done 2026-11-02: merged as <code>98754df</code>, live as release <code>20261102T1514Z-98754df</code>; for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-11-02; D1&ndash;D20 decided; planned (<a href="plan_front_and_inference_host.html">plan</a>); P1&ndash;P6 done 2026-11-02: merged as <code>98754df</code>, live as release <code>20261102T1514Z-98754df</code>; closed by the owner 2026-11-02</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure: serving topology and deploy</span></div>
@@ -290,6 +290,10 @@
       <code>coffee-cv-front.sessions</code> (30 days); the docs updated. The two-host deploy ran once for real; its
       <code>--rollback</code> and a failure on either host were rehearsed locally only (P4). A rollback to before the
       cutover is not a plain <code>--rollback</code>: see <code>deploy.md</code>. For the owner to close.</div>
+    <div><div class="when">2026-11-02</div>Closed by the owner. Live with it: the front refuses GIF, BMP and a plain
+      TIFF, which <code>yappy</code> used to decode though the public contract never named them (P1's check accepts
+      the contract's formats only); a rollback to before the cutover is by hand until the front has a
+      <code>previous</code> (<code>deploy.md</code>).</div>
   </div>
 
   <footer>Related: <a href="plan_front_and_inference_host.html">plan</a>, <a
