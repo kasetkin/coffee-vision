@@ -33,9 +33,12 @@ SERVED = {"encoder.tflite": ARTIFACTS / "tflite" / "encoder.tflite",
 CHECKPOINT = REPO_ROOT / "models" / "dino3b16_segxl0v3_country_aug8_s123.pt"
 FIXTURES = [ln.split() for ln in (REPO_ROOT / "webapp/deploy/fixtures.txt").read_text().splitlines()
             if ln.strip() and not ln.startswith("#")]
-# The smoke photo and three compare photos: two cameras' JPEGs and a HEIC.
-FIXTURE_PHOTOS = [FIXTURES[0][2]] + [p for _, _, p in FIXTURES[1:] if p.lower().endswith(".heic")][:1] \
-    + [p for _, _, p in FIXTURES[1:] if not p.lower().endswith(".heic")][:2]
+# The smoke photo and a HEIC: the service warms up on the first and answers the second (TestServiceBoots).
+FIXTURE_PHOTOS = [FIXTURES[0][2]] + [p for _, _, p in FIXTURES[1:] if p.lower().endswith(".heic")][:1]
+# LiteRT against PyTorch (TestAgainstPyTorch) on two cameras' JPEGs: the smoke photo and the first compare JPEG. Both
+# backends get the same decoded pixels, so a photo's format adds no case, and the deploy's --compare checks every
+# fixture on the host. Four photos took 134 s of the full tier on 2026-11-02 (ticket OPS-14 D2).
+COMPARE_PHOTOS = [FIXTURES[0][2]] + [p for _, _, p in FIXTURES[1:] if not p.lower().endswith(".heic")][:1]
 
 # What LiteRT printed on yappy (ML-7 P7, P4): a graph the delegate took whole, and one it split.
 WHOLE_LOG = """\
@@ -326,7 +329,7 @@ class TestServingImportsNoTorch(unittest.TestCase):
 
 
 def _have_served() -> str | None:
-    for f in (*SERVED.values(), CHECKPOINT, *(REPO_ROOT / p for p in FIXTURE_PHOTOS)):
+    for f in (*SERVED.values(), CHECKPOINT, *(REPO_ROOT / p for p in {*FIXTURE_PHOTOS, *COMPARE_PHOTOS})):
         if not f.exists():
             return f"{f.relative_to(REPO_ROOT)} missing (dvc pull analysis/ml7_gpu/artifacts.dvc, dataset)"
     return None
@@ -383,7 +386,7 @@ class TestAgainstPyTorch(unittest.TestCase):
 
     def test_masks_within_d7(self):
         from coffeecv.photo_io import load_rgb_image
-        for p in FIXTURE_PHOTOS:
+        for p in COMPARE_PHOTOS:
             rgb = load_rgb_image(REPO_ROOT / p)
             a, b = (self.seg[k].predict_mask(rgb) for k in ("litert", "torch"))
             with self.subTest(photo=Path(p).name):
@@ -392,7 +395,7 @@ class TestAgainstPyTorch(unittest.TestCase):
 
     def test_readouts_within_d7(self):
         """Every patch's readout cosine >= 0.99999, on the PyTorch path's own patches."""
-        for k, p in enumerate(FIXTURE_PHOTOS):
+        for k, p in enumerate(COMPARE_PHOTOS):
             patches, _ = infer.patches_for_photo(REPO_ROOT / p, self.cfg, 40, [42, k], segmenter=self.seg["torch"])
             x = np.stack([model_io.eval_patch(q, self.cfg.patch_resize) for q in patches])
             _, a = self.clf["litert"].probs_and_embeddings(x)
@@ -402,7 +405,7 @@ class TestAgainstPyTorch(unittest.TestCase):
                 self.assertGreaterEqual(float(cos.min()), 0.99999)
 
     def test_answers_match(self):
-        for k, p in enumerate(FIXTURE_PHOTOS):
+        for k, p in enumerate(COMPARE_PHOTOS):
             e = {b: infer.classify_one(REPO_ROOT / p, self.cfg, self.ids, self.labels, self.clf[b], self.ref,
                                        seed_key=[42, k], tta=False, probe=self.probe, segmenter=self.seg[b])
                  for b in ("litert", "torch")}

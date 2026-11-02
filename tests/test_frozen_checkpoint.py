@@ -109,16 +109,41 @@ class TestOnlyFrozenModelsLoad(unittest.TestCase):
 @real_data
 @unittest.skipUnless(have_reference_data(), "real crops not present")
 class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
-    """fit_frozen_head builds one split at a time to bound memory; that must not change a single box."""
+    """fit_frozen_head builds one split at a time to bound memory; that must not change a single box.
+
+    On a small pool linked from the real one: two countries, Ethiopia pooled from two folders, a few photos each. The
+    property is per class and per photo, so the whole pool (about 400 val and test crops, the val ones decoded twice:
+    155 s of the full tier on 2026-11-02) adds no case (ticket OPS-14 D1)."""
+    PHOTOS = {"001": 6, "008": 6, "002": 8}   # folder id -> photos linked
+
+    def small_pool(self) -> tuple[Path, Path]:
+        """(capture dir, classes file) in a temp dir: PHOTOS' crops and their masks, and those folders' lines."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        pool = Path(tmp.name) / "segcropped" / "pool"   # a segcropped pool, as RunConfig.resolve_paths requires
+        for folder_id, n in self.PHOTOS.items():
+            src = next((REPO_ROOT / "data" / "segcropped" / "pool").glob(f"class_{folder_id}__*"))
+            (pool / src.name).mkdir(parents=True)
+            for crop in sorted(src.glob("*__cropped.jpg"))[:n]:
+                for f in (crop, crop.with_name(crop.name.replace("__cropped.jpg", "__beanmask.png"))):
+                    (pool / src.name / f.name).symlink_to(f)
+        classes = Path(tmp.name) / "classes.txt"
+        classes.write_text("".join(line + "\n" for line in (REPO_ROOT / "dataset" / "classes.txt").read_text().splitlines()
+                                   if line.split(";")[0] in self.PHOTOS))
+        return pool, classes
 
     def test_val_alone_equals_val_with_test(self):
-        cfg = replace(RunConfig.from_params_yaml(), seed=42, train_capture_dirs=("data/segcropped/pool",),
-                      val_patches_per_class=2, test_patches_per_class=2)
+        pool, classes = self.small_pool()
+        cfg = replace(RunConfig.from_params_yaml(), seed=42, train_capture_dirs=(str(pool),),
+                      classes_file=str(classes), val_patches_per_class=2, test_patches_per_class=2)
         tf = build_eval_transform(cfg.patch_resize)
         alone = build_fold_datasets(cfg, tf, tf, only=("val",))
         both = build_fold_datasets(cfg, tf, tf, only=("val", "test"))
+        self.assertEqual(alone.class_ids, ["Ethiopia", "Kenya"])
         self.assertIsNone(alone.train)
         self.assertIsNone(alone.test)
+        self.assertGreater(len(both.test), 0)
+        self.assertGreater(len(alone.val), 0)
         self.assertEqual(len(alone.val), len(both.val))
         for i in range(len(alone.val)):
             self.assertTrue(torch.equal(alone.val[i][0], both.val[i][0]))
