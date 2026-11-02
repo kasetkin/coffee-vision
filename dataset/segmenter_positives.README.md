@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 270 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 71 of the 288 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,23 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-11-02: 18 Brazil and Ethiopia photos
+
+- **New photos** (batch `2026-11-02`): 18 photos shot 2026-10-30 to 2026-11-02, named
+  `YYYYMMDD_HHMMSS_<phone>_<country>`: 14 Brazil and 4 Ethiopia, on a Pixel 9 Pro (9), a OnePlus (5), a KB2005 (2)
+  and an iPhone 13 (2 HEIC). Beans in a clear bowl, from above: wide with the counter, a person and menu sheets in
+  view (`132057`, `132100`, `132102`), with the bowl's rim round them, or close with beans filling the frame. The
+  Ethiopia ones show beans at the bottom of an open foil bag (2), in a hand-held zip bag and in a dark grinder hopper.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  nearest 0.80, between two of the new photos). The `132057`/`132100`/`132102` shots, 3 s and 2 s apart, are one group
+  (ADR 0029's 3 s).
+- **Metadata** (ticket ML-3, D13): all 18 carried private tags (EXIF GPS, C2PA, the Apple maker note, EXIF
+  thumbnails, the HDR+ XMP) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 288 photos here clean. The two HEICs keep their
+  thumbnail item (owner, 2026-10-05).
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 18 (train 11, validation 3, test 4), with 18 pool
+  photos topping the draw up to 288.
 
 ## 2026-10-30: 7 Brazil grinder-hopper photos
 
