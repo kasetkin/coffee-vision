@@ -53,7 +53,7 @@ PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
 INFERENCE_ADDR=${INFERENCE_ADDR:-}
 INFERENCE_PORT=${INFERENCE_PORT:-12346}
 # The front (ADR 0031): the proxy, set up once by webapp/deploy/setup_front.sh, as root (plan P5). Its deploy user may
-# only stop and start the check service, test and reload nginx, and write its own release directory (D8, D9).
+# only stop, start and restart the check service, test and reload nginx, and write its own release directory (D8, D9).
 FRONT_HOST=${FRONT_HOST:-webproxy-deploy}
 FRONT_USER=${FRONT_USER:-$(ssh -G "$FRONT_HOST" 2>/dev/null | awk '$1 == "user" { print $2 }')}
 FRONT_APP_ROOT=${FRONT_APP_ROOT:-/opt/coffee-cv}
@@ -595,7 +595,7 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
 }
 
 # ------------------------------------------------------------------------------ production files + flip
-render_production() {   # the inference host's unit, and its conf.d include of the release's site, if they changed
+render_production() {   # the inference host's unit, if it changed; keeps a site from before OPS-15 for a revert
   say "Render production files"
   [[ -n "$DOMAIN" ]] || die "DOMAIN is not set (the public host name, for the checks after the flip)"
   local unit out
@@ -609,28 +609,48 @@ render_production() {   # the inference host's unit, and its conf.d include of t
       $SUDO systemctl daemon-reload
       echo "UNIT_CHANGED=1"
     fi
-    # Since OPS-15 the site is the release'"'"'s: this file only includes it from `current`. Written once, over the
-    # site an older deploy rendered here; nginx -t and the reload come after the flip (reload_sites).
-    if [[ "$(cat "$SITE_F" 2>/dev/null)" != "$INCLUDE" ]]; then
-      printf "%s\n" "$INCLUDE" | $SUDO tee "$SITE_F" >/dev/null
-      echo "INCLUDE_CHANGED=1"
+    # The site an older deploy rendered here, before OPS-15: kept outside conf.d'"'"'s *.conf glob, for a revert or a
+    # rollback to a release that carries no site of its own (site_for_current).
+    if [[ -f "$SITE_F" && "$(cat "$SITE_F")" != "$INCLUDE" && ! -f "$SITE_F.pre-ops15" ]]; then
+      $SUDO cp -p "$SITE_F" "$SITE_F.pre-ops15"
+      echo "KEPT=1"
     fi
   ' UNIT="$unit" INCLUDE="$(site_include "$APP_ROOT" inference)")
   UNIT_CHANGED=$(kv UNIT_CHANGED "$out")
-  note "unit: $([[ -n "$UNIT_CHANGED" ]] && echo "installed + daemon-reload" || echo unchanged); conf.d include: $([[ -n "$(kv INCLUDE_CHANGED "$out")" ]] && echo installed || echo unchanged)"
+  note "unit: $([[ -n "$UNIT_CHANGED" ]] && echo "installed + daemon-reload" || echo unchanged)$([[ -n "$(kv KEPT "$out")" ]] && echo "; the site from before OPS-15 kept as coffee-cv.conf.pre-ops15")"
 }
 
-# flip_on vm|fe <release id> <host's name>: previous <- current, current <- releases/<id>, atomically each.
+# The inference host's conf.d file for the release `current` points at, before each nginx -t: the include of its site,
+# or, for a release from before OPS-15, which carries none, the site that deploy rendered (kept by render_production).
+site_for_current() {
+  vm '
+    SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
+    want=$INCLUDE
+    if [[ ! -e "$APP_ROOT/current/inference.nginx.conf" && -f "$SITE_F.pre-ops15" ]]; then want=$(cat "$SITE_F.pre-ops15"); fi
+    if [[ "$(cat "$SITE_F" 2>/dev/null)" != "$want" ]]; then
+      printf "%s\n" "$want" | $SUDO tee "$SITE_F" >/dev/null
+      [[ "$want" == "$INCLUDE" ]] && echo "   the inference host: conf.d includes the release'"'"'s site" \
+        || echo "   the inference host: conf.d holds the site from before OPS-15 again"
+    fi' INCLUDE="$(site_include "$APP_ROOT" inference)"
+}
+
+# flip_on vm|fe <release id> <host's name>: previous <- current, current <- releases/<id>, atomically each. A host that
+# moved is added to FLIPPED, which revert_both undoes; one already on the release (a redeploy of it) is not.
 flip_on() {
-  "$1" '
+  local out
+  out=$("$1" '
     cd "$APP_ROOT"
     old=$(readlink current 2>/dev/null || true)
-    if [[ -n "$old" && "$old" != "releases/$ID" ]]; then
+    [[ "$old" != "releases/$ID" ]] || { echo "   $WHERE: already on releases/$ID"; exit 0; }
+    if [[ -n "$old" ]]; then
       ln -sfn "$old" previous.new && mv -T previous.new previous
     fi
     ln -sfn "releases/$ID" current.new && mv -T current.new current
     echo "   $WHERE: current -> $(readlink current); previous -> $(readlink previous 2>/dev/null || echo none)"
-  ' ID="$2" WHERE="$3"
+    echo "MOVED=1"
+  ' ID="$2" WHERE="$3")
+  grep -v '^MOVED=1$' <<<"$out" || true
+  [[ -z "$(kv MOVED "$out")" ]] || FLIPPED+=" $1"
 }
 
 # unflip_on vm|fe <release id> <host's name>: undoes flip_on, if it ran: back to previous, or, on a host's first
@@ -665,6 +685,7 @@ rollback_links() {
 # Both hosts' nginx -t first, then one reload on each (D8): never one host on the new site while the other refuses it.
 reload_sites() {
   local on where ok=1
+  site_for_current || return 1
   for on in vm fe; do
     where=$([[ $on == vm ]] && echo "the inference host" || echo "the front")
     if "$on" 'msg=$($SUDO nginx -t 2>&1) || { printf "%s\n" "$msg" | sed "s/^/   nginx: /"; exit 1; }'; then
@@ -691,15 +712,21 @@ front_restart_if_enabled() {   # prints FRONT_ENABLED=1 when it restarted the ch
     fi'
 }
 
-# Set from the first flip until the deploy is verified: any failure meanwhile, the EXIT trap's included, puts both
-# hosts back on the release they ran before, reloads their sites and starts both (D14).
+# The hosts flip_on moved (vm, fe), from the flip until the deploy is verified: any failure meanwhile, the EXIT trap's
+# included, puts them back on the release they ran before, reloads both sites and starts both services (D14).
 FLIPPED=""
+REVERTING=""   # set from the flip until verified, even when no host moved (a redeploy of the live release)
 revert_both() {
-  [[ -n "$FLIPPED" ]] || return 0
-  FLIPPED=""
+  [[ -n "$REVERTING" ]] || return 0
+  REVERTING=""
   say "Revert both hosts to the release they ran before"
-  unflip_on vm "$ID" "the inference host" || note "WARNING: the inference host's links could not be reverted -- inspect by hand"
-  unflip_on fe "$ID" "the front" || note "WARNING: the front's links could not be reverted -- inspect by hand"
+  if [[ " $FLIPPED " == *" vm "* ]]; then
+    unflip_on vm "$ID" "the inference host" || note "WARNING: the inference host's links could not be reverted -- inspect by hand"
+  fi
+  if [[ " $FLIPPED " == *" fe "* ]]; then
+    unflip_on fe "$ID" "the front" || note "WARNING: the front's links could not be reverted -- inspect by hand"
+  fi
+  FLIPPED=""
   reload_sites || note "WARNING: nginx -t fails on the previous release's site too -- inspect both hosts by hand"
   restart_if_enabled >/dev/null || note "WARNING: coffee-cv-web did not restart"
   front_restart_if_enabled >/dev/null || note "WARNING: coffee-cv-front did not restart"
@@ -947,7 +974,10 @@ case "${1:-}" in
     say "Rollback both hosts"
     rollback_links vm || die "rollback refused on the inference host"
     rollback_links fe || { rollback_links vm; die "rollback refused on the front; the inference host is switched back"; }
-    reload_sites || die "nginx -t failed on the previous release's site -- inspect both hosts by hand"
+    if ! reload_sites; then
+      rollback_links vm; rollback_links fe; site_for_current || true
+      die "nginx -t failed on the previous release's site: both hosts' links are switched back, nothing reloaded"
+    fi
     restart_if_enabled >/dev/null
     front_restart_if_enabled >/dev/null
     verify || die "verification after rollback failed -- inspect by hand"
@@ -976,19 +1006,23 @@ fi
 stop_front
 render_production
 say "Flip both hosts to releases/$ID"
-FLIPPED=1
+REVERTING=1
 flip_on vm "$ID" "the inference host"
 flip_on fe "$ID" "the front"
 ENABLED=$(restart_if_enabled)
 FRONT_ENABLED=$(front_restart_if_enabled)
-[[ -z "$FRONT_ENABLED" ]] || FRONT_STOPPED=""
+if [[ -z "$FRONT_ENABLED" && -n "$FRONT_STOPPED" ]]; then
+  # Running but not enabled: started again now, on the new release, for verify's checks through the domain.
+  fe '$SUDO systemctl start coffee-cv-front'
+fi
+FRONT_STOPPED=""
 # The restart started the new release; a disabled service is started by the EXIT trap, on the new release too.
 if [[ -n "$ENABLED" && -n "$LIVE_STOPPED_AT" ]]; then
   note "photo answers were down $((SECONDS - LIVE_STOPPED_AT)) s"; LIVE_STOPPED_AT=""
 fi
 reload_sites || die "nginx -t rejected a release's site; both hosts go back to the release they ran before"
 if ! verify; then on_verify_failure; fi
-FLIPPED=""
+REVERTING=""; FLIPPED=""
 prune
 postflight
 if [[ -z "$ENABLED" ]]; then

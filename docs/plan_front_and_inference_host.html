@@ -198,6 +198,10 @@
     <li><span class="box"></span><span>Stop for the owner, on <code>yappy</code> as root, before the deploy: run
       <code>webapp/deploy/setup_server.sh</code> (its <code>ip_nonlocal_bind</code> lets nginx bind the tailnet address
       at boot, from P2) and remove the public-port ufw rule it no longer records.</span></li>
+    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh --bootstrap</code> on <code>yappy</code> before the
+      deploy: it renders the logrotate rules, the 30-day one for <code>coffee-cv.ip</code> included (P2, D18). The
+      deploy's <code>DOMAIN</code>, <code>TLS_CERT</code> and <code>TLS_KEY</code> (the proxy's certificate files)
+      are set for it.</span></li>
     <li><span class="box"></span><span>The first two-host deploy, with photo answers down meanwhile (say so first).</span></li>
     <li><span class="box"></span><span>Stop for the owner: point the domain's line in the proxy's stream map at the
       front's local port, <code>nginx -t</code>, reload.</span></li>
@@ -325,6 +329,18 @@
       Checked here with <code>--print</code>, <code>bash -n</code> and shellcheck on both it and the script it
       sends; it cannot run in this container. At the owner's stop: run it, and add the <code>webproxy-deploy</code>
       alias it prints.</div>
+    <div><div class="when">2026-11-02</div>P4 reviewed (standards and spec, in parallel); fixed, and each case added to
+      the rehearsal, which passed again: (1) the first two-host deploy overwrote <code>yappy</code>'s conf.d site with
+      the include and kept no copy, so a revert or a rollback to a release from before OPS-15, which carries no site,
+      left <code>yappy</code> serving none; the old site is now kept as <code>coffee-cv.conf.pre-ops15</code>, outside
+      the <code>*.conf</code> glob, and before each <code>nginx -t</code> the host's conf.d file follows
+      <code>current</code> (its include, or that old site). (2) A redeploy of the live release, failing after the
+      flip, moved both hosts back past it to <code>previous</code>; only a host the flip moved is reverted now. (3) A
+      check service running but not enabled stayed stopped through verify. (4) A <code>--rollback</code> whose
+      <code>nginx -t</code> failed left both hosts' links switched; they are switched back. The rehearsal again checks
+      that the live service stops only once both hosts are staged. P6's tasks now include the
+      <code>--bootstrap</code> on <code>yappy</code> that installs the 30-day logrotate rule. Left as judgement calls:
+      the duplicated prune and restart halves of the two hosts, and the stage's digest loop in four places.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

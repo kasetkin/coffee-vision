@@ -17,8 +17,10 @@
 # Last passed 2026-11-02 (OPS-15 P4, two hosts), with REHEARSE_MODEL=dino3b16_segxl0v6_country_aug8_s42 and
 # REHEARSE_PREV_REF=origin/main~1, from a scratch clone whose main was branch ops15-impl plus P4 (deploy 1) and an empty
 # commit (deploy 2), since the branch is not on main until the cutover: an nginx -t failure on each host after the flip
-# put both hosts back on deploy 1 with both services running; deploy 2 had photo answers down 20 s, verified both
-# hosts on one release and pruned both; --compare within D7 of PyTorch; a rollback and back moved both hosts. Run with
+# put both hosts back on deploy 1 with both services running, the live service stopped only once both were staged;
+# deploy 2 verified both hosts on one release and pruned both; --compare within D7 of PyTorch; a failed redeploy of the
+# live release left both hosts on it; a rollback and back moved both hosts; a rollback to a release with no site of its
+# own put the site from before OPS-15 back, and the roll-forward the release's include. Run with
 # UV_PYTHON_DOWNLOADS and UV_PROJECT_ENVIRONMENT unset: the devcontainer sets them for training.
 #
 # Stubbed: sudo (runs the command as you), systemd-run (runs the command in its working directory with
@@ -240,10 +242,15 @@ expect_fail "no copy in the working tree or the DVC cache has md5" "$D" --stage-
 rm -r "$C/models/$MODEL.pt" "$C/.dvc/cache"; mv "$C/.dvc/cache.off" "$C/.dvc/cache"
 
 step "deploy 1: $MODEL at ${PREV_SHA:0:7} (service disabled: flip, no restart)"
+# The site a deploy from before OPS-15 rendered into conf.d: kept for a rollback to a release that carries none.
+OLD_SITE="# the inference host's site from before OPS-15 (rehearsal)"
+printf '%s\n' "$OLD_SITE" > "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
 "$D" "$PREV_SHA" "$MODEL"
 [[ "$(readlink "$APP_ROOT/current")" == releases/*-"${PREV_SHA:0:7}-$MODEL" ]] || { echo "current not flipped"; exit 1; }
 
 both_on "*-${PREV_SHA:0:7}-$MODEL" "deploy 1"
+[[ "$(cat "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf.pre-ops15")" == "$OLD_SITE" ]] \
+  || { echo "deploy 1 did not keep the site from before OPS-15"; exit 1; }
 
 step "enable both services (the owner's Phase B), then --verify"
 PATH="$S:$PATH" systemctl enable --now coffee-cv-web
@@ -256,6 +263,9 @@ for host_root in "$R/sys" "$R/sys-front"; do
   expect_fail "nginx -t rejected a release's site" env STUB_NGINX_FAIL="$host_root" "$D" "$SHA" "$MODEL"
   both_on "*-${PREV_SHA:0:7}-$MODEL" "after the failure on $(basename "$host_root")"
   grep -q "Revert both hosts" "$R/expect_fail.log" || { echo "the deploy did not revert both hosts"; exit 1; }
+  # ADR 0026: the live service stopped only once both hosts were staged, and started again.
+  awk '/^== Stage .* on the front/ {s = 1} /^== Stop the live service/ {if (s) ok = 1} END {exit !ok}' "$R/expect_fail.log" \
+    || { echo "the live service was stopped before both hosts were staged"; exit 1; }
   both_active "after the failure on $(basename "$host_root")"
   [[ "$(cat "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf")" == "include $APP_ROOT/current/inference.nginx*.conf;" ]] \
     || { echo "the inference host's conf.d does not include the release's site"; exit 1; }
@@ -286,11 +296,33 @@ done < <(git -C "$SRC" ls-files -o -i --exclude-standard -- models models_pretra
 "$D" --compare "$(basename "$(readlink "$APP_ROOT/current")")"
 PATH="$S:$PATH" systemctl is-active --quiet coffee-cv-web || { echo "--compare did not start the live service again"; exit 1; }
 
+step "refusal: a redeploy of the live release fails after the flip -> both hosts stay on it"
+expect_fail "nginx -t rejected a release's site" env STUB_NGINX_FAIL="$R/sys-front" "$D" "$SHA" "$MODEL"
+both_on "*-${SHA:0:7}-$MODEL" "after the failed redeploy"
+[[ "$(readlink "$APP_ROOT/previous")" == releases/*-"${PREV_SHA:0:7}-$MODEL" ]] \
+  || { echo "the failed redeploy moved previous"; exit 1; }
+both_active "after the failed redeploy"
+echo "   both hosts still on deploy 2, previous still deploy 1"
+
 step "--rollback to ${PREV_SHA:0:7}, and back: both hosts"
 "$D" --rollback
 both_on "*-${PREV_SHA:0:7}-$MODEL" "the rollback"
 "$D" --rollback
 both_on "*-${SHA:0:7}-$MODEL" "the roll-forward"
 both_active "after the rollbacks"
+
+step "--rollback to a release from before OPS-15 (no site of its own), and back"
+# Deploy 1's release made to look like one from before OPS-15, for this step only.
+prev_rel=$(readlink -f "$APP_ROOT/previous")
+mv "$prev_rel/inference.nginx.conf" "$R/inference.nginx.conf.aside"
+"$D" --rollback
+[[ "$(cat "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf")" == "$OLD_SITE" ]] \
+  || { echo "the rollback did not put the site from before OPS-15 back"; exit 1; }
+"$D" --rollback
+[[ "$(cat "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf")" == "include $APP_ROOT/current/inference.nginx*.conf;" ]] \
+  || { echo "the roll-forward did not include the release's site again"; exit 1; }
+mv "$R/inference.nginx.conf.aside" "$prev_rel/inference.nginx.conf"
+both_on "*-${SHA:0:7}-$MODEL" "after the rollback to a release from before OPS-15, and back"
+echo "   the old site while on it, the release's include after"
 
 step "REHEARSAL PASSED"

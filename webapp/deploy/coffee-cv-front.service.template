@@ -1,7 +1,7 @@
 # The front's check service (ticket OPS-15, ADR 0031), on the proxy. Rendered with $FRONT_SERVICE_USER and
 # $RELEASE_DIR ($FRONT_APP_ROOT/current) and installed as /etc/systemd/system/coffee-cv-front.service by
-# webapp/deploy/setup_front.sh, as root, once: the deploy's user may only stop and start it (D9), and its preflight
-# refuses a release whose rendered unit differs from the installed one. Nothing here changes per release: the
+# webapp/deploy/setup_front.sh, as root, once: the deploy's user may only stop, start and restart it (D9), and its
+# stage refuses a release whose rendered unit differs from the installed one. Nothing here changes per release: the
 # release's front.env names the listen address and the inference host, and systemd resolves `current` at each start,
 # so a flip or a rollback moves the service with the page.
 [Unit]
