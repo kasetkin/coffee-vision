@@ -1,0 +1,127 @@
+<title>Next training session</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-16 · coffee-vision · new photos and segmenter labels, for the next training session</div>
+  <h1>The 25 segmenter positives of 2026-10-30 and 2026-11-02 labelled (pass11), ready for the next training session</h1>
+  <p class="lede">Since XL0-v6 was trained (ML-13), the owner has added 25 segmenter positives in two batches. This
+    ticket records how they joined the segmenter dataset and how the owner labelled them, with the new pool photos
+    drawn alongside, in labelling session pass11 on <code>xl0_v6_s42</code>'s masks. It prepares the next training
+    session. That session is not decided and not planned: the owner will start it later. Written 2026-11-02; the
+    data and the labels are done.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-02.</strong> After the 18 photos of 2026-11-02 joined the segmenter dataset:
+      "use xl0_v6_s42 to draw new masks and show them for me so I can judge and improve them if needed". Then, the
+      review done: "This is preparation step for the next training session, but we do not have ticket yet. Create
+      it, record new data adding but do not plan ahead. We will not start it right now."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The segmenter dataset holds 25 segmenter positives and 25 pool photos that no segmenter has trained on. Every
+    one of them in the training or validation split now has a label the owner accepted. Session pass11 holds the
+    labels: the 401 that pass10 accepted, carried over, and the 39 the owner judged on 2026-11-02. The next
+    training session can read them. Choosing that session (segmenter, classifier or both) and planning it are left
+    for later.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The batch of 2026-10-30</strong> (<code>fd490ce</code>, <code>ca8a61c</code>; README section
+      "2026-10-30"): 7 Brazil grinder-hopper photos (Pixel 9 Pro, 2026-10-29), stripped by ML-14's parallel
+      stripper. In the segmenter dataset: train 4, validation 1, test 2, with 7 pool photos topping the draw up.
+      No labelling session ran for it.</li>
+    <li><strong>The batch of 2026-11-02</strong> (<code>7b2ea74</code>; README section "2026-11-02"): 18 photos shot
+      2026-10-30 to 2026-11-02, 14 Brazil and 4 Ethiopia. Beans in a clear bowl, from above, wide or close; the
+      Ethiopia ones in an open foil bag, a zip bag and a grinder hopper. Stripped, 0 checks failing; no copies under
+      <code>dataset/</code>. In the segmenter dataset: train 11, validation 3, test 4, with 18 pool photos.
+      <code>132057</code>/<code>132100</code>/<code>132102</code> are one group (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</li>
+    <li><strong>The segmenter dataset</strong> (<code>labels/ml5/seg_dataset.yaml</code>) now lists 1,200 photos:
+      288 segmenter positives (train 173, validation 43, test 72), 288 pool photos (the same split counts), 11
+      internet positives and 613 negatives.</li>
+    <li><strong>The last labels</strong> were pass10's (ML-13 P4, <code>fa4611f</code>, XL0-v5 masks): 402
+      positives accepted, none of the photos above among them.</li>
+    <li><strong>One label lost to a rename</strong>: pass10's label of
+      <code>random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120546.jpg</code> did not carry, because
+      the owner renamed the photo to <code>20261016_120546_KB2005_Colombia.jpg</code> (<code>ca8a61c</code>). A
+      label is keyed by path, so pass11 showed the photo again.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Before</h3>
+      <ul>
+        <li>The newest labels, pass10's, cover 402 of the 440 training and validation positives.</li>
+        <li>25 segmenter positives and 25 pool photos are in the dataset with no label.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>pass11 (<code>xl0_v6_s42</code> as proposer and redraw model, carrying pass10) holds an accepted label for
+          all 440 training and validation positives, and the 453 negatives' empty labels.</li>
+        <li><code>data/ml5_labels/pass11</code> in DVC and on the remote.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The live models.</strong> Nothing is trained or deployed here; <code>xl0_v6_s42</code> and
+      <code>dino3b16_segxl0v6_country_aug8_s42</code> keep serving.</li>
+    <li><strong>The test split.</strong> Its 6 new segmenter positives and 7 new pool photos get no label, as
+      before: a model is judged on test photos blind and paired against another model (ML-5 D22).</li>
+    <li><strong>pass10.</strong> pass11 copied pass10's accepted labels and left pass10's files as they were.</li>
+  </ul>
+
+  <h2>5. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The 7 photos of 2026-10-30 and the 18 of 2026-11-02 stripped, in DVC,
+      in the manifest and in the segmenter dataset (<code>fd490ce</code>, <code>ca8a61c</code>,
+      <code>7b2ea74</code>).</span></li>
+    <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
+      the session's masks in DVC, pushed and checked on the remote.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The training session itself, and everything after it (re-crop, retrain, comparison, release). It is not
+      decided or planned; the owner will start it.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-02</div>Ticket written from the owner's request, <code>fd490ce</code>,
+      <code>ca8a61c</code>, <code>7b2ea74</code> and pass11. The data and the labels are done. The training session
+      is not planned.</div>
+    <div><div class="when">2026-11-02</div>pass11: <code>seg_review label --session pass11 --proposer xl0_v6_s42
+      --redraw xl0_v6_s42 --carry pass10</code>. 401 of pass10's labels carried; xl0_v6_s42 proposed the 39 others in
+      142 s on the CPU. They are the 19 training and validation photos of both batches, 19 new pool photos and the
+      renamed one. The owner accepted all 39, no drops: 3 in round 1 (all pool photos), 23 in round 2, 7 in round 3,
+      2 in round 4, 4 in round 5. None of the 19 segmenter positives was accepted in round 1. 14 needed a fence,
+      9 of them also brush strokes; <code>20261031_105246</code> took 5 rounds, the three wide validation shots
+      <code>132057</code>/<code>132100</code>/<code>132102</code> 3 or 4. <code>xl0_v6_s42</code>'s masks on the 4 test photos of
+      2026-11-02 were shown to the owner outside the page, with no verdicts recorded. Claude's reading: holes and
+      ragged edges on the foil-bag photo <code>20261030_185843</code>; the other three look clean. <code>data/ml5_labels/pass11</code> added to DVC and
+      pushed; all 936 objects (1,369 files) checked on the remote.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),
+    <a href="ticket_strip_metadata_parallel.html">ML-14</a> (the stripper),
+    <a href="ticket_segmenter_dataset.html">ML-5</a> (the segmenter dataset and the labelling page),
+    <code>dataset/segmenter_positives.README.md</code>.</footer>
+</main>
