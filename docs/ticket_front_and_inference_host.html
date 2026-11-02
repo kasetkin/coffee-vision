@@ -1,0 +1,268 @@
+<title>The Front and the Inference Host</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-15 · coffee-vision · webapp and deploy</div>
+  <h1>The site moves to the front, the proxy: TLS, the page and the upload check there; decoding, the models and the answer stay on the inference host</h1>
+  <p class="lede">The owner wants a clean split between the web-page part of the service and the ML part. The proxy in
+    front of the domain is always on and well connected but small, with no GPU; <code>yappy</code> has the GPU but a slow
+    link. After this ticket the proxy is the front, and <code>yappy</code> is the inference host, reached only through
+    the tailnet. Decided in a grilling session on 2026-11-02 (D1&ndash;D17); planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; D1&ndash;D17 decided; planned (<a href="plan_front_and_inference_host.html">plan</a>), not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: serving topology and deploy</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/front/</code> (new), <code>webapp/deploy/</code> (nginx templates, units, setup), <code>webapp/static/</code>, <code>webapp/app.py</code>, <code>scripts/deploy_webapp.sh</code>, <code>scripts/rehearse_deploy_local.sh</code>, <code>docs/agents/deploy.md</code>, <code>docs/logging_plan.html</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the proxy's stream map)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At the cutover (plan P6): TLS, the page and the busy gate move to the proxy; photos over 5 MB are refused (D15); full client IPs are logged for 30 days (D13); <code>yappy</code>'s public port closes.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the cutover waits on the owner's stream-map edit (plan P5)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-02.</strong> Make a clean split between the web-page part of the server and the
+      ML part that serves the model. The proxy has fast connections and very good stability but small RAM, low CPU and
+      no GPU. Move the site from <code>yappy</code> to the proxy, so TLS terminates at the proxy; check the image there;
+      send it to <code>yappy</code> through the tunnel and run all of <code>/analyze</code> on <code>yappy</code>.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today <code>yappy</code> does everything: its nginx terminates TLS, serves the page and passes <code>/analyze</code>
+    to gunicorn, and the proxy only passes TLS through to it. After this ticket the service has two parts
+    (<a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>):</p>
+  <ul>
+    <li><b>The front</b> (the proxy): TLS, the page, the busy gate, the size cap, a check of the upload's format, the
+      visitor-facing logs, and later analytics (OPS-3) and the queue (OPS-8).</li>
+    <li><b>The inference host</b> (<code>yappy</code>): decoding, both models and the streamed answer, behind the
+      tailnet only.</li>
+  </ul>
+  <p>Both parts ship as one release, deployed and rolled back together. The work splits into the front's check service,
+    the inference host's site, the front's site and page, the two-host deploy, the proxy's setup, and the cutover
+    (<a href="plan_front_and_inference_host.html">plan</a>).</p>
+
+  <h2>2. Background</h2>
+  <p>Read at <code>d9212c6</code> and measured on both hosts on 2026-11-02.</p>
+  <ul>
+    <li><b>Today's path.</b> The proxy's nginx <code>stream</code> block reads the SNI and passes the domain's TLS
+      connection to <code>yappy:12346</code> over Tailscale. <code>yappy</code>'s nginx terminates TLS, serves
+      <code>webapp/static/</code> from the release, and proxies <code>/analyze</code> with <code>limit_conn 1</code>,
+      <code>client_max_body_size 20m</code> and <code>proxy_read_timeout 30s</code>
+      (<code>webapp/deploy/coffee-cv.nginx.conf.template</code>). Another site on the proxy already uses the pattern
+      this ticket wants: the stream map sends it to a TLS server on the proxy itself.</li>
+    <li><b>The tunnel.</b> Tailscale between the proxy and <code>yappy</code> is relayed through a DERP server, not
+      direct (<code>tailscale ping</code>). Measured with one raw TCP transfer each way: proxy&rarr;<code>yappy</code>
+      2.1 Mbit/s (21 MB in 81 s), <code>yappy</code>&rarr;proxy 8.5 Mbit/s (8.4 MB in 7.9 s). The owner rules the link
+      as fast as it can be: <code>yappy</code>'s ISP limits it (D4). A deploy's upload to <code>yappy</code> also goes
+      over Tailscale, at about the same rate (14 MB a minute, <a href="agents/deploy.md">deploy.md</a>).</li>
+    <li><b>The proxy.</b> Debian 12, 2 vCPU (AMD EPYC, AVX-512), 958 MB RAM with about 200 MB available and 440 MB of
+      its 1 GB swap in use, 3.7 GB of disk free (81% used). It runs about 25 other services (databases, monitoring,
+      VPNs, file sharing) and its nginx serves six other sites. No Docker, no uv; system Python 3.11.2. It holds the
+      same wildcard certificate as <code>yappy</code>, valid to 2027-01-01. Its firewall is firewalld. SSH alias
+      <code>webproxy</code>, as root.</li>
+    <li><b>The inference host.</b> <code>yappy</code>: 4 cores, 7.7 GB, about 3.3 GB available beside the live
+      worker. <code>/analyze</code> takes <code>latency_ms</code> 8.4&ndash;8.9 s on its GPU (OPS-7 P5).</li>
+    <li><b>Decoding.</b> <code>load_rgb_image</code> decodes at full resolution with no early resize
+      (<code>coffeecv/photo_io.py</code>): a 48 MP photo is about 144 MB of RGB, RAW goes through rawpy.</li>
+    <li><b>Photo sizes.</b> In <code>dataset/</code>, every phone photo is under 5 MB (Pixel, OnePlus, iPhone HEIC);
+      180 of the 310 Sony camera photos are over. Of the deploy fixtures, only <code>compare</code>'s (7.6 MB, Sony)
+      is; <code>smoke</code>'s is 1.8 MB (<code>webapp/deploy/fixtures.txt</code>).</li>
+    <li><b>Client IPs.</b> <code>docs/logging_plan.html</code> §03-C excludes them "for now", and
+      <code>webapp/README.md</code> says the logs hold none. The app does not read <code>X-Real-IP</code> today; behind
+      the passthrough it would only be the proxy's tailnet address.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The proxy passes TLS through; <code>yappy</code> terminates it on a public port.</li>
+        <li><code>yappy</code> serves the page; when it is down or mid-deploy, the page is down with it.</li>
+        <li>Every upload crosses the 2.1 Mbit/s link before anything checks it; up to 20 MB.</li>
+        <li>One host, one release, one flip.</li>
+        <li>No client IP in any log.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The front terminates TLS; <code>yappy</code> listens only on its tailnet address, plain HTTP.</li>
+        <li>The front serves the page, and answers "the classifier is offline" while <code>yappy</code> is
+          unreachable.</li>
+        <li>The front refuses a busy request, a file over 5 MB or a file that is not an image before it crosses; the
+          page refuses an oversized photo before uploading it.</li>
+        <li>One release across two hosts: staged on both, stopped, flipped and started on both, reverted on both.</li>
+        <li>Full client IPs in both hosts' logs, kept 30 days.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The public contract.</strong> <code>POST /analyze</code>, its form fields and its NDJSON answer stay as
+      <code>openapi.json</code> describes them, apart from the size cap (D15).</li>
+    <li><strong>What the model sees.</strong> The front forwards the original bytes; decoding and every pixel the model
+      sees stay on the inference host, in the code path training uses (D2).</li>
+    <li><strong>Immutable releases and rollback</strong> (<a href="adr/0008-webapp-serves-immutable-releases.md">ADR
+      0008</a>), now on two hosts.</li>
+    <li><strong>One streamed answer, no state between requests</strong> (<a
+      href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>). The front is one more hop that
+      must not buffer it.</li>
+    <li><strong>The serving runtime and the models</strong> (<a
+      href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>): <code>yappy</code>'s GPU, LiteRT, the
+      warm boot.</li>
+    <li><strong>The tunnel.</strong> Tailscale as it is configured (D4).</li>
+    <li><strong>The DNS record.</strong> It already points at the proxy.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The front does not fit in the proxy's memory.</strong></td>
+        <td>About 200 MB available, swap already in use. The check service uses the standard library only (D7) and is
+          measured on the proxy before it serves (plan P6); nginx's buffering of an upload is capped at 5 MB a request
+          by D15 and the gate.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A deploy breaks the proxy's other sites.</strong></td>
+        <td>A reload of the proxy's nginx reloads all of them. The deploy touches only its own site file, release
+          directory and unit, runs <code>nginx -t</code> before every reload, and never edits <code>nginx.conf</code>
+          (D8).</td></tr>
+      <tr><td class="id">R3</td><td><strong>Photos are slower to cross, not faster.</strong></td>
+        <td>The front holds an upload before forwarding it, where the passthrough relayed it as it arrived. The visitor's
+          leg to the proxy is fast, so this adds little; the crossing, about 20 s for 5 MB, dominates and only fewer
+          bytes help (<a href="ticket_reencode_at_the_front.html">ML-15</a>). Accepted by the owner (D1, D4).</td></tr>
+      <tr><td class="id">R4</td><td><strong>Camera photos are refused.</strong></td>
+        <td>180 of 310 Sony photos in the dataset are over 5 MB, and most RAW files. Accepted by the owner until ML-15
+          (D15); the page says so before uploading.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A year of logs about visitors becomes personal data.</strong></td>
+        <td>Full IPs are kept 30 days only, in files of their own, apart from the 365-day logs (D13; plan Q1).</td></tr>
+      <tr><td class="id">R6</td><td><strong>Half a deploy.</strong></td>
+        <td>One host flips and the other fails. Any failure after either is stopped reverts both (D14); a skew of
+          seconds between the flips is harmless because the contract between them does not change.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What is the split for?</td>
+        <td>(a) The page stays up while <code>yappy</code> is down or mid-deploy. (b) TLS on the always-on box. (c) CPU
+          off <code>yappy</code>. (d) Upload bandwidth to <code>yappy</code>.</td>
+        <td>2026-11-02: (a), (b) and (d) are the main goals, (c) minor. (d) is not met by this ticket: with the link
+          fixed (D4) only fewer bytes help, which is ML-15.</td></tr>
+      <tr><td class="id">D2</td><td>Does the front change the photo's bytes?</td>
+        <td>(a) Lossy re-encode. (b) Lossless re-encode. (c) Check only, forward the original bytes.</td>
+        <td>2026-11-02: (c). Decoding stays on <code>yappy</code>; re-encoding at the front is ML-15.</td></tr>
+      <tr><td class="id">D3</td><td>One release across two hosts, or two parts deployed apart?</td>
+        <td>(a) One release ID, shipped to both hosts by one script, rolled back together. (b) Two parts with a stable
+          contract, deployed apart.</td>
+        <td>2026-11-02: (a). The contract between them stays stable anyway. Takes in OPS-9's goal.</td></tr>
+      <tr><td class="id">D4</td><td>Which tunnel, and is it tuned?</td>
+        <td>(a) The Tailscale link already configured, as it is. (b) Work on a direct Tailscale connection first.</td>
+        <td>2026-11-02: (a). Not to be tuned: it is as fast as <code>yappy</code>'s ISP allows.</td></tr>
+      <tr><td class="id">D5</td><td>Does <code>yappy</code> stop facing the internet?</td>
+        <td>(a) It listens only on its tailnet address, plain HTTP inside the tunnel, no public certificate. (b) It
+          keeps a public TLS port.</td>
+        <td>2026-11-02: (a), plain HTTP or any protocol inside the tunnel.</td></tr>
+      <tr><td class="id">D6</td><td>What are the two parts called?</td>
+        <td>"The front" and "the inference host".</td>
+        <td>2026-11-02: as proposed. The structure holds if either machine changes (D17).</td></tr>
+      <tr><td class="id">D7</td><td>What runs the upload check on the front?</td>
+        <td>(a) nginx alone, no content check. (b) A standard-library Python service. (c) Lua in nginx.</td>
+        <td>2026-11-02: (b), with uv and Python 3.12 as everywhere else (<a href="adr/0007-uv-for-every-environment.md">ADR
+          0007</a>), not the proxy's 3.11.</td></tr>
+      <tr><td class="id">D8</td><td>What may a deploy touch on the shared proxy?</td>
+        <td>Its own site file, release directory and unit; or <code>nginx.conf</code> too.</td>
+        <td>2026-11-02: its own files only, <code>nginx -t</code> before every reload. The owner edits the stream map
+          once, by hand.</td></tr>
+      <tr><td class="id">D9</td><td>Which user deploys to the proxy?</td>
+        <td>(a) <code>coffee-deploy</code> with limited sudo and a release user, as on <code>yappy</code>. (b)
+          root.</td>
+        <td>2026-11-02: (a). root stays the owner's alias, never the script's.</td></tr>
+      <tr><td class="id">D10</td><td>Does <code>yappy</code> keep nginx in front of gunicorn?</td>
+        <td>(a) Yes, buffering the whole upload before gunicorn. (b) The front talks to gunicorn directly.</td>
+        <td>2026-11-02: (a). Over 2.1 Mbit/s, a sync worker reading the body itself would be held for the
+          crossing.</td></tr>
+      <tr><td class="id">D11</td><td>Where is the busy gate?</td>
+        <td>At the front, at <code>yappy</code>, or both.</td>
+        <td>2026-11-02: at the front, so a second upload never crosses; <code>yappy</code> keeps its own as a backstop.
+          A queue with each visitor's place and wait is OPS-8.</td></tr>
+      <tr><td class="id">D12</td><td>What does the page say when <code>yappy</code> is unreachable?</td>
+        <td>The front's own 503, kept apart from "busy".</td>
+        <td>2026-11-02: <code>{"error": "the classifier is offline"}</code>; the page shows it and stays up.</td></tr>
+      <tr><td class="id">D13</td><td>Client IPs in the logs?</td>
+        <td>(a) None, as <code>logging_plan.html</code> §03-C has it. (b) Full addresses. (c) Truncated.</td>
+        <td>2026-11-02: (b), on both hosts, <code>X-Real-IP</code> still forwarded to <code>yappy</code>; for abuse
+          handling; kept 30 days; the other logs keep 365 days and the daily counts carry no IP. Reverses §03-C.</td></tr>
+      <tr><td class="id">D14</td><td>How does a deploy switch two hosts?</td>
+        <td>(a) Flip one, then the other. (b) Stage both, stop both, flip both, start both.</td>
+        <td>2026-11-02: (b). If either breaks, both revert. On the front "stop" is the check service only: the proxy's
+          nginx serves its other sites, so it keeps running and serves the page with D12's 503 meanwhile.</td></tr>
+      <tr><td class="id">D15</td><td>The size cap.</td>
+        <td>(a) 20 MB, as today. (b) Lower.</td>
+        <td>2026-11-02: 5 MB at the front until ML-15; <code>yappy</code> keeps 20 MB, since the limit is the link's.
+          The page refuses a larger photo before uploading it, with its size and the limit.</td></tr>
+      <tr><td class="id">D16</td><td>The front's timeouts.</td>
+        <td>Derived from the measured link.</td>
+        <td>2026-11-02: about 60 s to <code>yappy</code> (5 MB crosses in about 20 s, inference about 12 s), written
+          beside the measurement. The page says "sending to the classifier" while the photo crosses.</td></tr>
+      <tr><td class="id">D17</td><td>Which tickets this changes.</td>
+        <td></td>
+        <td>2026-11-02: OPS-9 is closed, superseded by this ticket (D3). OPS-8 becomes a queue at the front. Analytics
+          (OPS-3), if built, live at the front.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The domain's TLS terminates on the proxy, and <code>yappy</code> accepts nothing
+      from outside the tailnet (its public port closed).</span></li>
+    <li><span class="box"></span><span>With <code>coffee-cv-web</code> stopped on <code>yappy</code>, the page loads and
+      <code>/analyze</code> answers D12's 503.</span></li>
+    <li><span class="box"></span><span>A file over 5 MB is refused by the page before upload and by the front with a
+      413; a non-image is refused by the front with a 400; neither reaches <code>yappy</code>'s log.</span></li>
+    <li><span class="box"></span><span>The smoke photo's answer through the domain matches the release's expected
+      answer, streamed in two parts.</span></li>
+    <li><span class="box"></span><span>One deploy and one <code>--rollback</code> switch both hosts; a failure injected
+      on either host reverts both (rehearsed locally).</span></li>
+    <li><span class="box"></span><span>The check service's memory on the proxy is measured and recorded.</span></li>
+    <li><span class="box"></span><span>Full client IPs appear only in files rotated at 30 days.</span></li>
+    <li><span class="box"></span><span><code>deploy.md</code>, <code>webapp/README.md</code>, <code>logging_plan.html</code>,
+      <code>llms.txt</code>, <code>openapi.json</code> and <code>docs/inference_path.html</code> say what is
+      live.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Re-encoding or resizing photos at the front, and raising the 5 MB cap: <a
+      href="ticket_reencode_at_the_front.html">ML-15</a>.</li>
+    <li>A queue, batching or more workers: <a href="ticket_webapp_request_queue.html">OPS-8</a>.</li>
+    <li>Analytics: <a href="ticket_visitor_analytics.html">OPS-3</a>.</li>
+    <li>Tuning the tunnel or getting Tailscale to connect directly (D4).</li>
+    <li>Docker on either host (<code>.out-of-scope/containerised-serving.md</code>).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-02</div>Owner request. Claude reads the serving ADRs, the nginx template and the open
+      OPS tickets at <code>d9212c6</code>, inventories both hosts and measures the tunnel each way; the owner adds the
+      <code>webproxy</code> alias. Grilled over five rounds: D1&ndash;D17 decided. Ticket, <a
+      href="plan_front_and_inference_host.html">plan</a> and <a href="adr/0031-the-front-and-the-inference-host.md">ADR
+      0031</a> written; OPS-9 superseded; OPS-8 rewritten; ML-15 opened. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="plan_front_and_inference_host.html">plan</a>, <a
+    href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>, <a
+    href="ticket_release_carries_nginx_site.html">OPS-9</a>, <a href="ticket_webapp_request_queue.html">OPS-8</a>, <a
+    href="ticket_reencode_at_the_front.html">ML-15</a>, <a href="ticket_visitor_analytics.html">OPS-3</a>, <a
+    href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>, <a
+    href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>, <a
+    href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>, <a href="agents/deploy.md">deploy.md</a>,
+    <code>docs/logging_plan.html</code>.</footer>
+</main>
