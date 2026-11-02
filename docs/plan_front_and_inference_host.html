@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1 answered (ticket D18), Q2 open; P2 done 2026-11-02</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -60,7 +60,7 @@
     <tbody>
       <tr><td class="id">Q1</td><td>Where do the IPs go, so that they are kept 30 days while the app log keeps 365? The
         app writes one JSON line per request (<code>webapp/app.py</code>, <code>_write_request_line</code>).</td>
-        <td><span class="pill sm open">Open</span> In the nginx access logs only: the front's logs
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, as recommended (ticket D18). In the nginx access logs only: the front's logs
           <code>$remote_addr</code>, <code>yappy</code>'s logs <code>$http_x_real_ip</code>, each in a file rotated at 30
           days; the app log stays without IP at 365 days, joined to them by <code>request_id</code>. The other way, an IP
           in each app line scrubbed after 30 days, rewrites rotated logs.</td><td>P2, P3</td></tr>
@@ -99,8 +99,8 @@
 
   <h2>4. P2 &mdash; The inference host's site</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>; ships with P1&ndash;P4 at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 answered (ticket D18)</span></span></div>
   </div>
   <p><code>yappy</code>'s nginx template becomes the inference host's: plain HTTP on its tailnet address only (D5), no
     TLS, no page.</p>
@@ -210,6 +210,23 @@
   <div class="log">
     <div><div class="when">2026-11-02</div>Claude reads ticket OPS-15 at <code>d9212c6</code> and both hosts, and writes
       this plan. 4 findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-02</div>Q1 answered (ticket D18). P2 implemented on branch <code>ops15-impl</code>, not
+      merged: <code>main</code> stays deployable, since a deploy of the new site before P6 would take the domain down.
+      The site template listens on <code>INFERENCE_ADDR:INFERENCE_PORT</code>, plain HTTP, <code>/analyze</code> only;
+      the client IP goes to <code>coffee-cv.ip</code>, rotated at 30 days. The deploy reads the address on the host
+      (<code>tailscale ip -4</code>) in preflight, unless <code>INFERENCE_ADDR</code> is set.
+      <code>tests/test_inference_site.py</code> serves the rendered site in a real nginx in front of a fake app, instead
+      of the rehearsal's stubbed <code>nginx -t</code>. It caught one bug: with no <code>server_name</code>, the busy
+      gate's key (<code>$server_name</code>) was empty, and nginx does not count a request with an empty key, so the
+      gate never fired. Findings for later phases: (1) <code>setup_server.sh</code> now sets
+      <code>net.ipv4.ip_nonlocal_bind</code>, so nginx can bind the tailnet address at boot before tailscaled has it; the
+      owner runs it on <code>yappy</code> as root before P6. It also drops the TLS certificate directory and the
+      public-port ufw rule; the rule already recorded on <code>yappy</code> stays until removed by hand. (2) The
+      logrotate rules are rendered only by <code>--bootstrap</code>, so <code>yappy</code> needs a
+      <code>--bootstrap</code> before P6 for the 30-day rule (P4). (3) The rehearsal was not run: it deploys
+      <code>origin/main</code>, and its <code>REHEARSE_PREV_REF</code> must now be from P2 on (P4). (4)
+      <code>deploy.md</code> and <code>webapp/README.md</code> still describe the live passthrough, which is right until
+      P6.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

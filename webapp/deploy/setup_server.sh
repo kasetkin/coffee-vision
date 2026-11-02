@@ -1,53 +1,41 @@
 #!/usr/bin/env bash
-# Prerequisites for the coffee-cv web service on a fresh Debian or Ubuntu box: nginx, the TLS cert
-# directory, and the firewall rules (ufw itself is left disabled). Nothing else.
+# Prerequisites for the coffee-cv web service on a fresh Debian or Ubuntu box, the inference host (ADR 0031): nginx,
+# the sysctl that lets it bind the tailnet address, and the SSH firewall rule (ufw itself is left disabled). Nothing
+# else. No TLS certificate and no public port: the front terminates TLS and reaches this host over the tailnet, in
+# plain HTTP (ticket OPS-15 D5).
 #
 # Everything the service itself needs -- its system user, /opt/coffee-cv, uv, the log directory, and
 # every rendered file (systemd unit, nginx site, logrotate) -- belongs to scripts/deploy_webapp.sh
 # (--bootstrap once, then one command per deploy). A fresh box has no release to serve until that
 # first deploy. See webapp/README.md and docs/ops1_release_isolation_plan.html §4.7.
 #
-# Runs apt and ufw: never while a training sweep is running on the box.
+# Runs apt, sysctl and ufw: never while a training sweep is running on the box.
 #
 # Usage: sudo ./webapp/deploy/setup_server.sh
 set -euo pipefail
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "ERROR: run as root (sudo) -- needed for apt/nginx/ufw." >&2
+  echo "ERROR: run as root (sudo) -- needed for apt/nginx/sysctl/ufw." >&2
   exit 1
 fi
 
 echo "== 1. nginx =="
 apt-get install -y nginx
 
-echo "== 2. cert directory (place your Porkbun files here -- see webapp/README.md) =="
-mkdir -p /etc/nginx/ssl/coffee-cv
-chmod 700 /etc/nginx/ssl/coffee-cv
-# Porkbun's own download bundle uses domain.cert.pem/private.key.pem/
-# public.key.pem, world-writable (666) by default -- the nginx config
-# (coffee-cv.nginx.conf.template) points directly at those filenames, no
-# fullchain.pem build step needed since domain.cert.pem already has the full
-# chain concatenated. Fix permissions here too, idempotently, so this doesn't
-# have to be redone by hand on every cert renewal -- only touches files that
-# are actually present, so it's a no-op before the first cert drop.
-if [[ -f /etc/nginx/ssl/coffee-cv/private.key.pem ]]; then
-  chmod 600 /etc/nginx/ssl/coffee-cv/private.key.pem
-fi
-for f in domain.cert.pem public.key.pem; do
-  if [[ -f "/etc/nginx/ssl/coffee-cv/${f}" ]]; then
-    chmod 644 "/etc/nginx/ssl/coffee-cv/${f}"
-  fi
-done
-# Ubuntu's default site (sites-enabled/default) is left alone -- harmless, and
-# touching it is one more thing that can go wrong for no benefit.
+echo "== 2. binding the tailnet address before it is up =="
+# nginx listens only on the host's tailnet address (scripts/deploy_webapp.sh's INFERENCE_ADDR). At boot tailscaled may
+# not have brought that address up when nginx starts, and a bind to an address the host does not yet have fails, so
+# nginx would not start. ip_nonlocal_bind lets the bind succeed; the socket answers once the address is up.
+printf 'net.ipv4.ip_nonlocal_bind = 1\n' > /etc/sysctl.d/60-coffee-cv.conf
+sysctl -p /etc/sysctl.d/60-coffee-cv.conf
 
 echo "== 3. firewall rules (ufw is not enabled) =="
 # The rules only: enabling ufw is off for now (owner, 2026-10-12), because the host also runs other
 # services whose ports these rules don't cover. An inactive ufw records the rules and filters nothing,
-# so a later `ufw enable` starts with SSH and the site already allowed.
+# so a later `ufw enable` starts with SSH already allowed.
 if command -v ufw >/dev/null; then
   ufw allow 22/tcp
-  ufw allow "${PUBLIC_PORT:-12346}"/tcp   # nginx's TLS port, scripts/deploy_webapp.sh's PUBLIC_PORT
+  # No rule for nginx's port: it listens on the tailnet address only, which only tailnet nodes reach.
 else
   echo "   ufw is not installed: no rules recorded"
 fi
@@ -63,7 +51,6 @@ Next, from your workstation (docs/ops1_release_isolation_plan.html, webapp/READM
     scripts/deploy_webapp.sh --bootstrap
     DOMAIN=... scripts/deploy_webapp.sh <commit on origin/main> <model name>
 
-The deploy renders /etc/nginx/conf.d/coffee-cv.conf, which references cert files at
-/etc/nginx/ssl/coffee-cv/. Put domain.cert.pem and private.key.pem (600) there first,
-or its `nginx -t` fails and the deploy stops before the flip.
+The deploy renders /etc/nginx/conf.d/coffee-cv.conf, listening on this host's tailnet address
+(`tailscale ip -4`, or INFERENCE_ADDR), plain HTTP: no certificate is needed here.
 EOF

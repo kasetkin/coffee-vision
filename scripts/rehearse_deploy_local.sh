@@ -10,6 +10,8 @@
 # of it. Until 2026-10-06 deploy 1 was the ResNet18 allrigs_cam_s123; it was retired with every other old model.
 # REHEARSE_PREV_REF must be on origin/main and already hold $REHEARSE_MODEL.
 # Since ticket OPS-7 the deploy speaks /analyze only (D10), so REHEARSE_PREV_REF must also be from OPS-7 on.
+# Since OPS-15 P2 the deploy renders the inference host's site (INFERENCE_ADDR, INFERENCE_PORT), which an older
+# commit's template does not mention, so REHEARSE_PREV_REF must also be from OPS-15 P2 on.
 #
 # Last passed 2026-10-20 (DVC clean-up): deploy 1 at 479d88c, deploy 2 at 0cb4c6a, both the live LiteRT model
 # dino3b16_segxl0v3_country_aug8_s123 on the CPU; the refused deploy (nginx -t), deploy 2 and --compare each stopped
@@ -165,6 +167,8 @@ export UV_BIN="${UV_BIN:-$(command -v uv)}"   # the releases' Python: uv-managed
 export TORCH_PY="${TORCH_PY:-$(command -v python)}" LOCAL_PY="${LOCAL_PY:-python3}"
 export STUB_PATH="$S" STUB_STATE="$R/state" DEPLOY_SCRATCH="$R/scratch"
 export MIN_MEM_GB=${MIN_MEM_GB:-2} MIN_FREE_GB=${MIN_FREE_GB:-5} PORT=18000 SMOKE_PORT=18001
+# The inference host's nginx site listens here (ticket OPS-15 P2); the rehearsal has no tailnet.
+export INFERENCE_ADDR=127.0.0.1 INFERENCE_PORT=18002
 # The rehearsal tests the deploy machinery on a scratch clone without the data, not the code: skip the
 # deploy's full test suite (scripts/check.sh --full).
 export DEPLOY_SKIP_CHECK=1
@@ -212,7 +216,7 @@ PATH="$S:$PATH" systemctl enable --now coffee-cv-web
 
 step "refusal: nginx -t fails -> old site restored, nothing flipped"
 before=$(readlink "$APP_ROOT/current")
-sed -i 's|^    root .*|    root /changed/for/the/test;|' "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
+echo '# changed for the test' >> "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"   # so the deploy's render differs
 cp "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" "$R/site.before"
 expect_fail "nginx -t rejected the new site" env STUB_NGINX_FAIL=1 "$D" "$SHA" "$MODEL"
 cmp -s "$R/site.before" "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf" || { echo "site not restored"; exit 1; }

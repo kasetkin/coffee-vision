@@ -13,7 +13,8 @@
 # a name under models/ (e.g. dino3b16_segxl0v3_country_aug8_s123). Environment (defaults in brackets):
 #   HOST [webappremote]  APP_USER [the deploy user: HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
 #   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
-#   PUBLIC_PORT [12346, nginx's TLS port, behind the proxy]  DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]
+#   INFERENCE_ADDR [the host's own `tailscale ip -4`]  INFERENCE_PORT [12346: nginx's plain-HTTP port on it]
+#   DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]
 #
 # Every step that runs code on the host is a transient systemd unit that can write only /opt/coffee-cv,
 # capped at CAP_CPU and CAP_MEM with no swap (default: the whole 4-core, 7.5 GB webappremote; plan §5's
@@ -26,7 +27,7 @@
 # a flip only if it is enabled.
 set -euo pipefail
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 # ---------------------------------------------------------------------------------------------- config
 HOST=${HOST:-webappremote}
@@ -37,8 +38,11 @@ DOMAIN=${DOMAIN:-}
 LOG_ROOT=${LOG_ROOT:-/var/log/coffee-cv}
 # Where the public checks go; the local rehearsal sets it empty to skip them (there is no nginx there).
 PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
-PUBLIC_PORT=${PUBLIC_PORT:-12346}
-# The public site is the proxy in front of the host (it forwards to $PUBLIC_PORT there), so no port.
+# The host is the inference host (ADR 0031): its nginx listens only on its tailnet address, plain HTTP, for the front
+# to reach. The address is the host's own, read in preflight unless given, so no tailnet address enters git.
+INFERENCE_ADDR=${INFERENCE_ADDR:-}
+INFERENCE_PORT=${INFERENCE_PORT:-12346}
+# The public site is the front, on the proxy in front of the host (ticket OPS-15), so no port.
 PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN}}
 # Prefix for /etc and /run -- empty on the VM; a scratch directory in the local rehearsal.
 SYSTEM_ROOT=${SYSTEM_ROOT:-}
@@ -152,15 +156,20 @@ preflight() {
     echo "OPT_FREE_KB=$(df -Pk "$APP_ROOT" | awk "NR==2 {print \$4}")"
     echo "UV=$("$UV_BIN" --version 2>/dev/null | awk "{print \$2}")"
     echo "PY=$(managed_python find "$PY_VERSION" 2>/dev/null || true)"
+    echo "TAILNET_ADDR=$(tailscale ip -4 2>/dev/null | head -1 || true)"
     sweep_state')
   local mem free uv py
   mem=$(kv MEM_AVAIL_KB "$out"); free=$(kv OPT_FREE_KB "$out"); uv=$(kv UV "$out"); py=$(kv PY "$out")
+  INFERENCE_ADDR=${INFERENCE_ADDR:-$(kv TAILNET_ADDR "$out")}
   PRE_SWEEP=$(grep '^SWEEP_' <<<"$out" || true)
   note "MemAvailable $((mem / 1048576)) GB (need $MIN_MEM_GB, checked by make_room before the release runs here), free on $APP_ROOT $((free / 1048576)) GB (need $MIN_FREE_GB), uv ${uv:-missing}, Python ${py:-missing}"
   note "sweep before: $(tr '\n' ' ' <<<"$PRE_SWEEP")"
   (( free >= MIN_FREE_GB * 1048576 )) || die "only $((free / 1048576)) GB free on $APP_ROOT; need ${MIN_FREE_GB} GB"
   [[ "$uv" == "$UV_VERSION" ]] || die "uv on the host is '${uv:-missing}', not $UV_VERSION -- run --bootstrap"
   [[ -n "$py" ]] || die "no uv-managed Python $PY_VERSION under $APP_ROOT/python -- run --bootstrap"
+  note "nginx site listens on ${INFERENCE_ADDR:-?}:$INFERENCE_PORT (the host's tailnet address unless INFERENCE_ADDR is set)"
+  [[ "$MODE" != deploy || -n "$INFERENCE_ADDR" ]] \
+    || die "no tailnet address for the nginx site: set INFERENCE_ADDR, or check \`tailscale ip -4\` on $HOST"
 }
 
 postflight() {
@@ -446,12 +455,13 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
 # ------------------------------------------------------------------------------ production files + flip
 render_production() {   # installs the unit and nginx site from $SHA if they changed; sets NGINX_CHANGED
   say "Render production files"
-  [[ -n "$DOMAIN" ]] || die "DOMAIN is not set (the public host name, for the nginx site)"
+  # The site no longer names the domain (the front does, OPS-15), but the public checks after the flip need it.
+  [[ -n "$DOMAIN" ]] || die "DOMAIN is not set (the public host name, for the checks after the flip)"
   local unit site out
   unit=$(render "$SHA" webapp/deploy/coffee-cv-web.service.template SERVICE_USER="$SERVICE_USER" \
            RELEASE_DIR="$APP_ROOT/current" PORT="$PORT" LOG_DIR="$LOG_ROOT")
-  site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template DOMAIN="$DOMAIN" APP_ROOT="$APP_ROOT" \
-              PUBLIC_PORT="$PUBLIC_PORT" PORT="$PORT")
+  site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template INFERENCE_ADDR="$INFERENCE_ADDR" \
+              INFERENCE_PORT="$INFERENCE_PORT" PORT="$PORT")
   out=$(vm '
     UNIT_F="$SYSTEM_ROOT/etc/systemd/system/coffee-cv-web.service"
     SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
@@ -542,6 +552,7 @@ verify() {   # returns non-zero on a failed check
     note "the service is not enabled: backend checks skipped (the owner enables it: plan Phase B)"
   fi
 
+  # From OPS-15 on, the public checks reach this host through the front (the proxy); OPS-15 P4 reworks them.
   if [[ -z "$PUBLIC_URL" ]]; then
     note "SKIPPED public checks (PUBLIC_URL is empty)"
   else

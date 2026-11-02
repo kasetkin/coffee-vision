@@ -26,7 +26,7 @@ LLMS = (STATIC / "llms.txt").read_text()
 OPENAPI = json.loads((STATIC / "openapi.json").read_text())
 ARD = json.loads((STATIC / ".well-known" / "ard.json").read_text())
 INDEX = (STATIC / "index.html").read_text()
-# Paths nginx answers that are not files under webapp/static (webapp/deploy/coffee-cv.nginx.conf.template).
+# Paths nginx answers that are not files under webapp/static (the front's site, ticket OPS-15 P3).
 NON_FILE_PATHS = {"/", "/analyze"}
 
 
