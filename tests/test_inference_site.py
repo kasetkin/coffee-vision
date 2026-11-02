@@ -208,7 +208,7 @@ class InferenceSite(unittest.TestCase):
 class DeployRendersTheSite(unittest.TestCase):
     def test_the_deploy_passes_the_variables_the_site_uses(self):
         script = (REPO / "scripts" / "deploy_webapp.sh").read_text()
-        call = re.search(r"render \"\$SHA\" webapp/deploy/coffee-cv\.nginx\.conf\.template(.*?)\)$", script, re.M | re.S)
+        call = re.search(r"render \"\$SHA\" webapp/deploy/coffee-cv\.nginx\.conf\.template(.*?)(\)|>)", script, re.M | re.S)
         self.assertIsNotNone(call, "scripts/deploy_webapp.sh no longer renders the site")
         passed = set(re.findall(r"\b([A-Z_]+)=\"", call[1]))
         used = set(re.findall(r"\$\{?(INFERENCE_[A-Z_]*|PORT|DOMAIN|APP_ROOT|PUBLIC_PORT)\b", SITE_TEMPLATE.read_text()))

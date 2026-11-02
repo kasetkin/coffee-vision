@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P3 done 2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P4 done 2026-11-02</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -147,7 +147,7 @@
 
   <h2>6. P4 &mdash; One release, two hosts</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>; ships at P6</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1&ndash;P3 done</span></span></div>
   </div>
   <p><code>scripts/deploy_webapp.sh</code> deploys one release ID to both hosts (D3, D14).</p>
@@ -294,6 +294,24 @@
       and an IPv6 listen address were refused. Left as they are: the format check refuses GIF, BMP and a plain TIFF,
       which the contract never named; the inference host's own busy 503 is nginx's HTML page, relayed, which the page
       and <code>llms.txt</code> treat as busy.</div>
+    <div><div class="when">2026-11-02</div>P4 implemented on <code>ops15-impl</code>. One release ID is two trees
+      (<code>release_manifest.py</code>'s <code>front_manifest()</code>): the inference host's no longer carries the
+      page, and each tree carries its host's rendered nginx site. Each host's <code>conf.d</code> file is one line,
+      <code>include &lt;root&gt;/current/&lt;site&gt;.nginx*.conf;</code>, a glob, so it is valid with no release yet;
+      a flip or a rollback, then a reload, switches the site with the code, which settles P2's follow-up (the
+      inference host's site now follows <code>--rollback</code>) and OPS-9's goal on both hosts. The deploy stages
+      both, stops both (the front's check service only), smokes, flips both, starts both, runs <code>nginx -t</code>
+      on both before reloading either (D8), then verifies both hosts on one release, the check service, and the page
+      and the smoke's answer through the domain. Any failure after the flip, the EXIT trap's included, puts both hosts
+      back on the release they ran before (or on none, for a host's first release, so that its nginx -t passes), reloads
+      and starts both. The check service's unit, <code>coffee-cv-front.service.template</code>, is the owner's to
+      install (D9) and reads <code>front.env</code> from the release; the stage refuses a release whose rendered unit
+      differs from the installed one. <code>scripts/rehearse_deploy_local.sh</code> runs two scratch hosts and injects
+      an <code>nginx -t</code> failure on each in turn: passed, from a scratch clone whose <code>main</code> was this
+      branch plus P4, since the branch is not on <code>main</code> until P6. The rehearsal found two bugs, fixed before
+      it passed: a reused front release was refused for its <code>BUILD_INFO.json</code> (its build time), and a stale
+      one-host <code>rollback_links</code> left below the new one swapped the inference host twice. The logrotate rules
+      stay <code>--bootstrap</code>'s on the inference host and P5's setup on the front.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
-# Deploy the web service as an immutable release under /opt/coffee-cv (docs/ops1_release_isolation_plan.html).
+# Deploy the web service as one immutable release on two hosts (ADR 0031): the inference host and the front.
 #
-#   scripts/deploy_webapp.sh --bootstrap                     one-time VM setup (user, /opt, uv, logs)
-#   scripts/deploy_webapp.sh <git-ref> <model>               full deploy: stage, stop live, smoke, flip, verify
-#   scripts/deploy_webapp.sh --stage-only <git-ref> <model>  preflight, build, stage, smoke; no flip
+#   scripts/deploy_webapp.sh --bootstrap                     one-time setup of the inference host (user, /opt, uv, logs)
+#   scripts/deploy_webapp.sh <git-ref> <model>               full deploy: stage both, stop both, smoke, flip both, verify
+#   scripts/deploy_webapp.sh --stage-only <git-ref> <model>  preflight, build, stage both, smoke; no flip
 #   scripts/deploy_webapp.sh --compare <release-id>          the release's answers within D7's bars of PyTorch's?
 # The smoke and --compare stop the live service while they run (ADR 0026): photo answers are down, the page is up.
-#   scripts/deploy_webapp.sh --verify                        check what `current` serves
-#   scripts/deploy_webapp.sh --rollback                      switch back to `previous`
+#   scripts/deploy_webapp.sh --verify                        check what `current` serves, on both hosts
+#   scripts/deploy_webapp.sh --rollback                      switch both hosts back to `previous`
 #
-# Runs locally and drives the VM over SSH. <git-ref> must resolve to a commit on origin/main. <model> is
-# a name under models/ (e.g. dino3b16_segxl0v3_country_aug8_s123). Environment (defaults in brackets):
-#   HOST [webappremote]  APP_USER [the deploy user: HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
-#   SERVICE_USER [coffee-cv]  DOMAIN [required to flip or verify: the public site's host name]
-#   INFERENCE_ADDR [the host's own `tailscale ip -4`]  INFERENCE_PORT [12346: nginx's plain-HTTP port on it]
+# Runs locally and drives both hosts over SSH. <git-ref> must resolve to a commit on origin/main. <model> is a name
+# under models/ (e.g. dino3b16_segxl0v3_country_aug8_s123). Environment (defaults in brackets):
+#   HOST [webappremote: the inference host]  APP_USER [HOST's SSH user]  APP_ROOT [/opt/coffee-cv]
+#   SERVICE_USER [coffee-cv]  DOMAIN [required to deploy or verify: the public site's host name]
+#   INFERENCE_ADDR [the host's own `tailscale ip -4`]  INFERENCE_PORT [12346: its nginx's plain-HTTP port]
+#   FRONT_HOST [webproxy-deploy: the front]  FRONT_USER [its SSH user]  FRONT_APP_ROOT [/opt/coffee-cv]
+#   FRONT_SERVICE_USER [coffee-cv-front]  FRONT_PORT [12347: the front site's loopback TLS port, the stream map's]
+#   CHECK_PORT [8100: the check service's]  TLS_CERT, TLS_KEY [required to deploy: the front's certificate files]
 #   DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]
+#
+# One release ID, two trees (webapp/deploy/release_manifest.py): the inference host's (the app, the model, its nginx
+# site) and the front's (the page, the check service, its nginx site). Each host's conf.d includes the site from
+# `current`, so a flip or a rollback switches the site with the code, and each reload is preceded by `nginx -t` (D8).
+# A full deploy stages both, stops both (the front's check service only: the proxy's nginx keeps serving its other
+# sites, and the page, D14), flips both, starts both, reloads both nginx, and verifies through the domain; any
+# failure after a flip puts both hosts back on `previous` and starts them.
 #
 # Every step that runs code on the host is a transient systemd unit that can write only /opt/coffee-cv,
 # capped at CAP_CPU and CAP_MEM with no swap (default: the whole 4-core, 7.5 GB webappremote; plan §5's
@@ -27,7 +37,7 @@
 # a flip only if it is enabled.
 set -euo pipefail
 
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
 # ---------------------------------------------------------------------------------------------- config
 HOST=${HOST:-webappremote}
@@ -42,6 +52,18 @@ PUBLIC_URL_GIVEN=${PUBLIC_URL+1}
 # to reach. The address is the host's own, read in preflight unless given, so no tailnet address enters git.
 INFERENCE_ADDR=${INFERENCE_ADDR:-}
 INFERENCE_PORT=${INFERENCE_PORT:-12346}
+# The front (ADR 0031): the proxy, set up once by webapp/deploy/setup_front.sh, as root (plan P5). Its deploy user may
+# only stop and start the check service, test and reload nginx, and write its own release directory (D8, D9).
+FRONT_HOST=${FRONT_HOST:-webproxy-deploy}
+FRONT_USER=${FRONT_USER:-$(ssh -G "$FRONT_HOST" 2>/dev/null | awk '$1 == "user" { print $2 }')}
+FRONT_APP_ROOT=${FRONT_APP_ROOT:-/opt/coffee-cv}
+FRONT_SERVICE_USER=${FRONT_SERVICE_USER:-coffee-cv-front}
+FRONT_SYSTEM_ROOT=${FRONT_SYSTEM_ROOT:-}   # as SYSTEM_ROOT below, for the front
+FRONT_PORT=${FRONT_PORT:-12347}
+CHECK_PORT=${CHECK_PORT:-8100}
+TLS_CERT=${TLS_CERT:-}
+TLS_KEY=${TLS_KEY:-}
+FRONT_MIN_FREE_MB=${FRONT_MIN_FREE_MB:-200}   # a front release is a few hundred KB and its venv; the proxy is full
 # The public site is the front, on the proxy in front of the host (ticket OPS-15), so no port.
 PUBLIC_URL=${PUBLIC_URL-${DOMAIN:+https://$DOMAIN}}
 # Prefix for /etc and /run -- empty on the VM; a scratch directory in the local rehearsal.
@@ -146,6 +168,16 @@ render() {  # render <ref> <template path> NAME=value...: a template from the co
   git -C "$REPO" show "$ref:$tpl" | "$LOCAL_PY" "$DEPLOY_DIR/render_template.py" "$@"
 }
 kv() { sed -n "s/^$1=//p" <<<"$2" | tail -1; }
+# fe VAR=value ... -- 'script': vm on the front, as its deploy user, under its own root and /etc prefix.
+fe() {
+  local script=$1; shift
+  HOST=$FRONT_HOST vm "$script" APP_ROOT="$FRONT_APP_ROOT" APP_USER="$FRONT_USER" SERVICE_USER="$FRONT_SERVICE_USER" \
+    SYSTEM_ROOT="$FRONT_SYSTEM_ROOT" "$@"
+}
+to_fe() { HOST=$FRONT_HOST to_vm "$@"; }
+# What each host's conf.d file holds: the site of the release `current` points at. A glob, so the line is valid with
+# no release yet, and a flip or a rollback, then a reload, switches the site with the code (OPS-9's goal).
+site_include() { printf 'include %s/current/%s.nginx*.conf;' "$1" "$2"; }   # site_include <app root> inference|front
 
 # ---------------------------------------------------------------------------------- preflight / proof
 preflight() {
@@ -168,8 +200,28 @@ preflight() {
   [[ "$uv" == "$UV_VERSION" ]] || die "uv on the host is '${uv:-missing}', not $UV_VERSION -- run --bootstrap"
   [[ -n "$py" ]] || die "no uv-managed Python $PY_VERSION under $APP_ROOT/python -- run --bootstrap"
   note "nginx site listens on ${INFERENCE_ADDR:-?}:$INFERENCE_PORT (the host's tailnet address unless INFERENCE_ADDR is set)"
-  [[ "$MODE" != deploy || -n "$INFERENCE_ADDR" ]] \
+  [[ "$MODE" == compare || -n "$INFERENCE_ADDR" ]] \
     || die "no tailnet address for the nginx site: set INFERENCE_ADDR, or check \`tailscale ip -4\` on $HOST"
+}
+
+front_preflight() {   # the front: read-only, before anything is built or stopped
+  say "Preflight the front ($FRONT_HOST, read-only)"
+  [[ -n "$DOMAIN" ]] || die "DOMAIN is not set (the public host name, for the front's site)"
+  [[ -n "$TLS_CERT" && -n "$TLS_KEY" ]] || die "TLS_CERT and TLS_KEY are not set (the front's certificate and key paths)"
+  local out free uv py include unit
+  out=$(fe '
+    echo "FREE_KB=$(df -Pk "$APP_ROOT" | awk "NR==2 {print \$4}")"
+    echo "UV=$("$UV_BIN" --version 2>/dev/null | awk "{print \$2}")"
+    echo "PY=$(managed_python find "$PY_VERSION" 2>/dev/null || true)"
+    echo "INCLUDE=$(cat "$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv-front.conf" 2>/dev/null || true)"
+    echo "UNIT=$([[ -f "$SYSTEM_ROOT/etc/systemd/system/coffee-cv-front.service" ]] && echo installed || true)"')
+  free=$(kv FREE_KB "$out"); uv=$(kv UV "$out"); py=$(kv PY "$out"); include=$(kv INCLUDE "$out"); unit=$(kv UNIT "$out")
+  note "free on $FRONT_APP_ROOT $((free / 1024)) MB (need $FRONT_MIN_FREE_MB), uv ${uv:-missing}, Python ${py:-missing}"
+  local setup="run webapp/deploy/setup_front.sh on $FRONT_HOST as root (plan P5)"
+  (( free >= FRONT_MIN_FREE_MB * 1024 )) || die "only $((free / 1024)) MB free on the front's $FRONT_APP_ROOT"
+  [[ "$uv" == "$UV_VERSION" && -n "$py" ]] || die "the front has no uv $UV_VERSION and Python $PY_VERSION: $setup"
+  [[ "$include" == "$(site_include "$FRONT_APP_ROOT" front)" ]] || die "the front's nginx does not include the release's site: $setup"
+  [[ "$unit" == installed ]] || die "the front has no coffee-cv-front.service: $setup"
 }
 
 postflight() {
@@ -252,6 +304,9 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   "$LOCAL_PY" "$DEPLOY_DIR/write_build_info.py" --ref "$SHA" --model "$model" --out "$STAGE/webapp/BUILD_INFO.json" >/dev/null
   { printf 'COFFEE_CV_CHECKPOINT=models/%s.pt\n' "$model"
     jq -r '.env | to_entries[] | "\(.key)=\(.value)"' <<<"$MANIFEST"; } > "$STAGE/release.env"
+  # The host's nginx site, in the release (its conf.d includes it from `current`, site_include).
+  render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template INFERENCE_ADDR="$INFERENCE_ADDR" \
+    INFERENCE_PORT="$INFERENCE_PORT" PORT="$PORT" > "$STAGE/inference.nginx.conf"
   (cd "$STAGE" && find . -type f -printf '%P\n') \
     | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --model "$model" --check-staged - \
     || die "the staged tree does not match the manifest"
@@ -267,6 +322,24 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
   rm -rf "$logs"
   jq -r '"   /analyze \(.analyze.parts[1].verdict // .analyze.parts[1].part), top-1 \(.analyze.parts[1].ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
     < <(sed -n 's/^PROBE //p' "$SCRATCH/$ID.expected.json")
+  build_front
+}
+
+build_front() {   # sets FSTAGE: the front's tree of release $ID, from the same commit
+  FSTAGE="$SCRATCH/$ID.front"
+  rm -rf "$FSTAGE"; mkdir -p "$FSTAGE"
+  # shellcheck disable=SC2046
+  git -C "$REPO" archive "$SHA" -- $("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front | jq -r '.git[]') \
+    | tar -x -C "$FSTAGE"
+  install -D -m 0644 "$STAGE/webapp/BUILD_INFO.json" "$FSTAGE/webapp/BUILD_INFO.json"
+  render "$SHA" webapp/deploy/coffee-cv-front.nginx.conf.template DOMAIN="$DOMAIN" FRONT_PORT="$FRONT_PORT" \
+    CHECK_PORT="$CHECK_PORT" APP_ROOT="$FRONT_APP_ROOT" TLS_CERT="$TLS_CERT" TLS_KEY="$TLS_KEY" > "$FSTAGE/front.nginx.conf"
+  # The check service's two settings (webapp/front/check_service.py, options): read by its unit at each start.
+  printf 'COFFEE_CV_FRONT_LISTEN=127.0.0.1:%s\nCOFFEE_CV_INFERENCE_URL=http://%s:%s\n' \
+    "$CHECK_PORT" "$INFERENCE_ADDR" "$INFERENCE_PORT" > "$FSTAGE/front.env"
+  (cd "$FSTAGE" && find . -type f -printf '%P\n') | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - \
+    || die "the front's staged tree does not match its manifest"
+  note "the front's tree: $(find "$FSTAGE" -type f | wc -l) files, its site and front.env rendered"
 }
 
 check_fixtures() {
@@ -344,6 +417,58 @@ stage() {
   note "complete: $APP_ROOT/releases/$ID"
 }
 
+stage_front() {   # release $ID on the front: uploaded unless complete there, checked file by file, its venv built
+  say "Stage $ID on the front ($FRONT_HOST)"
+  local expect listing unit
+  expect=$(cd "$FSTAGE" && find . -type f -printf '%P\n' | sort | while read -r f; do
+             printf '%s %s\n' "$f" "$(sha256sum < "$f" | cut -c1-64)"; done)
+  # A complete release of this ID is reused if its files are this build's, BUILD_INFO.json aside (it records when it
+  # was built, as on the inference host); one that differs is built again, unless the front runs it or keeps it.
+  local state
+  state=$(fe '
+    R="$APP_ROOT/releases/$ID"
+    [[ -f "$R/.complete" ]] || { echo NEW; exit 0; }
+    while read -r path digest; do
+      [[ "$(sha256sum < "$R/$path" 2>/dev/null | cut -c1-64)" == "$digest" ]] || { echo STALE; exit 0; }
+    done <<<"$EXPECT"
+    echo REUSE' ID="$ID" EXPECT="$(grep -v '^webapp/BUILD_INFO.json ' <<<"$expect")")
+  if [[ "$state" == REUSE ]]; then
+    expect=$(grep -v '^webapp/BUILD_INFO.json ' <<<"$expect")
+    note "already staged on the front: reused"
+  else
+    if [[ "$state" == STALE ]]; then
+      fe '[[ "$(readlink -f "$APP_ROOT/current")" != "$APP_ROOT/releases/$ID" &&
+             "$(readlink -f "$APP_ROOT/previous" 2>/dev/null || true)" != "$APP_ROOT/releases/$ID" ]]' ID="$ID" \
+        || die "the front's releases/$ID differs from this build, and the front runs or keeps it"
+      note "the front's staged releases/$ID differs from this build: staged again"
+    fi
+    fe 'rm -rf "$APP_ROOT/releases/$ID" && mkdir -p "$APP_ROOT/releases"' ID="$ID"
+    to_fe -a --chmod=D755,F644 "$FSTAGE/" "$FRONT_APP_ROOT/releases/$ID/" || die "uploading the front's release failed"
+  fi
+  fe '
+    R="$APP_ROOT/releases/$ID"
+    while read -r path digest; do
+      [[ "$(sha256sum < "$R/$path" | cut -c1-64)" == "$digest" ]] || { echo "$path arrived corrupt, or changed"; exit 1; }
+    done <<<"$EXPECT"
+    if [[ ! -f "$R/.complete" ]]; then
+      # No dependencies (D7): the venv is the managed Python alone. Not capped: the front deploy user may not run
+      # systemd-run (D9), and there is nothing to build.
+      UV_CACHE_DIR="$APP_ROOT/uv-cache" UV_PYTHON_DOWNLOADS=never UV_PYTHON_INSTALL_DIR="$APP_ROOT/python" \
+        UV_PYTHON_PREFERENCE=only-managed UV_PROJECT_ENVIRONMENT="$R/.venv" UV_NO_PROGRESS=1 \
+        "$UV_BIN" sync --project "$R/webapp/front" --locked --no-dev --python "$PY_VERSION" 2>&1 | tail -3 | sed "s/^/   /"
+      date -u +%FT%TZ > "$R/.complete"
+    fi' ID="$ID" EXPECT="$expect" || die "staging the front's release failed"
+  listing=$(fe 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
+  "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - <<<"$listing" \
+    || die "the front's release on $FRONT_HOST does not match its manifest"
+  # The unit is the owner's to install (D9): it must be this release's, or the release would run under another.
+  unit=$(render "$SHA" webapp/deploy/coffee-cv-front.service.template FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
+           RELEASE_DIR="$FRONT_APP_ROOT/current")
+  fe '[[ "$(cat "$SYSTEM_ROOT/etc/systemd/system/coffee-cv-front.service")" == "$UNIT" ]]' UNIT="$unit" \
+    || die "the front's installed coffee-cv-front.service is not this release's: run webapp/deploy/setup_front.sh on $FRONT_HOST as root (plan P5)"
+  note "complete: $FRONT_APP_ROOT/releases/$ID"
+}
+
 check_staged_listing() {   # the release on the VM holds exactly the manifest (+ .venv, .complete, bytecode)
   local listing
   listing=$(vm 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
@@ -382,13 +507,30 @@ make_room() {
   (( avail >= MIN_MEM_GB * 1048576 )) || die "only $((avail / 1024)) MB available memory; need ${MIN_MEM_GB} GB"
 }
 
-restore_live() {   # starts the live service again if this run stopped it and nothing has started it since
-  [[ -n "$LIVE_STOPPED_AT" ]] || return 0
-  local down=$((SECONDS - LIVE_STOPPED_AT))
-  LIVE_STOPPED_AT=""
-  say "Start the live service again (stopped ${down} s)"
-  vm '$SUDO systemctl start coffee-cv-web' \
-    || note "WARNING: coffee-cv-web did not start -- start it by hand on $HOST: sudo systemctl start coffee-cv-web"
+restore_live() {   # starts what this run stopped, on either host, if nothing has started it since
+  if [[ -n "$LIVE_STOPPED_AT" ]]; then
+    local down=$((SECONDS - LIVE_STOPPED_AT))
+    LIVE_STOPPED_AT=""
+    say "Start the live service again (stopped ${down} s)"
+    vm '$SUDO systemctl start coffee-cv-web' \
+      || note "WARNING: coffee-cv-web did not start -- start it by hand on $HOST: sudo systemctl start coffee-cv-web"
+  fi
+  if [[ -n "$FRONT_STOPPED" ]]; then
+    FRONT_STOPPED=""
+    say "Start the front's check service again"
+    fe '$SUDO systemctl start coffee-cv-front' \
+      || note "WARNING: coffee-cv-front did not start -- start it by hand on $FRONT_HOST: sudo systemctl start coffee-cv-front"
+  fi
+}
+
+# The front's side of D14: only its check service stops. The proxy's nginx serves other sites and is never stopped; it
+# keeps serving the page, and answers /analyze with D12's "the classifier is offline" while the service is down.
+FRONT_STOPPED=""
+stop_front() {
+  [[ "$(fe 'systemctl is-active coffee-cv-front 2>/dev/null || true')" == active ]] || return 0
+  say "Stop the front's check service (D14): /analyze answers \"the classifier is offline\"; the page stays up"
+  fe '$SUDO systemctl stop coffee-cv-front'
+  FRONT_STOPPED=1
 }
 
 # --------------------------------------------------------------------------------------------- smoke
@@ -453,54 +595,86 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
 }
 
 # ------------------------------------------------------------------------------ production files + flip
-render_production() {   # installs the unit and nginx site from $SHA if they changed; sets NGINX_CHANGED
+render_production() {   # the inference host's unit, and its conf.d include of the release's site, if they changed
   say "Render production files"
-  # The site no longer names the domain (the front does, OPS-15), but the public checks after the flip need it.
   [[ -n "$DOMAIN" ]] || die "DOMAIN is not set (the public host name, for the checks after the flip)"
-  local unit site out
+  local unit out
   unit=$(render "$SHA" webapp/deploy/coffee-cv-web.service.template SERVICE_USER="$SERVICE_USER" \
            RELEASE_DIR="$APP_ROOT/current" PORT="$PORT" LOG_DIR="$LOG_ROOT")
-  site=$(render "$SHA" webapp/deploy/coffee-cv.nginx.conf.template INFERENCE_ADDR="$INFERENCE_ADDR" \
-              INFERENCE_PORT="$INFERENCE_PORT" PORT="$PORT")
   out=$(vm '
     UNIT_F="$SYSTEM_ROOT/etc/systemd/system/coffee-cv-web.service"
     SITE_F="$SYSTEM_ROOT/etc/nginx/conf.d/coffee-cv.conf"
-    stamp=$(date -u +%Y%m%dT%H%M%SZ)
     if [[ "$(cat "$UNIT_F" 2>/dev/null)" != "$UNIT" ]]; then
       printf "%s\n" "$UNIT" | $SUDO tee "$UNIT_F" >/dev/null
       $SUDO systemctl daemon-reload
       echo "UNIT_CHANGED=1"
     fi
-    if [[ "$(cat "$SITE_F" 2>/dev/null)" != "$SITE" ]]; then
-      backup="$SITE_F.bak-$stamp"
-      [[ -f "$SITE_F" ]] && $SUDO cp -p "$SITE_F" "$backup"
-      printf "%s\n" "$SITE" | $SUDO tee "$SITE_F" >/dev/null
-      if ! msg=$($SUDO nginx -t 2>&1); then
-        printf "%s\n" "$msg" | sed "s/^/nginx: /"
-        if [[ -f "$backup" ]]; then $SUDO mv "$backup" "$SITE_F"; else $SUDO rm -f "$SITE_F"; fi
-        exit 1
-      fi
-      $SUDO rm -f "$backup"
-      echo "NGINX_CHANGED=1"
+    # Since OPS-15 the site is the release'"'"'s: this file only includes it from `current`. Written once, over the
+    # site an older deploy rendered here; nginx -t and the reload come after the flip (reload_sites).
+    if [[ "$(cat "$SITE_F" 2>/dev/null)" != "$INCLUDE" ]]; then
+      printf "%s\n" "$INCLUDE" | $SUDO tee "$SITE_F" >/dev/null
+      echo "INCLUDE_CHANGED=1"
     fi
-  ' UNIT="$unit" SITE="$site") || { printf '%s\n' "$out" | sed 's/^/   /'; die "nginx -t rejected the new site; the old one is restored, nothing flipped"; }
-  printf '%s\n' "$out" | grep -v '^[A-Z_]*=1$' || true
-  UNIT_CHANGED=$(kv UNIT_CHANGED "$out"); NGINX_CHANGED=$(kv NGINX_CHANGED "$out")
-  note "unit: $([[ -n "$UNIT_CHANGED" ]] && echo "installed + daemon-reload" || echo unchanged); nginx site: $([[ -n "$NGINX_CHANGED" ]] && echo "installed, nginx -t ok" || echo unchanged)"
+  ' UNIT="$unit" INCLUDE="$(site_include "$APP_ROOT" inference)")
+  UNIT_CHANGED=$(kv UNIT_CHANGED "$out")
+  note "unit: $([[ -n "$UNIT_CHANGED" ]] && echo "installed + daemon-reload" || echo unchanged); conf.d include: $([[ -n "$(kv INCLUDE_CHANGED "$out")" ]] && echo installed || echo unchanged)"
 }
 
-flip() {   # flip <release id>: previous <- current, current <- releases/<id>, atomically each
-  say "Flip current -> releases/$1"
-  vm '
+# flip_on vm|fe <release id> <host's name>: previous <- current, current <- releases/<id>, atomically each.
+flip_on() {
+  "$1" '
     cd "$APP_ROOT"
     old=$(readlink current 2>/dev/null || true)
     if [[ -n "$old" && "$old" != "releases/$ID" ]]; then
       ln -sfn "$old" previous.new && mv -T previous.new previous
     fi
     ln -sfn "releases/$ID" current.new && mv -T current.new current
-    echo "   current -> $(readlink current); previous -> $(readlink previous 2>/dev/null || echo none)"
-    if [[ -n "$NGINX_CHANGED" ]]; then $SUDO systemctl reload nginx && echo "   nginx reloaded"; fi
-  ' ID="$1" NGINX_CHANGED="${NGINX_CHANGED:-}"
+    echo "   $WHERE: current -> $(readlink current); previous -> $(readlink previous 2>/dev/null || echo none)"
+  ' ID="$2" WHERE="$3"
+}
+
+# unflip_on vm|fe <release id> <host's name>: undoes flip_on, if it ran: back to previous, or, on a host's first
+# release, to no release at all, so that its conf.d include matches nothing and that host's nginx -t passes again.
+unflip_on() {
+  "$1" '
+    cd "$APP_ROOT"
+    [[ "$(readlink current 2>/dev/null || true)" == "releases/$ID" ]] || exit 0
+    if [[ -L previous && "$(readlink previous)" != "releases/$ID" ]]; then
+      prev=$(readlink previous)
+      ln -sfn "$prev" current.new && mv -T current.new current
+      ln -sfn "releases/$ID" previous.new && mv -T previous.new previous
+    else
+      rm -f current
+    fi
+    echo "   $WHERE: current -> $(readlink current 2>/dev/null || echo none)"
+  ' ID="$2" WHERE="$3"
+}
+
+# rollback_links vm|fe: current and previous swapped, on one host.
+rollback_links() {
+  "$1" '
+    cd "$APP_ROOT"
+    [[ -L previous ]] || { echo "no previous release to roll back to"; exit 1; }
+    cur=$(readlink current); prev=$(readlink previous)
+    [[ -f "$prev/.complete" ]] || { echo "$prev is incomplete"; exit 1; }
+    ln -sfn "$prev" current.new && mv -T current.new current
+    ln -sfn "$cur" previous.new && mv -T previous.new previous
+    echo "   current -> $(readlink current); previous -> $(readlink previous)"'
+}
+
+# Both hosts' nginx -t first, then one reload on each (D8): never one host on the new site while the other refuses it.
+reload_sites() {
+  local on where ok=1
+  for on in vm fe; do
+    where=$([[ $on == vm ]] && echo "the inference host" || echo "the front")
+    if "$on" 'msg=$($SUDO nginx -t 2>&1) || { printf "%s\n" "$msg" | sed "s/^/   nginx: /"; exit 1; }'; then
+      note "nginx -t ok on $where"
+    else
+      note "nginx -t failed on $where"; ok=""
+    fi
+  done
+  [[ -n "$ok" ]] || return 1
+  vm '$SUDO systemctl reload nginx' && fe '$SUDO systemctl reload nginx' && note "nginx reloaded on both hosts"
 }
 
 restart_if_enabled() {   # prints ENABLED=1 when it restarted the service
@@ -508,6 +682,27 @@ restart_if_enabled() {   # prints ENABLED=1 when it restarted the service
     if [[ "$(systemctl is-enabled coffee-cv-web 2>/dev/null || true)" == enabled ]]; then
       $SUDO systemctl restart coffee-cv-web && echo "ENABLED=1"
     fi'
+}
+
+front_restart_if_enabled() {   # prints FRONT_ENABLED=1 when it restarted the check service
+  fe '
+    if [[ "$(systemctl is-enabled coffee-cv-front 2>/dev/null || true)" == enabled ]]; then
+      $SUDO systemctl restart coffee-cv-front && echo "FRONT_ENABLED=1"
+    fi'
+}
+
+# Set from the first flip until the deploy is verified: any failure meanwhile, the EXIT trap's included, puts both
+# hosts back on the release they ran before, reloads their sites and starts both (D14).
+FLIPPED=""
+revert_both() {
+  [[ -n "$FLIPPED" ]] || return 0
+  FLIPPED=""
+  say "Revert both hosts to the release they ran before"
+  unflip_on vm "$ID" "the inference host" || note "WARNING: the inference host's links could not be reverted -- inspect by hand"
+  unflip_on fe "$ID" "the front" || note "WARNING: the front's links could not be reverted -- inspect by hand"
+  reload_sites || note "WARNING: nginx -t fails on the previous release's site too -- inspect both hosts by hand"
+  restart_if_enabled >/dev/null || note "WARNING: coffee-cv-web did not restart"
+  front_restart_if_enabled >/dev/null || note "WARNING: coffee-cv-front did not restart"
 }
 
 # -------------------------------------------------------------------------------------------- verify
@@ -518,7 +713,6 @@ verify() {   # returns non-zero on a failed check
   out=$(vm '
     cur=$(readlink -f "$APP_ROOT/current")
     echo "CURRENT=$(basename "$cur")"
-    echo "INDEX_SHA=$(sha256sum < "$cur/webapp/static/index.html" | cut -c1-64)"
     echo "COMMIT=$(sed -n "s/.*\"commit\": \"\([0-9a-f]*\)\".*/\1/p" "$cur/webapp/BUILD_INFO.json")"
     ckpt=$(sed -n "s/^COFFEE_CV_CHECKPOINT=//p" "$cur/release.env")
     echo "MODEL_SHA=$(sha256sum < "$cur/$ckpt" | cut -c1-16)"
@@ -537,10 +731,30 @@ verify() {   # returns non-zero on a failed check
       echo "EXPECTED=$(sed -n "s/^PROBE //p" "$APP_ROOT/fixtures/expected/$(basename "$cur").json")"
     fi
   ' PORT="$PORT") || { note "could not read the VM's state"; return 1; }
+  local front
+  front=$(fe '
+    cur=$(readlink -f "$APP_ROOT/current")
+    echo "CURRENT=$(basename "$cur")"
+    echo "INDEX_SHA=$(sha256sum < "$cur/webapp/static/index.html" | cut -c1-64)"
+    echo "ENABLED=$(systemctl is-enabled coffee-cv-front 2>/dev/null || true)"
+    if [[ "$(systemctl is-enabled coffee-cv-front 2>/dev/null || true)" == enabled ]]; then
+      for _ in $(seq 1 40); do
+        [[ "$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$CHECK_PORT/analyze" || true)" == 405 ]] && break
+        sleep 0.25
+      done
+      echo "GET_ANALYZE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$CHECK_PORT/analyze")"
+    fi' CHECK_PORT="$CHECK_PORT") || { note "could not read the front's state"; return 1; }
   local current enabled expected
   current=$(kv CURRENT "$out"); enabled=$(kv ENABLED "$out"); expected=$(kv EXPECTED "$out")
-  note "current = $current; coffee-cv-web is ${enabled:-not installed}"
+  note "current = $current; coffee-cv-web is ${enabled:-not installed}; coffee-cv-front is $(kv ENABLED "$front" | grep . || echo "not installed")"
   check() { if [[ "$2" == "$3" ]]; then note "ok    $1: $2"; else note "FAIL  $1: got '$2', want '$3'"; fails=$((fails + 1)); fi; }
+  # One release on two hosts (ADR 0031): the page and the backend it calls are the same commit's.
+  check "the front's current release" "$(kv CURRENT "$front")" "$current"
+  if [[ "$(kv ENABLED "$front")" == enabled ]]; then
+    check "check service GET /analyze" "$(kv GET_ANALYZE "$front")" 405
+  else
+    note "the check service is not enabled: its check skipped"
+  fi
 
   if [[ "$enabled" == enabled ]]; then
     check "backend GET /" "$(kv GET_ROOT "$out")" 404
@@ -552,7 +766,7 @@ verify() {   # returns non-zero on a failed check
     note "the service is not enabled: backend checks skipped (the owner enables it: plan Phase B)"
   fi
 
-  # From OPS-15 on, the public checks reach this host through the front (the proxy); OPS-15 P4 reworks them.
+  # Through the domain: the front's TLS, its page, its check service, and the inference host behind them (ADR 0031).
   if [[ -z "$PUBLIC_URL" ]]; then
     note "SKIPPED public checks (PUBLIC_URL is empty)"
   else
@@ -560,7 +774,7 @@ verify() {   # returns non-zero on a failed check
     body=$(mktemp)
     code=$(curl -s -o "$body" -w '%{http_code}' "$PUBLIC_URL/")
     check "public GET /" "$code" 200
-    check "public page = the release's index.html" "$(sha256sum < "$body" | cut -c1-64)" "$(kv INDEX_SHA "$out")"
+    check "public page = the release's index.html" "$(sha256sum < "$body" | cut -c1-64)" "$(kv INDEX_SHA "$front")"
     local photo want times hdr
     photo="$REPO/$(fixtures smoke)"
     hdr=$(mktemp)
@@ -584,7 +798,7 @@ verify() {   # returns non-zero on a failed check
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
     else
-      check "public POST /analyze (no backend yet)" "$code" 502
+      check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
     fi
     rm -f "$body"
   fi
@@ -592,33 +806,14 @@ verify() {   # returns non-zero on a failed check
 }
 
 on_verify_failure() {
-  local has_prev
-  has_prev=$(vm '[[ -L "$APP_ROOT/previous" ]] && echo yes || true')
-  if [[ "$has_prev" == yes ]]; then
-    note "rolling back to previous"
-    rollback_links
-    restart_if_enabled >/dev/null
-    verify || true
-    die "verification failed; rolled back to previous"
-  fi
-  vm '$SUDO systemctl stop coffee-cv-web || true'
-  die "verification failed and there is no previous release: coffee-cv-web stopped (page up, /analyze 502)"
-}
-
-rollback_links() {
-  vm '
-    cd "$APP_ROOT"
-    [[ -L previous ]] || { echo "no previous release to roll back to"; exit 1; }
-    cur=$(readlink current); prev=$(readlink previous)
-    [[ -f "$prev/.complete" ]] || { echo "$prev is incomplete"; exit 1; }
-    ln -sfn "$prev" current.new && mv -T current.new current
-    ln -sfn "$cur" previous.new && mv -T previous.new previous
-    echo "   current -> $(readlink current); previous -> $(readlink previous)"'
+  revert_both
+  verify || true
+  die "verification failed; both hosts are back on the release they ran before"
 }
 
 # ------------------------------------------------------------------------------------ prune / compare
 prune() {
-  say "Prune: keep current and previous"
+  say "Prune: keep current and previous, on both hosts"
   local out kept f id
   out=$(vm '
     cd "$APP_ROOT"
@@ -639,6 +834,17 @@ prune() {
     echo "KEPT $(basename "$(readlink -f current)") $(basename "$(readlink -f previous 2>/dev/null || true)")"')
   grep -v '^KEPT ' <<<"$out" || true
   kept=$(sed -n 's/^KEPT //p' <<<"$out")
+  fe '
+    cd "$APP_ROOT"
+    shopt -s nullglob
+    keep="$(readlink -f current) $(readlink -f previous 2>/dev/null || true)"
+    for d in releases/*/; do
+      d=$(readlink -f "$d")
+      [[ -d "$d" && "$d" == "$APP_ROOT"/releases/* ]] || continue
+      case " $keep " in *" $d "*) continue ;; esac
+      rm -rf "$d" && echo "   the front: removed $(basename "$d")"
+    done
+    echo "   the front: $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"' || note "WARNING: pruning the front failed"
   # This machine's staged trees and their records follow the host: keep those of the releases it keeps.
   [[ "$kept" == *-* ]] || { note "WARNING: the host named no current release; $SCRATCH left as it is"; return 0; }
   for f in "$SCRATCH"/2*; do
@@ -730,19 +936,23 @@ bootstrap() {
 
 # -------------------------------------------------------------------------------------------- main
 mkdir -p "$SCRATCH"
-trap restore_live EXIT
+on_exit() { revert_both; restore_live; }
+trap on_exit EXIT
 trap 'exit 130' INT TERM
 MODE=deploy
 case "${1:-}" in
   --bootstrap) bootstrap; exit 0 ;;
   --verify)    verify || die "verification failed"; exit 0 ;;
   --rollback)
-    say "Rollback"
-    rollback_links || die "rollback refused"
+    say "Rollback both hosts"
+    rollback_links vm || die "rollback refused on the inference host"
+    rollback_links fe || { rollback_links vm; die "rollback refused on the front; the inference host is switched back"; }
+    reload_sites || die "nginx -t failed on the previous release's site -- inspect both hosts by hand"
     restart_if_enabled >/dev/null
+    front_restart_if_enabled >/dev/null
     verify || die "verification after rollback failed -- inspect by hand"
     exit 0 ;;
-  --compare)   [[ $# -eq 2 ]] || usage; compare "$2"; exit 0 ;;
+  --compare)   [[ $# -eq 2 ]] || usage; MODE=compare; compare "$2"; exit 0 ;;
   --stage-only) MODE=stage; shift ;;
   -h|--help|"") usage ;;
 esac
@@ -751,24 +961,34 @@ REF=$1 MODEL=$2
 
 guard "$REF"
 preflight
+front_preflight
 build "$REF" "$MODEL"
 stage
+stage_front
 make_room
 smoke "$ID"
 if [[ "$MODE" == stage ]]; then
   restore_live
   postflight
-  say "Staged $ID (not flipped). Next: scripts/deploy_webapp.sh --compare $ID"
+  say "Staged $ID on both hosts (not flipped). Next: scripts/deploy_webapp.sh --compare $ID"
   exit 0
 fi
+stop_front
 render_production
-flip "$ID"
+say "Flip both hosts to releases/$ID"
+FLIPPED=1
+flip_on vm "$ID" "the inference host"
+flip_on fe "$ID" "the front"
 ENABLED=$(restart_if_enabled)
+FRONT_ENABLED=$(front_restart_if_enabled)
+[[ -z "$FRONT_ENABLED" ]] || FRONT_STOPPED=""
 # The restart started the new release; a disabled service is started by the EXIT trap, on the new release too.
 if [[ -n "$ENABLED" && -n "$LIVE_STOPPED_AT" ]]; then
   note "photo answers were down $((SECONDS - LIVE_STOPPED_AT)) s"; LIVE_STOPPED_AT=""
 fi
+reload_sites || die "nginx -t rejected a release's site; both hosts go back to the release they ran before"
 if ! verify; then on_verify_failure; fi
+FLIPPED=""
 prune
 postflight
 if [[ -z "$ENABLED" ]]; then
