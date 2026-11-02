@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19); P2 done 2026-11-02; P1 in progress</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19); P1, P2 done 2026-11-02</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -73,7 +73,7 @@
 
   <h2>3. P1 &mdash; The front's check service</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>; ships with P1&ndash;P4 at P6</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 answered (ticket D19)</span></span></div>
   </div>
   <p>A new <code>webapp/front/</code> package with its own <code>pyproject.toml</code> and <code>uv.lock</code>,
@@ -236,6 +236,21 @@
       <code>origin/main</code>, and its <code>REHEARSE_PREV_REF</code> must now be from P2 on (P4). (4)
       <code>deploy.md</code> and <code>webapp/README.md</code> still describe the live passthrough, which is right until
       P6.</div>
+    <div><div class="when">2026-11-02</div>Q2 answered (ticket D19). P1 implemented on <code>ops15-impl</code>:
+      <code>webapp/front/check_service.py</code> (the service, on <code>ThreadingHTTPServer</code>),
+      <code>webapp/front/upload_check.py</code> (the format check), and their own <code>pyproject.toml</code> and
+      <code>uv.lock</code>, with no dependencies. The tests run in <code>scripts/check.sh</code>'s unittest discovery:
+      <code>tests/test_front_upload_check.py</code> holds the format check to <code>coffeecv.photo_io</code> (the same RAW
+      extensions; every Pillow format accepted there decodes there), and
+      <code>tests/test_front_check_service.py</code> runs the service in front of a fake inference host. Judgement
+      calls: (1) only the formats the public contract names pass, so GIF, BMP and a plain TIFF, which the app's Pillow
+      path decoded before, are refused at the front. (2) The ORF, RW2, RAF and CR3 signatures were not checked against
+      a primary source or a real file (none in <code>dataset/</code>); TIFF-based RAW, HEIC and DNG were checked
+      against real photos. (3) A 502 or 504 from the inference host's nginx (its app stopped or down) is offline, like
+      an unreachable host; its own 503 (busy) and every other answer are relayed as they are. (4) An upload over
+      5 MB is read and dropped before the 413, so the sender sees the 413, not a reset. Measured locally from the
+      service's own uv environment: RSS 25 MB idle, 40 MB peak with a 5 MB upload in flight (VmHWM, 2026-11-02); the
+      proxy's own figure is P6's.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a
