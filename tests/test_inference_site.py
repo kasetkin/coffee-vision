@@ -80,6 +80,7 @@ class InferenceSite(unittest.TestCase):
 
         site = render(SITE_TEMPLATE.read_text(),
                       {"INFERENCE_ADDR": ADDR, "INFERENCE_PORT": str(cls.port), "PORT": str(app_port)})
+        assert NGINX_LOG_DIR in site, f"the site no longer logs under {NGINX_LOG_DIR}"
         (cls.tmp / "site.conf").write_text(site.replace(NGINX_LOG_DIR, f"{cls.logs}/"))
         temp_paths = "".join(f"    {kind}_temp_path {cls.tmp}/{kind};\n"
                              for kind in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi"))
@@ -116,12 +117,17 @@ class InferenceSite(unittest.TestCase):
         conn.request(method, path, body=body or None, headers=headers or {})
         return conn, conn.getresponse()
 
+    def fetch(self, method: str, path: str, body: bytes = b"", headers: dict | None = None):
+        """A whole request: its response, already read, on a closed connection."""
+        conn, resp = self.request(method, path, body, headers)
+        resp.read()
+        conn.close()
+        return resp
+
     def test_serves_no_page_nor_any_path_but_analyze(self):
         for path in ("/", "/index.html", "/llms.txt", "/robots.txt", "/analyze/x"):
             with self.subTest(path=path):
-                conn, resp = self.request("GET", path)
-                resp.read()
-                conn.close()
+                resp = self.fetch("GET", path)
                 self.assertEqual(resp.status, 404)
         self.assertEqual(FakeApp.seen, [])
 
@@ -144,20 +150,13 @@ class InferenceSite(unittest.TestCase):
     def test_a_second_request_while_one_is_in_flight_is_refused_busy(self):
         FakeApp.hold.clear()
 
-        def first_request():
-            conn, resp = self.request("POST", "/analyze", b"x")
-            resp.read()
-            conn.close()
-
-        first = threading.Thread(target=first_request)
+        first = threading.Thread(target=self.fetch, args=("POST", "/analyze", b"x"))
         first.start()
         for _ in range(100):
             if FakeApp.seen:
                 break
             time.sleep(0.02)
-        conn, resp = self.request("POST", "/analyze", b"y")
-        resp.read()
-        conn.close()
+        resp = self.fetch("POST", "/analyze", b"y")
         FakeApp.hold.set()
         first.join(10)
         self.assertEqual(resp.status, 503)
@@ -165,13 +164,9 @@ class InferenceSite(unittest.TestCase):
 
     def test_the_cap_is_the_apps_and_a_larger_upload_never_reaches_it(self):
         cap = int(re.search(r"MAX_UPLOAD_BYTES = (\d+) \* 1024 \* 1024", (REPO / "webapp" / "app.py").read_text())[1])
-        conn, resp = self.request("POST", "/analyze", b"x" * (cap * 1024 * 1024 + 1))
-        resp.read()
-        conn.close()
+        resp = self.fetch("POST", "/analyze", b"x" * (cap * 1024 * 1024 + 1))
         self.assertEqual(resp.status, 413)
-        conn, resp = self.request("POST", "/analyze", b"x" * (cap * 1024 * 1024 - 4096))
-        resp.read()
-        conn.close()
+        resp = self.fetch("POST", "/analyze", b"x" * (cap * 1024 * 1024 - 4096))
         self.assertEqual(resp.status, 200)
         self.assertEqual([s["bytes"] for s in FakeApp.seen], [cap * 1024 * 1024 - 4096])
 
@@ -195,9 +190,7 @@ class InferenceSite(unittest.TestCase):
 
     def test_the_client_ip_is_only_in_files_rotated_at_30_days(self):
         ip = "198.51.100.23"
-        conn, resp = self.request("POST", "/analyze", b"x", {"X-Real-IP": ip})
-        resp.read()
-        conn.close()
+        resp = self.fetch("POST", "/analyze", b"x", {"X-Real-IP": ip})
         rotate = logrotate_days()
         with_ip = {p.name for p in self.logs.iterdir() if ip in p.read_text()}
         self.assertTrue(with_ip, "the front's X-Real-IP is in no log")
