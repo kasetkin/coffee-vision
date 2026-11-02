@@ -11,6 +11,7 @@ running the thing that serves it.
 ```
 Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate limit)
                       |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
+                      |-- GET /robots.txt  -> the release's webapp/static/robots.txt; any other path is a 404
                       \-- POST /analyze    -> proxy_pass -> gunicorn (127.0.0.1:8000)
                                                 -> Flask app -> coffeecv.infer -> a streamed answer:
                                                    preview line, then classification line
