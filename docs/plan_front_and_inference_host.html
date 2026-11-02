@@ -193,7 +193,7 @@
 
   <h2>8. P6 &mdash; Cutover <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02: <code>setup_server.sh</code> run on <code>yappy</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02: <code>setup_server.sh</code> and <code>--bootstrap</code> run on <code>yappy</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 done</span></span></div>
   </div>
   <ol class="tasks">
@@ -376,6 +376,9 @@
     <div><div class="when">2026-11-02</div>The owner runs <code>setup_server.sh</code> on <code>yappy</code>:
       <code>net.ipv4.ip_nonlocal_bind = 1</code> set; ufw is not installed there, so there was no public-port rule to
       remove. Nothing it serves changed (release <code>d9212c6</code> still live).</div>
+    <div><div class="when">2026-11-02</div>The owner runs <code>scripts/deploy_webapp.sh --bootstrap</code> from the
+      workstation: users, <code>/opt/coffee-cv</code>, uv 0.12.19 and Python 3.12.14 already in place; the logrotate
+      rules re-rendered (main's, unchanged since D20). No sweep before or after.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a
