@@ -1,0 +1,31 @@
+{
+  "entries": [
+    {
+      "identifier": "urn:air:coffee.kasetkin.com:coffee-origin:analyze",
+      "displayName": "Coffee Bean Origin Classifier API",
+      "type": "application/vnd.oai.openapi+json",
+      "url": "https://coffee.kasetkin.com/openapi.json",
+      "description": "Send one photo of whole coffee beans, green or roasted; get the country the coffee was most likely grown in, scored against about 10 countries, or a refusal when the photo does not look like beans the model knows. Free, no key; one photo at a time.",
+      "capabilities": ["analyzeCoffeePhoto"],
+      "tags": ["coffee", "image-classification", "country-of-origin", "computer-vision"],
+      "representativeQueries": [
+        "which country are these coffee beans from",
+        "identify the origin of the coffee in this photo",
+        "is this Ethiopian or Colombian coffee",
+        "classify green coffee beans by country from a phone photo"
+      ]
+    },
+    {
+      "identifier": "urn:air:coffee.kasetkin.com:coffee-origin:guide",
+      "displayName": "Coffee Bean Origin Classifier: guide for agents",
+      "type": "text/markdown",
+      "url": "https://coffee.kasetkin.com/llms.txt",
+      "description": "How to call the coffee-origin API, read its answer and respect its one-at-a-time limit, in Markdown.",
+      "tags": ["coffee", "llms.txt", "documentation"],
+      "representativeQueries": [
+        "how do I call the coffee bean origin classifier",
+        "what does the coffee origin API return"
+      ]
+    }
+  ]
+}

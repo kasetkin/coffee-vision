@@ -11,7 +11,8 @@ running the thing that serves it.
 ```
 Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate limit)
                       |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
-                      |-- GET /robots.txt  -> the release's webapp/static/robots.txt; any other path is a 404
+                      |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
+                      |                    -> the release's webapp/static/ files; any other path is a 404
                       \-- POST /analyze    -> proxy_pass -> gunicorn (127.0.0.1:8000)
                                                 -> Flask app -> coffeecv.infer -> a streamed answer:
                                                    preview line, then classification line
@@ -36,6 +37,10 @@ Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate li
   on before the classification is done.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
+- `static/llms.txt`, `static/openapi.json`, `static/.well-known/ard.json` -- the
+  service described for LLM agents: a Markdown guide, the API's OpenAPI 3.1
+  description, and the Agentic Resource Discovery manifest pointing at both. See
+  "For agents" below.
 - `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
   manifest, and the helpers `scripts/deploy_webapp.sh` uses; `setup_server.sh`
   installs only nginx, the cert directory and ufw rules (ufw stays disabled) on
@@ -252,6 +257,22 @@ either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
   are ever placed, nginx won't come up automatically that one time. Once the
   real files are on disk they persist across every future reboot like any
   other file.
+
+## For agents
+
+The service is open to LLM agents acting for a person, through the same `POST /analyze` the page uses: no key, no
+separate endpoint. Three static files in the release describe it, and the page links all three from its `<head>`:
+
+- `/llms.txt` -- the guide an agent reads first: what the service does, a `curl` call, both answer parts, the
+  verdicts, and the one-at-a-time limit (wait and retry on a 503).
+- `/openapi.json` -- the same contract, machine-readable (OpenAPI 3.1; `rel="service-desc"`, RFC 8631).
+- `/.well-known/ard.json` -- an [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) manifest
+  (v0.91, a proposal) listing the two above for agent registries.
+
+nginx serves them with `Access-Control-Allow-Origin: *`, and `robots.txt` allows every path, `/analyze` included,
+since agents that honour it would otherwise refuse to call the API. **A change to what `/analyze` takes or returns
+updates `openapi.json` and `llms.txt` in the same change**; `tests/test_agent_files.py` checks the form fields and
+the routes against `app.py`, and that every URL in the three files is one the release serves.
 
 ## Design choices worth knowing before changing anything
 

@@ -64,6 +64,12 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    # The files that describe the service to agents and their registries (webapp/README.md, "For agents"), readable
+    # from any origin, so a tool running in a browser can fetch them too.
+    location ~ ^/(llms\.txt|openapi\.json|\.well-known/ard\.json)$ {
+        add_header Access-Control-Allow-Origin "*";
+    }
+
     location = /analyze {
         limit_conn coffee_cv_inflight 1;
         client_max_body_size 20m;

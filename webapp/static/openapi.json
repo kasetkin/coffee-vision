@@ -1,0 +1,132 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Coffee Bean Origin Classifier",
+    "version": "1",
+    "summary": "One photo of whole coffee beans in, the likely country of origin out.",
+    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. One photo at a time for everyone: on 503, wait about 10 s and retry, and never send photos in parallel. Guide for agents: https://coffee.kasetkin.com/llms.txt"
+  },
+  "externalDocs": {
+    "description": "What the model knows and how it works",
+    "url": "https://github.com/kasetkin/coffee-vision#what-it-knows"
+  },
+  "servers": [{"url": "https://coffee.kasetkin.com"}],
+  "paths": {
+    "/analyze": {
+      "post": {
+        "operationId": "analyzeCoffeePhoto",
+        "summary": "Classify the country of origin of the coffee beans in one photo",
+        "description": "The answer is two JSON objects, one per line (NDJSON), streamed: a preview after about 2 s, then the classification after about 9 s in all. Read to the end of the stream; the classification (or an error part) is always the second line.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["photo"],
+                "properties": {
+                  "photo": {
+                    "type": "string",
+                    "contentMediaType": "application/octet-stream",
+                    "description": "The image file, at most 20 MB: JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
+                  },
+                  "skip_crop": {
+                    "type": "string",
+                    "enum": ["1"],
+                    "description": "Send 1 to classify the whole photo instead of the beans the server finds in it."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Two lines: a PreviewPart, then a ClassificationPart (or an ErrorPart if the server failed after the preview went out).",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "description": "The schema of one line: the body is newline-delimited JSON, each line one of these.",
+                  "oneOf": [
+                    {"$ref": "#/components/schemas/PreviewPart"},
+                    {"$ref": "#/components/schemas/ClassificationPart"},
+                    {"$ref": "#/components/schemas/ErrorPart"}
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No photo was uploaded, or the file could not be read as an image.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          },
+          "413": {"description": "The photo is larger than 20 MB."},
+          "503": {"description": "Another photo is being analyzed. Wait about 10 s and retry."}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PreviewPart": {
+        "type": "object",
+        "description": "The photo as the model sees it. Display only; an agent can skip it.",
+        "required": ["part", "thumbnail", "mask", "seg_fallback", "cropped", "box", "needs_review"],
+        "properties": {
+          "part": {"const": "preview"},
+          "thumbnail": {"type": "string", "contentEncoding": "base64", "contentMediaType": "image/jpeg", "description": "The decoded photo, long side at most 1024 px."},
+          "mask": {"type": ["string", "null"], "contentEncoding": "base64", "contentMediaType": "image/png", "description": "The bean region over the whole photo, long side at most 1024 px; null when none was used."},
+          "seg_fallback": {"type": "boolean", "description": "No usable bean region was found, so the whole photo is classified."},
+          "cropped": {"type": "boolean"},
+          "box": {
+            "type": ["array", "null"],
+            "items": {"type": "number", "minimum": 0, "maximum": 1},
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "The crop as fractions of the photo: [x0, y0, x1, y1]; null when not cropped."
+          },
+          "needs_review": {"type": "boolean", "description": "The crop may have missed the beans."}
+        }
+      },
+      "ClassificationPart": {
+        "type": "object",
+        "required": ["part", "verdict"],
+        "properties": {
+          "part": {"const": "classification"},
+          "verdict": {
+            "enum": ["predicted", "warned", "refused_ood", "refused_unreadable"],
+            "description": "predicted: ranked holds the answer. warned: the same, but say it is unsure (see warning). refused_ood: the photo does not look like coffee beans the model knows; there is no country to report. refused_unreadable: the photo could not be read as beans."
+          },
+          "ranked": {
+            "type": "array",
+            "description": "Every country the model knows, best first. Present for predicted and warned.",
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "score"],
+              "properties": {
+                "id": {"type": "string", "description": "The country's class id."},
+                "label": {"type": "string", "description": "The country's name, to show a person."},
+                "score": {"type": "number", "minimum": 0, "maximum": 1, "description": "The model's probability; the scores sum to 1."}
+              }
+            }
+          },
+          "warning": {"type": "string", "description": "Why the answer is unsure: Uncertain, Uncertain framing, or both. Present for warned."},
+          "message": {"type": "string", "description": "A short reason, for the refusals."}
+        }
+      },
+      "ErrorPart": {
+        "type": "object",
+        "required": ["part", "message"],
+        "properties": {
+          "part": {"const": "error"},
+          "message": {"type": "string"}
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {"error": {"type": "string"}}
+      }
+    }
+  }
+}
