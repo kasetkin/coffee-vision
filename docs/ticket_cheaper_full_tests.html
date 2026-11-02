@@ -9,10 +9,10 @@
   <p class="lede">Every deploy runs <code>scripts/check.sh --full</code>, about 13.5 minutes on the devcontainer, most of
     it for a change like a static file. The owner keeps the full tier and asks to make it cheaper, for a start by
     processing fewer photos where a test has several. Written and implemented 2026-11-02: D1 and D2 done, the full tier
-    805 s to 547 s; D3 recorded and not done.</p>
+    805 s to 547 s; D3 recorded and not done. Closed by the owner the same day.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-02; D1, D2 implemented the same day; for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-11-02; D1, D2 implemented the same day (<code>feaecf1</code>, <code>c9607e5</code>), the full tier 805 s to 547 s; D3 recorded, not done; closed by the owner 2026-11-02</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-human</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tests: run time of the full tier</span></div>
@@ -150,6 +150,8 @@
     <div><div class="when">2026-11-02</div>Full run timed with the same wrapper: 805 s to 547 s (−32%), 653 tests;
       <code>test_frozen_checkpoint</code> 176 s to 24 s, <code>test_litert</code> 157 s to 89 s, every other file within
       run-to-run noise.</div>
+    <div><div class="when">2026-11-02</div>Closed by the owner. D1 and D2 are on <code>main</code> (<code>c9607e5</code>);
+      D3 and the other leftovers (Out of scope) stay recorded here, not done.</div>
   </div>
 
   <footer>Related: <code>scripts/check.sh</code>, <code>tests/_tiers.py</code>,
