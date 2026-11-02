@@ -9,14 +9,22 @@ running the thing that serves it.
 ## Architecture
 
 ```
-Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate limit)
-                      |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
-                      |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
-                      |                    -> the release's webapp/static/ files; any other path is a 404
-                      \-- POST /analyze    -> proxy_pass -> gunicorn (127.0.0.1:8000)
-                                                -> Flask app -> coffeecv.infer -> a streamed answer:
-                                                   preview line, then classification line
+Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor's IP per session)
+  --> THE FRONT, the proxy: nginx on 127.0.0.1:12347 (TLS termination, static files, one-at-a-time gate, 5 MB cap)
+        |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
+        |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
+        |                    -> the release's webapp/static/ files; any other path is a 404
+        \-- POST /analyze    -> check service, coffee-cv-front (127.0.0.1:8100): the form and the photo's format
+              --tailnet, plain HTTP--> THE INFERENCE HOST, yappy: nginx on its tailnet address, port 12346
+                  \-- POST /analyze -> gunicorn (127.0.0.1:8000) -> Flask app -> coffeecv.infer
+                                       -> a streamed answer: preview line, then classification line
 ```
+
+Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
+serves the domain; it has the standard library only (`front/`), no ML code and no decoder, and forwards the photo's
+bytes unchanged. The inference host has the GPU and a slow link (2.1 Mbit/s in), which is why the front refuses a
+photo over 5 MB, or in a format the app cannot read, before it crosses. While the app is down (a deploy, or the
+host) the page stays up and `/analyze` answers `503 {"error": "the classifier is offline"}`.
 
 - `app.py` -- the Flask app. Loads the model once at import time; `classify_one`'s
   two steps from `coffeecv/infer.py` do the actual work, so this service and the
@@ -33,18 +41,21 @@ Browser --HTTPS--> proxy --> :12346 nginx (TLS termination, static file, rate li
   classified). Then `{"part": "classification"}` with the verdict and the ranked
   classes, or `{"part": "error", "message": ...}` if the classification fails
   after the 200 has gone out. An unreadable photo is a plain 400 before any line.
-  The app sends `X-Accel-Buffering: no`, so both nginx servers pass the preview
-  on before the classification is done.
+  The app sends `X-Accel-Buffering: no`, so both nginx servers, and the check
+  service between them, pass the preview on before the classification is done.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
 - `static/llms.txt`, `static/openapi.json`, `static/.well-known/ard.json` -- the
   service described for LLM agents: a Markdown guide, the API's OpenAPI 3.1
   description, and the Agentic Resource Discovery manifest pointing at both. See
   "For agents" below.
-- `deploy/` -- the templates (systemd unit, nginx site, logrotate), the release
-  manifest, and the helpers `scripts/deploy_webapp.sh` uses; `setup_server.sh`
-  installs only nginx, the cert directory and ufw rules (ufw stays disabled) on
-  a fresh box. See "Deploying" below.
+- `front/` -- the front's check service (`check_service.py`, `upload_check.py`):
+  standard library only, its own `pyproject.toml` + `uv.lock` with no dependencies.
+- `deploy/` -- the templates (systemd units, both nginx sites, the stream block's
+  session log, logrotate), the release manifest, and the helpers
+  `scripts/deploy_webapp.sh` uses; `setup_server.sh` installs only nginx, a
+  sysctl and the SSH ufw rule (ufw stays disabled) on a fresh inference host, and
+  `setup_front.sh` prepares the front once, as root. See "Deploying" below.
 - `pyproject.toml` + `uv.lock` -- the service's own environment (uv).
 
 ## Where it runs: releases under /opt/coffee-cv
@@ -62,6 +73,10 @@ Production does not run from a checkout. Each deploy builds an immutable release
 /var/log/coffee-cv/                   owner coffee-cv
 ```
 
+The front has the same layout under its own `/opt/coffee-cv/`, with the same release id: the page, the front's
+nginx site (`front.nginx.conf`), the check service and its `.venv` (`webapp/deploy/release_manifest.py --front`). Each
+host has its own `current` and `previous`; the deploy flips, and `--rollback` reverts, both together.
+
 - The service runs as the `coffee-cv` system user with `ProtectHome=true`: nothing under `/home` is
   visible to it -- not the training checkout, not the training venv, not `~/.cache/torch`. What a
   sweep does to `~/coffee-vision` or `~/coffee-vision-venv` cannot change what production serves.
@@ -74,8 +89,8 @@ Production does not run from a checkout. Each deploy builds an immutable release
   so code and model switch -- and roll back -- together. What runs is that model's LiteRT conversion beside it,
   `models/<name>.litert/` (the segmenter's encoder and decoder, the DINOv3 backbone and the head). `app.py`'s own
   default is only for a local dev server.
-- nginx serves the page from `current/webapp/static`, so the page and the API it calls change together
-  at the flip. There is no copy step.
+- The front's nginx serves the page from its `current/webapp/static`, and both hosts flip in one step, so the
+  page and the API it calls change together. There is no copy step.
 - A release ships no pretrained weights (ticket ML-7, plan P10): the converted directory carries every weight the
   service runs, each file checked at build time by md5 against `dvc.lock`'s record of the `litert_export` stage.
   Only a model with that stage can be deployed; today that is the live one alone.
@@ -119,19 +134,21 @@ log's `top1_class` holds a country key. Only a release from before ML-3 would sh
 
 ## Deploying
 
-Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives the host over SSH. Set
-`DOMAIN` to the public host name (it is never written into git). The host is the SSH alias
-`webappremote` (`HOST`; the deploy user `APP_USER` is its SSH user), since the VM `powervpsssh` was
-shut down for good on 2026-10-12. nginx serves TLS on one port, 12346 (`PUBLIC_PORT`), behind a
-proxy that serves the domain on 80/443 and forwards to it; the site is `https://<DOMAIN>/`.
+Everything is `scripts/deploy_webapp.sh`, run from your workstation; it drives both hosts over SSH. Set
+`DOMAIN` to the public host name, and `TLS_CERT` and `TLS_KEY` to the front's certificate files on the proxy. The
+inference host is the SSH alias `webappremote` (`HOST`; the deploy user `APP_USER` is its SSH user); its nginx
+listens in plain HTTP on its tailnet address, port 12346 (`INFERENCE_PORT`), only. The front is the alias
+`webproxy-deploy` (`FRONT_HOST`, the deploy user `coffee-deploy`, whose sudo there covers only the check service,
+`nginx -t` and nginx's reload); the site is `https://<DOMAIN>/`. Day-to-day notes: `docs/agents/deploy.md`.
 
 ```
-scripts/deploy_webapp.sh --bootstrap                        # once per box: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
-DOMAIN=... scripts/deploy_webapp.sh <sha> <model>           # e.g. <sha> dino3b16_segxl0v3_country_aug8_s123
+webapp/deploy/setup_front.sh                                # once per front, run by the owner as root (ROOT_HOST)
+scripts/deploy_webapp.sh --bootstrap                        # once per inference host: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
+DOMAIN=... TLS_CERT=... TLS_KEY=... scripts/deploy_webapp.sh <sha> <model>   # e.g. <sha> dino3b16_segxl0v3_country_aug8_s123
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
 scripts/deploy_webapp.sh --compare <release-id>             # the release on the host vs PyTorch here, 12 photos, ML-7 D7's bars
-DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves, backend + public site
-DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previous, restart, verify
+DOMAIN=... scripts/deploy_webapp.sh --verify                # what `current` serves on both hosts + the public site
+DOMAIN=... scripts/deploy_webapp.sh --rollback              # current <-> previous on both hosts, restart, verify
 ```
 
 **The host's GPU is a deploy dependency** (ticket ML-7, ADR 0019). A release whose converted model runs on the
@@ -143,25 +160,31 @@ no writable home, so no shader cache persists: shaders compile at each boot, wit
 cold-start change with a cache). A worker that cannot prove the GPU refuses to serve (ADR 0020), so a driver upgrade or a
 lost render group shows as a failed smoke test or a service that does not start, never as silent CPU serving.
 
-A full deploy: **preflight** (>= 10 GB free on /opt, pinned uv; records the
-sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
+A full deploy: **preflight** on both hosts (on the inference host >= 10 GB free on /opt, pinned uv, its tailnet
+address; on the front >= 200 MB free, the pinned uv and Python, the site include and the check service's unit
+`setup_front.sh` installed; records the sweep's PIDs and log size) -> **build locally** (refuses a commit not on `origin/main`; `git archive` of
 the manifest; the `.pt` from the working tree or the local DVC cache, refused unless its md5 matches the
 commit's `.pt.dvc`; its LiteRT export (`models/<name>.litert/`, ticket ML-7) by md5 from `dvc.lock`; the warm-up
 photo; `BUILD_INFO.json` + `release.env`; the expected smoke answers from the staged tree itself, on this machine's
 CPU) -> **stage**
-(rsync into `releases/<id>`, venv build, contents checked against the manifest, `.complete`) -> **stop the live
-service** (ADR 0026: the host fits one GPU worker; then >= 5 GB available memory, and any failure before the flip
-starts it again) -> **smoke**
+on both hosts (rsync into `releases/<id>`, venv build, contents checked against each host's manifest, `.complete`)
+-> **stop the live service** (ADR 0026: the host fits one GPU worker; then >= 5 GB available memory, and any failure
+before the flip starts it again; the front's check service stops too, and the front answers "the classifier is
+offline" meanwhile) -> **smoke**
 (the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
 sandbox; `/analyze`'s two parts must match the local answer: same verdict and top-1, scores within
 ML-7 D7's 0.05, the preview's mask IoU at least 0.999 and its thumbnail a JPEG of the same size, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
-ADR 0020) -> **render** the unit and nginx site from the commit (installed only if changed;
-`nginx -t` failure restores the old site and stops) -> **flip** (`previous` <- `current`, `current` <-
-the new release, each an atomic rename) -> **restart only if enabled** -> **verify** (backend `GET /`
--> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
+ADR 0020) -> **render** the unit from the commit (installed only if changed) -> **flip** both hosts
+(`previous` <- `current`, `current` <- the new release, each an atomic rename; both sites ride in the release,
+`nginx -t` on both hosts before either reloads, and a failure reverts both) -> **restart only if enabled** ->
+**verify** (the front's `current` is the inference host's; the check service's `GET /analyze` -> 405; backend
+`GET /` -> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
 release's `index.html`; public `/analyze` answers both parts with the top-1 expected, and the time each part
-arrived is reported, not checked (OPS-7 D11); on failure it rolls back, or stops the
+arrived is reported, not checked (OPS-7 D11); on failure it reverts both hosts, or stops the
 service if there is nothing to roll back to) -> **prune** to `current` + `previous`, on the host and in this machine's staging directory (`$DEPLOY_SCRATCH`, default `~/.cache/coffee-cv-deploy`).
+
+A reload does not rebind a changed listen address: `docs/agents/deploy.md` has the case, and the rollback to the
+release from before OPS-15, which `--rollback` cannot do.
 
 **The deploy never enables the service.** If `coffee-cv-web` is disabled it stops after the flip and
 prints the two commands that bring it up: `sudo systemctl enable --now coffee-cv-web` on the host, then
@@ -203,6 +226,8 @@ change is a change in numerics: run `--compare` on the staged release before ena
 
 ## Day-2 commands
 
+On the inference host:
+
 ```
 systemctl status coffee-cv-web nginx
 readlink /opt/coffee-cv/current /opt/coffee-cv/previous   # which releases
@@ -215,6 +240,18 @@ tail -f /var/log/nginx/coffee-cv.access  # nginx side of the same requests --
                                         # above by request id; its last field,
                                         # the bytes nginx got from the app,
                                         # shows an /analyze answer cut short
+ss -ltn | grep 12346                    # nginx on the tailnet address only
+```
+
+On the front (the proxy):
+
+```
+systemctl status coffee-cv-front
+journalctl -u coffee-cv-front -f       # the check service: one line per request, no IP
+tail -f /var/log/nginx/coffee-cv-front.access    # no IP; nginx's request id, then the app's
+                                                 # ("-" for a request refused at the front)
+tail -f /var/log/nginx/coffee-cv-front.sessions  # the visitor's IP, one line per TLS session
+                                                 # (the stream block's; kept 30 days, OPS-15 D20)
 ```
 
 A streamed `/analyze` answer has its status before it is done, so its `app.jsonl` line also says how it ended
@@ -224,39 +261,36 @@ end), and `parts_sent` counts the lines handed to the server.
 ## What lives outside git, and where
 
 Three things are deliberately never committed, and never named in this file
-either -- see `webapp/deploy/coffee-cv.nginx.conf.template`,
-`setup_server.sh` and `scripts/deploy_webapp.sh` for exactly how each is handled:
+either -- see `webapp/deploy/coffee-cv-front.nginx.conf.template`,
+`setup_front.sh` and `scripts/deploy_webapp.sh` for exactly how each is handled:
 
 - **The domain.** Passed as `DOMAIN=...` to `scripts/deploy_webapp.sh`; the
   nginx config template uses a placeholder everywhere the domain would
   appear. Worth noting privately (e.g. your own shell history) since it's not
   written anywhere in this repo.
-- **The DNS record.** Point your domain's A record at the proxy that forwards to
-  the host's port 12346 yourself -- not something a script
-  here can do for you.
-- **The TLS cert/key.** `setup_server.sh` creates `/etc/nginx/ssl/coffee-cv/`
-  (root-owned, `700`) for you to place your Porkbun files into, using
-  Porkbun's own filenames directly -- `ssl_certificate` points at
-  `domain.cert.pem` (Porkbun's bundle already concatenates the leaf +
-  intermediate chain into this one file, confirmed by counting `BEGIN
+- **The DNS record.** Point your domain's A record at the proxy, the front,
+  yourself -- not something a script here can do for you. The proxy's
+  `stream {}` block hands the domain's TLS sessions to the front's site on
+  `127.0.0.1:12347` (the `server-coffee` upstream, set by hand: plan P6).
+- **The TLS cert/key.** On the front only: the inference host has none (it
+  speaks plain HTTP on the tailnet). They are the proxy's own files, which its
+  other sites use too; the deploy takes their paths as `TLS_CERT` and `TLS_KEY`
+  and writes them only into the rendered site. With Porkbun's files,
+  `TLS_CERT` is `domain.cert.pem` (Porkbun's bundle already concatenates the
+  leaf + intermediate chain into this one file, confirmed by counting `BEGIN
   CERTIFICATE` blocks -- no separate fullchain build step needed) and
-  `ssl_certificate_key` at `private.key.pem`. `setup_server.sh` can create the
-  directory but can't set permissions on files it doesn't create, so this is a
-  manual step: `private.key.pem` needs `600` (owner read/write only --
-  Porkbun's default download permissions are world-writable `666`, which is
-  fine only as long as the containing directory stays `700` root-owned, but
-  fix it anyway as defense in depth); `domain.cert.pem` and `public.key.pem`
-  (not used by nginx) are fine at `644`. Also worth a one-time check with
+  `TLS_KEY` is `private.key.pem`. `private.key.pem` needs `600` (owner
+  read/write only -- Porkbun's default download permissions are world-writable
+  `666`); `domain.cert.pem` and `public.key.pem` (not used by nginx) are fine
+  at `644`. Also worth a one-time check with
   `openssl x509 -noout -text -in domain.cert.pem | grep -A1 'Subject
   Alternative Name'` that the cert's SAN list actually covers whatever
   subdomain you're deploying to (a wildcard `*.yourdomain` or the exact
   hostname) -- Porkbun issues per-domain, not automatically per-subdomain.
 
   `nginx.service` runs `nginx -t` on start, and a missing cert fails that
-  check for the whole config -- so if the host reboots before the cert files
-  are ever placed, nginx won't come up automatically that one time. Once the
-  real files are on disk they persist across every future reboot like any
-  other file.
+  check for the whole config -- the proxy's other sites included, so the
+  deploy's `nginx -t` must pass on the front before it reloads.
 
 ## For agents
 
@@ -283,7 +317,10 @@ the routes against `app.py`, and that every URL in the three files is one the re
   `limit_conn` (below), is the better trade for a low-traffic endpoint.
 - **Rate limiting is keyed by connection, not IP** (NAT can put many real
   users behind one IP) -- `limit_conn` caps total *concurrent* `/analyze`
-  requests at exactly 1, matching the single gunicorn worker. A request takes
+  requests at exactly 1, matching the single gunicorn worker. The front holds
+  the gate, so a second upload never starts crossing the slow link, and answers
+  `503 {"error": "the classifier is busy with another photo"}`; the inference
+  host keeps its own as a backstop. A request takes
   about 8.5 s server-side on the GPU (8.4-8.9 s, its preview at 2.1 s; OPS-7, 2026-10-18), so this alone already enforces well under "1 request/sec"; a
   separate rate-limit zone would just re-enforce a limit this already
   guarantees.
