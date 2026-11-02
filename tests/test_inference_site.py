@@ -29,6 +29,7 @@ DEPLOY = REPO / "webapp" / "deploy"
 SITE_TEMPLATE = DEPLOY / "coffee-cv.nginx.conf.template"
 sys.path.insert(0, str(DEPLOY))
 from render_template import render  # noqa: E402
+from tests._tiers import real_data  # noqa: E402
 
 NGINX = shutil.which("nginx") or next((p for p in ("/usr/sbin/nginx",) if Path(p).exists()), None)
 ADDR = "127.0.0.1"   # stands in for the tailnet address; 127.0.0.2 is "anywhere else" on this machine
@@ -65,6 +66,7 @@ class FakeApp(BaseHTTPRequestHandler):
         pass
 
 
+@real_data   # about 5 s: the fake app's answers take a second each
 class InferenceSite(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1 answered (ticket D18), Q2 open; P2 done 2026-11-02</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19); P2 done 2026-11-02; P1 in progress</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -65,7 +65,7 @@
           days; the app log stays without IP at 365 days, joined to them by <code>request_id</code>. The other way, an IP
           in each app line scrubbed after 30 days, rewrites rotated logs.</td><td>P2, P3</td></tr>
       <tr><td class="id">Q2</td><td>What serves the check service, with no dependencies allowed (D7)?</td>
-        <td><span class="pill sm open">Open</span> The standard library's <code>http.server</code>
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, as recommended (ticket D19). The standard library's <code>http.server</code>
           (<code>ThreadingHTTPServer</code>) on loopback under systemd, behind the front's nginx. The gate admits one
           request at a time (D11), so it never needs more; OPS-8's queue revisits it.</td><td>P1</td></tr>
     </tbody>
@@ -73,8 +73,8 @@
 
   <h2>3. P1 &mdash; The front's check service</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">Q2</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 answered (ticket D19)</span></span></div>
   </div>
   <p>A new <code>webapp/front/</code> package with its own <code>pyproject.toml</code> and <code>uv.lock</code>,
     Python 3.12, no dependencies (D7). It takes <code>POST /analyze</code> from the front's nginx, checks the file part
