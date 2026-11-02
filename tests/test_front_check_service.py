@@ -192,5 +192,23 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
 
+
+class Options(unittest.TestCase):
+    """Under systemd the unit gives no flags: front.env, in the release, names the address and the inference host."""
+
+    ENV = {"COFFEE_CV_FRONT_LISTEN": "127.0.0.1:8100", "COFFEE_CV_INFERENCE_URL": "http://inference.test:12346"}
+
+    def test_from_the_environment(self):
+        self.assertEqual(check_service.options([], self.ENV), (("127.0.0.1", 8100), "http://inference.test:12346"))
+
+    def test_a_flag_wins(self):
+        self.assertEqual(check_service.options(["--listen", "127.0.0.1:9"], self.ENV),
+                         (("127.0.0.1", 9), "http://inference.test:12346"))
+
+    def test_neither_is_refused(self):
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+            check_service.options([], {})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[1]
 STATIC = REPO / "webapp" / "static"
 APP_SRC = (REPO / "webapp" / "app.py").read_text()
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
-from release_manifest import APP  # noqa: E402
+from release_manifest import front_manifest  # noqa: E402
 
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import check_service  # noqa: E402
@@ -130,9 +130,9 @@ class AgentFilesPointAtTheRelease(unittest.TestCase):
                 self.assertTrue(path in NON_FILE_PATHS or (STATIC / path.lstrip("/")).is_file(),
                                 f"{path} is neither a route nor a file under webapp/static")
 
-    def test_every_static_file_ships_in_the_release(self):
+    def test_every_static_file_ships_in_the_fronts_release(self):
         files = {p.relative_to(REPO).as_posix() for p in STATIC.rglob("*") if p.is_file()}
-        self.assertEqual(files - set(APP), set())
+        self.assertEqual(files - set(front_manifest()["git"]), set())
 
 
 if __name__ == "__main__":

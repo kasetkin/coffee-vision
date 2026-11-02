@@ -25,13 +25,23 @@ REPO = Path(__file__).resolve().parents[2]
 APP = [
     "webapp/__init__.py",
     "webapp/app.py",
+    "webapp/pyproject.toml",
+    "webapp/uv.lock",
+]
+# Since ticket OPS-15 (ADR 0031) one release ID is two trees, on two hosts: the inference host's (the app, the model,
+# its nginx site) and the front's (the page and the agent files, which its nginx serves, and the check service).
+STATIC = [
     "webapp/static/index.html",
     "webapp/static/robots.txt",
     "webapp/static/llms.txt",
     "webapp/static/openapi.json",
     "webapp/static/.well-known/ard.json",
-    "webapp/pyproject.toml",
-    "webapp/uv.lock",
+]
+FRONT = STATIC + [
+    "webapp/front/check_service.py",
+    "webapp/front/upload_check.py",
+    "webapp/front/pyproject.toml",
+    "webapp/front/uv.lock",
 ]
 # What webapp/app.py imports, found with an import trace and checked by tests/test_release_manifest.py. Since
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
@@ -48,8 +58,11 @@ LITERT_STAGE = "litert_export@{model}"
 # The export's own records, which serving never opens: they stay in DVC, not in a release.
 LITERT_RECORDS = {"convert.json", "check.json"}
 FIXTURES = "webapp/deploy/fixtures.txt"
-# Written by the deploy into the release, not taken from git.
-GENERATED = ["webapp/BUILD_INFO.json", "release.env"]
+# Written by the deploy into the release, not taken from git: each release carries its host's nginx site, which the
+# host's conf.d includes from `current`, so a flip or a rollback switches the site with the code (OPS-15, OPS-9's goal).
+GENERATED = ["webapp/BUILD_INFO.json", "release.env", "inference.nginx.conf"]
+# front.env: the check service's listen address and the inference host's URL, read by its unit.
+FRONT_GENERATED = ["webapp/BUILD_INFO.json", "front.nginx.conf", "front.env"]
 # Built on the VM: the venv, its marker, and compileall's bytecode beside the release's own modules.
 BUILT_TOP = [".venv", ".complete"]
 # LiteRT's GPU accelerator directory inside the release's venv: the wheel's own, which holds libLiteRt.so and one GPU
@@ -137,6 +150,11 @@ def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str]
             "env": env, "generated": list(GENERATED)}
 
 
+def front_manifest() -> dict:
+    """The front's release, the same shape as manifest()'s: no model, nothing from DVC."""
+    return {"git": list(FRONT), "dvc": {}, "pinned": {}, "env": {}, "generated": list(FRONT_GENERATED)}
+
+
 def all_files(m: dict) -> set[str]:
     """Every file path a staged release may hold outside .venv/ and __pycache__/."""
     return set(m["git"]) | set(m["dvc"]) | set(m["pinned"]) | set(m["generated"])
@@ -175,13 +193,16 @@ def _readers(ref: str | None):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--model", required=True, help="model name, e.g. dino3b16_segxl0v3_country_aug8_s123")
+    ap.add_argument("--model", help="model name, e.g. dino3b16_segxl0v3_country_aug8_s123")
+    ap.add_argument("--front", action="store_true", help="the front's release (OPS-15) instead of a model's")
     ap.add_argument("--ref", help="git ref to read the card and pointers from (default: working tree)")
     ap.add_argument("--check-staged", metavar="LISTING",
                     help="file listing of a staged release (one relative path per line, '-' = stdin); "
                          "exit 1 listing any path the manifest does not account for, or any it lacks")
     args = ap.parse_args()
-    m = manifest(args.model, *_readers(args.ref))
+    if args.front == bool(args.model):
+        ap.error("give --model or --front")
+    m = front_manifest() if args.front else manifest(args.model, *_readers(args.ref))
     if args.check_staged is None:
         print(json.dumps(m, indent=1))
         return

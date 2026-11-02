@@ -18,9 +18,11 @@ from __future__ import annotations
 import argparse
 import http.client
 import json
+import os
 import re
 import sys
 import time
+from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -152,14 +154,25 @@ def make_server(listen: tuple[str, int], inference_url: str) -> ThreadingHTTPSer
     return server
 
 
-def main(argv: list[str] | None = None) -> None:
+def options(argv: list[str], env: Mapping[str, str]) -> tuple[tuple[str, int], str]:
+    """(host, port) to serve on and the inference host's URL: the flags, else front.env's variables, which the
+    release's unit loads (webapp/deploy/coffee-cv-front.service.template)."""
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--listen", required=True, help="host:port to serve on, loopback behind the front's nginx")
-    ap.add_argument("--inference", required=True, help="the inference host's site, http://<tailnet address>:<port>")
+    ap.add_argument("--listen", default=env.get("COFFEE_CV_FRONT_LISTEN"),
+                    help="host:port to serve on, loopback behind the front's nginx (default: $COFFEE_CV_FRONT_LISTEN)")
+    ap.add_argument("--inference", default=env.get("COFFEE_CV_INFERENCE_URL"),
+                    help="the inference host's site, http://<tailnet address>:<port> (default: $COFFEE_CV_INFERENCE_URL)")
     args = ap.parse_args(argv)
+    if not args.listen or not args.inference:
+        ap.error("--listen and --inference, or COFFEE_CV_FRONT_LISTEN and COFFEE_CV_INFERENCE_URL, are required")
     host, _, port = args.listen.rpartition(":")
-    server = make_server((host, int(port)), args.inference)
-    sys.stderr.write(f"check service on {args.listen}, forwarding to {args.inference}\n")
+    return (host, int(port)), args.inference
+
+
+def main() -> None:
+    listen, inference = options(sys.argv[1:], os.environ)
+    server = make_server(listen, inference)
+    sys.stderr.write(f"check service on {listen[0]}:{listen[1]}, forwarding to {inference}\n")
     server.serve_forever()
 
 
