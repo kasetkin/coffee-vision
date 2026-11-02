@@ -112,8 +112,11 @@ if [[ "$(/usr/local/bin/uv --version 2>/dev/null | awk '{print $2}')" != "$UV_VE
 fi
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0755 "$FRONT_APP_ROOT" "$FRONT_APP_ROOT/releases" \
   "$FRONT_APP_ROOT/uv-cache" "$FRONT_APP_ROOT/python"
-sudo -u "$DEPLOY_USER" env UV_CACHE_DIR="$FRONT_APP_ROOT/uv-cache" UV_PYTHON_INSTALL_DIR="$FRONT_APP_ROOT/python" \
-  UV_PYTHON_PREFERENCE=only-managed /usr/local/bin/uv python install --no-bin "$PY_VERSION" 2>&1 | sed 's/^/   /'
+# From a directory the deploy user can read, as that user with its own HOME, and with no config file: uv looks for a
+# uv.toml in the working directory and its parents, and root's /root is closed to it (2026-11-02, the first run).
+(cd "$FRONT_APP_ROOT" && sudo -H -u "$DEPLOY_USER" env UV_NO_CONFIG=1 UV_CACHE_DIR="$FRONT_APP_ROOT/uv-cache" \
+  UV_PYTHON_INSTALL_DIR="$FRONT_APP_ROOT/python" UV_PYTHON_PREFERENCE=only-managed \
+  /usr/local/bin/uv python install --no-bin "$PY_VERSION") 2>&1 | sed 's/^/   /'
 echo "   $(/usr/local/bin/uv --version); Python under $FRONT_APP_ROOT/python; releases under $FRONT_APP_ROOT/releases"
 
 echo "== 4. the check service's unit (enabled; it starts with the first release)"
