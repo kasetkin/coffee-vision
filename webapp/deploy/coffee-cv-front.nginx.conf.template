@@ -66,6 +66,7 @@ server {
         # No visitor IP reaches the inference host (D20): this nginx knows none, and one the visitor sends is dropped.
         proxy_set_header X-Real-IP "";
         proxy_set_header X-Forwarded-For "";
+        proxy_set_header Forwarded "";
         # D16: the check service gives the inference host 60 s for the upload and 60 s for each read of the answer, so
         # up to about 120 s before its first byte, and answers its own 503 when that runs out; this waits longer, so the
         # visitor gets that answer, and this nginx never frees its gate while a photo is still crossing.

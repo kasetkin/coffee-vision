@@ -11,7 +11,7 @@ inference host that cannot be reached, or whose app is down behind its nginx, is
 
 Standard library only (D7), on http.server (D19): the front's nginx gates one request at a time (D11), so a thread
 per request never means more than one at work. It logs one line per request to stderr, for the journal, with no
-client IP: the front's nginx logs that (D18).
+client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20).
 """
 from __future__ import annotations
 

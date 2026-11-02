@@ -234,7 +234,8 @@
         <td>2026-11-02: (a), after the proxy's configuration was read: one stream server on 443 routes by SNI to eight
           upstreams, five of them not nginx (Webmin, Home Assistant, the cameras, a Tailscale proxy, the Reality
           default), so (b) would break them. The visitor's IP, the session's time, length and bytes go to
-          <code>coffee-cv-front.sessions</code>, rotated at 30 days, joined to the request logs by time. No request
+          <code>coffee-cv-front.sessions</code>, rotated at 30 days, joined to the request logs by time (the proxy's
+          shared <code>error.log</code> also names the client of a stream error, as for every site there). No request
           carries a visitor IP past the stream hop, so this replaces D18's per-request IP files on both hosts and D13's
           <code>X-Real-IP</code> to <code>yappy</code>; <code>yappy</code>'s logs keep each request's detail.</td></tr>
     </tbody>

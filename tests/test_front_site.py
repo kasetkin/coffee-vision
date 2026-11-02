@@ -181,7 +181,8 @@ http {{
         self.assertEqual(resp.status, 404)
 
     def test_a_photo_reaches_the_inference_host_and_streams_back(self):
-        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"X-Real-IP": "203.0.113.9"})
+        forged = {"X-Real-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.9", "Forwarded": "for=203.0.113.9"}
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), forged)
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
@@ -191,7 +192,7 @@ http {{
         self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
         self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
-        self.assertNotIn("X-Real-IP", seen["headers"], "a visitor's own X-Real-IP went through (D20)")
+        self.assertEqual(set(forged) & set(seen["headers"]), set(), "a visitor's own IP header went through (D20)")
 
     def test_a_photo_over_5_mb_is_refused_at_the_front(self):
         photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))

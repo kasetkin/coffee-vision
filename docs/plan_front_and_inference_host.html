@@ -352,10 +352,15 @@
       <code>X-Forwarded-For</code> a visitor sends; <code>yappy</code>'s site drops its IP log, and its logrotate
       rules are <code>main</code>'s again. The new <code>webapp/deploy/coffee-cv-stream.conf.template</code>, for the
       stream block, logs each of the domain's sessions (end time, the visitor's address, length, bytes) to
-      <code>coffee-cv-front.sessions</code>, rotated at 30 days, the only file with a visitor's IP;
+      <code>coffee-cv-front.sessions</code>, rotated at 30 days, the only file of this service's with a visitor's IP
+      (the proxy's shared <code>error.log</code> also names the client of a stream error, such as a refused connection
+      during a deploy's flip, as it does for every site there);
       <code>setup_front.sh</code> installs it, and the owner includes it at P6. <code>tests/test_front_site.py</code>
       runs its stream hop with that snippet: the visitor's address is in the session log and nowhere else, and a
-      forged <code>X-Real-IP</code> never reaches the inference host.</div>
+      forged <code>X-Real-IP</code> never reaches the inference host. Reviewed: the front also clears
+      <code>Forwarded</code> now, and <code>setup_front.sh</code> reads the front's port from the deploy script and
+      says to check, after the P6 edit, that a visit adds a session line (an <code>access_log</code> of the 443 server's
+      own would override the snippet's; it has none).</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

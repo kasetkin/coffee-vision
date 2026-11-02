@@ -4,8 +4,8 @@
 
 webapp/deploy/coffee-cv.nginx.conf.template is what `yappy` serves once the front holds TLS and the page (ADR 0031):
 plain HTTP on its tailnet address only (D5), /analyze only, one request at a time (D11), the whole upload buffered
-before the app (D10), the app's 20 MB cap (D15), the answer streamed (ADR 0023), and the client IP the front
-forwards logged only in a file rotated at 30 days (D18). The site is rendered as scripts/deploy_webapp.sh renders it,
+before the app (D10), the app's 20 MB cap (D15), the answer streamed (ADR 0023), and no client IP in its logs (the
+visitor's stops at the proxy's stream block, D20). The site is rendered as scripts/deploy_webapp.sh renders it,
 its /var/log/nginx paths moved to a scratch directory, and served by the nginx on PATH as an unprivileged user;
 without nginx the tests skip.
 """

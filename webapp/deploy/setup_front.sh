@@ -6,7 +6,7 @@
 # Runs here, from a checkout, and drives the proxy as root through ROOT_HOST, the owner's own SSH alias: the deploy
 # never uses it (D9). --print writes the script it would run there, and runs nothing. Environment (defaults in
 # brackets): DOMAIN [required: the public site's host name]  ROOT_HOST [webproxy]  FRONT_APP_ROOT [/opt/coffee-cv]
-#   DEPLOY_USER [coffee-deploy]  FRONT_SERVICE_USER [coffee-cv-front]
+#   DEPLOY_USER [coffee-deploy]  FRONT_SERVICE_USER [coffee-cv-front]  FRONT_PORT [the deploy's: the front site's port]
 #   DEPLOY_PUBKEY [the public half of ROOT_HOST's IdentityFile]
 #
 # On the proxy it creates the deploy user (DEPLOY_PUBKEY may log in as it) and the check service's user; lets the
@@ -38,7 +38,9 @@ DEPLOY="$REPO/scripts/deploy_webapp.sh"
 UV_VERSION=$(sed -n 's/^UV_VERSION=//p' "$DEPLOY")
 UV_SHA256=$(sed -n 's/^UV_TARBALL_SHA256=//p' "$DEPLOY")
 PY_VERSION=$(sed -n 's/^PY_VERSION=\${PY_VERSION:-\(.*\)}$/\1/p' "$DEPLOY")
-[[ -n "$UV_VERSION" && -n "$UV_SHA256" && -n "$PY_VERSION" ]] || { echo "could not read uv and Python from $DEPLOY" >&2; exit 1; }
+FRONT_PORT=${FRONT_PORT:-$(sed -n 's/^FRONT_PORT=\${FRONT_PORT:-\(.*\)}$/\1/p' "$DEPLOY")}
+[[ -n "$UV_VERSION" && -n "$UV_SHA256" && -n "$PY_VERSION" && -n "$FRONT_PORT" ]] \
+  || { echo "could not read uv, Python and the front's port from $DEPLOY" >&2; exit 1; }
 
 if [[ -z "${DEPLOY_PUBKEY:-}" ]]; then
   key=$(ssh -G "$ROOT_HOST" 2>/dev/null | awk '$1 == "identityfile" { print $2; exit }')
@@ -154,6 +156,9 @@ then check it: ssh webproxy-deploy 'sudo -n nginx -t'.
 
 At the cutover (plan P6), two edits to the stream block in /etc/nginx/nginx.conf, by hand, then nginx -t and a reload:
 
-    upstream server-coffee { server 127.0.0.1:${FRONT_PORT:-12347}; }   # was yappy's port: now the front's site
-    include /etc/nginx/coffee-cv-stream.conf;                    # inside stream {}: the session log (D20)
+    upstream server-coffee { server 127.0.0.1:$FRONT_PORT; }   # was yappy's port: now the front's site
+    include /etc/nginx/coffee-cv-stream.conf;           # inside stream {}: the session log (D20)
+
+The session log is a stream-level access_log: an access_log of the 443 server's own would override it (none on
+2026-11-02). Check after the reload that a visit to https://$DOMAIN/ adds a line to /var/log/nginx/coffee-cv-front.sessions.
 EOF
