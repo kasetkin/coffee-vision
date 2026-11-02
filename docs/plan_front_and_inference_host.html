@@ -1,0 +1,218 @@
+<title>Implementation plan: the front and the inference host</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-15 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the front and the inference host</h1>
+  <p class="lede">The order of work for <a href="ticket_front_and_inference_host.html">ticket OPS-15</a>. Four strands
+    are built and tested locally first (the front's check service, the inference host's site, the front's site and
+    page, the two-host deploy); then the owner prepares the proxy, and the cutover moves the domain. Nothing changes
+    for a visitor until P6.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 and P6 wait on the owner</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>d9212c6</code> and of both hosts on 2026-11-02, not from the ticket alone.
+      Four things the ticket does not cover turned up. They are folded in below, and the ones that need a decision are
+      Q1&ndash;Q2 (§2).</p>
+    <ol>
+      <li><b>One log line cannot have two retentions.</b> D13 keeps IPs 30 days and the rest 365, but the app writes one
+        JSON line per request. Q1.</li>
+      <li><b>A standard-library service has no production WSGI server.</b> D7 rules out gunicorn on the front. Q2.</li>
+      <li><b>The front cannot import <code>coffeecv</code></b> (numpy, PIL, OpenCV) to share the format allowlist with
+        <code>load_rgb_image</code>. A test holds the front's list to <code>coffeecv.photo_io</code>'s instead (P1).</li>
+      <li><b><code>--compare</code>'s fixture is 7.6 MB</b>, over D15's cap. It runs the release on <code>yappy</code>
+        itself, not through the front, so it is unaffected; <code>--verify</code> uses the 1.8 MB smoke photo.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>Everything that can be proven locally comes first, so the proxy is touched only once its files are tested. The
+    inference host's site (P2) can deploy alone behind today's passthrough only if it keeps the public port, so it ships
+    together with the rest at P6. No phase changes a model number: the bytes the model decodes are the visitor's own
+    (D2).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The front's check service</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>The inference host's site</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>The front's site and the page</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>One release, two hosts: deploy and rollback</td><td>local rehearsal</td><td>no</td></tr>
+      <tr><td class="id">P5</td><td>Preparing the proxy <span class="pill sm open">stop</span></td><td>owner, proxy</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>Cutover <span class="pill sm open">stop</span></td><td>both hosts, owner</td><td>no: the smoke's answer is compared</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the hosts, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Where do the IPs go, so that they are kept 30 days while the app log keeps 365? The
+        app writes one JSON line per request (<code>webapp/app.py</code>, <code>_write_request_line</code>).</td>
+        <td><span class="pill sm open">Open</span> In the nginx access logs only: the front's logs
+          <code>$remote_addr</code>, <code>yappy</code>'s logs <code>$http_x_real_ip</code>, each in a file rotated at 30
+          days; the app log stays without IP at 365 days, joined to them by <code>request_id</code>. The other way, an IP
+          in each app line scrubbed after 30 days, rewrites rotated logs.</td><td>P2, P3</td></tr>
+      <tr><td class="id">Q2</td><td>What serves the check service, with no dependencies allowed (D7)?</td>
+        <td><span class="pill sm open">Open</span> The standard library's <code>http.server</code>
+          (<code>ThreadingHTTPServer</code>) on loopback under systemd, behind the front's nginx. The gate admits one
+          request at a time (D11), so it never needs more; OPS-8's queue revisits it.</td><td>P1</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; The front's check service</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">Q2</span></div>
+  </div>
+  <p>A new <code>webapp/front/</code> package with its own <code>pyproject.toml</code> and <code>uv.lock</code>,
+    Python 3.12, no dependencies (D7). It takes <code>POST /analyze</code> from the front's nginx, checks the file part
+    and forwards the request unchanged to the inference host, streaming the answer back as it arrives.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The check: the file part's leading bytes against the formats
+      <code>load_rgb_image</code> reads (JPEG, PNG, WebP, HEIC/HEIF and AVIF by <code>ftyp</code>, JPEG XL, TIFF-based
+      RAW and DNG, CR3, RAF and the rest of <code>RAW_EXTENSIONS</code>); a RAW file by its extension, as the app
+      dispatches. A mismatch is a 400 <code>{"error": ...}</code> in the app's wording.</span></li>
+    <li><span class="box"></span><span>Over 5 MB: a 413 <code>{"error": ...}</code> (D15), also enforced by nginx.</span></li>
+    <li><span class="box"></span><span>The forward: the original request body, <code>X-Real-IP</code> passed on (D13),
+      to the inference host's tailnet address from the release's config, with D16's timeouts. The answer is relayed
+      chunk by chunk with <code>X-Accel-Buffering: no</code> and <code>X-Request-Id</code> kept.</span></li>
+    <li><span class="box"></span><span>Unreachable or refusing inference host before an answer starts: a 503
+      <code>{"error": "the classifier is offline"}</code> (D12), apart from the gate's busy 503.</span></li>
+    <li><span class="box"></span><span>Tests: every fixture format accepted; a renamed text file, a truncated header and
+      an oversized body refused; the allowlist held to <code>coffeecv.photo_io</code>'s by a test on the training
+      side; streaming checked against a fake inference host that sends its two parts seconds apart; the offline 503.
+      Added to <code>scripts/check.sh</code>.</span></li>
+    <li><span class="box"></span><span>Checks: suite green; the service's RSS under a 5 MB upload, measured locally.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The inference host's site</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">Q1</span></div>
+  </div>
+  <p><code>yappy</code>'s nginx template becomes the inference host's: plain HTTP on its tailnet address only (D5), no
+    TLS, no page.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>/analyze</code> only, everything else a 404; <code>limit_conn 1</code> as
+      a backstop (D11); <code>client_max_body_size 20m</code> and <code>MAX_UPLOAD_BYTES</code> unchanged (D15); the
+      whole upload buffered before gunicorn (D10); <code>X-Accel-Buffering</code> passed on.</span></li>
+    <li><span class="box"></span><span>The access log per Q1, with its logrotate rule.</span></li>
+    <li><span class="box"></span><span>The listen address comes from the deploy's config, not the template, so no
+      tailnet address enters git.</span></li>
+    <li><span class="box"></span><span>Checks: <code>nginx -t</code> on the rendered template in the rehearsal; the
+      public port is no longer bound.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The front's site and the page</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A front site template: TLS on a local port for the stream map to reach (the
+      proxy's other sites' pattern), the wildcard certificate's paths from config; the page and the agent files from
+      the release's <code>webapp/static/</code>, with today's caching and CORS rules; <code>/analyze</code> to the check
+      service with <code>limit_conn 1</code>, <code>client_max_body_size 5m</code> and D16's timeouts; the access log
+      per Q1.</span></li>
+    <li><span class="box"></span><span>The page: refuse a photo over 5 MB before uploading it, with its size and the
+      limit (D15); show the offline message apart from busy (D12); say "sending to the classifier" once the upload has
+      left the browser (D16).</span></li>
+    <li><span class="box"></span><span><code>llms.txt</code> and <code>openapi.json</code>: 5 MB, the offline 503.</span></li>
+    <li><span class="box"></span><span>Checks: suite green; the page tried in a browser against a local front and a fake
+      inference host, for a small photo, a 6 MB photo, busy and offline.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; One release, two hosts</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3</span></div>
+  </div>
+  <p><code>scripts/deploy_webapp.sh</code> deploys one release ID to both hosts (D3, D14).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stage both: the inference release on <code>yappy</code> as today, the front
+      release (static files, the check service and its uv environment, the rendered site) on the proxy, every file
+      checked against its digest.</span></li>
+    <li><span class="box"></span><span>Stop both: <code>coffee-cv-web</code> on <code>yappy</code> for the smoke (ADR
+      0026), the check service on the proxy; the proxy's nginx keeps running (D14).</span></li>
+    <li><span class="box"></span><span>Flip both, start both, then <code>nginx -t</code> and one reload on the proxy
+      (D8), then <code>--verify</code> through the domain.</span></li>
+    <li><span class="box"></span><span>Any failure after a stop reverts both to <code>previous</code> and starts them;
+      <code>--rollback</code> switches both. A release's front site rides in the release, so a rollback restores it
+      too (OPS-9's goal).</span></li>
+    <li><span class="box"></span><span><code>scripts/rehearse_deploy_local.sh</code> runs two hosts, with a failure
+      injected on each in turn.</span></li>
+    <li><span class="box"></span><span>Checks: the rehearsal passes, both injected failures leave both hosts on the old
+      release, and a rollback returns both.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Preparing the proxy <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>webapp/deploy/setup_front.sh</code>, run once as root: the
+      <code>coffee-deploy</code> and release users, sudo limited to the check service's unit, the site file and
+      <code>nginx -t</code>/reload (D9); uv and Python 3.12; the release directory; the logrotate rules. It touches no
+      other site and not <code>nginx.conf</code> (D8).</span></li>
+    <li><span class="box"></span><span>A <code>webproxy-deploy</code> SSH alias as <code>coffee-deploy</code>, for the
+      script.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: run <code>setup_front.sh</code> on the proxy and add the
+      alias.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Cutover <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The first two-host deploy, with photo answers down meanwhile (say so first).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: point the domain's line in the proxy's stream map at the
+      front's local port, <code>nginx -t</code>, reload.</span></li>
+    <li><span class="box"></span><span>Verify through the domain: the smoke's answer, a 6 MB photo's 413, the offline
+      503 with <code>coffee-cv-web</code> stopped, and no request from outside the tailnet reaching
+      <code>yappy</code>.</span></li>
+    <li><span class="box"></span><span>Measure the check service's RSS and the proxy's <code>MemAvailable</code> during a
+      request; record them in the ticket (R1).</span></li>
+    <li><span class="box"></span><span>Update <code>docs/agents/deploy.md</code>, <code>webapp/README.md</code>,
+      <code>docs/logging_plan.html</code> §03-C, <code>docs/inference_path.html</code> and <code>docs/status.md</code>
+      if it names the host.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the format, size and offline tests, and streaming through the service.</span></li>
+    <li><span class="box"></span><span>P2&ndash;P3: both rendered sites pass <code>nginx -t</code>; the page's four cases in a browser.</span></li>
+    <li><span class="box"></span><span>P4: the two-host rehearsal with a failure on each host.</span></li>
+    <li><span class="box"></span><span>P6: the ticket's acceptance list, through the domain.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Any change to the models, the runtime or the answer's contents.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-02</div>Claude reads ticket OPS-15 at <code>d9212c6</code> and both hosts, and writes
+      this plan. 4 findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a
+    href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>, <code>scripts/deploy_webapp.sh</code>,
+    <code>webapp/deploy/</code>, <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>

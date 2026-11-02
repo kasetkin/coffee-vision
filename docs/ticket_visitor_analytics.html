@@ -125,6 +125,11 @@
   <div class="log">
     <div><div class="when">2026-08-31</div>Owner asks for Umami after the logging rollout. Claude writes and reviews a design (not in the repo); the review finds R1 and R2. Owner puts it on hold (D1).</div>
     <div><div class="when">2026-10-07</div>Ticket written from private memory during OPS-2 (plan Q2), so the design and its blockers survive. Open, on hold; not planned, not implemented.</div>
+    <div><div class="when">2026-11-02</div>While grilling <a href="ticket_front_and_inference_host.html">OPS-15</a>
+      (D17), the owner decides that analytics, if built, live at the front, not on the inference host (<a
+      href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>). The front today is the proxy, with about 200 MB
+      of memory available, so the host is open again, while the structure stands. OPS-15 D13 also logs full client IPs
+      for 30 days, which changes this ticket's "without client IPs" background. Still on hold.</div>
   </div>
 
   <footer>Related: <code>docs/logging_plan.html</code>, <a href="ticket_webapp_release_isolation.html">OPS-1</a>, <a href="ticket_memory_to_repo.html">OPS-2</a>, <code>webapp/deploy/</code>.</footer>
