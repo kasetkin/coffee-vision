@@ -52,13 +52,14 @@ server {
     # no copy step to forget (docs/ops1_release_isolation_plan.html §4.6).
     root $APP_ROOT/current/webapp/static;
 
+    # No fallback to the page: a path the release has no file for is a 404. Served as the page with a 200, a missing
+    # /robots.txt, /llms.txt or agent manifest read to crawlers and PageSpeed as an invalid one (2026-11-02).
     location / {
         index index.html;
-        try_files $uri /index.html;
     }
 
-    # Both ways to the page (`index` and the `try_files` fallback) are internal redirects that land here, so every
-    # load revalidates it: the browser always holds the page of the release the server runs (ticket OPS-7 D5).
+    # `index` is an internal redirect that lands here, so every load revalidates the page: the browser always holds
+    # the page of the release the server runs (ticket OPS-7 D5).
     location = /index.html {
         add_header Cache-Control "no-cache";
     }

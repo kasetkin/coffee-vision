@@ -26,6 +26,7 @@ APP = [
     "webapp/__init__.py",
     "webapp/app.py",
     "webapp/static/index.html",
+    "webapp/static/robots.txt",
     "webapp/pyproject.toml",
     "webapp/uv.lock",
 ]
