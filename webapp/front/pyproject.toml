@@ -1,0 +1,17 @@
+# The front's check service (ticket OPS-15 P1, ADR 0031): the standard library only (D7), on the uv-managed Python
+# 3.12 every environment here uses (ADR 0007), not the proxy's own 3.11. No dependencies, so the lock holds the
+# Python requirement alone; it is here so the front's environment is built like every other one, with
+# `uv sync --locked --project webapp/front`.
+#
+# Re-lock after any edit here (locally, with the uv version pinned below):
+#     uv lock --project webapp/front
+[project]
+name = "coffee-cv-front"
+version = "0"
+requires-python = "==3.12.*"
+dependencies = []
+
+[tool.uv]
+package = false
+required-version = "==0.12.19"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

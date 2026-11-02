@@ -12,7 +12,7 @@
     the tailnet. Decided in a grilling session on 2026-11-02 (D1&ndash;D17); planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; D1&ndash;D17 decided; planned (<a href="plan_front_and_inference_host.html">plan</a>), not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-02; D1&ndash;D20 decided; planned (<a href="plan_front_and_inference_host.html">plan</a>); P1&ndash;P4 done 2026-11-02 on branch <code>ops15-impl</code>, not merged; P5, P6 are the owner's</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure: serving topology and deploy</span></div>
@@ -216,6 +216,28 @@
         <td></td>
         <td>2026-11-02: OPS-9 is closed, superseded by this ticket (D3). OPS-8 becomes a queue at the front. Analytics
           (OPS-3), if built, live at the front.</td></tr>
+      <tr><td class="id">D18</td><td>Where do the client IPs go, so that they are kept 30 days while the app log keeps 365?
+        (<a href="plan_front_and_inference_host.html">plan</a> Q1)</td>
+        <td>(a) In nginx access logs only. (b) In each app line, scrubbed after 30 days.</td>
+        <td>2026-11-02: (a). The front logs <code>$remote_addr</code>, <code>yappy</code> logs
+          <code>$http_x_real_ip</code>, each in a file of its own rotated at 30 days. The app log stays without an IP at
+          365 days, joined to them by <code>request_id</code>.</td></tr>
+      <tr><td class="id">D19</td><td>What serves the check service, with no dependencies allowed (D7)? (<a
+        href="plan_front_and_inference_host.html">plan</a> Q2)</td>
+        <td>(a) The standard library's <code>http.server</code>. (b) A WSGI server, which D7 rules out.</td>
+        <td>2026-11-02: (a). <code>ThreadingHTTPServer</code> on loopback under systemd, behind the front's nginx. The
+          gate admits one request at a time (D11), so it never needs more; OPS-8's queue revisits it.</td></tr>
+      <tr><td class="id">D20</td><td>How does the front learn the visitor's IP? (<a
+        href="plan_front_and_inference_host.html">plan</a> Q3)</td>
+        <td>(a) A log of the proxy's stream block, per TLS session, for this domain only. (b) The PROXY protocol on the
+          stream server, which every one of its eight targets must then accept. (c) Transparent proxying. (d) None.</td>
+        <td>2026-11-02: (a), after the proxy's configuration was read: one stream server on 443 routes by SNI to eight
+          upstreams, five of them not nginx (Webmin, Home Assistant, the cameras, a Tailscale proxy, the Reality
+          default), so (b) would break them. The visitor's IP, the session's time, length and bytes go to
+          <code>coffee-cv-front.sessions</code>, rotated at 30 days, joined to the request logs by time (the proxy's
+          shared <code>error.log</code> also names the client of a stream error, as for every site there). No request
+          carries a visitor IP past the stream hop, so this replaces D18's per-request IP files on both hosts and D13's
+          <code>X-Real-IP</code> to <code>yappy</code>; <code>yappy</code>'s logs keep each request's detail.</td></tr>
     </tbody>
   </table></div>
 
@@ -255,6 +277,10 @@
       <code>webproxy</code> alias. Grilled over five rounds: D1&ndash;D17 decided. Ticket, <a
       href="plan_front_and_inference_host.html">plan</a> and <a href="adr/0031-the-front-and-the-inference-host.md">ADR
       0031</a> written; OPS-9 superseded; OPS-8 rewritten; ML-15 opened. Not implemented.</div>
+    <div><div class="when">2026-11-02</div>The owner answers the plan's Q1 as recommended: D18. Q2 stays open.</div>
+    <div><div class="when">2026-11-02</div>Plan P2 done on branch <code>ops15-impl</code>: the inference host's site,
+      tested in a real nginx. Not merged until the front ships with it (plan Activity).</div>
+    <div><div class="when">2026-11-02</div>The owner answers the plan's Q2 as recommended: D19. P1 started.</div>
   </div>
 
   <footer>Related: <a href="plan_front_and_inference_host.html">plan</a>, <a

@@ -1,10 +1,11 @@
-# Rendered by scripts/deploy_webapp.sh, which substitutes $DOMAIN, $APP_ROOT, $PUBLIC_PORT and $PORT (and
-# nothing else -- every other $ here is nginx's own) and installs the result as
-# /etc/nginx/conf.d/coffee-cv.conf on the host -- this template stays domain-generic
-# so the real domain never enters git (see webapp/README.md).
+# The inference host's site (ADR 0031, ticket OPS-15). Rendered by scripts/deploy_webapp.sh, which substitutes
+# $INFERENCE_ADDR, $INFERENCE_PORT and $PORT (and nothing else -- every other $ here is nginx's own) and installs the
+# result as /etc/nginx/conf.d/coffee-cv.conf on the host. The front (the proxy) holds TLS, the page and the visitor's
+# connection, and forwards /analyze here over the tailnet; this site serves /analyze and nothing else. The address
+# is the host's tailnet address, read on the host by the deploy, so none enters git.
 
-# Deliberately no $remote_addr (or any other client-IP variable) in this
-# format -- see docs/logging_plan.html section 03-C for why. $request_id is
+# Deliberately no client IP in this format, nor anywhere on this host: the visitor's IP stops at the proxy's stream
+# block (ticket OPS-15 D20). This file keeps 365 days (docs/logging_plan.html section 06). $request_id is
 # nginx's own per-connection id and is NOT what joins a line here to the
 # app's own log: webapp/app.py generates its own id and returns it as an
 # X-Request-Id response header, captured below via $upstream_http_x_request_id,
@@ -21,69 +22,45 @@ log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status 
 # that single worker one-for-one: a second request while one is in flight gets
 # an immediate 503 instead of queueing toward gunicorn's 30s timeout. /analyze
 # is the one route to the worker (ticket OPS-7); a route added beside it would
-# have to share this zone, since they would hit the same one worker.
+# have to share this zone, since they would hit the same one worker. The front gates first (OPS-15 D11): this one
+# is the backstop. The key is the server_name set below: nginx does not count a request whose key is empty.
 limit_conn_zone $server_name zone=coffee_cv_inflight:1m;
 
-# One port, TLS only, behind the proxy that serves the domain on 80/443 and forwards here: no port-80
-# server of our own. A plain-http request (nginx's 497) is redirected to the public https URL.
+# Plain HTTP on the tailnet address only (OPS-15 D5): nothing outside the tailnet reaches it, and the tunnel is the
+# encryption. Bound to that address alone, not to every interface; setup_server.sh's ip_nonlocal_bind lets nginx
+# bind it at boot before tailscaled has brought it up.
 server {
-    listen $PUBLIC_PORT ssl;
-    listen [::]:$PUBLIC_PORT ssl;
-    server_name $DOMAIN;
-    error_page 497 =301 https://$host$request_uri;
-
-    # domain.cert.pem is Porkbun's naming and already contains the full chain
-    # (leaf + intermediates concatenated) -- no separate fullchain build step.
-    ssl_certificate     /etc/nginx/ssl/coffee-cv/domain.cert.pem;
-    ssl_certificate_key /etc/nginx/ssl/coffee-cv/private.key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
+    listen $INFERENCE_ADDR:$INFERENCE_PORT;
+    server_name coffee-cv-inference;
 
     # A dedicated file, not the distro's default /var/log/nginx/access.log --
     # deliberately named without a .log suffix so Ubuntu's stock
     # /etc/logrotate.d/nginx (which globs /var/log/nginx/*.log) never touches
     # it; webapp/deploy/coffee-cv.logrotate is the only thing that rotates
-    # this one, at the retention docs/logging_plan.html section 06 sets.
+    # it, at the retention docs/logging_plan.html section 06 sets.
     access_log /var/log/nginx/coffee-cv.access coffee_cv_minimal;
 
-    # The page comes from the release, beside the API it calls: nginx follows the `current`
-    # symlink on every request, so page and backend switch together at the deploy's flip, with
-    # no copy step to forget (docs/ops1_release_isolation_plan.html §4.6).
-    root $APP_ROOT/current/webapp/static;
-
-    # No fallback to the page: a path the release has no file for is a 404. Served as the page with a 200, a missing
-    # /robots.txt, /llms.txt or agent manifest read to crawlers and PageSpeed as an invalid one (2026-11-02).
+    # No page and no other file here: the front serves them (ADR 0031).
     location / {
-        index index.html;
-    }
-
-    # `index` is an internal redirect that lands here, so every load revalidates the page: the browser always holds
-    # the page of the release the server runs (ticket OPS-7 D5).
-    location = /index.html {
-        add_header Cache-Control "no-cache";
-    }
-
-    # The files that describe the service to agents and their registries (webapp/README.md, "For agents"), readable
-    # from any origin, so a tool running in a browser can fetch them too.
-    location ~ ^/(llms\.txt|openapi\.json|\.well-known/ard\.json)$ {
-        add_header Access-Control-Allow-Origin "*";
+        return 404;
     }
 
     location = /analyze {
         limit_conn coffee_cv_inflight 1;
         client_max_body_size 20m;
+        # The whole upload is read here before the app sees a byte (nginx's default, stated because it matters, OPS-15
+        # D10): over a 2.1 Mbit/s tunnel, a sync worker reading the body itself would be held for the whole crossing.
+        proxy_request_buffering on;
         proxy_read_timeout 30s;
         proxy_pass http://127.0.0.1:$PORT;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
         # The app streams the answer, preview first, with X-Accel-Buffering: no, which turns off this nginx's
-        # buffering. nginx hides X-Accel-* from the client by default; passing it on turns off the proxy's in front
-        # of the domain too (ticket OPS-7 D11).
+        # buffering. nginx hides X-Accel-* from the client by default; passing it on turns off the front's too
+        # (ticket OPS-7 D11).
         proxy_pass_header X-Accel-Buffering;
         # With buffering off, nginx still reads up to this much from the app ahead of the client: the whole answer
-        # (a preview of a few hundred KB, then about 1 KB), so the single sync worker never waits on a slow phone,
-        # nor gets killed at gunicorn's 30 s timeout by one that stops reading (ticket OPS-7 D18, R9). nginx -t
+        # (a preview of a few hundred KB, then about 1 KB), so the single sync worker never waits on a slow link,
+        # nor gets killed at gunicorn's 30 s timeout by a client that stops reading (ticket OPS-7 D18, R9). nginx -t
         # wants proxy_busy_buffers_size (2 x the largest buffer by default) below all proxy_buffers but one; the
         # buffers are only used for an answer that is buffered, the app's 400s, and the cap allows one at a time.
         proxy_buffer_size 1m;

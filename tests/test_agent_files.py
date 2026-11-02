@@ -20,13 +20,16 @@ REPO = Path(__file__).resolve().parents[1]
 STATIC = REPO / "webapp" / "static"
 APP_SRC = (REPO / "webapp" / "app.py").read_text()
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
-from release_manifest import APP  # noqa: E402
+from release_manifest import front_manifest  # noqa: E402
+
+sys.path.insert(0, str(REPO / "webapp" / "front"))
+import check_service  # noqa: E402
 
 LLMS = (STATIC / "llms.txt").read_text()
 OPENAPI = json.loads((STATIC / "openapi.json").read_text())
 ARD = json.loads((STATIC / ".well-known" / "ard.json").read_text())
 INDEX = (STATIC / "index.html").read_text()
-# Paths nginx answers that are not files under webapp/static (webapp/deploy/coffee-cv.nginx.conf.template).
+# Paths nginx answers that are not files under webapp/static (the front's site, ticket OPS-15 P3).
 NON_FILE_PATHS = {"/", "/analyze"}
 
 
@@ -67,6 +70,34 @@ class AgentFilesMatchApp(unittest.TestCase):
             self.assertIn(f"`{verdict}`", LLMS, f"llms.txt does not describe the verdict {verdict}")
 
 
+class AgentFilesAndPageStateTheFrontsAnswers(unittest.TestCase):
+    """The front refuses before the inference host sees a photo (ticket OPS-15): its cap and its offline answer are
+    what the page and the agent files must state, not the app's 20 MB, which only the inference host keeps (D15)."""
+
+    LIMIT_MB = check_service.MAX_UPLOAD_BYTES // 2**20
+
+    def test_every_size_limit_stated_is_the_fronts(self):
+        for name, text in (("llms.txt", LLMS), ("openapi.json", json.dumps(OPENAPI))):
+            with self.subTest(file=name):
+                limits = set(re.findall(r"(\d+) MB", text))
+                self.assertEqual(limits, {str(self.LIMIT_MB)}, f"{name} states a limit other than the front's")
+
+    def test_the_pages_limit_is_the_fronts(self):
+        m = re.search(r"const MAX_UPLOAD_BYTES = (\d+) \* 1024 \* 1024;", INDEX)
+        self.assertIsNotNone(m, "index.html has no MAX_UPLOAD_BYTES constant")
+        self.assertEqual(int(m[1]) * 2**20, check_service.MAX_UPLOAD_BYTES)
+
+    def test_the_page_and_the_agent_files_know_offline_from_busy(self):
+        offline = check_service.OFFLINE["error"]
+        self.assertIn(f"const OFFLINE_ERROR = '{offline}';", INDEX)
+        self.assertIn(f'{{"error": "{offline}"}}', LLMS)
+        responses = OPENAPI["paths"]["/analyze"]["post"]["responses"]
+        self.assertIn(offline, json.dumps(responses["503"]))
+        self.assertIn("busy", json.dumps(responses["503"]))
+        self.assertEqual(responses["413"]["content"]["application/json"]["schema"],
+                         {"$ref": "#/components/schemas/Error"})
+
+
 class AgentFilesAreWellFormed(unittest.TestCase):
     def test_llms_txt_is_ascii_markdown_with_an_h1_and_links(self):
         # nginx serves .txt as text/plain with no charset, so a non-ASCII byte could be misread.
@@ -99,9 +130,9 @@ class AgentFilesPointAtTheRelease(unittest.TestCase):
                 self.assertTrue(path in NON_FILE_PATHS or (STATIC / path.lstrip("/")).is_file(),
                                 f"{path} is neither a route nor a file under webapp/static")
 
-    def test_every_static_file_ships_in_the_release(self):
+    def test_every_static_file_ships_in_the_fronts_release(self):
         files = {p.relative_to(REPO).as_posix() for p in STATIC.rglob("*") if p.is_file()}
-        self.assertEqual(files - set(APP), set())
+        self.assertEqual(files - set(front_manifest()["git"]), set())
 
 
 if __name__ == "__main__":

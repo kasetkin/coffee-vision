@@ -21,7 +21,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
-from release_manifest import LITERT_RUNTIME, VK_ICD, all_files, manifest  # noqa: E402
+from release_manifest import LITERT_RUNTIME, VK_ICD, all_files, front_manifest, manifest, unexpected  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
 
@@ -166,6 +166,39 @@ class TestLiteRtRelease(unittest.TestCase):
                            ("tray dinov3", {"training_config": {"model_name": "dinov3_vitb16"}})):
             with self.subTest(name), self.assertRaisesRegex(ValueError, "no release shape"):
                 _synthetic(card)
+
+
+
+class TestTwoReleases(unittest.TestCase):
+    """OPS-15 (ADR 0031): one release ID, two trees. The front's holds the page, the agent files and the check service;
+    the inference host's holds the app and the model, and its own nginx site, rendered at build."""
+
+    def test_the_page_ships_to_the_front_not_the_inference_host(self):
+        static = {p.relative_to(REPO).as_posix() for p in (REPO / "webapp/static").rglob("*") if p.is_file()}
+        front = front_manifest()
+        self.assertEqual(static - set(front["git"]), set())
+        self.assertEqual(static & set(_synthetic(CARD)["git"]), set())
+
+    def test_the_front_holds_the_check_service_and_nothing_of_the_models(self):
+        front = front_manifest()
+        self.assertTrue({"webapp/front/check_service.py", "webapp/front/upload_check.py", "webapp/front/pyproject.toml",
+                         "webapp/front/uv.lock"} <= set(front["git"]))
+        self.assertFalse(any(p.startswith(("coffeecv/", "models/")) or p == "webapp/app.py" for p in front["git"]))
+        for p in front["git"]:
+            with self.subTest(path=p):
+                self.assertTrue((REPO / p).is_file(), f"{p} is not in the repo")
+
+    def test_each_release_carries_its_own_site(self):
+        self.assertIn("inference.nginx.conf", _synthetic(CARD)["generated"])
+        self.assertEqual(set(front_manifest()["generated"]),
+                         {"front.nginx.conf", "front.env", "webapp/BUILD_INFO.json"})
+
+    def test_a_staged_front_is_checked_like_a_staged_inference_release(self):
+        front = front_manifest()
+        listing = sorted(all_files(front)) + [".venv/bin/python", ".complete",
+                                              "webapp/front/__pycache__/check_service.cpython-312.pyc"]
+        self.assertEqual(unexpected(front, listing), [])
+        self.assertEqual(unexpected(front, listing + ["webapp/app.py"]), ["webapp/app.py"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,30 @@
+# Rendered to /etc/logrotate.d/coffee-cv-front on the front (the proxy). Retention is a full year for the access log
+# -- see docs/logging_plan.html section 06 -- and 30 days for coffee-cv-front.sessions, the stream block's log and the
+# one file with the visitor's IP (ticket OPS-15 D20). The check service writes only to the journal, with no IP.
+#
+# nginx holds both files open for as long as it runs, so each needs the standard nginx reload-on-rotate: USR1 tells
+# the master process to reopen its log files without dropping connections, the proxy's other sites' included.
+
+/var/log/nginx/coffee-cv-front.access {
+    daily
+    rotate 365
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        [ -f /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}
+
+/var/log/nginx/coffee-cv-front.sessions {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        [ -f /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}

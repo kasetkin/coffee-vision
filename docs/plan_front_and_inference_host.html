@@ -12,12 +12,12 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q3 answered (ticket D18&ndash;D20); P1&ndash;P5 done 2026-11-02; P6 at the owner's stop</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 and P6 wait on the owner</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P6 waits on the owner</span></span></div>
   </div>
 
   <div class="callout info">
@@ -60,21 +60,34 @@
     <tbody>
       <tr><td class="id">Q1</td><td>Where do the IPs go, so that they are kept 30 days while the app log keeps 365? The
         app writes one JSON line per request (<code>webapp/app.py</code>, <code>_write_request_line</code>).</td>
-        <td><span class="pill sm open">Open</span> In the nginx access logs only: the front's logs
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, as recommended (ticket D18). In the nginx access logs only: the front's logs
           <code>$remote_addr</code>, <code>yappy</code>'s logs <code>$http_x_real_ip</code>, each in a file rotated at 30
           days; the app log stays without IP at 365 days, joined to them by <code>request_id</code>. The other way, an IP
           in each app line scrubbed after 30 days, rewrites rotated logs.</td><td>P2, P3</td></tr>
       <tr><td class="id">Q2</td><td>What serves the check service, with no dependencies allowed (D7)?</td>
-        <td><span class="pill sm open">Open</span> The standard library's <code>http.server</code>
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, as recommended (ticket D19). The standard library's <code>http.server</code>
           (<code>ThreadingHTTPServer</code>) on loopback under systemd, behind the front's nginx. The gate admits one
           request at a time (D11), so it never needs more; OPS-8's queue revisits it.</td><td>P1</td></tr>
+      <tr><td class="id">Q3</td><td>How does the front learn the visitor's IP (D13, D18)? The proxy's stream block hands
+        the TLS connection to the front's local port, so the front's nginx sees every visitor as
+        <code>127.0.0.1</code> unless the stream server sends the PROXY protocol. <code>proxy_protocol</code> is set per
+        stream <code>server</code>, not per map entry, so turning it on there reaches every site the map serves. Found at
+        P3, 2026-11-02; the proxy's configuration was not read (the session was not allowed to).</td>
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, not as recommended (ticket D20): a per-session log in
+          the stream block, after the owner allowed a read of the proxy's configuration, which showed five of the stream
+          server's eight targets are not nginx. The recommendation was: the stream server sends the PROXY protocol, and every local target
+          of the map accepts it: the front's TLS port with <code>listen ... proxy_protocol</code> and
+          <code>real_ip_header proxy_protocol</code>, set from <code>127.0.0.1</code> only. If the other sites cannot take
+          it, a second stream server on its own address, for this domain alone, is the other way. P3 is built on this
+          recommendation; the front's <code>listen</code> line and its two <code>real_ip</code> lines are all that
+          change otherwise.</td><td>P3 (the front's log), P6</td></tr>
     </tbody>
   </table></div>
 
   <h2>3. P1 &mdash; The front's check service</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">Q2</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>; ships with P1&ndash;P4 at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 answered (ticket D19)</span></span></div>
   </div>
   <p>A new <code>webapp/front/</code> package with its own <code>pyproject.toml</code> and <code>uv.lock</code>,
     Python 3.12, no dependencies (D7). It takes <code>POST /analyze</code> from the front's nginx, checks the file part
@@ -99,8 +112,8 @@
 
   <h2>4. P2 &mdash; The inference host's site</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02 (<code>a8ac9a6</code>, review fixes after it), on branch <code>ops15-impl</code>; ships with P1&ndash;P4 at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1 answered (ticket D18)</span></span></div>
   </div>
   <p><code>yappy</code>'s nginx template becomes the inference host's: plain HTTP on its tailnet address only (D5), no
     TLS, no page.</p>
@@ -117,8 +130,8 @@
 
   <h2>5. P3 &mdash; The front's site and the page</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>, on Q3's recommendation; ships with P1&ndash;P4 at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 done, Q1 answered (ticket D18); Q3 open, its recommendation assumed</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>A front site template: TLS on a local port for the stream map to reach (the
@@ -136,8 +149,8 @@
 
   <h2>6. P4 &mdash; One release, two hosts</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02, on branch <code>ops15-impl</code>; ships at P6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1&ndash;P3 done</span></span></div>
   </div>
   <p><code>scripts/deploy_webapp.sh</code> deploys one release ID to both hosts (D3, D14).</p>
   <ol class="tasks">
@@ -151,6 +164,11 @@
     <li><span class="box"></span><span>Any failure after a stop reverts both to <code>previous</code> and starts them;
       <code>--rollback</code> switches both. A release's front site rides in the release, so a rollback restores it
       too (OPS-9's goal).</span></li>
+    <li><span class="box"></span><span>From P2: <code>yappy</code>'s site is rendered from the deployed commit, not
+      carried in the release, so <code>--rollback</code> must restore it too (render it from <code>previous</code>'s
+      commit, or carry it in the release); the logrotate rules, rendered only by <code>--bootstrap</code> today, are
+      installed by the deploy or by a <code>--bootstrap</code> before P6; the rehearsal's <code>REHEARSE_PREV_REF</code>
+      must be from P2 on, and the branch must be on <code>origin/main</code> for the rehearsal to deploy it.</span></li>
     <li><span class="box"></span><span><code>scripts/rehearse_deploy_local.sh</code> runs two hosts, with a failure
       injected on each in turn.</span></li>
     <li><span class="box"></span><span>Checks: the rehearsal passes, both injected failures leave both hosts on the old
@@ -159,8 +177,8 @@
 
   <h2>7. P5 &mdash; Preparing the proxy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02: the script run on the proxy by the owner (fixed in <code>a9e452a</code>), the alias added, the result checked through it</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P4 done</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span><code>webapp/deploy/setup_front.sh</code>, run once as root: the
@@ -175,16 +193,26 @@
 
   <h2>8. P6 &mdash; Cutover <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02: <code>setup_server.sh</code> and <code>--bootstrap</code> run on <code>yappy</code></span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 done</span></span></div>
   </div>
   <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner, on <code>yappy</code> as root, before the deploy: run
+      <code>webapp/deploy/setup_server.sh</code> (its <code>ip_nonlocal_bind</code> lets nginx bind the tailnet address
+      at boot, from P2) and remove the public-port ufw rule it no longer records.</span></li>
+    <li><span class="box"></span><span><code>scripts/deploy_webapp.sh --bootstrap</code> on <code>yappy</code> before the
+      deploy: it renders the logrotate rules (P2; no IP file there since D20). The
+      deploy's <code>DOMAIN</code>, <code>TLS_CERT</code> and <code>TLS_KEY</code> (the proxy's certificate files)
+      are set for it.</span></li>
     <li><span class="box"></span><span>The first two-host deploy, with photo answers down meanwhile (say so first).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: point the domain's line in the proxy's stream map at the
-      front's local port, <code>nginx -t</code>, reload.</span></li>
+    <li><span class="box"></span><span>Stop for the owner, in the proxy's <code>stream {}</code> block, by hand: point
+      the domain's upstream (<code>server-coffee</code>) at the front's loopback port, add
+      <code>include /etc/nginx/coffee-cv-stream.conf;</code> for the session log (D20), <code>nginx -t</code>, reload.
+      <code>setup_front.sh</code> prints both lines.</span></li>
     <li><span class="box"></span><span>Verify through the domain: the smoke's answer, a 6 MB photo's 413, the offline
       503 with <code>coffee-cv-web</code> stopped, and no request from outside the tailnet reaching
-      <code>yappy</code>.</span></li>
+      <code>yappy</code>: <code>ss -ltn</code> there shows nginx's port on the tailnet address only (P2's test checks
+      this on loopback only).</span></li>
     <li><span class="box"></span><span>Measure the check service's RSS and the proxy's <code>MemAvailable</code> during a
       request; record them in the ticket (R1).</span></li>
     <li><span class="box"></span><span>Update <code>docs/agents/deploy.md</code>, <code>webapp/README.md</code>,
@@ -210,6 +238,147 @@
   <div class="log">
     <div><div class="when">2026-11-02</div>Claude reads ticket OPS-15 at <code>d9212c6</code> and both hosts, and writes
       this plan. 4 findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-02</div>Q1 answered (ticket D18). P2 implemented on branch <code>ops15-impl</code>, not
+      merged: <code>main</code> stays deployable, since a deploy of the new site before P6 would take the domain down.
+      The site template listens on <code>INFERENCE_ADDR:INFERENCE_PORT</code>, plain HTTP, <code>/analyze</code> only;
+      the client IP goes to <code>coffee-cv.ip</code>, rotated at 30 days. The deploy reads the address on the host
+      (<code>tailscale ip -4</code>) in preflight, unless <code>INFERENCE_ADDR</code> is set.
+      <code>tests/test_inference_site.py</code> serves the rendered site in a real nginx in front of a fake app, instead
+      of the rehearsal's stubbed <code>nginx -t</code>. It caught one bug: with no <code>server_name</code>, the busy
+      gate's key (<code>$server_name</code>) was empty, and nginx does not count a request with an empty key, so the
+      gate never fired. Findings for later phases: (1) <code>setup_server.sh</code> now sets
+      <code>net.ipv4.ip_nonlocal_bind</code>, so nginx can bind the tailnet address at boot before tailscaled has it; the
+      owner runs it on <code>yappy</code> as root before P6. It also drops the TLS certificate directory and the
+      public-port ufw rule; the rule already recorded on <code>yappy</code> stays until removed by hand. (2) The
+      logrotate rules are rendered only by <code>--bootstrap</code>, so <code>yappy</code> needs a
+      <code>--bootstrap</code> before P6 for the 30-day rule (P4). (3) The rehearsal was not run: it deploys
+      <code>origin/main</code>, and its <code>REHEARSE_PREV_REF</code> must now be from P2 on (P4). (4)
+      <code>deploy.md</code> and <code>webapp/README.md</code> still describe the live passthrough, which is right until
+      P6.</div>
+    <div><div class="when">2026-11-02</div>Q2 answered (ticket D19). P1 implemented on <code>ops15-impl</code>:
+      <code>webapp/front/check_service.py</code> (the service, on <code>ThreadingHTTPServer</code>),
+      <code>webapp/front/upload_check.py</code> (the format check), and their own <code>pyproject.toml</code> and
+      <code>uv.lock</code>, with no dependencies. The tests run in <code>scripts/check.sh</code>'s unittest discovery:
+      <code>tests/test_front_upload_check.py</code> holds the format check to <code>coffeecv.photo_io</code> (the same RAW
+      extensions; every Pillow format accepted there decodes there), and
+      <code>tests/test_front_check_service.py</code> runs the service in front of a fake inference host. Judgement
+      calls: (1) only the formats the public contract names pass, so GIF, BMP and a plain TIFF, which the app's Pillow
+      path decoded before, are refused at the front. (2) The ORF, RW2, RAF and CR3 signatures were not checked against
+      a primary source or a real file (none in <code>dataset/</code>); TIFF-based RAW, HEIC and DNG were checked
+      against real photos. (3) A 502 or 504 from the inference host's nginx (its app stopped or down) is offline, like
+      an unreachable host; its own 503 (busy) and every other answer are relayed as they are. (4) An upload over
+      5 MB is read and dropped before the 413, so the sender sees the 413, not a reset. Measured locally from the
+      service's own uv environment: RSS 25 MB idle, 40 MB peak with a 5 MB upload in flight (VmHWM, 2026-11-02); the
+      proxy's own figure is P6's.</div>
+    <div><div class="when">2026-11-02</div>P3 implemented on <code>ops15-impl</code>, on the recommendation of Q3, added
+      today: the front sees the visitor's address only if the proxy's stream server sends the PROXY protocol, which is
+      set per stream server and so reaches the proxy's other sites. The site is
+      <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code> (TLS on a loopback port with
+      <code>proxy_protocol</code>, the page and the agent files from the release, <code>/analyze</code> to the check
+      service with the gate, the 5 MB cap and a 75 s read timeout), with
+      <code>coffee-cv-front.logrotate.template</code> (the access log 365 days, <code>coffee-cv-front.ip</code> 30). Its
+      own refusals are JSON: 413 "this photo is over the 5 MB limit", 503 "the classifier is busy with another photo",
+      and 503 "the classifier is offline" for a 502 or 504 of its own, so the page stays up and says offline while a
+      deploy has the check service stopped (D14). <code>tests/test_front_site.py</code> serves it in a real nginx
+      behind a stream map with the PROXY protocol, the real check service and a fake inference host, the visitor on
+      <code>127.0.0.5</code>. The page refuses a photo over 5 MB before uploading it, says offline apart from busy
+      without retrying, and says "Sending to the classifier..." once the upload has left the browser: it uploads by
+      <code>XMLHttpRequest</code>, the one API that reports that, and reads the streamed parts from its growing
+      <code>responseText</code>. <code>llms.txt</code> and <code>openapi.json</code> state 5 MB, the 413 and both 503s;
+      <code>tests/test_agent_files.py</code> holds the page's and the files' limit and offline string to the check
+      service's. Checked in headless Chromium against a local front and a fake inference host: a small photo (the
+      sending note, then the answer), a 6 MB photo (refused by the page, nothing crossed), busy (retried, then the busy
+      message after 21 s) and offline (at once, one request); the page loads while offline. The browser check found
+      a bug older than this ticket: a photo picked again was not a change, so it was not sent, and "try again" did
+      nothing; the page now empties its file input once read.</div>
+    <div><div class="when">2026-11-02</div>P1 and P3 reviewed (standards and spec, in parallel); fixed: an answer cut
+      mid-stream or not HTTP raised past the service's handling (it caught <code>OSError</code>, not
+      <code>http.client.HTTPException</code>); a query string gave a 404; a missing or bad <code>Content-Length</code>
+      got no answer; the 5 MB cap measured the whole form, not the photo the page measures (the photo is now capped
+      itself, the body at 5 MB plus 64 KB); the front's nginx freed its gate while a photo was still crossing (the
+      check service now holds a lock for each crossing and answers busy, and its nginx outwaits it, 130 s); a refusal
+      at the front had no id to join its IP line to its access line (both carry nginx's <code>$request_id</code>);
+      a repeated header was forwarded once; an encoded filename (RFC 5987), a form's content type in another case
+      and an IPv6 listen address were refused. Left as they are: the format check refuses GIF, BMP and a plain TIFF,
+      which the contract never named; the inference host's own busy 503 is nginx's HTML page, relayed, which the page
+      and <code>llms.txt</code> treat as busy.</div>
+    <div><div class="when">2026-11-02</div>P4 implemented on <code>ops15-impl</code>. One release ID is two trees
+      (<code>release_manifest.py</code>'s <code>front_manifest()</code>): the inference host's no longer carries the
+      page, and each tree carries its host's rendered nginx site. Each host's <code>conf.d</code> file is one line,
+      <code>include &lt;root&gt;/current/&lt;site&gt;.nginx*.conf;</code>, a glob, so it is valid with no release yet;
+      a flip or a rollback, then a reload, switches the site with the code, which settles P2's follow-up (the
+      inference host's site now follows <code>--rollback</code>) and OPS-9's goal on both hosts. The deploy stages
+      both, stops both (the front's check service only), smokes, flips both, starts both, runs <code>nginx -t</code>
+      on both before reloading either (D8), then verifies both hosts on one release, the check service, and the page
+      and the smoke's answer through the domain. Any failure after the flip, the EXIT trap's included, puts both hosts
+      back on the release they ran before (or on none, for a host's first release, so that its nginx -t passes), reloads
+      and starts both. The check service's unit, <code>coffee-cv-front.service.template</code>, is the owner's to
+      install (D9) and reads <code>front.env</code> from the release; the stage refuses a release whose rendered unit
+      differs from the installed one. <code>scripts/rehearse_deploy_local.sh</code> runs two scratch hosts and injects
+      an <code>nginx -t</code> failure on each in turn: passed, from a scratch clone whose <code>main</code> was this
+      branch plus P4, since the branch is not on <code>main</code> until P6. The rehearsal found two bugs, fixed before
+      it passed: a reused front release was refused for its <code>BUILD_INFO.json</code> (its build time), and a stale
+      one-host <code>rollback_links</code> left below the new one swapped the inference host twice. The logrotate rules
+      stay <code>--bootstrap</code>'s on the inference host and P5's setup on the front.</div>
+    <div><div class="when">2026-11-02</div>P5's script written, not run: <code>webapp/deploy/setup_front.sh</code>, run
+      by the owner from a checkout, drives the proxy as root through the owner's own <code>webproxy</code> alias (the
+      deploy never uses it, D9). On the proxy it creates <code>coffee-deploy</code> (the key of the
+      <code>webproxy</code> alias may log in as it) and <code>coffee-cv-front</code>; a sudoers file allowing the
+      deploy user exactly the five commands the deploy runs there (stop, start and restart
+      <code>coffee-cv-front</code>, <code>nginx -t</code>, <code>systemctl reload nginx</code>; checked by
+      <code>visudo</code> here); uv and the managed Python 3.12 the deploy pins, read from
+      <code>scripts/deploy_webapp.sh</code>; the release directory; the unit, enabled, not started; conf.d's include,
+      a glob that matches nothing until the first deploy, then <code>nginx -t</code>; and the logrotate rules. It
+      refuses a proxy whose <code>nginx.conf</code> does not include <code>conf.d</code>, which it does not edit (D8).
+      Checked here with <code>--print</code>, <code>bash -n</code> and shellcheck on both it and the script it
+      sends; it cannot run in this container. At the owner's stop: run it, and add the <code>webproxy-deploy</code>
+      alias it prints.</div>
+    <div><div class="when">2026-11-02</div>P4 reviewed (standards and spec, in parallel); fixed, and each case added to
+      the rehearsal, which passed again: (1) the first two-host deploy overwrote <code>yappy</code>'s conf.d site with
+      the include and kept no copy, so a revert or a rollback to a release from before OPS-15, which carries no site,
+      left <code>yappy</code> serving none; the old site is now kept as <code>coffee-cv.conf.pre-ops15</code>, outside
+      the <code>*.conf</code> glob, and before each <code>nginx -t</code> the host's conf.d file follows
+      <code>current</code> (its include, or that old site). (2) A redeploy of the live release, failing after the
+      flip, moved both hosts back past it to <code>previous</code>; only a host the flip moved is reverted now. (3) A
+      check service running but not enabled stayed stopped through verify. (4) A <code>--rollback</code> whose
+      <code>nginx -t</code> failed left both hosts' links switched; they are switched back. The rehearsal again checks
+      that the live service stops only once both hosts are staged. P6's tasks now include the
+      <code>--bootstrap</code> on <code>yappy</code> that installs the 30-day logrotate rule. Left as judgement calls:
+      the duplicated prune and restart halves of the two hosts, and the stage's digest loop in four places.</div>
+    <div><div class="when">2026-11-02</div>Q3 answered (ticket D20) after the owner allowed a read of the proxy's nginx
+      configuration (read only, IP addresses masked): one stream server on 443 routes by SNI to eight upstreams, five
+      of them not nginx, so the PROXY protocol is out. P3 and P2 follow: the front's site drops
+      <code>proxy_protocol</code> and its IP log, and clears any <code>X-Real-IP</code> or
+      <code>X-Forwarded-For</code> a visitor sends; <code>yappy</code>'s site drops its IP log, and its logrotate
+      rules are <code>main</code>'s again. The new <code>webapp/deploy/coffee-cv-stream.conf.template</code>, for the
+      stream block, logs each of the domain's sessions (end time, the visitor's address, length, bytes) to
+      <code>coffee-cv-front.sessions</code>, rotated at 30 days, the only file of this service's with a visitor's IP
+      (the proxy's shared <code>error.log</code> also names the client of a stream error, such as a refused connection
+      during a deploy's flip, as it does for every site there);
+      <code>setup_front.sh</code> installs it, and the owner includes it at P6. <code>tests/test_front_site.py</code>
+      runs its stream hop with that snippet: the visitor's address is in the session log and nowhere else, and a
+      forged <code>X-Real-IP</code> never reaches the inference host. Reviewed: the front also clears
+      <code>Forwarded</code> now, and <code>setup_front.sh</code> reads the front's port from the deploy script and
+      says to check, after the P6 edit, that a visit adds a session line (an <code>access_log</code> of the 443 server's
+      own would override the snippet's; it has none).</div>
+    <div><div class="when">2026-11-02</div>The owner runs <code>setup_front.sh</code> on the proxy. The first run
+      stopped at step 3: uv, run as <code>coffee-deploy</code> from root's <code>/root</code>, could not read a
+      <code>uv.toml</code> there (fixed in <code>a9e452a</code>: the step runs from the release directory, with
+      <code>UV_NO_CONFIG=1</code>). The second run completed all seven steps, <code>nginx -t</code> passing at steps 5
+      and 6; nothing the proxy serves changed. Left for P5: the <code>webproxy-deploy</code> alias.</div>
+    <div><div class="when">2026-11-02</div>The owner adds the <code>webproxy-deploy</code> alias. Checked through it,
+      read-only, as <code>coffee-deploy</code>: <code>sudo -n nginx -t</code> passes; <code>sudo -l</code> lists exactly
+      the five commands (D9); uv 0.12.19 and the managed Python 3.12.14 are found and run as the deploy's preflight finds
+      them; the conf.d include names <code>current/front.nginx*.conf</code>; <code>coffee-cv-front.service</code> is
+      installed and enabled, not running (no release yet); the stream snippet and the logrotate rules are in place.
+      The proxy then had 3.5 GB free on <code>/</code>, 172 MB <code>MemAvailable</code> and 434 MB of swap in use,
+      with no release of ours on it. P5 done.</div>
+    <div><div class="when">2026-11-02</div>The owner runs <code>setup_server.sh</code> on <code>yappy</code>:
+      <code>net.ipv4.ip_nonlocal_bind = 1</code> set; ufw is not installed there, so there was no public-port rule to
+      remove. Nothing it serves changed (release <code>d9212c6</code> still live).</div>
+    <div><div class="when">2026-11-02</div>The owner runs <code>scripts/deploy_webapp.sh --bootstrap</code> from the
+      workstation: users, <code>/opt/coffee-cv</code>, uv 0.12.19 and Python 3.12.14 already in place; the logrotate
+      rules re-rendered (main's, unchanged since D20). No sweep before or after.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

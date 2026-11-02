@@ -1,0 +1,104 @@
+# The front's site (ADR 0031, ticket OPS-15 P3), on the proxy that serves the domain. Rendered by the deploy, which
+# substitutes $DOMAIN, $FRONT_PORT, $CHECK_PORT, $APP_ROOT, $TLS_CERT and $TLS_KEY (and nothing else -- every other $
+# here is nginx's own), so the domain and the certificate's paths never enter git. The proxy's nginx serves other
+# sites too: this file defines only its own server, zone and log formats, all named coffee_cv_front*.
+
+# No client IP here, nor anywhere in this site: it sees every visitor as the stream hop's 127.0.0.1. The visitor's IP is
+# in the stream block's session log (coffee-cv-stream.conf.template, ticket OPS-15 D20), rotated at 30 days; this file
+# keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included, and
+# $upstream_http_x_request_id, the app's, relayed by the check service, which joins a line to the inference host's
+# logs and is "-" for what never reached the app.
+log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent';
+
+# One photo at a time for everyone (D11): the inference host has one worker, and over its 2.1 Mbit/s link a second
+# upload must never start crossing. Keyed on the server_name below, a fixed value, not per IP (NAT shares addresses);
+# nginx does not count a request whose key is empty. The inference host keeps its own as a backstop.
+limit_conn_zone $server_name zone=coffee_cv_front_inflight:1m;
+
+server {
+    # TLS on a loopback port: the proxy's stream block reads the SNI on 443 and hands this domain's sessions here, as it
+    # does for the proxy's other local sites, with no PROXY protocol header (D20).
+    listen 127.0.0.1:$FRONT_PORT ssl;
+    server_name $DOMAIN;
+
+    # The proxy's wildcard certificate, the full chain in one file.
+    ssl_certificate     $TLS_CERT;
+    ssl_certificate_key $TLS_KEY;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers off;
+
+    # Dedicated files without a .log suffix, so Debian's stock /etc/logrotate.d/nginx (which globs
+    # /var/log/nginx/*.log) never touches them; webapp/deploy/coffee-cv-front.logrotate rotates them, at the
+    # retention docs/logging_plan.html section 06 sets.
+    access_log /var/log/nginx/coffee-cv-front.access coffee_cv_front_minimal;
+
+    # The page comes from the release, beside the check service it calls: nginx follows the `current` symlink on
+    # every request, so the page and the backend switch together at the deploy's flip (ADR 0008).
+    root $APP_ROOT/current/webapp/static;
+
+    # No fallback to the page: a path the release has no file for is a 404. Served as the page with a 200, a missing
+    # /robots.txt, /llms.txt or agent manifest read to crawlers and PageSpeed as an invalid one (2026-11-02).
+    location / {
+        index index.html;
+    }
+
+    # `index` is an internal redirect that lands here, so every load revalidates the page: the browser always holds
+    # the page of the release the server runs (ticket OPS-7 D5).
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # The files that describe the service to agents and their registries (webapp/README.md, "For agents"), readable
+    # from any origin, so a tool running in a browser can fetch them too.
+    location ~ ^/(llms\.txt|openapi\.json|\.well-known/ard\.json)$ {
+        add_header Access-Control-Allow-Origin "*";
+    }
+
+    location = /analyze {
+        limit_conn coffee_cv_front_inflight 1;
+        # D15, until ML-15: a 5 MB photo, plus check_service.py's FORM_ALLOWANCE (64 KB) for the form around it; the
+        # check service caps the photo itself at 5 MB, as the page measures it. The upload is held on disk here before
+        # the check service reads it (client_body_buffer_size is nginx's small default), not in the proxy's memory (R1).
+        client_max_body_size 5184k;
+        proxy_pass http://127.0.0.1:$CHECK_PORT;
+        proxy_set_header Host $host;
+        # No visitor IP reaches the inference host (D20): this nginx knows none, and one the visitor sends is dropped.
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-For "";
+        proxy_set_header Forwarded "";
+        # D16: the check service gives the inference host 60 s for the upload and 60 s for each read of the answer, so
+        # up to about 120 s before its first byte, and answers its own 503 when that runs out; this waits longer, so the
+        # visitor gets that answer, and this nginx never frees its gate while a photo is still crossing.
+        proxy_read_timeout 130s;
+        # The answer streams (ADR 0023): the app's X-Accel-Buffering: no, relayed by the check service, turns off this
+        # nginx's buffering. Up to this much of the answer is still read ahead of the visitor, as on the inference host
+        # (ticket OPS-7 D18): the whole answer, so the check service is never held by a slow phone. One request at a
+        # time, so at most 4 MB of the proxy's memory.
+        proxy_buffer_size 1m;
+        proxy_buffers 4 1m;
+
+        # The front's own refusals, as JSON like the app's (the page and llms.txt read the error).
+        error_page 413 = @too_large;
+        error_page 503 = @busy;
+        # The check service stopped (a deploy, D14) or gone: the classifier is offline, as the check service says
+        # itself when the inference host is (D12). Its own 503s are relayed as they are: error_page acts only on this
+        # nginx's own errors, since proxy_intercept_errors is off.
+        error_page 502 504 = @offline;
+    }
+
+    location @too_large {
+        default_type application/json;
+        return 413 '{"error": "this photo is over the 5 MB limit"}';
+    }
+
+    location @busy {
+        default_type application/json;
+        return 503 '{"error": "the classifier is busy with another photo"}';
+    }
+
+    location @offline {
+        default_type application/json;
+        return 503 '{"error": "the classifier is offline"}';
+    }
+}

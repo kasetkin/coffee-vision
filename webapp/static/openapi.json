@@ -4,7 +4,7 @@
     "title": "Coffee Bean Origin Classifier",
     "version": "1",
     "summary": "One photo of whole coffee beans in, the likely country of origin out.",
-    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. One photo at a time for everyone: on 503, wait about 10 s and retry, and never send photos in parallel. Guide for agents: https://coffee.kasetkin.com/llms.txt"
+    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. At most 5 MB a photo. One photo at a time for everyone: on a busy 503, wait about 10 s and retry, and never send photos in parallel; on an offline 503, try again in a few minutes. Guide for agents: https://coffee.kasetkin.com/llms.txt"
   },
   "externalDocs": {
     "description": "What the model knows and how it works",
@@ -28,7 +28,7 @@
                   "photo": {
                     "type": "string",
                     "contentMediaType": "application/octet-stream",
-                    "description": "The image file, at most 20 MB: JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
+                    "description": "The image file, at most 5 MB: JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
                   },
                   "skip_crop": {
                     "type": "string",
@@ -60,8 +60,14 @@
             "description": "No photo was uploaded, or the file could not be read as an image.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
           },
-          "413": {"description": "The photo is larger than 20 MB."},
-          "503": {"description": "Another photo is being analyzed. Wait about 10 s and retry."}
+          "413": {
+            "description": "The photo is larger than 5 MB.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          },
+          "503": {
+            "description": "Not analyzed now, for one of two reasons told apart by the body. Busy: another photo is being analyzed, with {\"error\": \"the classifier is busy with another photo\"} or a body that is not JSON; wait about 10 s and retry. Offline: {\"error\": \"the classifier is offline\"}, the classifier is down or being updated; try again in a few minutes, not in a loop.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
+          }
         }
       }
     }

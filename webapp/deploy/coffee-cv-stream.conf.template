@@ -1,0 +1,21 @@
+# The visitor's IP, per TLS session, for the domain alone (ticket OPS-15 D20). For the proxy's `stream {}` block, which
+# reads the SNI on 443 and hands each session to its site: the only place the visitor's address is known, since the
+# block passes no PROXY protocol header (its other targets do not speak it). Rendered with $DOMAIN by
+# webapp/deploy/setup_front.sh into /etc/nginx/coffee-cv-stream.conf, outside conf.d, which nginx.conf includes in the
+# http block; the owner adds `include /etc/nginx/coffee-cv-stream.conf;` inside `stream {}` once (plan P6). It defines
+# nothing another site uses: one map, one format and one log, all named coffee_cv*.
+
+# 1 for this domain's sessions only: the other sites behind the block are not logged here.
+map $ssl_preread_server_name $coffee_cv_session {
+    $DOMAIN 1;
+    default 0;
+}
+
+# Written when a session ends: its end time, the visitor's address, how long it lasted and the bytes each way, which
+# place it beside the front's request lines (coffee-cv-front.access) by time; the app's request id goes no further
+# than those, so a session joins its requests by time, not exactly. $status is the stream module's (200 for a session
+# that ended normally).
+log_format coffee_cv_session '$time_iso8601 $remote_addr ${session_time}s $bytes_received $bytes_sent $status';
+
+# Rotated at 30 days, the only file with the visitor's IP (D20; webapp/deploy/coffee-cv-front.logrotate.template).
+access_log /var/log/nginx/coffee-cv-front.sessions coffee_cv_session if=$coffee_cv_session;
