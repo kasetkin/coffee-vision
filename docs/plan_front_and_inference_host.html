@@ -12,12 +12,12 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q3 answered (ticket D18&ndash;D20); P1&ndash;P4 done 2026-11-02; P5 at the owner's stop</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q3 answered (ticket D18&ndash;D20); P1&ndash;P5 done 2026-11-02; P6 at the owner's stop</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 and P6 wait on the owner</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P6 waits on the owner</span></span></div>
   </div>
 
   <div class="callout info">
@@ -177,7 +177,7 @@
 
   <h2>7. P5 &mdash; Preparing the proxy <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-02: the script run on the proxy by the owner; the alias left</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-02: the script run on the proxy by the owner (fixed in <code>a9e452a</code>), the alias added, the result checked through it</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P4 done</span></span></div>
   </div>
   <ol class="tasks">
@@ -194,14 +194,14 @@
   <h2>8. P6 &mdash; Cutover <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 done</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Stop for the owner, on <code>yappy</code> as root, before the deploy: run
       <code>webapp/deploy/setup_server.sh</code> (its <code>ip_nonlocal_bind</code> lets nginx bind the tailnet address
       at boot, from P2) and remove the public-port ufw rule it no longer records.</span></li>
     <li><span class="box"></span><span><code>scripts/deploy_webapp.sh --bootstrap</code> on <code>yappy</code> before the
-      deploy: it renders the logrotate rules, the 30-day one for <code>coffee-cv.ip</code> included (P2, D18). The
+      deploy: it renders the logrotate rules (P2; no IP file there since D20). The
       deploy's <code>DOMAIN</code>, <code>TLS_CERT</code> and <code>TLS_KEY</code> (the proxy's certificate files)
       are set for it.</span></li>
     <li><span class="box"></span><span>The first two-host deploy, with photo answers down meanwhile (say so first).</span></li>
@@ -366,6 +366,13 @@
       <code>uv.toml</code> there (fixed in <code>a9e452a</code>: the step runs from the release directory, with
       <code>UV_NO_CONFIG=1</code>). The second run completed all seven steps, <code>nginx -t</code> passing at steps 5
       and 6; nothing the proxy serves changed. Left for P5: the <code>webproxy-deploy</code> alias.</div>
+    <div><div class="when">2026-11-02</div>The owner adds the <code>webproxy-deploy</code> alias. Checked through it,
+      read-only, as <code>coffee-deploy</code>: <code>sudo -n nginx -t</code> passes; <code>sudo -l</code> lists exactly
+      the five commands (D9); uv 0.12.19 and the managed Python 3.12.14 are found and run as the deploy's preflight finds
+      them; the conf.d include names <code>current/front.nginx*.conf</code>; <code>coffee-cv-front.service</code> is
+      installed and enabled, not running (no release yet); the stream snippet and the logrotate rules are in place.
+      The proxy then had 3.5 GB free on <code>/</code>, 172 MB <code>MemAvailable</code> and 434 MB of swap in use,
+      with no release of ours on it. P5 done.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a
