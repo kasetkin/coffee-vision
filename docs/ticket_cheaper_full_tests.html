@@ -1,0 +1,158 @@
+<title>Cheaper Full Tests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-14 · coffee-vision · tests and deploy</div>
+  <h1>The full test tier processes fewer photos where more add no case, so a deploy's check costs less</h1>
+  <p class="lede">Every deploy runs <code>scripts/check.sh --full</code>, about 13.5 minutes on the devcontainer, most of
+    it for a change like a static file. The owner keeps the full tier and asks to make it cheaper, for a start by
+    processing fewer photos where a test has several. Written and implemented 2026-11-02: D1 and D2 done, the full tier
+    805 s to 547 s; D3 recorded and not done.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-02; D1, D2 implemented the same day; for the owner to close</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-human</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Tests: run time of the full tier</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>tests/test_frozen_checkpoint.py</code>, <code>tests/test_litert.py</code>, <code>scripts/check.sh</code> (unchanged), <code>scripts/deploy_webapp.sh</code> (unchanged)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">found while deploying d9212c6</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-02.</strong> "I want to keep full tests but make it cheaper, maybe reduce number of
+      processed photos if there are multiple per stage."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>A deploy that changes no ML code still spends most of its time in the full tier, re-checking that code on the CPU.
+    A profile of the whole suite found four tests worth half of it. Two of them change here: a split test that decoded
+    the whole pool now builds its splits from a small linked pool (D1), and the LiteRT-against-PyTorch comparison runs on
+    two photos instead of four (D2). The third, the fine-tune resume test, is recorded for later (D3); the fourth, two app
+    boots merged into one, saves too little to do now.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The gate.</strong> <code>scripts/deploy_webapp.sh</code> runs <code>scripts/check.sh --full</code> before
+      anything reaches the host; the deploy of d9212c6 spent 841 s in it (646 tests), its host steps a few minutes.</li>
+    <li><strong>The profile, 2026-11-02.</strong> A full run timing every test and every class's
+      <code>setUpClass</code>, which <code>--durations</code> leaves out: 805 s, 653 tests. A first run measured 1,214 s
+      and is void: its wrapper script ran the suite at import, so the three workers
+      <code>test_strip_metadata.TestPool</code> spawns each ran the suite again beside it. <code>check.sh</code> is not
+      affected: under <code>python -m unittest</code>, multiprocessing does not re-import a <code>__main__</code>
+      module in its workers.</li>
+    <li><strong>Where the time went</strong> (clean run):
+      <code>test_frozen_checkpoint.TestSplitsBuiltAloneAreIdentical</code> 155 s;
+      <code>test_litert.TestAgainstPyTorch</code> 134 s (answers 62, readouts 52, masks 13, setup 8);
+      <code>test_seg_finetune.Resume</code>'s "a state with other inputs" 79 s; <code>test_release_manifest</code> and
+      <code>test_litert.TestServiceBoots</code> 22 s each; <code>test_strip_metadata</code>'s parallel-against-serial run on
+      two real photos 44 s. Every other file under 30 s.</li>
+    <li><strong>The split test</strong> built the val split alone and with the test split from
+      <code>data/segcropped/pool</code>, 1,376 photos: about 400 val and test crops decoded, the val ones twice, to
+      check a property that is per class and per photo (<code>coffeecv/fold_data.py</code>'s docstring).</li>
+    <li><strong>The LiteRT comparison</strong> ran the smoke photo, a HEIC and two compare JPEGs through both backends
+      three times each (masks, readouts, answers). Both backends receive the same decoded pixels. The deploy's
+      <code>--compare</code> runs every fixture through PyTorch here and the release on the host
+      (<a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The split test decodes the whole pool's val and test crops: 155 s.</li>
+        <li>LiteRT against PyTorch on 4 photos: <code>test_litert</code> 157 s in all.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The split test builds from 20 linked photos of two countries, Ethiopia pooled from folders 001 and 008: 3 s.</li>
+        <li>LiteRT against PyTorch on the smoke photo and the first compare JPEG; the service still boots and answers on
+          the HEIC: <code>test_litert</code> 91 s.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The full tier runs on every deploy.</strong> The owner keeps it; nothing is skipped or moved to the fast
+      tier.</li>
+    <li><strong>What the split test checks.</strong> The same assertion, val alone equal to val built with test, box for
+      box; it now also asserts that both splits are non-empty, which a small pool could otherwise make vacuous. With
+      the draw made to depend on the splits asked for, it fails (checked 2026-11-02).</li>
+    <li><strong>The HEIC path on the served graphs.</strong> <code>TestServiceBoots</code> still uploads the HEIC to
+      the app running LiteRT without torch.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A LiteRT-against-PyTorch drift that shows only on the dropped photos passes
+        locally.</strong></td>
+        <td>Both backends see the same pixels, so only the photo's content differs. The deploy's <code>--compare</code>
+          checks all thirteen fixtures on the host, but it runs only when asked; accepted by the owner in D2.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The small pool misses a case the whole pool had.</strong></td>
+        <td>The split is seeded on (seed, class, photo pool) and each box on (seed, class, photo, split): no
+          interaction across classes beyond pooling folders into a country, which Ethiopia (001, 008) keeps.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The split test on the whole pool?</td>
+        <td>(a) keep the whole pool (b) a small pool linked from it, two countries, one pooled from two folders</td>
+        <td>(b), 2026-11-02. No case lost; about 150 s saved.</td></tr>
+      <tr><td class="id">D2</td><td>How many photos for LiteRT against PyTorch?</td>
+        <td>(a) four: the smoke photo, a HEIC, two compare JPEGs (b) two: the smoke photo and one compare JPEG</td>
+        <td>(b), 2026-11-02. About 65 s saved; R1 accepted.</td></tr>
+      <tr><td class="id">D3</td><td><code>Resume</code>'s "a state with other inputs is deleted": four changes, each by
+        two toy fine-tunes (79 s)?</td>
+        <td>(a) keep the eight runs (b) one change end to end, the other three by their effect on the resume
+          fingerprint, with no training</td>
+        <td>Recorded, not done, 2026-11-02: the owner keeps (a) for now. (b) would save about 60 s and lose the
+          end-to-end proof for three of the four changes.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The split test builds from a small linked pool, passes, and fails when a
+      split's draw depends on the splits asked for (D1).</span></li>
+    <li><span class="box done"></span><span><code>TestAgainstPyTorch</code> runs on two photos;
+      <code>TestServiceBoots</code> keeps the HEIC; <code>tests.test_litert</code> passes, 38 tests (D2).</span></li>
+    <li><span class="box done"></span><span>A full run timed against the 805 s profile: 547 s, 653 tests, the one error
+      the unrecorded photo in <code>dataset/ood_negatives/user_realworld</code> raises in both runs.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Skipping or tiering tests by what a deploy changes: the owner keeps the full tier.</li>
+    <li>D3, and one app boot for <code>test_release_manifest</code> and <code>TestServiceBoots</code> (about 20 s).</li>
+    <li><code>test_strip_metadata</code>'s parallel-against-serial run, 44 s, not diagnosed; its spawned workers each import
+      the heavy modules.</li>
+    <li><code>test_litert</code> compares the ML-8 checkpoint (<code>segxl0v3</code>, seed 123), not the live model.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-02</div>Ticket written from the 805 s profile of the whole suite at d9212c6, after a
+      void 1,214 s one (Background). The owner chose D1 and D2 and recorded D3. D1 and D2 implemented on branch
+      <code>ops14-cheaper-tests</code>: the split test 155 s to 3 s, <code>test_litert</code> 157 s to 91 s.</div>
+    <div><div class="when">2026-11-02</div>Full run timed with the same wrapper: 805 s to 547 s (−32%), 653 tests;
+      <code>test_frozen_checkpoint</code> 176 s to 24 s, <code>test_litert</code> 157 s to 89 s, every other file within
+      run-to-run noise.</div>
+  </div>
+
+  <footer>Related: <code>scripts/check.sh</code>, <code>tests/_tiers.py</code>,
+    <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>,
+    <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>
