@@ -46,7 +46,7 @@ TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB li
 APP_DOWN = {502, 504}
 # Not forwarded to the inference host: the hop-by-hop headers (RFC 9110 §7.6.1) and the two this request sets again
 # for its own hop, Host and Content-Length. Everything else the visitor's browser sent goes on (the app logs a coarse
-# User-Agent), X-Real-IP from the front's nginx included (D13).
+# User-Agent). No visitor IP is among them: the front's nginx knows none and drops a forged one (D20).
 NOT_FORWARDED = {"connection", "keep-alive", "proxy-connection", "transfer-encoding", "te", "trailer", "upgrade",
                  "proxy-authorization", "proxy-authenticate", "host", "content-length"}
 # Not relayed from the inference host's answer: its hop-by-hop headers, and Server and Date, which send_response

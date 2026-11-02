@@ -12,7 +12,7 @@
     for a visitor until P6.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q2 answered (ticket D18, D19), Q3 open; P1&ndash;P4 done 2026-11-02; P5 at the owner's stop</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; Q1&ndash;Q3 answered (ticket D18&ndash;D20); P1&ndash;P4 done 2026-11-02; P5 at the owner's stop</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_and_inference_host.html"><code>ticket_front_and_inference_host.html</code></a> (OPS-15)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -73,7 +73,9 @@
         <code>127.0.0.1</code> unless the stream server sends the PROXY protocol. <code>proxy_protocol</code> is set per
         stream <code>server</code>, not per map entry, so turning it on there reaches every site the map serves. Found at
         P3, 2026-11-02; the proxy's configuration was not read (the session was not allowed to).</td>
-        <td><span class="pill sm open">Open</span> The stream server sends the PROXY protocol, and every local target
+        <td><span class="pill sm ok">Answered</span> 2026-11-02, not as recommended (ticket D20): a per-session log in
+          the stream block, after the owner allowed a read of the proxy's configuration, which showed five of the stream
+          server's eight targets are not nginx. The recommendation was: the stream server sends the PROXY protocol, and every local target
           of the map accepts it: the front's TLS port with <code>listen ... proxy_protocol</code> and
           <code>real_ip_header proxy_protocol</code>, set from <code>127.0.0.1</code> only. If the other sites cannot take
           it, a second stream server on its own address, for this domain alone, is the other way. P3 is built on this
@@ -203,8 +205,10 @@
       deploy's <code>DOMAIN</code>, <code>TLS_CERT</code> and <code>TLS_KEY</code> (the proxy's certificate files)
       are set for it.</span></li>
     <li><span class="box"></span><span>The first two-host deploy, with photo answers down meanwhile (say so first).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: point the domain's line in the proxy's stream map at the
-      front's local port, <code>nginx -t</code>, reload.</span></li>
+    <li><span class="box"></span><span>Stop for the owner, in the proxy's <code>stream {}</code> block, by hand: point
+      the domain's upstream (<code>server-coffee</code>) at the front's loopback port, add
+      <code>include /etc/nginx/coffee-cv-stream.conf;</code> for the session log (D20), <code>nginx -t</code>, reload.
+      <code>setup_front.sh</code> prints both lines.</span></li>
     <li><span class="box"></span><span>Verify through the domain: the smoke's answer, a 6 MB photo's 413, the offline
       503 with <code>coffee-cv-web</code> stopped, and no request from outside the tailnet reaching
       <code>yappy</code>: <code>ss -ltn</code> there shows nginx's port on the tailnet address only (P2's test checks
@@ -341,6 +345,17 @@
       that the live service stops only once both hosts are staged. P6's tasks now include the
       <code>--bootstrap</code> on <code>yappy</code> that installs the 30-day logrotate rule. Left as judgement calls:
       the duplicated prune and restart halves of the two hosts, and the stage's digest loop in four places.</div>
+    <div><div class="when">2026-11-02</div>Q3 answered (ticket D20) after the owner allowed a read of the proxy's nginx
+      configuration (read only, IP addresses masked): one stream server on 443 routes by SNI to eight upstreams, five
+      of them not nginx, so the PROXY protocol is out. P3 and P2 follow: the front's site drops
+      <code>proxy_protocol</code> and its IP log, and clears any <code>X-Real-IP</code> or
+      <code>X-Forwarded-For</code> a visitor sends; <code>yappy</code>'s site drops its IP log, and its logrotate
+      rules are <code>main</code>'s again. The new <code>webapp/deploy/coffee-cv-stream.conf.template</code>, for the
+      stream block, logs each of the domain's sessions (end time, the visitor's address, length, bytes) to
+      <code>coffee-cv-front.sessions</code>, rotated at 30 days, the only file with a visitor's IP;
+      <code>setup_front.sh</code> installs it, and the owner includes it at P6. <code>tests/test_front_site.py</code>
+      runs its stream hop with that snippet: the visitor's address is in the session log and nowhere else, and a
+      forged <code>X-Real-IP</code> never reaches the inference host.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_and_inference_host.html">OPS-15 ticket</a>, <a

@@ -133,7 +133,7 @@ class CheckService(unittest.TestCase):
     @real_data   # about 1.5 s: the fake answer's parts are a second apart
     def test_a_photo_crosses_unchanged_and_its_answer_streams_back(self):
         body = form("beans.jpg", JPEG, skip_crop=True)
-        _, resp = self.post(body, headers={"X-Real-IP": "203.0.113.7", "User-Agent": "Mozilla/5.0 (Android)"})
+        _, resp = self.post(body, headers={"Accept-Language": "pt-BR", "User-Agent": "Mozilla/5.0 (Android)"})
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
@@ -148,7 +148,7 @@ class CheckService(unittest.TestCase):
         self.assertEqual(seen["path"], "/analyze")
         self.assertEqual(seen["body"], body)
         self.assertEqual(seen["headers"]["Content-Type"], f"multipart/form-data; boundary={BOUNDARY}")
-        self.assertEqual(seen["headers"]["X-Real-IP"], "203.0.113.7")
+        self.assertEqual(seen["headers"]["Accept-Language"], "pt-BR")
         self.assertEqual(seen["headers"]["User-Agent"], "Mozilla/5.0 (Android)")
 
 

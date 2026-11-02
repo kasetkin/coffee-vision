@@ -3,15 +3,12 @@
 # here is nginx's own), so the domain and the certificate's paths never enter git. The proxy's nginx serves other
 # sites too: this file defines only its own server, zone and log formats, all named coffee_cv_front*.
 
-# Deliberately no client IP in this format: this file keeps 365 days (docs/logging_plan.html section 06), an IP only
-# 30 (ticket OPS-15 D18), so it goes to coffee-cv-front.ip below. Two ids: nginx's own $request_id joins this line to
-# its coffee-cv-front.ip line, a refusal at the front included; $upstream_http_x_request_id is the app's, relayed by the
-# check service, which joins it to the inference host's logs, and is "-" for what never reached the app.
+# No client IP here, nor anywhere in this site: it sees every visitor as the stream hop's 127.0.0.1. The visitor's IP is
+# in the stream block's session log (coffee-cv-stream.conf.template, ticket OPS-15 D20), rotated at 30 days; this file
+# keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included, and
+# $upstream_http_x_request_id, the app's, relayed by the check service, which joins a line to the inference host's
+# logs and is "-" for what never reached the app.
 log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent';
-
-# The visitor's IP (D13), from the PROXY protocol header the stream map sends (plan Q3), with the same two ids. Only in
-# this file, rotated at 30 days.
-log_format coffee_cv_front_ip '$time_iso8601 $request_id $upstream_http_x_request_id $remote_addr';
 
 # One photo at a time for everyone (D11): the inference host has one worker, and over its 2.1 Mbit/s link a second
 # upload must never start crossing. Keyed on the server_name below, a fixed value, not per IP (NAT shares addresses);
@@ -19,13 +16,10 @@ log_format coffee_cv_front_ip '$time_iso8601 $request_id $upstream_http_x_reques
 limit_conn_zone $server_name zone=coffee_cv_front_inflight:1m;
 
 server {
-    # TLS on a loopback port: the proxy's stream block reads the SNI on 443 and hands this domain's connections here,
-    # as it does for the proxy's other local sites. proxy_protocol: the stream hop's header carries the visitor's
-    # address, trusted from loopback only (plan Q3), so $remote_addr is the visitor's, not 127.0.0.1.
-    listen 127.0.0.1:$FRONT_PORT ssl proxy_protocol;
+    # TLS on a loopback port: the proxy's stream block reads the SNI on 443 and hands this domain's sessions here, as it
+    # does for the proxy's other local sites, with no PROXY protocol header (D20).
+    listen 127.0.0.1:$FRONT_PORT ssl;
     server_name $DOMAIN;
-    set_real_ip_from 127.0.0.1;
-    real_ip_header proxy_protocol;
 
     # The proxy's wildcard certificate, the full chain in one file.
     ssl_certificate     $TLS_CERT;
@@ -36,9 +30,8 @@ server {
 
     # Dedicated files without a .log suffix, so Debian's stock /etc/logrotate.d/nginx (which globs
     # /var/log/nginx/*.log) never touches them; webapp/deploy/coffee-cv-front.logrotate rotates them, at the
-    # retentions docs/logging_plan.html section 06 and OPS-15 D18 set.
+    # retention docs/logging_plan.html section 06 sets.
     access_log /var/log/nginx/coffee-cv-front.access coffee_cv_front_minimal;
-    access_log /var/log/nginx/coffee-cv-front.ip coffee_cv_front_ip;
 
     # The page comes from the release, beside the check service it calls: nginx follows the `current` symlink on
     # every request, so the page and the backend switch together at the deploy's flip (ADR 0008).
@@ -70,7 +63,9 @@ server {
         client_max_body_size 5184k;
         proxy_pass http://127.0.0.1:$CHECK_PORT;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        # No visitor IP reaches the inference host (D20): this nginx knows none, and one the visitor sends is dropped.
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-For "";
         # D16: the check service gives the inference host 60 s for the upload and 60 s for each read of the answer, so
         # up to about 120 s before its first byte, and answers its own 503 when that runs out; this waits longer, so the
         # visitor gets that answer, and this nginx never frees its gate while a photo is still crossing.

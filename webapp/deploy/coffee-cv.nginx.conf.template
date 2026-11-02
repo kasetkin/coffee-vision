@@ -4,8 +4,8 @@
 # connection, and forwards /analyze here over the tailnet; this site serves /analyze and nothing else. The address
 # is the host's tailnet address, read on the host by the deploy, so none enters git.
 
-# Deliberately no client IP in this format: this file keeps 365 days (docs/logging_plan.html section 06), and an IP
-# only 30 (ticket OPS-15 D18), so it goes to coffee-cv.ip below. $request_id is
+# Deliberately no client IP in this format, nor anywhere on this host: the visitor's IP stops at the proxy's stream
+# block (ticket OPS-15 D20). This file keeps 365 days (docs/logging_plan.html section 06). $request_id is
 # nginx's own per-connection id and is NOT what joins a line here to the
 # app's own log: webapp/app.py generates its own id and returns it as an
 # X-Request-Id response header, captured below via $upstream_http_x_request_id,
@@ -14,10 +14,6 @@
 # $upstream_bytes_received ends the line (ticket OPS-7 D19): /analyze's 200 goes out with its first part, so a
 # worker killed mid-answer still logs a 200 here, with fewer bytes than a whole answer.
 log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status "$request" ${request_time}s $upstream_bytes_received';
-
-# The visitor's IP, as the front forwards it in X-Real-IP ($remote_addr here is the front's tailnet address), with
-# the app's request id that joins it to the other logs (ticket OPS-15 D18). Only in this file, rotated at 30 days.
-log_format coffee_cv_ip '$time_iso8601 $upstream_http_x_request_id $http_x_real_ip';
 
 # One shared, server-wide cap on concurrent requests to the Python backend --
 # keyed on a fixed value, not per-IP or per-connection, deliberately: NAT means
@@ -37,13 +33,12 @@ server {
     listen $INFERENCE_ADDR:$INFERENCE_PORT;
     server_name coffee-cv-inference;
 
-    # Dedicated files, not the distro's default /var/log/nginx/access.log --
+    # A dedicated file, not the distro's default /var/log/nginx/access.log --
     # deliberately named without a .log suffix so Ubuntu's stock
     # /etc/logrotate.d/nginx (which globs /var/log/nginx/*.log) never touches
-    # them; webapp/deploy/coffee-cv.logrotate is the only thing that rotates
-    # them, at the retentions docs/logging_plan.html section 06 and OPS-15 D18 set.
+    # it; webapp/deploy/coffee-cv.logrotate is the only thing that rotates
+    # it, at the retention docs/logging_plan.html section 06 sets.
     access_log /var/log/nginx/coffee-cv.access coffee_cv_minimal;
-    access_log /var/log/nginx/coffee-cv.ip coffee_cv_ip;
 
     # No page and no other file here: the front serves them (ADR 0031).
     location / {
@@ -59,8 +54,6 @@ server {
         proxy_read_timeout 30s;
         proxy_pass http://127.0.0.1:$PORT;
         proxy_set_header Host $host;
-        # X-Real-IP is the front's, passed on as it came (OPS-15 D13): no proxy_set_header for it, since this nginx's
-        # $remote_addr is the front's tailnet address.
         # The app streams the answer, preview first, with X-Accel-Buffering: no, which turns off this nginx's
         # buffering. nginx hides X-Accel-* from the client by default; passing it on turns off the front's too
         # (ticket OPS-7 D11).

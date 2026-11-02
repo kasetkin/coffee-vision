@@ -133,8 +133,8 @@ class InferenceSite(unittest.TestCase):
                 self.assertEqual(resp.status, 404)
         self.assertEqual(FakeApp.seen, [])
 
-    def test_analyze_reaches_the_app_with_the_fronts_ip_and_streams_back(self):
-        conn, resp = self.request("POST", "/analyze", b"x" * 1000, {"X-Real-IP": "203.0.113.7"})
+    def test_analyze_reaches_the_app_and_streams_back(self):
+        conn, resp = self.request("POST", "/analyze", b"x" * 1000)
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
@@ -147,7 +147,6 @@ class InferenceSite(unittest.TestCase):
         self.assertEqual(resp.getheader("X-Request-Id"), "req1")
         [seen] = FakeApp.seen
         self.assertEqual((seen["path"], seen["bytes"]), ("/analyze", 1000))
-        self.assertEqual(seen["headers"]["X-Real-IP"], "203.0.113.7")
 
     def test_a_second_request_while_one_is_in_flight_is_refused_busy(self):
         FakeApp.hold.clear()
@@ -190,14 +189,12 @@ class InferenceSite(unittest.TestCase):
                 with self.assertRaises(ConnectionRefusedError):
                     s.connect((addr, self.port))
 
-    def test_the_client_ip_is_only_in_files_rotated_at_30_days(self):
+    def test_no_log_holds_a_client_ip(self):
+        """The visitor's IP stops at the proxy's stream block (D20); none reaches this host's logs, forged or not."""
         ip = "198.51.100.23"
-        resp = self.fetch("POST", "/analyze", b"x", {"X-Real-IP": ip})
+        resp = self.fetch("POST", "/analyze", b"x", {"X-Real-IP": ip, "X-Forwarded-For": ip})
         rotate = logrotate_days()
-        with_ip = {p.name for p in self.logs.iterdir() if ip in p.read_text()}
-        self.assertTrue(with_ip, "the front's X-Real-IP is in no log")
-        for name in with_ip:
-            self.assertEqual(rotate.get(NGINX_LOG_DIR + name), 30, f"{name} holds an IP; logrotate keeps it longer")
+        self.assertEqual({p.name for p in self.logs.iterdir() if ip in p.read_text()}, set())
         req_id = resp.getheader("X-Request-Id")
         for p in self.logs.iterdir():
             with self.subTest(log=p.name):

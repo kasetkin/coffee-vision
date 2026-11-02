@@ -3,12 +3,12 @@
     python -m unittest tests.test_front_site
 
 webapp/deploy/coffee-cv-front.nginx.conf.template is what the proxy serves for the domain (ADR 0031): TLS on a local
-port that the proxy's stream map reaches with the PROXY protocol (plan Q3's recommendation), the page and the agent
-files from the release, and /analyze through the gate (D11), the 5 MB cap (D15) and the check service (P1) to the
-inference host; its offline 503 kept apart from busy (D12), and the visitor's IP only in a file rotated at 30 days
-(D18). Here the stream server, the site, the real check service and a fake inference host all run on loopback, the
-site's /var/log/nginx paths moved to a scratch directory; the visitor connects from 127.0.0.5, so its address is
-told apart from the stream hop's 127.0.0.1. Without nginx and its stream module the tests skip.
+port that the proxy's stream map reaches, the page and the agent files from the release, and /analyze through the gate
+(D11), the 5 MB cap (D15) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
+The visitor's IP is in the stream block's session log alone (webapp/deploy/coffee-cv-stream.conf.template, D20),
+rotated at 30 days. Here the stream server with that snippet, the site, the real check service and a fake inference
+host all run on loopback, the /var/log/nginx paths moved to a scratch directory; the visitor connects from 127.0.0.5,
+so its address is told apart from the stream hop's 127.0.0.1. Without nginx and its stream module the tests skip.
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 DEPLOY = REPO / "webapp" / "deploy"
 SITE_TEMPLATE = DEPLOY / "coffee-cv-front.nginx.conf.template"
+STREAM_TEMPLATE = DEPLOY / "coffee-cv-stream.conf.template"
 sys.path.insert(0, str(DEPLOY))
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import check_service  # noqa: E402
@@ -89,8 +90,11 @@ class FrontSite(unittest.TestCase):
         (cls.tmp / "site.conf").write_text(site.replace(NGINX_LOG_DIR, f"{cls.logs}/"))
         temp_paths = "".join(f"    {kind}_temp_path {cls.tmp}/{kind};\n"
                              for kind in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi"))
-        # The proxy's stream block, as plan Q3 recommends it: the domain's SNI to the site's local port, with the
-        # PROXY protocol; anything else nowhere.
+        # The proxy's stream block: the domain's SNI to the site's local port, anything else nowhere, and the session
+        # log the owner includes there (D20).
+        stream_log = render(STREAM_TEMPLATE.read_text(), {"DOMAIN": DOMAIN})
+        assert NGINX_LOG_DIR in stream_log, f"the stream snippet no longer logs under {NGINX_LOG_DIR}"
+        (cls.tmp / "stream.conf").write_text(stream_log.replace(NGINX_LOG_DIR, f"{cls.logs}/"))
         (cls.tmp / "nginx.conf").write_text(f"""load_module {STREAM_MODULE};
 pid {cls.tmp}/nginx.pid;
 error_log {cls.tmp}/error.log;
@@ -100,11 +104,11 @@ stream {{
         {DOMAIN} 127.0.0.1:{front_port};
         default 127.0.0.1:9;
     }}
+    include {cls.tmp}/stream.conf;
     server {{
         listen 127.0.0.1:{cls.stream_port};
         ssl_preread on;
         proxy_pass $target;
-        proxy_protocol on;
     }}
 }}
 http {{
@@ -150,11 +154,12 @@ http {{
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
 
-    def visit(self, method: str, path: str, body: bytes | None = None):
+    def visit(self, method: str, path: str, body: bytes | None = None, headers: dict | None = None):
         """Opens the request; the caller reads the response."""
         conn = Visit(self.stream_port, self.tmp / "cert.pem")
         self.addCleanup(conn.close)
-        headers = {"Content-Type": f"multipart/form-data; boundary={BOUNDARY}"} if body is not None else {}
+        headers = {**({"Content-Type": f"multipart/form-data; boundary={BOUNDARY}"} if body is not None else {}),
+                   **(headers or {})}
         conn.request(method, path, body=body, headers=headers)
         return conn.getresponse()
 
@@ -175,8 +180,8 @@ http {{
         resp.read()
         self.assertEqual(resp.status, 404)
 
-    def test_a_photo_reaches_the_inference_host_with_the_visitors_ip_and_streams_back(self):
-        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG))
+    def test_a_photo_reaches_the_inference_host_and_streams_back(self):
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"X-Real-IP": "203.0.113.9"})
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
@@ -186,7 +191,7 @@ http {{
         self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
         self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
-        self.assertEqual(seen["headers"]["X-Real-IP"], VISITOR)
+        self.assertNotIn("X-Real-IP", seen["headers"], "a visitor's own X-Real-IP went through (D20)")
 
     def test_a_photo_over_5_mb_is_refused_at_the_front(self):
         photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))
@@ -228,27 +233,26 @@ http {{
         finally:
             self.start_check_service()
 
-    def test_the_visitors_ip_is_only_in_files_rotated_at_30_days(self):
-        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG))
-        resp.read()
+    def test_the_visitors_ip_is_only_in_the_session_log_rotated_at_30_days(self):
+        conn = Visit(self.stream_port, self.tmp / "cert.pem")
+        conn.request("POST", "/analyze", body=form("beans.jpg", JPEG),
+                     headers={"Content-Type": f"multipart/form-data; boundary={BOUNDARY}"})
+        conn.getresponse().read()
+        conn.close()   # the stream block logs a session when it ends
+        sessions = self.logs / "coffee-cv-front.sessions"
+        for _ in range(50):
+            if sessions.exists() and VISITOR in sessions.read_text():
+                break
+            time.sleep(0.1)
         rotate = logrotate_days()
         with_ip = {p.name for p in self.logs.iterdir() if VISITOR in p.read_text()}
-        self.assertTrue(with_ip, "the visitor's IP is in no log")
-        for name in with_ip:
-            self.assertEqual(rotate.get(NGINX_LOG_DIR + name), 30, f"{name} holds an IP; logrotate keeps it longer")
+        self.assertEqual(with_ip, {"coffee-cv-front.sessions"})
+        self.assertEqual(rotate.get(NGINX_LOG_DIR + "coffee-cv-front.sessions"), 30)
         for p in self.logs.iterdir():
             with self.subTest(log=p.name):
                 self.assertIn(NGINX_LOG_DIR + p.name, rotate, "a log nothing rotates")
-                self.assertIn("abcd1234", p.read_text(), "a line that cannot be joined to the app's log")
-
-    def test_a_refusal_at_the_front_joins_its_ip_line_to_its_access_line(self):
-        """No app request id for what never reached the app: nginx's own joins the two files (D18)."""
-        self.answer(form("beans.jpg", b"some text"))
-        ip_line = (self.logs / "coffee-cv-front.ip").read_text().splitlines()[-1]
-        access_line = (self.logs / "coffee-cv-front.access").read_text().splitlines()[-1]
-        self.assertIn(VISITOR, ip_line)
-        self.assertIn(" 400 ", access_line)
-        self.assertEqual(ip_line.split()[1], access_line.split()[1], "the two lines share no id")
+        self.assertIn("abcd1234", (self.logs / "coffee-cv-front.access").read_text(),
+                      "a request line that cannot be joined to the app's log")
 
 
 def logrotate_days() -> dict[str, int]:
