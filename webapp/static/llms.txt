@@ -1,0 +1,58 @@
+# Coffee Bean Origin Classifier
+
+> Send one photo of whole coffee beans, green or roasted, and get back the country the coffee was most likely grown
+> in, with a score for every country the model knows, or a refusal when the photo does not look like the beans it
+> was trained on. Free, no key, no account. The photo is never stored.
+
+The service is one HTTP endpoint, `POST /analyze`, behind the web page. It is meant for people with a phone, and is
+open to agents acting for a person: send their photo, report the answer.
+
+## API
+
+- [OpenAPI description](https://coffee.kasetkin.com/openapi.json): the request, both answer parts and every error,
+  machine-readable.
+- [Agent resource manifest](https://coffee.kasetkin.com/.well-known/ard.json): this file and the API, for agent
+  registries.
+
+Call it with one multipart form upload:
+
+```
+curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
+```
+
+- `photo` (required): the image file. JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL and camera RAW (DNG, CR2, CR3, NEF,
+  ARW, RAF, ORF, RW2, PEF, SRW); a RAW file needs its usual extension in the filename. At most 20 MB.
+- `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
+
+The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
+
+1. `{"part": "preview", ...}` after about 2 s: the photo as the model sees it (`thumbnail`, a base64 JPEG), the bean
+   region (`mask`, a base64 PNG or null), the crop (`box`, fractions of the photo as `[x0, y0, x1, y1]`, or null).
+   An agent can skip this line.
+2. The result, after about 9 s in all. `{"part": "classification", "verdict": ...}`, where `verdict` is one of:
+   - `predicted`: `ranked` lists every country as `{"id", "label", "score"}`, best first; `label` is the country.
+   - `warned`: the same `ranked`, plus `warning` ("Uncertain", "Uncertain framing"): say the answer is unsure.
+   - `refused_ood`: the photo does not look like coffee beans the model knows. There is no country to report.
+   - `refused_unreadable`: the photo could not be read as beans.
+
+   Or `{"part": "error", "message": ...}` if the server failed after the preview went out.
+
+Errors before the stream starts: `400` with `{"error": ...}` (no photo, or a file that is not an image), `413` for
+a photo over 20 MB, `503` when another photo is being analyzed.
+
+## Limits
+
+- One photo at a time for everyone: the server has one worker. On `503`, wait about 10 s and retry; do not send
+  photos in parallel.
+- Use a photo of a handful of whole beans filling most of the frame. Ground coffee, other seeds or a photo with no
+  beans is refused, by design.
+- About 10 countries, scored against each other; a coffee from anywhere else still gets the closest of them.
+
+## Background
+
+- [What the model knows](https://github.com/kasetkin/coffee-vision#what-it-knows): the countries, and which have
+  green and roasted photos.
+- [How it works](https://github.com/kasetkin/coffee-vision#how-it-works): segmentation, a frozen DINOv3 model with
+  a linear head, and the out-of-distribution guard.
+- [Source code](https://github.com/kasetkin/coffee-vision): the public repository.
+- [Web page](https://coffee.kasetkin.com/): the same service for a person with a phone.

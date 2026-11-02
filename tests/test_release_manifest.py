@@ -95,9 +95,8 @@ class TestReleaseManifest(unittest.TestCase):
                 self.assertEqual(outside, [], f"{model} opened repo files outside the manifest")
                 # The other direction: the manifest names no code or model file the app never needs.
                 # (pyproject/uv.lock build the venv and the static files are nginx's; none is opened in-process.)
-                unused = sorted(all_files(m) - set(trace["opened"]) - set(m["generated"])
-                                - {"webapp/pyproject.toml", "webapp/uv.lock", "webapp/static/index.html",
-                                   "webapp/static/robots.txt"})
+                unused = sorted(f for f in all_files(m) - set(trace["opened"]) - set(m["generated"])
+                                - {"webapp/pyproject.toml", "webapp/uv.lock"} if not f.startswith("webapp/static/"))
                 self.assertEqual(unused, [], f"{model}: manifest lists files the app never opened")
 
 

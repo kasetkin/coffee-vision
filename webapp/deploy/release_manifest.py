@@ -27,6 +27,9 @@ APP = [
     "webapp/app.py",
     "webapp/static/index.html",
     "webapp/static/robots.txt",
+    "webapp/static/llms.txt",
+    "webapp/static/openapi.json",
+    "webapp/static/.well-known/ard.json",
     "webapp/pyproject.toml",
     "webapp/uv.lock",
 ]
