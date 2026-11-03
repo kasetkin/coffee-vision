@@ -52,7 +52,9 @@
       <li><b>Branch</b> from <code>3c008a8</code> (on <code>ml16-photos-2026-11-03</code>, which holds this
         ticket, ADR 0032 and ML-16 D3), e.g. <code>ops16-example-photos</code>. Both branches join
         <code>main</code> by merge commit (ADR 0017) before the release, since a deploy takes only commits on
-        <code>origin/main</code> (ADR 0008).</li>
+        <code>origin/main</code> (ADR 0008). <em>Changed 2026-11-03 by the owner</em>: after P5,
+        <code>ops16-example-photos</code> was merged into <code>ml16-photos-2026-11-03</code>, and both tickets go
+        on in that one branch.</li>
       <li><b>This session does not touch</b> <code>dataset/</code>, <code>labels/</code>, <code>data/</code>,
         <code>dvc.yaml</code>, <code>dvc.lock</code> or <code>models/</code>. ML-16 D3 (moving the five originals
         to <code>dataset/example_photos/</code>, out of every set) is the ML-16 session's.</li>
@@ -299,7 +301,8 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P2&ndash;P6, ML-16's release</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Both branches merged into <code>main</code> and pushed; one deploy of ML-16's
+    <li><span class="box"></span><span>ML-16's branch, which carries OPS-16 since 2026-11-03, merged into
+      <code>main</code> and pushed; one deploy of ML-16's
       model (<code>docs/agents/deploy.md</code>; photo answers are down meanwhile, say so first).</span></li>
     <li><span class="box"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh --verify</code>: the five examples'
       checks pass; the page shows the row; a photo between 5 and 10 MB (the Brazil original, 7.02 MB) goes
@@ -376,6 +379,9 @@
       browser run again, all passing); the front's manifest reads the example list at the release's ref
       (<code>--ref "$SHA" --front</code>), not the working tree; a test no longer restates
       <code>examples.json</code>. The P5 commit is <code>b51d69e</code>.</div>
+    <div><div class="when">2026-11-03</div>The owner's call: merge <code>ops16-example-photos</code> into ML-16's
+      branch now and continue both tickets there. A test merge (<code>git merge-tree</code>) was clean; ML-16's
+      session was idle. P6 and P7 are done on <code>ml16-photos-2026-11-03</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,
