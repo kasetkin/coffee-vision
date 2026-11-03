@@ -3,8 +3,9 @@
 # /home/vscode/.venv, see .devcontainer/devcontainer.json).
 #
 # Not the web service's environment: that is webapp/pyproject.toml with its own lock, deliberately
-# separate (OPS-1). The two share the image decoders (pillow + the heif/avif/jxl plugins); keep those
-# at the webapp's versions or check the difference, since a decoder change changes the pixels.
+# separate (OPS-1). Every package two of the locks share (uv.lock, webapp/uv.lock, webapp/front/uv.lock) must
+# resolve to one version in all of them: `python -m coffeecv.lock_check`, in the pre-commit hook and
+# scripts/check.sh, refuses a difference (ML-19 D40, D41; ADR 0033), since a decoder change changes the pixels.
 #
 # Re-lock after any edit here (with the uv version pinned below):
 #     uv lock
@@ -30,6 +31,10 @@ dependencies = [
   "pillow-jxl-plugin==1.3.8",
   "rawpy",
   "opencv-python-headless",
+  # ML-19 D44 (ADR 0033): both colour conversions (its LittleCMS 2.19) and the JPEG XL coding (its libjxl 0.12.0)
+  # of canonicalization. Pinned exactly: a new version moves both libraries, so it is a re-canonicalization and
+  # a retrain, never a routine upgrade.
+  "imagecodecs==2026.10.10",
   "scikit-learn",
   "matplotlib",
   # ML-6 D12 (docs/adr/0018): the segmenter fine-tune's augmentation. 2.0.8 is the last MIT release
