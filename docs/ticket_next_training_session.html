@@ -76,7 +76,9 @@
       (bytes unchanged) to the <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_&lt;country&gt;</code> form: 2 of class_001, 26 of
       class_005, 71 of class_013. The records in use follow the new names: <code>labels/ml5/seg_dataset.yaml</code>
       (13 entries' path and group), the segmenter positives' manifest (15 <code>duplicate_of</code>) and
-      <code>coffeecv_dino/reference_photos.txt</code> (2 lines, each keeping its old path as its draw key, ML-14 D16).
+      <code>coffeecv_dino/reference_photos.txt</code> (2 lines, each keeping its old path as its draw key, ML-14 D16),
+      and <code>labels/ml3/pool_exclude.csv</code> (1 row: the declined <code>IMG_20261008_092822</code>, missed in
+      <code>80c1674</code> and fixed after, as <code>merge_rig</code> skips a row naming no photo without a word).
       Older records keep the names they read, as on 2026-10-30. pass11's labels of 11 of these pool photos (train 10,
       validation 1) are under the old paths; pass12 carried them by sha256 (D2), where until then a rename lost a
       label, as with <code>IMG_20261016_120546</code>.</li>
