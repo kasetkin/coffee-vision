@@ -1,0 +1,273 @@
+<title>Example photos on the page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-16 · coffee-vision · the page, the front and the deploy</div>
+  <h1>The page offers five example photos, and the front takes photos up to 10 MB</h1>
+  <p class="lede">A visitor without a photo of coffee beans cannot try the service today. This ticket adds five
+    example photos to the page, each sent through the same upload as a visitor's own. The photos leave every training
+    and evaluation set, in ML-16's data change, and both tickets ship in one release. The same release raises the
+    front's upload cap from 5 MB to 10 MB. Written 2026-11-03 from a grilling session with the owner; every decision
+    taken, not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; decided, not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/static/examples/</code> (new), <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>webapp/deploy/coffee-cv-front.service.template</code>, <code>webapp/deploy/release_manifest.py</code>, <code>webapp/deploy/fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), <code>webapp/front/check_service.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code>, <code>docs/inference_path.html</code>, ADR 0031, the front's tests</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the mask of every example)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At ML-16's release: the page shows an example row; the front refuses photos over 10 MB instead of 5 MB; <code>--verify</code> sends the five examples through the domain.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-16</span> <span class="tag">ships in ML-16's release, with the model retrained without the five photos (D6)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-03.</strong> "I want to add example photos to the main web-page so user can test
+      our service without having a photo of coffee beans. Let's select 3-5 test photos with different beans and
+      different surroundings. The first photo should be Brazil beans inside grinder,
+      20261016_131741_Pixel_9_Pro_Brazil.jpg. Second photo can be green beans from Ethiopia, IMG_6302D.HEIC. Third
+      one Robusta from Vietnam, PXL_20261007_043818022.jpg. Select 2-3 more photos yourself." Then: "Also I think we
+      should increase upload limit from 5Mb to 10Mb, we can do it in this release and ticket."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Under "Choose Photo" the page gets a row of five example photos (D1, D10): four bean photos, each from a
+    different country and setting, and a cappuccino that the OOD guard should refuse. A click fetches the example's
+    file from the front and uploads it to <code>/analyze</code>, as if the visitor had chosen it (D9). The files are
+    lossy JPEG XL re-encodes at full resolution, committed in <code>webapp/static/examples/</code> with a small WebP
+    thumbnail each (D2, D3, D7). Their originals leave the dataset for a private folder no pipeline reads, so no
+    model the visitor's answer comes from has seen them (D5, ADR 0032). Every deploy's <code>--verify</code> checks
+    each example's expected answer (D11).</p>
+  <p>The front's upload cap goes from 5 MB to 10 MB, with longer timeouts to match (D8).</p>
+  <p>The work splits into: the files and their check against the originals; the page; the front (the cap, the
+    examples' route); the deploy check. The dataset change belongs to ML-16 (its D3).</p>
+
+  <h2>2. Background</h2>
+  <p>The five photos, where each is used today, and their size as JPEG XL (pillow-jxl-plugin, measured
+    2026-11-03):</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Example</th><th>Original</th><th>Used in</th><th>Lossless JXL</th><th>Lossy JXL, q90</th></tr></thead>
+    <tbody>
+      <tr><td>Brazil, roasted, in a grinder hopper by a window</td>
+        <td><code>random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131741_Pixel_9_Pro_Brazil.jpg</code>, 6144 × 8160, 7.02 MB</td>
+        <td>classifier pool, train in exp279 (as <code>PXL_20261016_081741399</code>, its name before ML-16's renames)</td>
+        <td>5.36 MB</td><td>3.38 MB</td></tr>
+      <tr><td>Ethiopia, green, in a tray</td>
+        <td><code>2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6302D.HEIC</code>, 3024 × 4032, 4.37 MB</td>
+        <td>classifier pool, val in exp279</td>
+        <td>no transcode from HEIC</td><td>4.21 MB</td></tr>
+      <tr><td>Vietnam, Robusta, a pile on a table</td>
+        <td><code>random_date_raccoon/class_009__Vietnam_Robusta/PXL_20261007_043818022.jpg</code>, 3072 × 4080, 2.26 MB</td>
+        <td>classifier pool, train in exp279; its byte copy in <code>segmenter_positives</code>, segmenter train</td>
+        <td>1.80 MB</td><td>1.26 MB</td></tr>
+      <tr><td>Indonesia, roasted, close up</td>
+        <td><code>2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200224.JPG</code>, 5056 × 3792, 3.47 MB</td>
+        <td>classifier pool, test in exp279 (8 of 8 patches right); its copy in <code>segmenter_positives</code>, segmenter test</td>
+        <td>2.62 MB</td><td>0.78 MB</td></tr>
+      <tr><td>A cappuccino, no beans</td>
+        <td><code>ood_negatives/user_realworld/PXL_20261031_072103744.jpg</code>, 3072 × 4080, 2.18 MB</td>
+        <td><code>user_realworld</code> holdout; segmenter dataset, train (added 2026-11-03, not yet trained on)</td>
+        <td>1.62 MB</td><td>1.20 MB</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><strong>The cap.</strong> The front refuses a photo over 5 MB (OPS-15 D15, ADR 0031) in four places: the
+      front's nginx (<code>client_max_body_size 5184k</code> and its 413), <code>check_service.py</code>'s
+      <code>MAX_UPLOAD_BYTES</code>, <code>index.html</code>'s <code>MAX_UPLOAD_BYTES</code>, and the docs for
+      agents (<code>llms.txt</code>, <code>openapi.json</code>). The inference host allows 20 MB already (its nginx,
+      <code>app.py</code>).</li>
+    <li><strong>The link.</strong> Photos cross to <code>yappy</code> at about 2.1 Mbit/s (measured 2026-11-02): 10 MB
+      takes about 40 s. The check service gives the whole upload 60 s (<code>INFERENCE_TIMEOUT_S</code>), and the
+      front's nginx waits 130 s (<code>proxy_read_timeout</code>). One photo at a time crosses (the front's
+      gate).</li>
+    <li><strong>The check service's memory.</strong> It reads the whole upload into memory
+      (<code>check_service.py</code>, <code>self.rfile.read(length)</code>). It peaked at 28 MB live and 40 MB in the
+      plan's test with a 5 MB photo, under <code>MemoryMax=100M</code>, on a proxy with about 200 MB available
+      (OPS-15 R1).</li>
+    <li><strong>The front's static files.</strong> nginx serves a fixed list of paths and answers 404 to any other;
+      <code>release_manifest.py --front</code> lists the files a front release holds.</li>
+    <li><strong>JPEG XL in browsers.</strong> Safari shows it; Firefox reportedly since 158 (October 2026); Chrome
+      only behind a flag as of Chrome 145; Edge not at all. The page never has to show one: the picker shows WebP
+      thumbnails (D7), and after a click the server's own JPEG thumbnail. The front's format check and the app's
+      decoder already take JPEG XL.</li>
+    <li><strong>Splits.</strong> The classifier's split shuffles each class's sorted pool by position
+      (<code>coffeecv/dataset.py</code>, <code>split_photos_by_class</code>), so removing one photo redraws the
+      whole class.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A visitor needs a photo of their own to try the service.</li>
+        <li>The five photos are in the private dataset, two of them in the live model's training split.</li>
+        <li>The front refuses a photo over 5 MB, a 50 MP phone photo (7 MB) among them.</li>
+        <li><code>--verify</code> checks one photo's answer through the domain.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The page offers five example photos; a click runs the full service on one.</li>
+        <li>Their JPEG XL re-encodes are public in the repo; their originals are in
+          <code>dataset/example_photos/</code>, in no training or evaluation set.</li>
+        <li>The front refuses a photo over 10 MB.</li>
+        <li><code>--verify</code> checks the five examples' answers too.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The API.</strong> <code>/analyze</code> takes the same form and answers the same way; an example is
+      an ordinary upload (D9, ADR 0023).</li>
+    <li><strong>The inference host.</strong> Its 20 MB limits already cover 10 MB.</li>
+    <li><strong>The rest of the dataset stays private</strong> (ADR 0014); ADR 0032 publishes these five
+      re-encodes only.</li>
+    <li><strong>Re-encoding visitors' photos.</strong> The front still forwards a visitor's bytes unchanged
+      (ML-15).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A re-encode gets a different answer from its original.</strong></td>
+        <td>Lossy JPEG XL changes the pixels, and so does decoding through libjxl. Each example ships only once the
+          model of ML-16's release gives it the original's answer and the owner accepts its mask (D3).</td></tr>
+      <tr><td class="id">R2</td><td><strong>Slow examples.</strong></td>
+        <td>At 2.1 Mbit/s the Ethiopia example takes about 16 s to cross and the Brazil one about 13 s, before
+          about 9 s of inference; the visitor also downloads it first. Accepted (D3); a lower quality for one photo
+          is the fallback.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A 10 MB photo holds the gate for about 50 s, and fails on a slower
+        link.</strong></td>
+        <td>40 s to cross at 2.1 Mbit/s against today's 60 s upload timeout. The timeouts go to 120 s and 190 s;
+          holding the gate is accepted (D8).</td></tr>
+      <tr><td class="id">R4</td><td><strong>The check service runs out of memory on a 10 MB upload.</strong></td>
+        <td>28-40 MB peak at 5 MB, under a 100 MB <code>MemoryMax</code>. Measured with a 10 MB upload before the
+          release; <code>MemoryMax</code> rises only if the peak passes about 70 MB (D8).</td></tr>
+      <tr><td class="id">R5</td><td><strong>Results before and after ML-16 are not paired.</strong></td>
+        <td>Removing the photos redraws the Brazil, Ethiopia, Vietnam and Indonesia splits; the segmenter test loses
+          the Indonesia photo and the <code>user_realworld</code> holdout the cappuccino. ML-16's new photos redraw
+          Ethiopia and Colombia anyway, so the change goes into the same data change (D6, ML-16 D3).</td></tr>
+      <tr><td class="id">R6</td><td><strong>The Brazil photo shows a window onto the street.</strong></td>
+        <td><code>leak_check</code> cannot judge what a photo shows. The owner looked and kept it: "this is public
+          space" (D4).</td></tr>
+      <tr><td class="id">R7</td><td><strong>A later model gets an example wrong.</strong></td>
+        <td><code>--verify</code> fails (D11); the owner rolls back or swaps the example. A new example has to come
+          from outside every set, or leave them before the next retrain (ADR 0032).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which photos?</td>
+        <td>The owner's three, and two or three more from the classifier's test split</td>
+        <td>2026-11-03: Brazil in the grinder, Ethiopia green, Vietnam Robusta (the owner's); Indonesia roasted close
+          up, and the cappuccino negative instead of a fifth bean photo, so the page shows a refusal too ("#4 is
+          okay, for #5 let's use cappuccino photo").</td></tr>
+      <tr><td class="id">D2</td><td>Where do the files live?</td>
+        <td>(a) committed in <code>webapp/static/examples/</code>, released with the page (b) in DVC, copied in by the
+          deploy</td>
+        <td>(a), 2026-11-03: "place them into web-page sources folder". Public in git history for good;
+          <a href="adr/0032-example-photos-are-public-and-in-no-dataset.md">ADR 0032</a>.</td></tr>
+      <tr><td class="id">D3</td><td>In what form?</td>
+        <td>(a) the originals (b) JPEG re-encodes (c) lossless JPEG XL (d) lossy JPEG XL</td>
+        <td>(d), 2026-11-03: "re-encode all example photos as JXL", "lossy JXL is fine", at full resolution ("use
+          full file"), q90. Each ships once the model of the release gives it its original's answer (the same top-1
+          for the bean photos, a refusal for the cappuccino) and the owner accepts its mask. ADR 0032.</td></tr>
+      <tr><td class="id">D4</td><td>The Brazil photo shows the window and the street outside: keep it?</td>
+        <td>(a) keep (b) crop (c) another grinder photo</td>
+        <td>(a), 2026-11-03: "keep as it is, this is public space."</td></tr>
+      <tr><td class="id">D5</td><td>The live model trained on two of the photos: what then?</td>
+        <td>(a) keep them in the dataset, say nothing (b) keep them, claim nothing (c) move them out of the dataset</td>
+        <td>(c), 2026-11-03: "let's remove this photos from training set". The originals move to a private DVC
+          folder, <code>dataset/example_photos/</code>, read by no pipeline, with a manifest of each photo's
+          country and old path. They leave every set: the classifier pool, the segmenter dataset (the byte copies
+          in <code>segmenter_positives</code> too) and the OOD negatives. Done under
+          <a href="ticket_next_training_session.html">ML-16</a> D3; ADR 0032.</td></tr>
+      <tr><td class="id">D6</td><td>When?</td>
+        <td>(a) with ML-16, in one release (b) the page first, the dataset at the next retrain</td>
+        <td>(a), 2026-11-03: "both tickets ships as one release". The photos leave the dataset before ML-16's
+          retrain, so the live model and segmenter have never seen an example.</td></tr>
+      <tr><td class="id">D7</td><td>What does the picker show?</td>
+        <td>(a) a WebP thumbnail per example (b) text buttons (c) the JPEG XL itself</td>
+        <td>(a), 2026-11-03: about 400 px, made from the JPEG XL, beside it in <code>examples/</code>.</td></tr>
+      <tr><td class="id">D8</td><td>The upload cap?</td>
+        <td>5 MB (OPS-15 D15) or more</td>
+        <td>10 MB, 2026-11-03: "increase upload limit from 5Mb to 10Mb ... in this release and ticket". With it: the
+          check service's upload timeout 60 s → 120 s and the front nginx's <code>proxy_read_timeout</code> 130 s →
+          190 s; the check service's peak memory measured with a 10 MB upload, <code>MemoryMax</code> raised only past
+          about 70 MB; a 10 MB photo holding the gate about 50 s accepted; ADR 0031's consequence line updated, no new
+          ADR.</td></tr>
+      <tr><td class="id">D9</td><td>What does a click do?</td>
+        <td>(a) a live upload of the example (b) a saved answer</td>
+        <td>(a), 2026-11-03: "live call". The page fetches the JPEG XL from the front and uploads it to
+          <code>/analyze</code> as a chosen file; no new form field.</td></tr>
+      <tr><td class="id">D10</td><td>How does the page present them?</td>
+        <td>(a) captions give the setting, the truth after the answer (b) captions name the country</td>
+        <td>2026-11-03: a row under "Choose Photo", "No photo? Try one of ours:", each thumbnail captioned with its
+          setting only ("Roasted, in a grinder", "Green, in a tray", "Robusta, on a table", "Roasted, close up", "A
+          cappuccino, no beans"). Once the answer is in, one line gives the truth: "This coffee is from Brazil."; for
+          the cappuccino, "No coffee beans here: the classifier should refuse it."</td></tr>
+      <tr><td class="id">D11</td><td>Does the deploy check the examples?</td>
+        <td>(a) yes, and a wrong answer fails (b) report only (c) no</td>
+        <td>(a), 2026-11-03: an <code>example</code> role in <code>fixtures.txt</code>; <code>--verify</code> sends
+          each through the domain and fails on a top-1 other than its country, or on the cappuccino not
+          refused.</td></tr>
+      <tr><td class="id">D12</td><td>Which tickets?</td>
+        <td>(a) OPS-16 for the page, the cap and the deploy, ML-16 for the dataset (b) all in ML-16</td>
+        <td>(a), 2026-11-03.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The five originals in <code>dataset/example_photos/</code> and out of every
+      set (ML-16 D3).</span></li>
+    <li><span class="box"></span><span>Five lossy JPEG XL files and five WebP thumbnails in
+      <code>webapp/static/examples/</code>; <code>leak_check</code> passes them.</span></li>
+    <li><span class="box"></span><span>On the model of ML-16's release, each example gets its original's answer, and
+      the owner accepted each bean photo's mask at full resolution.</span></li>
+    <li><span class="box"></span><span>The front serves the examples (its nginx route, <code>release_manifest.py
+      --front</code>).</span></li>
+    <li><span class="box"></span><span>The page's example row, the click, and the truth line after the answer
+      (D9, D10).</span></li>
+    <li><span class="box"></span><span>The 10 MB cap everywhere the 5 MB one is: nginx, the check service, the page,
+      <code>llms.txt</code>, <code>openapi.json</code>, <code>webapp/README.md</code>,
+      <code>docs/inference_path.html</code>, ADR 0031, the tests; the timeouts raised (D8).</span></li>
+    <li><span class="box"></span><span>The check service's peak memory with a 10 MB upload, measured and written
+      here.</span></li>
+    <li><span class="box"></span><span><code>--verify</code> checks the five examples (D11).</span></li>
+    <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Re-encoding visitors' photos at the front (ML-15).</li>
+    <li>Saved answers, or examples that work while the classifier is offline.</li>
+    <li>Listing the examples in <code>llms.txt</code> or <code>openapi.json</code> for agents.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-03</div>Ticket written from a grilling session with the owner (the request, then
+      nineteen questions), at <code>df7620e</code>. JPEG XL sizes measured with pillow-jxl-plugin; splits read from
+      exp279's predictions and <code>labels/ml5/seg_dataset.yaml</code>. <code>GLOSSARY.md</code> gained
+      "Example photo"; ADR 0032 written. Every decision taken; not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),
+    <a href="ticket_front_and_inference_host.html">OPS-15</a> (the front, D15 and D16),
+    <a href="ticket_reencode_at_the_front.html">ML-15</a>,
+    <a href="adr/0032-example-photos-are-public-and-in-no-dataset.md">ADR 0032</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+    <a href="adr/0014-public-repo-private-data.md">ADR 0014</a>.</footer>
+</main>

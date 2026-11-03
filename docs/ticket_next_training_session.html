@@ -137,6 +137,21 @@
           marked <code>carried_from_path</code>. Still by path, each a change to a recorded decision, proposed to the
           owner and not decided: <code>seg_dataset build</code> (a rename is refused, the entries are edited by hand;
           ML-5 D11) and the classifier's split, seeded on the sorted (folder, name) list (ML-1 D1(b)).</td></tr>
+      <tr><td class="id">D3</td><td>The five example photos of <a href="ticket_example_photos.html">OPS-16</a>: stay in
+        the dataset, or leave it?</td>
+        <td>(a) stay (b) leave every set, before this ticket's retrain</td>
+        <td>(b), 2026-11-03: "let's remove this photos from training set" (OPS-16 D5, D6;
+          <a href="adr/0032-example-photos-are-public-and-in-no-dataset.md">ADR 0032</a>). Their originals move to
+          a private DVC folder, <code>dataset/example_photos/</code>, read by no pipeline: Brazil
+          <code>20261016_131741_Pixel_9_Pro_Brazil.jpg</code> and Vietnam <code>PXL_20261007_043818022.jpg</code>
+          (<code>random_date_raccoon</code>), Ethiopia <code>IMG_6302D.HEIC</code> (<code>2026-08-25__iphone</code>),
+          Indonesia <code>PIC_20260830_200224.JPG</code> (<code>2026-08-30__sony</code>), and the cappuccino
+          <code>PXL_20261031_072103744.jpg</code> (<code>ood_negatives/user_realworld</code>). The byte copies of the
+          Vietnam and Indonesia photos leave <code>segmenter_positives</code>, and all three segmenter entries leave
+          <code>seg_dataset.yaml</code>. The Brazil, Ethiopia, Vietnam and Indonesia splits are redrawn, in the same
+          data change as this ticket's new photos; the segmenter test loses one photo, the
+          <code>user_realworld</code> holdout one negative. OPS-16 ships in the release of this ticket's
+          retrain.</td></tr>
     </tbody>
   </table></div>
 
@@ -154,6 +169,8 @@
       renamed photos carried by sha256 (D2); the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
+    <li><span class="box"></span><span>The five example photos of OPS-16 out of every set and in
+      <code>dataset/example_photos/</code>, before the retrain (D3).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -201,6 +218,9 @@
       Four rounds: <code>20261103_123829</code>, <code>144040</code> and <code>144105</code> and the pool's
       <code>IMG_6275</code>. <code>data/ml5_labels/pass12</code> added to DVC and pushed; all 996 objects (1,434
       files) checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>D3 from the owner, in the grilling session that wrote
+      <a href="ticket_example_photos.html">OPS-16</a>: its five example photos leave every set before this ticket's
+      retrain, and the two tickets ship in one release. Not done yet.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

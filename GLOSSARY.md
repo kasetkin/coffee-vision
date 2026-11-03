@@ -38,6 +38,10 @@ _Avoid_: Main dataset
 A positive the owner chose for the segmenter because its setup differs from the pools (framing, container, distance).
 _Avoid_: OOD positive
 
+**Example photo**:
+A photo the page offers a visitor to try the service with, in place of their own. It may be a positive or a negative. It is never in any training or evaluation set, so no model the visitor's answer comes from has seen it.
+_Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a release with)
+
 ## Mask quality
 
 **Judge**:
