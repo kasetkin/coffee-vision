@@ -1,0 +1,6 @@
+outs:
+- md5: 0fb6ca8143c36a562ecef76a18ca6f73.dir
+  size: 19304624
+  nfiles: 5
+  hash: md5
+  path: example_photos

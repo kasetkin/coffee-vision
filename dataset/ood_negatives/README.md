@@ -53,7 +53,7 @@ columns held.
   negatives at all and would have scored as false failures.
 
 - **`user_realworld/`** — general, random real-world photos from the user's own phones, no
-  scenario subfolders (every row is tagged `real_world_negatives`). 480 photos, shot 2023–2026,
+  scenario subfolders (every row is tagged `real_world_negatives`). 479 photos, shot 2023–2026,
   most on a Pixel 9 Pro and a OnePlus 7 Pro (the rigs' phone models; `camera` is `pixel` or
   `oneplus`), some on a Redmi Note 14 Pro (`xiaomi`) and five of unknown origin (`unknown`). Private metadata (GPS and the rest of ML-3 D13's deny list) stripped with
   `coffeecv.strip_metadata`; rows in `labels/ml3/strip_manifest.csv`.
@@ -90,10 +90,12 @@ columns held.
   One more on 2026-11-03: `PXL_20261031_072103744.jpg` (Pixel 9 Pro, 2026-10-31), a cappuccino with
   latte art in a cup on a wooden table, no beans. Its private tags (EXIF GPS, C2PA, the HDR+ XMP, EXIF
   thumbnails) stripped with `coffeecv.strip_metadata`. Split with seed 20261103: holdout. In the
-  segmenter dataset: train.
+  segmenter dataset: train. The same day it became an example photo (OPS-16, ADR 0032) and left
+  this folder, its manifest row and the segmenter dataset, before any model trained on it; it is in
+  `dataset/example_photos/` (ML-16 D3).
 
   **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
   2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
-  `split` column (ML-5 D16) and splits all 480 photos 60/15/25 itself, so about 120 holdout
+  `split` column (ML-5 D16) and splits all 479 photos 60/15/25 itself, so about 120 holdout
   photos are in the segmenter's training split. The check no model has seen is that file's
   test split; no live code reads this manifest's holdout.

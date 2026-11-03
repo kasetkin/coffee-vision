@@ -3,8 +3,10 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 54 of the 313 photos are byte copies of photos in other
-`dataset/` folders, 51 of them pool photos.
+**There is no "never seen" claim any more**: 52 of the 311 photos are byte copies of photos in other
+`dataset/` folders, 49 of them pool photos. Two more were until 2026-11-03, `PXL_20261007_043818022.jpg` and
+`PIC_20260830_200224.JPG`: as example photos (OPS-16, ADR 0032) they left this folder and every set, their
+originals now in `dataset/example_photos/` (ML-16 D3).
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
 train/validation/test within this source (D13), a copy in one group with its original. Nothing here trains

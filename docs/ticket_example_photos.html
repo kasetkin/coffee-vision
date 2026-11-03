@@ -13,7 +13,7 @@
     taken, not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 answered as D13&ndash;D18); plan P1&ndash;P5 built 2026-11-03 (the files, the front, the 10 MB cap, the page, the deploy check), not released; P6 and P7 wait on ML-16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 answered as D13&ndash;D18); plan P1&ndash;P5 built 2026-11-03 (the files, the front, the 10 MB cap, the page, the deploy check), not released; the originals out of every set (ML-16 D3, 2026-11-03); P6 and P7 wait on ML-16's model</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
@@ -263,7 +263,7 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The five originals in <code>dataset/example_photos/</code> and out of every
+    <li><span class="box done"></span><span>The five originals in <code>dataset/example_photos/</code> and out of every
       set (ML-16 D3).</span></li>
     <li><span class="box done"></span><span>Five lossy JPEG XL files and five WebP thumbnails in
       <code>webapp/static/examples/</code>; <code>leak_check</code> passes them.</span></li>
@@ -328,6 +328,10 @@
     <div><div class="when">2026-11-03</div>Acceptance boxes brought up to the plan: the six P1&ndash;P5 built are
       ticked, here and in the plan's Verification. Left: the five originals out of every set (ML-16 D3), the
       examples on ML-16's model (P6) and the release (P7).</div>
+    <div><div class="when">2026-11-03</div>ML-16 D3 done: the five originals in <code>dataset/example_photos/</code>
+      (in DVC, pushed), out of the classifier pool, the segmenter dataset (the two byte copies deleted) and
+      <code>user_realworld</code>. <code>scripts/make_example_photos.py</code> finds each there by its sha256. Left:
+      P6 on ML-16's model, P7.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),

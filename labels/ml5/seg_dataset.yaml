@@ -5454,12 +5454,6 @@ photos:
   batch: user_realworld
   split: test
   group: dataset/ood_negatives/user_realworld/PXL_20261017_114339905.jpg
-- path: dataset/ood_negatives/user_realworld/PXL_20261031_072103744.jpg
-  sha256: 0342176ffd272b836a3cf1989bdcb5a5ebb4d52551333263ecc31bdf1b5abf63
-  source: negative
-  batch: user_realworld
-  split: train
-  group: dataset/ood_negatives/user_realworld/PXL_20261031_072103744.jpg
 - path: dataset/ood_positives_internet/internet_beans/internet_beans_001.jpg
   sha256: c207566771d8053841f2fb5352927e2171805579b2e9fac5cdf382d26a651bb2
   source: internet_positive
@@ -6434,11 +6428,6 @@ photos:
   source: segmenter_positive
   split: test
   group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
-- path: dataset/segmenter_positives/PIC_20260830_200224.JPG
-  sha256: b3071423896a03d93959b0ca10054608d2408c15a722a559ae73fbc2cb14ce1b
-  source: segmenter_positive
-  split: test
-  group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
 - path: dataset/segmenter_positives/PIC_20260911_130253.JPG
   sha256: 16616e07042d26516d1d1248aa95f4020b0a7eeae698d05bdb0c875a97ab31ee
   source: segmenter_positive
@@ -7034,11 +7023,6 @@ photos:
   source: segmenter_positive
   split: train
   group: dataset/segmenter_positives/PXL_20261006_064901464.jpg
-- path: dataset/segmenter_positives/PXL_20261007_043818022.jpg
-  sha256: 6f9d2dcbd82f898de0e16f5e6aab92f4bd28e029e6dc9b3a4c5f449f813797b1
-  source: segmenter_positive
-  split: train
-  group: dataset/segmenter_positives/PXL_20261007_043818022.jpg
 - path: dataset/segmenter_positives/PXL_20261007_055432129.jpg
   sha256: a5d9202800aa168f03dddc4da87f1aa390f0de5e9706064b7e8bbf24fc758323
   source: segmenter_positive

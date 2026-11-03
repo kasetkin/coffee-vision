@@ -13,11 +13,11 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 not done; the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code>, <code>labels/ml5/pass12.*</code>, <code>data/ml5_labels/pass12</code>, <code>coffeecv/seg_review.py</code> (carry and recheck by sha256)</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code>, <code>labels/ml5/pass12.*</code>, <code>data/ml5_labels/pass12</code>, <code>coffeecv/seg_review.py</code> (carry and recheck by sha256), <code>dataset/example_photos</code> (new; its <code>.dvc</code>, manifest and README), <code>dataset/2026-08-25__iphone.dvc</code>, <code>dataset/2026-08-30__sony.dvc</code>, <code>coffeecv/coverage_report.py</code></span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
@@ -162,7 +162,10 @@
           <code>seg_dataset.yaml</code>. The Brazil, Ethiopia, Vietnam and Indonesia splits are redrawn, in the same
           data change as this ticket's new photos; the segmenter test loses one photo, the
           <code>user_realworld</code> holdout one negative. OPS-16 ships in the release of this ticket's
-          retrain.</td></tr>
+          retrain. <em>Done</em> 2026-11-03: the five originals moved, bytes unchanged, the two copies deleted;
+          <code>seg_dataset.yaml</code> lost its three entries by hand, the second exception to its append-only
+          rule (ML-5 D11), and <code>seg_dataset build</code> then adds nothing. The pool keeps its 313 photos
+          against 311 positives, so the next 2 new positives draw no pool photo.</td></tr>
     </tbody>
   </table></div>
 
@@ -185,8 +188,9 @@
       accepted label, in pass13; the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
-    <li><span class="box"></span><span>The five example photos of OPS-16 out of every set and in
-      <code>dataset/example_photos/</code>, before the retrain (D3).</span></li>
+    <li><span class="box done"></span><span>The five example photos of OPS-16 out of every set and in
+      <code>dataset/example_photos/</code>, before the retrain (D3); in DVC, pushed and checked on the
+      remote.</span></li>
   </ul>
 
   <h2>7. What is left, in order</h2>
@@ -195,13 +199,17 @@
     10 MB cap, the page's row and <code>--verify</code>'s example check, built and tested, not released. The order
     below only says what waits on what; the training session itself is still the owner's to start and plan.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>D3, the data change: the five originals (found by sha256, OPS-16's plan P1
+    <li><span class="box done"></span><span>D3, the data change: the five originals (found by sha256, OPS-16's plan P1
       table) into <code>dataset/example_photos/</code> with a manifest, out of the classifier pool, the segmenter
       dataset (with the byte copies in <code>segmenter_positives</code>) and <code>user_realworld</code>. In DVC,
-      pushed and checked on the remote. Before any retrain.</span></li>
+      pushed and checked on the remote. Before any retrain. <em>Done</em> 2026-11-03.</span></li>
     <li><span class="box"></span><span>The training session, when the owner starts it: chosen and planned then.
       Two DVC stages are already stale and are its first re-run: <code>segcrop@random_date_raccoon</code> (the new
-      and renamed photos) and <code>merge_segpool</code> (<code>labels/ml3/pool_exclude.csv</code>, the rename).</span></li>
+      and renamed photos, and D3's two leaving it), <code>segcrop@2026-08-25__iphone</code> and
+      <code>segcrop@2026-08-30__sony</code> (D3), and <code>merge_segpool</code>
+      (<code>labels/ml3/pool_exclude.csv</code>, the rename). <code>docs/patch_samples.txt</code>, the README's
+      sample sheet, names the crops of the Ethiopia and Vietnam examples, which the re-crop no longer makes: two
+      other photos for those rows, and the sheet redrawn, when it is next drawn.</span></li>
     <li><span class="box"></span><span>OPS-16 P6 on the model that session chooses: each example against its
       original, the owner's look at the bean examples' masks.</span></li>
     <li><span class="box"></span><span>One release of both tickets (OPS-16 P7, D6): this branch merged into
@@ -277,6 +285,21 @@
       (its plan P1&ndash;P5) merged into this one (<code>0636177</code>); both tickets go on here and ship in one
       release. The merged branch passes <code>scripts/check.sh</code>. Section 7 lists what is left, in order. D3
       not done.</div>
+    <div><div class="when">2026-11-03</div>D3 done. The five originals, found by sha256, moved into the new
+      <code>dataset/example_photos/</code> (bytes unchanged): Brazil and Vietnam from <code>random_date_raccoon</code>,
+      Ethiopia from <code>2026-08-25__iphone</code>, Indonesia from <code>2026-08-30__sony</code>, the cappuccino
+      from <code>user_realworld</code>; the Vietnam and Indonesia byte copies deleted from
+      <code>segmenter_positives</code>. Their rows left <code>segmenter_positives.manifest.csv</code> and
+      <code>user_realworld.manifest.csv</code>, and their three entries <code>labels/ml5/seg_dataset.yaml</code>
+      (positives train 1 and test 1, the negative train): it now lists 1,248 photos, 311 segmenter positives (train
+      187, validation 47, test 77), 313 pool photos, 613 negatives and 11 internet positives, and
+      <code>seg_dataset build</code> adds nothing. The new folder has a manifest (example, country, sha256, where
+      from) and a README, is in <code>coverage_report</code>'s <code>EXCLUDED</code>, and is read only by
+      <code>scripts/make_example_photos.py</code>, which finds all five there. <code>strip_metadata</code> over it:
+      5 checked, 0 private tags (rows under the new paths). No other copy under <code>dataset/</code> by sha256.
+      Earlier records (verdicts, paired logs, experiments) keep the paths they read. Six folders added to DVC and
+      pushed; their objects checked on the remote. The classifier's Brazil, Ethiopia, Vietnam and Indonesia splits
+      redraw at the next re-crop, as D3 expected.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

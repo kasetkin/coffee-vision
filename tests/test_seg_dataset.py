@@ -386,15 +386,17 @@ class CommittedFile(unittest.TestCase):
         # 2026-10-24 the 6 positives moved from random_date_raccoon and the pool draw's 6; 2026-10-25 the 15 positives
         # kept out of or moved from random_date_raccoon and the pool draw's 15; then the 6 pool-excluded photos moved
         # for labelling and the pool draw's 6. internet_beans_017 was deleted from the data by the owner's call
-        # (2026-10-25), its entry with it: the one exception to append-only (D11). 2026-10-26 the 10 positives whose
+        # (2026-10-25), its entry with it: the first exception to append-only (D11). 2026-10-26 the 10 positives whose
         # masks the owner declined and the pool draw's 10. 2026-10-27 the 44 Colombia and Guatemala positives (ML-13
         # D1) and the pool draw's 44. 2026-10-28 32 Brazil and Kenya positives and the pool draw's 32,
         # then the day's 200 MP photo, once the dataset tools read it, and the pool draw's 1. 2026-10-30 7 Brazil
         # positives and the pool draw's 7. 2026-11-02 18 Brazil and Ethiopia positives and the pool draw's 18.
         # 2026-11-03 17 Colombia positives, the pool draw's 17, and 1 user_realworld negative; then 8 more Colombia
-        # positives and the pool draw's 8.
+        # positives and the pool draw's 8. Then the second exception to D11: 2 positives (byte copies of the
+        # Vietnam and Indonesia example photos) and the cappuccino negative left with OPS-16's example photos
+        # (ML-16 D3, ADR 0032); the pool keeps its 313.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 313, "pool": 313, "negative": 614, "internet_positive": 11})
+                         {"segmenter_positive": 311, "pool": 313, "negative": 613, "internet_positive": 11})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}

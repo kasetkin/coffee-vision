@@ -76,6 +76,9 @@ EXCLUDED = {
     "ood_negatives",
     "segmenter_positives",
     "ood_positives_internet",
+    # The example photos' originals (ticket ML-16 D3, ADR 0032): in no set, read only by
+    # scripts/make_example_photos.py.
+    "example_photos",
 }
 
 
