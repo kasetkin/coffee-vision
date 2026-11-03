@@ -17,7 +17,7 @@
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/static/examples/</code> (new), <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>webapp/deploy/coffee-cv-front.service.template</code>, <code>webapp/deploy/release_manifest.py</code>, <code>webapp/deploy/fixtures.txt</code>, <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), <code>webapp/front/check_service.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code>, <code>docs/inference_path.html</code>, ADR 0031, the front's tests</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/static/examples/</code> (new), <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>webapp/deploy/coffee-cv-front.service.template</code>, <code>webapp/deploy/release_manifest.py</code>, <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), <code>webapp/front/check_service.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code>, <code>docs/inference_path.html</code>, ADR 0031, the front's tests</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the mask of every example)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
@@ -221,10 +221,43 @@
         <td>(a) yes, and a wrong answer fails (b) report only (c) no</td>
         <td>(a), 2026-11-03: an <code>example</code> role in <code>fixtures.txt</code>; <code>--verify</code> sends
           each through the domain and fails on a top-1 other than its country, or on the cappuccino not
-          refused.</td></tr>
+          refused. <em>Amended by D16</em>: no <code>example</code> role; how the check works is D17.</td></tr>
       <tr><td class="id">D12</td><td>Which tickets?</td>
         <td>(a) OPS-16 for the page, the cap and the deploy, ML-16 for the dataset (b) all in ML-16</td>
         <td>(a), 2026-11-03.</td></tr>
+      <tr><td class="id">D13</td><td>Where do each example's caption, truth line and expected answer live? (plan
+        Q1)</td>
+        <td>(a) one <code>examples.json</code> (b) inline in the page, parsed by <code>--verify</code> (c) captions in
+          the page, answers in a fourth <code>fixtures.txt</code> column</td>
+        <td>(a), 2026-11-03: <code>webapp/static/examples/examples.json</code>, per example its name, caption and
+          country (the model's class id; <code>null</code> for the negative). The page fetches it; the truth line is
+          made from the country, or is D10's refusal line when it is <code>null</code>. <code>--verify</code> reads
+          the same file.</td></tr>
+      <tr><td class="id">D14</td><td>A wrong example answer in a full deploy's <code>--verify</code>? (plan Q2)</td>
+        <td>(a) roll back, as for the smoke top-1 (b) report, keep the release (c) roll back for some, warn for
+          others</td>
+        <td>(a), 2026-11-03.</td></tr>
+      <tr><td class="id">D15</td><td>How long may a browser keep an example file? (plan Q3)</td>
+        <td>(a) <code>Cache-Control: no-cache</code> (b) a long max-age, renamed on change (c) nginx's default</td>
+        <td>(a), 2026-11-03.</td></tr>
+      <tr><td class="id">D16</td><td>Is an example photo also a fixture?</td>
+        <td>(a) yes, an <code>example</code> role in <code>fixtures.txt</code> (D11) (b) no, the terms kept
+          apart (c) D11 as written, the glossary left contradicting it</td>
+        <td>(b), 2026-11-03: "keep this terms apart, fixture is a fixture and example is an example and may be
+          changed later." No <code>example</code> role in <code>fixtures.txt</code>; <code>GLOSSARY.md</code>
+          gained "Fixture". Amends D11.</td></tr>
+      <tr><td class="id">D17</td><td>What does <code>--verify</code> send for each example, and what pins it?</td>
+        <td>(a) the file as the domain serves it, checked against the release commit's (b) the repo's file, a
+          sha256 in <code>examples.json</code> (c) the repo's file, unchecked</td>
+        <td>(a), 2026-11-03: each example fetched through the domain, its bytes equal to the file at the release's
+          commit, then posted to <code>/analyze</code>; git is the pin, and what a visitor's click fetches is what
+          is checked.</td></tr>
+      <tr><td class="id">D18</td><td>One list of example names, or several?</td>
+        <td>(a) <code>examples.json</code>, read by the release manifest; the script keeps name &rarr; original
+          (b) each keeps its own, a test holds them equal</td>
+        <td>(a), 2026-11-03: <code>CODING_STANDARDS.md</code>, "Input lists live in one committed file". The
+          originals' table stays in <code>scripts/make_example_photos.py</code>, out of the public file, with a
+          test holding its names equal to <code>examples.json</code>'s.</td></tr>
     </tbody>
   </table></div>
 
@@ -245,7 +278,7 @@
       <code>docs/inference_path.html</code>, ADR 0031, the tests; the timeouts raised (D8).</span></li>
     <li><span class="box"></span><span>The check service's peak memory with a 10 MB upload, measured and written
       here.</span></li>
-    <li><span class="box"></span><span><code>--verify</code> checks the five examples (D11).</span></li>
+    <li><span class="box"></span><span><code>--verify</code> checks the five examples (D11, D14, D17).</span></li>
     <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
   </ul>
 
@@ -279,6 +312,11 @@
       times; the Brazil JPEG XL is Brazil at 0.995, its 7.02 MB original being over today's 5 MB cap. Provisional, as
       D3 says: the live model trained on two of them. Waiting for the owner's look before the files are
       committed.</div>
+    <div><div class="when">2026-11-03</div>The owner looked at the five examples ("they are okay, we can commit
+      them"); committed at <code>06dda89</code>. A grilling session on the plan's Q1&ndash;Q3 gave D13&ndash;D18:
+      one <code>examples.json</code>; a wrong example rolls a deploy back; <code>no-cache</code>; example photos
+      are not fixtures (amending D11); <code>--verify</code> checks what the domain serves against the release's
+      commit; one list of names.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),
