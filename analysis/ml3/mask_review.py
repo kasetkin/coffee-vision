@@ -64,6 +64,7 @@ ITEMS = REPO_ROOT / "labels" / "ml3" / "mask_review_items.csv"
 DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / f"{NAME}.decisions.jsonl"
 RISKY_SESSION = "random_date_raccoon"
 POOL_EXCLUDE = REPO_ROOT / "labels" / "ml3" / "pool_exclude.csv"
+STRIP_MANIFEST = REPO_ROOT / "labels" / "ml3" / "strip_manifest.csv"
 ML8_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml8_p4_new_crops.decisions.jsonl"
 ML8_ITEMS = 20
 ML8_FALLBACKS = {
@@ -171,7 +172,29 @@ def exclusions() -> list[dict]:
     readmitted = {r["path"] for f in (ML9_DECISIONS, REREVIEW_DECISIONS)
                   for r in last_decisions(f).values() if r["decision"] == "accept"}
     rows = [r for r in rows if f"dataset/{r['session']}/{r['class_folder']}/{r['file']}" not in readmitted | MOVED_OUT]
-    return sorted(rows, key=lambda r: (r["session"], r["class_folder"], r["file"]))
+    return sorted(present_names(rows), key=lambda r: (r["session"], r["class_folder"], r["file"]))
+
+
+def present_names(rows: list[dict]) -> list[dict]:
+    """`rows` with each photo under its present name: the reviews name a photo by the path it had then, and a
+    photo the owner renamed since (bytes unchanged) is found by its sha256 (the owner, 2026-11-03: "use hash for
+    images, not path"). labels/ml3/strip_manifest.csv gives the hash each path was stripped to, and the present
+    path is the newest row with that hash in the photo's own session folder (a byte copy in another folder, such
+    as dataset/segmenter_positives, is never taken for it). No photo is read, so this runs without the data."""
+    lines = [line for line in STRIP_MANIFEST.read_text().splitlines() if not line.startswith("#")]
+    sha_of, newest = {}, {}
+    for r in csv.DictReader(lines):
+        sha_of[r["path"]] = r["sha256_after"]
+        parts = r["path"].split("/")
+        if len(parts) > 2 and parts[0] == "dataset":
+            newest[(parts[1], r["sha256_after"])] = r["path"]
+    out = []
+    for r in rows:
+        path = f"dataset/{r['session']}/{r['class_folder']}/{r['file']}"
+        now = newest.get((r["session"], sha_of.get(path)), path)
+        _, session, class_folder, file = now.split("/")
+        out.append({**r, "session": session, "class_folder": class_folder, "file": file})
+    return out
 
 
 def last_decisions(path: Path) -> dict[str, dict]:
