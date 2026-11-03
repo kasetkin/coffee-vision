@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 done 2026-11-03; P1 at its stop, its files checked on the live site</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 and P1 done 2026-11-03; P2 started; Q1&ndash;Q3 open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -111,7 +111,7 @@
 
   <h2>3. P1 &mdash; The example files <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: files made and checked on the live site; at the stop, not committed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>80831cd</code>, <code>a51a4ec</code>; the files committed with P2's first task after the owner's look</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The originals, by sha256 (D1). Sizes measured 2026-11-03 with pillow-jxl-plugin at q90 (D3).</p>
@@ -154,19 +154,22 @@
       pattern; the largest is 4.01 MB (Ethiopia). The JPEG XLs report an ICC profile when decoded: libjxl's sRGB,
       built from the codestream's colour encoding, the same 504 bytes in all five; none is written. The Ethiopia
       HEIC's own profile is not carried over, which the model never reads (<code>load_rgb_image</code>).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: look at the five JXLs and thumbnails before they are
-      committed (they are public for good, ADR 0032).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: look at the five JXLs and thumbnails before they are
+      committed (they are public for good, ADR 0032). <em>Done</em> 2026-11-03: "i checked all examples photos,
+      they are okay, we can commit them."</span></li>
   </ol>
 
   <h2>4. P2 &mdash; The front serves the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q3</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the files in <code>STATIC</code>; the route waits on Q3</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q3</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The ten files (and <code>examples.json</code>, Q1) in
+    <li><span class="box done"></span><span>The ten files (and <code>examples.json</code>, Q1) in
       <code>STATIC</code>, <code>webapp/deploy/release_manifest.py</code>: the front's release only (finding 1).
-      <code>tests/test_release_manifest.py</code> follows.</span></li>
+      <code>tests/test_release_manifest.py</code> follows. <em>The ten files done</em> 2026-11-03, with the files
+      themselves; the existing tests (every file under <code>webapp/static</code> in the front's release, none in
+      the inference host's) needed no change. <code>examples.json</code> waits on Q1.</span></li>
     <li><span class="box"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>: a
       <code>location ^~ /examples/</code> with <code>image/jxl</code> for <code>.jxl</code> (nginx's
       <code>mime.types</code> may not know it) and the Cache-Control of Q3; a missing example stays a 404.</span></li>

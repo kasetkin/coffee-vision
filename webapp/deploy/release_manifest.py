@@ -36,6 +36,11 @@ STATIC = [
     "webapp/static/llms.txt",
     "webapp/static/openapi.json",
     "webapp/static/.well-known/ard.json",
+    # The page's example photos (ticket OPS-16, ADR 0032), made by scripts/make_example_photos.py: the front's
+    # release only, so they never cross to the inference host.
+    *(f"webapp/static/examples/{name}.{ext}"
+      for name in ("brazil-grinder", "ethiopia-green", "vietnam-robusta", "indonesia-roasted", "cappuccino")
+      for ext in ("jxl", "webp")),
 ]
 FRONT = STATIC + [
     "webapp/front/check_service.py",
