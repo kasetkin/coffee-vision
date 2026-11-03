@@ -1,0 +1,188 @@
+<title>Transparent pixels decode as the segmenter's fill grey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-17 · coffee-vision · serving inputs</div>
+  <h1>A photo's transparent pixels decode as the segmenter's fill grey, not as the colour hidden under them</h1>
+  <p class="lede">The live site drops a photo's alpha channel when it decodes it. A cut-out photo then shows, in the
+    preview and to the model, whatever the file keeps under its transparent pixels, which other viewers never show.
+    The owner wants those pixels in the grey the segmenter already fills non-bean pixels with. Written 2026-11-03;
+    not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Bug: serving input decode</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/photo_io.py</code> (<code>load_rgb_image</code>), <code>coffeecv/segment_beans.py</code> (<code>SegParams.fill_rgb</code>), <code>docs/inference_path.html</code>, the live release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The preview and the model's input change for an upload with transparent pixels (step 1, <code>load_rgb_image</code>); an opaque photo decodes as before</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-03.</strong> On a lens-circle photo: "preview from the site is different from
+      what I see in picture viewer … The problem is transparent area outside of the circle with real picture." Then:
+      "I think these transparent part should be gray as when we apply segmenter mask." And, after checking the live
+      release with the original HEIF files: "it shows real photo background instead of transparent or default gray.
+      Create ticket where we will fix it."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p><code>load_rgb_image</code> converts every non-RAW photo with <code>Image.open(path).convert("RGB")</code>,
+    which discards the alpha channel. After this ticket it composites a photo with transparency over the segmenter's
+    fill grey (ImageNet's mean, <code>(124, 116, 104)</code>, ML-2 D3), so transparent pixels decode as that grey
+    wherever the photo is read: the preview, the segmenter, the classifier and the training tools. The work is the
+    change with its tests, the serving-path page, and a release.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The decode.</strong> <code>coffeecv/photo_io.py:load_rgb_image</code> is the one decoder for serving
+      (<code>webapp/app.py:analyze</code>, <code>coffeecv/infer.py</code>) and for the dataset tools
+      (<code>coffeecv/dataset.py</code> re-exports it; <code>seg_finetune.py</code>, <code>segcrop_session.py</code>,
+      <code>seg_predict.py</code> and others call it). Its non-RAW branch ends in <code>.convert("RGB")</code>, which
+      keeps the colour under alpha 0 and drops the alpha. The preview is built from its output
+      (<code>webapp/app.py:_preview_part</code>: "the pixels the model sees").</li>
+    <li><strong>How it showed.</strong> The 9 top-level photos of <code>dataset/2026-07-24__first_pictures</code> are
+      GIMP exports, 2209&times;2209 HEIF, 12-bit, with alpha 0 outside the lens circle. Under that alpha they keep the
+      full photo: the jar and the tray. A viewer (Gwenview) shows the circle on white; the site shows the jar. On
+      2026-11-02 the photos were re-encoded as JPEG XL with <code>cjxl</code>, whose lossy default
+      (<code>--keep_invisible=0</code>) replaced the hidden pixels with an encoder smear and black corners. On the
+      site that copy got "No coffee beans found -- the whole photo is classified". Re-encoded with
+      <code>--keep_invisible=1</code> on 2026-11-03, the JPEG XL shows the jar on the site, as the HEIF does.</li>
+    <li><strong>The fill grey.</strong> <code>SegParams.fill_rgb = (124, 116, 104)</code>
+      (<code>segment_beans.py</code>), checked equal to ImageNet's mean rounded by
+      <code>tests/test_segment_beans.py:test_fill_is_imagenet_mean_rounded</code>. <code>mask_and_crop</code> paints
+      every non-bean pixel of the crop with it.</li>
+    <li><strong>Transparency in the dataset</strong> (Pillow's <code>has_transparency_data</code>, 2026-11-03): 22
+      of 2,468 non-RAW photos. 18 are the folder above and its <code>JXL/</code> copies, which no DVC stage reads
+      (not in <code>segcrop</code>'s list; <code>coverage_report</code> files it as pre-project). 4 are internet OOD
+      negatives in the segmenter dataset. Two of those are opaque in fact (alpha 255 throughout). The other two,
+      <code>confusable_grain_012.png</code> (34.8% transparent) and <code>other_nuts_seeds_024.jpg</code> (21.4%),
+      both in the test split, are black under alpha 0.</li>
+    <li><strong>The front.</strong> <code>webapp/front/upload_check.py</code> checks only a file's first bytes; it
+      decodes nothing, so it is not affected. ML-15 (a stub) may add a re-encode at the front.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A transparent pixel decodes as whatever colour the file stores under it: a cut-away background, black,
+          or an encoder's filler.</li>
+        <li>The preview shows it, the segmenter sees it, and with "Use full photo instead" the classifier samples
+          it.</li>
+        <li>The segmenter's fill grey is a literal in <code>SegParams</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A transparent pixel decodes as <code>(124, 116, 104)</code>; a partly transparent one as decided in
+          D2.</li>
+        <li>The preview shows the grey where a viewer shows transparency, and the model gets the same pixels.</li>
+        <li>One constant, <code>photo_io.FILL_RGB</code>, is both the decode's grey and
+          <code>SegParams.fill_rgb</code>'s default.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Opaque photos.</strong> Nearly every photo, uploaded or in the dataset, has no transparency and
+      decodes to the same array as before.</li>
+    <li><strong>RAW files.</strong> rawpy's branch has no alpha.</li>
+    <li><strong>The models.</strong> No retraining. No photo a classifier or the live segmenter trained on has
+      transparent pixels (the two above are test-split negatives).</li>
+    <li><strong>The front's upload check.</strong> It reads headers only.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A widened decode changes an opaque photo's pixels.</strong></td>
+        <td>The composite runs only when Pillow reports transparency data. A test holds an opaque photo's array
+          equal to the old <code>.convert("RGB")</code> result (CODING_STANDARDS: a widened invariant is tested on
+          its old cases too).</td></tr>
+      <tr><td class="id">R2</td><td><strong>A re-evaluation of the segmenter's test split moves.</strong></td>
+        <td>Two test negatives decode grey instead of black where transparent. Recorded results stay as recorded
+          (their stages are frozen); a new evaluation says that this ticket changed those two inputs.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The grey reads as beans, or as background, differently from the old
+        colour.</strong></td>
+        <td>The segmenter already sees this grey around every crop it fills, never as a photo input. Check the 9
+          HEIF photos and their JXL copies through <code>/analyze</code> at full size, mask drawn, before the
+          release.</td></tr>
+      <tr><td class="id">R4</td><td><strong>A later re-encode at the front drops the alpha before the inference host
+        sees it</strong> (ML-15).</td>
+        <td>ML-15's ticket names this ticket: a re-encode keeps the alpha or composites over the same grey.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What colour does a transparent pixel decode as?</td>
+        <td>(a) The segmenter's fill grey, ImageNet's mean (b) White, as viewers show it (c) Keep the hidden colour,
+          as now</td>
+        <td>(a), 2026-11-03: "gray as when we apply segmenter mask".</td></tr>
+      <tr><td class="id">D2</td><td>How is a partly transparent pixel (a cut-out's anti-aliased rim) decoded?</td>
+        <td>(a) Blended: colour &times; alpha + grey &times; (1 &minus; alpha), as a viewer composites (b) Thresholded:
+          grey below a cut-off, the colour above it</td>
+        <td>Open. Recommended: (a).</td></tr>
+      <tr><td class="id">D3</td><td>Does the dataset tools' decode change with the serving one?</td>
+        <td>(a) Yes, the one <code>load_rgb_image</code> changes (train/inference parity) (b) Serving only, behind a
+          flag</td>
+        <td>Open. Recommended: (a); the only training-side effect is R2.</td></tr>
+      <tr><td class="id">D4</td><td>When does it go live?</td>
+        <td>(a) A release of its own after the merge (b) With the next release for another reason</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>load_rgb_image</code> decodes a photo's transparent pixels as
+      <code>FILL_RGB</code> and its partly transparent ones as D2 says; <code>SegParams.fill_rgb</code> defaults to
+      the same constant.</span></li>
+    <li><span class="box"></span><span>Tests: transparency in HEIF, PNG (RGBA and a palette's transparent index) and
+      JPEG XL decodes as the grey; an opaque photo decodes to the same array as before; the segmenter's fill equals
+      <code>FILL_RGB</code>.</span></li>
+    <li><span class="box"></span><span><code>docs/inference_path.html</code> says what step 1 does with alpha, in the
+      flowchart's node and the card.</span></li>
+    <li><span class="box"></span><span>The 9 HEIF photos of <code>2026-07-24__first_pictures</code> and their JXL
+      copies, run through <code>/analyze</code> locally: grey outside the lens circle, mask drawn, opened at full
+      size.</span></li>
+    <li><span class="box"></span><span>Released (<code>docs/agents/deploy.md</code>), and the same photos checked
+      through the live domain.</span></li>
+    <li><span class="box"></span><span>ML-15's ticket names this ticket's constraint on a front re-encode
+      (R4).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Using the alpha as a mask: excluding transparent pixels from the segmenter's region or from patch sampling,
+      rather than painting them grey.</li>
+    <li>Showing transparency itself in the preview (a checkerboard, or the page's background).</li>
+    <li>Re-encoding the dataset's photos.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-03</div>Ticket written from the owner's report (live site against Gwenview, the
+      HEIF and JXL photos of <code>2026-07-24__first_pictures</code>), <code>photo_io.py</code>,
+      <code>segment_beans.py</code> and a scan of the dataset for transparency. D1 decided by the owner; D2-D4 open.
+      Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_reencode_at_the_front.html">ML-15</a> (a re-encode at the front),
+    <a href="inference_path.html">the serving path page</a>, <a href="../CODING_STANDARDS.md">CODING_STANDARDS.md</a>
+    (train/inference parity; a serving change updates the serving path page), <code>coffeecv/photo_io.py</code>,
+    <code>coffeecv/segment_beans.py</code>.</footer>
+</main>
