@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 and P1 done 2026-11-03; P2 started; Q1&ndash;Q3 answered (ticket D13&ndash;D18)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P3 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -163,7 +163,7 @@
 
   <h2>4. P2 &mdash; The front serves the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the files in <code>STATIC</code>; the route waits on Q3</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>06dda89</code> and the P2 commit after <code>868c42e</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q3 (answered: D15)</span></div>
   </div>
   <ol class="tasks">
@@ -171,11 +171,15 @@
       <code>STATIC</code>, <code>webapp/deploy/release_manifest.py</code>: the front's release only (finding 1).
       <code>tests/test_release_manifest.py</code> follows. <em>The ten files done</em> 2026-11-03, with the files
       themselves; the existing tests (every file under <code>webapp/static</code> in the front's release, none in
-      the inference host's) needed no change. <code>examples.json</code> waits on Q1.</span></li>
-    <li><span class="box"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>: a
+      the inference host's) needed no change. <code>examples.json</code> added with the route (D13); <code>STATIC</code> builds the ten paths from it
+      (D18), and <code>tests/test_example_photos.py</code> holds the list, the files, the manifest and the
+      script's names together.</span></li>
+    <li><span class="box done"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>: a
       <code>location ^~ /examples/</code> with <code>image/jxl</code> for <code>.jxl</code> (nginx's
-      <code>mime.types</code> may not know it) and the Cache-Control of Q3; a missing example stays a 404.</span></li>
-    <li><span class="box"></span><span>Checks: <code>tests/test_front_site.py</code> gets an example by GET (200,
+      <code>mime.types</code> may not know it) and the Cache-Control of Q3; a missing example stays a 404. Done with a <code>types</code> block naming
+      <code>jxl</code>, <code>webp</code> and <code>json</code>, since a <code>types</code> in a location replaces
+      nginx's whole map there.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>tests/test_front_site.py</code> gets an example by GET (200,
       its type) and a missing one (404).</span></li>
   </ol>
 
@@ -337,6 +341,9 @@
       it opened: ticket D13&ndash;D18. P5 changes with D16 and D17: no <code>fixtures.txt</code> lines; the check
       fetches each example through the domain and compares it with the release's commit. P4 and P5 are now
       ready.</div>
+    <div><div class="when">2026-11-03</div>P2 done: <code>examples.json</code> (D13), the manifest built from it
+      (D18), and the front's <code>/examples/</code> route with <code>image/jxl</code> and <code>no-cache</code>
+      (D15), each tested against a real nginx.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

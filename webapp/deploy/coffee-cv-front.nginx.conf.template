@@ -49,6 +49,18 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    # The page's example photos and their list (ticket OPS-16, D13), revalidated on every visit like the page (D15): an
+    # example re-encoded under the same name is never served stale from a visitor's cache. `types` here replaces
+    # nginx's map for this location, and its mime.types has no JPEG XL; a missing example is still a 404.
+    location ^~ /examples/ {
+        types {
+            image/jxl        jxl;
+            image/webp       webp;
+            application/json json;
+        }
+        add_header Cache-Control "no-cache";
+    }
+
     # The files that describe the service to agents and their registries (webapp/README.md, "For agents"), readable
     # from any origin, so a tool running in a browser can fetch them too.
     location ~ ^/(llms\.txt|openapi\.json|\.well-known/ard\.json)$ {

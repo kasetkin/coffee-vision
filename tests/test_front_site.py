@@ -199,6 +199,19 @@ http {{
         resp.read()
         self.assertEqual(resp.status, 404)
 
+    def test_the_example_photos_are_served_revalidated_each_visit(self):
+        """OPS-16: the files the page's example row fetches, each with its type; no-cache, as the page (D15)."""
+        for path, kind in (("/examples/brazil-grinder.jxl", "image/jxl"), ("/examples/brazil-grinder.webp", "image/webp"),
+                           ("/examples/examples.json", "application/json")):
+            with self.subTest(path=path):
+                resp = self.visit("GET", path)
+                self.assertEqual((resp.status, resp.read()), (200, (STATIC / path[1:]).read_bytes()))
+                self.assertEqual(resp.getheader("Content-Type"), kind)
+                self.assertEqual(resp.getheader("Cache-Control"), "no-cache")
+        resp = self.visit("GET", "/examples/no-such-example.jxl")
+        resp.read()
+        self.assertEqual(resp.status, 404)
+
     def test_a_photo_reaches_the_inference_host_and_streams_back(self):
         forged = {"X-Real-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.9", "Forwarded": "for=203.0.113.9"}
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), forged)

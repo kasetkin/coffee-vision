@@ -36,10 +36,11 @@ STATIC = [
     "webapp/static/llms.txt",
     "webapp/static/openapi.json",
     "webapp/static/.well-known/ard.json",
-    # The page's example photos (ticket OPS-16, ADR 0032), made by scripts/make_example_photos.py: the front's
-    # release only, so they never cross to the inference host.
-    *(f"webapp/static/examples/{name}.{ext}"
-      for name in ("brazil-grinder", "ethiopia-green", "vietnam-robusta", "indonesia-roasted", "cappuccino")
+    # The page's example photos (ticket OPS-16, ADR 0032), made by scripts/make_example_photos.py, and their one
+    # list (D13, D18): the front's release only, so they never cross to the inference host.
+    "webapp/static/examples/examples.json",
+    *(f"webapp/static/examples/{e['name']}.{ext}"
+      for e in json.loads((REPO / "webapp/static/examples/examples.json").read_text())["examples"]
       for ext in ("jxl", "webp")),
 ]
 FRONT = STATIC + [
