@@ -2,6 +2,7 @@
 resolution, one click each, straight into a decisions file committed to git.
 
     python -m coffeecv.review_masks --items items.csv --name ml8_p4_new_crops   # any (photo, mask) list
+    python -m coffeecv.review_masks --items data/ml5_labels/pass14/review_items.csv --name ml19_pass14 --canonical
 
 then open http://localhost:8765 (VS Code forwards the port out of the devcontainer). If it doesn't
 (owner's setup, 2026-09-30), start it with --host 0.0.0.0 and open http://<container IP>:8765
@@ -13,6 +14,10 @@ resolution. A = accept, D = decline, 1-5 = decline with a reason, arrows = previ
 N = next unreviewed. Each click appends {item, path, mask_sha256, decision, reason, reviewer, via, ts}
 to labels/ml2/review/<name>.decisions.jsonl; the last row for an item wins, and a row made for a
 different mask (another sha) does not count, so that item is unreviewed again.
+
+--canonical (ticket ML-19 P5, D47) shows each original's canonical photo, the 8-bit sRGB the models read: the store's
+file (data/canonical, coffeecv.canonical.canonical_path) when it is there, else the original canonicalized on the
+spot (a photo outside the store, such as dataset/example_photos/). The item's path stays the original's.
 
 ML-2's --list (its base masks) and --blind (the mask judge's verdicts, shown after the click) went with ML-2's
 lists and judge on 2026-10-21.
@@ -62,17 +67,31 @@ def current_decisions(path: Path, items: list[dict]) -> dict[str, dict]:
     return out
 
 
+def canonical_rgb(path: Path) -> np.ndarray:
+    """An original's canonical photo as the models read it: the store's file, or canonicalized now."""
+    from coffeecv import canonical as cn
+    try:
+        stored = cn.canonical_path(path)
+    except ValueError:               # not under dataset/: no store file
+        stored = None
+    return cn.load_canonical(stored.read_bytes() if stored and stored.exists() else cn.canonicalize_file(path))
+
+
 class _Cache:
     """The last few decoded photos and masks: a 50 MP photo takes a second or two to decode."""
 
-    def __init__(self, n: int = 3):
-        self.n, self.d = n, OrderedDict()
+    def __init__(self, n: int = 3, canonical: bool = False):
+        self.n, self.d, self.canonical = n, OrderedDict(), canonical
 
     def get(self, it: dict) -> tuple[np.ndarray, np.ndarray]:
         k = it["item"]
         if k not in self.d:
-            rgb = load_rgb_image(REPO_ROOT / it["path"])
+            path = REPO_ROOT / it["path"]
+            rgb = canonical_rgb(path) if self.canonical else load_rgb_image(path)
             mask = np.array(Image.open(REPO_ROOT / it["mask"])) > 0
+            if rgb.shape[:2] != mask.shape:
+                abort(500, f"{it['item']}: the photo is {rgb.shape[1]} x {rgb.shape[0]}, the mask "
+                           f"{mask.shape[1]} x {mask.shape[0]}")
             self.d[k] = (rgb, mask)
             while len(self.d) > self.n:
                 self.d.popitem(last=False)
@@ -115,9 +134,10 @@ def zoom_tile(rgb: np.ndarray, mask: np.ndarray, x: float, y: float, outline: bo
     return rgb[y0:y0 + zh, x0:x0 + zw]
 
 
-def create_app(items: list[dict], decisions_path: Path, rule: str, reviewer: str = "owner") -> Flask:
+def create_app(items: list[dict], decisions_path: Path, rule: str, reviewer: str = "owner",
+               canonical: bool = False) -> Flask:
     app = Flask(__name__)
-    cache = _Cache()
+    cache = _Cache(canonical=canonical)
     by_index = {i: it for i, it in enumerate(items)}
 
     def get(i: int) -> dict:
@@ -251,10 +271,12 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--reviewer", default="owner")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 if VS Code does not forward localhost")
+    ap.add_argument("--canonical", action="store_true", help="show each original's canonical photo (ML-19)")
     args = ap.parse_args(argv)
     items = items_from_csv(args.items)
     name = args.name
-    app = create_app(items, REVIEW_DIR / f"{name}.decisions.jsonl", RULE_FILE.read_text().strip(), args.reviewer)
+    app = create_app(items, REVIEW_DIR / f"{name}.decisions.jsonl", RULE_FILE.read_text().strip(), args.reviewer,
+                     canonical=args.canonical)
     print(f"{len(items)} items; decisions -> {(REVIEW_DIR / f'{name}.decisions.jsonl').relative_to(REPO_ROOT)}")
     app.run(host=args.host, port=args.port, threaded=True)
 

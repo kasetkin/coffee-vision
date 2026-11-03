@@ -104,7 +104,7 @@ def _sniff(data: bytes, name: str) -> str:
     return "pillow"
 
 
-def _orient(a: np.ndarray, orientation: int) -> np.ndarray:
+def orient(a: np.ndarray, orientation: int) -> np.ndarray:
     """EXIF orientation 1-8 applied as a view, not a copy; any other value as stored (D28)."""
     t = a.swapaxes(0, 1)
     views = {2: lambda: a[:, ::-1], 3: lambda: a[::-1, ::-1], 4: lambda: a[::-1], 5: lambda: t,
@@ -149,6 +149,15 @@ def _check_size(width: int, height: int, max_pixels: int | None) -> None:
         raise TooLarge(f"{width} x {height} is over {max_pixels:,} pixels")
 
 
+def applied_orientation(data: bytes, name: str = "") -> int:
+    """The EXIF orientation canonicalization turns this original by (D28): 1 for HEIC, RAW and JPEG XL, whose decoders
+    turn them, and for a value outside 1-8."""
+    if _sniff(data, name) in ("raw", "heif", "jxl"):
+        return 1
+    orientation = _pillow_metadata(data)[1]
+    return orientation if 1 <= orientation <= 8 else 1
+
+
 def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source:
     """An original's main image at its decoder's depth, capped and upright (D20, D27, D28, D36). A photo over
     `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded."""
@@ -188,7 +197,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             with Image.open(io.BytesIO(data)) as im:
                 im.seek(0)
                 rgb = np.asarray(im.convert("RGBA" if im.has_transparency_data else "RGB"))
-        return Source(_orient(_cap(rgb), orientation), float(np.iinfo(rgb.dtype).max), profile, kind)
+        return Source(orient(_cap(rgb), orientation), float(np.iinfo(rgb.dtype).max), profile, kind)
     except Unreadable:
         raise
     except (OSError, ValueError, RuntimeError, SyntaxError, EOFError) as exc:
@@ -349,6 +358,7 @@ def load_canonical(data: bytes, strip: int = 128) -> np.ndarray:
     return out
 
 
-__all__ = ["CAP_PIXELS", "KEEP_MAX_PIXELS", "NotCanonical", "TooLarge", "Unreadable", "canonical_path",
+__all__ = ["CAP_PIXELS", "KEEP_MAX_PIXELS", "NotCanonical", "TooLarge", "Unreadable", "applied_orientation",
+           "canonical_path",
            "canonical_problems", "canonicalize", "canonicalize_file", "capped_size", "decode", "encode",
-           "header_problems", "is_canonical", "is_photo", "load_canonical", "to_rec2020"]
+           "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "to_rec2020"]

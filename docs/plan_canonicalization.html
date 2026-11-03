@@ -269,7 +269,7 @@
 
   <h2>7. P5 &mdash; pass14 and the labelling page <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: pass14 written and checked (this commit); stopped for the owner's review of the 191 turned rows (D47)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q1 (answered: D47)</span></div>
   </div>
   <p>D9, D19, D28: pass13's accepted masks carried into the canonical geometry, not re-judged; pass13 stays as
@@ -286,7 +286,18 @@
     <li><span class="box"></span><span>Stop for the owner: all 191 turned rows on the labelling page (Q1, D47).</span></li>
   </ol>
 
-  <h2>8. P6 &mdash; Training's tools on canonical photos</h2>
+    <p><b>As done, 2026-11-03.</b> <code>scripts/make_pass14.py</code> wrote <code>data/ml5_labels/pass14</code>
+    (DVC-tracked): 932 rows, pass13's, of which 191 changed (115 accepted, 76 negatives; 111 turned 90&deg;, 72 by
+    180&deg;, 8 by 270&deg;). The geometry is <code>coffeecv/label_geometry.py</code>, tested on all eight orientations: a
+    fence and strokes turned redraw the turned pixels. Every turned mask turned back is pass13's to the pixel. Found:
+    four of the turned rows are 200 MP Fold8 photos, whose canonical photos are capped to 50 MP (D27): their masks are
+    capped as the photos are (area averaged, threshold one half; area unchanged to four decimals) and their stroke
+    radii scaled. Two rows name photos ML-16 D3 moved to <code>dataset/example_photos/</code>: found by sha256.
+    The labelling page: <code>coffeecv.review_masks --canonical</code> shows each original's canonical photo (the
+    store's file, or canonicalized on the spot) and refuses a mask of another size. For the owner:</p>
+  <pre>python -m coffeecv.review_masks --items labels/ml19/pass14_review_items.csv --name ml19_pass14 --canonical</pre>
+
+<h2>8. P6 &mdash; Training's tools on canonical photos</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
