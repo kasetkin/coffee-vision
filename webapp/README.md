@@ -10,7 +10,7 @@ running the thing that serves it.
 
 ```
 Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor's IP per session)
-  --> THE FRONT, the proxy: nginx on 127.0.0.1:12347 (TLS termination, static files, one-at-a-time gate, 5 MB cap)
+  --> THE FRONT, the proxy: nginx on 127.0.0.1:12347 (TLS termination, static files, one-at-a-time gate, 10 MB cap)
         |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
         |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
         |                    -> the release's webapp/static/ files; any other path is a 404
@@ -23,8 +23,8 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
 serves the domain; it has the standard library only (`front/`), no ML code and no decoder, and forwards the photo's
 bytes unchanged. The inference host has the GPU and a slow link (2.1 Mbit/s in), which is why the front refuses a
-photo over 5 MB, or in a format the app cannot read, before it crosses. While the app is down (a deploy, or the
-host) the page stays up and `/analyze` answers `503 {"error": "the classifier is offline"}`.
+photo over 10 MB (OPS-16 D8), or in a format the app cannot read, before it crosses. While the app is down (a deploy,
+or the host) the page stays up and `/analyze` answers `503 {"error": "the classifier is offline"}`.
 
 - `app.py` -- the Flask app. Loads the model once at import time; `classify_one`'s
   two steps from `coffeecv/infer.py` do the actual work, so this service and the

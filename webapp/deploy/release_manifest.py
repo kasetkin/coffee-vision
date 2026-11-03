@@ -37,7 +37,11 @@ STATIC = [
     "webapp/static/openapi.json",
     "webapp/static/.well-known/ard.json",
 ]
-FRONT = STATIC + [
+# The page's example photos (ticket OPS-16, ADR 0032), made by scripts/make_example_photos.py, and their one list
+# (D13, D18): the front's release only, so they never cross to the inference host. Which they are is read from the
+# list at the release's ref (example_paths), so a working tree that differs cannot change what a release holds.
+EXAMPLES_LIST = "webapp/static/examples/examples.json"
+FRONT_CODE = [
     "webapp/front/check_service.py",
     "webapp/front/upload_check.py",
     "webapp/front/pyproject.toml",
@@ -150,9 +154,21 @@ def manifest(model: str, read_text: Callable[[str], str], exists: Callable[[str]
             "env": env, "generated": list(GENERATED)}
 
 
-def front_manifest() -> dict:
-    """The front's release, the same shape as manifest()'s: no model, nothing from DVC."""
-    return {"git": list(FRONT), "dvc": {}, "pinned": {}, "env": {}, "generated": list(FRONT_GENERATED)}
+def example_paths(read_text: Callable[[str], str], exists: Callable[[str], bool]) -> list[str]:
+    """The example list and the two files of each example it names, as the ref has them; none before OPS-16."""
+    if not exists(EXAMPLES_LIST):
+        return []
+    names = [e["name"] for e in json.loads(read_text(EXAMPLES_LIST))["examples"]]
+    return [EXAMPLES_LIST, *(f"webapp/static/examples/{n}.{ext}" for n in names for ext in ("jxl", "webp"))]
+
+
+def front_manifest(read_text: Callable[[str], str] | None = None, exists: Callable[[str], bool] | None = None) -> dict:
+    """The front's release, the same shape as manifest()'s: no model, nothing from DVC. Read from the working tree
+    unless given a ref's readers (_readers)."""
+    if read_text is None or exists is None:
+        read_text, exists = _readers(None)
+    git = STATIC + example_paths(read_text, exists) + FRONT_CODE
+    return {"git": git, "dvc": {}, "pinned": {}, "env": {}, "generated": list(FRONT_GENERATED)}
 
 
 def all_files(m: dict) -> set[str]:
@@ -195,14 +211,14 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--model", help="model name, e.g. dino3b16_segxl0v3_country_aug8_s123")
     ap.add_argument("--front", action="store_true", help="the front's release (OPS-15) instead of a model's")
-    ap.add_argument("--ref", help="git ref to read the card and pointers from (default: working tree)")
+    ap.add_argument("--ref", help="git ref to read the card and pointers, or the front's example list, from (default: working tree)")
     ap.add_argument("--check-staged", metavar="LISTING",
                     help="file listing of a staged release (one relative path per line, '-' = stdin); "
                          "exit 1 listing any path the manifest does not account for, or any it lacks")
     args = ap.parse_args()
     if args.front == bool(args.model):
         ap.error("give --model or --front")
-    m = front_manifest() if args.front else manifest(args.model, *_readers(args.ref))
+    m = front_manifest(*_readers(args.ref)) if args.front else manifest(args.model, *_readers(args.ref))
     if args.check_staged is None:
         print(json.dumps(m, indent=1))
         return

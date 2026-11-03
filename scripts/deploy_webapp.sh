@@ -329,7 +329,7 @@ build_front() {   # sets FSTAGE: the front's tree of release $ID, from the same 
   FSTAGE="$SCRATCH/$ID.front"
   rm -rf "$FSTAGE"; mkdir -p "$FSTAGE"
   # shellcheck disable=SC2046
-  git -C "$REPO" archive "$SHA" -- $("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front | jq -r '.git[]') \
+  git -C "$REPO" archive "$SHA" -- $("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front | jq -r '.git[]') \
     | tar -x -C "$FSTAGE"
   install -D -m 0644 "$STAGE/webapp/BUILD_INFO.json" "$FSTAGE/webapp/BUILD_INFO.json"
   render "$SHA" webapp/deploy/coffee-cv-front.nginx.conf.template DOMAIN="$DOMAIN" FRONT_PORT="$FRONT_PORT" \
@@ -337,7 +337,8 @@ build_front() {   # sets FSTAGE: the front's tree of release $ID, from the same 
   # The check service's two settings (webapp/front/check_service.py, options): read by its unit at each start.
   printf 'COFFEE_CV_FRONT_LISTEN=127.0.0.1:%s\nCOFFEE_CV_INFERENCE_URL=http://%s:%s\n' \
     "$CHECK_PORT" "$INFERENCE_ADDR" "$INFERENCE_PORT" > "$FSTAGE/front.env"
-  (cd "$FSTAGE" && find . -type f -printf '%P\n') | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - \
+  (cd "$FSTAGE" && find . -type f -printf '%P\n') \
+    | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front --check-staged - \
     || die "the front's staged tree does not match its manifest"
   note "the front's tree: $(find "$FSTAGE" -type f | wc -l) files, its site and front.env rendered"
 }
@@ -459,7 +460,7 @@ stage_front() {   # release $ID on the front: uploaded unless complete there, ch
       date -u +%FT%TZ > "$R/.complete"
     fi' ID="$ID" EXPECT="$expect" || die "staging the front's release failed"
   listing=$(fe 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
-  "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - <<<"$listing" \
+  "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front --check-staged - <<<"$listing" \
     || die "the front's release on $FRONT_HOST does not match its manifest"
   # The unit is the owner's to install (D9): it must be this release's, or the release would run under another.
   unit=$(render "$SHA" webapp/deploy/coffee-cv-front.service.template FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
@@ -824,6 +825,17 @@ verify() {   # returns non-zero on a failed check
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
+      # The page's example photos (ticket OPS-16 D14, D17): each fetched through the domain, held to the release
+      # commit's file, posted, and its answer held to its country or a refusal; one after another, about 1.5 min. A
+      # wrong one fails verify, which rolls a full deploy back. Not fixtures (D16): nothing here reaches the VM. The
+      # commit is the inference host's (its BUILD_INFO.json) while the front serves the files: the same release, as
+      # "the front's current release" above checks.
+      local examples examples_rc=0 examples_failed line
+      examples=$("$LOCAL_PY" "$DEPLOY_DIR/example_check.py" --url "$PUBLIC_URL" --commit "$(kv COMMIT "$out")" \
+                 --repo "$REPO") || examples_rc=$?
+      while IFS= read -r line; do [[ -n "$line" ]] && note "$line"; done <<<"$examples"
+      examples_failed=$(grep -c '^FAIL' <<<"$examples" || true)
+      if (( examples_rc != 0 )); then fails=$((fails + (examples_failed > 0 ? examples_failed : 1))); fi
     else
       check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
     fi

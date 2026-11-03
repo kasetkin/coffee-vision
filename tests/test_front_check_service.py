@@ -3,7 +3,7 @@
     python -m unittest tests.test_front_check_service
 
 webapp/front/check_service.py takes POST /analyze from the front's nginx, refuses what must not cross the tunnel
-(over 5 MB, D15; not an image, D2), forwards the rest unchanged to the inference host, and streams its answer back
+(over 10 MB, D15 and OPS-16 D8; not an image, D2), forwards the rest unchanged to the inference host, and streams its answer back
 (ADR 0023); an inference host it cannot reach is "the classifier is offline", apart from busy (D12). The service
 runs in this process on a loopback port, as under systemd; the inference host is a stdlib server here.
 """
@@ -167,14 +167,14 @@ class CheckService(unittest.TestCase):
         self.assertEqual(self.answer(form("", b"")), (400, {"error": "no photo uploaded"}))
         self.assertEqual(FakeInferenceHost.seen, [])
 
-    @real_data   # about 1.5 s: two 5 MB uploads and one answer
-    def test_a_photo_over_5_mb_never_crosses(self):
-        body = form("beans.jpg", JPEG + b"\x00" * (5 * 2**20))
+    @real_data   # about 3 s: two 10 MB uploads and one answer
+    def test_a_photo_over_10_mb_never_crosses(self):
+        body = form("beans.jpg", JPEG + b"\x00" * (10 * 2**20))
         status, payload = self.answer(body)
         self.assertEqual(status, 413)
-        self.assertIn("5 MB", payload["error"])
+        self.assertIn("10 MB", payload["error"])
         self.assertEqual(FakeInferenceHost.seen, [])
-        ok = form("beans.jpg", JPEG + b"\x00" * (5 * 2**20 - 4096))
+        ok = form("beans.jpg", JPEG + b"\x00" * (10 * 2**20 - 4096))
         _, resp = self.post(ok)
         resp.read()
         self.assertEqual(resp.status, 200, "a photo just under the cap is refused")
@@ -222,6 +222,31 @@ class CheckService(unittest.TestCase):
         FakeInferenceHost.reply = "garbage"
         self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
 
+    def test_an_answer_that_never_starts_is_offline_after_the_answers_timeout(self):
+        """The photo has crossed; the answer's reads get ANSWER_TIMEOUT_S, not the upload's longer one (OPS-16 D8)."""
+        FakeInferenceHost.release.clear()
+        self.addCleanup(FakeInferenceHost.release.set)
+        with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=30, ANSWER_TIMEOUT_S=0.3):
+            t0 = time.monotonic()
+            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+        self.assertLess(time.monotonic() - t0, 5)
+        self.assertEqual(len(FakeInferenceHost.seen), 1, "the photo never crossed")
+
+    def test_an_upload_that_stalls_is_offline_after_the_uploads_timeout(self):
+        """An inference host that takes the connection and never reads: the whole upload gets UPLOAD_TIMEOUT_S."""
+        stalled = socket.create_server(("127.0.0.1", 0))
+        self.addCleanup(stalled.close)
+        held = []
+        threading.Thread(target=lambda: held.append(stalled.accept()[0]), daemon=True).start()
+        self.addCleanup(lambda: [s.close() for s in held])
+        service = self.serve(f"http://127.0.0.1:{stalled.getsockname()[1]}")
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES - len(JPEG))   # more than loopback's buffers hold
+        with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=0.3, ANSWER_TIMEOUT_S=30):
+            t0 = time.monotonic()
+            self.assertEqual(self.answer(form("beans.jpg", photo), server=service),
+                             (503, {"error": "the classifier is offline"}))
+        self.assertLess(time.monotonic() - t0, 5)
+
     def test_a_query_string_still_reaches_the_app(self):
         _, resp = self.post(form("beans.jpg", JPEG), path="/analyze?source=agent")
         resp.read()
@@ -242,12 +267,12 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_the_cap_is_the_photos_own_size_not_the_forms(self):
-        photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))   # exactly 5 MB: the form around it is larger
+        photo = JPEG + b"\x00" * (10 * 2**20 - len(JPEG))   # exactly 10 MB: the form around it is larger
         _, resp = self.post(form("beans.jpg", photo, skip_crop=True))
         resp.read()
         self.assertEqual(resp.status, 200)
         status, payload = self.answer(form("beans.jpg", photo + b"\x00"))
-        self.assertEqual((status, payload), (413, {"error": "this photo is 5.1 MB; the limit is 5 MB"}))
+        self.assertEqual((status, payload), (413, {"error": "this photo is 10.1 MB; the limit is 10 MB"}))
 
     def test_one_photo_crosses_at_a_time(self):
         """The front's nginx frees its gate when a visitor leaves; the crossing it started goes on (D11)."""

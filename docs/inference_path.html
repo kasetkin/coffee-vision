@@ -295,7 +295,7 @@
     <b>Before <code>app.py</code></b> (ticket OPS-15, ADR 0031, live 2026-11-02): the photo reaches the app through
     two hosts. The proxy that serves the domain reads the TLS session's SNI in its <code>stream {}</code> block and
     hands it to <b>the front</b>, an nginx site on the same machine that terminates TLS, serves the page, lets one
-    <code>/analyze</code> through at a time and refuses a body over 5 MB (413). Its check service,
+    <code>/analyze</code> through at a time and refuses a body over 10 MB (413; 5 MB until OPS-16 D8). Its check service,
     <code>webapp/front/check_service.py</code>, reads the form and checks the photo's first bytes (and a RAW file's
     extension) against the formats the public contract names (<code>upload_check.py</code>; GIF, BMP and a plain
     TIFF are refused there, though Pillow would open them), then forwards the visitor's bytes unchanged over the tailnet, in

@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P1&ndash;P5 done 2026-11-03; P6 and P7 wait on ML-16</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -52,7 +52,9 @@
       <li><b>Branch</b> from <code>3c008a8</code> (on <code>ml16-photos-2026-11-03</code>, which holds this
         ticket, ADR 0032 and ML-16 D3), e.g. <code>ops16-example-photos</code>. Both branches join
         <code>main</code> by merge commit (ADR 0017) before the release, since a deploy takes only commits on
-        <code>origin/main</code> (ADR 0008).</li>
+        <code>origin/main</code> (ADR 0008). <em>Changed 2026-11-03 by the owner</em>: after P5,
+        <code>ops16-example-photos</code> was merged into <code>ml16-photos-2026-11-03</code>, and both tickets go
+        on in that one branch.</li>
       <li><b>This session does not touch</b> <code>dataset/</code>, <code>labels/</code>, <code>data/</code>,
         <code>dvc.yaml</code>, <code>dvc.lock</code> or <code>models/</code>. ML-16 D3 (moving the five originals
         to <code>dataset/example_photos/</code>, out of every set) is the ML-16 session's.</li>
@@ -92,18 +94,20 @@
       <tr><td class="id">Q1</td><td>Where does each example's caption, truth line and expected answer live? The page
         needs the first two, <code>--verify</code> the third, and <code>fixtures.txt</code> cannot hold it (finding
         2).</td>
-        <td><span class="pill sm open">Open</span> One list, <code>webapp/static/examples/examples.json</code>: per
+        <td>One list, <code>webapp/static/examples/examples.json</code>: per
           example its file, thumbnail, caption, country (null for the negative) and truth line. The page fetches it;
           <code>--verify</code> reads it from the repo and expects the country as top-1, or a refusal when it is
           null. <code>fixtures.txt</code> gets an <code>example</code> line per file for the sha256 pin, as D11
-          says. One source, so the page and the check never disagree.</td><td>P4, P5</td></tr>
+          says. One source, so the page and the check never disagree.<br><span class="pill sm ok">Answered</span>
+          Owner, 2026-11-03: as recommended (ticket D13), but without the <code>fixtures.txt</code> lines (D16) and
+          with the truth line made from the country; pinned by the release's commit instead (D17).</td><td>P4, P5</td></tr>
       <tr><td class="id">Q2</td><td>A wrong example answer in a full deploy's <code>--verify</code>: roll the
         release back, or report it and keep the release (finding 3)?</td>
-        <td><span class="pill sm open">Open</span> Roll back, like the smoke top-1. A wrong answer on the front
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-11-03: as recommended (ticket D14). Roll back, like the smoke top-1. A wrong answer on the front
           page is what D11 exists to stop, and the owner then swaps the example or rolls forward.</td><td>P5</td></tr>
       <tr><td class="id">Q3</td><td>How long may a browser keep an example file? Their names stay the same across
         releases, so a new re-encode under the same name may be served from a visitor's cache.</td>
-        <td><span class="pill sm open">Open</span> <code>Cache-Control: no-cache</code> on
+        <td><span class="pill sm ok">Answered</span> Owner, 2026-11-03: as recommended (ticket D15). <code>Cache-Control: no-cache</code> on
           <code>/examples/</code>, as on the page: a revalidation per visit (a 304 when unchanged), never a stale
           file.</td><td>P2</td></tr>
     </tbody>
@@ -111,7 +115,7 @@
 
   <h2>3. P1 &mdash; The example files <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>80831cd</code>, <code>a51a4ec</code>; the files committed with P2's first task after the owner's look</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The originals, by sha256 (D1). Sizes measured 2026-11-03 with pillow-jxl-plugin at q90 (D3).</p>
@@ -133,113 +137,148 @@
   <p>The Vietnam and Indonesia photos also have byte copies in <code>dataset/segmenter_positives/</code>; ML-16 D3
     removes those too.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>A small script (e.g. <code>scripts/make_example_photos.py</code>, run with
+    <li><span class="box done"></span><span>A small script (e.g. <code>scripts/make_example_photos.py</code>, run with
       <code>python -I</code>) that finds each original by sha256 in its dataset path or in
       <code>dataset/example_photos/</code>, decodes it with the HEIF opener registered, applies
       <code>ImageOps.exif_transpose</code>, and writes <code>webapp/static/examples/&lt;name&gt;.jxl</code> at q90
       with <code>exif=b""</code> (finding 5), and <code>&lt;name&gt;.webp</code> with a long side of about 400 px.
       Short names, e.g. <code>brazil-grinder</code>, <code>ethiopia-green</code>, <code>vietnam-robusta</code>,
       <code>indonesia-roasted</code>, <code>cappuccino</code>.</span></li>
-    <li><span class="box"></span><span>Each JXL decodes through <code>coffeecv/photo_io.py</code> (the code path
+    <li><span class="box done"></span><span>Each JXL decodes through <code>coffeecv/photo_io.py</code> (the code path
       training and serving use) to the original's orientation and size.</span></li>
-    <li><span class="box"></span><span>A first check on the live model,
+    <li><span class="box done"></span><span>A first check on the live model,
       <code>dino3b16_segxl0v6_country_aug8_s42</code>: each JXL against its original, the same top-1 (four bean
       photos) and a refusal (the cappuccino). Provisional only: the live model trained on Brazil and Vietnam. A
-      mismatch: lower that photo's quality, and say so here.</span></li>
-    <li><span class="box"></span><span><code>leak_check</code> on the ten staged files; none over 5 MB.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: look at the five JXLs and thumbnails before they are
-      committed (they are public for good, ADR 0032).</span></li>
+      mismatch: lower that photo's quality, and say so here.
+      <em>Done through the live site</em> (the owner's call, 2026-11-03), <code>https://coffee.kasetkin.com/analyze</code>,
+      one at a time: Brazil JXL 0.995; Ethiopia 0.987 original, 0.986 JXL; Vietnam 0.962, 0.963; Indonesia 0.998,
+      0.998; the cappuccino <code>refused_ood</code> both. The Brazil original (7.02 MB) is over the live 5 MB cap
+      and was not sent; it is in the live model's train split. No mismatch: q90 for all five.</span></li>
+    <li><span class="box done"></span><span><code>leak_check</code> on the ten staged files; none over 5 MB. Clean with the owner's private
+      pattern; the largest is 4.01 MB (Ethiopia). The JPEG XLs report an ICC profile when decoded: libjxl's sRGB,
+      built from the codestream's colour encoding, the same 504 bytes in all five; none is written. The Ethiopia
+      HEIC's own profile is not carried over, which the model never reads (<code>load_rgb_image</code>).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: look at the five JXLs and thumbnails before they are
+      committed (they are public for good, ADR 0032). <em>Done</em> 2026-11-03: "i checked all examples photos,
+      they are okay, we can commit them."</span></li>
   </ol>
 
   <h2>4. P2 &mdash; The front serves the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q3</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>06dda89</code>, <code>39b380f</code></span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q3 (answered: D15)</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The ten files (and <code>examples.json</code>, Q1) in
+    <li><span class="box done"></span><span>The ten files (and <code>examples.json</code>, Q1) in
       <code>STATIC</code>, <code>webapp/deploy/release_manifest.py</code>: the front's release only (finding 1).
-      <code>tests/test_release_manifest.py</code> follows.</span></li>
-    <li><span class="box"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>: a
+      <code>tests/test_release_manifest.py</code> follows. <em>The ten files done</em> 2026-11-03, with the files
+      themselves; the existing tests (every file under <code>webapp/static</code> in the front's release, none in
+      the inference host's) needed no change. <code>examples.json</code> added with the route (D13); <code>STATIC</code> builds the ten paths from it
+      (D18), and <code>tests/test_example_photos.py</code> holds the list, the files, the manifest and the
+      script's names together.</span></li>
+    <li><span class="box done"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>: a
       <code>location ^~ /examples/</code> with <code>image/jxl</code> for <code>.jxl</code> (nginx's
-      <code>mime.types</code> may not know it) and the Cache-Control of Q3; a missing example stays a 404.</span></li>
-    <li><span class="box"></span><span>Checks: <code>tests/test_front_site.py</code> gets an example by GET (200,
+      <code>mime.types</code> may not know it) and the Cache-Control of Q3; a missing example stays a 404. Done with a <code>types</code> block naming
+      <code>jxl</code>, <code>webp</code> and <code>json</code>, since a <code>types</code> in a location replaces
+      nginx's whole map there.</span></li>
+    <li><span class="box done"></span><span>Checks: <code>tests/test_front_site.py</code> gets an example by GET (200,
       its type) and a missing one (404).</span></li>
   </ol>
 
   <h2>5. P3 &mdash; The 10 MB cap</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>502a112</code> on <code>ops16-example-photos</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D8. Every place the 5 MB cap is, read at <code>3c008a8</code> (<code>grep -rn "5 MB\|5184\|MAX_UPLOAD_BYTES"</code>).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>webapp/front/check_service.py</code>: <code>MAX_UPLOAD_BYTES</code> 10 MB
+    <li><span class="box done"></span><span><code>webapp/front/check_service.py</code>: <code>MAX_UPLOAD_BYTES</code> 10 MB
       and its comments; <code>INFERENCE_TIMEOUT_S</code> 60 &rarr; 120 (it bounds the connect, the whole upload
-      and each read of the answer: a 10 MB photo crosses in about 40 s at 2.1 Mbit/s).</span></li>
-    <li><span class="box"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>:
+      and each read of the answer: a 10 MB photo crosses in about 40 s at 2.1 Mbit/s).
+      <em>Done as two:</em> one constant at 120 s would give each read of the answer 120 s too, up to 240 s before
+      its first byte, past nginx's 190 s. So <code>UPLOAD_TIMEOUT_S</code> = 120 bounds the connect and the whole
+      upload, and <code>ANSWER_TIMEOUT_S</code> = 60 each read after it: 120 + 60 s, as the next line assumes.
+      A test holds nginx's wait above their sum.</span></li>
+    <li><span class="box done"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>:
       <code>client_max_body_size</code> 5184k &rarr; 10304k (10 MB + the 64 KB <code>FORM_ALLOWANCE</code>),
       <code>proxy_read_timeout</code> 130s &rarr; 190s (the check service's longest wait before the answer's first
       byte goes from 60 + 60 s to 120 + 60 s, and nginx outwaits it), the 413 message, the comments.</span></li>
-    <li><span class="box"></span><span><code>webapp/static/index.html</code>: <code>MAX_UPLOAD_BYTES</code>, and the
+    <li><span class="box done"></span><span><code>webapp/static/index.html</code>: <code>MAX_UPLOAD_BYTES</code>, and the
       comment "about 20 s for 5 MB".</span></li>
-    <li><span class="box"></span><span>The docs: <code>webapp/static/llms.txt</code> (three places),
+    <li><span class="box done"></span><span>The docs: <code>webapp/static/llms.txt</code> (three places),
       <code>webapp/static/openapi.json</code> (two), <code>webapp/README.md</code> (two),
       <code>docs/inference_path.html</code>, ADR 0031's consequence line ("Until then the front caps uploads at
       5 MB", now 10 MB with OPS-16 D8 as its source).</span></li>
-    <li><span class="box"></span><span>The tests: <code>tests/test_front_check_service.py</code> (the exactly-5 MB
+    <li><span class="box done"></span><span>The tests: <code>tests/test_front_check_service.py</code> (the exactly-5 MB
       photos and the "5 MB" messages), <code>tests/test_front_site.py</code>, <code>tests/test_agent_files.py</code>
       (holds the page's cap equal to the check service's). <code>tests/test_inference_site.py</code> reads
       <code>app.py</code>'s 20 MB, which stays.</span></li>
-    <li><span class="box"></span><span>The check service's peak memory with a 10 MB upload in flight, measured as
+    <li><span class="box done"></span><span>The check service's peak memory with a 10 MB upload in flight, measured as
       OPS-15's plan P1 did (40 MB at 5 MB), written in the ticket's Activity. <code>MemoryMax=100M</code>
       (<code>webapp/deploy/coffee-cv-front.service.template</code>, and its comment) rises only past about
-      70 MB.</span></li>
-    <li><span class="box"></span><span>Checks: the full suite; a 10 MB photo passes the front and a 10 MB + 1 byte
+      70 MB. <em>Measured</em>: 65.5 MB VmHWM at 10 MB (44.6 MB at 5 MB, same machine); it stays.</span></li>
+    <li><span class="box done"></span><span>Checks: the full suite; a 10 MB photo passes the front and a 10 MB + 1 byte
       one gets the 413.</span></li>
   </ol>
 
   <h2>6. P4 &mdash; The page's example row</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>e2cfaa1</code>; Firefox left to P7's owner check</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1 (answered: D13)</span></div>
   </div>
   <p>D9, D10. <code>webapp/static/index.html</code> is one file, inline CSS and JS, no build step.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Under "Choose Photo": "No photo? Try one of ours:" and the five WebP
+    <li><span class="box done"></span><span>Under "Choose Photo": "No photo? Try one of ours:" and the five WebP
       thumbnails as buttons, each with its caption ("Roasted, in a grinder", "Green, in a tray", "Robusta, on a
       table", "Roasted, close up", "A cappuccino, no beans") and alt text.</span></li>
-    <li><span class="box"></span><span>A click fetches the JXL, wraps it in a <code>File</code> with its name, and
+    <li><span class="box done"></span><span>A click fetches the JXL, wraps it in a <code>File</code> with its name, and
       hands it to the path a chosen file takes (the body of <code>fileInput</code>'s <code>change</code> handler,
       factored out): the same size check, upload token, busy retries (<code>postAnalyze</code>) and "Use full photo
       instead". The row is disabled while a photo is in flight, as Choose Photo is (OPS-7 D4).</span></li>
-    <li><span class="box"></span><span>Once the answer is in, one line under it gives the truth: "This coffee is
+    <li><span class="box done"></span><span>Once the answer is in, one line under it gives the truth: "This coffee is
       from Brazil." or, for the cappuccino, "No coffee beans here: the classifier should refuse it." Never shown
       for a visitor's own photo.</span></li>
-    <li><span class="box"></span><span>Checks: on a local app (<code>scripts/rehearse_deploy_local.sh</code> or the
+    <li><span class="box done"></span><span>Checks: on a local app (<code>scripts/rehearse_deploy_local.sh</code> or the
       app run directly), each example runs end to end in Chrome and Firefox; a JXL the browser cannot show still
-      uploads, since the page shows the server's JPEG thumbnail (D7).</span></li>
+      uploads, since the page shows the server's JPEG thumbnail (D7). <em>Done in headless Chromium</em> (Playwright,
+      2026-11-03), the page served from the worktree and its <code>/analyze</code> passed through to the live site,
+      so the page's own code ran on the live model: the five captions; each click disabling the row and Choose
+      Photo; Brazil, Ethiopia, Vietnam and Indonesia top-1 and the cappuccino refused, each followed by its truth line
+      and nothing after it; "Use full photo instead" on an example keeping its truth line; a visitor's own photo with
+      none; no row when <code>examples.json</code> cannot be read. Chromium cannot show a JPEG XL and every example
+      still ran. Firefox was not run here; P7's owner check covers it. <code>tests/test_example_photos.py</code> pins
+      the page's D10 wording.</span></li>
   </ol>
 
   <h2>7. P5 &mdash; <code>--verify</code> checks the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1, Q2</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>b51d69e</code></span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1, Q2 (answered: D13, D14, D16, D17)</span></div>
   </div>
   <p>D11. <code>verify()</code> in <code>scripts/deploy_webapp.sh</code> posts the smoke photo through the domain
     and checks its top-1 against the release's expected answer; the examples go the same way, one after another
     (the front's gate takes one at a time; a 503 busy is retried once, as for the smoke). About 10.8 MB to cross and
     5 &times; ~9 s of inference: about 1.5 minutes more.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>webapp/deploy/fixtures.txt</code>: an <code>example</code> line per
-      JXL (<code>example &lt;sha256&gt; webapp/static/examples/&lt;name&gt;.jxl</code>) and the role in its
-      header comment. <code>check_fixtures</code> pins them; <code>send_fixtures</code> skips the role (finding 4);
-      <code>scripts/rehearse_deploy_local.sh</code> reads every line's path, which still works.</span></li>
-    <li><span class="box"></span><span><code>verify()</code>: each example posted through the domain; a check
-      line per example, top-1 equal to its country in <code>examples.json</code>, or a refusal where the
-      country is null. The failure behaviour of Q2.</span></li>
-    <li><span class="box"></span><span>Checks: <code>tests/test_release_manifest.py</code> and any test reading
-      <code>fixtures.txt</code>; <code>scripts/rehearse_deploy_local.sh</code> green.</span></li>
+    <li><span class="box done"></span><span><s><code>webapp/deploy/fixtures.txt</code>: an <code>example</code> line per
+      JXL.</s> Dropped by D16: example photos are not fixtures; <code>fixtures.txt</code> is unchanged.</span></li>
+    <li><span class="box done"></span><span><code>verify()</code> (D17): each example in <code>examples.json</code>
+      fetched through the domain, its bytes equal to the file at the commit the release serves, then posted to
+      <code>/analyze</code>; a check line per example, top-1 equal to its country, or <code>refused_ood</code>
+      where the country is null. A failure rolls a full deploy back (D14). Skipped with the other domain checks
+      under <code>PUBLIC_URL=</code>. <em>Done</em> as <code>webapp/deploy/example_check.py</code>, called by
+      <code>verify()</code> after the smoke check with the commit the VM's <code>BUILD_INFO.json</code> names; each
+      <code>FAIL</code> line counts as one of verify's failures. A commit without <code>examples.json</code> (a
+      release from before OPS-16, such as the one a rollback returns to) has nothing to check.</span></li>
+    <li><span class="box done"></span><span>Checks: the comparison as a unit (a Python helper beside
+      <code>release_probe.py</code>, tested); <code>scripts/rehearse_deploy_local.sh</code> green. <em>Done</em>: <code>tests/test_example_check.py</code>
+      against a fake front (right answers, a wrong country, a bean photo refused, the negative not refused, a served
+      file other than the commit's, a front without the route, one busy answer retried, two not, a release from
+      before the examples); the tool run for real at <code>e2cfaa1</code> against a local front passing
+      <code>/analyze</code> to the live site, all fifteen checks passing; <code>verify()</code>'s fragment run alone
+      under <code>set -euo pipefail</code> for its failure count. The rehearsal was not run: it sets
+      <code>PUBLIC_URL=</code>, so it skips the domain checks this adds, and it needs the DVC data this worktree
+      lacks.</span></li>
   </ol>
 
   <h2>8. P6 &mdash; The examples on ML-16's model <span class="pill sm open">stop</span></h2>
@@ -262,7 +301,8 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P2&ndash;P6, ML-16's release</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Both branches merged into <code>main</code> and pushed; one deploy of ML-16's
+    <li><span class="box"></span><span>ML-16's branch, which carries OPS-16 since 2026-11-03, merged into
+      <code>main</code> and pushed; one deploy of ML-16's
       model (<code>docs/agents/deploy.md</code>; photo answers are down meanwhile, say so first).</span></li>
     <li><span class="box"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh --verify</code>: the five examples'
       checks pass; the page shows the row; a photo between 5 and 10 MB (the Brazil original, 7.02 MB) goes
@@ -296,6 +336,52 @@
     <div><div class="when">2026-11-03</div>Claude reads ticket OPS-16 at <code>3c008a8</code> and writes this plan,
       to be carried out in a session parallel to ML-16's. Five findings not in the ticket; Q1&ndash;Q3 open for the
       owner. Not implemented.</div>
+    <div><div class="when">2026-11-03</div>Claude implements P3 on <code>ops16-example-photos</code>, a worktree
+      branched from <code>fbdaef0</code> (the ML-16 session works in the main checkout). Finding 6: the plan's one
+      timeout at 120 s would let each read of the answer wait 120 s too, so it is split into an upload timeout
+      (120 s) and an answer timeout (60 s). The check service peaks at 65.5 MB with a 10 MB upload, under the 70 MB
+      at which <code>MemoryMax</code> would rise. Q1&ndash;Q3 still open; P2, P4 and P5 wait on them and on P1.</div>
+    <div><div class="when">2026-11-03</div>P1 up to its stop: <code>scripts/make_example_photos.py</code> writes
+      the five JPEG XLs at q90 and their WebP thumbnails (sizes as measured in the ticket), checked against their
+      originals on the live site at the owner's suggestion, not on a local copy of the model: the same top-1 for
+      the three bean photos sendable today, the Brazil JXL right, the cappuccino refused. Finding 7: pillow-jxl-plugin
+      encodes an opened JPEG losslessly whatever the quality, so the script encodes a new image with
+      <code>lossless_jpeg=False</code>. The files wait in <code>webapp/static/examples/</code>, uncommitted, for the
+      owner's look.</div>
+    <div><div class="when">2026-11-03</div><code>/code-review</code> of P3 and P1. Fixed: the script now compares
+      each JPEG XL's pixels with its original's through <code>load_rgb_image</code> (which ignores Orientation), so a
+      photo turned upright cannot pass on its size alone; <code>docs/agents/deploy.md</code>'s cap line; P3's
+      commit. Carried to later phases: (1) the ten files fail
+      <code>test_every_static_file_ships_in_the_fronts_release</code> until they are in <code>STATIC</code>, so they
+      are committed with P2's manifest change, not alone; (2) the originals' sha256s sit inline in the script, its one
+      reader today (P5's <code>fixtures.txt</code> pins the JPEG XLs', not the originals'); if Q1's list is adopted
+      and names the examples, the script reads the names from it rather than keeping a second list; (3) the Brazil original against its
+      JPEG XL is still unchecked (over the live cap), and is checked at P6 on ML-16's model.</div>
+    <div><div class="when">2026-11-03</div>Q1&ndash;Q3 answered in a grilling session, with three more decisions
+      it opened: ticket D13&ndash;D18. P5 changes with D16 and D17: no <code>fixtures.txt</code> lines; the check
+      fetches each example through the domain and compares it with the release's commit. P4 and P5 are now
+      ready.</div>
+    <div><div class="when">2026-11-03</div>P2 done: <code>examples.json</code> (D13), the manifest built from it
+      (D18), and the front's <code>/examples/</code> route with <code>image/jxl</code> and <code>no-cache</code>
+      (D15), each tested against a real nginx.</div>
+    <div><div class="when">2026-11-03</div>P4 done: the example row, built from <code>examples.json</code>; a
+      click fetches the JPEG XL and takes the chosen file's path (<code>choose()</code>, factored out of the
+      <code>change</code> handler); the truth line after the answer. Run end to end in headless Chromium against
+      the live model, all checks passing. The P2 commit is <code>39b380f</code>.</div>
+    <div><div class="when">2026-11-03</div>P5 done: <code>--verify</code> checks the examples through the domain
+      (D14, D17) with <code>webapp/deploy/example_check.py</code>; <code>docs/agents/deploy.md</code> says what
+      <code>--verify</code> now checks. The P4 commit is <code>e2cfaa1</code>. What is left is P6 and P7, both waiting
+      on ML-16.</div>
+    <div><div class="when">2026-11-03</div><code>/code-review</code> of P2, P4 and P5. Fixed: a release commit
+      the deploying checkout cannot resolve now fails <code>example_check.py</code> instead of skipping it, which
+      would have passed a release with no example checked; an offline 503 is not retried; a click on an example
+      clears the last photo's preview and "Use full photo instead" while the example downloads (checked in the
+      browser run again, all passing); the front's manifest reads the example list at the release's ref
+      (<code>--ref "$SHA" --front</code>), not the working tree; a test no longer restates
+      <code>examples.json</code>. The P5 commit is <code>b51d69e</code>.</div>
+    <div><div class="when">2026-11-03</div>The owner's call: merge <code>ops16-example-photos</code> into ML-16's
+      branch now and continue both tickets there. A test merge (<code>git merge-tree</code>) was clean; ML-16's
+      session was idle. P6 and P7 are done on <code>ml16-photos-2026-11-03</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

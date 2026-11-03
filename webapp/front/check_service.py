@@ -3,9 +3,9 @@ unchanged to the inference host, whose answer streams back as it arrives.
 
     python webapp/front/check_service.py --listen 127.0.0.1:8100 --inference http://<tailnet address>:12346
 
-It refuses what must not cross the tunnel to the inference host (2.1 Mbit/s, OPS-15 §2): an upload over 5 MB (D15)
-and a file that is not one of the formats the service reads (upload_check). Everything else goes on as the visitor
-sent it, the photo's bytes untouched (D2): decoding and every pixel the model sees stay on the inference host. An
+It refuses what must not cross the tunnel to the inference host (2.1 Mbit/s, OPS-15 §2): an upload over 10 MB (D15,
+OPS-16 D8) and a file that is not one of the formats the service reads (upload_check). Everything else goes on as the
+visitor sent it, the photo's bytes untouched (D2): decoding and every pixel the model sees stay on the inference host. An
 inference host that cannot be reached, or whose app is down behind its nginx, is a 503 "the classifier is offline"
 (D12), apart from its busy 503, which is relayed as it is.
 
@@ -30,14 +30,17 @@ from urllib.parse import unquote, urlsplit
 
 from upload_check import HEAD_BYTES, refusal
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024   # D15, until ML-15: the photo's own size, as the page measures it
+# D15, until ML-15, raised to 10 MB by ticket OPS-16 D8: the photo's own size, as the page measures it.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 # The form around the photo (its boundaries, the part headers, skip_crop) is a few hundred bytes; the body may be this
-# much over the photo's cap, and the front's nginx allows the same (client_max_body_size 5184k).
+# much over the photo's cap, and the front's nginx allows the same (client_max_body_size 10304k).
 FORM_ALLOWANCE = 64 * 1024
-# D16: a 5 MB photo crosses the tunnel in about 20 s (2.1 Mbit/s measured into yappy, 2026-11-02) and /analyze takes
-# about 9-12 s there. Python applies this to the connect, to the whole upload (sendall), and to each read of the
-# answer: at most about 120 s before an answer starts, which the front's nginx outwaits (proxy_read_timeout 130s).
-INFERENCE_TIMEOUT_S = 60
+# D16, OPS-16 D8: a 10 MB photo crosses the tunnel in about 40 s (2.1 Mbit/s measured into yappy, 2026-11-02) and
+# /analyze takes about 9-12 s there. The connect and the whole upload (sendall) get UPLOAD_TIMEOUT_S, then each read
+# of the answer ANSWER_TIMEOUT_S: at most about 180 s before an answer starts, which the front's nginx outwaits
+# (proxy_read_timeout 190s).
+UPLOAD_TIMEOUT_S = 120
+ANSWER_TIMEOUT_S = 60
 OFFLINE = {"error": "the classifier is offline"}
 BUSY = {"error": "the classifier is busy with another photo"}   # the front's nginx gate says the same (D11)
 TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"}   # and so does its 413
@@ -127,7 +130,7 @@ class CheckHandler(BaseHTTPRequestHandler):
             self.crossing.release()
 
     def forward(self, body: bytes) -> str:
-        conn = http.client.HTTPConnection(*self.inference, timeout=INFERENCE_TIMEOUT_S)
+        conn = http.client.HTTPConnection(*self.inference, timeout=UPLOAD_TIMEOUT_S)
         try:
             conn.putrequest("POST", self.path, skip_accept_encoding=True)
             for k, v in self.headers.items():   # items(), not a dict: a header sent twice goes on twice
@@ -135,6 +138,7 @@ class CheckHandler(BaseHTTPRequestHandler):
                     conn.putheader(k, v)
             conn.putheader("Content-Length", str(len(body)))
             conn.endheaders(body)
+            conn.sock.settimeout(ANSWER_TIMEOUT_S)   # the photo has crossed: from here, each read of the answer
             resp = conn.getresponse()
         except (OSError, http.client.HTTPException) as exc:   # refused, unreachable, timed out, not HTTP
             conn.close()
