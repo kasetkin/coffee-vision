@@ -1,0 +1,297 @@
+<title>Canonicalization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-19 · coffee-vision · what both models read, in training and serving</div>
+  <h1>Every photo both models read is a canonical photo: rotated, at most 50 MP, Rec.2020 JPEG XL q95, read as sRGB</h1>
+  <p class="lede">The owner wants every photo turned into one form before either model sees it, in training and in
+    serving: a lossy JPEG XL at quality 95 in Rec.2020, made on the front for a visitor's photo. Today each original is
+    decoded as it comes, colour profile and orientation ignored, and photos cross the slow link as uploaded. This
+    ticket comes before ML-16's retrain of both models, which then train on canonical photos. Written 2026-11-03 from a
+    grilling session with the owner; most decisions taken, three wait on measurements; not planned, not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22 decided, D23&ndash;D25 open on measurements; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/photo_io.py</code> (and a canonicalization module), a DVC stage <code>canonicalize@&lt;folder&gt;</code>, <code>coffeecv/segcrop_session.py</code> (crops), <code>coffeecv/seg_review.py</code> and the labelling page, the segmenter's fine-tune and prediction, the OOD tools, <code>webapp/front/</code> (canonicalization at the front), <code>webapp/app.py</code> (canonical photos only), <code>webapp/static/examples/</code>, <code>scripts/make_example_photos.py</code>, <code>docs/inference_path.html</code>, ADR 0031, ADR 0033, the tests</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At ML-16's release: the front canonicalizes every upload and sends the canonical photo to the inference host, which refuses anything else; the models read sRGB decoded from it; the example photos become canonical photos.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">blocks ML-16's retrain; ships in ML-16's release, with OPS-16 (D15)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-03.</strong> "I want to re-encode images at the front from any supported image
+      format into lossy JXL with good quality (let's say 95%) with Rec2020 color space. Let's think about it like image
+      normalization process. So before retraining both models we should insert this conversion into preprocessing
+      steps. I think we can store crops after segmentation using this format." In the grilling that followed: "the
+      front memory is not a problem, we can use at least 500Mb of RAM"; "store JXL with Rec.2020 colorspace. Add tests
+      so color conversion would be checked every commit and will not drift later."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today <code>load_rgb_image</code> decodes each original as it is: colour profiles and EXIF orientation ignored,
+    the main image only, at full resolution. The front forwards a visitor's bytes over a 2.1 Mbit/s link, and training
+    saves its crops as JPEG q95, a lossy step serving never has.</p>
+  <p>After this ticket every photo is <em>canonicalized</em> (GLOSSARY.md) before either model reads it: the EXIF
+    rotation applied, transparency over the segmenter's fill grey, at most 50 MP, colour-managed from its own profile
+    into Rec.2020, its main image only, no metadata, encoded as lossy JPEG XL q95; the models read it decoded to 8-bit
+    sRGB. A visitor's photo is canonicalized on the front, so fewer bytes cross the link; the inference host accepts
+    canonical photos only. The dataset is canonicalized into a DVC store that everything reading photos for the models
+    uses, and crops are stored as lossless JPEG XL. The segmenter's labels move to the canonical geometry in a new
+    session, pass14, carried from pass13 without re-judging (<a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>).</p>
+  <p>The work splits into: the canonicalization function and its colour tests; the encoder and the front's
+    measurements (D23&ndash;D25); the canonical store; pass14; the training stages reading it; the front and the
+    host; the example photos; the baseline of today's models on canonical test photos. ML-15 and ML-17 are absorbed
+    here; HDR gain maps are ML-20.</p>
+
+  <h2>2. Background</h2>
+  <p>Read from the code at <code>840bb87</code> and measured 2026-11-03; scripts and numbers in
+    <code>analysis/ml19/</code>.</p>
+  <ul>
+    <li><strong>The decode.</strong> <code>coffeecv/photo_io.py:load_rgb_image</code> is the one decoder for training
+      and serving: RAW through rawpy (8-bit sRGB out), everything else <code>Image.open(path).convert("RGB")</code>,
+      which drops the ICC profile, the alpha channel (ML-17) and any second image, and ignores EXIF orientation.</li>
+    <li><strong>Colour profiles in <code>dataset/</code></strong> (2,463 photos): Display P3 or DCI-P3 1,158 (all 148
+      HEICs among them), sRGB 487, Adobe RGB 7, other 14, none 797. Of the untagged, 657 say sRGB in EXIF
+      ColorSpace, 1 says "Uncalibrated", 139 say nothing (112 JPEG, 20 PNG, 7 DNG). So 47% of the photos reach both
+      models as P3 numbers read as sRGB.</li>
+    <li><strong>Out of sRGB.</strong> In the 1,152 readable P3 photos 0.86% of pixels lie outside sRGB, 0.29% by
+      more than 2%; 18 photos have more than 10% outside, mostly real-world negatives and label cards, the highest
+      bean photo a Rwanda pool photo (58%).</li>
+    <li><strong>Orientation.</strong> 662 photos carry a rotate tag (Rotate 90 CW 361, 180 281, 270 CW 20). Both models
+      and every label mask use the stored, unrotated pixels.</li>
+    <li><strong>Second images.</strong> 1,518 photos hold one (an HDR gain map, a depth map or a preview); the models
+      read the main image only.</li>
+    <li><strong>Over 50 MP.</strong> 7 photos (six 200 MP, one 84 MP, Galaxy Z Fold8 Ultra, 19&ndash;33 MB). Downscaled
+      to 50 MP with Lanczos: 0.005&ndash;0.49% of the image's power lay above the new resolution limit; on the live
+      models the same verdict and top-1 on all 7 (probability within 0.012), mask area the same to 3 decimals, bean
+      pitch halved exactly with the scale; the slowest photo 34.3 s against 16.7 s.</li>
+    <li><strong>Crops.</strong> <code>segcrop_session.py</code> saves each crop as JPEG q95 and its mask as a PNG;
+      serving crops in memory and never encodes the crop, so training alone sees that lossy step.</li>
+    <li><strong>The front.</strong> <code>webapp/front/check_service.py</code> is standard library only, under
+      <code>MemoryMax=100M</code>; ADR 0031: "The front gets no ML code and no decoder", pending ML-15. The owner
+      allows at least 500 MB (D1). The front's upload cap is 10 MB (OPS-16 D8); the link carries about 2.1 Mbit/s, so
+      10 MB takes about 40 s to cross.</li>
+    <li><strong>The encoder.</strong> pillow-jxl-plugin, the JPEG XL encoder in use (<code>scripts/make_example_photos.py</code>),
+      cannot set a colour encoding: it keeps the source profile or not (<code>use_original_profile</code>). A Rec.2020
+      JPEG XL needs another encoder (D25).</li>
+    <li><strong>Labels.</strong> pass13 holds the owner's accepted masks for all 478 training and validation
+      segmenter positives and the pool draw's, in the originals' stored pixels (ML-16).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Each original is decoded as it is: profile, orientation, alpha and second images ignored, at full
+          resolution, up to 200 MP.</li>
+        <li>The front forwards a visitor's original bytes; 10 MB crosses the link in about 40 s.</li>
+        <li>Training crops are JPEG q95; serving's are never encoded.</li>
+        <li>Label masks line up with the unrotated originals.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Both models read canonical photos only, decoded to sRGB, in training and serving.</li>
+        <li>The front canonicalizes each upload and sends the canonical photo; the host refuses anything else.</li>
+        <li>Training crops are lossless JPEG XL of what serving computes.</li>
+        <li>pass14 holds pass13's masks in the canonical geometry; the labelling page shows canonical photos.</li>
+        <li>Tests on every commit hold the colour conversion fixed.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The originals.</strong> <code>dataset/</code> stays byte for byte, the private source of truth; every
+      record keys a photo by its original's sha256 (ML-16 D2, ML-18).</li>
+    <li><strong>The API.</strong> <code>/analyze</code> takes the same form from the visitor; the formats the front
+      accepts stay those of today, RAW pending D24.</li>
+    <li><strong>The models.</strong> Nothing is retrained here; ML-16 retrains both on canonical photos.</li>
+    <li><strong>Earlier label sessions.</strong> pass1&ndash;pass13 stay as recorded; pass14 is new (D9).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Canonical photos change what today's models answer.</strong></td>
+        <td>Colour (47% of the dataset), rotation (662 photos), the cap (7) and a q95 generation all move the input.
+          D14: today's models are re-run on canonical test photos as the paired baseline, so the retrain's comparison
+          separates the input's change from the training's.</td></tr>
+      <tr><td class="id">R2</td><td><strong>No encoder writes Rec.2020 JPEG XL where it must run.</strong></td>
+        <td>pillow-jxl-plugin cannot. The plan finds one that runs on the front, the inference host and the
+          development machine with the same output, before anything else (D25).</td></tr>
+      <tr><td class="id">R3</td><td><strong>The front runs out of memory or time.</strong></td>
+        <td>A 50 MP decode alone is 150 MB of RGB; RAW decodes cost more. Measured on the front's hardware against
+          500 MB and D22's 40 s before D23&ndash;D25 are decided.</td></tr>
+      <tr><td class="id">R4</td><td><strong>The colour conversion drifts with a library upgrade.</strong></td>
+        <td>littlecms or libjxl may change their output. D8's tests run on every commit, against values computed
+          independently and a committed golden file.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A rotated mask no longer fits its photo.</strong></td>
+        <td>Rotation is exact on a pixel grid, but the four EXIF rotations and the "Unknown (0)" tag (35 photos) each
+          need a case. Tested per rotation; the owner looks at a sample of pass14's rotated masks on the page before
+          the segmenter trains on them.</td></tr>
+      <tr><td class="id">R6</td><td><strong>Rec.2020 in 8 bits bands.</strong></td>
+        <td>Lossy JPEG XL keeps its own precision; the decode runs at 16 bits or more and rounds to 8-bit sRGB only
+          at the end (D7).</td></tr>
+      <tr><td class="id">R7</td><td><strong>An example photo changes its answer.</strong></td>
+        <td>The examples become canonical photos (D17); OPS-16 P6 checks them on ML-16's models, and every deploy's
+          <code>--verify</code> after.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What is canonicalization for?</td>
+        <td>(a) one consistent input for both models (b) fewer bytes over the link (c) both</td>
+        <td>(c), 2026-11-03: "the front memory is not a problem, we can use at least 500Mb of RAM. So answer is both
+          (a) and (b)." <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</td></tr>
+      <tr><td class="id">D2</td><td>Which colour space do the models read?</td>
+        <td>(a) sRGB, converted from each photo's profile (b) Rec.2020 (c) as today, profiles ignored</td>
+        <td>(a), 2026-11-03: "for now let's use sRGB for models input."</td></tr>
+      <tr><td class="id">D3</td><td>Does training read what serving reads?</td>
+        <td>(a) the dataset canonicalized once into a stored set (b) on the fly at each decode (c) only the crops</td>
+        <td>(a), 2026-11-03. ADR 0033.</td></tr>
+      <tr><td class="id">D4</td><td>Full resolution, or a cap?</td>
+        <td>(a) full resolution (b) a cap</td>
+        <td>(b), 2026-11-03, after measuring: "maybe we can downscale them to 48-50 Mp without loosing image details".
+          A photo over 50 MP is downscaled (Lanczos, aspect kept) to at most 50 MP; the measurement in §2 found no
+          answer changed.</td></tr>
+      <tr><td class="id">D5</td><td>Orientation?</td>
+        <td>(a) keep the stored pixels (b) apply the EXIF rotation</td>
+        <td>(b), 2026-11-03: "Rotate image and stored masks now. And apply rotation from exif during live-time
+          conversion at the front." Only canonical photos are rotated; the originals stay as they are. ADR 0033.</td></tr>
+      <tr><td class="id">D6</td><td>The step's name?</td>
+        <td>"normalization" (taken: the input tensors' mean/std scaling) or another</td>
+        <td>"Canonicalization", 2026-11-03; its result is the canonical photo. In <code>GLOSSARY.md</code>.</td></tr>
+      <tr><td class="id">D7</td><td>How is a canonical photo stored and read?</td>
+        <td>(a) 8-bit sRGB (b) Rec.2020, read as sRGB</td>
+        <td>(b), 2026-11-03: "store JXL with Rec.2020 colorspace". Lossy JPEG XL, quality 95; Rec.2020 primaries, D65,
+          Rec.2020's own transfer curve (BT.709's). The decode runs at 16 bits or more, converts relative colorimetric
+          with clipping, and rounds to 8-bit sRGB. ADR 0033.</td></tr>
+      <tr><td class="id">D8</td><td>How is the colour conversion held fixed?</td>
+        <td>Tests on every commit</td>
+        <td>2026-11-03, the owner's request, in the fast tier: (i) synthetic patches of known colour (sRGB and P3
+          primaries, a P3 green outside sRGB, greys, white) through original &rarr; canonical &rarr; sRGB, against
+          values computed in the test by independent colour maths; (ii) the canonical file's header declares D7's
+          encoding and holds no orientation tag; (iii) a committed golden file of expected values.</td></tr>
+      <tr><td class="id">D9</td><td>The segmenter's labels in the canonical geometry?</td>
+        <td>(a) a new session carrying pass13's masks rotated (b) rotate pass13 itself (c) re-judge</td>
+        <td>(a), 2026-11-03: "re-use pass13 masks". pass14 carries pass13's accepted masks, rotated to each canonical
+          photo, keyed by the original's sha256; no re-judging.</td></tr>
+      <tr><td class="id">D10</td><td>How are crops stored?</td>
+        <td>(a) lossless JPEG XL (b) lossy JPEG XL q95 (c) JPEG q95, as today</td>
+        <td>(a), 2026-11-03: the stored crop is exactly what serving computes in memory.</td></tr>
+      <tr><td class="id">D11</td><td>Which formats does the front accept?</td>
+        <td>(a) today's, RAW included (b) without RAW</td>
+        <td>2026-11-03: measure first, then decide: D24. The front canonicalizes (ADR 0033, amending ADR 0031).</td></tr>
+      <tr><td class="id">D12</td><td>What does the inference host accept?</td>
+        <td>(a) canonical photos only (b) anything, canonicalized there</td>
+        <td>(a), 2026-11-03: one lossy generation per photo; local tools run the same canonicalization first. ADR
+          0033.</td></tr>
+      <tr><td class="id">D13</td><td>Transparency?</td>
+        <td>(a) here: transparent pixels become the segmenter's fill grey (b) apart, in ML-17</td>
+        <td>(a), 2026-11-03. ML-17 is absorbed.</td></tr>
+      <tr><td class="id">D14</td><td>The retrain's baseline?</td>
+        <td>(a) today's models on canonical test photos (b) today's numbers only</td>
+        <td>(a), 2026-11-03: <code>xl0_v6_s42</code> and <code>dino3b16_segxl0v6_country_aug8_s42</code> re-run on
+          canonical test photos as the paired baseline (ADR 0002); today's numbers stay the record of what is
+          live.</td></tr>
+      <tr><td class="id">D15</td><td>Which ticket?</td>
+        <td>(a) a new one (b) in ML-16</td>
+        <td>(a), 2026-11-03: this one. It absorbs ML-15 and ML-17, blocks ML-16's retrain, and ships in ML-16's release
+          with OPS-16.</td></tr>
+      <tr><td class="id">D16</td><td>A photo with no colour profile?</td>
+        <td>(a) taken as sRGB (b) refused</td>
+        <td>(a), 2026-11-03; the one "Uncalibrated" photo is checked by hand and read as Adobe RGB if its EXIF
+          interoperability index says R03.</td></tr>
+      <tr><td class="id">D17</td><td>An upload that is already canonical?</td>
+        <td>(a) passed through unchanged (b) re-encoded</td>
+        <td>(a), 2026-11-03. The example photos become canonical photos, made from their originals, and OPS-16 P6
+          checks them again.</td></tr>
+      <tr><td class="id">D18</td><td>The canonical store?</td>
+        <td>A DVC stage per folder, read by everything that feeds the models</td>
+        <td>2026-11-03: <code>canonicalize@&lt;folder&gt;</code> over every folder a model reads (the pool sessions,
+          <code>segmenter_positives</code>, the OOD negatives, the internet positives); <code>segcrop</code>, the
+          segmenter's fine-tune and prediction and the OOD tools read canonical photos only.</td></tr>
+      <tr><td class="id">D19</td><td>What does the labelling page show?</td>
+        <td>Canonical photos from pass14 on</td>
+        <td>Yes, 2026-11-03: the masks the owner judges sit on the pixels the segmenter trains on.</td></tr>
+      <tr><td class="id">D20</td><td>HDR gain maps and other second images?</td>
+        <td>(a) the main image only (b) the gain map applied, then tone-mapped</td>
+        <td>(a) for today, 2026-11-03; applying gain maps is <a href="ticket_hdr_gain_maps.html">ML-20</a>.</td></tr>
+      <tr><td class="id">D21</td><td>Metadata in a canonical photo?</td>
+        <td>None</td>
+        <td>2026-11-03: none but the colour encoding; the front never forwards or stores the original upload (ADR
+          0013).</td></tr>
+      <tr><td class="id">D22</td><td>The front's time budget?</td>
+        <td>(a) 10 s for 50 MP (b) none</td>
+        <td>2026-11-03: "for 10 MB photos time limit will be 40 seconds", on the front, for canonicalization.</td></tr>
+      <tr><td class="id">D23</td><td>The new upload cap, now that the cap no longer guards the link?</td>
+        <td>From the front's measured memory and time</td>
+        <td>Open: measured in the plan.</td></tr>
+      <tr><td class="id">D24</td><td>Does the front take RAW within 500 MB?</td>
+        <td>(a) yes (b) no</td>
+        <td>Open: measured in the plan (D11).</td></tr>
+      <tr><td class="id">D25</td><td>Which encoder, at which effort?</td>
+        <td>One that writes D7's encoding on all three machines with the same output; the highest effort within
+          D22</td>
+        <td>Open: measured in the plan. The effort holds for the canonical store too.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>ADR 0033 written; the glossary's "Canonicalization".</span></li>
+    <li><span class="box"></span><span>An encoder chosen, and the front measured: D23&ndash;D25 decided.</span></li>
+    <li><span class="box"></span><span>The canonicalization function (D4, D5, D7, D13, D16, D20, D21) and its tests
+      (D8) in the fast tier.</span></li>
+    <li><span class="box"></span><span>The canonical store: <code>canonicalize@&lt;folder&gt;</code> for every folder
+      a model reads, in DVC, pushed and checked on the remote (D18).</span></li>
+    <li><span class="box"></span><span>pass14: pass13's masks in the canonical geometry, a sample looked at by the
+      owner; the labelling page on canonical photos (D9, D19).</span></li>
+    <li><span class="box"></span><span><code>segcrop</code> on canonical photos, crops as lossless JPEG XL (D10); the
+      segmenter's fine-tune and prediction and the OOD tools on canonical photos.</span></li>
+    <li><span class="box"></span><span>The front canonicalizes; the host accepts canonical photos only; the example
+      photos are canonical photos (D12, D17); <code>docs/inference_path.html</code> and ADR 0031 say so.</span></li>
+    <li><span class="box"></span><span>Today's models on canonical test photos, paired against today's numbers
+      (D14).</span></li>
+    <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Retraining either model (ML-16).</li>
+    <li>Wide-gamut input to the models (D2: sRGB for now).</li>
+    <li>HDR gain maps (ML-20).</li>
+    <li>Keying records by hash (ML-18).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-03</div>Ticket written from a grilling session with the owner (26 questions in four
+      rounds) at <code>840bb87</code>. Measured on the way: the dataset's colour profiles, orientation and second
+      images, pixels outside sRGB, and the 7 photos over 50 MP downscaled on the live models
+      (<code>analysis/ml19/</code>). ADR 0033 written, "Canonicalization" in the glossary, ML-20 written as a stub.
+      ML-15 and ML-17 absorbed (D13, D15). D23&ndash;D25 open on measurements. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+    <a href="ticket_next_training_session.html">ML-16</a> (the retrain),
+    <a href="ticket_reencode_at_the_front.html">ML-15</a> and <a href="ticket_transparent_pixels_grey.html">ML-17</a>
+    (absorbed), <a href="ticket_hdr_gain_maps.html">ML-20</a>, <a href="ticket_example_photos.html">OPS-16</a>,
+    <a href="ticket_photo_hash_key.html">ML-18</a>, <code>analysis/ml19/</code>.</footer>
+</main>
