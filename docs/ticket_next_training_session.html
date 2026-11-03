@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -40,8 +40,11 @@
   <p>On 2026-11-03 17 more segmenter positives joined, with 17 pool photos and 1 negative, and the owner renamed 99
     photos of <code>random_date_raccoon</code>. The owner labelled the 26 new training and validation photos the same
     day in pass12, on <code>xl0_v6_s42</code>'s masks; pass12 carries pass11's 440 labels, the 11 of renamed photos
-    among them, found by their sha256 (D2). Every one of the 466 training and validation positives has an accepted
-    label in pass12.</p>
+    among them, found by their sha256 (D2). Every one of the 466 training and validation positives then had an
+    accepted label in pass12. A third arrival that afternoon brought 8 more positives (train 5, validation 1, test
+    2) and 8 Colombia pool photos. The owner labelled its 6 training and validation positives and the pool draw's 6
+    the same day in pass13, which carries pass12's 466 labels: all 478 training and validation positives have an
+    accepted label in pass13.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -72,6 +75,14 @@
       <code>classes_labels_only</code>, all stripped. The segmenter dataset now lists 1,235 photos: 305 segmenter
       positives (train 183, validation 46, test 76), 305 pool photos (the same split counts), 11 internet positives and
       614 negatives.</li>
+    <li><strong>The third arrival of 2026-11-03</strong> (README section "2026-11-03"): 8 Colombia positives on a
+      Galaxy Z Fold8 Ultra (15:05 to 15:07), shot between 8 Colombia pool photos of the same hopper that went to
+      <code>random_date_raccoon/class_014__Colombia_Excelso</code>. Three are 200 MP. Stripped (EXIF GPS, Samsung's
+      maker note, EXIF thumbnails), 0 checks failing; no copies (nearest 0.80); the nearest positive and pool photo
+      4 s apart, so no group spans them. In the segmenter dataset: train 5, validation 1, test 2, with the pool
+      draw's 8 (none of the new pool photos drawn). It now lists 1,251 photos: 313 segmenter positives (train 188,
+      validation 47, test 78), 313 pool photos (the same split counts), 11 internet positives and 614
+      negatives.</li>
     <li><strong>The renames of 2026-11-03</strong>: the owner renamed 99 photos of <code>random_date_raccoon</code>
       (bytes unchanged) to the <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_&lt;country&gt;</code> form: 2 of class_001, 26 of
       class_005, 71 of class_013. The records in use follow the new names: <code>labels/ml5/seg_dataset.yaml</code>
@@ -165,8 +176,13 @@
       (2026-11-03).</span></li>
     <li><span class="box done"></span><span><code>dataset/2026-07-24__first_pictures</code> removed from the repository,
       used by neither model (D1).</span></li>
-    <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass12,
-      renamed photos carried by sha256 (D2); the session's masks in DVC, pushed and checked on the remote.</span></li>
+    <li><span class="box done"></span><span>Every training and validation positive of the first two arrivals of
+      2026-11-03 with an accepted label in pass12, renamed photos carried by sha256 (D2); the session's masks in DVC,
+      pushed and checked on the remote.</span></li>
+    <li><span class="box done"></span><span>The 8 positives and 8 pool photos of the third arrival of 2026-11-03
+      stripped, in DVC and pushed, in the manifest and in the segmenter dataset.</span></li>
+    <li><span class="box done"></span><span>The third arrival's 5 training and 1 validation positives with an
+      accepted label, in pass13; the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box"></span><span>The five example photos of OPS-16 out of every set and in
@@ -221,6 +237,20 @@
     <div><div class="when">2026-11-03</div>D3 from the owner, in the grilling session that wrote
       <a href="ticket_example_photos.html">OPS-16</a>: its five example photos leave every set before this ticket's
       retrain, and the two tickets ship in one release. Not done yet.</div>
+    <div><div class="when">2026-11-03</div>A third arrival: 8 segmenter positives and 8 Colombia pool photos in
+      <code>random_date_raccoon</code>, all on a Galaxy Z Fold8 Ultra between 15:04:48 and 15:07:26. All 16 stripped
+      (EXIF GPS, Samsung's maker note, EXIF thumbnails), 0 failing; a second <code>--dry-run</code> finds all 498
+      photos of the two folders clean; no copies (nearest 0.80). <code>seg_dataset build</code>: 16 added (8
+      positives: train 5, validation 1, test 2; and the pool draw's 8). Both folders added to DVC and pushed; all 477
+      objects checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>pass13: <code>seg_review label --session pass13 --proposer xl0_v6_s42
+      --redraw xl0_v6_s42 --carry pass12</code>. All 466 of pass12's labels carried; xl0_v6_s42 proposed the 12
+      others in 68 s on the CPU: the third arrival's 5 training and 1 validation positives and the pool draw's 6
+      training and validation photos. The owner accepted all 12, no drops: none in round 1, 7 in round 2, 3 in round
+      3, 2 in round 4 (31 verdicts, 19 declines). 8 needed a fence, 6 brush strokes, 5 both. Four rounds:
+      <code>20261103_150511</code> and the validation photo <code>150550</code>; every one of the 6 positives took
+      2 or more. <code>data/ml5_labels/pass13</code> added to DVC and pushed; all 1,026 objects (1,465 files)
+      checked on the remote.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

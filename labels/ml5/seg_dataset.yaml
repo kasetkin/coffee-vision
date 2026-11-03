@@ -198,6 +198,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: validation
   group: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071551308.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065437240.jpg
+  sha256: 25b68326327157a81ce7c49c3c4e20ee73a9fa3f1cf20cb9e3c04289decf5296
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065437240.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065742955.jpg
   sha256: edb7530ba1565a4acf04184833f782428a9df74fa32a6ea2fc7936f1f879db29
   source: pool
@@ -456,6 +462,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: test
   group: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140413654.jpg
+- path: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140441198.jpg
+  sha256: 9297a115b2dccc1be221758d85c77c3e4599477ccd8fe46c6b4a7595168f4a91
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140441198.jpg
 - path: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140446566.jpg
   sha256: 7d6fa2d5d26845c70cf257cc0ef59fff27d0554a1335c5e392d6c3b5799279c6
   source: pool
@@ -624,6 +636,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132641461.jpg
+- path: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204934.JPG
+  sha256: dc56660602dae934247dc0860a6f44f66756eefab219543e061ca2fcee42170d
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: train
+  group: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204934.JPG
 - path: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_205044.JPG
   sha256: 75f2614570336641db07a8b3cad0aa38760ace298705ec89949fe6431dd8696d
   source: pool
@@ -804,6 +822,12 @@ photos:
   folder: 2026-08-25__iphone
   split: validation
   group: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6281.HEIC
+- path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC
+  sha256: 5ce2f0ceb34a7ee213fdaf5a61e9d6b4efdf7fbd68f4a88ccd0f53cd191e8bc4
+  source: pool
+  folder: 2026-08-25__iphone
+  split: validation
+  group: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC
 - path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6283.HEIC
   sha256: 688e67b71370a38afd273a822fa5b4ebd8e22cd9231d311ea89842a4e961fc1d
   source: pool
@@ -1020,6 +1044,12 @@ photos:
   folder: 2026-08-25__oneplus
   split: test
   group: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195041576.jpg
+- path: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195052778.jpg
+  sha256: 39e2822134ed8728fbcedbd38aea36b3409755381ac7cfd447e69f34d6a9b252
+  source: pool
+  folder: 2026-08-25__oneplus
+  split: test
+  group: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195052778.jpg
 - path: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195108562.jpg
   sha256: f62142d65f049b7b63ec58c159deac0b24beb539a09ec308c888fdf80e337883
   source: pool
@@ -1170,6 +1200,12 @@ photos:
   folder: 2026-08-27__oneplus_flash
   split: test
   group: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185807199.jpg
+- path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185816195.jpg
+  sha256: 2bf6f72f5662c32b739eec9c0bba78be92467f971b61238b6da17b4b9da386ab
+  source: pool
+  folder: 2026-08-27__oneplus_flash
+  split: test
+  group: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185816195.jpg
 - path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185847122.jpg
   sha256: 4185edbba567f54287877c9bd8159a77f315ed4036984aa05306c0119031031e
   source: pool
@@ -1578,6 +1614,12 @@ photos:
   folder: 2026-09-24__pixel
   split: train
   group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055404017.jpg
+- path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055617759.jpg
+  sha256: 226a5a03380c604a82c664ed937db84f03ad17ec1211b82b278361d3a1458d20
+  source: pool
+  folder: 2026-09-24__pixel
+  split: train
+  group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055617759.jpg
 - path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055639328.jpg
   sha256: e85de4048a129a3bbdc094768988efe1d54d1cd61ec7bd38c8d3acb25958df5e
   source: pool
@@ -5539,6 +5581,12 @@ photos:
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_134932_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141113_SM-G973F_Brazil.jpg
+  sha256: c253d3f4aa0cfa5ae6ed3cbaa0710de2cba7018b0879d918b4c22e59631bcaac
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141113_SM-G973F_Brazil.jpg
 - path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
   sha256: 1eef92723ba9ff420e24c52aff49cd0c349ff0c056989ee149ee504ee05fd99f
   source: pool
@@ -6211,6 +6259,46 @@ photos:
   source: segmenter_positive
   split: test
   group: dataset/segmenter_positives/20261103_144137_G8441_Colombia.JPG
+- path: dataset/segmenter_positives/20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: bc188f73459cf243a5092e171966860e21c987016eaa194782ea382f8367a397
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 69d1f16b83f26f361ada7fdb904e8e276d389c2a22ca7115cbfb78e1a306cf6a
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: cb0c97207e721c83028ebdff16a139ae62909b62f6ac9788c666e753130d5677
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150550_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 7546ed4e500cb51cf59d29f4d944ecd99e3280ebce11fc2254021f90c9f72fbd
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/20261103_150550_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150626_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: b42a12e8b3056928824a42c1587de5d7a893ed425578c95b5666e91b42908999
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150626_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150641_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 552f2f0bfe586cd6e7f96fdd01b41322d1406b73316bc01280e2b1f774724bbd
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_150641_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150704_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 6df8c032f1666b6ab6926715cee629883a92615cfc6df46f43e350924ea4b1db
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150704_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 531866ff68e1821b76d8b3c994dacb134c7dec4ec416bcc4811bdfd7c88605a4
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia.jpg
 - path: dataset/segmenter_positives/DSC_0001.JPG
   sha256: f40f89129abc211fa16f824b62c650d5a2f19c666595bd9a57884a3c14eb2d32
   source: segmenter_positive
