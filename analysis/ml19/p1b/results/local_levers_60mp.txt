@@ -1,0 +1,9 @@
+# stream.py canon inputs/dcip3_60mp.jpg --threads 2, here (AMD Ryzen 5 5600U), 2026-11-03, copied from the terminal.
+# peak = the Python process's ru_maxrss in MB; effort 7 with libjxl's default buffering gave 7814449 bytes, fd38df95606b, peak 496.
+effort 7 buffering 2 bytes 7814449 sha fd38df95606b peak 490 after decode 249 total 24.53
+effort 7 buffering 3 bytes 7814449 sha fd38df95606b peak 484 after decode 244 total 25.02
+effort 6 buffering None bytes 7776054 sha c57beb126c58 peak 486 after decode 247 total 24.3
+effort 5 buffering None bytes 7774386 sha 7d4015d2e471 peak 487 after decode 248 total 21.95
+effort 4 buffering None bytes 7594912 sha 6387b8556882 peak 453 after decode 247 total 18.21
+effort 3 buffering None bytes 7277535 sha c8a06a6b4c2b peak 443 after decode 247 total 18.03
+# Imports alone (ru_maxrss, MB): python+numpy+imagecodecs 38, +PIL 41, +cv2 56, +pillow_heif+rawpy 61.

@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D26&ndash;D49 decided, D23&ndash;D25 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 measured, stopped for D25 (plan Q4&ndash;Q6)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D25&ndash;D52 decided, D23&ndash;D24 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -250,7 +250,8 @@
       <tr><td class="id">D25</td><td>Which encoder, at which effort?</td>
         <td>One that writes D7's encoding on all three machines with the same output; the highest effort within
           D22</td>
-        <td>Open: measured in the plan. The effort holds for the canonical store too.</td></tr>
+        <td>libjxl 0.12.0 (the one in <code>imagecodecs</code> 2026.10.10) at effort 7, 2026-11-03 (D50). The effort
+          holds for the canonical store too.</td></tr>
       <tr><td class="id">D26</td><td>Does the front have the memory D1 assumes?</td>
         <td>(a) yes, as it is (b) more RAM first (c) another box</td>
         <td>(a), 2026-11-03: "RAM is not a problem, I've stopped some services and now we have free 500 MB RAM." Read on
@@ -377,6 +378,18 @@
       <tr><td class="id">D49</td><td>An appended photo re-runs its folder's whole stage (plan Q3)?</td>
         <td>(a) accepted under an hour (b) <code>persist: true</code>, only missing photos encoded</td>
         <td>(a), 2026-11-03, if P4 measures the largest folder under an hour; else (b).</td></tr>
+      <tr><td class="id">D50</td><td>D25's encoder and effort (plan Q4)?</td>
+        <td>libjxl at effort 7, from P1's measurements (effort 8 and 9 do not fit the front)</td>
+        <td>As recommended, 2026-11-03: "effort 7". <code>analysis/ml19/p1/README.md</code>.</td></tr>
+      <tr><td class="id">D51</td><td>D30 when the Intel host encodes 2 levels off (plan Q5)?</td>
+        <td>D30 met for the paths that exist: photos are encoded only on the store's machine and the front (both AMD);
+          a move of either to another CPU re-runs P1's check before it encodes</td>
+        <td>As recommended, 2026-11-03: "D30 met, we can move forward".</td></tr>
+      <tr><td class="id">D52</td><td>D38 cannot be met by a whole-frame encode (plan Q6)?</td>
+        <td>(a) libjxl's chunked input API through a small binding to the same pinned library (b) a front ceiling near
+          18 MP (c) more memory for the front</td>
+        <td>(a), 2026-11-03, tried first: "let's try answer (a)"; the owner also allowed a C, C++ or Rust wrapper, a lower
+          effort or other encoder parameters, and both hosts for experiments.</td></tr>
     </tbody>
   </table></div>
 

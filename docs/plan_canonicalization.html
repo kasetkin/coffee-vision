@@ -14,7 +14,7 @@
     input for good is P4's store.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); P1 measured, stopped for Q4&ndash;Q6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); P1 done, Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_canonicalization.html"><code>ticket_canonicalization.html</code></a> (ML-19)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -119,31 +119,26 @@
           the OOM killer under the front's 500M at 12 MP (3.3 GB here) and are no better on fidelity; 5&ndash;7 give the
           same fidelity (mean 0.77 levels against a direct sRGB conversion) and sizes within 2%; 7 encodes 12 MP in
           2.5 s on the front, 60 MP in about 25 s (estimated from this machine).</td>
-        <td><span class="pill sm open">Open</span> <code>imagecodecs</code>' libjxl at effort 7, libjxl's own
-          default and the highest that runs on the front, for the store and the front alike.</td><td>P2, P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03, as recommended: effort 7 (ticket D50).</td><td>P2, P3</td></tr>
       <tr><td class="id">Q5</td><td>D30 on the Intel host: the same file decodes within 1 level on all three machines,
           and the front's files are byte-identical to this machine's at every effort, but a photo <em>encoded</em> on
           <code>yappy</code> (Intel N100) differs by up to 2 levels in 66&ndash;563 of 12,000,000 pixels: libjxl's
           encoder differs on the Intel CPU (the 16-bit array it is given is identical). No path in the design encodes
           on the host.</td>
-        <td><span class="pill sm open">Open</span> D30 holds as decided for the paths that exist; record that photos
-          are encoded only on the store's machine and the front (both AMD), and that moving either to another CPU
-          re-runs P1's check before it encodes.</td><td>P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03, as recommended: "D30 met, we can move forward" (ticket D51).</td><td>P3</td></tr>
       <tr><td class="id">Q6</td><td>D38 cannot be met with <code>jpegxl_encode</code>, which takes the whole frame:
           libjxl adds 280 MB at 12 MP and 590 MB at 60 MP beyond the 16-bit frame, so under 500M the front encodes
           about 18 MP at most and refuses the dataset's 50 MP Pixel photos. The wheel's libjxl exports its chunked
           input API (<code>JxlEncoderAddChunkedFrame</code>), which <code>imagecodecs</code> does not expose.
           (a) a small <code>ctypes</code> binding to that same pinned library, used by the store and the front alike
           (b) a front ceiling near 18 MP (c) more memory for the front.</td>
-        <td><span class="pill sm open">Open</span> (a), first measured in a spike before P3: peak memory at 12, 50 and
-          60 MP under the front's 500M, its bytes against the whole-frame encode's, and D30 on the three machines. If it
-          does not fit, back to the owner with (b) and (c).</td><td>P3, P8</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03: (a), tried first (ticket D52); the owner allows a C, C++ or Rust wrapper, lower effort or other parameters, and both hosts for experiments.</td><td>P3, P8</td></tr>
     </tbody>
   </table></div>
 
   <h2>3. P1 &mdash; The encoder and the colour on three machines <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">measured 2026-11-03 on the three machines (<code>analysis/ml19/p1/README.md</code>); stopped for the owner: Q4 (D25), Q5, Q6</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>9deac2c</code>; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D44's recipe, measured where it will run, before anything stores its output: <code>imagecodecs</code> 2026.10.10
