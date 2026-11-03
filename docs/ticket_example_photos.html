@@ -273,6 +273,12 @@
       inference host): 65.5 MB, against 44.6 MB at 5 MB on the same machine. That is under the about 70 MB that would
       raise <code>MemoryMax=100M</code> (D8), so it stays. Live, a 5 MB photo peaked at 28 MB (OPS-15), so the
       live figure is likely lower, but worth reading at the release. Not released.</div>
+    <div><div class="when">2026-11-03</div>Plan P1 up to its stop: the five JPEG XLs (q90, no metadata) and WebP
+      thumbnails made. Sent through the live site, on the live model, each JPEG XL got its original's answer:
+      Ethiopia, Vietnam and Indonesia the same top-1 at the same score within 0.002, the cappuccino refused both
+      times; the Brazil JPEG XL is Brazil at 0.995, its 7.02 MB original being over today's 5 MB cap. Provisional, as
+      D3 says: the live model trained on two of them. Waiting for the owner's look before the files are
+      committed.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),

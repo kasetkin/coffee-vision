@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 done 2026-11-03; P1 at its stop</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 done 2026-11-03; P1 at its stop, its files checked on the live site</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -111,7 +111,7 @@
 
   <h2>3. P1 &mdash; The example files <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: files made and checked on the live site; at the stop, not committed</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>The originals, by sha256 (D1). Sizes measured 2026-11-03 with pillow-jxl-plugin at q90 (D3).</p>
@@ -133,20 +133,27 @@
   <p>The Vietnam and Indonesia photos also have byte copies in <code>dataset/segmenter_positives/</code>; ML-16 D3
     removes those too.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>A small script (e.g. <code>scripts/make_example_photos.py</code>, run with
+    <li><span class="box done"></span><span>A small script (e.g. <code>scripts/make_example_photos.py</code>, run with
       <code>python -I</code>) that finds each original by sha256 in its dataset path or in
       <code>dataset/example_photos/</code>, decodes it with the HEIF opener registered, applies
       <code>ImageOps.exif_transpose</code>, and writes <code>webapp/static/examples/&lt;name&gt;.jxl</code> at q90
       with <code>exif=b""</code> (finding 5), and <code>&lt;name&gt;.webp</code> with a long side of about 400 px.
       Short names, e.g. <code>brazil-grinder</code>, <code>ethiopia-green</code>, <code>vietnam-robusta</code>,
       <code>indonesia-roasted</code>, <code>cappuccino</code>.</span></li>
-    <li><span class="box"></span><span>Each JXL decodes through <code>coffeecv/photo_io.py</code> (the code path
+    <li><span class="box done"></span><span>Each JXL decodes through <code>coffeecv/photo_io.py</code> (the code path
       training and serving use) to the original's orientation and size.</span></li>
-    <li><span class="box"></span><span>A first check on the live model,
+    <li><span class="box done"></span><span>A first check on the live model,
       <code>dino3b16_segxl0v6_country_aug8_s42</code>: each JXL against its original, the same top-1 (four bean
       photos) and a refusal (the cappuccino). Provisional only: the live model trained on Brazil and Vietnam. A
-      mismatch: lower that photo's quality, and say so here.</span></li>
-    <li><span class="box"></span><span><code>leak_check</code> on the ten staged files; none over 5 MB.</span></li>
+      mismatch: lower that photo's quality, and say so here.
+      <em>Done through the live site</em> (the owner's call, 2026-11-03), <code>https://coffee.kasetkin.com/analyze</code>,
+      one at a time: Brazil JXL 0.995; Ethiopia 0.987 original, 0.986 JXL; Vietnam 0.962, 0.963; Indonesia 0.998,
+      0.998; the cappuccino <code>refused_ood</code> both. The Brazil original (7.02 MB) is over the live 5 MB cap
+      and was not sent; it is in the live model's train split. No mismatch: q90 for all five.</span></li>
+    <li><span class="box done"></span><span><code>leak_check</code> on the ten staged files; none over 5 MB. Clean with the owner's private
+      pattern; the largest is 4.01 MB (Ethiopia). The JPEG XLs report an ICC profile when decoded: libjxl's sRGB,
+      built from the codestream's colour encoding, the same 504 bytes in all five; none is written. The Ethiopia
+      HEIC's own profile is not carried over, which the model never reads (<code>load_rgb_image</code>).</span></li>
     <li><span class="box"></span><span>Stop for the owner: look at the five JXLs and thumbnails before they are
       committed (they are public for good, ADR 0032).</span></li>
   </ol>
@@ -305,6 +312,13 @@
       timeout at 120 s would let each read of the answer wait 120 s too, so it is split into an upload timeout
       (120 s) and an answer timeout (60 s). The check service peaks at 65.5 MB with a 10 MB upload, under the 70 MB
       at which <code>MemoryMax</code> would rise. Q1&ndash;Q3 still open; P2, P4 and P5 wait on them and on P1.</div>
+    <div><div class="when">2026-11-03</div>P1 up to its stop: <code>scripts/make_example_photos.py</code> writes
+      the five JPEG XLs at q90 and their WebP thumbnails (sizes as measured in the ticket), checked against their
+      originals on the live site at the owner's suggestion, not on a local copy of the model: the same top-1 for
+      the three bean photos sendable today, the Brazil JXL right, the cappuccino refused. Finding 7: pillow-jxl-plugin
+      encodes an opened JPEG losslessly whatever the quality, so the script encodes a new image with
+      <code>lossless_jpeg=False</code>. The files wait in <code>webapp/static/examples/</code>, uncommitted, for the
+      owner's look.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,
