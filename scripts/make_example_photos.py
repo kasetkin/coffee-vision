@@ -19,6 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+import numpy as np  # noqa: E402
 from PIL import Image, ImageOps  # noqa: E402
 
 from coffeecv.photo_io import DATASET_MAX_PIXELS, load_rgb_image  # noqa: E402 -- also registers HEIF and JPEG XL
@@ -26,6 +27,7 @@ from coffeecv.photo_io import DATASET_MAX_PIXELS, load_rgb_image  # noqa: E402 -
 QUALITY = 90       # D3: "lossy JXL is fine", q90; a photo whose answer changes gets a higher one, said in the plan
 THUMB_SIDE = 400   # D7: the picker's thumbnail, its long side
 THUMB_QUALITY = 80
+MAX_MEAN_GAP = 8   # mean absolute difference, in 8-bit levels, between an original and its JPEG XL (check())
 
 
 @dataclass(frozen=True)
@@ -78,8 +80,14 @@ def encode(original: Path, jxl: Path, webp: Path) -> None:
 def check(original: Path, jxl: Path, webp: Path) -> list[str]:
     """What is wrong with the two files, if anything."""
     problems = []
-    if load_rgb_image(jxl).shape != load_rgb_image(original).shape:
+    # The model's view of each, through the decoder training and serving use, which ignores Orientation: a photo
+    # turned upright here must not differ from that view. A turn of 90 degrees changes the size; any turn moves the
+    # pixels far past what q90 does (0.6-2.2 levels on average for the five, against 40-100 turned 180, 2026-11-03).
+    seen, sent = load_rgb_image(original), load_rgb_image(jxl)
+    if seen.shape != sent.shape:
         problems.append("the JPEG XL decodes at another size or orientation than the original")
+    elif (gap := np.abs(seen.astype(np.int16) - sent.astype(np.int16)).mean()) > MAX_MEAN_GAP:
+        problems.append(f"the JPEG XL is {gap:.1f} levels from the original on average, over {MAX_MEAN_GAP}")
     # An ICC profile is not checked in the JPEG XL: libjxl's decoder reports one built from the codestream's colour
     # encoding (504 bytes for every file here, 2026-11-03), and none is written (pillow-jxl-plugin's _save has no
     # icc_profile). The WebP is written from that decode, without it.

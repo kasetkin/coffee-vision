@@ -176,7 +176,7 @@
 
   <h2>5. P3 &mdash; The 10 MB cap</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, on <code>ops16-example-photos</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>502a112</code> on <code>ops16-example-photos</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D8. Every place the 5 MB cap is, read at <code>3c008a8</code> (<code>grep -rn "5 MB\|5184\|MAX_UPLOAD_BYTES"</code>).</p>
@@ -319,6 +319,15 @@
       encodes an opened JPEG losslessly whatever the quality, so the script encodes a new image with
       <code>lossless_jpeg=False</code>. The files wait in <code>webapp/static/examples/</code>, uncommitted, for the
       owner's look.</div>
+    <div><div class="when">2026-11-03</div><code>/code-review</code> of P3 and P1. Fixed: the script now compares
+      each JPEG XL's pixels with its original's through <code>load_rgb_image</code> (which ignores Orientation), so a
+      photo turned upright cannot pass on its size alone; <code>docs/agents/deploy.md</code>'s cap line; P3's
+      commit. Carried to later phases: (1) the ten files fail
+      <code>test_every_static_file_ships_in_the_fronts_release</code> until they are in <code>STATIC</code>, so they
+      are committed with P2's manifest change, not alone; (2) the originals' sha256s sit inline in the script, its one
+      reader today (P5's <code>fixtures.txt</code> pins the JPEG XLs', not the originals'); if Q1's list is adopted
+      and names the examples, the script reads the names from it rather than keeping a second list; (3) the Brazil original against its
+      JPEG XL is still unchecked (over the live cap), and is checked at P6 on ML-16's model.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,
