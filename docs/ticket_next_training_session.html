@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 not done; the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -189,10 +189,29 @@
       <code>dataset/example_photos/</code>, before the retrain (D3).</span></li>
   </ul>
 
+  <h2>7. What is left, in order</h2>
+  <p>Since <code>0636177</code> this branch, <code>ml16-photos-2026-11-03</code>, also carries
+    <a href="ticket_example_photos.html">OPS-16</a> P1&ndash;P5: the example files, the front serving them, the
+    10 MB cap, the page's row and <code>--verify</code>'s example check, built and tested, not released. The order
+    below only says what waits on what; the training session itself is still the owner's to start and plan.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>D3, the data change: the five originals (found by sha256, OPS-16's plan P1
+      table) into <code>dataset/example_photos/</code> with a manifest, out of the classifier pool, the segmenter
+      dataset (with the byte copies in <code>segmenter_positives</code>) and <code>user_realworld</code>. In DVC,
+      pushed and checked on the remote. Before any retrain.</span></li>
+    <li><span class="box"></span><span>The training session, when the owner starts it: chosen and planned then.
+      Two DVC stages are already stale and are its first re-run: <code>segcrop@random_date_raccoon</code> (the new
+      and renamed photos) and <code>merge_segpool</code> (<code>labels/ml3/pool_exclude.csv</code>, the rename).</span></li>
+    <li><span class="box"></span><span>OPS-16 P6 on the model that session chooses: each example against its
+      original, the owner's look at the bean examples' masks.</span></li>
+    <li><span class="box"></span><span>One release of both tickets (OPS-16 P7, D6): this branch merged into
+      <code>main</code> and pushed, one deploy, <code>--verify</code> with the five examples.</span></li>
+  </ol>
+
   <h2>Out of scope</h2>
   <ul>
     <li>The training session itself, and everything after it (re-crop, retrain, comparison, release). It is not
-      decided or planned; the owner will start it.</li>
+      decided or planned; the owner will start it. Its release is also OPS-16's (D3, OPS-16 D6).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -254,6 +273,10 @@
     <div><div class="when">2026-11-03</div>The rest of D2, every record keyed by hash with the path as a value, is
       written up as <a href="ticket_photo_hash_key.html">ML-18</a>, its decisions open; the owner: "we will do it
       later, not before ML-16".</div>
+    <div><div class="when">2026-11-03</div>At the owner's call, OPS-16's branch <code>ops16-example-photos</code>
+      (its plan P1&ndash;P5) merged into this one (<code>0636177</code>); both tickets go on here and ship in one
+      release. The merged branch passes <code>scripts/check.sh</code>. Section 7 lists what is left, in order. D3
+      not done.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

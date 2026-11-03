@@ -265,20 +265,20 @@
   <ul class="checks">
     <li><span class="box"></span><span>The five originals in <code>dataset/example_photos/</code> and out of every
       set (ML-16 D3).</span></li>
-    <li><span class="box"></span><span>Five lossy JPEG XL files and five WebP thumbnails in
+    <li><span class="box done"></span><span>Five lossy JPEG XL files and five WebP thumbnails in
       <code>webapp/static/examples/</code>; <code>leak_check</code> passes them.</span></li>
     <li><span class="box"></span><span>On the model of ML-16's release, each example gets its original's answer, and
       the owner accepted each bean photo's mask at full resolution.</span></li>
-    <li><span class="box"></span><span>The front serves the examples (its nginx route, <code>release_manifest.py
+    <li><span class="box done"></span><span>The front serves the examples (its nginx route, <code>release_manifest.py
       --front</code>).</span></li>
-    <li><span class="box"></span><span>The page's example row, the click, and the truth line after the answer
+    <li><span class="box done"></span><span>The page's example row, the click, and the truth line after the answer
       (D9, D10).</span></li>
-    <li><span class="box"></span><span>The 10 MB cap everywhere the 5 MB one is: nginx, the check service, the page,
+    <li><span class="box done"></span><span>The 10 MB cap everywhere the 5 MB one is: nginx, the check service, the page,
       <code>llms.txt</code>, <code>openapi.json</code>, <code>webapp/README.md</code>,
       <code>docs/inference_path.html</code>, ADR 0031, the tests; the timeouts raised (D8).</span></li>
-    <li><span class="box"></span><span>The check service's peak memory with a 10 MB upload, measured and written
+    <li><span class="box done"></span><span>The check service's peak memory with a 10 MB upload, measured and written
       here.</span></li>
-    <li><span class="box"></span><span><code>--verify</code> checks the five examples (D11, D14, D17).</span></li>
+    <li><span class="box done"></span><span><code>--verify</code> checks the five examples (D11, D14, D17).</span></li>
     <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
   </ul>
 
@@ -325,6 +325,9 @@
     <div><div class="when">2026-11-03</div>At the owner's call, <code>ops16-example-photos</code> (P1&ndash;P5) is
       merged into ML-16's branch, <code>ml16-photos-2026-11-03</code>; both tickets continue there and ship in one
       release (D6).</div>
+    <div><div class="when">2026-11-03</div>Acceptance boxes brought up to the plan: the six P1&ndash;P5 built are
+      ticked, here and in the plan's Verification. Left: the five originals out of every set (ML-16 D3), the
+      examples on ML-16's model (P6) and the release (P7).</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),
