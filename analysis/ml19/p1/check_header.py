@@ -16,9 +16,9 @@ import io
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from jxl_header import read_header  # noqa: E402
+from coffeecv.jxl_header import read_header  # noqa: E402
 
 TF = {"709": "BT709", "SRG": "sRGB", "Lin": "Linear", "PeQ": "PQ", "HLG": "HLG", "DCI": "DCI"}
 PR = {"SRG": "sRGB", "202": "BT2100", "DCI": "P3"}   # libjxl names the P3 primaries DCI

@@ -1,11 +1,13 @@
 """Read a JPEG XL file's image header: size, orientation, bit depth, extra channels and colour encoding.
 
-    python -I analysis/ml19/p1/jxl_header.py FILE.jxl ...
+    python -m coffeecv.jxl_header FILE.jxl ...
 
-imagecodecs' jpegxl_decode does not report a file's colour encoding (ML-19 plan, finding 5), so this reads it from
+coffeecv.canonical's is_canonical (ML-19 D35) reads a file's colour encoding here. imagecodecs' jpegxl_decode does
+not report it (ML-19 plan, finding 5), so this reads it from
 the codestream: the SizeHeader and ImageMetadata bundles of ISO/IEC 18181-1 (section A.6, A.8, A.4 and E.2), up to
 and including the colour encoding. Standard library only. Container files (the ISOBMFF box format) are unwrapped
-first; the box types found are reported, since EXIF, XMP and JUMBF boxes are metadata.
+first; the box types found are reported, since EXIF, XMP and JUMBF boxes are metadata. Checked against libjxl's own
+reading on 31 files (analysis/ml19/p1/README.md) and by tests/test_jxl_header.py.
 """
 from __future__ import annotations
 

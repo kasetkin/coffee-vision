@@ -20,7 +20,7 @@ remote directories were deleted afterwards. The raw results are in `results/`.
      Transparent pixels go over the segmenter's fill.
   5. Encode with `jpegxl_encode(level=95, primaries='BT2100', transfer='BT709', effort=E)`.
   6. Read back: `jpegxl_decode` to uint16, then LittleCMS (NOOPTIMIZE) to 8-bit sRGB.
-- `jxl_header.py`: a reader of the codestream's image header (ISO/IEC 18181-1), standard library only, for finding 5.
+- `jxl_header.py` (since moved to `coffeecv/jxl_header.py`): a reader of the codestream's image header (ISO/IEC 18181-1), standard library only, for finding 5.
   `check_header.py` checks it against libjxl's own reading.
 - `efforts.sh`: the effort sweep, one process per run.
 - **The test set.** All the photos are copied from `dataset/` except the three synthetic ones:

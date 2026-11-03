@@ -1,0 +1,649 @@
+{
+  "checkpoint": "models/dino3b16_segxl0v6_country_aug8_s42.pt",
+  "patch_beans": [
+    4.0,
+    7.0
+  ],
+  "patch_store_size": 448,
+  "patch_resize": 224,
+  "n_patches_per_image": 40,
+  "tta": false,
+  "ood_reference": "models/dino3b16_segxl0v6_country_aug8_s42.ood_reference.json",
+  "per_image": {
+    "20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.png": {
+      "crop": {
+        "box": [
+          44,
+          2726,
+          2801,
+          3066
+        ],
+        "needs_review": false,
+        "note": null
+      },
+      "bean_pitch_px": 165.2,
+      "beans_across": 16.43,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1635,
+        "crop_detect": 3888,
+        "inference": 5850
+      },
+      "mask_area_frac": 0.1608,
+      "bean_frac_in_crop": 0.8897,
+      "retained_frac": 0.9507,
+      "seg_fallback": false,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Brazil",
+          "Brazil",
+          0.8768894076347351
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.04911697283387184
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.034182194620370865
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.012780001387000084
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.012036839500069618
+        ],
+        [
+          "Colombia",
+          "Colombia",
+          0.011249573901295662
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          0.0031382236629724503
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          0.0003866182523779571
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.00020022127137053758
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          1.990757300518453e-05
+        ]
+      ],
+      "ood": {
+        "median": 1.16434017247,
+        "frac_patches_over_threshold": 0.0,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 9.35762296884e-14,
+        "method": "linear_probe",
+        "score": 9.35762296884e-14
+      },
+      "verdict": "predicted"
+    },
+    "20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": {
+        "box": [
+          1282,
+          3362,
+          3279,
+          3224
+        ],
+        "needs_review": false,
+        "note": null
+      },
+      "bean_pitch_px": 253.3,
+      "beans_across": 12.34,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1409,
+        "crop_detect": 1790,
+        "inference": 5245
+      },
+      "mask_area_frac": 0.1958,
+      "bean_frac_in_crop": 0.8798,
+      "retained_frac": 0.9504,
+      "seg_fallback": false,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Colombia",
+          "Colombia",
+          0.8467636108398438
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.08643583208322525
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.050545673817396164
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.00769471749663353
+        ],
+        [
+          "Brazil",
+          "Brazil",
+          0.006168409250676632
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.0014821493532508612
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.0008252827683463693
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          5.9681926359189674e-05
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          2.400361881882418e-05
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          7.840519060664519e-07
+        ]
+      ],
+      "ood": {
+        "median": 1.10034878744,
+        "frac_patches_over_threshold": 0.0,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 9.35762296884e-14,
+        "method": "linear_probe",
+        "score": 9.35762296884e-14
+      },
+      "verdict": "predicted"
+    },
+    "20261103_150506_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": {
+        "box": [
+          1484,
+          4274,
+          3030,
+          3054
+        ],
+        "needs_review": false,
+        "note": null
+      },
+      "bean_pitch_px": 158.9,
+      "beans_across": 18.49,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1371,
+        "crop_detect": 1692,
+        "inference": 5278
+      },
+      "mask_area_frac": 0.171,
+      "bean_frac_in_crop": 0.8784,
+      "retained_frac": 0.9506,
+      "seg_fallback": false,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Colombia",
+          "Colombia",
+          0.6976991891860962
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.16795174777507782
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.05353424698114395
+        ],
+        [
+          "Brazil",
+          "Brazil",
+          0.04400363937020302
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.018167313188314438
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.01763094589114189
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.0009537345613352954
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          3.326814839965664e-05
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          2.5140014258795418e-05
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          7.987540584508679e-07
+        ]
+      ],
+      "ood": {
+        "median": 1.07645660334,
+        "frac_patches_over_threshold": 0.0,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 9.35762296884e-14,
+        "method": "linear_probe",
+        "score": 9.35762296884e-14
+      },
+      "verdict": "predicted"
+    },
+    "20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": {
+        "box": [
+          1678,
+          2787,
+          3139,
+          2880
+        ],
+        "needs_review": false,
+        "note": null
+      },
+      "bean_pitch_px": 226.6,
+      "beans_across": 12.32,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1476,
+        "crop_detect": 2778,
+        "inference": 6681
+      },
+      "mask_area_frac": 0.1656,
+      "bean_frac_in_crop": 0.8704,
+      "retained_frac": 0.9504,
+      "seg_fallback": false,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Colombia",
+          "Colombia",
+          0.8609011769294739
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.07426851242780685
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.030917668715119362
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.02901185117661953
+        ],
+        [
+          "Brazil",
+          "Brazil",
+          0.0038150332402437925
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.0007839491590857506
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.00028685160214081407
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          1.1980044291703962e-05
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          1.6613299749224097e-06
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          1.1957051810895791e-06
+        ]
+      ],
+      "ood": {
+        "median": 1.06897208584,
+        "frac_patches_over_threshold": 0.0,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 9.35762296884e-14,
+        "method": "linear_probe",
+        "score": 9.35762296884e-14
+      },
+      "verdict": "predicted"
+    },
+    "20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": null,
+      "bean_pitch_px": 85.0,
+      "beans_across": 69.9,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1512,
+        "crop_detect": 2134,
+        "inference": 6235
+      },
+      "mask_area_frac": 0.0066,
+      "bean_frac_in_crop": null,
+      "retained_frac": null,
+      "seg_fallback": true,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.3385094702243805
+        ],
+        [
+          "Brazil",
+          "Brazil",
+          0.21872690320014954
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.1513497680425644
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          0.10016298294067383
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.0695517286658287
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          0.05597735196352005
+        ],
+        [
+          "Colombia",
+          "Colombia",
+          0.0375962033867836
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.026056896895170212
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          0.001866440288722515
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.00020226738706696779
+        ]
+      ],
+      "ood": {
+        "median": 2.90587369434,
+        "frac_patches_over_threshold": 0.95,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 0.875002321801,
+        "method": "linear_probe",
+        "score": 0.875002321801,
+        "note": "This does not look like a photo of coffee beans. Not offering a best guess: a ranked list over bean origins would be false precision for a photo that may contain no beans."
+      },
+      "verdict": "REFUSED (out of distribution)"
+    },
+    "20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": {
+        "box": [
+          112,
+          353,
+          5886,
+          7071
+        ],
+        "needs_review": false,
+        "note": null
+      },
+      "bean_pitch_px": 463.0,
+      "beans_across": 12.33,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6122,
+        8165
+      ],
+      "timing_ms": {
+        "decode": 1603,
+        "crop_detect": 2398,
+        "inference": 6463
+      },
+      "mask_area_frac": 0.8253,
+      "bean_frac_in_crop": 0.942,
+      "retained_frac": 0.9503,
+      "seg_fallback": false,
+      "seg_mask_empty": false,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Colombia",
+          "Colombia",
+          0.7053532004356384
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.17879413068294525
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.049921222031116486
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.02935762144625187
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.02812317945063114
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.0043610939756035805
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          0.002927495865151286
+        ],
+        [
+          "Brazil",
+          "Brazil",
+          0.001068616402335465
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          5.187278657103889e-05
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          4.150266249780543e-05
+        ]
+      ],
+      "ood": {
+        "median": 1.20214354992,
+        "frac_patches_over_threshold": 0.075,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 9.35762296884e-14,
+        "method": "linear_probe",
+        "score": 9.35762296884e-14
+      },
+      "verdict": "predicted"
+    },
+    "20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia.png": {
+      "crop": null,
+      "bean_pitch_px": 722.2,
+      "beans_across": 8.22,
+      "patches_clamped": 0,
+      "clamp_rate": 0.0,
+      "decoded_wh": [
+        6123,
+        8164
+      ],
+      "timing_ms": {
+        "decode": 1550,
+        "crop_detect": 2207,
+        "inference": 6462
+      },
+      "mask_area_frac": 0.0,
+      "bean_frac_in_crop": null,
+      "retained_frac": null,
+      "seg_fallback": true,
+      "seg_mask_empty": true,
+      "patches_below_share": 0,
+      "ranked": [
+        [
+          "Brazil",
+          "Brazil",
+          0.2848215699195862
+        ],
+        [
+          "Peru",
+          "Peru",
+          0.2695312201976776
+        ],
+        [
+          "Ethiopia",
+          "Ethiopia",
+          0.21326729655265808
+        ],
+        [
+          "Guatemala",
+          "Guatemala",
+          0.08691645413637161
+        ],
+        [
+          "Colombia",
+          "Colombia",
+          0.059521328657865524
+        ],
+        [
+          "Vietnam",
+          "Vietnam",
+          0.051886528730392456
+        ],
+        [
+          "Indonesia",
+          "Indonesia",
+          0.03265705332159996
+        ],
+        [
+          "Kenya",
+          "Kenya",
+          0.000958972261287272
+        ],
+        [
+          "Rwanda",
+          "Rwanda",
+          0.00026466225972399116
+        ],
+        [
+          "CostaRica",
+          "CostaRica",
+          0.0001748878858052194
+        ]
+      ],
+      "ood": {
+        "median": 2.52219416021,
+        "frac_patches_over_threshold": 1.0,
+        "threshold": 0.5,
+        "warn_above": null,
+        "probe": 0.999997635403,
+        "method": "linear_probe",
+        "score": 0.999997635403,
+        "note": "This does not look like a photo of coffee beans. Not offering a best guess: a ranked list over bean origins would be false precision for a photo that may contain no beans."
+      },
+      "verdict": "REFUSED (out of distribution)"
+    }
+  }
+}

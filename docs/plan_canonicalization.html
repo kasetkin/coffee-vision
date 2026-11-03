@@ -187,8 +187,8 @@
 
   <h2>5. P3 &mdash; The canonicalization function and its tests</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03 (this commit); two steps moved to P9, below</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One module, <code>coffeecv/canonical.py</code>, with no torch (the front imports it): original bytes in,
     canonical JPEG XL bytes out, and a canonical file in, 8-bit sRGB out. <code>photo_io.load_rgb_image</code> becomes
@@ -222,7 +222,30 @@
       for the owner (D43).</span></li>
   </ol>
 
-  <h2>6. P4 &mdash; The canonical store</h2>
+    <p><b>As done, 2026-11-03.</b> <code>coffeecv/canonical.py</code> (no torch) with <code>canonicalize</code>,
+    <code>load_canonical</code> (refuses anything not canonical), <code>is_canonical</code> and
+    <code>canonical_problems</code>; <code>coffeecv/jxl_header.py</code> (the header reader, finding 5) and
+    <code>coffeecv/jxl_encode.py</code> (libjxl's chunked encoder, D52: the same bytes as <code>jpegxl_encode</code>,
+    half its memory); the profile in <code>coffeecv/data/</code>; imagecodecs' version checked at import.
+    Changed from the steps above:</p>
+  <ul>
+    <li><b><code>load_rgb_image</code> and <code>pillow-jxl-plugin</code> move to P9.</b> Turning
+      <code>load_rgb_image</code> canonical-only here would break the 38 files that call it, which read originals until P6
+      (training) and P9 (serving); the plugin is what they read JPEG XL with until then. P9 makes
+      <code>load_rgb_image</code> canonical-only and drops the plugin once the last caller has moved.</li>
+    <li><b>A pixel ceiling before decoding:</b> <code>canonicalize(data, name, max_pixels)</code> refuses a photo over
+      it from its header (<code>TooLarge</code>), for D38's front; Pillow's bomb limit maps to the same.</li>
+    <li><b>Found by D8's tests:</b> LittleCMS alone round-trips every patch to the level, but q95 moves a saturated
+      colour's near-zero channel by up to 9 levels in 8-bit sRGB (0.003 in linear light; sRGB green reads back
+      (9, 255, 0)), greys exact. The tests hold the conversion to the maths and the whole path in linear light.</li>
+    <li><b>The 7 photos over 60 MP</b> from their canonical photos (upright, colour-managed, INTER_AREA): 7 of 7 the same
+      verdict and top-1, mask area within 0.006, top-1 probability moved by up to 0.19
+      (<code>analysis/ml19/p3/seven_compare.txt</code>). No stop (D43).</li>
+    <li><b>The "Uncalibrated" photo</b> (<code>confusable_grain_010.jpg</code>) has no interoperability index, so it is
+      read as sRGB (D16).</li>
+  </ul>
+
+<h2>6. P4 &mdash; The canonical store</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3, Q3 (answered: D49)</span></div>
