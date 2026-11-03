@@ -29,6 +29,7 @@ from pathlib import Path
 LIST = "webapp/static/examples/examples.json"
 TIMEOUT_S = 190   # the front's nginx waits this long for an answer (proxy_read_timeout, OPS-16 D8)
 BUSY_RETRY_S = 3  # as verify's smoke photo
+OFFLINE = b"the classifier is offline"   # check_service.py's OFFLINE; every other 503 is busy, as the page reads it
 
 
 def expected(example: dict) -> str:
@@ -70,18 +71,25 @@ def _post(url: str, filename: str, photo: bytes) -> tuple[int, bytes]:
     boundary = uuid.uuid4().hex
     body = (f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
             f"Content-Type: image/jxl\r\n\r\n").encode() + photo + f"\r\n--{boundary}--\r\n".encode()
-    for attempt in range(2):
-        status, answer = _request(urllib.request.Request(
+    def send() -> tuple[int, bytes]:
+        return _request(urllib.request.Request(
             f"{url}/analyze", data=body, method="POST",
             headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "coffee-cv-verify"}))
-        if status != 503 or attempt:
-            return status, answer
+
+    status, answer = send()
+    if status == 503 and OFFLINE not in answer:   # busy is retried once; offline is not, it lasts minutes (OPS-15 D12)
         time.sleep(BUSY_RETRY_S)
-    raise AssertionError("unreachable")
+        status, answer = send()
+    return status, answer
 
 
 def check(url: str, commit: str, repo: Path, say: Callable[[str], None]) -> int:
     """Runs every example's checks, saying one line each; 1 if any failed, else 0."""
+    # A commit this checkout cannot resolve fails: skipping it would pass a release whose examples were never checked.
+    if not commit or subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=repo,
+                                    capture_output=True).returncode != 0:
+        say(f"FAIL  the release's commit: got '{commit}', which this checkout does not have (git fetch)")
+        return 1
     listing = _git_show(repo, commit, LIST)
     if listing is None:
         say(f"skipped: the release's commit has no {LIST}")

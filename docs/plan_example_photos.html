@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P5 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P6 and P7 wait on ML-16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P1&ndash;P5 done 2026-11-03; P6 and P7 wait on ML-16</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -250,7 +250,7 @@
 
   <h2>7. P5 &mdash; <code>--verify</code> checks the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, the P5 commit after <code>e2cfaa1</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>b51d69e</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1, Q2 (answered: D13, D14, D16, D17)</span></div>
   </div>
   <p>D11. <code>verify()</code> in <code>scripts/deploy_webapp.sh</code> posts the smoke photo through the domain
@@ -369,6 +369,13 @@
       (D14, D17) with <code>webapp/deploy/example_check.py</code>; <code>docs/agents/deploy.md</code> says what
       <code>--verify</code> now checks. The P4 commit is <code>e2cfaa1</code>. What is left is P6 and P7, both waiting
       on ML-16.</div>
+    <div><div class="when">2026-11-03</div><code>/code-review</code> of P2, P4 and P5. Fixed: a release commit
+      the deploying checkout cannot resolve now fails <code>example_check.py</code> instead of skipping it, which
+      would have passed a release with no example checked; an offline 503 is not retried; a click on an example
+      clears the last photo's preview and "Use full photo instead" while the example downloads (checked in the
+      browser run again, all passing); the front's manifest reads the example list at the release's ref
+      (<code>--ref "$SHA" --front</code>), not the working tree; a test no longer restates
+      <code>examples.json</code>. The P5 commit is <code>b51d69e</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

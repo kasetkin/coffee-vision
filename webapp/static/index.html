@@ -453,14 +453,10 @@ fileInput.addEventListener('change', () => {
 // A photo to classify: the visitor's own (example null), or an example photo, which takes the same path as one the
 // visitor chose (ticket OPS-16 D9): the same size check, upload, busy retries and "Use full photo instead".
 function choose(file, example) {
-  currentUpload++;
-  resultEl.innerHTML = '';
-  hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
-  lastCropBox = null;
-  lastMask = null;
-  lastFile = file || null;
-  lastExample = file ? example : null;
+  clearPhoto();
   if (!file) return;
+  lastFile = file;
+  lastExample = example;
   if (file.size > MAX_UPLOAD_BYTES) {
     // Rounded up, so a photo just over the limit never reads as exactly the limit.
     const mb = Math.ceil(file.size / 2 ** 20 * 10) / 10;
@@ -469,6 +465,17 @@ function choose(file, example) {
     return;
   }
   analyze(file, false, example);
+}
+
+// The photo on the page, and what was shown for it, gone: a new pick starts clean, and an answer still coming for
+// the old one is dropped (its upload token is no longer current).
+function clearPhoto() {
+  currentUpload++;
+  resultEl.innerHTML = '';
+  hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
+  lastCropBox = null;
+  lastMask = null;
+  lastFile = lastExample = null;
 }
 
 // The example row (ticket OPS-16 D10, D13): one button per example in /examples/examples.json, its WebP thumbnail
@@ -503,8 +510,8 @@ async function loadExamples() {
 // A click (D9): the example's JPEG XL fetched from the front, then uploaded as a chosen file. The browser need not
 // be able to show a JPEG XL: the page shows the server's JPEG thumbnail (D7).
 async function chooseExample(example) {
-  const pick = ++currentUpload;
-  resultEl.innerHTML = '';
+  clearPhoto();   // while the example downloads, nothing of the last photo stays to be clicked
+  const pick = currentUpload;
   setBusy(true);
   let file;
   try {

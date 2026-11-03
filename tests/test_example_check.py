@@ -10,6 +10,7 @@ changes one, and its /analyze answers by the posted file's name.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -22,7 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 import example_check  # noqa: E402
 
-LIST = "webapp/static/examples/examples.json"
+LIST = example_check.LIST
 
 
 def git(*args: str) -> bytes:
@@ -159,6 +160,25 @@ class ExampleCheck(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("FAIL  example brazil-grinder: got 'HTTP 503', want 'Brazil'", lines)
 
+    def test_offline_is_not_retried(self):
+        with mock.patch.object(FakeFront, "do_POST", lambda h: (
+                h.rfile.read(int(h.headers["Content-Length"])), FakeFront.posted.append("x"), h.send_response(503),
+                h.send_header("Content-Length", "39"), h.end_headers(),
+                h.wfile.write(b'{"error": "the classifier is offline"}\n'))):
+            code, lines = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertEqual(len(FakeFront.posted), len(self.examples), "an offline answer was retried")
+        self.assertIn("FAIL  example brazil-grinder: got 'HTTP 503', want 'Brazil'", lines)
+
+    def test_a_commit_this_repo_does_not_have_fails_rather_than_skips(self):
+        for commit in ("0" * 40, ""):
+            with self.subTest(commit=commit):
+                lines: list[str] = []
+                code = example_check.check(self.url, commit, REPO, lines.append)
+                self.assertEqual(code, 1)
+                self.assertTrue(lines and lines[0].startswith("FAIL  the release's commit"), lines)
+                self.assertEqual(FakeFront.posted, [])
+
     def test_a_release_from_before_the_examples_has_nothing_to_check(self):
         code, lines = self.run_check(git("rev-parse", f"{self.commit}^").decode().strip())
         self.assertEqual((code, FakeFront.posted), (0, []))
@@ -180,6 +200,17 @@ class Outcome(unittest.TestCase):
                          "error: boom")
         self.assertEqual(example_check.outcome(part(part="preview")), "no classification")
         self.assertEqual(example_check.outcome("not json"), "no classification")
+
+    def test_offline_is_the_check_services_word_for_it(self):
+        sys.path.insert(0, str(REPO / "webapp" / "front"))
+        import check_service
+        self.assertEqual(example_check.OFFLINE.decode(), check_service.OFFLINE["error"])
+        self.assertNotIn(example_check.OFFLINE.decode(), check_service.BUSY["error"])
+
+    def test_it_waits_as_long_as_the_fronts_nginx(self):
+        site = (REPO / "webapp/deploy/coffee-cv-front.nginx.conf.template").read_text()
+        [wait] = re.findall(r"proxy_read_timeout (\d+)s;", site.split("location = /analyze", 1)[1])
+        self.assertGreaterEqual(example_check.TIMEOUT_S, int(wait))
 
     def test_what_each_example_should_get(self):
         self.assertEqual(example_check.expected({"country": "Brazil"}), "Brazil")

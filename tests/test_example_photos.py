@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -20,7 +21,7 @@ EXAMPLES_DIR = REPO / "webapp" / "static" / "examples"
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from coffeecv.class_list import load_classes  # noqa: E402
-from release_manifest import STATIC  # noqa: E402
+from release_manifest import EXAMPLES_LIST, _readers, front_manifest  # noqa: E402
 
 
 def examples() -> list[dict]:
@@ -34,14 +35,14 @@ def served_countries() -> set[str]:
 
 
 class TheList(unittest.TestCase):
-    def test_d10s_five_in_its_order_with_their_captions(self):
-        self.assertEqual([(e["name"], e["caption"], e["country"]) for e in examples()], [
-            ("brazil-grinder", "Roasted, in a grinder", "Brazil"),
-            ("ethiopia-green", "Green, in a tray", "Ethiopia"),
-            ("vietnam-robusta", "Robusta, on a table", "Vietnam"),
-            ("indonesia-roasted", "Roasted, close up", "Indonesia"),
-            ("cappuccino", "A cappuccino, no beans", None),
-        ])
+    def test_each_example_is_a_name_a_caption_and_a_country(self):
+        names = [e["name"] for e in examples()]
+        self.assertEqual(len(names), len(set(names)), "a name twice")
+        for e in examples():
+            with self.subTest(example=e.get("name")):
+                self.assertEqual(set(e), {"name", "caption", "country"})
+                self.assertRegex(e["name"], r"^[a-z0-9]+(-[a-z0-9]+)*$")   # a file name and a URL path as it is
+                self.assertTrue(e["caption"].strip())
 
     def test_each_country_is_one_the_served_model_answers_with(self):
         countries = served_countries()
@@ -56,7 +57,18 @@ class TheList(unittest.TestCase):
     def test_the_front_ships_the_list_and_every_file_it_names(self):
         want = {"webapp/static/examples/examples.json"} | {
             f"webapp/static/examples/{e['name']}.{ext}" for e in examples() for ext in ("jxl", "webp")}
-        self.assertEqual({p for p in STATIC if p.startswith("webapp/static/examples/")}, want)
+        self.assertEqual({p for p in front_manifest()["git"] if p.startswith("webapp/static/examples/")}, want)
+
+    def test_a_release_ships_the_examples_its_own_commit_lists(self):
+        """Read at the release's ref, not the working tree's: a commit from before the list ships none."""
+        added = subprocess.run(["git", "log", "-1", "--format=%H", "--diff-filter=A", "--", EXAMPLES_LIST],
+                               cwd=REPO, capture_output=True, text=True, check=True).stdout.strip()
+        if not added:
+            self.skipTest(f"{EXAMPLES_LIST} is not committed yet")
+        at = {p for p in front_manifest(*_readers(added))["git"] if p.startswith("webapp/static/examples/")}
+        before = {p for p in front_manifest(*_readers(f"{added}^"))["git"] if p.startswith("webapp/static/examples/")}
+        self.assertIn(EXAMPLES_LIST, at)
+        self.assertEqual(before, set())
 
     def test_the_script_makes_exactly_the_listed_examples(self):
         spec = importlib.util.spec_from_file_location("make_example_photos", REPO / "scripts/make_example_photos.py")
