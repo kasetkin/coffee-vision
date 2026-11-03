@@ -332,6 +332,9 @@
       (in DVC, pushed), out of the classifier pool, the segmenter dataset (the two byte copies deleted) and
       <code>user_realworld</code>. <code>scripts/make_example_photos.py</code> finds each there by its sha256. Left:
       P6 on ML-16's model, P7.</div>
+    <div><div class="when">2026-11-03</div><a href="ticket_canonicalization.html">ML-19</a> D17: the example photos become canonical photos, made from
+      their originals (a Rec.2020 JPEG XL at quality 95 in place of D3's q90 re-encode), which the front passes
+      through unchanged. P6 checks them in that form; ML-19 ships in the same release.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),
