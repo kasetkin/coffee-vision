@@ -57,8 +57,9 @@ FRONT_CODE = [
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
 # weights; the converted model's directory instead.
 LIBRARY = [f"coffeecv/{m}.py" for m in (
-    "__init__", "bean_scale", "class_list", "config", "crop_tray", "geometry", "infer", "litert", "model_io",
-    "photo_io", "sam_loader", "segment_beans")]
+    "__init__", "bean_scale", "canonical", "class_list", "config", "crop_tray", "geometry", "infer", "jxl_encode",
+    "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans")] + [
+    "coffeecv/data/rec2020_bt709.icc"]   # ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical)
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them
 # (a model without a probe runs the centroid guard -- the probe file's presence is the switch).
 MODEL_REQUIRED = (".pt.dvc", ".json")

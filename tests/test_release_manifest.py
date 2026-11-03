@@ -23,6 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import LITERT_RUNTIME, VK_ICD, all_files, front_manifest, manifest, unexpected  # noqa: E402
 
+from coffeecv import canonical  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
 
 # The model the live release serves, the one with a LiteRT export (dvc.yaml's litert_export, ticket ML-7 P9).
@@ -54,7 +55,7 @@ sys.addaudithook(hook)
 import io
 import webapp.app as app
 client = app.app.test_client()
-r = client.post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jpg")}, content_type="multipart/form-data")
+r = client.post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jxl")}, content_type="multipart/form-data")
 parts = [json.loads(line)["part"] for line in r.get_data(as_text=True).splitlines()]   # runs the whole stream
 print("TRACE " + json.dumps({"opened": sorted(opened), "status": {"/analyze": [r.status_code, parts]}}))
 """
@@ -85,7 +86,11 @@ class TestReleaseManifest(unittest.TestCase):
                     env = {**os.environ, "COFFEE_CV_CHECKPOINT": f"models/{model}.pt", "COFFEE_CV_LOG_DIR": logs,
                            "PYTHONDONTWRITEBYTECODE": "1", "COFFEE_CV_LITERT_ON_CPU": "1",
                            "COFFEE_CV_WARMUP_PHOTO": m["env"]["COFFEE_CV_WARMUP_PHOTO"]}
-                    out = subprocess.run([sys.executable, "-c", TRACE, str(REPO), str(PHOTO)], cwd=REPO,
+                    # The host takes canonical photos only (ML-19 D12): the photo crosses as the front sends it,
+                    # made here so that the traced process opens only what the app opens.
+                    canon = Path(logs) / "smoke.jxl"
+                    canon.write_bytes(canonical.canonicalize_file(PHOTO))
+                    out = subprocess.run([sys.executable, "-c", TRACE, str(REPO), str(canon)], cwd=REPO,
                                          env=env, capture_output=True, text=True, timeout=900)
                 self.assertEqual(out.returncode, 0, out.stderr[-3000:])
                 trace = json.loads(next(line[6:] for line in out.stdout.splitlines()

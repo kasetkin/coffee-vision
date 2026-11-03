@@ -176,6 +176,9 @@ class CheckHandler(BaseHTTPRequestHandler):
                                                 + (" for a camera RAW file" if raw else "")}, "413 (pixels)")
             except canonical.Unreadable as exc:
                 return self.json(400, {"error": f"could not read this as an image: {exc}"})
+            except Exception as exc:   # noqa: BLE001 -- any other failure is an answer, not a dropped connection
+                return self.json(500, {"error": "could not process this photo"},
+                                 f"500 canonicalization failed ({type(exc).__name__}: {exc})")
             del data
             name = f"{PurePath(filename).stem or 'photo'}.jxl"
             return self.forward(with_photo(content_type, body, name, canon))

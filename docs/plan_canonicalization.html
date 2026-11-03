@@ -247,8 +247,8 @@
 
 <h2>6. P4 &mdash; The canonical store</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P3, Q3 (answered: D49)</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the store built and checked; the push waits for the owner (the link)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D18 and D33: one DVC stage per folder a model reads, on this machine (finding 6), the originals untouched.</p>
   <ol class="tasks">
@@ -267,7 +267,18 @@
       <code>is_canonical</code>; a re-run gives the same bytes; <code>dvc status</code> clean.</span></li>
   </ol>
 
-  <h2>7. P5 &mdash; pass14 and the labelling page <span class="pill sm open">stop</span></h2>
+    <p><b>As done, 2026-11-03.</b> <code>coffeecv/canonicalize_folder.py</code> and the 20
+    <code>canonicalize@&lt;folder&gt;</code> stages built <code>data/canonical</code> here: 2,364 photos, 7.54 GB of
+    originals to 5.13 GB (<code>analysis/ml19/p4_sizes.md</code>). The largest folder,
+    <code>segmenter_positives</code>, took 993 s at 4 jobs, so D49's full re-run stands. Ten stages were recorded with
+    <code>dvc commit</code> after a <code>dvc push</code> of mine took DVC's lock mid-run; 2 photos of each, made again,
+    were byte-identical. D29: the largest canonical photo is a 48.6 MP DNG at 25.2 MB, the largest JPEG 13.7 MB; the
+    front refuses RAW over 16 MP, so the host's 20 MB cap stays. Found: rawpy can deadlock in a forked worker, so the
+    pool spawns. <b>Not pushed:</b> the DVC remote is on <code>yappy</code> at 0.25 MB/s (measured), the link visitors'
+    photos cross: the store would take about 6 hours and the lossless crops about 10 more, so when and over which link
+    is the owner's call. The store is reproducible here byte for byte. pass14 (9 MB) is pushed and checked.</p>
+
+<h2>7. P5 &mdash; pass14 and the labelling page <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: pass14 written and checked (this commit); stopped for the owner's review of the 191 turned rows (D47)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q1 (answered: D47)</span></div>
@@ -394,7 +405,23 @@
       the check service's tests on a canonical upload, a JPEG, a HEIC and an oversized photo.</span></li>
   </ol>
 
-  <h2>12. P10 &mdash; The release, with ML-16 and OPS-16 <span class="pill sm open">stop</span></h2>
+    <p><b>As done, 2026-11-03.</b> The front: <code>check_service.py</code> canonicalizes inside its one-at-a-time gate
+    and forwards the canonical photo as <code>&lt;stem&gt;.jxl</code>; its environment and release carry the module;
+    <code>MemoryMax=500M</code>. The host: <code>/analyze</code> refuses anything not canonical with a 400 that says so,
+    decodes the rest with <code>load_canonical</code>; its release carries the module (the import trace holds it).
+    The deploy (D34): <code>webapp/deploy/canonical_fixtures.py</code> canonicalizes the fixtures here, and the smoke,
+    the expected answers and <code>--compare</code> (PyTorch here and the release there) read those bytes; the host gets
+    them with <code>fixtures.canonical.txt</code>, which <code>release_probe.py</code> reads as it reads
+    <code>fixtures.txt</code>. <code>make_example_photos.py</code> makes canonical examples (D17, D45): 15.8 MB for the
+    five against 10.8 MB today; the new files are not committed, the owner's call at P10 (a public repo's history
+    keeps them). Docs: <code>docs/inference_path.html</code>, ADR 0031's amendment, <code>webapp/README.md</code>.
+    Not done: the boot's warm-up still runs on the original fixture (it proves the GPU and times the boot; its
+    pixels are not an answer); <code>load_rgb_image</code> made canonical-only and <code>pillow-jxl-plugin</code>
+    dropped (callers left: the warm-up, <code>export_litert</code>'s check, which compares two backends on the same
+    pixels, and the analysis scripts); <code>scripts/rehearse_deploy_local.sh</code>, which deploys
+    <code>origin/main</code>, so it rehearses this branch once it is merged (P10).</p>
+
+<h2>12. P10 &mdash; The release, with ML-16 and OPS-16 <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7, P9, ML-16 <span class="tag">its segmenter and classifier trained, chosen and converted</span>, OPS-16 P6</span></div>

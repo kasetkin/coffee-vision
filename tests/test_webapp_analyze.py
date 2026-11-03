@@ -26,6 +26,7 @@ from unittest import mock
 import numpy as np
 from PIL import Image
 
+from coffeecv import canonical
 from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parents[1]
@@ -38,7 +39,7 @@ MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v6_
 
 
 def _post(client, data: bytes, skip_crop: bool = False, buffered: bool = True):
-    form = {"photo": (io.BytesIO(data), "photo.jpg")}
+    form = {"photo": (io.BytesIO(data), "photo.jxl")}
     if skip_crop:
         form["skip_crop"] = "1"
     return client.post("/analyze", data=form, content_type="multipart/form-data", buffered=buffered)
@@ -98,7 +99,12 @@ class TestAnalyze(unittest.TestCase):
                     os.environ[k] = v
         cls.app = app
         cls.client = app.app.test_client()
-        cls.photo = PHOTO.read_bytes()
+        # The host takes canonical photos only (ticket ML-19 D12): the fixture crosses as the front sends it.
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.canon_path = Path(cls.tmp.name) / f"{PHOTO.name}.jxl"
+        cls.canon_path.write_bytes(canonical.canonicalize_file(PHOTO))
+        cls.photo = cls.canon_path.read_bytes()
+        cls.rgb = canonical.load_canonical(cls.photo)
         cls.response = _post(cls.client, cls.photo)
         assert cls.response.status_code == 200, cls.response.data
         cls.parts = _parts(cls.response)
@@ -118,13 +124,11 @@ class TestAnalyze(unittest.TestCase):
         self.assertEqual([p["part"] for p in self.parts], ["preview", "classification"])
 
     def test_preview_mask_is_the_photos_mask_scaled_down(self):
-        from coffeecv.dataset import load_rgb_image
         a = self.preview
         self.assertIs(a["seg_fallback"], False)
         self.assertIs(a["cropped"], True)
         img = _decode(a["mask"])
-        rgb = load_rgb_image(PHOTO)
-        h, w = rgb.shape[:2]
+        h, w = self.rgb.shape[:2]
         self.assertNotEqual(h, w, "the test needs a non-square photo")
         mw, mh = img.size
         self.assertEqual(max(mw, mh), min(self.app.PREVIEW_MAX_DIM, max(w, h)))
@@ -140,7 +144,7 @@ class TestAnalyze(unittest.TestCase):
         self.assertTrue((alpha[idx == 1] == 255).all(), "bean pixels (index 1) are not opaque")
         mask = idx == 1
         self.assertTrue(mask.any(), "the mask is empty")
-        full = self.app.segmenter.predict_mask(rgb)
+        full = self.app.segmenter.predict_mask(self.rgb)
         iou = _iou(mask, _sampled_at_centres(full, mask.shape))
         self.assertGreaterEqual(iou, 0.99)
         # The same check, transposed, must fail: it is what a swapped width and height would give.
@@ -154,7 +158,7 @@ class TestAnalyze(unittest.TestCase):
     def test_preview_thumbnail_is_the_photo_scaled_down(self):
         img = _decode(self.preview["thumbnail"])
         self.assertEqual(img.format, "JPEG")
-        w, h = Image.open(PHOTO).size
+        h, w = self.rgb.shape[:2]
         tw, th = img.size
         self.assertEqual(max(tw, th), self.app.PREVIEW_MAX_DIM)
         self.assertLessEqual(abs(tw - w * th / h), 1, ((tw, th), (w, h)))
@@ -162,7 +166,7 @@ class TestAnalyze(unittest.TestCase):
     def test_classification_is_classify_ones_answer(self):
         from coffeecv.infer import classify_one
         app = self.app
-        entry = classify_one(PHOTO, app.cfg, app.class_ids, app.class_labels, app.classifier, app.ref,
+        entry = classify_one(self.canon_path, app.cfg, app.class_ids, app.class_labels, app.classifier, app.ref,
                              n_patches=app.N_PATCHES, tta=app.TTA, probe=app.probe, segmenter=app.segmenter)
         body, status = app._entry_to_response(entry)
         self.assertEqual(status, 200)
@@ -182,9 +186,14 @@ class TestAnalyze(unittest.TestCase):
         # Ticket OPS-7 D19.
         self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 2))
 
-    def test_orientation_tag_is_ignored_by_mask_and_thumbnail_alike(self):
-        # load_rgb_image ignores EXIF orientation on purpose (CODING_STANDARDS.md, "Invariance over
-        # normalization"); the mask and the thumbnail must both stay in the stored pixels' frame.
+    def test_an_original_is_refused_saying_why(self):   # ML-19 D12
+        r = _post(self.client, PHOTO.read_bytes())
+        self.assertEqual(r.status_code, 400)
+        self.assertTrue(r.get_json()["error"].startswith("not a canonical photo"), r.get_json())
+
+    def test_a_rotated_photo_arrives_upright_and_mask_and_thumbnail_follow(self):
+        # The front turns a photo by its EXIF orientation as it canonicalizes it (ML-19 D28); the host shows and
+        # segments the upright photo, the mask and the thumbnail in its frame alike.
         src = Image.open(PHOTO)
         w, h = src.size
         exif = src.getexif()
@@ -195,8 +204,9 @@ class TestAnalyze(unittest.TestCase):
         from PIL import ImageOps
         self.assertEqual(ImageOps.exif_transpose(Image.open(io.BytesIO(tagged))).size, (h, w),
                          "the copy's tag would rotate it, if anything honoured it")
-        r = _post(self.client, tagged)
+        r = _post(self.client, canonical.canonicalize(tagged))
         self.assertEqual(r.status_code, 200)
+        w, h = h, w                            # upright: the stored frame turned a quarter
         preview = _parts(r)[0]
         mask_size = _decode(preview["mask"]).size
         self.assertLessEqual(max(mask_size), 1024, "the mask's long side (D7, D10)")
@@ -236,6 +246,10 @@ class TestAnalyze(unittest.TestCase):
         r = _post(self.client, b"not an image")
         self.assertEqual(r.status_code, 400)
         self.assertTrue(r.is_json)
+        self.assertTrue(r.get_json()["error"].startswith("not a canonical photo"), r.get_json())
+        cut = self.photo[:len(self.photo) // 2]     # a canonical header, then a codestream cut short
+        r = _post(self.client, cut)
+        self.assertEqual(r.status_code, 400)
         self.assertTrue(r.get_json()["error"].startswith("could not read this as an image"), r.get_json())
         self.assertEqual(len(self._log_lines(r, "decode failure")), 1)
 

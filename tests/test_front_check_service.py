@@ -199,6 +199,11 @@ class CheckService(unittest.TestCase):
                 self.assertIn("too many pixels", payload["error"])
         self.assertEqual(FakeInferenceHost.seen, [])
 
+    def test_a_failure_while_canonicalizing_is_an_answer_not_a_dropped_connection(self):
+        with mock.patch.object(check_service.canonical, "canonicalize", side_effect=MemoryError("no room")):
+            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (500, {"error": "could not process this photo"}))
+        self.assertEqual(FakeInferenceHost.seen, [])
+
     def test_a_photo_that_cannot_be_decoded_never_crosses(self):
         status, payload = self.answer(form("beans.jpg", JPEG[:200]))     # a JPEG's signature, cut short
         self.assertEqual(status, 400)

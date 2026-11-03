@@ -144,6 +144,18 @@ def _pillow_metadata(data: bytes) -> tuple[bytes | None, int, str, tuple[int, in
         raise TooLarge(str(exc)) from exc
 
 
+def usable_profile(profile: bytes | None) -> bytes | None:
+    """The photo's ICC profile if LittleCMS can convert from it as RGB; else None, so the photo is read as sRGB, as an
+    untagged one is (D16): a grey or broken profile, which a phone does not write, refuses no photo."""
+    if not profile or profile[16:20] != b"RGB ":
+        return None
+    try:
+        ic.cms_profile_validate(profile)
+    except Exception:   # noqa: BLE001 -- imagecodecs raises its own CmsError, or ValueError on garbage
+        return None
+    return profile
+
+
 def _check_size(width: int, height: int, max_pixels: int | None) -> None:
     if max_pixels is not None and width * height > max_pixels:
         raise TooLarge(f"{width} x {height} is over {max_pixels:,} pixels")
@@ -182,7 +194,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             del heif
             # pillow-heif shifts a 10- or 12-bit sample into the top of 16 bits: 10-bit white is 1023 << 6
             full = float((2**depth - 1) << (16 - depth)) if rgb.dtype == np.uint16 else 255.0
-            return Source(_cap(rgb), full, profile, f"heif{depth}")
+            return Source(_cap(rgb), full, usable_profile(profile), f"heif{depth}")
         if kind == "jxl":
             return _decode_jxl(data, max_pixels)
         profile, orientation, mode, size = _pillow_metadata(data)
@@ -197,7 +209,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             with Image.open(io.BytesIO(data)) as im:
                 im.seek(0)
                 rgb = np.asarray(im.convert("RGBA" if im.has_transparency_data else "RGB"))
-        return Source(orient(_cap(rgb), orientation), float(np.iinfo(rgb.dtype).max), profile, kind)
+        return Source(orient(_cap(rgb), orientation), float(np.iinfo(rgb.dtype).max), usable_profile(profile), kind)
     except Unreadable:
         raise
     except (OSError, ValueError, RuntimeError, SyntaxError, EOFError) as exc:
@@ -346,11 +358,14 @@ def is_canonical(data: bytes) -> bool:
 def load_canonical(data: bytes, strip: int = 128) -> np.ndarray:
     """A canonical photo's 8-bit sRGB, H x W x 3 uint8 (D7): decoded at 16 bits, LittleCMS without its lossy
     optimization (the same as float32's output, P1), relative colorimetric, clipped and rounded. Anything else is
-    refused with NotCanonical."""
+    refused with NotCanonical; a canonical header over a broken codestream raises Unreadable."""
     problems = canonical_problems(data)
     if problems:
         raise NotCanonical("not a canonical photo: " + "; ".join(problems))
-    rec = ic.jpegxl_decode(data)
+    try:
+        rec = ic.jpegxl_decode(data)
+    except (ic.JpegxlError, ValueError, RuntimeError) as exc:   # a canonical header over a broken codestream
+        raise Unreadable(f"unreadable canonical photo ({type(exc).__name__})") from exc
     out = np.empty(rec.shape, np.uint8)
     for y in range(0, rec.shape[0], strip):
         ic.cms_transform(rec[y:y + strip], REC2020, SRGB, intent=RELATIVE, flags=NOOPTIMIZE, outdtype=np.uint8,

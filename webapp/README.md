@@ -21,9 +21,11 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
 ```
 
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
-serves the domain; it has the standard library only (`front/`), no ML code and no decoder, and forwards the photo's
-bytes unchanged. The inference host has the GPU and a slow link (2.1 Mbit/s in), which is why the front refuses a
-photo over 10 MB (OPS-16 D8), or in a format the app cannot read, before it crosses. While the app is down (a deploy,
+serves the domain; it has no ML code (`front/`), and since ticket ML-19 (ADR 0033) it canonicalizes each photo with
+`coffeecv/canonical.py` and forwards the canonical photo in its place. The inference host has the GPU and a slow link
+(2.1 Mbit/s in), which is why the front refuses a photo over 10 MB (OPS-16 D8), in a format the app cannot read, or
+over its pixel ceiling (50.2 MP; RAW 16 MP), before it crosses; the host refuses anything that is not a canonical
+photo. While the app is down (a deploy,
 or the host) the page stays up and `/analyze` answers `503 {"error": "the classifier is offline"}`.
 
 - `app.py` -- the Flask app. Loads the model once at import time; `classify_one`'s
@@ -50,7 +52,8 @@ or the host) the page stays up and `/analyze` answers `503 {"error": "the classi
   description, and the Agentic Resource Discovery manifest pointing at both. See
   "For agents" below.
 - `front/` -- the front's check service (`check_service.py`, `upload_check.py`):
-  standard library only, its own `pyproject.toml` + `uv.lock` with no dependencies.
+  its own `pyproject.toml` + `uv.lock`, with the photo stack canonicalization needs at training's versions
+  (`coffeecv.lock_check`); its release carries `coffeecv/canonical.py` and what it imports.
 - `deploy/` -- the templates (systemd units, both nginx sites, the stream block's
   session log, logrotate), the release manifest, and the helpers
   `scripts/deploy_webapp.sh` uses; `setup_server.sh` installs only nginx, a

@@ -25,10 +25,8 @@ import logging
 import os
 import resource
 import subprocess
-import tempfile
 import time
 import uuid
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from logging.handlers import WatchedFileHandler
 from pathlib import Path
@@ -46,7 +44,7 @@ from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PRO
                             inference_tta_for, load_ood_probe, load_ood_reference, probe_path_for,
                             reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
-from coffeecv.photo_io import RAW_EXTENSIONS, load_rgb_image  # noqa: E402
+from coffeecv import canonical  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -428,40 +426,6 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
         g.inference_ms = timing.get("inference")
 
 
-@contextmanager
-def _saved_upload(upload):
-    """Write an upload to a tempfile and clean it up unconditionally afterward.
-
-    Suffix is normally a fixed generic one, since Pillow sniffs format from
-    content and doesn't need it. RAW is the one exception, and matters for
-    correctness, not just convenience: DNG and friends are valid TIFF
-    containers that embed a small compatibility preview for programs that
-    don't understand RAW, so Pillow's TIFF plugin will happily "succeed" at
-    opening one and silently return that degraded embedded preview instead of
-    failing -- there's no way to detect "this needs rawpy instead" from
-    content alone (confirmed: the same DNG opens as 1536x2040 via rawpy's real
-    decode vs 1280x964 via Pillow's embedded-preview fallback). The extension
-    is the only signal `load_rgb_image`'s RAW branch can dispatch on, so
-    unlike every other format here, it's used -- but only ever checked
-    against `RAW_EXTENSIONS`, coffeecv.dataset's own fixed allowlist, never
-    trusted as an arbitrary string: `Path(...).suffix` only ever looks at the
-    last path segment regardless of what a crafted filename contains before
-    it, and the result must exactly match one of those literal entries or it
-    falls back to the generic suffix same as before.
-    """
-    orig_suffix = Path(upload.filename or "").suffix.lower()
-    suffix = orig_suffix if orig_suffix in RAW_EXTENSIONS else ".upload"
-    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
-    os.close(fd)
-    try:
-        upload.save(tmp_path)
-        g.upload_format = orig_suffix.lstrip(".") or "unknown"
-        g.upload_bytes = os.path.getsize(tmp_path)
-        yield Path(tmp_path)
-    finally:
-        os.unlink(tmp_path)
-
-
 def _mask_png_b64(mask: np.ndarray) -> str:
     """The whole photo's bool mask as the preview part sends it (ticket OPS-6 D7): scaled to long side <= PREVIEW_MAX_DIM,
     aspect kept, never up (area average, then >= 0.5), as a 1-bit palette PNG, index 0 (not bean) transparent
@@ -498,14 +462,22 @@ def analyze():
     skip_crop = request.form.get("skip_crop") == "1"
     g.skip_crop = skip_crop
 
-    with _saved_upload(upload) as path:
-        t0 = time.monotonic()
-        try:
-            photo = load_rgb_image(path)
-        except (ValueError, OSError) as exc:
-            _log_decode_failure(exc)
-            return jsonify(error=f"could not read this as an image: {exc}"), 400
-        decode_ms = round((time.monotonic() - t0) * 1000)
+    # Ticket ML-19 D12 (ADR 0033): the host reads canonical photos only; the front canonicalizes every upload, and
+    # every tool that sends this host a photo canonicalizes it first (D34). Anything else is refused, saying why.
+    data = upload.read()
+    g.upload_format = Path(upload.filename or "").suffix.lower().lstrip(".") or "unknown"   # the log line's
+    g.upload_bytes = len(data)
+    problems = canonical.canonical_problems(data)
+    if problems:
+        return jsonify(error="not a canonical photo (the front canonicalizes uploads): " + "; ".join(problems)), 400
+    t0 = time.monotonic()
+    try:
+        photo = canonical.load_canonical(data)
+    except (ValueError, OSError) as exc:
+        _log_decode_failure(exc)
+        return jsonify(error=f"could not read this as an image: {exc}"), 400
+    del data
+    decode_ms = round((time.monotonic() - t0) * 1000)
     g.decoded_h, g.decoded_w = photo.shape[:2]
     seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter, decode_ms=decode_ms)
     preview = _preview_part(seg)

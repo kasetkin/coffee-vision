@@ -289,6 +289,10 @@ class IsCanonical(unittest.TestCase):
                 with self.assertRaises(cn.NotCanonical):
                     cn.load_canonical(data)
 
+    def test_a_canonical_header_over_a_broken_codestream_is_unreadable(self):
+        with self.assertRaises(cn.Unreadable):
+            cn.load_canonical(self.canon[:len(self.canon) // 2])
+
     def test_orientation_size_preview_and_animation(self):
         h = read_header(self.canon)
         self.assertEqual(cn.header_problems(h), [])
@@ -322,6 +326,17 @@ class Readers(unittest.TestCase):
         for d in (data, jpeg(patches(SRGB_PATCHES)), ic.jpegxl_encode(patches(SRGB_PATCHES), level=95)):
             with self.subTest(n=len(d)), self.assertRaises(cn.TooLarge):
                 cn.canonicalize(d, max_pixels=9_215)
+
+    def test_a_grey_or_broken_profile_is_read_as_srgb(self):   # D16's rule, not a refusal
+        grey = Image.new("L", (16, 16), 128)
+        gray_icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()[:16] + b"GRAY" + \
+            ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()[20:]
+        buf = io.BytesIO()
+        grey.save(buf, "JPEG", quality=95, icc_profile=gray_icc)
+        broken = jpeg(patches(SRGB_PATCHES), icc=b"\x00" * 16 + b"RGB " + b"\x00" * 200)
+        for data in (buf.getvalue(), broken):
+            with self.subTest(n=len(data)):
+                self.assertTrue(cn.is_canonical(cn.canonicalize(data)))
 
     def test_cmyk_is_refused(self):
         buf = io.BytesIO()

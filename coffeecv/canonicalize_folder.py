@@ -16,6 +16,7 @@ import argparse
 import os
 import sys
 import time
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -58,7 +59,8 @@ def main() -> None:
         raise SystemExit(f"{source} is not a folder")
     todo = [(p, cn.canonical_path(p, args.dataset, args.store), args.threads) for p in photos(source)]
     t0, done, failed, size_in, size_out = time.perf_counter(), 0, [], 0, 0
-    with ProcessPoolExecutor(max_workers=args.jobs) as pool:
+    # spawn, not fork: rawpy's OpenMP can deadlock in a forked worker (rawpy's own warning, seen 2026-11-03)
+    with ProcessPoolExecutor(max_workers=args.jobs, mp_context=multiprocessing.get_context("spawn")) as pool:
         for name, n_in, n_out, seconds, error in pool.map(_one, todo, chunksize=1):
             if error:
                 failed.append(f"{name}: {error}")

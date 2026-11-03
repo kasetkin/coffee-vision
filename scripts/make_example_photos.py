@@ -1,12 +1,12 @@
-"""The page's example photos (ticket OPS-16 D1, D3, D7; ADR 0032): each original, found by its sha256, re-encoded as a
-lossy JPEG XL at full resolution and given a small WebP thumbnail made from that JPEG XL.
+"""The page's example photos (ticket OPS-16 D1, D3, D7; ADR 0032; ticket ML-19 D17, D45): each original, found by its
+sha256, as its canonical photo (coffeecv.canonical), and given a small WebP thumbnail made from that canonical photo.
 
     python -I scripts/make_example_photos.py [--dataset DIR] [--out DIR]
 
-An original is looked for at its dataset path and in dataset/example_photos/, where ML-16 D3 moves it. The JPEG XL
-carries no metadata: no EXIF (pillow-jxl-plugin writes the image's own back unless given exif=b""), no XMP, no ICC
-profile, and no orientation tag, since the pixels are turned upright first. Each file is then decoded back through
-coffeecv/photo_io.py, the decoder training and serving use, and must come out at the original's size.
+An original is looked for at its dataset path and in dataset/example_photos/, where ML-16 D3 moves it. Since ML-19 the
+JPEG XL is the canonical photo, so the front passes a picked example on as it is (D17), and pillow-jxl-plugin is no
+longer used (D45). Until ML-19 it was a q90 8-bit encode by pillow-jxl-plugin. Each file is checked: canonical, and
+decoding to the original's upright size, capped as canonicalization caps.
 """
 from __future__ import annotations
 
@@ -19,15 +19,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-import numpy as np  # noqa: E402
 from PIL import Image, ImageOps  # noqa: E402
 
-from coffeecv.photo_io import DATASET_MAX_PIXELS, load_rgb_image  # noqa: E402 -- also registers HEIF and JPEG XL
+from coffeecv import canonical  # noqa: E402
+from coffeecv.photo_io import DATASET_MAX_PIXELS  # noqa: E402 -- also registers HEIF with Pillow
 
-QUALITY = 90       # D3: "lossy JXL is fine", q90; a photo whose answer changes gets a higher one, said in the plan
 THUMB_SIDE = 400   # D7: the picker's thumbnail, its long side
 THUMB_QUALITY = 80
-MAX_MEAN_GAP = 8   # mean absolute difference, in 8-bit levels, between an original and its JPEG XL (check())
 
 
 @dataclass(frozen=True)
@@ -66,37 +64,24 @@ def find_original(example: Example, dataset: Path) -> Path:
 
 
 def encode(original: Path, jxl: Path, webp: Path) -> None:
-    with Image.open(original) as im:
-        # A new image, not the opened one: pillow-jxl-plugin reconstructs an opened JPEG losslessly whatever the
-        # quality, and an opened image's EXIF would be written back.
-        upright = ImageOps.exif_transpose(im).convert("RGB")
-    upright.save(jxl, "JXL", quality=QUALITY, lossless_jpeg=False, exif=b"")
-    with Image.open(jxl) as decoded:
-        thumb = decoded.convert("RGB")
-        thumb.thumbnail((THUMB_SIDE, THUMB_SIDE), Image.Resampling.LANCZOS)
+    jxl.write_bytes(canonical.canonicalize_file(original))
+    thumb = Image.fromarray(canonical.load_canonical(jxl.read_bytes()))   # 8-bit sRGB, as the models read it
+    thumb.thumbnail((THUMB_SIDE, THUMB_SIDE), Image.Resampling.LANCZOS)
     thumb.save(webp, "WEBP", quality=THUMB_QUALITY, method=6)
 
 
 def check(original: Path, jxl: Path, webp: Path) -> list[str]:
     """What is wrong with the two files, if anything."""
-    problems = []
-    # The model's view of each, through the decoder training and serving use, which ignores Orientation: a photo
-    # turned upright here must not differ from that view. A turn of 90 degrees changes the size; any turn moves the
-    # pixels far past what q90 does (0.6-2.2 levels on average for the five, against 40-100 turned 180, 2026-11-03).
-    seen, sent = load_rgb_image(original), load_rgb_image(jxl)
-    if seen.shape != sent.shape:
-        problems.append("the JPEG XL decodes at another size or orientation than the original")
-    elif (gap := np.abs(seen.astype(np.int16) - sent.astype(np.int16)).mean()) > MAX_MEAN_GAP:
-        problems.append(f"the JPEG XL is {gap:.1f} levels from the original on average, over {MAX_MEAN_GAP}")
-    # An ICC profile is not checked in the JPEG XL: libjxl's decoder reports one built from the codestream's colour
-    # encoding (504 bytes for every file here, 2026-11-03), and none is written (pillow-jxl-plugin's _save has no
-    # icc_profile). The WebP is written from that decode, without it.
-    for path in (jxl, webp):
-        with Image.open(path) as im:
-            if im.getexif() or im.info.get("exif") or im.info.get("xmp") or \
-                    (path is webp and im.info.get("icc_profile")):
-                problems.append(f"{path.name} carries metadata")
+    problems = [f"{jxl.name} is not canonical: {p}" for p in canonical.canonical_problems(jxl.read_bytes())]
+    with Image.open(original) as im:
+        w, h = ImageOps.exif_transpose(im).size if original.suffix.lower() not in (".heic", ".heif") else im.size
+    want = canonical.capped_size(w, h)
+    got = canonical.load_canonical(jxl.read_bytes()).shape[1::-1] if not problems else None
+    if got is not None and tuple(got) != tuple(want):
+        problems.append(f"{jxl.name} decodes at {tuple(got)}, not the original's upright {want}")
     with Image.open(webp) as im:
+        if im.getexif() or im.info.get("exif") or im.info.get("xmp") or im.info.get("icc_profile"):
+            problems.append(f"{webp.name} carries metadata")
         if max(im.size) != THUMB_SIDE:
             problems.append(f"{webp.name} is {im.size}, not {THUMB_SIDE} px on its long side")
     return problems
