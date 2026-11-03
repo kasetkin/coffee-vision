@@ -16,9 +16,8 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
-from PIL import Image
 
-from coffeecv import ood_eval
+from coffeecv import crop_io, ood_eval
 from coffeecv.class_list import load_classes
 from coffeecv.config import RunConfig
 from coffeecv.dataset import MultiPhotoPatchDataset, resolve_captures
@@ -40,8 +39,8 @@ class TestIdPhotos(unittest.TestCase):
                 d.mkdir(parents=True)
                 for i in range(n):
                     stem = f"{cap}_{fid}_{i:03d}"
-                    Image.fromarray(rng.integers(0, 255, (64, 64, 3), dtype=np.uint8)).save(
-                        d / f"{stem}__cropped.jpg")
+                    crop_io.write_crop(rng.integers(0, 255, (64, 64, 3), dtype=np.uint8),
+                                       d / crop_io.crop_name(stem))
                     cls.raw[stem] = Path("dataset") / cap / f"{stem}.jpg"      # stands in for the raw photo
         (cls.tmp / "classes.txt").write_text(CLASSES)
         cls.cfg = replace(RunConfig.from_params_yaml(), seed=7,
@@ -68,7 +67,7 @@ class TestIdPhotos(unittest.TestCase):
                     resize=32, safety_margin=0.97, patches_per_class={"train": 1, "val": 50, "test": 50},
                     photo_frac={"train": self.cfg.train_photo_frac, "val": self.cfg.val_photo_frac,
                                 "test": self.cfg.test_photo_frac})
-                in_ds = {m.photo_name.removesuffix("__cropped.jpg") for m in ds.meta}
+                in_ds = {m.photo_name.removesuffix(crop_io.CROP_SUFFIX) for m in ds.meta}
                 got = self.id_stems(self.classes, split)
                 self.assertEqual(got, in_ds)
                 self.assertEqual(len(got), round(0.15 * 20) + round(0.15 * 25))   # A: 20 photos; B: 25, pooled

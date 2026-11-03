@@ -45,6 +45,27 @@ HAVE_XL0 = (MODELS_PRETRAINED / XL0_WEIGHTS).exists()
 SKIP_XL0 = "EfficientViT-SAM-XL0 weights missing -- dvc pull"
 F = 512                                   # a frame for the loss tests; any size works
 
+# Since ML-19 P6 the module reads each record's canonical photo (coffeecv.canonical_store, tested on its own in
+# tests/test_canonical_store.py); these toy photos are read as they are, their sha256 still checked.
+def _toy_load(path, sha256=None):
+    from coffeecv.repo_files import sha256_file as _sha
+    full = REPO_ROOT / path
+    if sha256 is not None and _sha(full) != sha256:
+        raise ValueError(f"{path}: sha256 differs from the record")
+    return np.array(Image.open(full).convert("RGB"))
+
+
+_LOAD_PATCH = mock.patch.object(ft, "load_for_record", _toy_load)
+
+
+def setUpModule():
+    _LOAD_PATCH.start()
+
+
+def tearDownModule():
+    _LOAD_PATCH.stop()
+
+
 
 def pile_photo(h: int = 600, w: int = 900) -> np.ndarray:
     """A non-square image with a textured blob on a flat background: something SAM segments."""

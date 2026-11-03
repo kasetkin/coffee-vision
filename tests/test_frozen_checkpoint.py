@@ -124,8 +124,8 @@ class TestSplitsBuiltAloneAreIdentical(unittest.TestCase):
         for folder_id, n in self.PHOTOS.items():
             src = next((REPO_ROOT / "data" / "segcropped" / "pool").glob(f"class_{folder_id}__*"))
             (pool / src.name).mkdir(parents=True)
-            for crop in sorted(src.glob("*__cropped.jpg"))[:n]:
-                for f in (crop, crop.with_name(crop.name.replace("__cropped.jpg", "__beanmask.png"))):
+            for crop in sorted(src.glob("*__cropped.jxl"))[:n]:
+                for f in (crop, crop.with_name(crop.name.replace("__cropped.jxl", "__beanmask.png"))):
                     (pool / src.name / f.name).symlink_to(f)
         classes = Path(tmp.name) / "classes.txt"
         classes.write_text("".join(line + "\n" for line in (REPO_ROOT / "dataset" / "classes.txt").read_text().splitlines()

@@ -36,6 +36,9 @@ from coffeecv.config import REPO_ROOT
 SEGCROPPED_ROOT = REPO_ROOT / "data" / "segcropped"
 CLASS_DIR_RE = re.compile(r"^class_(\d+)__")
 
+# coffeecv.crop_io.CROP_SUFFIX, spelled out to keep this module free of imagecodecs (ticket ML-19 D32).
+CROP_SUFFIX = "__cropped.jxl"
+
 
 def merge_cmd_args(cmd: str) -> tuple[str, list[str]]:
     """(--name, --sessions) of a merge stage's cmd (merge_segpool), for readers of dvc.yaml: the session list ends at
@@ -56,7 +59,7 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
               exclude: set[tuple[str, str, str]] | None = None) -> dict:
     session_dirs = [root / s for s in sessions]
     # (session, class dir, crop file name) -> the raw photo's name, for the rows naming this merge's sessions.
-    left_out = {(s, c, f"{Path(f).stem}__cropped.jpg"): f for s, c, f in (exclude or set()) if s in sessions}
+    left_out = {(s, c, f"{Path(f).stem}{CROP_SUFFIX}"): f for s, c, f in (exclude or set()) if s in sessions}
     for s, d in zip(sessions, session_dirs):
         if not d.is_dir():
             raise FileNotFoundError(f"No cropped session at {d}. Run its crop stage first: "
@@ -92,7 +95,7 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
         seen: dict[str, str] = {}  # filename -> which session it came from
         counts: dict[str, int] = {}
         for session, class_dir in contributors:
-            photos = sorted(class_dir.glob("*__cropped.jpg"))
+            photos = sorted(class_dir.glob(f"*{CROP_SUFFIX}"))
             counts[session] = len(photos)
             for photo in photos:
                 if (session, class_dir.name, photo.name) in left_out:
@@ -108,7 +111,7 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
                 seen[photo.name] = session
                 shutil.copy2(photo, out_dir / photo.name)
                 # dataset.bean_mask_path, spelled out to keep this module free of the dataset stack.
-                mask = photo.with_name(photo.name.replace("__cropped.jpg", "__beanmask.png"))
+                mask = photo.with_name(photo.name[:-len(CROP_SUFFIX)] + "__beanmask.png")
                 if mask.exists():
                     shutil.copy2(mask, out_dir / mask.name)
 

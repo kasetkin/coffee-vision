@@ -74,9 +74,9 @@ import torch.nn.functional as F
 from PIL import Image
 
 from coffeecv import augment, model_io
+from coffeecv.canonical_store import load_for_record
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import atomic_write, differing_keys, read_csv, remove_tree, sha256_file, tree_sha256
+from coffeecv.repo_files import atomic_write, differing_keys, read_csv, remove_tree, tree_sha256
 from coffeecv.sam_loader import build_sam, variant_of
 
 LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <session>/labels.csv
@@ -254,11 +254,9 @@ def label_set(session: str, rows: list[dict]) -> dict:
 
 
 def load_pair(r: dict) -> tuple[np.ndarray, np.ndarray]:
-    """(photo, bool label) of a labels.csv row at full resolution, the photo checked against its sha256."""
-    photo = REPO_ROOT / r["path"]
-    if sha256_file(photo) != r["photo_sha256"]:
-        raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
-    rgb = load_rgb_image(photo)
+    """(photo, bool label) of a labels.csv row at full resolution: the original checked against its sha256, the
+    photo read from its canonical photo (ticket ML-19 P6; pass14's labels are in that geometry)."""
+    rgb = load_for_record(r["path"], r["photo_sha256"])
     mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0
     if mask.shape != rgb.shape[:2]:
         raise ValueError(f"{r['id']}: label {mask.shape} does not match photo {rgb.shape[:2]}")

@@ -35,6 +35,7 @@ from typing import NamedTuple
 import numpy as np
 import torch
 
+from coffeecv.canonical_store import canonical_for
 from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
 from coffeecv.dataset import pooled_class_photos, resolve_captures, split_photos_by_class
@@ -164,7 +165,7 @@ def raw_photo_index() -> dict[str, Path]:
 
 
 def raw_photo_for(cropped: Path, index: dict[str, Path]) -> Path:
-    stem = cropped.name.replace("__cropped.jpg", "")
+    stem = cropped.name.replace("__cropped.jxl", "").replace("__cropped.jpg", "")
     if stem not in index:
         raise FileNotFoundError(f"No raw photo under dataset/ for {cropped.name}")
     return index[stem]
@@ -241,11 +242,16 @@ def embed_photo(path: Path, cfg, model, head, n_patches: int, tta: bool,
     checkpoint. Caching matters here because scoring is ~5s/photo under TTA and
     every additional candidate metric re-reads the same forward passes.
     """
+    # Since ticket ML-19 P6 a photo under dataset/ is measured from its canonical photo, as serving will see it
+    # (coffeecv.canonical_store: a missing one is an error); coffeecv.photo_io.load_rgb_image reads it as sRGB.
+    if any(a.name == "dataset" for a in Path(path).resolve().parents):
+        path = canonical_for(path)
     key = None
     if cache_dir is not None:
         # v3 in the key because entries written before logits (v2) or the segmenter's empty-mask flag
         # (v3, ML-5 D9) were captured cannot serve a request that needs them, and a stale hit would be silent.
-        key = cache_dir / f"v3_{ckpt_sha[:12]}_{n_patches}_{int(tta)}_{path.stem}.npz"
+        # v4 (ML-19): measured from canonical photos; a v3 entry is an original's.
+        key = cache_dir / f"v4_{ckpt_sha[:12]}_{n_patches}_{int(tta)}_{path.stem}.npz"
         if key.exists():
             z = np.load(key, allow_pickle=True)
             diag = json.loads(str(z["diag"]))

@@ -299,7 +299,7 @@
 
 <h2>8. P6 &mdash; Training's tools on canonical photos</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the code (this commit); the re-crop waits for P4's store</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
   </div>
   <p>Everything that feeds a model reads canonical photos only (D18). The crops are made with today's segmenter,
@@ -343,7 +343,7 @@
 
   <h2>10. P8 &mdash; The front measured <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: measured (<code>analysis/ml19/p8/README.md</code>); stopped for the owner: D23, D24, D38</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3 <span class="tag">and the owner's go to run on the front</span></span></div>
   </div>
   <p>D23, D24 and D38 from <code>canonical.py</code> itself on the proxy (616 MB available on 2026-11-03, D26), in a
@@ -358,7 +358,14 @@
       ceiling, with the measurements.</span></li>
   </ol>
 
-  <h2>11. P9 &mdash; Serving on canonical photos</h2>
+    <p><b>As measured, 2026-11-03</b> (<code>analysis/ml19/p8/README.md</code>), <code>coffeecv/canonical.py</code> on the
+    front under a 500M scope, effort 7, 2 threads: every photo up to 60 MP inside D22's 40 s (60 MP: 21.4 s); peaks 12 MP
+    270&ndash;282 MB, 16-bit and RAW sources 340&ndash;399 MB, 40 MP 407, 50 MP 400, 60 MP 461; a photo over the ceiling
+    refused from its header in 0.02 s at 58&ndash;81 MB; a 50 MP DNG killed by the OOM killer. Recommended for the
+    owner: D38 a ceiling of 50,200,000 pixels (or 60 MP at a 39 MB margin), D24 RAW up to 16 MP, D23 a 40 MB upload
+    cap.</p>
+
+<h2>11. P9 &mdash; Serving on canonical photos</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4 (the host byte cap), P8</span></div>

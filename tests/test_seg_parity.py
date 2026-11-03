@@ -4,9 +4,9 @@
 
 The segcrop stage (training) and infer.patches_for_photo (serving) must cut the same patches from the same
 photo: the stage's arrays, before encoding, equal the serving path's in-memory ones, and
-MultiPhotoPatchDataset reading those arrays places the same boxes as serving for the same RNG key. The crop
-is written losslessly here, so a difference is the code's, not the JPEG q95 re-encode training pools get
-(an existing train/serve difference this ticket does not widen).
+MultiPhotoPatchDataset reading those arrays places the same boxes as serving for the same RNG key. Since ticket
+ML-19 P6 the photo is the fixture's canonical photo, which both sides read, and the stage stores its crop
+losslessly (D32): the crop training reads back is the array serving computes, to the pixel.
 
 Needs the L0 weights, the seed-123 decoder and a deploy fixture photo; skips without them.
 """
@@ -19,6 +19,8 @@ import numpy as np
 import yaml
 from PIL import Image
 
+from coffeecv import canonical as cn
+from coffeecv import crop_io
 from coffeecv import infer
 from coffeecv.backbones import MODELS_PRETRAINED
 from coffeecv.bean_scale import pitch_kwargs
@@ -42,7 +44,7 @@ N = 40
 
 
 def dataset_patches(cap_dir: Path, cfg: RunConfig) -> MultiPhotoPatchDataset:
-    """`cap_dir`/class_003__X/*__cropped.jpg as a one-photo, split="all" capture: RNG key
+    """`cap_dir`/class_003__X/*__cropped.jxl as a one-photo, split="all" capture: RNG key
     [seed, 0, 0, SPLIT_SEED_COMPONENT["all"]] (seed, class, photo, split; ticket ML-8 took the capture out)."""
     classes = cap_dir.parent / "classes.txt"
     classes.write_text("003;Colombia,PinkBourbon\n")
@@ -60,20 +62,34 @@ def dataset_patches(cap_dir: Path, cfg: RunConfig) -> MultiPhotoPatchDataset:
 class TestSegmentParity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.stage = crop_photo(PHOTO, infer.segmenter_for(CFG))
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.canon = Path(cls.tmp.name) / f"{PHOTO.name}.jxl"          # as the store names it
+        cls.canon.write_bytes(cn.canonicalize_file(PHOTO))
+        cls.stage = crop_photo(cls.canon, infer.segmenter_for(CFG))
         cls.key = [CFG.seed, 0, 0, SPLIT_SEED_COMPONENT["all"]]
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
 
     def write_capture(self, tmp: Path, rgb: np.ndarray, crop=None) -> Path:
         cap = tmp / "cap"
-        out = cap / "class_003__Colombia_PinkBourbon" / f"{PHOTO.stem}__cropped.jpg"
+        out = cap / "class_003__Colombia_PinkBourbon" / crop_io.crop_name(PHOTO.stem)
         out.parent.mkdir(parents=True)
         if crop is not None:
-            write_crop(crop, out)                              # the stage's own mask encoding
-        Image.fromarray(rgb).save(out, format="PNG")          # lossless, under the stage's name
+            write_crop(crop, out)                              # the stage's own encodings, crop and mask
+        crop_io.write_crop(rgb, out)
         return cap
 
+    def test_the_stored_crop_is_the_array_serving_computes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / crop_io.crop_name("x")
+            write_crop(self.stage, out)
+            rgb, _, _, _ = infer.segment_bean_region(load_rgb_image(self.canon), CFG)
+            self.assertTrue(np.array_equal(crop_io.load_crop(out), rgb))
+
     def test_stage_arrays_equal_serving(self):
-        rgb, mask, crop_info, diag = infer.segment_bean_region(load_rgb_image(PHOTO), CFG)
+        rgb, mask, crop_info, diag = infer.segment_bean_region(load_rgb_image(self.canon), CFG)
         self.assertFalse(self.stage.info["fallback"])
         self.assertTrue(np.array_equal(rgb, self.stage.rgb))
         self.assertTrue(np.array_equal(mask, self.stage.mask))
@@ -90,7 +106,7 @@ class TestSegmentParity(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 ds = dataset_patches(self.write_capture(Path(tmp), self.stage.rgb, self.stage), cfg)
                 self.assertEqual(ds.fallback_photos, [])
-            patches, diag = infer.patches_for_photo(PHOTO, cfg, N, self.key)
+            patches, diag = infer.patches_for_photo(self.canon, cfg, N, self.key)
             self.assertEqual(len(ds), N)
             for a, b in zip(ds.patches, patches):
                 self.assertTrue(np.array_equal(a, np.asarray(b)))
@@ -101,16 +117,16 @@ class TestSegmentParity(unittest.TestCase):
         """No mask beside a crop (D18) and the user's skip_crop both mean: whole original photo, unfilled,
         every patch accepted."""
         with tempfile.TemporaryDirectory() as tmp:
-            ds = dataset_patches(self.write_capture(Path(tmp), load_rgb_image(PHOTO)), CFG)
-            self.assertEqual(ds.fallback_photos, [f"{PHOTO.stem}__cropped.jpg"])
-        patches, diag = infer.patches_for_photo(PHOTO, CFG, N, self.key, skip_crop=True)
+            ds = dataset_patches(self.write_capture(Path(tmp), load_rgb_image(self.canon)), CFG)
+            self.assertEqual(ds.fallback_photos, [crop_io.crop_name(PHOTO.stem)])
+        patches, diag = infer.patches_for_photo(self.canon, CFG, N, self.key, skip_crop=True)
         for a, b in zip(ds.patches, patches):
             self.assertTrue(np.array_equal(a, np.asarray(b)))
         self.assertEqual((diag["patches_below_share"], ds.n_below_share, diag["seg_fallback"]), (0, 0, None))
 
     def test_mask_round_trips_through_its_png(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "x__cropped.jpg"
+            out = Path(tmp) / crop_io.crop_name("x")
             write_crop(self.stage, out)
             back = np.array(Image.open(bean_mask_path(out)).convert("1"), dtype=bool)
         self.assertTrue(np.array_equal(back, self.stage.mask))
@@ -124,14 +140,14 @@ class TestMergeCarriesMasks(unittest.TestCase):
                 d = root / session / "class_001__X"
                 d.mkdir(parents=True)
                 for s in stems:
-                    (d / f"{s}__cropped.jpg").write_bytes(b"jpg" + s.encode())
+                    (d / f"{s}__cropped.jxl").write_bytes(b"jxl" + s.encode())
                     if s != "b":                               # b is a D18 fallback: no mask
                         (d / f"{s}__beanmask.png").write_bytes(b"png" + s.encode())
             merge_rig("cam_x", ["s1", "s2"], root)
             out = root / "cam_x" / "class_001__X"
             self.assertEqual(sorted(p.name for p in out.iterdir()),
-                             ["a__beanmask.png", "a__cropped.jpg", "b__cropped.jpg", "c__beanmask.png",
-                              "c__cropped.jpg"])
+                             ["a__beanmask.png", "a__cropped.jxl", "b__cropped.jxl", "c__beanmask.png",
+                              "c__cropped.jxl"])
             self.assertEqual((out / "c__beanmask.png").read_bytes(), b"pngc")
 
     def test_excluded_photos_leave_the_pool_with_their_masks(self):
@@ -142,13 +158,13 @@ class TestMergeCarriesMasks(unittest.TestCase):
             d = root / "s1" / "class_001__X"
             d.mkdir(parents=True)
             for s in ("a", "b"):
-                (d / f"{s}__cropped.jpg").write_bytes(b"jpg")
+                (d / f"{s}__cropped.jxl").write_bytes(b"jxl")
                 (d / f"{s}__beanmask.png").write_bytes(b"png")
             manifest = merge_rig("cam_x", ["s1"], root, {("s1", "class_001__X", "a.JPG"), ("s9", "class_001__X", "z.jpg")})
             self.assertEqual(sorted(p.name for p in (root / "cam_x" / "class_001__X").iterdir()),
-                             ["b__beanmask.png", "b__cropped.jpg"])
+                             ["b__beanmask.png", "b__cropped.jxl"])
             self.assertEqual((manifest["images"], manifest["excluded"]), (1, ["s1/class_001__X/a.JPG"]))
-            self.assertEqual(sorted(p.name for p in d.iterdir())[:2], ["a__beanmask.png", "a__cropped.jpg"])
+            self.assertEqual(sorted(p.name for p in d.iterdir())[:2], ["a__beanmask.png", "a__cropped.jxl"])
             with self.assertRaisesRegex(ValueError, "match no crop"):
                 merge_rig("cam_y", ["s1"], root, {("s1", "class_001__X", "nope.jpg")})
             self.assertFalse((root / "cam_y").exists())
