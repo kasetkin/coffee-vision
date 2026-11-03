@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -21,7 +21,7 @@
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-19</span> <span class="tag">the retrain reads canonical photos and pass14 (ML-19); builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
   </div>
 
   <div class="callout info">
@@ -203,7 +203,11 @@
       table) into <code>dataset/example_photos/</code> with a manifest, out of the classifier pool, the segmenter
       dataset (with the byte copies in <code>segmenter_positives</code>) and <code>user_realworld</code>. In DVC,
       pushed and checked on the remote. Before any retrain. <em>Done</em> 2026-11-03.</span></li>
+    <li><span class="box"></span><span><a href="ticket_canonicalization.html">ML-19</a>, canonicalization: the canonical store, pass14 (pass13's masks in
+      the canonical geometry), the crop stage on canonical photos, and today's models on canonical test photos as the
+      baseline. The owner, 2026-11-03: before retraining both models.</span></li>
     <li><span class="box"></span><span>The training session, when the owner starts it: chosen and planned then.
+      The owner, 2026-11-03: "We will retrain both: segmenter and classifier", on canonical photos.
       Two DVC stages are already stale and are its first re-run: <code>segcrop@random_date_raccoon</code> (the new
       and renamed photos, and D3's two leaving it), <code>segcrop@2026-08-25__iphone</code> and
       <code>segcrop@2026-08-30__sony</code> (D3), and <code>merge_segpool</code>
@@ -300,6 +304,10 @@
       Earlier records (verdicts, paired logs, experiments) keep the paths they read. Six folders added to DVC and
       pushed; their objects checked on the remote. The classifier's Brazil, Ethiopia, Vietnam and Indonesia splits
       redraw at the next re-crop, as D3 expected.</div>
+    <div><div class="when">2026-11-03</div>The owner: "We will retrain both: segmenter and classifier." First,
+      <a href="ticket_canonicalization.html">ML-19</a> (canonicalization), written from a grilling session the same day: both models read canonical photos
+      from then on, the segmenter's labels move to pass14, and today's models are re-run on canonical test photos as
+      the baseline. ML-19 ships in this ticket's release. The stale <code>segcrop</code> stages wait for it.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),
