@@ -13,7 +13,7 @@
     taken, not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 open); the 10 MB cap built 2026-11-03 (P3), not released</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 open); plan P1&ndash;P5 built 2026-11-03 (the files, the front, the 10 MB cap, the page, the deploy check), not released; P6 and P7 wait on ML-16</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
@@ -317,6 +317,11 @@
       one <code>examples.json</code>; a wrong example rolls a deploy back; <code>no-cache</code>; example photos
       are not fixtures (amending D11); <code>--verify</code> checks what the domain serves against the release's
       commit; one list of names.</div>
+    <div><div class="when">2026-11-03</div>Plan P2, P4 and P5 built on <code>ops16-example-photos</code>
+      (<code>39b380f</code>, <code>e2cfaa1</code> and the P5 commit): the front serves <code>/examples/</code>
+      with <code>no-cache</code>; the page's row, run end to end in headless Chromium against the live model; and
+      <code>--verify</code> checks each example through the domain. On the live model all five examples get their
+      answers through the page and through the check. Firefox is left to P7's owner check. Not released.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),

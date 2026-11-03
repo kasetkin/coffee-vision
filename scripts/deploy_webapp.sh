@@ -824,6 +824,15 @@ verify() {   # returns non-zero on a failed check
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
+      # The page's example photos (ticket OPS-16 D14, D17): each fetched through the domain, held to the release
+      # commit's file, posted, and its answer held to its country or a refusal; one after another, about 1.5 min. A
+      # wrong one fails verify, which rolls a full deploy back. Not fixtures (D16): nothing here reaches the VM.
+      local examples examples_rc=0 examples_failed line
+      examples=$("$LOCAL_PY" "$DEPLOY_DIR/example_check.py" --url "$PUBLIC_URL" --commit "$(kv COMMIT "$out")" \
+                 --repo "$REPO") || examples_rc=$?
+      while IFS= read -r line; do [[ -n "$line" ]] && note "$line"; done <<<"$examples"
+      examples_failed=$(grep -c '^FAIL' <<<"$examples" || true)
+      if (( examples_rc != 0 )); then fails=$((fails + (examples_failed > 0 ? examples_failed : 1))); fi
     else
       check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
     fi

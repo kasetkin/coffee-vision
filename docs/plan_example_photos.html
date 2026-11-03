@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P4 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P5 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P6 and P7 wait on ML-16</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -221,7 +221,7 @@
 
   <h2>6. P4 &mdash; The page's example row</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, the P4 commit after <code>39b380f</code>; Firefox left to P7's owner check</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>e2cfaa1</code>; Firefox left to P7's owner check</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1 (answered: D13)</span></div>
   </div>
   <p>D9, D10. <code>webapp/static/index.html</code> is one file, inline CSS and JS, no build step.</p>
@@ -250,7 +250,7 @@
 
   <h2>7. P5 &mdash; <code>--verify</code> checks the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, the P5 commit after <code>e2cfaa1</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1, Q2 (answered: D13, D14, D16, D17)</span></div>
   </div>
   <p>D11. <code>verify()</code> in <code>scripts/deploy_webapp.sh</code> posts the smoke photo through the domain
@@ -258,15 +258,25 @@
     (the front's gate takes one at a time; a 503 busy is retried once, as for the smoke). About 10.8 MB to cross and
     5 &times; ~9 s of inference: about 1.5 minutes more.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><s><code>webapp/deploy/fixtures.txt</code>: an <code>example</code> line per
+    <li><span class="box done"></span><span><s><code>webapp/deploy/fixtures.txt</code>: an <code>example</code> line per
       JXL.</s> Dropped by D16: example photos are not fixtures; <code>fixtures.txt</code> is unchanged.</span></li>
-    <li><span class="box"></span><span><code>verify()</code> (D17): each example in <code>examples.json</code>
+    <li><span class="box done"></span><span><code>verify()</code> (D17): each example in <code>examples.json</code>
       fetched through the domain, its bytes equal to the file at the commit the release serves, then posted to
       <code>/analyze</code>; a check line per example, top-1 equal to its country, or <code>refused_ood</code>
       where the country is null. A failure rolls a full deploy back (D14). Skipped with the other domain checks
-      under <code>PUBLIC_URL=</code>.</span></li>
-    <li><span class="box"></span><span>Checks: the comparison as a unit (a Python helper beside
-      <code>release_probe.py</code>, tested); <code>scripts/rehearse_deploy_local.sh</code> green.</span></li>
+      under <code>PUBLIC_URL=</code>. <em>Done</em> as <code>webapp/deploy/example_check.py</code>, called by
+      <code>verify()</code> after the smoke check with the commit the VM's <code>BUILD_INFO.json</code> names; each
+      <code>FAIL</code> line counts as one of verify's failures. A commit without <code>examples.json</code> (a
+      release from before OPS-16, such as the one a rollback returns to) has nothing to check.</span></li>
+    <li><span class="box done"></span><span>Checks: the comparison as a unit (a Python helper beside
+      <code>release_probe.py</code>, tested); <code>scripts/rehearse_deploy_local.sh</code> green. <em>Done</em>: <code>tests/test_example_check.py</code>
+      against a fake front (right answers, a wrong country, a bean photo refused, the negative not refused, a served
+      file other than the commit's, a front without the route, one busy answer retried, two not, a release from
+      before the examples); the tool run for real at <code>e2cfaa1</code> against a local front passing
+      <code>/analyze</code> to the live site, all fifteen checks passing; <code>verify()</code>'s fragment run alone
+      under <code>set -euo pipefail</code> for its failure count. The rehearsal was not run: it sets
+      <code>PUBLIC_URL=</code>, so it skips the domain checks this adds, and it needs the DVC data this worktree
+      lacks.</span></li>
   </ol>
 
   <h2>8. P6 &mdash; The examples on ML-16's model <span class="pill sm open">stop</span></h2>
@@ -355,6 +365,10 @@
       click fetches the JPEG XL and takes the chosen file's path (<code>choose()</code>, factored out of the
       <code>change</code> handler); the truth line after the answer. Run end to end in headless Chromium against
       the live model, all checks passing. The P2 commit is <code>39b380f</code>.</div>
+    <div><div class="when">2026-11-03</div>P5 done: <code>--verify</code> checks the examples through the domain
+      (D14, D17) with <code>webapp/deploy/example_check.py</code>; <code>docs/agents/deploy.md</code> says what
+      <code>--verify</code> now checks. The P4 commit is <code>e2cfaa1</code>. What is left is P6 and P7, both waiting
+      on ML-16.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,
