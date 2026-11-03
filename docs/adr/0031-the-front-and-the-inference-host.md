@@ -13,7 +13,7 @@ We chose this over keeping everything on the inference host behind a TLS passthr
 - **Amends [ADR 0008](0008-webapp-serves-immutable-releases.md):** a release spans two hosts, with `current` and `previous` on each, and its front site rides in the release, so a rollback restores the site too.
 - **[ADR 0023](0023-webapp-answers-a-photo-in-one-streamed-request.md):** the front's check service is one more hop that must relay the answer unbuffered.
 - **[ADR 0026](0026-a-deploy-stops-the-live-service.md):** during a deploy the front keeps serving the page and answers "the classifier is offline". The proxy's nginx is never stopped, since it serves other sites.
-- **The front gets no ML code and no decoder.** It has the standard library only. Re-encoding photos there to send fewer bytes would change what the model sees, so it needs its own measurement ([ML-15](../ticket_reencode_at_the_front.html)). Until then the front caps uploads at 5 MB.
+- **The front gets no ML code and no decoder.** It has the standard library only. Re-encoding photos there to send fewer bytes would change what the model sees, so it needs its own measurement ([ML-15](../ticket_reencode_at_the_front.html)). Until then the front caps uploads at 10 MB ([OPS-16](../ticket_example_photos.html) D8; it was 5 MB, OPS-15 D15).
 - **Moving either machine keeps the structure:** the front and analytics on the small always-on box, the models on the hardware host.
 
 Source: [OPS-15](../ticket_front_and_inference_host.html) D2, D3, D5, D6, D14, D17.

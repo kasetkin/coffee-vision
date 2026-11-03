@@ -13,7 +13,7 @@
     taken, not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 open), not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 open); the 10 MB cap built 2026-11-03 (P3), not released</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
@@ -265,6 +265,14 @@
     <div><div class="when">2026-11-03</div><a href="plan_example_photos.html">Plan</a> written at <code>3c008a8</code>
       for a session parallel to ML-16's: P1&ndash;P5 can start now, P6 and P7 wait for ML-16. Five findings from the
       code, three questions for the owner (Q1&ndash;Q3). Not implemented.</div>
+    <div><div class="when">2026-11-03</div>Plan P3 built on <code>ops16-example-photos</code>: the 10 MB cap
+      in the check service, the front's nginx (<code>client_max_body_size 10304k</code>), the page, the agent files,
+      <code>webapp/README.md</code>, <code>docs/inference_path.html</code> and ADR 0031. D8's upload timeout is
+      120 s, with the answer's reads kept at 60 s, and nginx's <code>proxy_read_timeout</code> 190 s. The check
+      service's peak memory with a 10 MB upload in flight, measured locally (VmHWM, its own process, a fake
+      inference host): 65.5 MB, against 44.6 MB at 5 MB on the same machine. That is under the about 70 MB that would
+      raise <code>MemoryMax=100M</code> (D8), so it stays. Live, a 5 MB photo peaked at 28 MB (OPS-15), so the
+      live figure is likely lower, but worth reading at the release. Not released.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),

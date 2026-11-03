@@ -282,10 +282,10 @@ const BUSY_RETRY_S = [3, 6, 12];
 // classifier is down for minutes, not seconds.
 const OFFLINE_ERROR = 'the classifier is offline';
 const OFFLINE = 'The classifier is offline -- try again in a few minutes.';
-// The front's cap (ticket OPS-15 D15, check_service.py's MAX_UPLOAD_BYTES, held equal by the same test): a larger
+// The front's cap (ticket OPS-15 D15, OPS-16 D8; check_service.py's MAX_UPLOAD_BYTES, held equal by the same test): a larger
 // photo is refused here, before it is uploaded, since the front would refuse it after.
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-// Once the upload has left the browser (D16): the photo still has to cross to the classifier, about 20 s for 5 MB.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// Once the upload has left the browser (D16): the photo still has to cross to the classifier, about 40 s for 10 MB.
 const SENDING = 'Sending to the classifier...';
 
 function hide(...elements) {

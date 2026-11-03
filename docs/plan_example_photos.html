@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P3 done 2026-11-03; P1 at its stop</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -169,33 +169,37 @@
 
   <h2>5. P3 &mdash; The 10 MB cap</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, on <code>ops16-example-photos</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D8. Every place the 5 MB cap is, read at <code>3c008a8</code> (<code>grep -rn "5 MB\|5184\|MAX_UPLOAD_BYTES"</code>).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>webapp/front/check_service.py</code>: <code>MAX_UPLOAD_BYTES</code> 10 MB
+    <li><span class="box done"></span><span><code>webapp/front/check_service.py</code>: <code>MAX_UPLOAD_BYTES</code> 10 MB
       and its comments; <code>INFERENCE_TIMEOUT_S</code> 60 &rarr; 120 (it bounds the connect, the whole upload
-      and each read of the answer: a 10 MB photo crosses in about 40 s at 2.1 Mbit/s).</span></li>
-    <li><span class="box"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>:
+      and each read of the answer: a 10 MB photo crosses in about 40 s at 2.1 Mbit/s).
+      <em>Done as two:</em> one constant at 120 s would give each read of the answer 120 s too, up to 240 s before
+      its first byte, past nginx's 190 s. So <code>UPLOAD_TIMEOUT_S</code> = 120 bounds the connect and the whole
+      upload, and <code>ANSWER_TIMEOUT_S</code> = 60 each read after it: 120 + 60 s, as the next line assumes.
+      A test holds nginx's wait above their sum.</span></li>
+    <li><span class="box done"></span><span><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>:
       <code>client_max_body_size</code> 5184k &rarr; 10304k (10 MB + the 64 KB <code>FORM_ALLOWANCE</code>),
       <code>proxy_read_timeout</code> 130s &rarr; 190s (the check service's longest wait before the answer's first
       byte goes from 60 + 60 s to 120 + 60 s, and nginx outwaits it), the 413 message, the comments.</span></li>
-    <li><span class="box"></span><span><code>webapp/static/index.html</code>: <code>MAX_UPLOAD_BYTES</code>, and the
+    <li><span class="box done"></span><span><code>webapp/static/index.html</code>: <code>MAX_UPLOAD_BYTES</code>, and the
       comment "about 20 s for 5 MB".</span></li>
-    <li><span class="box"></span><span>The docs: <code>webapp/static/llms.txt</code> (three places),
+    <li><span class="box done"></span><span>The docs: <code>webapp/static/llms.txt</code> (three places),
       <code>webapp/static/openapi.json</code> (two), <code>webapp/README.md</code> (two),
       <code>docs/inference_path.html</code>, ADR 0031's consequence line ("Until then the front caps uploads at
       5 MB", now 10 MB with OPS-16 D8 as its source).</span></li>
-    <li><span class="box"></span><span>The tests: <code>tests/test_front_check_service.py</code> (the exactly-5 MB
+    <li><span class="box done"></span><span>The tests: <code>tests/test_front_check_service.py</code> (the exactly-5 MB
       photos and the "5 MB" messages), <code>tests/test_front_site.py</code>, <code>tests/test_agent_files.py</code>
       (holds the page's cap equal to the check service's). <code>tests/test_inference_site.py</code> reads
       <code>app.py</code>'s 20 MB, which stays.</span></li>
-    <li><span class="box"></span><span>The check service's peak memory with a 10 MB upload in flight, measured as
+    <li><span class="box done"></span><span>The check service's peak memory with a 10 MB upload in flight, measured as
       OPS-15's plan P1 did (40 MB at 5 MB), written in the ticket's Activity. <code>MemoryMax=100M</code>
       (<code>webapp/deploy/coffee-cv-front.service.template</code>, and its comment) rises only past about
-      70 MB.</span></li>
-    <li><span class="box"></span><span>Checks: the full suite; a 10 MB photo passes the front and a 10 MB + 1 byte
+      70 MB. <em>Measured</em>: 65.5 MB VmHWM at 10 MB (44.6 MB at 5 MB, same machine); it stays.</span></li>
+    <li><span class="box done"></span><span>Checks: the full suite; a 10 MB photo passes the front and a 10 MB + 1 byte
       one gets the 413.</span></li>
   </ol>
 
@@ -296,6 +300,11 @@
     <div><div class="when">2026-11-03</div>Claude reads ticket OPS-16 at <code>3c008a8</code> and writes this plan,
       to be carried out in a session parallel to ML-16's. Five findings not in the ticket; Q1&ndash;Q3 open for the
       owner. Not implemented.</div>
+    <div><div class="when">2026-11-03</div>Claude implements P3 on <code>ops16-example-photos</code>, a worktree
+      branched from <code>fbdaef0</code> (the ML-16 session works in the main checkout). Finding 6: the plan's one
+      timeout at 120 s would let each read of the answer wait 120 s too, so it is split into an upload timeout
+      (120 s) and an answer timeout (60 s). The check service peaks at 65.5 MB with a 10 MB upload, under the 70 MB
+      at which <code>MemoryMax</code> would rise. Q1&ndash;Q3 still open; P2, P4 and P5 wait on them and on P1.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

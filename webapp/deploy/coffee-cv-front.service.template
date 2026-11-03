@@ -20,7 +20,7 @@ ExecStart=$RELEASE_DIR/.venv/bin/python $RELEASE_DIR/webapp/front/check_service.
 Restart=on-failure
 RestartSec=2
 # The proxy has about 200 MB available (OPS-15 R1); the service peaked at 40 MB with a 5 MB upload in flight
-# (plan P1, 2026-11-02). Past this it is killed and restarted, not left to push the proxy's other services into swap.
+# (plan P1, 2026-11-02) and at 65 MB with a 10 MB one (OPS-16 P3, 2026-11-03, VmHWM, locally). Past this it is killed and restarted, not left to push the proxy's other services into swap.
 MemoryMax=100M
 
 # It parses attacker-supplied form data from the internet, so the same containment as the app's unit

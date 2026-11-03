@@ -21,7 +21,7 @@ curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
 ```
 
 - `photo` (required): the image file. JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL and camera RAW (DNG, CR2, CR3, NEF,
-  ARW, RAF, ORF, RW2, PEF, SRW); a RAW file needs its usual extension in the filename. At most 5 MB.
+  ARW, RAF, ORF, RW2, PEF, SRW); a RAW file needs its usual extension in the filename. At most 10 MB.
 - `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
 
 The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
@@ -38,7 +38,7 @@ The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
    Or `{"part": "error", "message": ...}` if the server failed after the preview went out.
 
 Errors before the stream starts, each with `{"error": ...}`: `400` (no photo, or a file that is not an image), `413`
-(a photo over 5 MB), and `503`, which is one of two:
+(a photo over 10 MB), and `503`, which is one of two:
 
 - `{"error": "the classifier is busy with another photo"}`, or a `503` without a JSON body: another photo is being
   analyzed. Wait about 10 s and retry.
@@ -49,7 +49,7 @@ Errors before the stream starts, each with `{"error": ...}`: `400` (no photo, or
 
 - One photo at a time for everyone: the server has one worker. On a busy `503`, wait about 10 s and retry; do not
   send photos in parallel.
-- At most 5 MB a photo: the classifier sits behind a slow link. A phone photo is under it; a camera's full-size JPEG
+- At most 10 MB a photo: the classifier sits behind a slow link. A phone photo is under it; a camera's full-size JPEG
   or RAW may not be, so send a smaller export.
 - Use a photo of a handful of whole beans filling most of the frame. Ground coffee, other seeds or a photo with no
   beans is refused, by design.
