@@ -5,7 +5,7 @@
 
 <main>
   <div class="eyebrow">Ticket ML-19 · coffee-vision · what both models read, in training and serving</div>
-  <h1>Every photo both models read is a canonical photo: rotated, at most 50 MP, Rec.2020 JPEG XL q95, read as sRGB</h1>
+  <h1>Every photo both models read is a canonical photo: rotated, over 60 MP down to 50 MP, Rec.2020 JPEG XL q95, read as sRGB</h1>
   <p class="lede">The owner wants every photo turned into one form before either model sees it, in training and in
     serving: a lossy JPEG XL at quality 95 in Rec.2020, made on the front for a visitor's photo. Today each original is
     decoded as it comes, colour profile and orientation ignored, and photos cross the slow link as uploaded. This
@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22 decided, D23&ndash;D25 open on measurements; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D26&ndash;D49 decided, D23&ndash;D25 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -40,7 +40,7 @@
     the main image only, at full resolution. The front forwards a visitor's bytes over a 2.1 Mbit/s link, and training
     saves its crops as JPEG q95, a lossy step serving never has.</p>
   <p>After this ticket every photo is <em>canonicalized</em> (GLOSSARY.md) before either model reads it: the EXIF
-    rotation applied, transparency over the segmenter's fill grey, at most 50 MP, colour-managed from its own profile
+    rotation applied, transparency over the segmenter's fill grey, a photo over 60 MP downscaled to 50 MP, colour-managed from its own profile
     into Rec.2020, its main image only, no metadata, encoded as lossy JPEG XL q95; the models read it decoded to 8-bit
     sRGB. A visitor's photo is canonicalized on the front, so fewer bytes cross the link; the inference host accepts
     canonical photos only. The dataset is canonicalized into a DVC store that everything reading photos for the models
@@ -65,8 +65,10 @@
     <li><strong>Out of sRGB.</strong> In the 1,152 readable P3 photos 0.86% of pixels lie outside sRGB, 0.29% by
       more than 2%; 18 photos have more than 10% outside, mostly real-world negatives and label cards, the highest
       bean photo a Rwanda pool photo (58%).</li>
-    <li><strong>Orientation.</strong> 662 photos carry a rotate tag (Rotate 90 CW 361, 180 281, 270 CW 20). Both models
-      and every label mask use the stored, unrotated pixels.</li>
+    <li><strong>Orientation.</strong> 662 photos carry a rotate tag (Rotate 90 CW 361, 180 281, 270 CW 20). Of these,
+      the 521 JPEGs reach both models and every label mask in their stored, unrotated pixels; the 134 HEICs and 7 DNGs
+      already decode upright (libheif applies the HEIF rotation and resets EXIF Orientation to 1; rawpy applies
+      LibRaw's flip), and their masks with them (checked 2026-11-03).</li>
     <li><strong>Second images.</strong> 1,518 photos hold one (an HDR gain map, a depth map or a preview); the models
       read the main image only.</li>
     <li><strong>Over 50 MP.</strong> 7 photos (six 200 MP, one 84 MP, Galaxy Z Fold8 Ultra, 19&ndash;33 MB). Downscaled
@@ -168,7 +170,7 @@
         <td>(a) full resolution (b) a cap</td>
         <td>(b), 2026-11-03, after measuring: "maybe we can downscale them to 48-50 Mp without loosing image details".
           A photo over 50 MP is downscaled (Lanczos, aspect kept) to at most 50 MP; the measurement in §2 found no
-          answer changed.</td></tr>
+          answer changed. <em>The thresholds amended by D27.</em></td></tr>
       <tr><td class="id">D5</td><td>Orientation?</td>
         <td>(a) keep the stored pixels (b) apply the EXIF rotation</td>
         <td>(b), 2026-11-03: "Rotate image and stored masks now. And apply rotation from exif during live-time
@@ -249,6 +251,132 @@
         <td>One that writes D7's encoding on all three machines with the same output; the highest effort within
           D22</td>
         <td>Open: measured in the plan. The effort holds for the canonical store too.</td></tr>
+      <tr><td class="id">D26</td><td>Does the front have the memory D1 assumes?</td>
+        <td>(a) yes, as it is (b) more RAM first (c) another box</td>
+        <td>(a), 2026-11-03: "RAM is not a problem, I've stopped some services and now we have free 500 MB RAM." Read on
+          the proxy the same day: 616 MB <code>MemAvailable</code> of 958 MB, 2 vCPU, 288 MB of swap in use. The
+          front's phase needs no hardware change first.</td></tr>
+      <tr><td class="id">D27</td><td>Where does D4's cap sit? (Pixel 9 Pro's 50 MP mode is 6144&times;8160, 50.14 MP:
+          36 photos in pass13 alone, all just over a cap of exactly 50 MP.)</td>
+        <td>(a) one threshold at 50 MP (b) two: a trigger and a target</td>
+        <td>(b), 2026-11-03: "Make two thresholds: file bigger than 60 MP are compressed to 50MP. Files less than 60MP
+          are not compressed. Something like Hysteresis." A photo over 60,000,000 pixels is downscaled (Lanczos,
+          aspect kept) to at most 50,000,000; one of 60 MP or fewer keeps its size. A canonical photo is therefore at
+          most 60 MP. In the dataset that downscales exactly the 7 photos §2 measured (84 and 200 MP). Amends D4;
+          <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</td></tr>
+      <tr><td class="id">D28</td><td>What is upright, and what does pass14 turn?</td>
+        <td>Proposed: HEIC and RAW as their decoders give them; other formats by EXIF Orientation, all eight values;
+          0, missing or invalid as stored</td>
+        <td>As proposed, 2026-11-03. pass14 turns only the rows whose photo decodes unrotated today (the JPEGs with a
+          rotate tag): the mask with its points, fence, box and strokes. Under D27 no labelled photo is downscaled. The
+          owner's sample (R5) covers every rotation that occurs.</td></tr>
+      <tr><td class="id">D29</td><td>A canonical photo larger than its upload?</td>
+        <td>(a) accepted, q95 fixed, sizes measured (b) lower quality over a byte budget (c) revisit q95 now</td>
+        <td>(a), 2026-11-03: every canonical size against its original's is reported when the store is built; the
+          host's byte cap is set from it; q95 is revisited only if the median photo grows.</td></tr>
+      <tr><td class="id">D30</td><td>"The same output on all three machines" (D25)?</td>
+        <td>(a) identical bytes (b) the same code, decoded sRGB within 1 level</td>
+        <td>(b), 2026-11-03: "same code, not same bytes". Decoded 8-bit sRGB within 1 level across the development
+          machine, the front and the inference host on a test set; D8's golden file exact on the machine that builds the
+          store and runs the tests.</td></tr>
+      <tr><td class="id">D31</td><td>Which library converts the colour?</td>
+        <td>(a) LittleCMS into Rec.2020, own maths back to sRGB (b) LittleCMS both ways (c) OpenCV</td>
+        <td>(b), 2026-11-03: "use LittleCMS (or opencv2 if it's possible, i prefer cv2) for both decode and encode.
+          And pin library version so it will not drift." OpenCV has no ICC colour management (it reads an ICC profile
+          as metadata only), so LittleCMS, pinned exactly. D8's independent maths in the tests check it.</td></tr>
+      <tr><td class="id">D32</td><td>The stored crop's colour?</td>
+        <td>Lossless JPEG XL in 8-bit sRGB, the array serving computes</td>
+        <td>Yes, 2026-11-03; the bean masks stay 1-bit PNG.</td></tr>
+      <tr><td class="id">D33</td><td>The canonical store's layout?</td>
+        <td>Mirrored paths, a manifest per folder, records keyed by the original</td>
+        <td>2026-11-03: <code>data/canonical/&lt;folder&gt;/&hellip;/&lt;original filename&gt;.jxl</code>, mapped from
+          the original's path by one function; records keep the original's path and sha256 (ML-18 untouched). No
+          manifest, the owner: "if possible i think we should drop the manifest". A photo's rotation, scale and source
+          profile are read again from its original when needed; D29's size report is an analysis output.</td></tr>
+      <tr><td class="id">D34</td><td>The deploy's fixtures and <code>--compare</code>, now that the host takes canonical
+          photos only?</td>
+        <td>(a) canonicalized by the deploy (b) canonical files committed (c) sent through the front</td>
+        <td>(a), 2026-11-03: <code>webapp/deploy/fixtures.txt</code> keeps its originals' pins.</td></tr>
+      <tr><td class="id">D35</td><td>The front's code?</td>
+        <td>The shared <code>coffeecv</code> module, one "is canonical" check</td>
+        <td>Yes, 2026-11-03: the front's release carries the canonicalization module, with the decoder, colour and
+          encoder versions of training and the web service, a test holding the three locks equal; one predicate serves
+          D17's pass-through and D12's refusal.</td></tr>
+      <tr><td class="id">D36</td><td>The source's bit depth?</td>
+        <td>Each decoder's 16-bit output</td>
+        <td>Yes, 2026-11-03: RAW developed by rawpy at 16 bits, <code>use_camera_wb</code> kept, into Rec.2020.</td></tr>
+      <tr><td class="id">D37</td><td>What stays on originals?</td>
+        <td>The DINOv3 reference fixture; folders no model reads</td>
+        <td>Yes, 2026-11-03: <code>coffeecv_dino/reference.py</code>, <code>classes_labels_only/</code>,
+          <code>VERY_BIG_NEGATIVES/</code> and <code>example_photos/</code> (whose canonical photos
+          <code>make_example_photos.py</code> makes) are not in the store.</td></tr>
+      <tr><td class="id">D38</td><td>A photo over 60 MP on the front within 500 MB?</td>
+        <td>(a) refused above a measured pixel ceiling (b) a reduced-scale JPEG decode (c) tiles</td>
+        <td>(a), 2026-11-03, decided with D23: the ceiling from the front's measurement; the service's
+          <code>MemoryMax</code> 500M, a 60 MP photo's peak at most 400 MB, the colour conversion in strips.</td></tr>
+      <tr><td class="id">D39</td><td>A LittleCMS binding at 16 bits? (Pillow's ImageCms transforms 8-bit RGB only.)</td>
+        <td>(a) a binding over 16-bit or float NumPy arrays, pinned (b) Pillow at 8 bits</td>
+        <td>(a), 2026-11-03, checked on all three machines in P1; if none passes, back to the owner, not 8 bits. The
+          owner asked for research on how open-source projects handle 16-bit images:
+          <code>analysis/ml19/research_16bit_colour.md</code>.</td></tr>
+      <tr><td class="id">D40</td><td>Training's Pillow is 12.3.0, the web service's 12.2.0: which?</td>
+        <td>(a) all on one version, 12.3.0, here (b) training back to 12.2.0</td>
+        <td>(a), 2026-11-03, before D14's baseline; the owner: "try to store this pinned version in one place and read
+          multiple times", for every library that decodes, converts or encodes a photo.</td></tr>
+      <tr><td class="id">D41</td><td>How is D40's one version held? (uv 0.12 has no shared pins file and no constraints
+          file for <code>uv lock</code>.)</td>
+        <td>(a) one pins file, synced and checked (b) a local meta-package (c) a uv workspace (d) a check across the
+          locks</td>
+        <td>(d), 2026-11-03: "make a test script that we will run before commit that will compare versions in 3 uv
+          projects and raise alarm if the same package has different pinned versions." The resolved versions in
+          <code>uv.lock</code>, <code>webapp/uv.lock</code> and <code>webapp/front/uv.lock</code>, every package that
+          two of them hold; in the pre-commit hook and <code>scripts/check.sh</code>. <code>convert/</code> stays out:
+          it holds an older torch on purpose (litert-torch).</td></tr>
+      <tr><td class="id">D42</td><td>Which way are the locks aligned? (Read 2026-11-03, training against the web service:
+          numpy 2.5.3/2.4.4, pillow 12.3.0/12.2.0, pillow-heif 1.8.0/1.5.0, rawpy 0.27.1/0.27.0, click 8.5.0/8.4.2,
+          typing-extensions 4.16.0/4.15.0, werkzeug 3.1.9/3.1.8.)</td>
+        <td>(a) the web service up to training's, all seven (b) training down (c) the photo stack only</td>
+        <td>(a), 2026-11-03, before D14's baseline; the deploy's <code>--compare</code> checks serving's numbers
+          against PyTorch after the change.</td></tr>
+      <tr><td class="id">D43</td><td>Which resampler for D27's downscale?</td>
+        <td>(a) Pillow Lanczos, per channel at 16 bits (b) OpenCV <code>INTER_AREA</code> (c) another OpenCV flag</td>
+        <td>(b), 2026-11-03, the owner's preference, after <code>analysis/ml19/research_downscale.md</code>:
+          <code>cv2.resize</code> with <code>INTER_AREA</code> and the output size given explicitly, on the 16-bit
+          array. It leaks more above the new Nyquist than Lanczos (&minus;13.6 against &minus;20.2 dB at a factor of 2),
+          about 0.03% of a real photo's power; it is 5&ndash;30 times faster, takes 3-channel uint16 directly and needs
+          a quarter of the memory. The 7-photo model check (D4) is re-run on its output in P2; an answer that changes
+          stops P2 for the owner. No other OpenCV flag: each aliases.</td></tr>
+      <tr><td class="id">D44</td><td>Which library does the colour conversion and the JPEG XL coding?</td>
+        <td><code>imagecodecs</code>, or another found in P1</td>
+        <td><code>imagecodecs</code> 2026.10.10, 2026-11-03, after <code>analysis/ml19/research_16bit_colour.md</code>:
+          its wheel bundles LittleCMS 2.19 and libjxl 0.12.0, so the one exact pin holds both (D31, D41). Colour on
+          float32 (or uint16 with <code>NOOPTIMIZE</code>), relative colorimetric given explicitly; the encode at
+          <code>level=95</code> (distance 0.55), Rec.2020 primaries and BT.709 transfer, effort given explicitly (D25).
+          P1 still checks it on the three machines (D30) before D25 is decided. A version change is a
+          re-canonicalization. <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</td></tr>
+      <tr><td class="id">D45</td><td><code>pillow-jxl-plugin</code> (GPL-3.0-or-later), once <code>imagecodecs</code>
+          decodes JPEG XL?</td>
+        <td>(a) dropped from every environment (b) kept for visitors' JPEG XL uploads</td>
+        <td>(a), 2026-11-03: one JPEG XL library, no GPL dependency; <code>make_example_photos.py</code> moves to the
+          canonical function. <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</td></tr>
+      <tr><td class="id">D46</td><td>Where does the Rec.2020 ICC profile come from? (<code>imagecodecs</code> cannot
+          build a parametric BT.709 curve.)</td>
+        <td>(a) libjxl's own 536-byte profile for D7's encoding, committed (b) built in code</td>
+        <td>(a), 2026-11-03: committed, its SHA-256 tested; a profile that differs only in rounding moved 3% of 8-bit
+          pixels by one level (the research note).</td></tr>
+      <tr><td class="id">D47</td><td>How much of pass14 does the owner look at (R5; plan Q1)?</td>
+        <td>(a) a sample per rotation (b) every turned row</td>
+        <td>(b), 2026-11-03: "I can review as many photos as needed, so give them all." All 191 turned rows (111 at
+          90&deg;, 72 at 180&deg;, 8 at 270&deg;), negatives included, on the labelling page; the code check that a mask
+          turned back equals pass13's runs too.</td></tr>
+      <tr><td class="id">D48</td><td>D14's baseline exactly (plan Q2)?</td>
+        <td>The live classifier on canonical test crops; the live segmenter's masks of the canonical test split</td>
+        <td>Yes, 2026-11-03: <code>dino3b16_segxl0v6_country_aug8_s42</code> on the canonical test crops beside its
+          numbers on today's, per class; <code>xl0_v6_s42</code>'s canonical test masks stored by a
+          <code>seg_ml19_predict</code> stage for ML-16's blind paired session.</td></tr>
+      <tr><td class="id">D49</td><td>An appended photo re-runs its folder's whole stage (plan Q3)?</td>
+        <td>(a) accepted under an hour (b) <code>persist: true</code>, only missing photos encoded</td>
+        <td>(a), 2026-11-03, if P4 measures the largest folder under an hour; else (b).</td></tr>
     </tbody>
   </table></div>
 
@@ -286,9 +414,20 @@
       images, pixels outside sRGB, and the 7 photos over 50 MP downscaled on the live models
       (<code>analysis/ml19/</code>). ADR 0033 written, "Canonicalization" in the glossary, ML-20 written as a stub.
       ML-15 and ML-17 absorbed (D13, D15). D23&ndash;D25 open on measurements. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-03</div>Second grilling session, preparing the plan. Found: only the 521 JPEGs with
+      a rotate tag decode unrotated today; the 134 HEICs and 7 DNGs with one already decode upright (libheif applies the
+      HEIF rotation and resets EXIF Orientation to 1; rawpy applies LibRaw's flip), and so do their pass13 masks. The
+      Pixel 9 Pro's 50 MP photos are 50.14 MP. D26 (the front's memory) and D27 (the cap's two thresholds, amending
+      D4) decided. Third round: D28&ndash;D38 decided. Found: OpenCV has no ICC colour management; Pillow's
+      LittleCMS (2.19) transforms 8-bit RGB only; training's lock has Pillow 12.3.0, the web service's 12.2.0. D39&ndash;D42 decided (the 16-bit binding, one version per package,
+      the lock check, the alignment); research on 16-bit colour libraries and on downscaling started for D39 and the
+      resampler. Both notes in <code>analysis/ml19/</code>; D43&ndash;D46 decided from them (OpenCV
+      <code>INTER_AREA</code>, <code>imagecodecs</code>, <code>pillow-jxl-plugin</code> dropped, the committed
+      Rec.2020 profile). Every question that needs no measurement is answered.</div>
+    <div><div class="when">2026-11-03</div>Planned: <a href="plan_canonicalization.html">plan_canonicalization.html</a>, P1&ndash;P10. ML-16's retrain starts after P7 (the baseline); P10, the release, waits on its models. The plan's Q1&ndash;Q3 answered the same day: D47&ndash;D49. Not implemented.</div>
   </div>
 
-  <footer>Related: <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+  <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
     <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
     <a href="ticket_next_training_session.html">ML-16</a> (the retrain),
     <a href="ticket_reencode_at_the_front.html">ML-15</a> and <a href="ticket_transparent_pixels_grey.html">ML-17</a>

@@ -1,0 +1,389 @@
+<title>Implementation plan: canonicalization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-19 · coffee-vision · implementation</div>
+  <h1>Implementation plan: canonicalization</h1>
+  <p class="lede">The order of work for <a href="ticket_canonicalization.html">ticket ML-19</a>. Two strands: the
+    training side (the function, the canonical store, pass14, the crop stage, the baseline), which unblocks ML-16's
+    retrain, and the serving side (the front canonicalizes, the host takes canonical photos only), which ships with
+    ML-16's release. The encoder is proved on the three machines first, because every later phase stores its output.
+    The first step that changes a number is P3's re-check of the 7 downscaled photos; the first that changes a model's
+    input for good is P4's store.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_canonicalization.html"><code>ticket_canonicalization.html</code></a> (ML-19)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P10 only waits on ML-16's models</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>2eb963d</code> and the two research notes in
+      <code>analysis/ml19/</code>, not from the ticket alone. Eight things the ticket does not spell out turned up.
+      They are folded in below, and the ones that need a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>Crops are named <code>*__cropped.jpg</code> in four modules.</b> <code>segcrop_session.py</code>,
+        <code>dataset.py</code> (its glob and <code>bean_mask_path</code>), <code>merge_rig.py</code> (and the stems
+        of <code>labels/ml3/pool_exclude.csv</code> it matches) and <code>ood_eval.py</code>. D32's lossless JPEG XL
+        crops become <code>*__cropped.jxl</code> in all four at once (P6); the exclusion list keys by stem and
+        stays.</li>
+      <li><b>The fine-tune checks each photo's sha256 against <code>labels.csv</code></b>
+        (<code>seg_finetune.py</code>). It reads the canonical photo from P6 on, so it checks the original's hash
+        against the record (D33) and reads the canonical file mapped from it; a missing canonical file is an error, not
+        a fallback to the original.</li>
+      <li><b>pass13 holds geometry beyond its masks.</b> Include and exclude points, fences, boxes and strokes, as
+        fractions of the unrotated frame (189 rows with exclude points, 286 fences, 168 with strokes). pass14 turns
+        them with the mask (D28, P5).</li>
+      <li><b>The front's release lists its files</b> (<code>webapp/deploy/release_manifest.py</code>,
+        <code>FRONT_CODE</code>: the check service, the upload check, its <code>pyproject.toml</code> and lock). The
+        canonicalization module, <code>photo_io.py</code> and the committed Rec.2020 profile join it (P9, D35).</li>
+      <li><b><code>imagecodecs.jpegxl_decode</code> does not report a file's colour encoding</b> (research note).
+        D35's "is canonical" check needs it. P1 finds how to read it; a small reader of the JPEG XL header's colour
+        bundle is the fallback.</li>
+      <li><b>libjxl's output may differ between CPUs</b> (an approximate reciprocal instruction, research note), but
+        not between thread counts. So the store is built on one machine, this one, as <code>segcrop</code> is, and
+        D30's 1-level bar is what holds across machines.</li>
+      <li><b>The front needs OpenCV</b> for D43's <code>INTER_AREA</code>, and <code>imagecodecs</code> for colour and
+        JPEG XL: its lock gains the photo stack (D35), held to training's versions by D41's check.</li>
+      <li><b>Every remote run needs the owner's go</b> (<code>docs/agents/remote-sweeps.md</code>). P1 and P8 run on
+        the front and on <code>yappy</code>, in throwaway environments under <code>/tmp</code>, never in a release's
+        <code>.venv</code>.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 proves the one library on all three machines before anything stores its output: a library that fails there
+    would redo every later phase. P2 aligns the locks, which changes nothing in training (its versions are the target,
+    D42) and is checked on serving by the deploy's <code>--compare</code>. P3 writes the function and its tests and is
+    the first to change a number (the 7-photo re-check). P4&ndash;P7 move training onto canonical photos and end with
+    the baseline, after which ML-16's retrain can start. P8&ndash;P9, the serving side, need only P3 and can run
+    alongside P4&ndash;P7. P10 waits for ML-16's models.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The encoder and the colour on three machines <span class="pill sm open">stop</span></td>
+        <td>local, the front, <code>yappy</code>; owner</td><td>no: throwaway measurements</td></tr>
+      <tr><td class="id">P2</td><td>One version per package, and the lock check</td><td>local</td>
+        <td>training no; serving yes, checked at the deploy</td></tr>
+      <tr><td class="id">P3</td><td>The canonicalization function and its tests</td><td>local</td>
+        <td>yes: the 7-photo re-check (stops only if an answer moves)</td></tr>
+      <tr><td class="id">P4</td><td>The canonical store</td><td>local, the DVC remote</td><td>no model yet: new data</td></tr>
+      <tr><td class="id">P5</td><td>pass14 and the labelling page <span class="pill sm open">stop</span></td><td>local, owner</td>
+        <td>no: labels moved, not re-judged</td></tr>
+      <tr><td class="id">P6</td><td>Training's tools on canonical photos</td><td>local</td>
+        <td>yes: every crop</td></tr>
+      <tr><td class="id">P7</td><td>The baseline <span class="pill sm open">stop</span></td><td>local, owner</td>
+        <td>yes: today's models on canonical test photos</td></tr>
+      <tr><td class="id">P8</td><td>The front measured <span class="pill sm open">stop</span></td><td>the front; owner</td>
+        <td>no: measurements</td></tr>
+      <tr><td class="id">P9</td><td>Serving on canonical photos</td><td>local</td><td>yes: the live input, at P10</td></tr>
+      <tr><td class="id">P10</td><td>The release, with ML-16 and OPS-16 <span class="pill sm open">stop</span></td>
+        <td>both hosts; owner</td><td>yes: live</td></tr>
+    </tbody>
+  </table></div>
+  <p>Between P7 and P10, ML-16 takes over, outside this plan: the segmenter's retrain on pass14 and canonical photos,
+    the re-crop with it (<code>segcrop</code>, then <code>merge_segpool</code>), the classifier's retrain paired
+    against P7's baseline, its OOD probe and its LiteRT conversion. P6's crops, made with today's segmenter, serve
+    the baseline only.</p>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>How much of pass14 does the owner look at (R5)? 191 pass13 rows are JPEGs with a
+          rotate tag (111 at 90&deg;, 72 at 180&deg;, 8 at 270&deg;), negatives among them; their masks, points,
+          fences, boxes and strokes all turn.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03, the owner: "I can review as many photos as needed, so
+          give them all." All 191 turned rows, negatives included, on the labelling page over the canonical photo; the
+          code check (a mask turned back matches pass13's to the pixel) runs too. Ticket D47.</td><td>P5</td></tr>
+      <tr><td class="id">Q2</td><td>What exactly is D14's baseline? The live classifier is one model (seed 42), and the
+          segmenter's test split is judged by the owner's blind paired review, not by a score.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03, as recommended (ticket D48). The classifier: <code>dino3b16_segxl0v6_country_aug8_s42</code> on
+          the canonical test crops, beside its own numbers on today's crops, per class. The segmenter:
+          <code>xl0_v6_s42</code>'s masks of the canonical test split, stored by a <code>seg_ml19_predict</code> stage
+          for ML-16's blind paired session against its new segmenter.</td><td>P7</td></tr>
+      <tr><td class="id">Q3</td><td>A photo appended to a folder re-runs that folder's whole
+          <code>canonicalize@&lt;folder&gt;</code> stage (DVC rebuilds a stage's outputs), re-encoding every photo in
+          it. On this machine the unchanged photos come back byte-identical, so the cache holds them once.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-11-03, as recommended (ticket D49). Accept the full re-run if P4 measures the largest folder under an hour;
+          otherwise <code>persist: true</code> and encode only the photos missing from the outputs.</td><td>P4</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; The encoder and the colour on three machines <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the owner's go to run on the front and <code>yappy</code></span></span></div>
+  </div>
+  <p>D44's recipe, measured where it will run, before anything stores its output: <code>imagecodecs</code> 2026.10.10
+    (its LittleCMS 2.19 and libjxl 0.12.0) on this machine (Ryzen, AVX2), the front (EPYC, AVX-512, 2 vCPU) and
+    <code>yappy</code>. Scripts in <code>analysis/ml19/p1/</code>, inputs a fixed set of dataset photos (every source
+    profile, format and bit depth: Display P3 and sRGB JPEG, a 10-bit HEIC, a 16-bit PNG, a DNG, an untagged JPEG).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A prototype of the pipeline in one script: decode at 16 bits (D36), LittleCMS
+      on float32, relative colorimetric, into the Rec.2020 profile libjxl generates (D46), clip to [0, 1],
+      <code>jpegxl_encode(level=95, primaries='BT2100', transfer='BT709', effort=E)</code>; decode, LittleCMS back to
+      sRGB, round to 8 bits.</span></li>
+    <li><span class="box"></span><span>The same photos on the three machines, in a throwaway uv environment under
+      <code>/tmp</code> on each: the encoded bytes compared, and each machine's decode of one machine's files compared
+      level by level (D30: within 1 level).</span></li>
+    <li><span class="box"></span><span>Effort 3 to 9 on the front: time and peak memory for a 12 MP and a 60 MP photo,
+      against D22's 40 s, and bytes against effort 7.</span></li>
+    <li><span class="box"></span><span>How to read a JPEG XL file's colour encoding (finding 5): from
+      <code>imagecodecs</code>, else a reader of the header's colour bundle, tested on files of other encodings.</span></li>
+    <li><span class="box"></span><span>Checks: the three decodes within 1 level; the file declares D7's encoding;
+      the results written to <code>analysis/ml19/p1/README.md</code>.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: D25 (the encoder and its effort), with the measurements;
+      a failure of D30 comes back as a question, not a fallback (D39).</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; One version per package, and the lock check</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (D25 decided)</span></div>
+  </div>
+  <p>D40&ndash;D42: the web service moves up to training's versions, and every lock gains the chosen library at one
+    version. Nothing in training changes; serving's numerics do, which the deploy's <code>--compare</code> checks at
+    P10.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>coffeecv/lock_check.py</code>: reads <code>uv.lock</code>,
+      <code>webapp/uv.lock</code> and <code>webapp/front/uv.lock</code> with <code>tomllib</code>, and fails naming
+      every package two of them hold at different versions (D41). Standard library only, so it imports no torch.
+      Tests on small lock files of its own.</span></li>
+    <li><span class="box"></span><span>It runs in <code>.githooks/pre-commit</code> and <code>scripts/check.sh</code>.</span></li>
+    <li><span class="box"></span><span><code>webapp/pyproject.toml</code> moves to training's numpy 2.5.3, pillow 12.3.0,
+      pillow-heif 1.8.0, rawpy 0.27.1, and its constraints to click 8.5.0, typing-extensions 4.16.0, werkzeug 3.1.9
+      (D42); <code>imagecodecs</code> 2026.10.10 pinned exactly in training's and the web service's (D44); both
+      re-locked. The front's waits for P9, which gives it dependencies.</span></li>
+    <li><span class="box"></span><span>Checks: <code>python -m coffeecv.lock_check</code> passes; the fast tier green;
+      <code>tests/test_release_manifest.py</code> green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The canonicalization function and its tests</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2</span></div>
+  </div>
+  <p>One module, <code>coffeecv/canonical.py</code>, with no torch (the front imports it): original bytes in,
+    canonical JPEG XL bytes out, and a canonical file in, 8-bit sRGB out. <code>photo_io.load_rgb_image</code> becomes
+    the decode of a canonical photo only.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>canonicalize(path) -&gt; bytes</code>: decode the main image only (D20) at
+      each decoder's highest depth (D36; RAW by rawpy at 16 bits into Rec.2020, <code>use_camera_wb</code>);
+      upright (D28: HEIC and RAW as decoded, other formats by all eight EXIF orientations, 0 or invalid as stored);
+      over 60,000,000 pixels to at most 50,000,000 by <code>cv2.resize(INTER_AREA)</code> with the size given
+      (D27, D43); transparency over the segmenter's fill grey (D13); its own profile, or sRGB when it has none (D16),
+      into Rec.2020 by LittleCMS on float32 in strips (D31, D38); encoded with D25's settings; no metadata
+      (D21).</span></li>
+    <li><span class="box"></span><span>The committed Rec.2020 profile, <code>coffeecv/data/rec2020_bt709.icc</code>,
+      its sha256 tested (D46).</span></li>
+    <li><span class="box"></span><span><code>is_canonical(bytes)</code> (D35): JPEG XL, D7's colour encoding, no EXIF or
+      XMP, no orientation, no alpha or extra channels, at most 60 MP.</span></li>
+    <li><span class="box"></span><span><code>load_rgb_image</code> decodes a canonical photo to 8-bit sRGB through
+      <code>imagecodecs</code> (D7) and refuses anything else; <code>pillow-jxl-plugin</code> leaves training's and
+      the web service's <code>pyproject.toml</code> (D45), and the locks are redone.</span></li>
+    <li><span class="box"></span><span>D8's tests in the fast tier: synthetic patches (sRGB and P3 primaries, a P3
+      green outside sRGB, greys, white) through original, canonical and sRGB against independent colour maths in the
+      test; the header (D7's encoding, no orientation); a committed golden file. Also: each of the eight
+      orientations; the cap's two thresholds (60 MP kept, 60 MP plus one pixel downscaled); a transparent pixel;
+      an untagged photo; <code>is_canonical</code> on a canonical file and on near misses.</span></li>
+    <li><span class="box"></span><span>The one "Uncalibrated" photo checked by hand: Adobe RGB if its interoperability
+      index says R03 (D16).</span></li>
+    <li><span class="box"></span><span>The 7 photos over 60 MP (D4's measurement) re-run on the live models from their
+      canonical photos, now with <code>INTER_AREA</code>: verdict, top-1 and mask area against
+      <code>analysis/ml19/downscale_answers.json</code>.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green; an answer that changes among the 7 stops the phase
+      for the owner (D43).</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; The canonical store</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, Q3 (answered: D49)</span></div>
+  </div>
+  <p>D18 and D33: one DVC stage per folder a model reads, on this machine (finding 6), the originals untouched.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>coffeecv/canonicalize_folder.py</code> and
+      <code>canonicalize@&lt;folder&gt;</code> in <code>dvc.yaml</code> over the pool sessions,
+      <code>segmenter_positives</code>, the OOD negatives and the internet positives: out
+      <code>data/canonical/&lt;folder&gt;/&hellip;/&lt;original filename&gt;.jxl</code>, no manifest. One function in
+      <code>canonical.py</code> maps an original's path to its canonical path. Not in the store:
+      <code>classes_labels_only/</code>, <code>VERY_BIG_NEGATIVES/</code>, <code>example_photos/</code> (D37).</span></li>
+    <li><span class="box"></span><span>Run, pushed to the DVC remote and checked object by object
+      (<code>docs/agents/dvc.md</code>, "Trusting the result").</span></li>
+    <li><span class="box"></span><span>D29's size report in <code>analysis/ml19/p4_sizes.md</code>: every canonical
+      photo's bytes against its original's, by format and size, and a proposed host byte cap; the largest folder's
+      run time (Q3).</span></li>
+    <li><span class="box"></span><span>Checks: every photo of every listed folder has its canonical file, each passes
+      <code>is_canonical</code>; a re-run gives the same bytes; <code>dvc status</code> clean.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; pass14 and the labelling page <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q1 (answered: D47)</span></div>
+  </div>
+  <p>D9, D19, D28: pass13's accepted masks carried into the canonical geometry, not re-judged; pass13 stays as
+    recorded.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A script that writes <code>data/ml5_labels/pass14</code> from pass13: for each
+      row whose photo decodes unrotated today (a JPEG with a rotate tag), its mask PNG turned, and its points, fences,
+      boxes and strokes mapped by the same turn; other rows carried as they are. <code>mask_sha256</code>
+      recomputed; the photo's key stays its original's path and sha256 (D33).</span></li>
+    <li><span class="box"></span><span><code>seg_review.py</code> and the labelling page read canonical photos: the
+      photo shown under each mask is the canonical photo's sRGB.</span></li>
+    <li><span class="box"></span><span>Checks: every turned mask turned back equals pass13's to the pixel; every
+      mask's size equals its canonical photo's; pass14's rows are pass13's.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: all 191 turned rows on the labelling page (Q1, D47).</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Training's tools on canonical photos</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+  </div>
+  <p>Everything that feeds a model reads canonical photos only (D18). The crops are made with today's segmenter,
+    <code>xl0_v6_s42</code>, for P7's baseline; ML-16 re-crops with its own.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>segcrop_session.py</code> reads <code>data/canonical/&lt;session&gt;</code>
+      and writes <code>*__cropped.jxl</code>, lossless 8-bit sRGB (D10, D32); the masks stay 1-bit PNG.
+      <code>dataset.py</code>, <code>merge_rig.py</code> and <code>ood_eval.py</code> follow (finding 1). Each
+      <code>segcrop</code> stage depends on its canonical folder, not on <code>dataset/</code>.</span></li>
+    <li><span class="box"></span><span><code>seg_finetune.py</code> and <code>seg_predict.py</code> read the canonical
+      photo mapped from each record, checking the original's sha256 (finding 2); <code>review_masks.py</code>,
+      <code>seg_point_probe.py</code>, <code>find_tiny_masks.py</code>, <code>segment_beans.py</code>'s tools and
+      <code>export_litert.py</code>'s fixture photos likewise. The OOD tools
+      (<code>build_ood_reference.py</code>, <code>fit_ood_probe.py</code>, <code>ood_eval.py</code>) read canonical
+      photos or the crops made from them. <code>coffeecv_dino/reference.py</code> stays on originals (D37).</span></li>
+    <li><span class="box"></span><span>A test that the stored crop is the array serving computes: a canonical photo
+      through <code>segcrop</code>'s write and read against <code>infer.segment_bean_region</code> on the same photo,
+      equal to the pixel (<code>tests/test_seg_parity.py</code>).</span></li>
+    <li><span class="box"></span><span><code>dvc repro -s</code> each <code>segcrop</code> stage, then
+      <code>merge_segpool</code> (<code>docs/agents/experiments.md</code>, "Changing the segmenter"); D18 fallbacks
+      counted against today's, each new one and a few crops opened at full size.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green; <code>dvc status</code> clean; a photo with a new
+      fallback shown to the owner before it trains.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; The baseline <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6, Q2 (answered: D48)</span></div>
+  </div>
+  <p>D14, as Q2 settles it: today's models on canonical test photos, the paired baseline (ADR 0002) of ML-16's
+    retrain, so its comparison separates the input's change from the training's.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The live classifier on the canonical test crops, beside its own numbers on
+      today's crops: accuracy and per-class F1, the OOD guard's refusals, written to
+      <code>analysis/ml19/p7_baseline.md</code>.</span></li>
+    <li><span class="box"></span><span>A <code>seg_ml19_predict</code> stage: <code>xl0_v6_s42</code>'s masks of the
+      canonical test split, stored for ML-16's blind paired session.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the baseline read. ML-16's retrain is unblocked.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; The front measured <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3 <span class="tag">and the owner's go to run on the front</span></span></div>
+  </div>
+  <p>D23, D24 and D38 from <code>canonical.py</code> itself on the proxy (616 MB available on 2026-11-03, D26), in a
+    throwaway environment beside the live check service, one photo at a time.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Peak memory and time for each format at 12, 50, 60 and over 60 MP, and for each
+      RAW the dataset holds, under a 500M <code>MemoryMax</code> (<code>systemd-run --scope</code>), against D22's
+      40 s and D38's 400 MB.</span></li>
+    <li><span class="box"></span><span>Checks: the proxy's <code>MemAvailable</code> watched during the runs; the
+      results in <code>analysis/ml19/p8_front.md</code>.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: D23 (the upload cap), D24 (RAW on the front) and D38's pixel
+      ceiling, with the measurements.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; Serving on canonical photos</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4 (the host byte cap), P8</span></div>
+  </div>
+  <p>D12, D17, D34, D35: the front canonicalizes, the host refuses anything else, and every tool that sends the host
+    a photo canonicalizes it first.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>check_service.py</code>: after the upload check, an upload that
+      <code>is_canonical</code> passes through (D17); any other is canonicalized and the canonical photo forwarded
+      under D23's cap and D38's ceiling; a photo it cannot read is the 400 the host gives today. The original is never
+      stored or forwarded (D21).</span></li>
+    <li><span class="box"></span><span>The front's <code>pyproject.toml</code> gains the photo stack (numpy, Pillow and
+      its HEIF and AVIF plugins, rawpy if D24 says so, OpenCV, <code>imagecodecs</code>) at training's versions; its
+      release carries <code>canonical.py</code>, <code>photo_io.py</code> and the profile (finding 4);
+      <code>MemoryMax=500M</code> in its unit (D38); <code>lock_check</code> green.</span></li>
+    <li><span class="box"></span><span><code>webapp/app.py</code>: <code>/analyze</code> refuses a photo that is not
+      canonical, or over P4's byte cap, with a 400 (D12).</span></li>
+    <li><span class="box"></span><span>The deploy canonicalizes each fixture before sending it, and
+      <code>--compare</code> runs PyTorch on the same canonical bytes (D34); <code>fixtures.txt</code> keeps its
+      originals' pins.</span></li>
+    <li><span class="box"></span><span><code>make_example_photos.py</code> makes the five examples through
+      <code>canonicalize</code> (D17, D45); the thumbnails from their canonical photos.</span></li>
+    <li><span class="box"></span><span>Docs: <code>docs/inference_path.html</code> (the front canonicalizes, the host
+      decodes canonical photos only), ADR 0031's amended line, <code>webapp/README.md</code>.</span></li>
+    <li><span class="box"></span><span>Checks: the full suite green; <code>scripts/rehearse_deploy_local.sh</code>;
+      the check service's tests on a canonical upload, a JPEG, a HEIC and an oversized photo.</span></li>
+  </ol>
+
+  <h2>12. P10 &mdash; The release, with ML-16 and OPS-16 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7, P9, ML-16 <span class="tag">its segmenter and classifier trained, chosen and converted</span>, OPS-16 P6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>One release of the three tickets (D15): <code>--compare</code> on the host,
+      then the deploy (<code>docs/agents/deploy.md</code>).</span></li>
+    <li><span class="box"></span><span>Checks: <code>--verify</code> on the domain, both hosts, the example photos
+      included; one real upload of each format through the domain.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the deploy's go, and closing the ticket.</span></li>
+  </ol>
+
+  <h2>13. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: three machines within 1 level (D30); D25 decided.</span></li>
+    <li><span class="box"></span><span>P2: the lock check green, in the hook and <code>check.sh</code>.</span></li>
+    <li><span class="box"></span><span>P3: D8's tests in the fast tier; the 7 photos' answers.</span></li>
+    <li><span class="box"></span><span>P4: every canonical file present and canonical, pushed and checked on the
+      remote.</span></li>
+    <li><span class="box"></span><span>P5: pass14 turned back equals pass13; the owner has looked at every turned row.</span></li>
+    <li><span class="box"></span><span>P6: stored crops equal serving's arrays; fallbacks reviewed.</span></li>
+    <li><span class="box"></span><span>P7: the baseline written and read.</span></li>
+    <li><span class="box"></span><span>P8: D23, D24, D38 decided from measurements.</span></li>
+    <li><span class="box"></span><span>P10: <code>--verify</code> on the domain.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope": retraining either model (ML-16), wide-gamut input to the models,
+      HDR gain maps (ML-20), keying records by hash (ML-18).</li>
+    <li>ML-16's training session itself: its segmenter fine-tune, re-crop, classifier runs, OOD probe and LiteRT
+      conversion, between P7 and P10.</li>
+    <li>The <code>convert/</code> environment, outside D41's check (it holds an older torch on purpose).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-03</div>Claude reads ticket ML-19 at <code>2eb963d</code>, with
+      <code>analysis/ml19/research_16bit_colour.md</code> and <code>research_downscale.md</code>, and writes this plan
+      after the owner's grilling sessions (D26&ndash;D46). Eight findings not in the ticket; Q1&ndash;Q3 open for the
+      owner. Not implemented.</div>
+    <div><div class="when">2026-11-03</div>Q1&ndash;Q3 answered by the owner, ticket D47&ndash;D49: every turned row
+      reviewed; the baseline as recommended; a folder's full re-run accepted under an hour.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_canonicalization.html">ML-19 ticket</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+    <a href="ticket_next_training_session.html">ML-16</a>, <a href="plan_example_photos.html">OPS-16's plan</a>,
+    <code>analysis/ml19/</code>.</footer>
+</main>
