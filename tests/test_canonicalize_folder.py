@@ -28,6 +28,13 @@ def jpeg(colour) -> bytes:
     return buf.getvalue()
 
 
+class PixelLimit(unittest.TestCase):
+    def test_the_stores_pixel_limit_is_the_dataset_tools(self):
+        from coffeecv import canonicalize_folder
+        from coffeecv.photo_io import DATASET_MAX_PIXELS
+        self.assertEqual(canonicalize_folder.DATASET_MAX_PIXELS, DATASET_MAX_PIXELS)
+
+
 class CanonicalPath(unittest.TestCase):
     def test_the_original_name_is_kept_whole(self):
         d = Path("/x/dataset")

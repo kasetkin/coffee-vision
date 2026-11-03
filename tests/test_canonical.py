@@ -302,6 +302,24 @@ class IsCanonical(unittest.TestCase):
                 self.assertTrue(cn.header_problems(replace(h, **change)))
 
 
+class Encoder(unittest.TestCase):
+    """coffeecv.jxl_encode: a failure in a callback is raised, never a truncated file."""
+
+    def test_a_rectangle_that_fails_is_raised(self):
+        from coffeecv.jxl_encode import encode_rec2020
+
+        def bad(y, x, ys, xs):
+            raise RuntimeError("no rectangle")
+        with self.assertRaisesRegex(RuntimeError, "no rectangle"):
+            encode_rec2020(64, 64, bad, level=95, effort=7, numthreads=1)
+
+    def test_a_rectangle_of_the_wrong_shape_is_raised(self):
+        from coffeecv.jxl_encode import encode_rec2020
+        with self.assertRaises(ValueError):
+            encode_rec2020(64, 64, lambda y, x, ys, xs: np.zeros((1, 1, 3), np.uint16), level=95, effort=7,
+                           numthreads=1)
+
+
 class Readers(unittest.TestCase):
     def test_a_srgb_jpeg_xl_upload_is_canonicalized(self):
         a = np.asarray(patches(SRGB_PATCHES))

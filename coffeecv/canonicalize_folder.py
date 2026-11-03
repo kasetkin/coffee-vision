@@ -21,14 +21,18 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from coffeecv import canonical as cn
-from coffeecv.photo_io import DATASET_MAX_PIXELS
+
+# coffeecv.photo_io.DATASET_MAX_PIXELS (tests/test_canonicalize_folder.py holds them equal), not imported: photo_io
+# registers pillow-avif-plugin with Pillow, and the front, which decodes with Pillow's own AVIF, must decode as the
+# store does (D35).
+DATASET_MAX_PIXELS = 2**28
 
 
 def photos(folder: Path) -> list[Path]:
     return sorted(p for p in folder.rglob("*") if p.is_file() and cn.is_photo(p))
 
 
-def _one(job: tuple[Path, Path, int]) -> tuple[str, int, int, float, str]:
+def canonicalize_one(job: tuple[Path, Path, int]) -> tuple[str, int, int, float, str]:
     """Canonicalize one photo into place: (its path, original bytes, canonical bytes, seconds, error)."""
     original, target, threads = job
     from PIL import Image
@@ -61,7 +65,7 @@ def main() -> None:
     t0, done, failed, size_in, size_out = time.perf_counter(), 0, [], 0, 0
     # spawn, not fork: rawpy's OpenMP can deadlock in a forked worker (rawpy's own warning, seen 2026-11-03)
     with ProcessPoolExecutor(max_workers=args.jobs, mp_context=multiprocessing.get_context("spawn")) as pool:
-        for name, n_in, n_out, seconds, error in pool.map(_one, todo, chunksize=1):
+        for name, n_in, n_out, seconds, error in pool.map(canonicalize_one, todo, chunksize=1):
             if error:
                 failed.append(f"{name}: {error}")
                 continue

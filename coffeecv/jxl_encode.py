@@ -147,8 +147,8 @@ _sig(_threads, "JxlThreadParallelRunnerCreate", _P, _P, C.c_size_t)
 _sig(_threads, "JxlThreadParallelRunnerDestroy", None, _P)
 _RUNNER = C.cast(_threads.JxlThreadParallelRunner, _P)
 
-# A rectangle of the image: (ypos, xpos, ysize, xsize) in, uint16 array (ysize, xsize, 3) out, C-contiguous.
-Region = Callable[[int, int, int, int], np.ndarray]
+# Produces a rectangle of the image: (ypos, xpos, ysize, xsize) in, uint16 array (ysize, xsize, 3) out.
+RectangleSource = Callable[[int, int, int, int], np.ndarray]
 
 
 class JxlError(RuntimeError):
@@ -161,17 +161,15 @@ def _check(status: int, what: str, enc=None) -> None:
         raise JxlError(f"{what} failed (status {status}{detail})")
 
 
-def encode_rec2020(height: int, width: int, region: Region, *, level: float, effort: int, numthreads: int,
-                   stats: dict | None = None) -> bytes:
+def encode_rec2020(height: int, width: int, region: RectangleSource, *, level: float, effort: int, numthreads: int) -> bytes:
     """A uint16 RGB image `height` x `width`, produced a rectangle at a time by `region`, as JPEG XL bytes in D7's
-    colour encoding. `stats`, if given, gets the rectangles asked for, their pixels and the most held at once."""
+    colour encoding."""
     held: dict[int, np.ndarray] = {}    # rectangles handed to libjxl and not yet released
     lock = threading.Lock()
     out = bytearray()
     pos = [0]
     outbuf: list = [None]
     errors: list[BaseException] = []
-    counts = {"rects": 0, "pixels": 0, "max_held": 0}
 
     def get_format(_opaque, fmt):
         fmt.contents.num_channels, fmt.contents.data_type = 3, JXL_TYPE_UINT16
@@ -186,9 +184,6 @@ def encode_rec2020(height: int, width: int, region: Region, *, level: float, eff
             ptr = a.ctypes.data
             with lock:
                 held[ptr] = a
-                counts["rects"] += 1
-                counts["pixels"] += xsize * ysize
-                counts["max_held"] = max(counts["max_held"], len(held))
             return ptr
         except BaseException as e:   # an exception cannot cross into C: record it and hand back nothing
             errors.append(e)
@@ -206,18 +201,26 @@ def encode_rec2020(height: int, width: int, region: Region, *, level: float, eff
             held.pop(buf, None)
 
     def get_buffer(_opaque, size):
-        n = max(int(size[0]), 1 << 16)
-        outbuf[0] = (C.c_uint8 * n)()
-        size[0] = n
-        return C.addressof(outbuf[0])
+        try:
+            n = max(int(size[0]), 1 << 16)
+            outbuf[0] = (C.c_uint8 * n)()
+            size[0] = n
+            return C.addressof(outbuf[0])
+        except BaseException as e:   # NULL with size 0 is libjxl's "stop": the encode fails, and the error is raised
+            errors.append(e)
+            size[0] = 0
+            return None
 
     def release_output(_opaque, written):
-        end = pos[0] + written
-        if end > len(out):
-            out.extend(bytes(end - len(out)))
-        out[pos[0]:end] = C.string_at(C.addressof(outbuf[0]), written)
-        pos[0] = end
-        outbuf[0] = None
+        try:
+            end = pos[0] + written
+            if end > len(out):
+                out.extend(bytes(end - len(out)))
+            out[pos[0]:end] = C.string_at(C.addressof(outbuf[0]), written)
+            pos[0] = end
+            outbuf[0] = None
+        except BaseException as e:   # recorded, and raised after the encode: never truncated bytes returned
+            errors.append(e)
 
     def seek(_opaque, position):
         pos[0] = position
@@ -246,9 +249,8 @@ def encode_rec2020(height: int, width: int, region: Region, *, level: float, eff
         settings = _jxl.JxlEncoderFrameSettingsCreate(enc, None)
         _check(_jxl.JxlEncoderSetFrameDistance(settings, _jxl.JxlEncoderDistanceFromQuality(level)),
                "JxlEncoderSetFrameDistance", enc)
-        if effort != 7:
-            _check(_jxl.JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, effort),
-                   "effort", enc)
+        # D44: given explicitly, though 7 is libjxl's default (imagecodecs skips it at 7: the same bytes, P1)
+        _check(_jxl.JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, effort), "effort", enc)
         header = FrameHeader()
         _jxl.JxlEncoderInitFrameHeader(C.byref(header))
         header.duration = 1
@@ -265,6 +267,4 @@ def encode_rec2020(height: int, width: int, region: Region, *, level: float, eff
     finally:
         _jxl.JxlEncoderDestroy(enc)
         _threads.JxlThreadParallelRunnerDestroy(runner)
-    if stats is not None:
-        stats.update(counts)
     return bytes(out)
