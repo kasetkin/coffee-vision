@@ -46,6 +46,12 @@ FRONT_CODE = [
     "webapp/front/upload_check.py",
     "webapp/front/pyproject.toml",
     "webapp/front/uv.lock",
+    # Ticket ML-19 P9 (D35, plan finding 4): the front canonicalizes each upload with the module training uses.
+    "coffeecv/__init__.py",
+    "coffeecv/canonical.py",
+    "coffeecv/jxl_encode.py",
+    "coffeecv/jxl_header.py",
+    "coffeecv/data/rec2020_bt709.icc",
 ]
 # What webapp/app.py imports, found with an import trace and checked by tests/test_release_manifest.py. Since
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained

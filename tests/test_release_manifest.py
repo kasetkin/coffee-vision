@@ -183,10 +183,34 @@ class TestTwoReleases(unittest.TestCase):
         front = front_manifest()
         self.assertTrue({"webapp/front/check_service.py", "webapp/front/upload_check.py", "webapp/front/pyproject.toml",
                          "webapp/front/uv.lock"} <= set(front["git"]))
-        self.assertFalse(any(p.startswith(("coffeecv/", "models/")) or p == "webapp/app.py" for p in front["git"]))
+        # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization and nothing else of it.
+        self.assertEqual({p for p in front["git"] if p.startswith("coffeecv/")},
+                         {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/jxl_encode.py",
+                          "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc"})
+        self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
                 self.assertTrue((REPO / p).is_file(), f"{p} is not in the repo")
+
+    def test_the_fronts_coffeecv_modules_import_only_each_other(self):
+        """What check_service imports from coffeecv, followed module by module, is all in the front's release."""
+        import ast
+        shipped = {p for p in front_manifest()["git"] if p.endswith(".py")}
+        todo, seen = ["webapp/front/check_service.py"], set()
+        while todo:
+            path = todo.pop()
+            if path in seen:
+                continue
+            seen.add(path)
+            for node in ast.walk(ast.parse((REPO / path).read_text())):
+                names = [node.module] if isinstance(node, ast.ImportFrom) and node.module else \
+                    [a.name for a in node.names] if isinstance(node, ast.Import) else []
+                for name in names:
+                    if name.startswith("coffeecv"):
+                        mod = name if name != "coffeecv" else "coffeecv." + node.names[0].name
+                        todo.append(mod.replace(".", "/") + ".py")
+        self.assertTrue(seen - {"webapp/front/check_service.py"})
+        self.assertEqual(seen - shipped, set())
 
     def test_each_release_carries_its_own_site(self):
         self.assertIn("inference.nginx.conf", _synthetic(CARD)["generated"])

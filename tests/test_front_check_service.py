@@ -3,13 +3,16 @@
     python -m unittest tests.test_front_check_service
 
 webapp/front/check_service.py takes POST /analyze from the front's nginx, refuses what must not cross the tunnel
-(over 10 MB, D15 and OPS-16 D8; not an image, D2), forwards the rest unchanged to the inference host, and streams its answer back
-(ADR 0023); an inference host it cannot reach is "the classifier is offline", apart from busy (D12). The service
-runs in this process on a loopback port, as under systemd; the inference host is a stdlib server here.
+(over 10 MB, D15 and OPS-16 D8; not an image, D2), canonicalizes the photo (ticket ML-19 P9: a canonical one goes on as
+it is, one over the pixel ceiling is a 413, one that cannot be read a 400), forwards the form with the canonical photo
+in place of the visitor's to the inference host, and streams its answer back (ADR 0023); an inference host it cannot
+reach is "the classifier is offline", apart from busy (D12). The service runs in this process on a loopback port, as
+under systemd; the inference host is a stdlib server here.
 """
 from __future__ import annotations
 
 import http.client
+import io
 import json
 import socket
 import sys
@@ -20,13 +23,34 @@ from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import imagecodecs
+import numpy as np
+from PIL import Image
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import check_service  # noqa: E402
+
+from coffeecv import canonical  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
 
-JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 2000
+def _jpeg() -> bytes:
+    """A real photo, small: the service decodes and canonicalizes what it forwards. Bytes after its end marker (the
+    cap tests pad it) are ignored by the decoder."""
+    buf = io.BytesIO()
+    Image.fromarray(np.random.default_rng(0).integers(0, 255, (48, 64, 3), dtype=np.uint8)).save(buf, "JPEG",
+                                                                                                 quality=90)
+    return buf.getvalue()
+
+
+JPEG = _jpeg()
 BOUNDARY = "----coffeeboundary7"
+
+
+def forwarded_photo(body: bytes) -> tuple[str, bytes]:
+    """The filename and bytes of the photo part of a form the service forwarded."""
+    filename, data, _ = check_service._photo(f"multipart/form-data; boundary={BOUNDARY}", body)
+    return filename, data
 
 
 def form(filename: str | None, data: bytes, skip_crop: bool = False) -> bytes:
@@ -131,7 +155,7 @@ class CheckService(unittest.TestCase):
         return conn, conn.getresponse()
 
     @real_data   # about 1.5 s: the fake answer's parts are a second apart
-    def test_a_photo_crosses_unchanged_and_its_answer_streams_back(self):
+    def test_a_photo_crosses_canonicalized_and_its_answer_streams_back(self):
         body = form("beans.jpg", JPEG, skip_crop=True)
         _, resp = self.post(body, headers={"Accept-Language": "pt-BR", "User-Agent": "Mozilla/5.0 (Android)"})
         first = resp.readline()
@@ -146,11 +170,40 @@ class CheckService(unittest.TestCase):
         self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
         self.assertEqual(seen["path"], "/analyze")
-        self.assertEqual(seen["body"], body)
+        name, photo = forwarded_photo(seen["body"])
+        self.assertEqual(name, "beans.jxl")
+        self.assertTrue(canonical.is_canonical(photo))
+        self.assertEqual(photo, canonical.canonicalize(JPEG, "beans.jpg"))   # the visitor's photo never crosses
+        self.assertIn(b'name="skip_crop"\r\n\r\n1\r\n', seen["body"])     # every other field as sent
         self.assertEqual(seen["headers"]["Content-Type"], f"multipart/form-data; boundary={BOUNDARY}")
         self.assertEqual(seen["headers"]["Accept-Language"], "pt-BR")
         self.assertEqual(seen["headers"]["User-Agent"], "Mozilla/5.0 (Android)")
 
+
+    def test_a_canonical_photo_crosses_as_it_is(self):   # ML-19 D17
+        canon = canonical.canonicalize(JPEG, "beans.jpg")
+        _, resp = self.post(form("beans.jxl", canon))
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(forwarded_photo(FakeInferenceHost.seen[0]["body"]), ("beans.jxl", canon))
+
+    def test_a_photo_over_the_pixel_ceiling_never_crosses(self):   # ML-19 D38, D24
+        for name, attr in (("beans.jpg", "MAX_PIXELS"), ("beans.dng", "RAW_MAX_PIXELS")):
+            with self.subTest(name=name), mock.patch.object(check_service, attr, 48 * 64 - 1):
+                photo = JPEG if name.endswith(".jpg") else b"II*\x00" + JPEG   # a TIFF signature for the .dng
+                status, payload = self.answer(form(name, photo))
+                if name.endswith(".dng"):   # not a real DNG: rawpy cannot read it, so the 400 comes first
+                    self.assertEqual(status, 400)
+                    continue
+                self.assertEqual(status, 413)
+                self.assertIn("too many pixels", payload["error"])
+        self.assertEqual(FakeInferenceHost.seen, [])
+
+    def test_a_photo_that_cannot_be_decoded_never_crosses(self):
+        status, payload = self.answer(form("beans.jpg", JPEG[:200]))     # a JPEG's signature, cut short
+        self.assertEqual(status, 400)
+        self.assertTrue(payload["error"].startswith("could not read this as an image: "), payload)
+        self.assertEqual(FakeInferenceHost.seen, [])
 
     def answer(self, body: bytes, **kw) -> tuple[int, dict]:
         _, resp = self.post(body, **kw)
@@ -232,6 +285,7 @@ class CheckService(unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 5)
         self.assertEqual(len(FakeInferenceHost.seen), 1, "the photo never crossed")
 
+    @real_data   # about 3 s: canonicalizing a 3 MP photo of noise
     def test_an_upload_that_stalls_is_offline_after_the_uploads_timeout(self):
         """An inference host that takes the connection and never reads: the whole upload gets UPLOAD_TIMEOUT_S."""
         stalled = socket.create_server(("127.0.0.1", 0))
@@ -240,7 +294,9 @@ class CheckService(unittest.TestCase):
         threading.Thread(target=lambda: held.append(stalled.accept()[0]), daemon=True).start()
         self.addCleanup(lambda: [s.close() for s in held])
         service = self.serve(f"http://127.0.0.1:{stalled.getsockname()[1]}")
-        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES - len(JPEG))   # more than loopback's buffers hold
+        # More than loopback's buffers hold, as forwarded: a canonical photo of noise (4.6 MB), which goes on as it is.
+        noise = np.random.default_rng(1).integers(0, 255, (1500, 2000, 3), dtype=np.uint8)
+        photo = canonical.canonicalize(imagecodecs.png_encode(noise))
         with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=0.3, ANSWER_TIMEOUT_S=30):
             t0 = time.monotonic()
             self.assertEqual(self.answer(form("beans.jpg", photo), server=service),
