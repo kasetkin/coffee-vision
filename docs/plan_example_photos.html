@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P3 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 open; P1&ndash;P4 done 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18)</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -163,7 +163,7 @@
 
   <h2>4. P2 &mdash; The front serves the examples</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>06dda89</code> and the P2 commit after <code>868c42e</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, <code>06dda89</code>, <code>39b380f</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q3 (answered: D15)</span></div>
   </div>
   <ol class="tasks">
@@ -221,24 +221,31 @@
 
   <h2>6. P4 &mdash; The page's example row</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03, the P4 commit after <code>39b380f</code>; Firefox left to P7's owner check</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 (done), Q1 (answered: D13)</span></div>
   </div>
   <p>D9, D10. <code>webapp/static/index.html</code> is one file, inline CSS and JS, no build step.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Under "Choose Photo": "No photo? Try one of ours:" and the five WebP
+    <li><span class="box done"></span><span>Under "Choose Photo": "No photo? Try one of ours:" and the five WebP
       thumbnails as buttons, each with its caption ("Roasted, in a grinder", "Green, in a tray", "Robusta, on a
       table", "Roasted, close up", "A cappuccino, no beans") and alt text.</span></li>
-    <li><span class="box"></span><span>A click fetches the JXL, wraps it in a <code>File</code> with its name, and
+    <li><span class="box done"></span><span>A click fetches the JXL, wraps it in a <code>File</code> with its name, and
       hands it to the path a chosen file takes (the body of <code>fileInput</code>'s <code>change</code> handler,
       factored out): the same size check, upload token, busy retries (<code>postAnalyze</code>) and "Use full photo
       instead". The row is disabled while a photo is in flight, as Choose Photo is (OPS-7 D4).</span></li>
-    <li><span class="box"></span><span>Once the answer is in, one line under it gives the truth: "This coffee is
+    <li><span class="box done"></span><span>Once the answer is in, one line under it gives the truth: "This coffee is
       from Brazil." or, for the cappuccino, "No coffee beans here: the classifier should refuse it." Never shown
       for a visitor's own photo.</span></li>
-    <li><span class="box"></span><span>Checks: on a local app (<code>scripts/rehearse_deploy_local.sh</code> or the
+    <li><span class="box done"></span><span>Checks: on a local app (<code>scripts/rehearse_deploy_local.sh</code> or the
       app run directly), each example runs end to end in Chrome and Firefox; a JXL the browser cannot show still
-      uploads, since the page shows the server's JPEG thumbnail (D7).</span></li>
+      uploads, since the page shows the server's JPEG thumbnail (D7). <em>Done in headless Chromium</em> (Playwright,
+      2026-11-03), the page served from the worktree and its <code>/analyze</code> passed through to the live site,
+      so the page's own code ran on the live model: the five captions; each click disabling the row and Choose
+      Photo; Brazil, Ethiopia, Vietnam and Indonesia top-1 and the cappuccino refused, each followed by its truth line
+      and nothing after it; "Use full photo instead" on an example keeping its truth line; a visitor's own photo with
+      none; no row when <code>examples.json</code> cannot be read. Chromium cannot show a JPEG XL and every example
+      still ran. Firefox was not run here; P7's owner check covers it. <code>tests/test_example_photos.py</code> pins
+      the page's D10 wording.</span></li>
   </ol>
 
   <h2>7. P5 &mdash; <code>--verify</code> checks the examples</h2>
@@ -344,6 +351,10 @@
     <div><div class="when">2026-11-03</div>P2 done: <code>examples.json</code> (D13), the manifest built from it
       (D18), and the front's <code>/examples/</code> route with <code>image/jxl</code> and <code>no-cache</code>
       (D15), each tested against a real nginx.</div>
+    <div><div class="when">2026-11-03</div>P4 done: the example row, built from <code>examples.json</code>; a
+      click fetches the JPEG XL and takes the chosen file's path (<code>choose()</code>, factored out of the
+      <code>change</code> handler); the truth line after the answer. Run end to end in headless Chromium against
+      the live model, all checks passing. The P2 commit is <code>39b380f</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

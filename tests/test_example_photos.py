@@ -67,5 +67,19 @@ class TheList(unittest.TestCase):
         self.assertEqual([ex.name for ex in script.EXAMPLES], [e["name"] for e in examples()])
 
 
+class ThePage(unittest.TestCase):
+    """The page's example row (P4), as text: what runs is checked in a browser (the plan's P4 checks)."""
+
+    INDEX = (REPO / "webapp" / "static" / "index.html").read_text()
+
+    def test_it_builds_the_row_from_the_list(self):
+        self.assertIn("fetch('/examples/examples.json')", self.INDEX)
+        self.assertIn("No photo? Try one of ours:", self.INDEX)
+
+    def test_its_truth_lines_are_d10s(self):
+        self.assertIn("const NO_BEANS_TRUTH = 'No coffee beans here: the classifier should refuse it.';", self.INDEX)
+        self.assertIn("`This coffee is from ${example.country}.`", self.INDEX)
+
+
 if __name__ == "__main__":
     unittest.main()

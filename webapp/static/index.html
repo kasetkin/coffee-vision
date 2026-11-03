@@ -91,6 +91,23 @@
     background: var(--bg);
     border: 1px solid var(--border);
   }
+  /* The example photos (ticket OPS-16 D10): a row of thumbnails under Choose Photo, each captioned with its setting. */
+  #examples { margin-top: 1rem; }
+  .examples-title { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.9rem; text-align: center; }
+  #example-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  #example-row button.example {
+    flex: 0 1 6rem;
+    min-width: 0;
+    padding: 0.3rem;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  #example-row img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0.3rem; }
+  #example-row span { display: block; margin-top: 0.3rem; }
   #preview-wrap {
     display: none;
     position: relative;
@@ -203,6 +220,8 @@
   }
   .result-box.refused { background: var(--refuse-bg); color: var(--refuse-fg); }
   .result-box.warned { background: var(--warn-bg); color: var(--warn-fg); margin-bottom: 0.75rem; }
+  /* What an example photo really is (ticket OPS-16 D10), under the answer: never shown for a visitor's own photo. */
+  .result-box.truth { border: 1px solid var(--border); margin-top: 0.75rem; }
   table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
   td { padding: 0.4rem 0.2rem; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
   td.label { color: var(--fg); }
@@ -223,6 +242,11 @@
     <div class="formats-hint">
       <span>JPG</span><span>PNG</span><span>WEBP</span><span>HEIC/HEIF</span>
       <span>AVIF</span><span>JPEG XL/JXL</span><span>RAW (DNG, CR2, NEF, ARW, &hellip;)</span>
+    </div>
+    <!-- Ticket OPS-16 D10, D13: built from /examples/examples.json; stays hidden if the list cannot be read. -->
+    <div id="examples" hidden>
+      <p class="examples-title">No photo? Try one of ours:</p>
+      <div id="example-row"></div>
     </div>
     <input id="photo-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
@@ -261,6 +285,8 @@ const photoLabel = document.getElementById('photo-label');
 const spinner = document.getElementById('spinner');
 const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
+const examplesEl = document.getElementById('examples');
+const exampleRow = document.getElementById('example-row');
 
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
 // The photo's bean region from the preview part (ticket OPS-6 D7): the decoded
@@ -270,6 +296,13 @@ let lastMask = null;
 // The photo on the page, for "Use full photo instead" (ticket OPS-7 D1), which
 // uploads it again: the server keeps nothing between requests (ADR 0023).
 let lastFile = null;
+// The example photo lastFile is, from /examples/examples.json (ticket OPS-16 D13), or null for a visitor's own.
+let lastExample = null;
+// The line under an example's answer (D10): the truth, from its country; the negative has none.
+const NO_BEANS_TRUTH = 'No coffee beans here: the classifier should refuse it.';
+function truthFor(example) {
+  return example.country === null ? NO_BEANS_TRUTH : `This coffee is from ${example.country}.`;
+}
 
 const UNREACHABLE = 'Could not reach the server -- check your connection and try again.';
 const BUSY = 'The server is busy with another photo -- try again in a few seconds.';
@@ -304,7 +337,7 @@ cropToggleBtn.addEventListener('click', () => {
   lastMask = null;
   renderOverlay();
   hide(cropToggleBtn, cropNote);
-  analyze(lastFile, true);
+  analyze(lastFile, true, lastExample);
 });
 
 // The overlay is positioned in *displayed* pixels, but #preview uses
@@ -414,22 +447,82 @@ fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
   // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
   fileInput.value = '';
+  choose(file, null);
+});
+
+// A photo to classify: the visitor's own (example null), or an example photo, which takes the same path as one the
+// visitor chose (ticket OPS-16 D9): the same size check, upload, busy retries and "Use full photo instead".
+function choose(file, example) {
   currentUpload++;
   resultEl.innerHTML = '';
   hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
   lastCropBox = null;
   lastMask = null;
   lastFile = file || null;
+  lastExample = file ? example : null;
   if (!file) return;
   if (file.size > MAX_UPLOAD_BYTES) {
     // Rounded up, so a photo just over the limit never reads as exactly the limit.
     const mb = Math.ceil(file.size / 2 ** 20 * 10) / 10;
     renderRefused(`This photo is ${mb.toFixed(1)} MB; the limit is ${MAX_UPLOAD_BYTES / 2 ** 20} MB.`);
-    lastFile = null;
+    lastFile = lastExample = null;
     return;
   }
-  analyze(file, false);
-});
+  analyze(file, false, example);
+}
+
+// The example row (ticket OPS-16 D10, D13): one button per example in /examples/examples.json, its WebP thumbnail
+// (D7) captioned with its setting only; the truth waits for the answer. A list that cannot be read leaves the row
+// hidden.
+async function loadExamples() {
+  let examples;
+  try {
+    const res = await fetch('/examples/examples.json');
+    if (!res.ok) return;
+    examples = (await res.json()).examples;
+  } catch (err) {
+    return;
+  }
+  for (const example of examples) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'example';
+    const img = document.createElement('img');
+    img.src = `/examples/${example.name}.webp`;
+    img.alt = example.caption;
+    img.loading = 'lazy';
+    const caption = document.createElement('span');
+    caption.textContent = example.caption;
+    button.append(img, caption);
+    button.addEventListener('click', () => chooseExample(example));
+    exampleRow.append(button);
+  }
+  examplesEl.hidden = false;
+}
+
+// A click (D9): the example's JPEG XL fetched from the front, then uploaded as a chosen file. The browser need not
+// be able to show a JPEG XL: the page shows the server's JPEG thumbnail (D7).
+async function chooseExample(example) {
+  const pick = ++currentUpload;
+  resultEl.innerHTML = '';
+  setBusy(true);
+  let file;
+  try {
+    const res = await fetch(`/examples/${example.name}.jxl`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    file = new File([await res.blob()], `${example.name}.jxl`, {type: 'image/jxl'});
+  } catch (err) {
+    if (pick === currentUpload) {
+      setBusy(false);
+      renderRefused(UNREACHABLE);
+    }
+    return;
+  }
+  if (pick !== currentUpload) return;
+  choose(file, example);
+}
+
+loadExamples();
 
 // While a photo is in flight (OPS-7 D3, D4): the circle spins and Choose
 // Photo is disabled, since the single worker keeps running a photo even when
@@ -437,6 +530,7 @@ fileInput.addEventListener('change', () => {
 function setBusy(busy) {
   fileInput.disabled = busy;
   photoLabel.classList.toggle('disabled', busy);
+  for (const button of exampleRow.querySelectorAll('button')) button.disabled = busy;   // ticket OPS-16, as OPS-7 D4
   spinner.style.display = busy ? 'block' : 'none';
   if (!busy) showSending(false);
 }
@@ -448,8 +542,8 @@ function showSending(on) {
 
 // One upload to POST /analyze (ticket OPS-7, ADR 0023); its answer streams
 // back as one JSON object per line: the preview part, then the classification
-// part, or an error part (D8).
-async function analyze(file, skipCrop) {
+// part, or an error part (D8). For an example photo, the classification is followed by its truth (OPS-16 D10).
+async function analyze(file, skipCrop, example) {
   const upload = ++currentUpload;
   const isStale = () => upload !== currentUpload;
   setBusy(true);
@@ -476,6 +570,7 @@ async function analyze(file, skipCrop) {
       } else if (part.part === 'classification') {
         answered = true;
         render(part);
+        if (example) renderTruth(example);
         // D1: only if the whole photo was not already used.
         if (!skipCrop && previewPart && previewPart.cropped && !previewPart.seg_fallback) {
           cropToggleBtn.style.display = 'block';
@@ -621,6 +716,11 @@ async function showPreview(part, isStale) {
 
 function renderRefused(message) {
   resultEl.innerHTML = `<div class="result-box refused">${escapeHtml(message)}</div>`;
+}
+
+// Under the answer, once it is in (ticket OPS-16 D10): never before, so the visitor sees the model's answer first.
+function renderTruth(example) {
+  resultEl.insertAdjacentHTML('beforeend', `<div class="result-box truth">${escapeHtml(truthFor(example))}</div>`);
 }
 
 function render(data) {
