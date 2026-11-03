@@ -1,0 +1,10 @@
+{"file": "adobergb.jxl", "sha256": "a36b658b133e88b5450061a197d245b5e7216071ba6581746e74e7c49f9c1802", "seconds": 0.33, "peak_mb": 72}
+{"file": "heic10.jxl", "sha256": "16b4caa37d65739ead6b811ee0f2ca8d7aa906f4d04215580c19f79372fb9c45", "seconds": 3.79, "peak_mb": 177}
+{"file": "heic8.jxl", "sha256": "28701e023928f5b3a628d24785dd3fefb30dfedb392d5622c1bd31f6082c5f4c", "seconds": 3.87, "peak_mb": 212}
+{"file": "p3rot6.jxl", "sha256": "1bd410ef4642439d396e1db6efa0d8434d74f5013a055ae9164036b6139b5277", "seconds": 3.82, "peak_mb": 212}
+{"file": "p3rot6__yappy.jxl", "sha256": "2e22f82a2aea26822eac43f89eaec7f66c08645a967f556abf51af2499546759", "seconds": 3.81, "peak_mb": 212}
+{"file": "png16.jxl", "sha256": "c54e0e1ecf7a089de2b8f2cedf1a4395cbab8020e283898073f8dc9c904a1eae", "seconds": 3.9, "peak_mb": 212}
+{"file": "raw.jxl", "sha256": "2ddb075ebfb306871bfed95c739b74025b1c366b6e741cb899da7a3f4ed05676", "seconds": 3.93, "peak_mb": 212}
+{"file": "rgba.jxl", "sha256": "014b8f675d39be784775bc19d1aed137ef547d6147ed1f582ff40903e2bf72c7", "seconds": 0.24, "peak_mb": 212}
+{"file": "srgb.jxl", "sha256": "7a5f593c13fb6743e698e80adc7b07b8aea96ade147af3fb56518fc414bc8f82", "seconds": 3.76, "peak_mb": 212}
+{"file": "untagged0.jxl", "sha256": "6aa74e2e897832ed507b6733354dac8792826ff0be34d91b7c9094eb4c2db8a9", "seconds": 3.65, "peak_mb": 212}

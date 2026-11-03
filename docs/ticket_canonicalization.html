@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D26&ndash;D49 decided, D23&ndash;D25 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D26&ndash;D49 decided, D23&ndash;D25 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 measured, stopped for D25 (plan Q4&ndash;Q6)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -425,6 +425,12 @@
       <code>INTER_AREA</code>, <code>imagecodecs</code>, <code>pillow-jxl-plugin</code> dropped, the committed
       Rec.2020 profile). Every question that needs no measurement is answered.</div>
     <div><div class="when">2026-11-03</div>Planned: <a href="plan_canonicalization.html">plan_canonicalization.html</a>, P1&ndash;P10. ML-16's retrain starts after P7 (the baseline); P10, the release, waits on its models. The plan's Q1&ndash;Q3 answered the same day: D47&ndash;D49. Not implemented.</div>
+    <div><div class="when">2026-11-03</div>P1 measured on the three machines (<code>analysis/ml19/p1/README.md</code>):
+      every path that exists stays within D30's 1 level (the front's files equal this machine's, the host decodes
+      within 1 level), but the Intel host encodes a few pixels 2 levels off, so whether that settles D30 is the
+      owner's (Q5); effort 7 is the highest that runs on the front; and the
+      whole-frame JPEG XL encoder needs about 1 GB at 60 MP, so D38 needs libjxl's chunked input API or another
+      answer. D25 and the two findings are the plan's Q4&ndash;Q6, for the owner.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

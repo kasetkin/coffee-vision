@@ -14,7 +14,7 @@
     input for good is P4's store.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); P1 measured, stopped for Q4&ndash;Q6</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_canonicalization.html"><code>ticket_canonicalization.html</code></a> (ML-19)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -114,13 +114,37 @@
           it. On this machine the unchanged photos come back byte-identical, so the cache holds them once.</td>
         <td><span class="pill sm ok">Answered</span> 2026-11-03, as recommended (ticket D49). Accept the full re-run if P4 measures the largest folder under an hour;
           otherwise <code>persist: true</code> and encode only the photos missing from the outputs.</td><td>P4</td></tr>
+      <tr><td class="id">Q4</td><td>D25: which encoder, at which effort? P1 measured <code>imagecodecs</code> 2026.10.10
+          (libjxl 0.12.0) at efforts 3&ndash;9 (<code>analysis/ml19/p1/README.md</code>). Effort 8 and 9 are killed by
+          the OOM killer under the front's 500M at 12 MP (3.3 GB here) and are no better on fidelity; 5&ndash;7 give the
+          same fidelity (mean 0.77 levels against a direct sRGB conversion) and sizes within 2%; 7 encodes 12 MP in
+          2.5 s on the front, 60 MP in about 25 s (estimated from this machine).</td>
+        <td><span class="pill sm open">Open</span> <code>imagecodecs</code>' libjxl at effort 7, libjxl's own
+          default and the highest that runs on the front, for the store and the front alike.</td><td>P2, P3</td></tr>
+      <tr><td class="id">Q5</td><td>D30 on the Intel host: the same file decodes within 1 level on all three machines,
+          and the front's files are byte-identical to this machine's at every effort, but a photo <em>encoded</em> on
+          <code>yappy</code> (Intel N100) differs by up to 2 levels in 66&ndash;563 of 12,000,000 pixels: libjxl's
+          encoder differs on the Intel CPU (the 16-bit array it is given is identical). No path in the design encodes
+          on the host.</td>
+        <td><span class="pill sm open">Open</span> D30 holds as decided for the paths that exist; record that photos
+          are encoded only on the store's machine and the front (both AMD), and that moving either to another CPU
+          re-runs P1's check before it encodes.</td><td>P3</td></tr>
+      <tr><td class="id">Q6</td><td>D38 cannot be met with <code>jpegxl_encode</code>, which takes the whole frame:
+          libjxl adds 280 MB at 12 MP and 590 MB at 60 MP beyond the 16-bit frame, so under 500M the front encodes
+          about 18 MP at most and refuses the dataset's 50 MP Pixel photos. The wheel's libjxl exports its chunked
+          input API (<code>JxlEncoderAddChunkedFrame</code>), which <code>imagecodecs</code> does not expose.
+          (a) a small <code>ctypes</code> binding to that same pinned library, used by the store and the front alike
+          (b) a front ceiling near 18 MP (c) more memory for the front.</td>
+        <td><span class="pill sm open">Open</span> (a), first measured in a spike before P3: peak memory at 12, 50 and
+          60 MP under the front's 500M, its bytes against the whole-frame encode's, and D30 on the three machines. If it
+          does not fit, back to the owner with (b) and (c).</td><td>P3, P8</td></tr>
     </tbody>
   </table></div>
 
   <h2>3. P1 &mdash; The encoder and the colour on three machines <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the owner's go to run on the front and <code>yappy</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">measured 2026-11-03 on the three machines (<code>analysis/ml19/p1/README.md</code>); stopped for the owner: Q4 (D25), Q5, Q6</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D44's recipe, measured where it will run, before anything stores its output: <code>imagecodecs</code> 2026.10.10
     (its LittleCMS 2.19 and libjxl 0.12.0) on this machine (Ryzen, AVX2), the front (EPYC, AVX-512, 2 vCPU) and
@@ -379,6 +403,13 @@
       owner. Not implemented.</div>
     <div><div class="when">2026-11-03</div>Q1&ndash;Q3 answered by the owner, ticket D47&ndash;D49: every turned row
       reviewed; the baseline as recommended; a folder's full re-run accepted under an hour.</div>
+    <div><div class="when">2026-11-03</div>P1 measured on this machine, the front and <code>yappy</code>, in throwaway
+      environments under <code>/tmp</code>, deleted after (<code>analysis/ml19/p1/</code>). The colour step and the
+      downscale give the same bytes on all three; the front's files equal this machine's at every effort; the host
+      decodes within 1 level, but encodes a few pixels 2 levels off. Effort 8 and 9 do not fit the front; effort 7
+      does at 12 MP, but the whole-frame encoder needs about 1 GB at 60 MP. The header reader for finding 5 agrees with
+      libjxl on 31 files. The prototype's own copies of the image found and removed on the owner's request (same
+      bytes, 245 MB less before the encoder at 60 MP). Stopped for Q4&ndash;Q6.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19 ticket</a>,
