@@ -164,7 +164,13 @@ class SessionFixture(unittest.TestCase):
             self.entries.append({"path": str(f), "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
                                  "source": source, "split": split, "group": str(f)})
         self.labels_dir, self.mask_root = root / "labels", root / "masks"
-        self.patch = mock.patch.object(seg_review, "load_rgb_image", lambda p: np.array(Image.open(p)))
+        # Since ML-19 P6 sessions read each entry's canonical photo (coffeecv.canonical_store, tested on its own);
+        # these toy photos are read as they are, their sha256 still checked.
+        def toy(path, sha256=None):
+            if sha256 is not None and hashlib.sha256(Path(path).read_bytes()).hexdigest() != sha256:
+                raise ValueError(f"{path}: sha256 differs from the dataset file")
+            return np.array(Image.open(path))
+        self.patch = mock.patch.multiple(seg_review, load_for_record=toy, load_photo=toy)
         self.patch.start()
         self.proposer, self.redrawer = FakeDrawer("prop"), FakeDrawer("redraw")
         self.session = self.open()
@@ -773,7 +779,7 @@ class PairedSession(unittest.TestCase):
                 wr.writeheader()
                 wr.writerows(rows)
         self.decisions = root / "labels" / "p10.paired.jsonl"
-        self.patch = mock.patch.object(seg_review, "load_rgb_image", lambda p: np.array(Image.open(p)))
+        self.patch = mock.patch.object(seg_review, "load_photo", lambda p: np.array(Image.open(p)))
         self.patch.start()
         self.items = seg_review.paired_items(self.entries, self.dirs)
         self.c = seg_review.create_paired_app(self.items, self.decisions, 7, "the rule").test_client()

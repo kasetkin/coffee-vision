@@ -35,7 +35,7 @@ import torch
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT
-from coffeecv.dataset import load_rgb_image
+from coffeecv.canonical_store import load_photo
 from coffeecv.segment_beans import THREADS, BeanSegmenter, named_params
 
 SMALL = 1024                      # long side for error regions and IoU
@@ -115,7 +115,7 @@ def probe(models: list[str], outputs: list[str], items: list[Ref], threads: int 
     rows = []
     t0 = time.perf_counter()
     for n, it in enumerate(items):
-        rgb = load_rgb_image(REPO_ROOT / it.path)
+        rgb = load_photo(it.path)   # its canonical photo (ML-19 P6)
         ref_full = np.array(Image.open(it.mask)) > 0
         if ref_full.shape != rgb.shape[:2]:
             raise ValueError(f"{it.path}: reference {ref_full.shape} does not match photo {rgb.shape[:2]}")

@@ -94,9 +94,9 @@ from flask import Flask, abort, jsonify, redirect, request, send_file
 from PIL import Image
 
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_rgb_image
+from coffeecv.canonical_store import load_for_record, load_photo
 from coffeecv.review_masks import REASONS, RULE_FILE, jpeg, view_image, zoom_tile
-from coffeecv.repo_files import read_csv, rel, sha256_file
+from coffeecv.repo_files import read_csv, rel
 from coffeecv.seg_dataset import load_seg_dataset, photo_id, seeded_rng
 from coffeecv.seg_review_pages import LABEL_PAGE, PAIRED_PAGE
 from coffeecv.segment_beans import THREADS, BeanSegmenter, mask_sha256, named_params
@@ -547,10 +547,8 @@ class LabelSession:
             log(f"  {len(negs)} empty negative labels")
 
     def _photo(self, e: dict) -> np.ndarray:
-        path = REPO_ROOT / e["path"]
-        if sha256_file(path) != e["sha256"]:
-            raise ValueError(f"{e['path']}: sha256 differs from the dataset file")
-        return load_rgb_image(path)
+        """The entry's canonical photo (ticket ML-19 P6): labels are drawn in the frame the models read."""
+        return load_for_record(e["path"], e["sha256"])
 
     # after
     def labels(self) -> list[dict]:
@@ -603,7 +601,7 @@ class _Photos:
         self.rgb, self.masks = _LRU(n), _LRU(2 * n)
 
     def photo(self, path: str) -> np.ndarray:
-        return self.rgb.get(path, lambda: load_rgb_image(REPO_ROOT / path))
+        return self.rgb.get(path, lambda: load_photo(path))   # canonical, as the masks it shows (ML-19 P6)
 
     def mask(self, path: Path, sha: str) -> np.ndarray:
         return self.masks.get((str(path), sha), lambda: np.array(Image.open(path)) > 0)

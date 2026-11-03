@@ -37,3 +37,13 @@ def canonical_for(path: str | Path, sha256: str | None = None) -> Path:
 def load_for_record(path: str | Path, sha256: str | None = None) -> np.ndarray:
     """A record's photo as the models read it: its canonical photo's 8-bit sRGB."""
     return cn.load_canonical(canonical_for(path, sha256).read_bytes())
+
+
+def load_photo(path: str | Path) -> np.ndarray:
+    """A tool's photo: one under dataset/ from its canonical photo (missing: an error), any other as
+    coffeecv.photo_io.load_rgb_image reads it (a canonical JPEG XL among them)."""
+    original = Path(path) if Path(path).is_absolute() else REPO / path
+    if any(a.name == "dataset" for a in original.parents):
+        return load_for_record(original)
+    from coffeecv.photo_io import load_rgb_image
+    return load_rgb_image(original)

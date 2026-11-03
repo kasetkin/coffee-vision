@@ -44,6 +44,13 @@ class LoadForRecord(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sha256"):
             cs.canonical_for(self.original, "0" * 64)
 
+    def test_a_tools_photo_under_dataset_is_canonical_and_elsewhere_as_it_is(self):
+        with self.assertRaises(FileNotFoundError):
+            cs.load_photo(self.original)                       # under dataset/, no canonical photo: an error
+        elsewhere = self.root / "elsewhere.png"
+        Image.fromarray(np.full((8, 8, 3), 77, np.uint8)).save(elsewhere)
+        self.assertEqual(int(cs.load_photo(elsewhere)[0, 0, 0]), 77)
+
     def test_a_photo_outside_a_dataset_folder_has_none(self):
         with self.assertRaisesRegex(ValueError, "dataset"):
             cs.canonical_for(self.root / "elsewhere.jpg")

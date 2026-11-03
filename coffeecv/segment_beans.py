@@ -378,7 +378,7 @@ def segment_and_crop(rgb: np.ndarray, seg: BeanSegmenter) -> BeanCrop:
 
 
 def _time(photos: list[Path], p: SegParams, runs: int) -> dict:
-    from coffeecv.dataset import load_rgb_image
+    from coffeecv.canonical_store import load_photo as load_rgb_image   # canonical under dataset/ (ML-19 P6)
     import torch
     seg = BeanSegmenter(p)
     report = {"variant": p.variant, "threads": torch.get_num_threads(), "runs": runs, "prompt": p.prompt, "mask_select": p.mask_select,
@@ -408,7 +408,7 @@ def _time(photos: list[Path], p: SegParams, runs: int) -> dict:
 def _write_candidates(photos: list[Path], p: SegParams, out_dir: Path) -> None:
     from PIL import Image
 
-    from coffeecv.dataset import load_rgb_image
+    from coffeecv.canonical_store import load_photo as load_rgb_image   # canonical under dataset/ (ML-19 P6)
     seg = BeanSegmenter(p)
     out_dir.mkdir(parents=True, exist_ok=True)
     index = {}
