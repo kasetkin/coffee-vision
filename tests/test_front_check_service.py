@@ -44,6 +44,7 @@ def _jpeg() -> bytes:
 
 
 JPEG = _jpeg()
+RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
 
 
@@ -180,6 +181,15 @@ class CheckService(unittest.TestCase):
         self.assertEqual(seen["headers"]["User-Agent"], "Mozilla/5.0 (Android)")
 
 
+    def test_the_forwarded_name_cannot_break_the_part_header(self):
+        body = form("beans.jpg", JPEG).replace(b'filename="beans.jpg"', b"filename*=utf-8''a%22b%0D%0AX-Evil%3A%201.jpg")
+        _, resp = self.post(body)
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        name, photo = forwarded_photo(FakeInferenceHost.seen[0]["body"])
+        self.assertEqual(name, "a_b__X-Evil__1.jxl")
+        self.assertTrue(canonical.is_canonical(photo))
+
     def test_a_canonical_photo_crosses_as_it_is(self):   # ML-19 D17
         canon = canonical.canonicalize(JPEG, "beans.jpg")
         _, resp = self.post(form("beans.jxl", canon))
@@ -202,6 +212,29 @@ class CheckService(unittest.TestCase):
     def test_a_failure_while_canonicalizing_is_an_answer_not_a_dropped_connection(self):
         with mock.patch.object(check_service.canonical, "canonicalize", side_effect=MemoryError("no room")):
             self.assertEqual(self.answer(form("beans.jpg", JPEG)), (500, {"error": "could not process this photo"}))
+        self.assertEqual(FakeInferenceHost.seen, [])
+
+    def test_a_heic_crosses_canonicalized(self):   # ML-19 P9: the iPhone's format
+        import pillow_heif
+        heif = pillow_heif.from_bytes(mode="RGB", size=(64, 48), data=np.full((48, 64, 3), 90, np.uint8).tobytes())
+        buf = io.BytesIO()
+        heif.save(buf, quality=90)
+        _, resp = self.post(form("IMG_0001.HEIC", buf.getvalue()))
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        name, photo = forwarded_photo(FakeInferenceHost.seen[0]["body"])
+        self.assertEqual(name, "IMG_0001.jxl")
+        self.assertTrue(canonical.is_canonical(photo))
+
+    @real_data   # a real DNG from the dataset (dvc pull), developed by rawpy
+    @unittest.skipUnless((REPO / RAW_DNG).is_file(), "needs the dataset's 9.9 MP DNG")
+    def test_a_raw_photo_over_its_own_ceiling_never_crosses(self):   # ML-19 D24
+        data = (REPO / RAW_DNG).read_bytes()
+        with mock.patch.object(check_service, "MAX_UPLOAD_BYTES", 32 * 2**20), \
+                mock.patch.object(check_service, "RAW_MAX_PIXELS", 9_000_000):
+            status, payload = self.answer(form("photo.dng", data))
+        self.assertEqual(status, 413)
+        self.assertIn("camera RAW", payload["error"])
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_a_photo_that_cannot_be_decoded_never_crosses(self):

@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 from coffeecv import canonical as cn
+from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -39,6 +40,7 @@ class CanonicalPath(unittest.TestCase):
             cn.canonical_path(Path("/elsewhere/P.jpg"), Path("/x/dataset"), Path("/x/store"))
 
 
+@real_data   # about 4 s: the tool runs in a subprocess, its workers spawned
 class Folder(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())

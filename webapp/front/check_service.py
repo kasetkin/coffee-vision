@@ -180,7 +180,8 @@ class CheckHandler(BaseHTTPRequestHandler):
                 return self.json(500, {"error": "could not process this photo"},
                                  f"500 canonicalization failed ({type(exc).__name__}: {exc})")
             del data
-            name = f"{PurePath(filename).stem or 'photo'}.jxl"
+            # The visitor's name, kept to a safe alphabet: it goes into the forwarded part's header.
+            name = f"{re.sub(r'[^A-Za-z0-9._-]', '_', PurePath(filename).stem)[:100] or 'photo'}.jxl"
             return self.forward(with_photo(content_type, body, name, canon))
         finally:
             self.crossing.release()

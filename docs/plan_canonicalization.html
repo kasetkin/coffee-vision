@@ -300,10 +300,15 @@
     <p><b>As done, 2026-11-03.</b> <code>scripts/make_pass14.py</code> wrote <code>data/ml5_labels/pass14</code>
     (DVC-tracked): 932 rows, pass13's, of which 191 changed (115 accepted, 76 negatives; 111 turned 90&deg;, 72 by
     180&deg;, 8 by 270&deg;). The geometry is <code>coffeecv/label_geometry.py</code>, tested on all eight orientations: a
-    fence and strokes turned redraw the turned pixels. Every turned mask turned back is pass13's to the pixel. Found:
+    fence and strokes turned redraw the turned pixels. Every turned mask turned back is pass13's to the pixel, but for the
+    four capped below, compared by their area (within 0.002; same to four decimals). Found:
     four of the turned rows are 200 MP Fold8 photos, whose canonical photos are capped to 50 MP (D27): their masks are
     capped as the photos are (area averaged, threshold one half; area unchanged to four decimals) and their stroke
-    radii scaled. Two rows name photos ML-16 D3 moved to <code>dataset/example_photos/</code>: found by sha256.
+    radii scaled. Two training rows name photos ML-16 D3 moved to <code>dataset/example_photos/</code>
+    (<code>segmenter_positives__PXL_20261007_043818022</code>, <code>ood_negatives__user_realworld__PXL_20261031_072103744</code>):
+    found by sha256 here, but they have no canonical photo (D37 keeps <code>example_photos/</code> out of the store), so
+    ML-16's fine-tune stops on them by name: <b>for ML-16</b>, drop the two rows or put the example photos back in the
+    store.
     The labelling page: <code>coffeecv.review_masks --canonical</code> shows each original's canonical photo (the
     store's file, or canonicalized on the spot) and refuses a mask of another size. For the owner:</p>
   <pre>python -m coffeecv.review_masks --items labels/ml19/pass14_review_items.csv --name ml19_pass14 --canonical</pre>
@@ -369,7 +374,7 @@
       ceiling, with the measurements.</span></li>
   </ol>
 
-    <p><b>As measured, 2026-11-03</b> (<code>analysis/ml19/p8/README.md</code>), <code>coffeecv/canonical.py</code> on the
+    <p><b>As measured, 2026-11-03</b> (<code>analysis/ml19/p8/README.md</code>, the plan's <code>p8_front.md</code>), <code>coffeecv/canonical.py</code> on the
     front under a 500M scope, effort 7, 2 threads: every photo up to 60 MP inside D22's 40 s (60 MP: 21.4 s); peaks 12 MP
     270&ndash;282 MB, 16-bit and RAW sources 340&ndash;399 MB, 40 MP 407, 50 MP 400, 60 MP 461; a photo over the ceiling
     refused from its header in 0.02 s at 58&ndash;81 MB; a 50 MP DNG killed by the OOM killer. Recommended for the
@@ -415,7 +420,14 @@
     <code>fixtures.txt</code>. <code>make_example_photos.py</code> makes canonical examples (D17, D45): 15.8 MB for the
     five against 10.8 MB today; the new files are not committed, the owner's call at P10 (a public repo's history
     keeps them). Docs: <code>docs/inference_path.html</code>, ADR 0031's amendment, <code>webapp/README.md</code>.
-    Not done: the boot's warm-up still runs on the original fixture (it proves the GPU and times the boot; its
+    The front's environment has no <code>photo_io.py</code> (canonicalization does not import it), no
+    <code>pillow-avif-plugin</code> (Pillow 12.3 decodes AVIF itself) and no OpenCV (it never downscales). To be fixed
+    with the encoder's next change: <code>canonicalize_folder</code> imports <code>photo_io</code>, which registers
+    <code>pillow-avif-plugin</code>, so the store and the front could decode an AVIF with different libraries (the
+    dataset holds none). Started before P4 and P8's stops were done, on the owner's 2026-11-03 instruction to proceed
+    with the plan; the ceilings stay P8's recommendations until the owner decides. The front's tests: a canonical
+    upload, a JPEG, a HEIC, a photo over the ceiling, a RAW over its own (a real 9.9 MP DNG), a name that would break the
+    forwarded header. Not done: the boot's warm-up still runs on the original fixture (it proves the GPU and times the boot; its
     pixels are not an answer); <code>load_rgb_image</code> made canonical-only and <code>pillow-jxl-plugin</code>
     dropped (callers left: the warm-up, <code>export_litert</code>'s check, which compares two backends on the same
     pixels, and the analysis scripts); <code>scripts/rehearse_deploy_local.sh</code>, which deploys

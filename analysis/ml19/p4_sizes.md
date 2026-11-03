@@ -56,4 +56,9 @@
 - 7.75 MB, 49.9 MP: `dataset/segmenter_positives/20261028_112737_Galaxy_Z_Fold6_Brazil.jpg` (original 10.74 MB)
 - 7.74 MB, 50.0 MP: `dataset/segmenter_positives/20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.jpg` (original 18.34 MB)
 
+## D29: the median photo, and the host's cap
+
+- The median canonical photo is 1.94 MB against the median original's 2.48 MB (0.79): the median photo does not grow, so q95 stands (D29). By format: .jpg 0.77, .heic 1.36, .png 0.19, .dng 0.18 (canonical over original).
+- What the front can send (RAW up to 16 MP, every other photo up to 50.2 MP; D24, D38 as recommended): the largest is 13.74 MB. The host's 20 MB cap (its nginx and MAX_UPLOAD_BYTES) holds it; only the store's 48-50 MP DNGs are larger, and they never cross.
+
 In all: originals 7.54 GB, canonical photos 5.13 GB (0.68). The largest canonical photo is 25.16 MB.

@@ -58,6 +58,16 @@ table({f: [r for r in rows if r["folder"] == f] for f in folders})
 print("\n## The largest canonical photos\n")
 for r in sorted(rows, key=lambda r: -r["canon"])[:8]:
     print(f"- {r['canon'] / MB:.2f} MB, {r['mp']:.1f} MP: `{r['name']}` (original {r['orig'] / MB:.2f} MB)")
+print("\n## D29: the median photo, and the host's cap\n")
+med_o, med_c = statistics.median(r["orig"] for r in rows), statistics.median(r["canon"] for r in rows)
+print(f"- The median canonical photo is {med_c / MB:.2f} MB against the median original's {med_o / MB:.2f} MB "
+      f"({med_c / med_o:.2f}): the median photo does not grow, so q95 stands (D29). By format: "
+      + ", ".join(f"{k} {statistics.median(r['canon'] for r in rs) / statistics.median(r['orig'] for r in rs):.2f}"
+                  for k, rs in sorted(by_ext.items(), key=lambda kv: -len(kv[1]))) + " (canonical over original).")
+front = [r for r in rows if not (r["ext"] in {".dng"} and r["mp"] > 16)]
+print(f"- What the front can send (RAW up to 16 MP, every other photo up to 50.2 MP; D24, D38 as recommended): the "
+      f"largest is {max(r['canon'] for r in front) / MB:.2f} MB. The host's 20 MB cap (its nginx and "
+      "MAX_UPLOAD_BYTES) holds it; only the store's 48-50 MP DNGs are larger, and they never cross.")
 largest = max(r["canon"] for r in rows)
 total_o, total_c = sum(r["orig"] for r in rows), sum(r["canon"] for r in rows)
 print(f"\nIn all: originals {total_o / 2**30:.2f} GB, canonical photos {total_c / 2**30:.2f} GB "
