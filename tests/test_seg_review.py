@@ -565,6 +565,39 @@ class CarriedSession(SessionFixture):
         resumed = seg_review.LabelSession("pass2", self.entries, None, self.labels_dir, self.mask_root)
         self.assertEqual(resumed.carry, "pass1")
 
+    def renamed_entries(self, old="pool/p1.png", new="pool/p1_renamed.png"):
+        """self.entries with the photo at `old` (under dataset/) moved to `new`, bytes unchanged, as the owner
+        renames photos."""
+        root = Path(self.tmp.name) / "dataset"
+        (root / new).write_bytes((root / old).read_bytes())
+        return [{**e, "path": str(root / new), "group": str(root / new)} if e["path"] == str(root / old) else e
+                for e in self.entries]
+
+    def open_session(self, name, entries, **models):
+        return seg_review.LabelSession(name, entries, {"proposer": "prop2", "redraw": "redraw2", "rounds": 3, **models},
+                                       self.labels_dir, self.mask_root)
+
+    def test_a_renamed_photo_carries_its_label_by_its_sha256(self):
+        moved = self.open_session("pass5", self.renamed_entries(), carry="pass1")
+        moved.prepare(self.proposer2, self.redrawer2)
+        item = next(it for it in moved.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(moved.state(item), ("accepted", 2, None))
+        self.assertEqual(moved.row(item, 2)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(moved.row(item, 2)["path"], item["path"])
+        rows = [json.loads(x) for x in (self.labels_dir / "pass5.verdicts.jsonl").read_text().splitlines()]
+        self.assertEqual({(r["round"], r["path"], r.get("carried_from_path")) for r in rows if r["item"] == item["id"]},
+                         {(1, item["path"], self.entries[1]["path"]), (2, item["path"], self.entries[1]["path"])})
+        self.assertNotIn("pool__p1_renamed", self.redrawer2.prepared)
+        self.assertNotIn("carried_from_path", next(r for r in rows if r["item"] == "segmenter_positive__p0"))
+
+    def test_a_copy_of_a_photo_still_in_the_data_carries_nothing(self):
+        root = Path(self.tmp.name) / "dataset"
+        (root / "pool" / "p0_copy.png").write_bytes((root / "segmenter_positive" / "p0.png").read_bytes())
+        entries = self.entries + [{**self.entries[0], "path": str(root / "pool" / "p0_copy.png"), "source": "pool"}]
+        copied = self.open_session("pass5", entries, carry="pass1")
+        copied.prepare(self.proposer2, self.redrawer2)
+        self.assertEqual(copied.carried(), {"segmenter_positive__p0", "pool__p1"})
+
     def test_the_report_counts_carried_and_new_labels_apart(self):
         c = seg_review.create_label_app(self.open_pass2(), self.redrawer2, "rule").test_client()
         self.post(c, "/decide/1", {"decision": "accept"})                  # the new photo, p6
@@ -620,6 +653,14 @@ class RecheckedSession(CarriedSession):
         self.post(c, "/redraw/1", {"include": [[0.5, 0.5], [0.2, 0.2]], "exclude": []})
         self.assertEqual(self.redrawer3.calls, [("pool__p1", [[0.5, 0.5], [0.2, 0.2]], [])])
         self.assertEqual(self.rechecked.state(self.item("pool__p1")), ("judge", 2, None))
+
+    def test_a_renamed_photo_is_rechecked_from_its_earlier_label(self):
+        moved = self.open_session("pass6", self.renamed_entries(), recheck="pass1")
+        moved.prepare(self.proposer3, self.redrawer3)
+        item = next(it for it in moved.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(moved.row(item, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual((moved.row(item, 1)["id"], moved.row(item, 1)["path"]), (item["id"], item["path"]))
+        self.assertEqual(moved.points(item, 1), {"include": [[0.5, 0.5]], "exclude": []})
 
     def test_a_second_prepare_changes_nothing(self):
         index = (self.mask_root / "pass3" / "r1" / "index.csv").read_text()

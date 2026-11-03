@@ -13,11 +13,11 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, not labelled (2026-11-03); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code>, <code>labels/ml5/pass12.*</code>, <code>data/ml5_labels/pass12</code>, <code>coffeecv/seg_review.py</code> (carry and recheck by sha256)</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
@@ -38,8 +38,10 @@
     training session can read them. Choosing that session (segmenter, classifier or both) and planning it are left
     for later.</p>
   <p>On 2026-11-03 17 more segmenter positives joined, with 17 pool photos and 1 negative, and the owner renamed 99
-    photos of <code>random_date_raccoon</code>. No labelling session has run since pass11: the new training and
-    validation photos have no label, and pass11's labels of 11 renamed pool photos are under their old paths.</p>
+    photos of <code>random_date_raccoon</code>. The owner labelled the 26 new training and validation photos the same
+    day in pass12, on <code>xl0_v6_s42</code>'s masks; pass12 carries pass11's 440 labels, the 11 of renamed photos
+    among them, found by their sha256 (D2). Every one of the 466 training and validation positives has an accepted
+    label in pass12.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -76,8 +78,8 @@
       (13 entries' path and group), the segmenter positives' manifest (15 <code>duplicate_of</code>) and
       <code>coffeecv_dino/reference_photos.txt</code> (2 lines, each keeping its old path as its draw key, ML-14 D16).
       Older records keep the names they read, as on 2026-10-30. pass11's labels of 11 of these pool photos (train 10,
-      validation 1) are under the old paths, so, as with <code>IMG_20261016_120546</code>, a session carrying pass11
-      will not carry them.</li>
+      validation 1) are under the old paths; pass12 carried them by sha256 (D2), where until then a rename lost a
+      label, as with <code>IMG_20261016_120546</code>.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -95,6 +97,9 @@
         <li>pass11 (<code>xl0_v6_s42</code> as proposer and redraw model, carrying pass10) holds an accepted label for
           all 440 training and validation positives, and the 453 negatives' empty labels.</li>
         <li><code>data/ml5_labels/pass11</code> in DVC and on the remote.</li>
+        <li>pass12 (<code>xl0_v6_s42</code>, carrying pass11 by path or sha256) holds an accepted label for all 466
+          training and validation positives, and the 454 negatives' empty labels; <code>data/ml5_labels/pass12</code>
+          in DVC and on the remote.</li>
       </ul>
     </div>
   </div>
@@ -121,6 +126,15 @@
           classifier's sessions are <code>dvc.yaml</code>'s segcrop list, the segmenter's pool draw reads only
           <code>class_*</code> folders). The 17 segmenter positives copied from it have an empty
           <code>duplicate_of</code> now.</td></tr>
+      <tr><td class="id">D2</td><td>How does a photo find its earlier label, and other records about it?</td>
+        <td>(a) by its sha256 where possible (b) by its path, as before</td>
+        <td>(a), 2026-11-03: "use hash for images, not path where possible". Done for the labelling sessions:
+          <code>seg_review</code>'s carry and recheck take the earlier label of the same path and sha256, else the one
+          earlier label of the same sha256 whose path the data no longer has (a renamed photo); a byte copy of a photo
+          still in the data never takes its label. A carried label names the photo by its path now, its verdicts
+          marked <code>carried_from_path</code>. Still by path, each a change to a recorded decision, proposed to the
+          owner and not decided: <code>seg_dataset build</code> (a rename is refused, the entries are edited by hand;
+          ML-5 D11) and the classifier's split, seeded on the sorted (folder, name) list (ML-1 D1(b)).</td></tr>
     </tbody>
   </table></div>
 
@@ -134,6 +148,8 @@
       (2026-11-03).</span></li>
     <li><span class="box done"></span><span><code>dataset/2026-07-24__first_pictures</code> removed from the repository,
       used by neither model (D1).</span></li>
+    <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass12,
+      renamed photos carried by sha256 (D2); the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
   </ul>
@@ -174,6 +190,15 @@
       clean; no copies (nearest 0.77). <code>seg_dataset build</code>: 18 added (9 positives: train 5, validation 2,
       test 2; and the pool draw's 9). The owner's D1: <code>2026-07-24__first_pictures</code> feeds neither model; the
       owner then removed it, its JPEG XL files with it, and <code>dvc remove</code> dropped its <code>.dvc</code>.</div>
+    <div><div class="when">2026-11-03</div>pass12: <code>seg_review label --session pass12 --proposer xl0_v6_s42
+      --redraw xl0_v6_s42 --carry pass11</code>. A first prepare carried 429 labels by path; the owner asked for
+      hashes (D2), it was stopped and deleted (nothing judged), and the rerun carried all 440 of pass11's, the 11
+      renamed pool photos by sha256. xl0_v6_s42 proposed the 26 others in 116 s on the CPU: the 13 new training and
+      validation segmenter positives and 13 new pool photos. The owner accepted all 26, no drops: none in round 1, 18
+      in round 2, 4 in round 3, 4 in round 4 (64 verdicts, 38 declines). 18 needed a fence, 8 brush strokes, 6 both.
+      Four rounds: <code>20261103_123829</code>, <code>144040</code> and <code>144105</code> and the pool's
+      <code>IMG_6275</code>. <code>data/ml5_labels/pass12</code> added to DVC and pushed; all 996 objects (1,434
+      files) checked on the remote.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

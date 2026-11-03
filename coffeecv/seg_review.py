@@ -20,7 +20,8 @@ A session can start from an earlier one (ticket ML-6 D3 (a)):
 
 Every photo pass3 accepted, with the same sha256, keeps its verdicts and masks, copied into pass4 and marked
 `carried_from`; the page shows only the rest (pass3's drops and the photos new since), and only they are
-encoded.
+encoded. A photo renamed since (bytes unchanged) is found by its sha256 and carries its label too, under its new
+path, its verdicts marked `carried_from_path` (the owner, 2026-11-03; until then a label was matched by path).
 
 Or a session can re-review an earlier one's labels (the owner, 2026-10-25):
 
@@ -82,7 +83,7 @@ import json
 import math
 import threading
 import time
-from collections import Counter, OrderedDict
+from collections import Counter, OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, NamedTuple
@@ -278,7 +279,7 @@ class LabelSession:
     an earlier session) is written to the session file on first use and must match it after.
 
     A carried session (ML-6 D3 (a)) starts from the earlier one: `prepare` copies each photo it accepted, with
-    the same sha256, into this session, every round's mask, index row and verdict as they were, the verdicts
+    the same sha256 (under the same path, or a renamed photo under its new one: `earlier_items`), into this session, every round's mask, index row and verdict as they were, the verdicts
     marked `carried_from`. Its drops and the photos new to it are the ones the page shows (`shown`).
 
     A rechecking session (`recheck`: an earlier session; the owner's re-review of every label, 2026-10-25) shows
@@ -442,48 +443,79 @@ class LabelSession:
         carried = self.carried()
         return [it for it in self.items if it["id"] not in carried]
 
+    def earlier_items(self, src: "LabelSession") -> Callable[[dict], dict | None]:
+        """A lookup of each photo's item in the earlier session `src`, by the photo's sha256 where the path cannot
+        tell (the owner, 2026-11-03): the item of the same id when it holds the same photo; else the one item of
+        `src` holding this photo whose id the data no longer has, a photo renamed since (bytes unchanged). A photo
+        whose bytes match two such items, or none, has no earlier item. A byte copy whose original is still in the
+        data never takes the original's label: that id is still in use."""
+        ids = {it["id"] for it in self.items}
+        renamed: dict[str, list[str]] = defaultdict(list)
+        for r in src._idx(1).values():
+            if r["id"] not in ids:
+                renamed[r["photo_sha256"]].append(r["id"])
+
+        def lookup(it: dict) -> dict | None:
+            row = src.row(it, 1)
+            if row is not None and row["photo_sha256"] == it["sha256"]:
+                return it
+            old = renamed.get(it["sha256"], [])
+            return {**it, "id": old[0], "path": src.row({"id": old[0]}, 1)["path"]} if len(old) == 1 else None
+        return lookup
+
     def carry_in(self, log: Callable[[str], None] = lambda s: None) -> None:
-        """Copy what the earlier session accepted (same id and photo sha256): each round's mask and index row,
-        then its verdicts, marked carried_from. Its drops and pending photos are not carried. Resumable."""
+        """Copy what the earlier session accepted (`earlier_items`: the same photo by path and sha256, or by sha256
+        alone for a renamed photo): each round's mask and index row, then its verdicts, marked carried_from, and a
+        renamed photo's verdicts also carried_from_path, its path there; the rows and verdicts name the photo by its
+        path now. Its drops and pending photos are not carried. Resumable."""
         src = LabelSession(self.carry, self.entries, None, self.labels_dir, self.mask_root)
-        verdicts, done = src.verdicts(), self.carried()
+        verdicts, done, earlier = src.verdicts(), self.carried(), self.earlier_items(src)
         n = 0
         for it in self.items:
-            st = src.state(it, verdicts)
-            if it["id"] in done or st.status != "accepted":
+            old = None if it["id"] in done else earlier(it)
+            if old is None:
                 continue
-            rows = [src.row(it, k) for k in range(1, st.round + 1)]
+            st = src.state(old, verdicts)
+            if st.status != "accepted":
+                continue
+            rows = [src.row(old, k) for k in range(1, st.round + 1)]
             if any(r["photo_sha256"] != it["sha256"] for r in rows):
                 continue
             for k, r in enumerate(rows, 1):
                 self.mask_path(it, k).parent.mkdir(parents=True, exist_ok=True)
-                self.mask_path(it, k).write_bytes(src.mask_path(it, k).read_bytes())
-                self._put_row(k, dict(r))
+                self.mask_path(it, k).write_bytes(src.mask_path(old, k).read_bytes())
+                self._put_row(k, {**r, "id": it["id"], "path": it["path"]})
+            moved = {"carried_from_path": old["path"]} if old["id"] != it["id"] else {}
             self.verdicts_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.verdicts_path, "a") as f:
                 for k in range(1, st.round + 1):
-                    f.write(json.dumps({**verdicts[(it["id"], k)], "carried_from": self.carry}) + "\n")
+                    f.write(json.dumps({**verdicts[(old["id"], k)], "item": it["id"], "path": it["path"],
+                                        "carried_from": self.carry, **moved}) + "\n")
             n += 1
         if n:
             log(f"  carried {n} accepted labels from {self.carry}")
 
     # a rechecking session
     def recheck_in(self, log: Callable[[str], None] = lambda s: None) -> None:
-        """Each label the earlier session accepted (same id and photo sha256) as this session's round-1 mask, with
-        the index row that drew it; no verdict. Resumable: a photo with a round-1 mask already keeps it."""
+        """Each label the earlier session accepted (`earlier_items`: the same photo by path and sha256, or by sha256
+        alone for a renamed photo) as this session's round-1 mask, with the index row that drew it, naming the photo
+        by its path now; no verdict. Resumable: a photo with a round-1 mask already keeps it."""
         src = LabelSession(self.recheck, self.entries, None, self.labels_dir, self.mask_root)
-        verdicts = src.verdicts()
+        verdicts, earlier = src.verdicts(), self.earlier_items(src)
         n = 0
         for it in self.items:
-            st = src.state(it, verdicts)
-            if it["id"] in self._idx(1) or st.status != "accepted":
+            old = None if it["id"] in self._idx(1) else earlier(it)
+            if old is None:
                 continue
-            row = src.row(it, st.round)
+            st = src.state(old, verdicts)
+            if st.status != "accepted":
+                continue
+            row = src.row(old, st.round)
             if row["photo_sha256"] != it["sha256"]:
                 continue
             self.mask_path(it, 1).parent.mkdir(parents=True, exist_ok=True)
-            self.mask_path(it, 1).write_bytes(src.mask_path(it, st.round).read_bytes())
-            self._put_row(1, dict(row))
+            self.mask_path(it, 1).write_bytes(src.mask_path(old, st.round).read_bytes())
+            self._put_row(1, {**row, "id": it["id"], "path": it["path"]})
             n += 1
         if n:
             log(f"  {n} accepted labels from {self.recheck} to judge again")
