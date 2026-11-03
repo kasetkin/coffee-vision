@@ -391,8 +391,9 @@ class CommittedFile(unittest.TestCase):
         # D1) and the pool draw's 44. 2026-10-28 32 Brazil and Kenya positives and the pool draw's 32,
         # then the day's 200 MP photo, once the dataset tools read it, and the pool draw's 1. 2026-10-30 7 Brazil
         # positives and the pool draw's 7. 2026-11-02 18 Brazil and Ethiopia positives and the pool draw's 18.
+        # 2026-11-03 17 Colombia positives, the pool draw's 17, and 1 user_realworld negative.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 288, "pool": 288, "negative": 613, "internet_positive": 11})
+                         {"segmenter_positive": 305, "pool": 305, "negative": 614, "internet_positive": 11})
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}

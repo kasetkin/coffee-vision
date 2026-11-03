@@ -3,7 +3,7 @@
 Positives the owner chose for the segmenter because their setup differs from the pools: framing,
 container, distance (GLOSSARY.md, "Segmenter positive"). Ticket ML-5 (D1) repurposed and renamed this folder
 on 2026-10-08; it was `dataset/ood_positives/`, the OOD guard's "never seen" positives, until then.
-**There is no "never seen" claim any more**: 71 of the 288 photos are byte copies of photos in other
+**There is no "never seen" claim any more**: 54 of the 305 photos are byte copies of photos in other
 `dataset/` folders, 51 of them pool photos.
 
 Used by the segmenter dataset (ticket ML-5 P5, `labels/ml5/`): every photo here is in it, split
@@ -29,6 +29,35 @@ are in git history (`554a2a4`). The guard-era `split` (dev/holdout) and `scenari
 assigns its own split (D13), and the tags only meant something for the guard's calibration. The old values
 stay in git history (`dataset/ood_positives.manifest.csv` before ML-5 P2), and ML-2's frozen
 `labels/ml2/photo_lists.yaml` still lists the dev photos under their old paths.
+
+## 2026-11-03: 17 Colombia grinder-hopper photos
+
+- **New photos** (batch `2026-11-03`): 17 photos of Colombia beans in a clear grinder hopper in a café, shot on
+  2026-11-03, named `20261103_HHMMSS_<phone>_Colombia`, in two arrivals the same day:
+  - 8 on a Pixel 9 Pro, 10:38:42 to 10:47:20 local: four from above with the counter round the hopper (cups, towels,
+    a squeeze bottle; a person and menu sheets in `103842`), one of them landscape (`104614`), one wide with a
+    display case and the floor (`104658`), and three close: the hopper's rim round the beans (`104236`), beans
+    filling the frame (`104711`) and beans against the hopper wall (`104720`). Three are 50 MP (6144x8160), the
+    others 12 MP.
+  - 9 later: 5 on a OnePlus (12:37:15 to 12:38:45) and 4 on a G8441 (14:40:40 to 14:41:37). From above with a phone,
+    a scale and menu sheets on the counter or a person's feet on the floor below; two landscape (`123756`, `123829`);
+    two close (`123732` through the hopper wall, `144137` filling the frame). The G8441's are stored 5504x3096 with a
+    portrait Orientation tag.
+- **No copies**: none duplicates a photo under `dataset/` by SHA-256 or by content (`coffeecv.find_duplicates`,
+  nearest 0.71). No two are within ADR 0029's 3 s, nor any of them within 3 s of the day's pool photos in
+  `random_date_raccoon` (the nearest, 6 s apart).
+- **Metadata** (ticket ML-3, D13): all 17 carried private tags (EXIF GPS, C2PA, Google's HDR+ XMP, Sony's maker note
+  on the G8441's, EXIF thumbnails) and were stripped with `coffeecv.strip_metadata`, 0 checks failing; rows in
+  `labels/ml3/strip_manifest.csv`. A second `--dry-run` finds all 305 photos here clean.
+- **In the segmenter dataset** (`labels/ml5/seg_dataset.yaml`): all 17 (train 10, validation 3, test 4), with 17 pool
+  photos topping the draw up to 305.
+- **Renamed originals**: the same day the owner renamed 99 photos of `random_date_raccoon` (bytes unchanged) to the
+  `YYYYMMDD_HHMMSS_<phone>_<country>` form: 2 of `class_001__Ethiopia_Sidamo`, 26 of `class_005__Guatemala_Tata` and
+  71 of `class_013__Brazil_SulDeMinas`. The 15 `duplicate_of` entries naming them here follow the new names. The
+  copies here keep their own file names.
+- **Originals removed**: the same day the owner removed `dataset/2026-07-24__first_pictures` from the repository
+  (neither model is to use it). The 17 photos here copied from its `jpg/` (batch `2026-10-08`) are copies of nothing
+  under `dataset/` now; their `duplicate_of` is empty (git history keeps the old values).
 
 ## 2026-11-02: 18 Brazil and Ethiopia photos
 

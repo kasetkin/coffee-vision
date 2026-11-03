@@ -13,11 +13,11 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, not labelled (2026-11-03); the training session not decided, not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code></span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
@@ -37,6 +37,9 @@
     labels: the 401 that pass10 accepted, carried over, and the 39 the owner judged on 2026-11-02. The next
     training session can read them. Choosing that session (segmenter, classifier or both) and planning it are left
     for later.</p>
+  <p>On 2026-11-03 17 more segmenter positives joined, with 17 pool photos and 1 negative, and the owner renamed 99
+    photos of <code>random_date_raccoon</code>. No labelling session has run since pass11: the new training and
+    validation photos have no label, and pass11's labels of 11 renamed pool photos are under their old paths.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -58,6 +61,23 @@
       <code>random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120546.jpg</code> did not carry, because
       the owner renamed the photo to <code>20261016_120546_KB2005_Colombia.jpg</code> (<code>ca8a61c</code>). A
       label is keyed by path, so pass11 showed the photo again.</li>
+    <li><strong>The batch of 2026-11-03</strong> (README section "2026-11-03"): 17 Colombia grinder-hopper photos
+      in a café, in two arrivals that day: 8 on a Pixel 9 Pro, then 5 on a OnePlus and 4 on a G8441. From above,
+      wide or close. Stripped, 0 checks failing; no copies under <code>dataset/</code> (nearest 0.71); no two within
+      3 s. In the segmenter dataset: train 10, validation 3, test 4, with 17 pool photos (the same split counts). With
+      them: 19 pool photos in <code>random_date_raccoon</code> (5 Ethiopia, 14 Colombia), 1
+      <code>user_realworld</code> negative (a cappuccino, no beans; train) and 1 label card in
+      <code>classes_labels_only</code>, all stripped. The segmenter dataset now lists 1,235 photos: 305 segmenter
+      positives (train 183, validation 46, test 76), 305 pool photos (the same split counts), 11 internet positives and
+      614 negatives.</li>
+    <li><strong>The renames of 2026-11-03</strong>: the owner renamed 99 photos of <code>random_date_raccoon</code>
+      (bytes unchanged) to the <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_&lt;country&gt;</code> form: 2 of class_001, 26 of
+      class_005, 71 of class_013. The records in use follow the new names: <code>labels/ml5/seg_dataset.yaml</code>
+      (13 entries' path and group), the segmenter positives' manifest (15 <code>duplicate_of</code>) and
+      <code>coffeecv_dino/reference_photos.txt</code> (2 lines, each keeping its old path as its draw key, ML-14 D16).
+      Older records keep the names they read, as on 2026-10-30. pass11's labels of 11 of these pool photos (train 10,
+      validation 1) are under the old paths, so, as with <code>IMG_20261016_120546</code>, a session carrying pass11
+      will not carry them.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -88,11 +108,32 @@
     <li><strong>pass10.</strong> pass11 copied pass10's accepted labels and left pass10's files as they were.</li>
   </ul>
 
-  <h2>5. Scope and acceptance</h2>
+  <h2>5. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Does <code>dataset/2026-07-24__first_pictures</code> (pre-project exploratory shots, and
+        the 32 JPEG XL files the owner put under its <code>JXL/</code> on 2026-11-02) feed either model?</td>
+        <td>(a) neither model (b) as other sessions</td>
+        <td>(a), 2026-11-03: "Ignore folder dataset/2026-07-24__first_pictures for both segmenter and classifier. Do
+          not use them." Then the owner removed the folder from the repository (2026-11-03): its <code>.dvc</code>
+          and <code>.gitignore</code> entry are gone, its cache objects stay. Neither model had used it (the
+          classifier's sessions are <code>dvc.yaml</code>'s segcrop list, the segmenter's pool draw reads only
+          <code>class_*</code> folders). The 17 segmenter positives copied from it have an empty
+          <code>duplicate_of</code> now.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The 7 photos of 2026-10-30 and the 18 of 2026-11-02 stripped, in DVC,
       in the manifest and in the segmenter dataset (<code>fd490ce</code>, <code>ca8a61c</code>,
       <code>7b2ea74</code>).</span></li>
+    <li><span class="box done"></span><span>The 17 positives of 2026-11-03 and the day's other new photos stripped, in
+      DVC, in their manifests and in the segmenter dataset; the owner's 99 renames in the records in use
+      (2026-11-03).</span></li>
+    <li><span class="box done"></span><span><code>dataset/2026-07-24__first_pictures</code> removed from the repository,
+      used by neither model (D1).</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
   </ul>
@@ -118,6 +159,21 @@
       2026-11-02 were shown to the owner outside the page, with no verdicts recorded. Claude's reading: holes and
       ragged edges on the foil-bag photo <code>20261030_185843</code>; the other three look clean. <code>data/ml5_labels/pass11</code> added to DVC and
       pushed; all 936 objects (1,369 files) checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>New photos and renames from the owner. <code>coffeecv.strip_metadata</code>
+      over <code>segmenter_positives</code>, <code>random_date_raccoon</code>, <code>classes_labels_only</code> and
+      <code>user_realworld</code>: 119 photos checked, the 20 new ones stripped (EXIF GPS, C2PA, the Apple maker
+      note, HDR+ XMP, EXIF thumbnails), the 99 renamed ones clean under their new paths, 0 failing; a second
+      <code>--dry-run</code> finds all 986 clean. <code>coffeecv.find_duplicates</code>: no copies (nearest 0.75).
+      <code>seg_dataset build</code>: 17 added (8 positives, 8 pool, 1 negative). Not done: the 32 JPEG XL files the
+      owner put under <code>dataset/2026-07-24__first_pictures/JXL/</code> stay out of DVC, as the stripper reads no
+      <code>.jxl</code> and 23 of them hold Brotli-compressed EXIF exiftool here cannot read;
+      <code>segcrop@random_date_raccoon</code> is stale until the next re-crop. No labelling session.</div>
+    <div><div class="when">2026-11-03</div>A second arrival the same day: 9 segmenter positives (5 OnePlus, 4 G8441)
+      and 9 Colombia pool photos in <code>random_date_raccoon</code>. All 18 stripped (EXIF GPS, Sony's maker note,
+      HDR+ XMP, EXIF thumbnails), 0 failing; a second <code>--dry-run</code> finds all 482 photos of the two folders
+      clean; no copies (nearest 0.77). <code>seg_dataset build</code>: 18 added (9 positives: train 5, validation 2,
+      test 2; and the pool draw's 9). The owner's D1: <code>2026-07-24__first_pictures</code> feeds neither model; the
+      owner then removed it, its JPEG XL files with it, and <code>dvc remove</code> dropped its <code>.dvc</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

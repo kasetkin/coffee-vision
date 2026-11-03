@@ -68,7 +68,6 @@ ACCEPTED_DRIFT = {"009"}
 # absent from dvc.yaml's segcrop foreach on purpose. Listed here so check 2 does not
 # flag them forever; anything NOT here and not in the foreach is a real finding.
 EXCLUDED = {
-    "2026-07-24__first_pictures",   # pre-project exploratory shots, no class structure
     "2026-08-06__box_pictures",     # superseded by 2026-08-07__box_pictures_all_classes
     "classes_labels_only",          # label reference photos, not training data
     # The OOD sets (ticket ML-3 P4): read by the OOD tools from their manifests, never segcropped. Their
