@@ -323,7 +323,9 @@
         <td>(a), 2026-11-03, decided with D23: the ceiling from the front's measurement; the service's
           <code>MemoryMax</code> 500M, a 60 MP photo's peak at most 400 MB, the colour conversion in strips.
           The ceiling, 2026-11-04, by the owner: 60 MP, with the front's <code>MemoryMax</code> raised to 600M and swap
-          allowed ("swap is not a problem, it is fast and uses SSD"); the logs reviewed later. Measured (P8, 500M,
+          allowed ("swap is not a problem, it is fast and uses SSD"); the logs reviewed later. The owner raised the proxy's
+          swap to 1.5 GB the same day (1 GB before; read: 1,572,860 kB, nearly all free, MemAvailable 375 MB just
+          after). Measured (P8, 500M,
           no swap): an 8-bit 60 MP photo at 461 MB; a 16-bit one is not measured (12 MP sources at 16 bits took
           60&ndash;120 MB more). Each request's log line gives the photo's size, decoded depth, time, peak and swapped
           memory.</td></tr>
