@@ -295,12 +295,12 @@
     <b>Before <code>app.py</code></b> (ticket OPS-15, ADR 0031, live 2026-11-02): the photo reaches the app through
     two hosts. The proxy that serves the domain reads the TLS session's SNI in its <code>stream {}</code> block and
     hands it to <b>the front</b>, an nginx site on the same machine that terminates TLS, serves the page, lets one
-    <code>/analyze</code> through at a time and refuses a body over 10 MB (413; 5 MB until OPS-16 D8). Its check service,
+    <code>/analyze</code> through at a time and refuses a body over 40 MB (413; ML-19 D23, 10 MB by OPS-16 D8 and 5 MB before). Its check service,
     <code>webapp/front/check_service.py</code>, reads the form and checks the photo's first bytes (and a RAW file's
     extension) against the formats the public contract names (<code>upload_check.py</code>; GIF, BMP and a plain
     TIFF are refused there, though Pillow would open them), then canonicalizes the photo (ticket ML-19, ADR 0033:
-    <code>coffeecv/canonical.py</code>, the code that built training's canonical store; a photo over its pixel ceiling
-    is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
+    <code>coffeecv/canonical.py</code>, the code that built training's canonical store; a photo over its pixel ceiling,
+    60 MP or 16 MP for RAW, is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest
     to 8-bit sRGB, so every pixel the model sees is the canonical photo training reads. Until ML-19 the front forwarded

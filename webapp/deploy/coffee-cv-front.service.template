@@ -19,11 +19,12 @@ Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=$RELEASE_DIR/.venv/bin/python $RELEASE_DIR/webapp/front/check_service.py
 Restart=on-failure
 RestartSec=2
-# Ticket ML-19 D26, D38 (ADR 0033): the service canonicalizes each upload, up to its pixel ceiling, within this. On
-# the proxy (about 600 MB available, D26) a 50 MP photo peaked at 400 MB and a 60 MP one at 461 MB under a 500M scope
-# (analysis/ml19/p8/README.md); until ML-19 it forwarded the bytes and peaked at 65 MB under 100M. Past this it is
-# killed and restarted, not left to push the proxy's other services into swap.
-MemoryMax=500M
+# Ticket ML-19 D26, D38 (ADR 0033): the service canonicalizes each upload, up to its pixel ceiling (60 MP), within
+# this. On the proxy (560-620 MB available, D26) a 50 MP photo peaked at 400 MB and an 8-bit 60 MP one at 461 MB under
+# a 500M scope without swap (analysis/ml19/p8/README.md); a 16-bit 60 MP photo is not measured. 600M, swap allowed
+# (no MemorySwapMax): the owner's call, 2026-11-04, the proxy's swap being on SSD; each request's log line gives its
+# peak and swapped memory for the review. Until ML-19 it forwarded the bytes and peaked at 65 MB under 100M.
+MemoryMax=600M
 
 # It parses attacker-supplied form data from the internet, so the same containment as the app's unit
 # (coffee-cv-web.service.template). It writes no file: its one log line per request goes to the journal.

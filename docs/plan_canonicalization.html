@@ -407,7 +407,7 @@
 
   <h2>10. P8 &mdash; The front measured <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: measured (<code>analysis/ml19/p8/README.md</code>); stopped for the owner: D23, D24, D38; D24 decided 2026-11-04 (RAW up to 16 MP)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03: measured (<code>analysis/ml19/p8/README.md</code>); decided by the owner 2026-11-04: D24 RAW up to 16 MP, D23 a 40 MB cap, D38 60 MP under MemoryMax 600M with swap</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3 <span class="tag">and the owner's go to run on the front</span></span></div>
   </div>
   <p>D23, D24 and D38 from <code>canonical.py</code> itself on the proxy (616 MB available on 2026-11-03, D26), in a
@@ -431,7 +431,7 @@
 
 <h2>11. P9 &mdash; Serving on canonical photos</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the front's half (this commit), its ceilings at P8's recommendations until the owner decides (the RAW one decided: D24)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the front's half (this commit), its ceilings and cap as the owner decided at P8 (D23, D24, D38)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4 (the host byte cap), P8</span></div>
   </div>
   <p>D12, D17, D34, D35: the front canonicalizes, the host refuses anything else, and every tool that sends the host
@@ -473,7 +473,7 @@
     with the encoder's next change: <code>canonicalize_folder</code> imports <code>photo_io</code>, which registers
     <code>pillow-avif-plugin</code>, so the store and the front could decode an AVIF with different libraries (the
     dataset holds none). Started before P4 and P8's stops were done, on the owner's 2026-11-03 instruction to proceed
-    with the plan; the ceilings stay P8's recommendations until the owner decides. The front's tests: a canonical
+    with the plan; the ceilings stayed P8's recommendations until the owner decided them on 2026-11-04 (60 MP, RAW 16 MP, 40 MB). The front's tests: a canonical
     upload, a JPEG, a HEIC, a photo over the ceiling, a RAW over its own (a real 9.9 MP DNG), a name that would break the
     forwarded header. Not done: the boot's warm-up still runs on the original fixture (it proves the GPU and times the boot; its
     pixels are not an answer); <code>load_rgb_image</code> made canonical-only and <code>pillow-jxl-plugin</code>

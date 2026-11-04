@@ -4,7 +4,7 @@
     "title": "Coffee Bean Origin Classifier",
     "version": "1",
     "summary": "One photo of whole coffee beans in, the likely country of origin out.",
-    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. At most 10 MB a photo. One photo at a time for everyone: on a busy 503, wait about 10 s and retry, and never send photos in parallel; on an offline 503, try again in a few minutes. Guide for agents: https://coffee.kasetkin.com/llms.txt"
+    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. At most 40 MB and 60 megapixels a photo (camera RAW: 16 megapixels). One photo at a time for everyone: on a busy 503, wait about 10 s and retry, and never send photos in parallel; on an offline 503, try again in a few minutes. Guide for agents: https://coffee.kasetkin.com/llms.txt"
   },
   "externalDocs": {
     "description": "What the model knows and how it works",
@@ -28,7 +28,7 @@
                   "photo": {
                     "type": "string",
                     "contentMediaType": "application/octet-stream",
-                    "description": "The image file, at most 10 MB: JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
+                    "description": "The image file, at most 40 MB and 60 megapixels (camera RAW: 16 megapixels): JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
                   },
                   "skip_crop": {
                     "type": "string",
@@ -61,7 +61,7 @@
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
           },
           "413": {
-            "description": "The photo is larger than 10 MB.",
+            "description": "The photo is larger than 40 MB, or has more pixels than its limit.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
           },
           "503": {

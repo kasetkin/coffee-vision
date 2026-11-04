@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D24&ndash;D52 decided, D23 open on measurements (D38's ceiling too); planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D52 decided; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -243,7 +243,11 @@
         <td>2026-11-03: "for 10 MB photos time limit will be 40 seconds", on the front, for canonicalization.</td></tr>
       <tr><td class="id">D23</td><td>The new upload cap, now that the cap no longer guards the link?</td>
         <td>From the front's measured memory and time</td>
-        <td>Open: measured in the plan.</td></tr>
+        <td>40 MB, 2026-11-04, as P8 recommended: the pixel ceilings hold memory and only the canonical photo crosses
+          the tunnel, so the cap bounds an upload, with room for every photo the ceilings take (a 12 MP DNG is 23 MB)
+          and for a 200 MP JPEG (26&ndash;33 MB), refused by its pixels. The check service, the front's nginx
+          (<code>client_max_body_size 41024k</code>), the page, <code>llms.txt</code> and
+          <code>openapi.json</code>.</td></tr>
       <tr><td class="id">D24</td><td>Does the front take RAW within 500 MB?</td>
         <td>(a) yes (b) no</td>
         <td>(a), up to 16 MP, 2026-11-04, as P8 recommended: a RAW photo over 16,000,000 pixels is refused with a
@@ -317,7 +321,12 @@
       <tr><td class="id">D38</td><td>A photo over 60 MP on the front within 500 MB?</td>
         <td>(a) refused above a measured pixel ceiling (b) a reduced-scale JPEG decode (c) tiles</td>
         <td>(a), 2026-11-03, decided with D23: the ceiling from the front's measurement; the service's
-          <code>MemoryMax</code> 500M, a 60 MP photo's peak at most 400 MB, the colour conversion in strips.</td></tr>
+          <code>MemoryMax</code> 500M, a 60 MP photo's peak at most 400 MB, the colour conversion in strips.
+          The ceiling, 2026-11-04, by the owner: 60 MP, with the front's <code>MemoryMax</code> raised to 600M and swap
+          allowed ("swap is not a problem, it is fast and uses SSD"); the logs reviewed later. Measured (P8, 500M,
+          no swap): an 8-bit 60 MP photo at 461 MB; a 16-bit one is not measured (12 MP sources at 16 bits took
+          60&ndash;120 MB more). Each request's log line gives the photo's size, decoded depth, time, peak and swapped
+          memory.</td></tr>
       <tr><td class="id">D39</td><td>A LittleCMS binding at 16 bits? (Pillow's ImageCms transforms 8-bit RGB only.)</td>
         <td>(a) a binding over 16-bit or float NumPy arrays, pinned (b) Pillow at 8 bits</td>
         <td>(a), 2026-11-03, checked on all three machines in P1; if none passes, back to the owner, not 8 bits. The
@@ -473,6 +482,9 @@
       accepted). pass16 holds an accepted label for all 602 training and validation positives, for ML-16.</div>
     <div><div class="when">2026-11-04</div>D24 decided by the owner, as P8 recommended: RAW on the front up to
       16 MP. D38's ceiling and D23's cap stay open.</div>
+    <div><div class="when">2026-11-04</div>D23 and D38 decided by the owner: a 40 MB upload cap, a 60 MP ceiling,
+      the front's <code>MemoryMax</code> 600M with swap. The check service logs what it canonicalized and the memory it
+      took, for the review of the ceiling. P8 done.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

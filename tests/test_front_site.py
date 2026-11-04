@@ -4,7 +4,7 @@
 
 webapp/deploy/coffee-cv-front.nginx.conf.template is what the proxy serves for the domain (ADR 0031): TLS on a local
 port that the proxy's stream map reaches, the page and the agent files from the release, and /analyze through the gate
-(D11), the 10 MB cap (D15, OPS-16 D8) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
+(D11), the 40 MB cap (ML-19 D23; 10 MB by OPS-16 D8 before) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
 The visitor's IP is in the stream block's session log alone (webapp/deploy/coffee-cv-stream.conf.template, D20),
 rotated at 30 days. Here the stream server with that snippet, the site, the real check service and a fake inference
 host all run on loopback, the /var/log/nginx paths moved to a scratch directory; the visitor connects from 127.0.0.5,
@@ -226,14 +226,14 @@ http {{
         [seen] = FakeInferenceHost.seen
         self.assertEqual(set(forged) & set(seen["headers"]), set(), "a visitor's own IP header went through (D20)")
 
-    def test_a_photo_over_10_mb_is_refused_at_the_front(self):
-        photo = JPEG + b"\x00" * (10 * 2**20 - len(JPEG))
-        resp = self.visit("POST", "/analyze", form("beans.jpg", photo))   # exactly 10 MB: its form is larger
+    def test_a_photo_over_the_cap_is_refused_at_the_front(self):   # ML-19 D23
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES - len(JPEG))
+        resp = self.visit("POST", "/analyze", form("beans.jpg", photo))   # exactly the cap: its form is larger
         resp.read()
         self.assertEqual(resp.status, 200)
         FakeInferenceHost.seen.clear()
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00")),   # the check service's 413
-                         (413, {"error": "this photo is 10.1 MB; the limit is 10 MB"}))
+                         (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00" * 2**20)),   # nginx's, before it
                          (413, check_service.TOO_LARGE))
         self.assertEqual(FakeInferenceHost.seen, [])

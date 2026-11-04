@@ -3,7 +3,7 @@
     python -m unittest tests.test_front_check_service
 
 webapp/front/check_service.py takes POST /analyze from the front's nginx, refuses what must not cross the tunnel
-(over 10 MB, D15 and OPS-16 D8; not an image, D2), canonicalizes the photo (ticket ML-19 P9: a canonical one goes on as
+(over 40 MB, ML-19 D23; not an image, D2), canonicalizes the photo (ticket ML-19 P9: a canonical one goes on as
 it is, one over the pixel ceiling is a 413, one that cannot be read a 400), forwards the form with the canonical photo
 in place of the visitor's to the inference host, and streams its answer back (ADR 0023); an inference host it cannot
 reach is "the classifier is offline", apart from busy (D12). The service runs in this process on a loopback port, as
@@ -210,7 +210,7 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_a_failure_while_canonicalizing_is_an_answer_not_a_dropped_connection(self):
-        with mock.patch.object(check_service.canonical, "canonicalize", side_effect=MemoryError("no room")):
+        with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
             self.assertEqual(self.answer(form("beans.jpg", JPEG)), (500, {"error": "could not process this photo"}))
         self.assertEqual(FakeInferenceHost.seen, [])
 
@@ -258,14 +258,16 @@ class CheckService(unittest.TestCase):
         self.assertEqual(self.answer(form("", b"")), (400, {"error": "no photo uploaded"}))
         self.assertEqual(FakeInferenceHost.seen, [])
 
-    @real_data   # about 3 s: two 10 MB uploads and one answer
-    def test_a_photo_over_10_mb_never_crosses(self):
-        body = form("beans.jpg", JPEG + b"\x00" * (10 * 2**20))
+    @real_data   # a few seconds: two 40 MB uploads and one answer
+    def test_a_photo_over_the_cap_never_crosses(self):   # ML-19 D23
+        cap = check_service.MAX_UPLOAD_BYTES
+        self.assertEqual(cap, 40 * 2**20)
+        body = form("beans.jpg", JPEG + b"\x00" * cap)
         status, payload = self.answer(body)
         self.assertEqual(status, 413)
-        self.assertIn("10 MB", payload["error"])
+        self.assertIn("40 MB", payload["error"])
         self.assertEqual(FakeInferenceHost.seen, [])
-        ok = form("beans.jpg", JPEG + b"\x00" * (10 * 2**20 - 4096))
+        ok = form("beans.jpg", JPEG + b"\x00" * (cap - 4096))
         _, resp = self.post(ok)
         resp.read()
         self.assertEqual(resp.status, 200, "a photo just under the cap is refused")
@@ -308,6 +310,20 @@ class CheckService(unittest.TestCase):
             self.assertEqual(resp.read(), b'{"part": "preview"}\n')
             time.sleep(0.2)
         self.assertIn("cut after", log.call_args[0][0])
+
+    def test_the_log_line_says_what_was_canonicalized_and_its_peak_memory(self):   # ML-19 D38: for the ceiling's review
+        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
+            _, resp = self.post(form("beans.jpg", JPEG))
+            resp.read()
+            time.sleep(0.2)
+        line = log.call_args[0][0]
+        self.assertRegex(line, r"^POST /analyze 200 relayed \d+ bytes \d+ms; \.jpg 64x48 8-bit, canonicalized in "
+                               r"\d+\.\d s, peak \d+ MB, swap \d+ MB$")
+        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
+            _, resp = self.post(form("beans.jxl", check_service.canonical.canonicalize(JPEG, "beans.jpg")))
+            resp.read()
+            time.sleep(0.2)
+        self.assertTrue(log.call_args[0][0].endswith("ms; canonical as sent"), log.call_args[0][0])
 
     def test_an_answer_that_is_not_http_is_offline(self):
         FakeInferenceHost.reply = "garbage"
@@ -361,12 +377,12 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_the_cap_is_the_photos_own_size_not_the_forms(self):
-        photo = JPEG + b"\x00" * (10 * 2**20 - len(JPEG))   # exactly 10 MB: the form around it is larger
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES - len(JPEG))   # exactly the cap: its form is larger
         _, resp = self.post(form("beans.jpg", photo, skip_crop=True))
         resp.read()
         self.assertEqual(resp.status, 200)
         status, payload = self.answer(form("beans.jpg", photo + b"\x00"))
-        self.assertEqual((status, payload), (413, {"error": "this photo is 10.1 MB; the limit is 10 MB"}))
+        self.assertEqual((status, payload), (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
 
     def test_one_photo_crosses_at_a_time(self):
         """The front's nginx frees its gate when a visitor leaves; the crossing it started goes on (D11)."""

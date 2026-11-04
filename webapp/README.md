@@ -10,7 +10,7 @@ running the thing that serves it.
 
 ```
 Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor's IP per session)
-  --> THE FRONT, the proxy: nginx on 127.0.0.1:12347 (TLS termination, static files, one-at-a-time gate, 10 MB cap)
+  --> THE FRONT, the proxy: nginx on 127.0.0.1:12347 (TLS termination, static files, one-at-a-time gate, 40 MB cap)
         |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
         |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
         |                    -> the release's webapp/static/ files; any other path is a 404
@@ -23,8 +23,8 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
 serves the domain; it has no ML code (`front/`), and since ticket ML-19 (ADR 0033) it canonicalizes each photo with
 `coffeecv/canonical.py` and forwards the canonical photo in its place. The inference host has the GPU and a slow link
-(2.1 Mbit/s in), which is why the front refuses a photo over 10 MB (OPS-16 D8), in a format the app cannot read, or
-over its pixel ceiling (50.2 MP; RAW 16 MP), before it crosses; the host refuses anything that is not a canonical
+(2.1 Mbit/s in): the front refuses a photo over 40 MB (ML-19 D23), in a format the app cannot read, or over its
+pixel ceiling (60 MP, D38; RAW 16 MP, D24), before it is converted, and only the canonical photo crosses; the host refuses anything that is not a canonical
 photo. While the app is down (a deploy,
 or the host) the page stays up and `/analyze` answers `503 {"error": "the classifier is offline"}`.
 
