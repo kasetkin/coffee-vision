@@ -2,16 +2,19 @@
 # One line per country and roast state the training pool has: <country> <green|roasted> <crop>, the crop a segmenter
 # crop under data/segcropped/ whose class folder belongs to that country (dataset/classes.txt). A country gets a
 # roasted line only once its pool has roasted photos, and likewise for green. Chosen by eye, 2026-10-21; green
-# Indonesia and Peru added the same day.
+# Indonesia and Peru added the same day. 2026-11-04 (ML-19 P6's re-crop): four random_date_raccoon crops under their
+# photos' new names (the same files by sha256); Ethiopia green IMG_6302D and Vietnam roasted PXL_20261007_043818022
+# moved to dataset/example_photos, so Ethiopia green is its neighbour IMG_6303D and Vietnam has no roasted line (no
+# roasted Vietnam is left in the pool).
 Brazil      green    data/segcropped/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6246__cropped.jxl
-Brazil      roasted  data/segcropped/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260926_122057066__cropped.jxl
+Brazil      roasted  data/segcropped/random_date_raccoon/class_013__Brazil_SulDeMinas/20260926_172057_Pixel_9_Pro_Brazil__cropped.jxl
 Colombia    green    data/segcropped/2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6258D__cropped.jxl
-Colombia    roasted  data/segcropped/random_date_raccoon/class_014__Colombia_Excelso/IMG_20261017_115345__cropped.jxl
+Colombia    roasted  data/segcropped/random_date_raccoon/class_014__Colombia_Excelso/20261017_115345_KB2005_Colombia__cropped.jxl
 CostaRica   green    data/segcropped/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6269D__cropped.jxl
-Ethiopia    green    data/segcropped/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6302D__cropped.jxl
-Ethiopia    roasted  data/segcropped/random_date_raccoon/class_001__Ethiopia_Sidamo/PXL_20260927_101610945__cropped.jxl
+Ethiopia    green    data/segcropped/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6303D__cropped.jxl
+Ethiopia    roasted  data/segcropped/random_date_raccoon/class_001__Ethiopia_Sidamo/20260927_151610_Pixel_9_Pro_Ethiopia__cropped.jxl
 Guatemala   green    data/segcropped/2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6339__cropped.jxl
-Guatemala   roasted  data/segcropped/random_date_raccoon/class_005__Guatemala_Tata/IMG_9273__cropped.jxl
+Guatemala   roasted  data/segcropped/random_date_raccoon/class_005__Guatemala_Tata/20261008_112649_iPhone_15_Pro_Max_Guatemala__cropped.jxl
 Indonesia   green    data/segcropped/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_090041665__cropped.jxl
 Indonesia   roasted  data/segcropped/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124411025__cropped.jxl
 Kenya       green    data/segcropped/2026-08-25__iphone/class_002__Kenya_AA/IMG_6280D__cropped.jxl
@@ -19,4 +22,3 @@ Peru        green    data/segcropped/2026-10-21__new_green/class_011__Peru_Minca
 Peru        roasted  data/segcropped/2026-09-24__pixel/class_011__Peru_Minca/PXL_20260924_123128657__cropped.jxl
 Rwanda      roasted  data/segcropped/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054856833__cropped.jxl
 Vietnam     green    data/segcropped/2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6314D__cropped.jxl
-Vietnam     roasted  data/segcropped/random_date_raccoon/class_009__Vietnam_Robusta/PXL_20261007_043818022__cropped.jxl

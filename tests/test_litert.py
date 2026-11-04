@@ -20,7 +20,7 @@ from unittest import mock
 
 import numpy as np
 
-from coffeecv import infer, litert, model_io
+from coffeecv import canonical, infer, litert, model_io
 from coffeecv.config import REPO_ROOT
 
 from tests._tiers import real_data
@@ -432,14 +432,17 @@ from pathlib import Path
 import webapp.app as app
 photo = Path(sys.argv[1]).read_bytes()
 out = {"warm_up": app.WARM_UP}
-r = app.app.test_client().post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jpg")},
+r = app.app.test_client().post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jxl")},
                                content_type="multipart/form-data")
 out["/analyze"] = [r.status_code, [json.loads(line)["part"] for line in r.get_data(as_text=True).splitlines()]]
 print("RESULT " + json.dumps(out))
 """
             env = {**os.environ, "COFFEE_CV_CHECKPOINT": str(CHECKPOINT.relative_to(REPO_ROOT)),
                    "COFFEE_CV_LITERT_DIR": tmp, "COFFEE_CV_LOG_DIR": tmp, "PYTHONDONTWRITEBYTECODE": "1"}
-            out = subprocess.run([sys.executable, "-c", code, str(REPO_ROOT / FIXTURE_PHOTOS[1])], cwd=REPO_ROOT,
+            # The host takes canonical photos only (ticket ML-19 D12): the fixture crosses as the front sends it.
+            sent = Path(tmp) / "photo.jxl"
+            sent.write_bytes(canonical.canonicalize_file(REPO_ROOT / FIXTURE_PHOTOS[1]))
+            out = subprocess.run([sys.executable, "-c", code, str(sent)], cwd=REPO_ROOT,
                                  env=env, capture_output=True, text=True, timeout=900)
         self.assertEqual(out.returncode, 0, out.stderr[-3000:])
         res = json.loads(next(ln[7:] for ln in out.stdout.splitlines() if ln.startswith("RESULT ")))
