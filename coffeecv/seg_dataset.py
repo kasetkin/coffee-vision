@@ -55,22 +55,31 @@ FILE_NAME_CLOCK = "local, file name"     # every file-name time, one clock (ML-8
 
 @dataclass(frozen=True)
 class Params:
-    """params.yaml's seg_dataset block: the seed of the pool draw and of the split order, and the split's
-    shares within each source (D13)."""
+    """params.yaml's seg_dataset block: the seed of the pool draw and of the split order, the split's shares
+    within each source (D13), and the pool folders that join in full rather than by the draw (whole_folders; the
+    owner, 2026-11-04, amending D12)."""
     seed: int
     split: dict
+    whole_folders: tuple[str, ...] = ()
 
     @classmethod
     def from_config(cls, block: dict) -> "Params":
-        if set(block) != {"seed", "split"}:
-            raise ValueError(f"params.yaml seg_dataset: expected keys seed and split, got {sorted(block)}")
+        if not {"seed", "split"} <= set(block) <= {"seed", "split", "whole_folders"}:
+            raise ValueError(f"params.yaml seg_dataset: expected keys seed, split and optionally whole_folders, got "
+                             f"{sorted(block)}")
         split = {k: float(v) for k, v in block["split"].items()}
         if list(split) != list(SPLITS) or abs(sum(split.values()) - 1) > 1e-9:
             raise ValueError(f"params.yaml seg_dataset.split: {', '.join(SPLITS)} in that order, summing to 1")
-        return cls(seed=int(block["seed"]), split=split)
+        return cls(seed=int(block["seed"]), split=split, whole_folders=tuple(block.get("whole_folders") or ()))
 
     def as_meta(self) -> dict:
-        return {"seed": self.seed, "split": dict(self.split)}
+        return {"seed": self.seed, "split": dict(self.split),
+                **({"whole_folders": list(self.whole_folders)} if self.whole_folders else {})}
+
+    def same_build(self, meta: dict) -> bool:
+        """Whether a file built with `meta` may be appended to: the same seed and split (D11). Naming another whole
+        folder only adds photos."""
+        return {k: meta.get(k) for k in ("seed", "split")} == {"seed": self.seed, "split": dict(self.split)}
 
 
 def photo_id(path: str) -> str:
@@ -121,8 +130,9 @@ def assign(candidates: list[dict], existing: list[dict], params: Params,
     """The dataset's entries, sorted by path. `candidates` is every photo in the data (`scan`'s records);
     `existing` is the committed file's entries, which come back unchanged (D11, append-only): a listed photo
     gone from the data, or with other bytes, source, batch or folder, is refused. Every non-pool
-    candidate not yet listed joins, and pool photos are drawn until they match the segmenter positives in
-    number (D12). A new photo whose group is already split takes that split; the other new groups are split
+    candidate not yet listed joins, and so does every pool photo of a folder in `params.whole_folders` that is not
+    a copy of a segmenter positive; the other folders' pool photos are drawn until they match the segmenter
+    positives in number (D12). A new photo whose group is already split takes that split; the other new groups are split
     per `split_groups`. `ties` are `load_split_units`' sets, passed to `groups`."""
     by_path = {c["path"]: c for c in candidates}
     for e in existing:
@@ -137,9 +147,15 @@ def assign(candidates: list[dict], existing: list[dict], params: Params,
     entries = [by_path[p] for p in sorted(listed)]
     entries += [c for c in candidates if c["source"] != "pool" and c["path"] not in listed]
     positive_sha = {e["sha256"] for e in entries if e["source"] == "segmenter_positive"}
-    eligible = [c for c in candidates if c["source"] == "pool" and c["path"] not in listed
-                and c["sha256"] not in positive_sha]
-    n_pool = sum(e["source"] == "pool" for e in entries)
+
+    def whole(c: dict) -> bool:
+        return c["source"] == "pool" and c["folder"] in params.whole_folders
+
+    fresh = [c for c in candidates if c["source"] == "pool" and c["path"] not in listed
+             and c["sha256"] not in positive_sha]
+    entries += [c for c in fresh if whole(c)]
+    eligible = [c for c in fresh if not whole(c)]
+    n_pool = sum(e["source"] == "pool" and not whole(e) for e in entries)
     need = sum(e["source"] == "segmenter_positive" for e in entries) - n_pool
     entries += draw_pool(eligible, max(need, 0), seeded_rng(params.seed, "pool", n_pool))
     entries = sorted(entries, key=lambda e: e["path"])
@@ -461,7 +477,7 @@ def main(argv: list[str] | None = None) -> int:
     params = Params.from_config(RunConfig.from_params_yaml().seg_dataset)
     meta, existing = read_seg_dataset() if SEG_DATASET_FILE.exists() else ({}, [])
     built_with = {k: meta[k] for k in ("seed", "split") if k in meta}
-    if existing and built_with != params.as_meta():
+    if existing and not params.same_build(meta):
         print(f"refusing: the file was built with {built_with}, params.yaml says {params.as_meta()}; the file "
               "is append-only (D11)", file=sys.stderr)
         return 1

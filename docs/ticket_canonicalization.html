@@ -457,6 +457,13 @@
     <div><div class="when">2026-11-04</div>P7's baseline read by the owner: "baseline is okay, we can continue". ML-16 is
       compared with 0.9611 macro F1 on P6's split; its retrain is unblocked, after the review of the photos new to the
       crops and P6's fallbacks.</div>
+    <div><div class="when">2026-11-04</div>The owner's review of the 55 photos new to the crops and the fallbacks
+      (<code>labels/ml2/review/ml19_p6_new_crops.decisions.jsonl</code>): 10 masks declined, into
+      <code>labels/ml3/pool_exclude.csv</code>; two KB2005 photos were not coffee and moved, renamed, to
+      <code>ood_negatives/user_realworld</code>. P6's count corrected: 54 photos new to the crops, 129 renamed, not
+      50 and 133. The owner asked to review and correct every photo new since the live segmenter's training session
+      before ML-16 retrains it: <code>seg_review label --recheck pass14 --since pass10</code> added, and ML-5 D12
+      amended so that <code>random_date_raccoon</code> joins the segmenter dataset in full.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

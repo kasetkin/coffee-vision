@@ -177,15 +177,16 @@ class TestMergeCarriesMasks(unittest.TestCase):
         2026-10-24, and less the 18 of the remaining 27 the owner's re-review on XL0-v4 masks readmitted the same day;
         then the 6 declines of the 18 Brazil photos new to random_date_raccoon's crops on 2026-10-25, which the owner
         moved to dataset/segmenter_positives the same day, as were the 6 of the file's other photos that the
-        segmenter dataset did not hold). The decisions hold for their photos across re-crops: XL0-v4's changed nearly
-        every mask."""
+        segmenter dataset did not hold; then ML-19 P6's 10 declines of the photos new to the crops of canonical
+        photos and the fallbacks, 2026-11-04). The decisions hold for their photos across re-crops: XL0-v4's changed
+        nearly every mask."""
         import importlib.util
         spec = importlib.util.spec_from_file_location("mask_review", REPO_ROOT / "analysis/ml3/mask_review.py")
         mask_review = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mask_review)
         want = {(r["session"], r["class_folder"], r["file"]) for r in mask_review.exclusions()}
         self.assertEqual(read_exclusions(mask_review.POOL_EXCLUDE), want)
-        self.assertEqual(len(want), 3)
+        self.assertEqual(len(want), 13)
 
 
 class TestSegPoolsWiring(unittest.TestCase):

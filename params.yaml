@@ -246,6 +246,10 @@ seg_dataset:
     train: 0.60
     validation: 0.15
     test: 0.25
+  # Pool folders listed in full, on every build, rather than drawn (the owner, 2026-11-04, amending ML-5 D12): the
+  # photos of new phones the segmenter must learn; the draw matches the segmenter positives with the other folders.
+  whole_folders:
+    - random_date_raccoon
 
 # Ticket ML-5 P6/P10 (D22): in the blind paired review of XL0-v1 and XL0-v2 test masks, which model's mask is on
 # the left is drawn per photo from this seed (coffeecv/seg_review.py paired). 2210 is no other seed here.

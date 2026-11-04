@@ -69,6 +69,57 @@ class PoolDraw(unittest.TestCase):
         self.assertEqual(by_source(out)["pool"], 3)
 
 
+WHOLE = sd.Params(seed=5, split=PARAMS.split, whole_folders=("w",))
+
+
+class WholeFolders(unittest.TestCase):
+    """The owner, 2026-11-04 (amending D12): a pool folder named in whole_folders joins in full, on every build,
+    and does not count toward the draw, which matches the segmenter positives with the other folders' photos."""
+
+    def folder(self, out, name):
+        return [e for e in out if e["source"] == "pool" and e["folder"] == name]
+
+    def test_a_whole_folder_joins_in_full_and_the_draw_matches_the_positives_without_it(self):
+        out = sd.assign(positives(10) + pool("a", 30) + pool("w", 25), [], WHOLE)
+        self.assertEqual((len(self.folder(out, "w")), len(self.folder(out, "a"))), (25, 10))
+        self.assertTrue(all(e["split"] in sd.SPLITS for e in out))
+
+    def test_a_whole_folder_skips_copies_of_segmenter_positives(self):
+        sp = positives(3)
+        copy = photo("dataset/w/class_001__X/copy.jpg", "pool", sha=sp[0]["sha256"])
+        out = sd.assign(sp + pool("a", 5) + pool("w", 4) + [copy], [], WHOLE)
+        self.assertNotIn(copy["path"], {e["path"] for e in out})
+        self.assertEqual(len(self.folder(out, "w")), 4)
+
+    def test_a_folder_named_after_its_photos_were_drawn_keeps_them_and_adds_the_rest(self):
+        data = positives(20) + pool("a", 60) + pool("w", 40)
+        first = stored(sd.assign(data, [], PARAMS))
+        drawn_w = [e for e in first if e["source"] == "pool" and e["folder"] == "w"]
+        self.assertTrue(0 < len(drawn_w) < 40)
+        out = stored(sd.assign(data, first, WHOLE))
+        self.assertEqual([e for e in out if e["path"] in {f["path"] for f in first}], first)   # append-only
+        self.assertEqual((len(self.folder(out, "w")), len(self.folder(out, "a"))), (40, 20))
+
+    def test_a_photo_new_to_a_whole_folder_joins_on_the_next_build(self):
+        data = positives(10) + pool("a", 30) + pool("w", 5)
+        first = stored(sd.assign(data, [], WHOLE))
+        new = photo("dataset/w/class_002__Y/new.jpg", "pool")
+        out = sd.assign(data + [new], first, WHOLE)
+        self.assertIn(new["path"], {e["path"] for e in out})
+        self.assertEqual(len(self.folder(out, "a")), 10)
+
+    def test_params_read_whole_folders_and_record_them(self):
+        p = sd.Params.from_config({"seed": 5, "split": PARAMS.split, "whole_folders": ["w"]})
+        self.assertEqual((p.whole_folders, p.as_meta()["whole_folders"]), (("w",), ["w"]))
+        self.assertEqual(sd.Params.from_config({"seed": 5, "split": PARAMS.split}).whole_folders, ())
+        with self.assertRaisesRegex(ValueError, "whole_folders"):
+            sd.Params.from_config({"seed": 5, "split": PARAMS.split, "whole_folder": ["w"]})
+
+    def test_naming_a_whole_folder_is_not_another_build(self):
+        self.assertTrue(WHOLE.same_build({"seed": 5, "split": PARAMS.split, "group_seconds": 3}))
+        self.assertFalse(WHOLE.same_build({"seed": 6, "split": PARAMS.split}))
+
+
 def split_counts(entries: list[dict], **match) -> dict:
     return dict(Counter(e["split"] for e in entries if all(e.get(k) == v for k, v in match.items())))
 
@@ -394,9 +445,15 @@ class CommittedFile(unittest.TestCase):
         # 2026-11-03 17 Colombia positives, the pool draw's 17, and 1 user_realworld negative; then 8 more Colombia
         # positives and the pool draw's 8. Then the second exception to D11: 2 positives (byte copies of the
         # Vietnam and Indonesia example photos) and the cappuccino negative left with OPS-16's example photos
-        # (ML-16 D3, ADR 0032); the pool keeps its 313.
+        # (ML-16 D3, ADR 0032); the pool keeps its 313. 2026-11-04 the 2 user_realworld negatives the owner moved
+        # out of random_date_raccoon (ML-19 P6's review); then random_date_raccoon in full (whole_folders, amending
+        # D12): its 140 photos not yet listed, and the draw's 17 from the other folders, which match the 311
+        # segmenter positives without it.
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 311, "pool": 313, "negative": 613, "internet_positive": 11})
+                         {"segmenter_positive": 311, "pool": 470, "negative": 615, "internet_positive": 11})
+        whole = RunConfig.from_params_yaml().seg_dataset["whole_folders"]
+        drawn = [e for e in self.photos if e["source"] == "pool" and e["folder"] not in whole]
+        self.assertEqual(len(drawn), 311)
 
     def test_each_of_the_owners_split_units_is_one_group(self):
         group = {e["path"]: e["group"] for e in self.photos}
@@ -407,6 +464,16 @@ class CommittedFile(unittest.TestCase):
 
     def test_no_entry_has_a_tag(self):
         self.assertEqual([e["path"] for e in self.photos if "tag" in e], [])
+
+    @real_data
+    def test_every_photo_of_a_whole_folder_is_listed_or_a_copy_of_a_segmenter_positive(self):
+        listed = {e["path"] for e in self.photos}
+        positive = {e["sha256"] for e in self.photos if e["source"] == "segmenter_positive"}
+        for folder in RunConfig.from_params_yaml().seg_dataset["whole_folders"]:
+            for p in sorted((REPO_ROOT / "dataset" / folder).glob("class_*/*")):
+                if p.is_file() and sd.rel(p) not in listed:
+                    with self.subTest(photo=sd.rel(p)):
+                        self.assertIn(sd.sha256_file(p), positive)
 
     def test_no_pool_photo_is_a_copy_of_a_segmenter_positive(self):
         positive = {e["sha256"] for e in self.photos if e["source"] == "segmenter_positive"}

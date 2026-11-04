@@ -41,6 +41,11 @@ Since 2026-10-25 it also holds the owner's review of the 18 Brazil photos new to
 fallback, and every decline is "mask declined". The owner's words for the 6: their masks are not good enough, but the
 photos are all good ones; the owner moved them to dataset/segmenter_positives the same day (MOVED_OUT).
 
+Since 2026-11-04 it also holds the owner's review of the 54 photos new to the crops of canonical photos (ticket ML-19
+P6), the D18 fallbacks and P7's two Ethiopia photos wrong on every patch (labels/ml2/review/ml19_p6_new_crops.decisions.jsonl,
+items from analysis/ml19/p6_review_items.py, 55): as in ML-8 P4, a fallback was judged on its frame, so every decline
+is excluded, a fallback's as "D18 fallback with background" (ML19_FALLBACKS). The two KB2005 fallbacks were accepted
+(no beans, an empty mask) and moved by the owner to dataset/ood_negatives: not coffee.
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
 
@@ -76,6 +81,16 @@ ML9_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml9_p5_crops.decision
 REREVIEW_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "pool_exclude_rereview.decisions.jsonl"
 NEW_CROPS_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "new_crops_2026-10-25.decisions.jsonl"
 NEW_CROPS_ITEMS = 18
+ML19_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml19_p6_new_crops.decisions.jsonl"
+ML19_ITEMS = 55
+ML19_FALLBACKS = {   # the D18 fallbacks among ML-19 P6's items, as segcrop recorded them on the canonical photos
+    "dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124324645.jpg",
+    "dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110905_iPhone_13_Ethiopia.HEIC",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113737_KB2005_Colombia.jpg",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113926_KB2005_Colombia.jpg",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123806_OnePlus_Colombia.jpg",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia.jpg",
+}
 # Moved to dataset/segmenter_positives by the owner on 2026-10-24: the empty or tiny XL0-v4 masks
 # (coffeecv.find_tiny_masks); the two other photos moved had never been reviewed.
 MOVED_OUT = {
@@ -158,7 +173,7 @@ def exclusions() -> list[dict]:
     fallback = {it["path"] for it in its if it["fallback"] == "1"}
     if not BACKGROUND_FALLBACKS <= fallback:
         raise ValueError(f"not D18 fallbacks: {sorted(BACKGROUND_FALLBACKS - fallback)}")
-    rows = ml8_exclusions() + ml9_exclusions() + new_crops_exclusions()
+    rows = ml8_exclusions() + ml9_exclusions() + new_crops_exclusions() + ml19_exclusions()
     for it in its:
         declined = dec[it["item"]]["decision"] == "decline"
         if it["path"] in BACKGROUND_FALLBACKS:
@@ -240,6 +255,14 @@ def new_crops_exclusions() -> list[dict]:
     if len(dec) != NEW_CROPS_ITEMS:
         raise ValueError(f"2026-10-25: {len(dec)} items judged, not all {NEW_CROPS_ITEMS}")
     return declined_rows(list(dec.values()), lambda r: False)
+
+
+def ml19_exclusions() -> list[dict]:
+    """Ticket ML-19 P6's declines (see the module docstring): every item judged, each declined photo excluded."""
+    dec = last_decisions(ML19_DECISIONS)
+    if len(dec) != ML19_ITEMS:
+        raise ValueError(f"ML-19 P6: {len(dec)} items judged, not all {ML19_ITEMS}")
+    return declined_rows(list(dec.values()), lambda r: r["path"] in ML19_FALLBACKS)
 
 
 def exclude() -> int:

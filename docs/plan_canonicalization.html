@@ -358,6 +358,14 @@
     photos and these fallbacks. <code>seg_ml19_predict@xl0_v6_s42</code> (P7's) stored 319 test masks. Not done:
     <code>tests/test_seg_parity.py</code>-style check of a stored crop against serving on a real pool photo beyond the
     fixture; <code>export_litert</code>'s check stays on the originals (it compares two backends on the same pixels).</p>
+    <p><b>Reviewed 2026-11-04 by the owner</b> (<code>analysis/ml19/p6_review_items.py</code>: the 54 new photos, the
+    6 fallbacks and P7's two Ethiopia photos, 55 items): 45 accepted, 10 declined into
+    <code>labels/ml3/pool_exclude.csv</code>; two of the fallbacks (<code>20261030_113737_KB2005</code>,
+    <code>20261030_113926_KB2005</code>) were not coffee and moved to <code>ood_negatives/user_realworld</code>.
+    <code>random_date_raccoon</code> re-cropped and the pool merged again. Before ML-16 retrains the segmenter, the
+    owner reviews and corrects every photo new since its training session (pass10): pass15, <code>seg_review label
+    --recheck pass14 --since pass10</code>, over a segmenter dataset that now holds <code>random_date_raccoon</code>
+    in full (ML-5 D12 amended).</p>
 
 <h2>9. P7 &mdash; The baseline <span class="pill sm open">stop</span></h2>
   <div class="fields">
