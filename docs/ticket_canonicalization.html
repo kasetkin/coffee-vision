@@ -487,6 +487,11 @@
     <div><div class="when">2026-11-04</div>D23 and D38 decided by the owner: a 40 MB upload cap, a 60 MP ceiling,
       the front's <code>MemoryMax</code> 600M with swap. The check service logs what it canonicalized and the memory it
       took, for the review of the ceiling. P8 done.</div>
+    <div><div class="when">2026-11-04</div>P5's review done (D47). Of pass14's 191 turned rows, the owner had rejudged
+      17 in pass15 and pass16; the 76 negatives' masks are empty; the other 98, positives carried unchanged into pass16
+      (52 segmenter positives, 46 pool), were shown on their canonical photos (<code>coffeecv.review_masks
+      --canonical</code>) and all accepted: <code>labels/ml2/review/ml19_pass14.decisions.jsonl</code>.
+      pass16 stands as it is for ML-16's segmenter fine-tune.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
