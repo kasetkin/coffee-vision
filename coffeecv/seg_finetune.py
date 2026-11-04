@@ -83,8 +83,10 @@ LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <ses
 MODEL_DIR = REPO_ROOT / "models" / "seg"
 RESUME_ROOT = REPO_ROOT / "outputs" / "seg_finetune"   # <name>/resume.pt, a run's slot (ML-13 P2); not a DVC output
 TOY_SUFFIX = "_toy"               # a toy run touches its own slot only
-CODE_DEPS = ("coffeecv/seg_finetune.py", "coffeecv/augment.py", "coffeecv/sam_loader.py",
-             "third_party/efficientvit/efficientvit")   # the fine-tune stages' code deps in dvc.yaml (a test holds them)
+# The fine-tune stages' code deps in dvc.yaml (a test holds them); the canonical modules since ML-19 P6 (photos are
+# read from the canonical store), first a dep of seg_ml16_finetune.
+CODE_DEPS = ("coffeecv/seg_finetune.py", "coffeecv/augment.py", "coffeecv/sam_loader.py", "coffeecv/canonical.py",
+             "coffeecv/canonical_store.py", "third_party/efficientvit/efficientvit")
 LOW = 256                         # the decoder's low-res logits
 PROMPT_FRAME = 1024               # SAM's prompt coordinates (model.image_size[0])
 IGNORE = 255

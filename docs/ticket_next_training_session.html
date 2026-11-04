@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -166,6 +166,18 @@
           <code>seg_dataset.yaml</code> lost its three entries by hand, the second exception to its append-only
           rule (ML-5 D11), and <code>seg_dataset build</code> then adds nothing. The pool keeps its 313 photos
           against 311 positives, so the next 2 new positives draw no pool photo.</td></tr>
+      <tr><td class="id">D4</td><td>The segmenter's fine-tune: which seeds?</td>
+        <td>(a) seed 42 only, xl0_v6_s42's (b) several (ADR 0002)</td>
+        <td>(a), 2026-11-04: "Use seed 42 for now, other seeds maybe will be used later depending on results."
+          <code>seg_ml16_finetune@xl0_v7_s42</code>.</td></tr>
+      <tr><td class="id">D5</td><td>Its recipe?</td>
+        <td>(a) XL0-v6's unchanged (<code>params.yaml</code> <code>seg_ft</code>) (b) changed</td>
+        <td>(a), 2026-11-04, as recommended: the canonical input and pass16's labels are already two differences from
+          xl0_v6_s42; a third would leave the comparison unreadable.</td></tr>
+      <tr><td class="id">D6</td><td>Who judges it, and against what?</td>
+        <td>The owner, blind and paired, against xl0_v6_s42's masks of the same canonical test photos
+          (<code>seg_ml19_predict</code>, ML-19 D14, D48)</td>
+        <td>2026-11-04: "judge will be me".</td></tr>
     </tbody>
   </table></div>
 
