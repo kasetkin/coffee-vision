@@ -7,8 +7,8 @@ and patch budget, 160 patches a class) over data/segcropped/pool, which since ML
 photos, made by today's segmenter (xl0_v6_s42); scores every patch with the checkpoint in PyTorch, as training
 scored it (metrics.compute_split_metrics); and writes analysis/ml19/p7/baseline.json and prints the comparison with
 the checkpoint's source experiment's test metrics (its crops of the originals, JPEG q95), and writes the patches'
-predictions (analysis/ml19/p7/predictions_test.csv, training's format). The re-crop changed the pool (P6: 50 photos
-new to it, 133 renamed), so the two test splits are not the same photos: paired.py scores both on the photos they
+predictions (analysis/ml19/p7/predictions_test.csv, training's format). The re-crop changed the pool (P6: 54 photos
+new to it, 129 renamed), so the two test splits are not the same photos: paired.py scores both on the photos they
 share. This is the baseline ML-16's retrain is paired against (ADR 0002).
 """
 from __future__ import annotations

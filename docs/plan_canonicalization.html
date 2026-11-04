@@ -346,14 +346,15 @@
     the pool after <code>labels/ml3/pool_exclude.csv</code>; crops as lossless JPEG XL (19 GB); the four segmenter
     fine-tune stage families frozen, since <code>seg_finetune</code> now reads canonical photos and pass14's geometry.
     Against today's crops: a photo matched by name moves its mask area by a median 0 and at most 0.008 of the frame. Not
-    the same pool, though: <code>random_date_raccoon</code>'s crops were stale (133 of its photos renamed since its last
-    crop, 50 added) and three photos moved to <code>example_photos/</code>, so 1,429 photos against 1,379, and the
+    the same pool, though: <code>random_date_raccoon</code>'s crops were stale (of its 131 crops, 129 photos renamed since
+    and 2 moved to <code>example_photos/</code>; 54 photos added; corrected 2026-11-04 from &ldquo;133 renamed, 50
+    added&rdquo; by <code>analysis/ml19/p6_review_items.py</code>) and three photos moved to <code>example_photos/</code>, so 1,429 photos against 1,379, and the
     classifier's split changes with it. D18 fallbacks: 6 against today's 1, the old one
     (<code>2026-08-30__pixel/.../PXL_20260830_124324645</code>) and five photos new to the crops, all in
     <code>random_date_raccoon</code>: <code>20261030_113737_KB2005_Colombia</code>, <code>20261030_113926_KB2005_Colombia</code>,
     <code>20261103_110905_iPhone_13_Ethiopia</code>, <code>20261103_123806_OnePlus_Colombia</code>,
     <code>20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia</code> (the last the 7-photo check's refused one). <b>For the
-    owner, before ML-16 trains</b> (docs/agents/experiments.md: a photo new to the crops is judged first): the 50 new
+    owner, before ML-16 trains</b> (docs/agents/experiments.md: a photo new to the crops is judged first): the 54 new
     photos and these fallbacks. <code>seg_ml19_predict@xl0_v6_s42</code> (P7's) stored 319 test masks. Not done:
     <code>tests/test_seg_parity.py</code>-style check of a stored crop against serving on a real pool photo beyond the
     fixture; <code>export_litert</code>'s check stays on the originals (it compares two backends on the same pixels).</p>

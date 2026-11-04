@@ -11,7 +11,7 @@ models/dino3b16_segxl0v6_country_aug8_s42.pt --no-tta --out analysis/ml19/p7/ood
 
 ## Read this first: the test split is not exp279's
 
-P6's re-crop changed the pool: `random_date_raccoon`'s crops were stale (133 of its photos renamed since, 50 added) and
+P6's re-crop changed the pool: `random_date_raccoon`'s crops were stale (129 of its photos renamed since, 54 added) and
 three photos moved to `example_photos/`, so the pool holds 1,429 photos against 1,379. The split is drawn per class
 from the pool, so it changed too: of exp279's 209 test photos, 103 are in this test split; 114 of its 217 are new to
 it. The whole-split numbers below mix the two changes. The paired section separates them.
@@ -83,5 +83,5 @@ segmenter left empty now get a tiny mask. The empty-or-tiny count is the same, a
 
 - Read the baseline: the paired photos show no cost from the canonical input, and the whole split's drop is the new
   photos. ML-16's retrain is unblocked once this is read.
-- Before ML-16 trains, look at the 25 dated test photos (with the 50 new photos and P6's 6 fallbacks): the two Pixel 9
+- Before ML-16 trains, look at the 25 dated test photos (with the 54 new photos and P6's 6 fallbacks): the two Pixel 9
   Pro Ethiopia photos wrong on every patch are worth a look for a label or a mask problem.
