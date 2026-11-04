@@ -2,6 +2,7 @@
 crops is judged first), as items for coffeecv.review_masks, as ML-8 P4 did (analysis/ml8/p4_review_items.py).
 
     python analysis/ml19/p6_review_items.py [--out outputs/ml19_p6/review]
+    python analysis/ml19/p6_review_items.py --before HEAD --new-only --out outputs/ml19_p6/review_<date>   # a later round
     python -m coffeecv.review_masks --items outputs/ml19_p6/review/items.csv --name ml19_p6_new_crops --canonical
 
 The items, from every segcrop session's segcrop_report.json:
@@ -11,7 +12,9 @@ The items, from every segcrop session's segcrop_report.json:
     renamed since, labels/ml3/strip_manifest.csv's sha256_after for that path (or RENAMED_UNRECORDED's new name).
   - fallback: a D18 fallback today (its mask too small to crop by).
   - the P7 test photos wrong on every patch (analysis/ml19/p7_baseline.md).
-Photos already in labels/ml3/pool_exclude.csv are left out. Each item's mask is the segmenter's full-frame mask on the
+--before names another git revision whose dvc.lock is "before" (HEAD: the photos a re-crop not yet committed adds),
+and --new-only leaves the fallbacks and P7's photos out (2026-11-04: the owner's 10 new Brazil photos, after the
+first round was judged). Photos already in labels/ml3/pool_exclude.csv are left out. Each item's mask is the segmenter's full-frame mask on the
 canonical photo, as the segcrop stage made it (params.yaml seg_params, the stage's 4 threads, which change mask
 bits), checked against the mask_sha256 the stage recorded; its path is the original's, shown canonical by
 --canonical. Writes only under --out (gitignored: the masks are of DVC photos). Declines go to
@@ -63,9 +66,9 @@ def cached(md5: str) -> bytes:
     return (CACHE / md5[:2] / md5[2:]).read_bytes()
 
 
-def reports_before() -> list[tuple[str, str, str]]:
-    """(session, class folder, original's file name) of every crop the segcrop stages held at BEFORE."""
-    lock = yaml.safe_load(subprocess.run(["git", "show", f"{BEFORE}:dvc.lock"], cwd=REPO, check=True,
+def reports_before(before: str = BEFORE) -> list[tuple[str, str, str]]:
+    """(session, class folder, original's file name) of every crop the segcrop stages held at `before`."""
+    lock = yaml.safe_load(subprocess.run(["git", "show", f"{before}:dvc.lock"], cwd=REPO, check=True,
                                          capture_output=True, text=True).stdout)["stages"]
     out = []
     for name, stage in lock.items():
@@ -108,8 +111,11 @@ def excluded() -> set[tuple[str, str, str]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", type=Path, default=REPO / "outputs" / "ml19_p6" / "review")
+    ap.add_argument("--before", default=BEFORE, help=f"the git revision whose dvc.lock is before (default {BEFORE})")
+    ap.add_argument("--new-only", action="store_true", help="only the photos new since --before")
     args = ap.parse_args()
-    before = sha_before(reports_before())
+    args.out = args.out.resolve()
+    before = sha_before(reports_before(args.before))
     skip = excluded()
     picked = []
     for rep in sorted(SEGCROPPED.glob("*/class_*/segcrop_report.json")):
@@ -120,8 +126,9 @@ def main() -> int:
             if (session, cls, r["file"]) in skip:
                 continue
             photo = Path("dataset") / session / cls / r["file"]
-            why = [w for w, hit in (("new", sha256_file(REPO / photo) not in before), ("fallback", r["fallback"]),
-                                    ("wrong in P7", Path(r["file"]).stem in WRONG_IN_P7)) if hit]
+            why = [w for w, hit in (("new", sha256_file(REPO / photo) not in before),
+                                    ("fallback", r["fallback"] and not args.new_only),
+                                    ("wrong in P7", Path(r["file"]).stem in WRONG_IN_P7 and not args.new_only)) if hit]
             if why:
                 picked.append((photo, r, why))
     print(f"{len(picked)} items: {sum('new' in w for *_, w in picked)} new, "

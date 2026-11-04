@@ -6153,6 +6153,66 @@ photos:
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_122926_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115718_Pixel_9_Pro_Brazil.jpg
+  sha256: ec96659ef30ca2e924e25ad1f8dc5756a4fa2b87725542b948f75c71e8f7c97b
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115718_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115723_Pixel_9_Pro_Brazil.jpg
+  sha256: 2cb79865aa962b649ad11c45e73d2e093d4cf62739e9ebc7ef01268afcc94371
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115723_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115732_Pixel_9_Pro_Brazil.jpg
+  sha256: 4767b5277aad7e81f20fd56e979e24d8ec9fe295194ee468794bfea17a65ccce
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115732_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115748_Pixel_9_Pro_Brazil.jpg
+  sha256: dfce0a26a4f8e6442c6270664417a12054378e8415decde3a92c439a104468dc
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115748_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115754_Pixel_9_Pro_Brazil.jpg
+  sha256: 85dad29aaf0ecba27d1c846bca3448a2fa6eaab27bb67a1b28ba2956125b92b3
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115754_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120905_Pixel_9_Pro_Brazil.jpg
+  sha256: 2c7e6b0ea49184d18241cdb40b74a72c9b93332609d81e4f5dcc71196282a120
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120905_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120916_Pixel_9_Pro_Brazil.jpg
+  sha256: 95039501c620779bf5a1979b4e07a0f0d7bee989b412e428f289307e34821b96
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120916_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124629_Pixel_9_Pro_Brazil.jpg
+  sha256: 5e15a3a65d0b05c825fd3b3f94a130aa0153977ba2be66140db7e041961652c2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124629_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124709_KB2005_Brazil.jpg
+  sha256: ee717ad7a52662ae75eddd647c4374251705da4aa0a7c2a1e8be93e7248fa699
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124709_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124713_KB2005_Brazil.jpg
+  sha256: eea49827a22d6b5876e0c2260cbe230876b3df70565819d50fb7b55d010ef449
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124713_KB2005_Brazil.jpg
 - path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg
   sha256: cc8811f6607f82ed5df83e06ee07d532d45fbd9eed319ddccdd415b0533ffaa5
   source: pool
