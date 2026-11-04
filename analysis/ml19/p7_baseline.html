@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ML-19 P7: the baseline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ink: #1f1d1a; --muted: #6b645b; --line: #e4ded5; --paper: #fbf9f6; --card: #ffffff;
+    --accent: #7a4e2d; --accent-soft: #f3ebe3; --down: #b4432f; --down-soft: #fbeae6;
+    --up: #2f7d4f; --up-soft: #e6f4ec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 16px/1.6 "IBM Plex Sans", system-ui, sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 48px 28px 80px; }
+  header { border-bottom: 2px solid var(--accent); padding-bottom: 18px; margin-bottom: 28px; }
+  .eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 10px; }
+  h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 4px; }
+  p { margin: 10px 0; }
+  .lede { font-size: 17px; color: var(--ink); }
+  .meta { font-size: 14px; color: var(--muted); }
+  code { font: 13.5px "IBM Plex Mono", ui-monospace, monospace; background: #f1ece5; padding: 1px 5px; border-radius: 4px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 26px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card .k { font-size: 13px; color: var(--muted); }
+  .card .v { font-size: 26px; font-weight: 700; line-height: 1.25; margin-top: 2px; }
+  .card .s { font-size: 13px; color: var(--muted); }
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 14px 18px;
+             border-radius: 0 8px 8px 0; margin: 18px 0; }
+  .callout.warn { border-color: #c28a2c; background: #fbf3e2; }
+  .callout b:first-child { display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line);
+          border-radius: 10px; overflow: hidden; margin: 14px 0; font-size: 15px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { background: #f5f1eb; font-weight: 600; font-size: 13.5px; color: #4a443d; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  tr.total td { background: #f8f4ee; font-weight: 700; }
+  .down { color: var(--down); background: var(--down-soft); border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+  .up { color: var(--up); background: var(--up-soft); border-radius: 4px; padding: 1px 6px; font-weight: 600; }
+  .same { color: var(--muted); }
+  ul { padding-left: 22px; } li { margin: 6px 0; }
+  footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="eyebrow">ML-19 &middot; P7 &middot; D14, D48 &middot; 2026-11-04</div>
+  <h1>The baseline: today's models on canonical photos</h1>
+  <p class="lede">The live models (<code>dino3b16_segxl0v6_country_aug8_s42</code>, its OOD probe, segmenter XL0-v6
+    s42) on the canonical photos' crops, beside their own numbers on today's crops of the originals. This is ML-16's
+    paired baseline (ADR 0002): ML-16's retrain is compared with these numbers, not with exp279's.</p>
+</header>
+
+<div class="cards">
+  <div class="card"><div class="k">Shared photos, patch accuracy</div><div class="v">0.9791 &rarr; 0.9811</div>
+    <div class="s">103 photos in both splits; no vote changed</div></div>
+  <div class="card"><div class="k">Whole test split, macro F1</div><div class="v">0.9775 &rarr; 0.9611</div>
+    <div class="s">a different split: 114 of 217 photos new to it</div></div>
+  <div class="card"><div class="k">25 dated new photos, patch accuracy</div><div class="v">0.7622</div>
+    <div class="s">34 of the 45 new errors</div></div>
+  <div class="card"><div class="k">OOD guard</div><div class="v">160/160 &middot; 0/158</div>
+    <div class="s">negatives caught &middot; positives refused</div></div>
+</div>
+
+<div class="callout">
+  <b>Reading</b>
+  The input's change is neutral. The new test split is harder because it holds <code>random_date_raccoon</code>'s new
+  and renamed photos, the photos ML-16 trains on. ML-16's retrain is compared with <b>0.9611 macro F1 / 0.9613
+  accuracy on this split</b>, not with exp279's 0.9775.
+</div>
+
+<h2>Read this first: the test split is not exp279's</h2>
+<div class="callout warn">
+  <b>Two changes at once</b>
+  P6's re-crop changed the pool: <code>random_date_raccoon</code>'s crops were stale (133 of its photos renamed since,
+  50 added) and three photos moved to <code>example_photos/</code>, so the pool holds 1,429 photos against 1,379. The
+  split is drawn per class from the pool, so it changed too: of exp279's 209 test photos, 103 are in this test split;
+  114 of its 217 are new to it. The whole-split numbers mix the two changes. The paired section separates them.
+</div>
+
+<h2>The whole test split</h2>
+<p class="meta">1,600 patches, 160 a class. No D18 fallbacks in the test split, and no patches below the bean-share
+  rule.</p>
+<table>
+  <tr><th>Class</th><th class="n">F1, exp279 (originals)</th><th class="n">F1, canonical</th><th class="n">Recall, exp279 &rarr; canonical</th></tr>
+  <tr><td>Ethiopia</td><td class="n">0.9814</td><td class="n"><span class="down">0.9191</span></td><td class="n">0.9875 &rarr; <span class="down">0.8875</span></td></tr>
+  <tr><td>Kenya</td><td class="n">0.9444</td><td class="n"><span class="up">0.9623</span></td><td class="n">0.9563 &rarr; <span class="same">0.9563</span></td></tr>
+  <tr><td>Colombia</td><td class="n">0.9563</td><td class="n"><span class="down">0.9156</span></td><td class="n">0.9563 &rarr; <span class="down">0.8812</span></td></tr>
+  <tr><td>CostaRica</td><td class="n">0.9938</td><td class="n">0.9969</td><td class="n">0.9938 &rarr; <span class="same">0.9938</span></td></tr>
+  <tr><td>Guatemala</td><td class="n">0.9560</td><td class="n"><span class="down">0.9202</span></td><td class="n">0.9500 &rarr; 0.9375</td></tr>
+  <tr><td>Brazil</td><td class="n">0.9782</td><td class="n">0.9666</td><td class="n">0.9812 &rarr; <span class="up">0.9938</span></td></tr>
+  <tr><td>Vietnam</td><td class="n">0.9969</td><td class="n">1.0000</td><td class="n">1.0000 &rarr; <span class="same">1.0000</span></td></tr>
+  <tr><td>Indonesia</td><td class="n">0.9938</td><td class="n">0.9969</td><td class="n">0.9938 &rarr; 1.0000</td></tr>
+  <tr><td>Peru</td><td class="n">0.9778</td><td class="n"><span class="down">0.9366</span></td><td class="n">0.9625 &rarr; 0.9688</td></tr>
+  <tr><td>Rwanda</td><td class="n">0.9969</td><td class="n">0.9969</td><td class="n">0.9938 &rarr; <span class="same">0.9938</span></td></tr>
+  <tr class="total"><td>Macro F1</td><td class="n">0.9775</td><td class="n">0.9611</td><td class="n">accuracy 0.9775 &rarr; 0.9613, MCC 0.9750 &rarr; 0.9571</td></tr>
+</table>
+
+<h2>Paired: the photos both splits hold</h2>
+<table>
+  <tr><th>On the 103 shared photos</th><th class="n">Originals (exp279)</th><th class="n">Canonical</th></tr>
+  <tr><td>Patches</td><td class="n">908</td><td class="n">900</td></tr>
+  <tr><td>Patch accuracy</td><td class="n">0.9791</td><td class="n"><span class="up">0.9811</span></td></tr>
+  <tr><td>Macro F1 (patches)</td><td class="n">0.9478</td><td class="n">0.9464</td></tr>
+  <tr><td>Photo accuracy (mean probability's top class)</td><td class="n">1.0000</td><td class="n"><span class="same">1.0000</span></td></tr>
+</table>
+<p>Not one photo's vote changed. On the same photos, the canonical input costs nothing measurable: patch accuracy
+  moves by +0.002 and macro F1 by &minus;0.001. That is within what another decode and another mask do to the patches.
+  The patches themselves differ (8 fewer, since the masks moved slightly), so this is a per-photo comparison, not a
+  per-patch one.</p>
+
+<h2>Where the drop comes from: the 114 photos new to the split</h2>
+<table>
+  <tr><th>Photos only in the new split</th><th class="n">Photos</th><th class="n">Patch accuracy</th><th class="n">Wrong patches</th><th class="n">Photo accuracy</th></tr>
+  <tr><td>Dated names (<code>random_date_raccoon</code>: renamed since exp279, or new to the pool)</td><td class="n">25</td><td class="n"><span class="down">0.7622</span></td><td class="n">34 of 143</td><td class="n"><span class="down">0.8400</span></td></tr>
+  <tr><td>The older names (moved into test from exp279's train or val)</td><td class="n">89</td><td class="n">0.9803</td><td class="n">11 of 557</td><td class="n">0.9888</td></tr>
+</table>
+<p>The photos with the older names score as the shared ones do. The 25 dated photos hold 34 of the split's 45 new
+  errors. They come from the session's mix of phones (KB2005, G8441, OnePlus, Galaxy Z Fold8 Ultra, Pixel 7, Pixel 9
+  Pro), with two Pixel 9 Pro photos of Ethiopia wrong on every patch (<code>20261103_110934</code>,
+  <code>20261103_110947</code>). The Ethiopia and Colombia recall drops are mostly those photos.</p>
+<p>Of the 89, 20 were in exp279's val split and the other 69 in neither its test nor its val, so in its train split.
+  They are easier than truly held-out photos. That makes the drop, if anything, an underestimate of what the new photos
+  cost.</p>
+
+<h2>The OOD guard</h2>
+<p class="meta">Probe threshold 0.5 (ADR 0016); no TTA.</p>
+<table>
+  <tr><th></th><th class="n">Today (originals)</th><th class="n">Canonical</th></tr>
+  <tr><td>Test photos scored</td><td class="n">295</td><td class="n">318</td></tr>
+  <tr><td>Negatives caught</td><td class="n">160 / 160</td><td class="n"><span class="same">160 / 160</span></td></tr>
+  <tr><td>Positives refused, trained on</td><td class="n">0 / 64</td><td class="n"><span class="same">0 / 66</span></td></tr>
+  <tr><td>Positives refused, not trained on</td><td class="n">0 / 71</td><td class="n"><span class="same">0 / 92</span></td></tr>
+  <tr><td>Segmenter on the negatives: empty mask</td><td class="n">154 / 160</td><td class="n">152 / 160</td></tr>
+  <tr><td>Segmenter on the negatives: empty or tiny</td><td class="n">156 / 160</td><td class="n"><span class="same">156 / 160</span></td></tr>
+</table>
+<p>The guard's refusals are unchanged: every negative caught, no positive refused. Two <code>user_realworld</code>
+  negatives that the segmenter left empty now get a tiny mask. The empty-or-tiny count is the same, and the probe
+  catches both.</p>
+
+<h2>For the owner</h2>
+<ul>
+  <li>Read the baseline: the paired photos show no cost from the canonical input, and the whole split's drop is the
+    new photos. ML-16's retrain is unblocked once this is read.</li>
+  <li>Before ML-16 trains, look at the 25 dated test photos (with the 50 new photos and P6's 6 fallbacks): the two
+    Pixel 9 Pro Ethiopia photos wrong on every patch are worth a look for a label or a mask problem.</li>
+</ul>
+
+<footer>
+  Written by <code>analysis/ml19/p7/baseline.py</code> (<code>baseline.txt</code>, <code>baseline.json</code>,
+  <code>predictions_test.csv</code>), <code>analysis/ml19/p7/paired.py</code> (<code>paired.txt</code>) and
+  <code>python -m coffeecv.ood_eval --checkpoint models/dino3b16_segxl0v6_country_aug8_s42.pt --no-tta --out
+  analysis/ml19/p7/ood_eval.json</code> (<code>ood_eval.txt</code>), on 2026-11-04, over
+  <code>data/segcropped/pool</code> as P6 left it (<code>dvc status</code> clean). Today's OOD numbers:
+  <code>analysis/xl0v6/ood_eval.txt</code>. Source: <code>analysis/ml19/p7_baseline.md</code>.
+</footer>
+
+</main>
+</body>
+</html>
