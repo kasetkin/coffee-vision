@@ -308,7 +308,9 @@
     (<code>segmenter_positives__PXL_20261007_043818022</code>, <code>ood_negatives__user_realworld__PXL_20261031_072103744</code>):
     found by sha256 here, but they have no canonical photo (D37 keeps <code>example_photos/</code> out of the store), so
     ML-16's fine-tune stops on them by name: <b>for ML-16</b>, drop the two rows or put the example photos back in the
-    store.
+    store. <b>Settled 2026-11-04</b>: pass15 and pass16 are built from the segmenter dataset, which lists neither photo
+    (ML-16 D3), so neither names them; every one of pass16's 1,057 rows finds its original by sha256 and its canonical
+    photo, its mask the canonical photo's size (the same check finds pass14's two). ML-16 trains on pass16.
     The labelling page: <code>coffeecv.review_masks --canonical</code> shows each original's canonical photo (the
     store's file, or canonicalized on the spot) and refuses a mask of another size. For the owner:</p>
   <pre>python -m coffeecv.review_masks --items labels/ml19/pass14_review_items.csv --name ml19_pass14 --canonical</pre>
