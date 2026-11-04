@@ -29,7 +29,15 @@ Or a session can re-review an earlier one's labels (the owner, 2026-10-25):
 
 Every positive is shown: a photo pass6 accepted, with the same sha256, starts from its pass6 label as round 1,
 with the points and fence that drew it; accept keeps it, and after a decline the new points add to those. The
-others start from the proposer's mask. Every positive is encoded. `status` counts carried labels apart. pass3 is the one session left in the repo (pass1 and pass2, with
+others start from the proposer's mask.
+
+Or a re-review of only the photos new since a segmenter's training session (the owner, 2026-11-04):
+
+    python -m coffeecv.seg_review label --session pass15 --proposer xl0_v6_s42 --redraw xl0_v6_s42 \
+        --recheck pass14 --since pass10
+
+A photo pass10 accepted (by sha256: what xl0_v6_s42 trained on) keeps its pass14 label, carried and unshown;
+every other positive is rechecked as above. Every positive is encoded. `status` counts carried labels apart. pass3 is the one session left in the repo (pass1 and pass2, with
 XL0-v1 and v2, went on 2026-10-21): it holds its own copies of what it carried from pass2.
 
 On the page: A accepts the mask; D (or 1-5, with a reason) declines it. After a decline, hold g and left-click
@@ -283,7 +291,8 @@ class LabelSession:
     marked `carried_from`. Its drops and the photos new to it are the ones the page shows (`shown`).
 
     A rechecking session (`recheck`: an earlier session; the owner's re-review of every label, 2026-10-25) shows
-    every positive instead: a photo the earlier session accepted, with the same sha256, starts from that label as
+    every positive instead, or with `since` (an earlier session a segmenter trained on) every positive but those
+    `since` accepted, which keep the rechecked session's labels as carried ones: a photo the earlier session accepted, with the same sha256, starts from that label as
     its round-1 mask, to judge again, with the index row that drew it (points, fence, model); the rest start from
     the proposer's. Accept keeps the label; a decline adds points to those that drew it. A session carries or
     rechecks, not both."""
@@ -304,16 +313,18 @@ class LabelSession:
             if old is None:
                 raise ValueError(f"no session {name}: {rel(self.meta_path)} does not exist")
             models = old
-        self.carry, self.recheck = models.get("carry"), models.get("recheck")
+        self.carry, self.recheck, self.since = models.get("carry"), models.get("recheck"), models.get("since")
         # A session keeps the rounds it was started with; one started before the file recorded them had D14's 3.
         self.rounds = int(models.get("rounds") or (old.get("rounds", LEGACY_ROUNDS) if old else ROUNDS_DEFAULT))
         if name in (self.carry, self.recheck):
             raise ValueError(f"session {name} cannot carry or recheck itself")
         if self.carry and self.recheck:
             raise ValueError(f"session {name} carries or rechecks an earlier session, not both")
+        if self.since and not self.recheck:
+            raise ValueError(f"session {name}: --since needs --recheck (the labels to keep come from it)")
         meta = {"session": name, "proposer": models["proposer"], "redraw": models["redraw"],
                 "redraw_output": REDRAW_OUTPUT, "splits": list(LABEL_SPLITS), "carry": self.carry,
-                "recheck": self.recheck, "rounds": self.rounds}
+                "recheck": self.recheck, "since": self.since, "rounds": self.rounds}
         if old is not None:
             diff = [k for k in meta if old.get(k, LEGACY_ROUNDS if k == "rounds" else None) != meta[k]]
             if diff:
@@ -463,16 +474,19 @@ class LabelSession:
             return {**it, "id": old[0], "path": src.row({"id": old[0]}, 1)["path"]} if len(old) == 1 else None
         return lookup
 
-    def carry_in(self, log: Callable[[str], None] = lambda s: None) -> None:
+    def carry_in(self, log: Callable[[str], None] = lambda s: None, source: str | None = None,
+                 only: set[str] | None = None) -> None:
         """Copy what the earlier session accepted (`earlier_items`: the same photo by path and sha256, or by sha256
         alone for a renamed photo): each round's mask and index row, then its verdicts, marked carried_from, and a
         renamed photo's verdicts also carried_from_path, its path there; the rows and verdicts name the photo by its
-        path now. Its drops and pending photos are not carried. Resumable."""
-        src = LabelSession(self.carry, self.entries, None, self.labels_dir, self.mask_root)
+        path now. Its drops and pending photos are not carried. `source` is the earlier session (default the carried
+        one) and `only`, if given, the photos' sha256 to carry. Resumable."""
+        source = source or self.carry
+        src = LabelSession(source, self.entries, None, self.labels_dir, self.mask_root)
         verdicts, done, earlier = src.verdicts(), self.carried(), self.earlier_items(src)
         n = 0
         for it in self.items:
-            old = None if it["id"] in done else earlier(it)
+            old = None if it["id"] in done or (only is not None and it["sha256"] not in only) else earlier(it)
             if old is None:
                 continue
             st = src.state(old, verdicts)
@@ -490,10 +504,17 @@ class LabelSession:
             with open(self.verdicts_path, "a") as f:
                 for k in range(1, st.round + 1):
                     f.write(json.dumps({**verdicts[(old["id"], k)], "item": it["id"], "path": it["path"],
-                                        "carried_from": self.carry, **moved}) + "\n")
+                                        "carried_from": source, **moved}) + "\n")
             n += 1
         if n:
-            log(f"  carried {n} accepted labels from {self.carry}")
+            log(f"  carried {n} accepted labels from {source}")
+
+    def trained_on(self) -> set[str]:
+        """The sha256 of every photo the `since` session accepted, from its labels.csv (what a fine-tune reads)."""
+        f = self.mask_root / self.since / "labels.csv"
+        if not f.exists():
+            raise FileNotFoundError(f"session {self.since}: no {rel(f)} (`seg_review status --session {self.since}`)")
+        return {r["photo_sha256"] for r in read_csv(f) if r["status"] == "accepted"}
 
     # a rechecking session
     def recheck_in(self, log: Callable[[str], None] = lambda s: None) -> None:
@@ -527,6 +548,8 @@ class LabelSession:
         resumable."""
         if self.carry:
             self.carry_in(log)
+        if self.since:   # the photos a segmenter trained on keep their labels, unshown; the rest are rechecked
+            self.carry_in(log, source=self.recheck, only=self.trained_on())
         if self.recheck:
             self.recheck_in(log)
         out_neg = self.mask_dir / "neg"
@@ -1063,6 +1086,10 @@ def main(argv: list[str] | None = None) -> None:
     lab.add_argument("--recheck", default=None,
                      help="an earlier session whose accepted labels this one shows again, each as its round-1 mask "
                           "(the owner's re-review, 2026-10-25); default none")
+    lab.add_argument("--since", default=None,
+                     help="with --recheck: an earlier session whose accepted photos (by sha256) a segmenter trained "
+                          "on; those keep the rechecked session's labels unshown, and only the rest are shown "
+                          "(the owner, 2026-11-04); default none")
     lab.add_argument("--prepare-only", action="store_true", help="prepare, then exit without serving")
     st = sub.add_parser("status", help="write the session's labels.csv and print the report")
     st.add_argument("--out", type=Path, help="also write the report as JSON")
@@ -1123,7 +1150,8 @@ def main(argv: list[str] | None = None) -> None:
         return
     torch.set_num_threads(THREADS)
     session = LabelSession(args.session, entries, {"proposer": args.proposer, "redraw": args.redraw,
-                                                   "carry": args.carry, "recheck": args.recheck})
+                                                   "carry": args.carry, "recheck": args.recheck,
+                                                   "since": args.since})
     redrawer = SegDrawer(args.redraw)
     proposer = redrawer if args.proposer == args.redraw else SegDrawer(args.proposer)
     print(f"session {args.session}: {len(session.items)} positives, {len(session.negatives)} negatives; "
@@ -1133,8 +1161,9 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{len(session.shown())} positives to judge, {len(session.carried())} carried from {args.carry}",
               flush=True)
     if args.recheck:
+        kept = f"; {len(session.carried())} kept, accepted in {args.since}" if args.since else ""
         print(f"{len(session.shown())} positives to judge again or for the first time ({args.recheck}'s labels "
-              f"as round 1)", flush=True)
+              f"as round 1){kept}", flush=True)
     if args.prepare_only:
         return
     print(f"verdicts -> {rel(session.verdicts_path)}; masks -> {rel(session.mask_dir)}", flush=True)

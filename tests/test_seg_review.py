@@ -695,6 +695,76 @@ class RecheckedSession(CarriedSession):
         self.assertIsNone(self.open_pass2().recheck)
 
 
+class RecheckedSinceSession(CarriedSession):
+    """The owner's review of every photo new since a segmenter's training session (ML-19, 2026-11-04): pass4
+    rechecks pass1 since pass9. pass9, the session the segmenter trained on, accepted p0 only; pass1 accepted p0 and
+    p1 and dropped p2; p6 is new. pass4 keeps p0 as carried, unshown, and shows p1 from its pass1 label and p2 and
+    p6 from the proposer's."""
+
+    def setUp(self):
+        super().setUp()
+        trained = seg_review.LabelSession("pass9", self.entries, {"proposer": "prop", "redraw": "redraw", "rounds": 3},
+                                          self.labels_dir, self.mask_root)
+        trained.prepare(self.proposer, self.redrawer)
+        c = seg_review.create_label_app(trained, self.redrawer, "rule").test_client()
+        self.post(c, "/decide/0", {"decision": "accept"})                  # p0 only
+        trained.write_labels()
+        self.proposer4, self.redrawer4 = FakeDrawer("prop4"), FakeDrawer("redraw4")
+        self.since = self.open_pass4()
+        self.since.prepare(self.proposer4, self.redrawer4)
+
+    def open_pass4(self, since="pass9", recheck="pass1", entries=None, name="pass4"):
+        return seg_review.LabelSession(name, entries or self.entries,
+                                       {"proposer": "prop4", "redraw": "redraw4", "recheck": recheck,
+                                        "since": since, "rounds": 3}, self.labels_dir, self.mask_root)
+
+    def test_the_photos_the_since_session_accepted_are_carried_and_the_rest_shown(self):
+        self.assertEqual(self.since.carried(), {"segmenter_positive__p0"})
+        c = seg_review.create_label_app(self.open_pass4(), self.redrawer4, "rule").test_client()
+        shown = [self.info(c, i) for i in range(3)]
+        self.assertEqual([(s["item"], s["status"], s["round"], s["model"]) for s in shown],
+                         [("pool__p1", "judge", 1, "redraw"), ("internet_positive__p2", "judge", 1, "prop4"),
+                          ("segmenter_positive__p6", "judge", 1, "prop4")])
+        self.assertEqual(c.get("/item/3").status_code, 404)
+        p1 = next(it for it in self.since.items if it["id"] == "pool__p1")
+        self.assertEqual(self.since.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(shown[0]["points"], {"include": [[0.5, 0.5]], "exclude": []})     # what drew p1's label
+        self.assertEqual(sorted(self.redrawer4.prepared), ["internet_positive__p2", "pool__p1", "segmenter_positive__p6"])
+
+    def test_the_carried_label_equals_the_rechecked_sessions(self):
+        row = {r["id"]: r for r in self.since.write_labels()}["segmenter_positive__p0"]
+        self.assertEqual({k: v for k, v in row.items() if k != "mask"},
+                         {k: v for k, v in self.pass1_labels["segmenter_positive__p0"].items() if k != "mask"})
+        verdicts = [json.loads(x) for x in (self.labels_dir / "pass4.verdicts.jsonl").read_text().splitlines()]
+        self.assertEqual({(r["item"], r["carried_from"]) for r in verdicts}, {("segmenter_positive__p0", "pass1")})
+
+    def test_a_photo_renamed_since_is_still_carried_by_its_sha256(self):
+        moved = self.open_pass4(entries=self.renamed_entries("segmenter_positive/p0.png", "segmenter_positive/p0_new.png"),
+                                name="pass5")
+        moved.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual(moved.carried(), {"segmenter_positive__p0_new"})
+
+    def test_a_second_prepare_changes_nothing(self):
+        files = (self.labels_dir / "pass4.verdicts.jsonl", self.mask_root / "pass4" / "r1" / "index.csv")
+        before = [f.read_text() for f in files]
+        self.open_pass4().prepare(self.proposer4, self.redrawer4)
+        self.assertEqual([f.read_text() for f in files], before)
+
+    def test_the_session_file_records_since_and_a_resume_with_another_is_refused(self):
+        self.assertEqual(json.loads((self.labels_dir / "pass4.session.json").read_text())["since"], "pass9")
+        with self.assertRaisesRegex(ValueError, "since"):
+            self.open_pass4(since="pass1")
+        self.assertEqual(seg_review.LabelSession("pass4", self.entries, None, self.labels_dir, self.mask_root).since,
+                         "pass9")
+
+    def test_since_needs_a_recheck_and_the_since_sessions_labels(self):
+        with self.assertRaisesRegex(ValueError, "since needs --recheck"):
+            seg_review.LabelSession("pass6", self.entries, {"proposer": "p", "redraw": "r", "since": "pass9"},
+                                    self.labels_dir, self.mask_root)
+        with self.assertRaisesRegex(FileNotFoundError, "pass0"):
+            self.open_pass4(since="pass0", name="pass6").prepare(self.proposer4, self.redrawer4)
+
+
 class SessionMasksStayOutOfGit(unittest.TestCase):
     """docs/agents/dvc.md, "Keeping git and DVC apart": a session's masks are gitignored from its first click,
     not only once `dvc add data/ml5_labels/<session>` writes its own .gitignore, and that `dvc add` still works
