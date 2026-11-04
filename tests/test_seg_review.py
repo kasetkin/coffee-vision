@@ -757,6 +757,50 @@ class RecheckedSinceSession(CarriedSession):
         self.assertEqual(seg_review.LabelSession("pass4", self.entries, None, self.labels_dir, self.mask_root).since,
                          "pass9")
 
+    def label_set(self, name="set1"):
+        """pass1's labels.csv as a label set: labels and masks, no session file (as scripts/make_pass14.py writes
+        pass14)."""
+        d = self.mask_root / name
+        d.mkdir(parents=True)
+        (d / "labels.csv").write_bytes((self.mask_root / "pass1" / "labels.csv").read_bytes())
+        return name
+
+    def test_a_label_set_is_rechecked_and_carried_from_its_labels(self):
+        s = self.open_pass4(recheck=self.label_set(), name="pass7")
+        s.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual(s.carried(), {"segmenter_positive__p0"})
+        p0 = next(it for it in s.items if it["id"] == "segmenter_positive__p0")
+        self.assertEqual(s.state(p0), ("accepted", 1, None))
+        row = {r["id"]: r for r in s.write_labels()}["segmenter_positive__p0"]
+        self.assertEqual((row["mask_sha256"], row["status"]), (self.pass1_labels["segmenter_positive__p0"]["mask_sha256"],
+                                                              "accepted"))
+        verdict = json.loads((self.labels_dir / "pass7.verdicts.jsonl").read_text().splitlines()[0])
+        self.assertEqual((verdict["carried_from"], verdict["carried_round"], verdict["decision"]), ("set1", 1, "accept"))
+        c = seg_review.create_label_app(s, self.redrawer4, "rule").test_client()
+        shown = [self.info(c, i) for i in range(3)]
+        self.assertEqual([(x["item"], x["round"], x["model"]) for x in shown],
+                         [("pool__p1", 1, "set1"), ("internet_positive__p2", 1, "prop4"),
+                          ("segmenter_positive__p6", 1, "prop4")])
+        self.assertEqual(shown[0]["points"], {"include": [[0.5, 0.5]], "exclude": []})     # what drew p1's label
+        p1 = next(it for it in s.items if it["id"] == "pool__p1")
+        self.assertEqual(s.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+
+    def test_a_label_set_rechecked_in_full_shows_every_positive(self):
+        s = seg_review.LabelSession("pass8", self.entries, {"proposer": "prop4", "redraw": "redraw4",
+                                                            "recheck": self.label_set(), "rounds": 3},
+                                    self.labels_dir, self.mask_root)
+        s.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual((len(s.shown()), s.carried()), (4, set()))
+        p0 = next(it for it in s.items if it["id"] == "segmenter_positive__p0")
+        self.assertEqual(s.row(p0, 1)["mask_sha256"], self.pass1_labels["segmenter_positive__p0"]["mask_sha256"])
+
+    def test_a_label_sets_photo_renamed_since_is_found_by_its_sha256(self):
+        s = self.open_pass4(recheck=self.label_set(), entries=self.renamed_entries(), name="pass7")
+        s.prepare(self.proposer4, self.redrawer4)
+        p1 = next(it for it in s.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(s.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(s.row(p1, 1)["path"], p1["path"])
+
     def test_since_needs_a_recheck_and_the_since_sessions_labels(self):
         with self.assertRaisesRegex(ValueError, "since needs --recheck"):
             seg_review.LabelSession("pass6", self.entries, {"proposer": "p", "redraw": "r", "since": "pass9"},
@@ -798,6 +842,17 @@ class SessionMasksStayOutOfGit(unittest.TestCase):
             untracked = self.git(root, "status", "--porcelain", "-uall").stdout.split("\n")
             self.assertEqual([x[3:] for x in untracked if x.startswith("??") and x[3:].startswith("data/")],
                              [self.SESSION.with_suffix(".dvc").as_posix()])
+
+
+class EncodingCache(unittest.TestCase):
+    """A stored encoding is of the photo the session reads. Since ML-19 P6 that is the canonical photo (turned by
+    its EXIF orientation, colour-managed), not the original an encoding before then was made from, under the same
+    sha256 key: canonical encodings live apart, so no pre-canonical one is ever read for a redraw."""
+
+    def test_canonical_encodings_are_stored_apart_from_the_originals(self):
+        root, w = Path("/x/emb"), "9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8"
+        self.assertEqual(seg_review.embed_dir(root, w), root / "canonical" / "9bc2f87bd23d6e6d")
+        self.assertNotEqual(seg_review.embed_dir(root, w), root / w[:16])   # where the originals' encodings are
 
 
 @real_data
