@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D25&ndash;D52 decided, D23&ndash;D24 open on measurements; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D22, D24&ndash;D52 decided, D23 open on measurements (D38's ceiling too); planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -117,7 +117,7 @@
     <li><strong>The originals.</strong> <code>dataset/</code> stays byte for byte, the private source of truth; every
       record keys a photo by its original's sha256 (ML-16 D2, ML-18).</li>
     <li><strong>The API.</strong> <code>/analyze</code> takes the same form from the visitor; the formats the front
-      accepts stay those of today, RAW pending D24.</li>
+      accepts stay those of today, RAW up to 16 MP (D24).</li>
     <li><strong>The models.</strong> Nothing is retrained here; ML-16 retrains both on canonical photos.</li>
     <li><strong>Earlier label sessions.</strong> pass1&ndash;pass13 stay as recorded; pass14 is new (D9).</li>
   </ul>
@@ -246,7 +246,10 @@
         <td>Open: measured in the plan.</td></tr>
       <tr><td class="id">D24</td><td>Does the front take RAW within 500 MB?</td>
         <td>(a) yes (b) no</td>
-        <td>Open: measured in the plan (D11).</td></tr>
+        <td>(a), up to 16 MP, 2026-11-04, as P8 recommended: a RAW photo over 16,000,000 pixels is refused with a
+          413 that says so, told from its size before rawpy develops it. Measured on the front under 500M
+          (<code>analysis/ml19/p8/README.md</code>): 10&ndash;12 MP DNGs at 342&ndash;373 MB, a 50 MP DNG killed. The
+          dataset's DNGs (15&ndash;23 MB) pass only under an upload cap above them (D23).</td></tr>
       <tr><td class="id">D25</td><td>Which encoder, at which effort?</td>
         <td>One that writes D7's encoding on all three machines with the same output; the highest effort within
           D22</td>
@@ -468,6 +471,8 @@
       106 corrected) and added 10 Brazil photos to <code>random_date_raccoon</code>, processed through to the test
       masks; their crops judged (1 declined, into <code>pool_exclude.csv</code>) and their labels in pass16 (8, all
       accepted). pass16 holds an accepted label for all 602 training and validation positives, for ML-16.</div>
+    <div><div class="when">2026-11-04</div>D24 decided by the owner, as P8 recommended: RAW on the front up to
+      16 MP. D38's ceiling and D23's cap stay open.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

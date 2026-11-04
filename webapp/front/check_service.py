@@ -54,7 +54,8 @@ UPLOAD_TIMEOUT_S = 120
 # ML-19 D38: the largest photo canonicalized here, in pixels, told from its header (ticket ML-19 P8: 50 MP took 400 MB
 # and 17 s on the front, 60 MP 461 MB and 21 s, under MemoryMax 500M). 50,200,000 lets the Pixel 9 Pro's 50.14 MP
 # through. D24: a RAW photo is developed at 16 bits through several full frames, so its own ceiling (a 12 MP DNG took
-# 373 MB; a 50 MP one was killed at 500M). Both await the owner's decision at P8's stop: these are P8's recommendations.
+# 373 MB; a 50 MP one was killed at 500M): 16 MP, decided by the owner 2026-11-04. MAX_PIXELS awaits the owner's
+# decision at P8's stop: it is P8's recommendation.
 MAX_PIXELS = 50_200_000
 RAW_MAX_PIXELS = 16_000_000
 ANSWER_TIMEOUT_S = 60
