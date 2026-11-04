@@ -1,0 +1,25 @@
+test photos: 209 in exp279__dino3b16_frozen_clsmean_segcrop_country_aug8_s42, 217 on canonical crops, 103 shared; 106 only in the old split, 114 only in the new
+
+on the 103 shared photos    originals  canonical
+patches                            908        900
+macro_f1                        0.9478     0.9464
+accuracy                        0.9791     0.9811
+photo_accuracy                  1.0000     1.0000
+
+per class, photo votes right (originals -> canonical):
+  Ethiopia     5 ->   5 of 5
+  Kenya       14 ->  14 of 14
+  Colombia     2 ->   2 of 2
+  CostaRica   14 ->  14 of 14
+  Guatemala    2 ->   2 of 2
+  Brazil       5 ->   5 of 5
+  Vietnam     14 ->  14 of 14
+  Indonesia    3 ->   3 of 3
+  Peru        26 ->  26 of 26
+  Rwanda      18 ->  18 of 18
+
+photos whose vote changed: 0
+
+the 114 photos only in the new split: patch accuracy 0.9357, photo accuracy 0.9561
+  dated names: 25 photos, patch accuracy 0.7622 (34 of 143 wrong), photo accuracy 0.8400
+  the older names: 89 photos, patch accuracy 0.9803 (11 of 557 wrong), photo accuracy 0.9888

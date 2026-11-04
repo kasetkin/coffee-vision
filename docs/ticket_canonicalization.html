@@ -444,6 +444,16 @@
       owner's (Q5); effort 7 is the highest that runs on the front; and the
       whole-frame JPEG XL encoder needs about 1 GB at 60 MP, so D38 needs libjxl's chunked input API or another
       answer. D25 and the two findings are the plan's Q4&ndash;Q6, for the owner.</div>
+    <div><div class="when">2026-11-04</div>Implemented P1&ndash;P9 to their stops on branch
+      <code>ml16-photos-2026-11-03</code>. Q4&ndash;Q6 answered: effort 7, D30 met, and the front's memory solved by
+      libjxl's chunked input (D52: 60 MP in 470 MB under the front's 500M, the same bytes as the whole-frame encoder),
+      so the 18 MP fallback cap was not needed. <code>coffeecv.canonical</code>, the lock check, the canonical store
+      (2,364 photos, 7.54 GB of originals into 5.13 GB), pass14 (191 rows to review), every training tool on canonical
+      photos, the pool re-cropped (1,429 photos; 6 fallbacks), the front and the host on canonical photos, the deploy's
+      fixtures canonicalized. P7's baseline (<code>analysis/ml19/p7_baseline.md</code>): no cost from the input on the
+      photos both splits share; the whole split's 0.9611 macro F1 (exp279: 0.9775) is <code>random_date_raccoon</code>'s
+      new and renamed photos. Stopped for the owner: P5's review, P7's read, P8's D23, D24 and D38, the pushes of the
+      store and the crops, and P10.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

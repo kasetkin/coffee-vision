@@ -6,9 +6,10 @@ Builds the checkpoint's own test split (fold_data.build_fold_datasets, its card'
 and patch budget, 160 patches a class) over data/segcropped/pool, which since ML-19 P6 holds the crops of canonical
 photos, made by today's segmenter (xl0_v6_s42); scores every patch with the checkpoint in PyTorch, as training
 scored it (metrics.compute_split_metrics); and writes analysis/ml19/p7/baseline.json and prints the comparison with
-the checkpoint's source experiment's test metrics (its crops of the originals, JPEG q95). The two crop sets hold the
-same photos in the same split; their patches differ (another decode, another mask), so the comparison is per class,
-not per patch. This is the baseline ML-16's retrain is paired against (ADR 0002): the input's change alone.
+the checkpoint's source experiment's test metrics (its crops of the originals, JPEG q95), and writes the patches'
+predictions (analysis/ml19/p7/predictions_test.csv, training's format). The re-crop changed the pool (P6: 50 photos
+new to it, 133 renamed), so the two test splits are not the same photos: paired.py scores both on the photos they
+share. This is the baseline ML-16's retrain is paired against (ADR 0002).
 """
 from __future__ import annotations
 
@@ -26,10 +27,11 @@ import torch  # noqa: E402
 
 from coffeecv import infer  # noqa: E402
 from coffeecv.fold_data import build_fold_datasets  # noqa: E402
-from coffeecv.metrics import compute_split_metrics  # noqa: E402
+from coffeecv.metrics import compute_split_metrics, write_predictions_csv  # noqa: E402
 from coffeecv.transforms import build_eval_transform  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "baseline.json"
+PREDICTIONS = OUT.with_name("predictions_test.csv")   # as training writes them; paired.py reads it
 
 
 def main() -> None:
@@ -60,6 +62,7 @@ def main() -> None:
            "patches_below_share": ds.n_below_share, "canonical": metrics,
            "today": {k: before[k] for k in ("n_samples", "accuracy", "macro_f1", "mcc", "per_class")}}
     OUT.write_text(json.dumps(out, indent=1, default=float) + "\n")
+    write_predictions_csv(PREDICTIONS, y, pred, fold.class_ids, ds.meta, probs)
     print(f"\n{'class':12} {'F1 today':>9} {'F1 canonical':>13}   recall today -> canonical")
     for k, c in metrics["per_class"].items():
         b = before["per_class"][k]

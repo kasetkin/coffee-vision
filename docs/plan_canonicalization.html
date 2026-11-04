@@ -360,7 +360,7 @@
 
 <h2>9. P7 &mdash; The baseline <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-04: written (<code>analysis/ml19/p7_baseline.md</code>); stopped for the owner: the baseline read</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6, Q2 (answered: D48)</span></div>
   </div>
   <p>D14, as Q2 settles it: today's models on canonical test photos, the paired baseline (ADR 0002) of ML-16's
@@ -373,6 +373,17 @@
       canonical test split, stored for ML-16's blind paired session.</span></li>
     <li><span class="box"></span><span>Stop for the owner: the baseline read. ML-16's retrain is unblocked.</span></li>
   </ol>
+
+    <p><b>As done, 2026-11-04.</b> The live classifier on the canonical test crops: macro F1 0.9611, accuracy 0.9613
+    (exp279, the originals: 0.9775, 0.9775). P6 changed the pool, so the split is not exp279's: 103 of its 209 test
+    photos are in this one, and 114 of these 217 are new to it. On the 103 shared photos, patch accuracy 0.9791 &rarr;
+    0.9811, macro F1 0.9478 &rarr; 0.9464, and no photo's vote changed: the input's change is neutral. The drop is 25
+    of <code>random_date_raccoon</code>'s renamed or new photos (patch accuracy 0.7622, 34 of the 45 new errors). The
+    other 89 new to the split score 0.9803. The OOD guard: 160 of 160 negatives caught, 0 of 158 positives refused
+    (today: 160 of 160, 0 of 135). Done by <code>analysis/ml19/p7/baseline.py</code> and <code>paired.py</code>, with
+    <code>coffeecv.ood_eval</code>. <code>seg_ml19_predict@xl0_v6_s42</code>'s masks are stored (P6). ML-16's retrain
+    is compared with 0.9611 on this split. <b>For the owner:</b> the baseline read, and the two Pixel 9 Pro Ethiopia
+    test photos wrong on every patch (<code>20261103_110934</code>, <code>20261103_110947</code>).</p>
 
   <h2>10. P8 &mdash; The front measured <span class="pill sm open">stop</span></h2>
   <div class="fields">
