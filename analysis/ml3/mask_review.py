@@ -45,7 +45,8 @@ Since 2026-11-04 it also holds the owner's review of the 54 photos new to the cr
 P6), the D18 fallbacks and P7's two Ethiopia photos wrong on every patch (labels/ml2/review/ml19_p6_new_crops.decisions.jsonl,
 items from analysis/ml19/p6_review_items.py, 55): as in ML-8 P4, a fallback was judged on its frame, so every decline
 is excluded, a fallback's as "D18 fallback with background" (ML19_FALLBACKS). The two KB2005 fallbacks were accepted
-(no beans, an empty mask) and moved by the owner to dataset/ood_negatives: not coffee.
+(no beans, an empty mask) and moved by the owner to dataset/ood_negatives: not coffee. The owner's 10 new Brazil
+photos of the same day were judged after (ML19_NEW_DECISIONS, none a fallback): every decline is "mask declined".
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
 
@@ -83,6 +84,9 @@ NEW_CROPS_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "new_crops_2026-
 NEW_CROPS_ITEMS = 18
 ML19_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml19_p6_new_crops.decisions.jsonl"
 ML19_ITEMS = 55
+# the owner's 10 new Brazil photos of 2026-11-04, judged after the first round (p6_review_items.py --new-only)
+ML19_NEW_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml19_p6_new_crops_2026-11-04.decisions.jsonl"
+ML19_NEW_ITEMS = 10
 ML19_FALLBACKS = {   # the D18 fallbacks among ML-19 P6's items, as segcrop recorded them on the canonical photos
     "dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124324645.jpg",
     "dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110905_iPhone_13_Ethiopia.HEIC",
@@ -262,7 +266,11 @@ def ml19_exclusions() -> list[dict]:
     dec = last_decisions(ML19_DECISIONS)
     if len(dec) != ML19_ITEMS:
         raise ValueError(f"ML-19 P6: {len(dec)} items judged, not all {ML19_ITEMS}")
-    return declined_rows(list(dec.values()), lambda r: r["path"] in ML19_FALLBACKS)
+    rows = declined_rows(list(dec.values()), lambda r: r["path"] in ML19_FALLBACKS)
+    new = last_decisions(ML19_NEW_DECISIONS)
+    if len(new) != ML19_NEW_ITEMS:
+        raise ValueError(f"ML-19 P6, 2026-11-04: {len(new)} items judged, not all {ML19_NEW_ITEMS}")
+    return rows + declined_rows(list(new.values()), lambda r: False)
 
 
 def exclude() -> int:

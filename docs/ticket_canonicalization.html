@@ -464,6 +464,10 @@
       50 and 133. The owner asked to review and correct every photo new since the live segmenter's training session
       before ML-16 retrains it: <code>seg_review label --recheck pass14 --since pass10</code> added, and ML-5 D12
       amended so that <code>random_date_raccoon</code> joins the segmenter dataset in full.</div>
+    <div><div class="when">2026-11-04</div>The owner labelled pass15 (the 193 positives new since pass10, all accepted,
+      106 corrected) and added 10 Brazil photos to <code>random_date_raccoon</code>, processed through to the test
+      masks; their crops judged (1 declined, into <code>pool_exclude.csv</code>) and their labels in pass16 (8, all
+      accepted). pass16 holds an accepted label for all 602 training and validation positives, for ML-16.</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,

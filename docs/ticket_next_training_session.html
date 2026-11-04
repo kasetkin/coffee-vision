@@ -21,7 +21,7 @@
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-19</span> <span class="tag">the retrain reads canonical photos and pass14 (ML-19); builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-19</span> <span class="tag">the retrain reads canonical photos and pass16 (ML-19: the owner's labels of every positive new since pass10, 2026-11-04); builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
   </div>
 
   <div class="callout info">
@@ -308,6 +308,10 @@
       <a href="ticket_canonicalization.html">ML-19</a> (canonicalization), written from a grilling session the same day: both models read canonical photos
       from then on, the segmenter's labels move to pass14, and today's models are re-run on canonical test photos as
       the baseline. ML-19 ships in this ticket's release. The stale <code>segcrop</code> stages wait for it.</div>
+    <div><div class="when">2026-11-04</div>Through ML-19 P6, the owner reviewed and corrected every segmenter positive new
+      since pass10 (pass15, then pass16 for 10 new Brazil photos): pass16 holds an accepted label for all 602
+      training and validation positives of the 1,417-photo dataset, <code>random_date_raccoon</code> in full (ML-5
+      D12 amended). The segmenter retrain reads pass16.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

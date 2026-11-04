@@ -366,6 +366,15 @@
     owner reviews and corrects every photo new since its training session (pass10): pass15, <code>seg_review label
     --recheck pass14 --since pass10</code>, over a segmenter dataset that now holds <code>random_date_raccoon</code>
     in full (ML-5 D12 amended).</p>
+    <p><b>Labelled 2026-11-04 by the owner.</b> pass15 (<code>xl0_v6_s42</code> as proposer and redraw model): the
+    193 positives new since pass10, all accepted (87 at round 1, 106 corrected); 401 carried from pass14. The same
+    day the owner added 10 Brazil photos to <code>random_date_raccoon</code>: stripped, canonicalized, re-cropped (no
+    fallback), merged, listed in the segmenter dataset (6 train, 2 validation, 2 test: 1,417 photos), 360 test masks.
+    Their crops were judged (<code>p6_review_items.py --before HEAD --new-only</code>,
+    <code>labels/ml2/review/ml19_p6_new_crops_2026-11-04.decisions.jsonl</code>): 9 accepted, 1 declined into
+    <code>pool_exclude.csv</code> (14 rows). pass16, carrying pass15: the 8 training and validation photos, all
+    accepted (1 at round 1, 7 corrected). pass16 holds an accepted label for all 602 training and validation
+    positives: the labels ML-16's segmenter retrain reads.</p>
 
 <h2>9. P7 &mdash; The baseline <span class="pill sm open">stop</span></h2>
   <div class="fields">

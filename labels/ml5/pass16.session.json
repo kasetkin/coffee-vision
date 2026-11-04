@@ -1,0 +1,15 @@
+{
+  "session": "pass16",
+  "proposer": "xl0_v6_s42",
+  "redraw": "xl0_v6_s42",
+  "redraw_output": "multi3",
+  "splits": [
+    "train",
+    "validation"
+  ],
+  "carry": "pass15",
+  "recheck": null,
+  "since": null,
+  "rounds": 7,
+  "created": "2026-11-04T10:00:46+00:00"
+}
