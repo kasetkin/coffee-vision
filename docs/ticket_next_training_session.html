@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), its refinement over three seeds running (D7)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -178,6 +178,19 @@
         <td>The owner, blind and paired, against xl0_v6_s42's masks of the same canonical test photos
           (<code>seg_ml19_predict</code>, ML-19 D14, D48)</td>
         <td>2026-11-04: "judge will be me".</td></tr>
+      <tr><td class="id">D7</td><td>After <code>xl0_v7_s42</code> (epoch 20 chosen, score 0.9792; stopped after epoch
+        28): refine it?</td>
+        <td>(a) judge it as it is (b) fine-tune again from its chosen decoder, at a lower rate, over several seeds</td>
+        <td>(b), 2026-11-05: "try fine-tuning segmenter from saved check-point xl0_v7_s42, epoch 20. Select different
+          seed and because we already start from model with 0.979 score I think we should start with decreased
+          learning rate. I think we should try multiple seeds this time. Try 3 of them, but maybe I will interrupt
+          process at some point if we will receive very good results midway." Claude's values:
+          <code>--lr 2e-5</code> (a fifth of the recipe's 1e-4, under the 5e-5 the schedule had reached at epoch
+          20), everything else the recipe's (cosine to 1e-6 over 40 epochs, patience 8; a fresh optimizer); seeds
+          123, 7 and 2026, one after another: <code>seg_ml16_refine@xl0_v7r_s{123,7,2026}</code>, with
+          <code>seg_finetune --init</code> (new). Epoch 0 of each run is xl0_v7_s42's own score, so a run keeps a
+          decoder only if it beats that on the same validation photos that chose it; a margin of one negative
+          (0.006) or so is within noise there, and the owner's review on the test photos decides.</td></tr>
     </tbody>
   </table></div>
 
@@ -324,6 +337,12 @@
       since pass10 (pass15, then pass16 for 10 new Brazil photos): pass16 holds an accepted label for all 602
       training and validation positives of the 1,417-photo dataset, <code>random_date_raccoon</code> in full (ML-5
       D12 amended). The segmenter retrain reads pass16.</div>
+    <div><div class="when">2026-11-05</div><code>xl0_v7_s42</code> trained (<code>seg_ml16_finetune</code>, run
+      directly while the DVC push ran, to be recorded with <code>dvc commit</code>): 15.5 h, 62 min of it loading and
+      encoding; stopped after epoch 28 with no better score for 8 epochs, epoch 20 kept: val mIoU 0.970, 0.988 of the
+      neg_select photos empty, score 0.9792. Not comparable with xl0_v6_s42's 0.982, chosen on other validation
+      photos; on these, xl0_v6_s42's val mIoU is 0.967. D7: its refinement, <code>seg_ml16_refine</code>, three
+      seeds from its chosen decoder at 2e-5.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

@@ -427,7 +427,7 @@ class LearningRateArgument(unittest.TestCase):
         """main() with training stubbed out: the FtParams train got, checked against those the card records."""
         got = {}
 
-        def train(seed, cfg, p, rows, name):
+        def train(seed, cfg, p, rows, name, init=None):
             got["train"] = p
             return {"best": {"epoch": 1, "score": 0.5}}
 
@@ -512,14 +512,10 @@ class Interrupted(Exception):
     """A host reboot, as the test sees it."""
 
 
-@real_data
-@unittest.skipUnless(HAVE_L0, SKIP_L0)
-class Resume(unittest.TestCase):
-    """Ticket ML-13 D7, D8 (plan P2): the stage's command keeps its best checkpoint and resume state on disk after
-    every epoch, in outputs/seg_finetune/<name>/, and run again after a reboot it continues where it stopped: the
-    model, history and chosen epoch are those of a run straight through. A state with other inputs is deleted and
-    the run starts fresh; a run deletes other runs' leftovers, a toy run (`_toy`) only its own; nothing stays once
-    the model is written. L0, three synthetic photos, patience above the epochs so no run stops early."""
+class ToyRuns:
+    """The fine-tune's command, main(), on a toy label set of five synthetic L0 photos, in a temporary
+    directory per test: the run's model, card and resume slot, and its printed log."""
+
 
     @classmethod
     def setUpClass(cls):
@@ -533,7 +529,7 @@ class Resume(unittest.TestCase):
         self.root = self.dir / "resume"
 
     def run_main(self, name: str, *, epochs: int = 3, seed: int = 42, rows=None, seg_ft=None, augment=None,
-                 interrupt_at: int | None = None) -> str:
+                 interrupt_at: int | None = None, extra: tuple[str, ...] = ()) -> str:
         """main() on the toy label set with seg_ft at toy scale (`seg_ft` and `augment` edit params.yaml's); the
         printed log. `interrupt_at`: the selection pass (0 before training, n after epoch n) that never returns,
         as if the host rebooted while epoch n ran."""
@@ -557,7 +553,7 @@ class Resume(unittest.TestCase):
               mock.patch.object(ft, "label_rows", lambda session: rows or self.rows),
               mock.patch.object(ft, "evaluate", interrupting), contextlib.redirect_stdout(out)):
             try:
-                ft.main(["train", "--labels", "toy", "--seed", str(seed), "--name", name, "--threads", "2"])
+                ft.main(["train", "--labels", "toy", "--seed", str(seed), "--name", name, "--threads", "2", *extra])
             except Interrupted:
                 pass
         return out.getvalue()
@@ -568,6 +564,15 @@ class Resume(unittest.TestCase):
     @staticmethod
     def without_seconds(history: list[dict]) -> list[dict]:
         return [{k: v for k, v in row.items() if k != "seconds"} for row in history]
+
+@real_data
+@unittest.skipUnless(HAVE_L0, SKIP_L0)
+class Resume(ToyRuns, unittest.TestCase):
+    """Ticket ML-13 D7, D8 (plan P2): the stage's command keeps its best checkpoint and resume state on disk after
+    every epoch, in outputs/seg_finetune/<name>/, and run again after a reboot it continues where it stopped: the
+    model, history and chosen epoch are those of a run straight through. A state with other inputs is deleted and
+    the run starts fresh; a run deletes other runs' leftovers, a toy run (`_toy`) only its own; nothing stays once
+    the model is written. L0, three synthetic photos, patience above the epochs so no run stops early."""
 
     def test_a_run_stopped_in_epoch_2_and_run_again_gives_the_uninterrupted_model(self):
         # One name for both, in two directories: torch.save names its archive after the file.
@@ -613,6 +618,44 @@ class Resume(unittest.TestCase):
         self.assertFalse(self.root.exists())
 
 
+@real_data
+@unittest.skipUnless(HAVE_L0, SKIP_L0)
+class WarmStart(ToyRuns, unittest.TestCase):
+    """Ticket ML-16 D7: `--init models/seg/<model>.pt` starts the run from that fine-tuned decoder. Epoch 0's
+    selection is the init's chosen epoch's, so the run only keeps a decoder that beats it; the card and the
+    fingerprint name the init by its sha256; a decoder of other base weights is refused before any training."""
+
+    def test_the_run_starts_at_the_inits_score_and_records_it(self):
+        self.run_main("first", epochs=2)
+        first, init = self.card("first"), self.dir / "m" / "first.pt"
+        # A trained decoder, so that starting from it differs from starting from the pretrained one.
+        self.assertGreater(first["chosen"]["epoch"], 0)
+        self.assertNotEqual(first["chosen"]["score"], first["history"][0]["score"])
+        log = self.run_main("second", epochs=1, seed=7, extra=("--init", str(init)))
+        second = self.card("second")
+        metrics = ("val_miou", "neg_select_empty", "score")
+        self.assertEqual({k: second["history"][0][k] for k in metrics}, {k: first["chosen"][k] for k in metrics})
+        self.assertEqual((first["init"], second["init"]["sha256"]), (None, sha256_file(init)))
+        self.assertEqual(second["base_weights"], first["base_weights"])
+        self.assertNotIn("starting fresh", log)
+
+    def test_an_init_changes_the_fingerprint(self):
+        self.run_main("first", epochs=1)
+        init = self.dir / "m" / "first.pt"
+        self.run_main("run", epochs=2, interrupt_at=2)
+        log = self.run_main("run", epochs=2, extra=("--init", str(init)))
+        self.assertRegex(log, r"is another run's \([^)]*\binit_sha256\b[^)]*differ\): deleted, starting fresh")
+
+    def test_a_decoder_of_other_base_weights_is_refused(self):
+        self.run_main("first", epochs=1)
+        ck = torch.load(self.dir / "m" / "first.pt", weights_only=True)
+        other = self.dir / "other.pt"
+        torch.save({**ck, "base_weights_sha256": "0" * 64}, other)
+        with self.assertRaisesRegex(ValueError, "base_weights_sha256"):
+            self.run_main("second", epochs=1, extra=("--init", str(other)))
+        self.assertFalse((self.dir / "m" / "second.pt").exists())
+
+
 class ResumeFingerprintCode(unittest.TestCase):
     """The resume fingerprint hashes the code every fine-tune stage in dvc.yaml depends on (plan P2), so a code
     change DVC would rerun the stage for also stops a resume."""
@@ -624,7 +667,7 @@ class ResumeFingerprintCode(unittest.TestCase):
             if not do["cmd"].startswith("python -m coffeecv.seg_finetune ") or do.get("frozen"):
                 continue
             with self.subTest(name):
-                code = [d for d in do["deps"] if not d.startswith(("data/", "models_pretrained/"))]
+                code = [d for d in do["deps"] if not d.startswith(("data/", "models_pretrained/", "models/"))]
                 self.assertEqual(sorted(code), sorted(ft.CODE_DEPS))
 
 
