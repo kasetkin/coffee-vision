@@ -4533,3 +4533,60 @@ stages:
       hash: md5
       md5: 90f744ab1510cbfa2759fffc2956b54d
       size: 16272713
+  seg_ml19_predict@xl0_v7r_s123:
+    cmd: python -m coffeecv.seg_predict 
+      efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v7r_s123.pt 
+      --split test --threads 4 --out data/seg_masks_ml19/xl0_v7r_s123
+    deps:
+    - path: coffeecv/canonical.py
+      hash: md5
+      md5: 6d64de8d8223bd7286fb8044470e548e
+      size: 19362
+    - path: coffeecv/canonical_store.py
+      hash: md5
+      md5: a85569f0556feacaa2191bb522e17dce
+      size: 2454
+    - path: coffeecv/sam_loader.py
+      hash: md5
+      md5: e8615df752d8acadfae306946fdc6d21
+      size: 3296
+    - path: coffeecv/seg_predict.py
+      hash: md5
+      md5: 0caf1f0ff5a3e6ca8445dc69959a0738
+      size: 5324
+    - path: coffeecv/segment_beans.py
+      hash: md5
+      md5: 6fa89509a93a12ac601f8bb9773dc733
+      size: 25282
+    - path: data/canonical
+      hash: md5
+      md5: 9965a35cff120e411419b91b9c172b74.dir
+      size: 5553179264
+      nfiles: 2375
+    - path: labels/ml5/seg_dataset.yaml
+      hash: md5
+      md5: 39360180306041822f125b3162c69938
+      size: 413582
+    - path: models/seg/xl0_v7r_s123.pt
+      hash: md5
+      md5: 33f460a8fba55e7cea9e56157cb97b39
+      size: 16272965
+    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
+      hash: md5
+      md5: 246bfc629317decc29dfb513872a7ca2
+      size: 468211343
+    - path: third_party/efficientvit/efficientvit
+      hash: md5
+      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
+      size: 621621
+      nfiles: 129
+    params:
+      params.yaml:
+        seg_mask_select: multi3
+        seg_prompt: box
+    outs:
+    - path: data/seg_masks_ml19/xl0_v7r_s123
+      hash: md5
+      md5: 544af63673cca52823546b99be42216d.dir
+      size: 2711468
+      nfiles: 361
