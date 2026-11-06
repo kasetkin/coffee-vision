@@ -7,6 +7,9 @@ model on its validation scores.
     python -m coffeecv.review_masks --items analysis/ml16/threshold_items.csv --name ml16_d9_xl0_v7r_s123 --canonical
     python analysis/ml16/threshold.py report    # the new value, the test positives under it, the negatives' rates
 
+Not run to the end: the owner judged 70 of the 200 masks (61 accepted, 9 declined) and kept XL0-v6's 0.028521
+instead (D9, 2026-11-06), so `report` stops at the 130 not judged.
+
 The masks are seg_ml19_predict@xl0_v7r_s123's (data/seg_masks_ml19/xl0_v7r_s123); the rule itself is
 coffeecv.seg_review.tiny_threshold, which P10's paired report runs.
 """

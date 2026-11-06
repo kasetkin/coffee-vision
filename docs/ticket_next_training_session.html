@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), refined over two seeds (D7), <code>xl0_v7r_s123</code> chosen for the release (D8, 2026-11-06)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), refined over two seeds (D7), <code>xl0_v7r_s123</code> chosen for the release (D8, 2026-11-06), the threshold kept (D9)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -198,6 +198,16 @@
           <code>seg_decoder</code> names it; its masks of the canonical test photos are
           <code>seg_ml19_predict@xl0_v7r_s123</code>. Chosen on the validation scores, in place of D6's blind paired
           session.</td></tr>
+      <tr><td class="id">D9</td><td>The tiny-mask threshold (<code>seg_min_area_frac</code>) for xl0_v7r_s123?</td>
+        <td>(a) re-derived by ML-2 D18's rule from the owner's accepted test-positive masks (b) XL0-v6's 0.028521
+          kept</td>
+        <td>(b), 2026-11-06: "in general masks are good, though I can improve some of them, especially small
+          "holes" inside correct region. Reuse 0.028521 const." First (a) was started: the owner judged 70 of the 200
+          canonical test-positive masks on <code>review_masks --canonical</code> (61 accepted, 9 declined, all 9
+          OnePlus photos of 2026-08-25 and 2026-08-27;
+          <code>labels/ml2/review/ml16_d9_xl0_v7r_s123.decisions.jsonl</code>). The 61 would give 0.073341. 4 of
+          the 200 test positives fall under 0.028521: the two internet photos that fell under it for XL0-v6 too, and two photos of
+          2026-11-03 and 2026-11-04.</td></tr>
     </tbody>
   </table></div>
 

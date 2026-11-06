@@ -105,6 +105,9 @@ seg_mask_select: multi3
 # test-positive masks, the 2 accepted empty ones not counted (smallest IMG_20261022_110423, 0.057042), 0.021008
 # before; the same 3 test positives fall under either value, and 156/160 test negatives are empty or tiny under
 # either. analysis/xl0v6/paired_s42_report.txt.
+# XL0-v7, xl0_v7r_s123 (ML-16 D9, the owner, 2026-11-06): kept, not re-derived ("Reuse 0.028521 const."). The owner
+# judged 70 of its 200 canonical test-positive masks (61 accepted, 9 declined; "in general masks are good", some with
+# small holes); 4 of the 200 fall under it.
 seg_min_area_frac: 0.028521
 
 # Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
@@ -127,7 +130,7 @@ crop_method: segment
 # every session re-cropped with it in ML-13 P7. XL0-v7, xl0_v7r_s123 (ML-16 D8, the owner, 2026-11-06): XL0-v6's
 # recipe on canonical photos and pass16, seed 42 (xl0_v7_s42), then refined from its chosen decoder at 2e-5, seed 123
 # (models/seg/xl0_v7r_s123.json; val mIoU 0.981, neg_select empty 1.000, score 0.9903 against xl0_v7_s42's 0.9792),
-# chosen by the owner on these scores. seg_min_area_frac above is still XL0-v6's, until it is re-derived or kept.
+# chosen by the owner on these scores; seg_min_area_frac above kept (D9).
 seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
 seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
 seg_decoder: models/seg/xl0_v7r_s123.pt
