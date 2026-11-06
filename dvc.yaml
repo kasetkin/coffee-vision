@@ -455,16 +455,15 @@ stages:
 
   # Ticket ML-16 D7: xl0_v7_s42 refined. Each run starts from its chosen decoder (epoch 20, score 0.9792; --init) at
   # a fifth of the recipe's rate (--lr 2e-5, still cosine to lr_min over seg_ft.epochs, patience 8), on the same
-  # labels; three seeds other than its 42, run one after another (each run deletes other runs' resume slots). A run
-  # that never beats epoch 0, the init's own score, writes the init's decoder again. The owner may stop after any.
+  # labels; seeds other than its 42, run one after another (each run deletes other runs' resume slots). A run that
+  # never beats epoch 0, the init's own score, writes the init's decoder again. Seed 2026, the third, dropped by the
+  # owner while it loaded (D8, 2026-11-06): xl0_v7r_s123 ships.
   seg_ml16_refine:
     foreach:
       xl0_v7r_s123:
         seed: 123
       xl0_v7r_s7:
         seed: 7
-      xl0_v7r_s2026:
-        seed: 2026
     do:
       cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed ${item.seed} --name ${key}
         --init models/seg/xl0_v7_s42.pt --lr 2e-5 --threads 8
@@ -522,10 +521,14 @@ stages:
 
   # Ticket ML-19 P7 (D14, D48): today's segmenter's masks of the canonical test split, stored for ML-16's blind paired
   # session against its new segmenter: the baseline that separates the input's change from the training's.
+  # xl0_v7r_s123 (ML-16 D8), the segmenter this release ships: its masks of the same photos, for the tiny-mask
+  # threshold and the owner's look.
   seg_ml19_predict:
     foreach:
       xl0_v6_s42:
         model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
+      xl0_v7r_s123:
+        model: ${seg_ft.weights}:models/seg/xl0_v7r_s123.pt
     do:
       cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_ml19/${key}
       deps:

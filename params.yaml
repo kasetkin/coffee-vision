@@ -124,11 +124,14 @@ crop_method: segment
 # test positives passed blind, analysis/xl0v5/); every session re-cropped with it. XL0-v6 seed 42 (ML-13 D14, the
 # owner, 2026-10-29): XL0-v5's recipe on the pass-10 labels, seed 42 (models/seg/xl0_v6_s42.json; 122 against
 # XL0-v5's 115 of 135 test positives passed blind, test negatives empty 154 against 119 of 160, analysis/xl0v6/);
-# every session re-cropped with it in ML-13 P7.
+# every session re-cropped with it in ML-13 P7. XL0-v7, xl0_v7r_s123 (ML-16 D8, the owner, 2026-11-06): XL0-v6's
+# recipe on canonical photos and pass16, seed 42 (xl0_v7_s42), then refined from its chosen decoder at 2e-5, seed 123
+# (models/seg/xl0_v7r_s123.json; val mIoU 0.981, neg_select empty 1.000, score 0.9903 against xl0_v7_s42's 0.9792),
+# chosen by the owner on these scores. seg_min_area_frac above is still XL0-v6's, until it is re-derived or kept.
 seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
 seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
-seg_decoder: models/seg/xl0_v6_s42.pt
-seg_decoder_sha256: b3fcbf9f1ac6ae7e4feeff82b30084360ef6eb391ded28dbfca3c91ff785903b
+seg_decoder: models/seg/xl0_v7r_s123.pt
+seg_decoder_sha256: 996bddf8742d02cf47eaece90306f705a48d7ec4436aba16848f009e471e6f5b
 # D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
 seg_keep_frac: 0.95
 # D17: reject a patch box under 80% bean region; after 20 x n candidates, top up
