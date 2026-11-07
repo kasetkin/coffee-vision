@@ -13,7 +13,7 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), refined over two seeds (D7), <code>xl0_v7r_s123</code> chosen for the release (D8, 2026-11-06), the threshold kept (D9)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), refined over two seeds (D7), <code>xl0_v7r_s123</code> chosen for the release (D8, 2026-11-06), the threshold kept (D9); the classifier retrained on its crops (exp280&ndash;282), exp280 shipped (D11, 2026-11-07)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
@@ -220,6 +220,13 @@
           fallbacks the re-crop made in <code>2026-10-21__new_green</code>, all excluded
           (<code>labels/ml3/pool_exclude.csv</code>, 31 rows). The four classes they join get their photo split
           redrawn (ML-1 D1(b)), as with D3's.</td></tr>
+      <tr><td class="id">D11</td><td>Which classifier ships with <code>xl0_v7r_s123</code>, after exp280&ndash;282 tested
+        lower than exp279/277/278 at every seed (test mean &minus;0.0080, on redrawn test sets)?</td>
+        <td>(a) ship <code>xl0_v7r_s123</code> with exp280, seed 42 (b) first a run on xl0_v6_s42's crops of today's photos,
+          isolating the segmenter (c) hold the release, keep exp279</td>
+        <td>(a), 2026-11-07: "ship xl0_v7r_s123". Shipped as <code>models/dino3b16_segxl0v7r_country_aug8_s42.pt</code>
+          (<code>fit_frozen_head --ship 280 --seed-exps 280 281 282</code>), val macro-F1 0.9737, test 0.9762; its OOD
+          reference and probe, the LiteRT conversion, OPS-16 P6 and the release still to come.</td></tr>
     </tbody>
   </table></div>
 
