@@ -3,6 +3,8 @@ crops is judged first), as items for coffeecv.review_masks, as ML-8 P4 did (anal
 
     python analysis/ml19/p6_review_items.py [--out outputs/ml19_p6/review]
     python analysis/ml19/p6_review_items.py --before HEAD --new-only --out outputs/ml19_p6/review_<date>   # a later round
+    python analysis/ml19/p6_review_items.py --before HEAD --session random_date_raccoon --out outputs/ml16/review_new
+                                            # ML-16: one session's new photos and fallbacks
     python -m coffeecv.review_masks --items outputs/ml19_p6/review/items.csv --name ml19_p6_new_crops --canonical
 
 The items, from every segcrop session's segcrop_report.json:
@@ -113,6 +115,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=REPO / "outputs" / "ml19_p6" / "review")
     ap.add_argument("--before", default=BEFORE, help=f"the git revision whose dvc.lock is before (default {BEFORE})")
     ap.add_argument("--new-only", action="store_true", help="only the photos new since --before")
+    ap.add_argument("--session", action="append", help="only these segcrop sessions (repeatable; default every "
+                                                        "session): ML-16's 87 new raccoon photos, while the other "
+                                                        "sessions were still being re-cropped")
     args = ap.parse_args()
     args.out = args.out.resolve()
     before = sha_before(reports_before(args.before))
@@ -120,7 +125,7 @@ def main() -> int:
     picked = []
     for rep in sorted(SEGCROPPED.glob("*/class_*/segcrop_report.json")):
         session, cls = rep.parent.parent.name, rep.parent.name
-        if session == "pool":
+        if session == "pool" or (args.session and session not in args.session):
             continue
         for r in json.loads(rep.read_text()):
             if (session, cls, r["file"]) in skip:

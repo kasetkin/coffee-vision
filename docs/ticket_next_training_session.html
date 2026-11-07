@@ -208,6 +208,18 @@
           <code>labels/ml2/review/ml16_d9_xl0_v7r_s123.decisions.jsonl</code>). The 61 would give 0.073341. 4 of
           the 200 test positives fall under 0.028521: the two internet photos that fell under it for XL0-v6 too, and two photos of
           2026-11-03 and 2026-11-04.</td></tr>
+      <tr><td class="id">D10</td><td>The owner's 87 photos of 2026-11-05 and 2026-11-06 in
+        <code>dataset/random_date_raccoon</code>: in this release?</td>
+        <td>(a) in the classifier's training now (b) a later release</td>
+        <td>(a), 2026-11-06: "I've added more photos to the dataset/random_date_raccoon folder. Strip them from private
+          data, add to the DVC, make canonical variants, crop using xl0_v7r_s123 segmenter. I want to use this new
+          photos for classifier training." Ethiopia 34, Brazil Decaff 22 (a new folder, <code>class_013__Brazil_Decaff</code>:
+          class 013, so it trains as Brazil), Indonesia 14, Colombia 9, Brazil SulDeMinas 8; Pixel 9 Pro, OnePlus and
+          G8441. Stripped (87 of 87, 0 failing), no copies (<code>find_duplicates</code>: none at 0.97 or above). The
+          owner judged their crops (2026-11-07): 77 accepted, 11 declined (4 of them D18 fallbacks), and declined the 6
+          fallbacks the re-crop made in <code>2026-10-21__new_green</code>, all excluded
+          (<code>labels/ml3/pool_exclude.csv</code>, 31 rows). The four classes they join get their photo split
+          redrawn (ML-1 D1(b)), as with D3's.</td></tr>
     </tbody>
   </table></div>
 
@@ -366,6 +378,16 @@
       stopped after epoch 15, epoch 7 kept: 0.982, 0.988, 0.9849. Both recorded with <code>dvc commit</code>, their
       models pushed and checked on the remote. Seed 2026 stopped by the owner (D8) while it loaded; it left no model
       and no resume state.</div>
+    <div><div class="when">2026-11-07</div>The re-crop with <code>xl0_v7r_s123</code> (D8, D9): every
+      <code>segcrop</code> stage by <code>dvc repro -s</code>, one at a time, about 3 h. The owner's 87 new photos (D10)
+      joined first: <code>dvc add dataset/random_date_raccoon</code> (278 photos), then
+      <code>canonicalize@random_date_raccoon</code> (12 min). D18 fallbacks: 11, against xl0_v6_s42's 5 on the same
+      photos; new are 4 of the new raccoon photos and 6 green photos of <code>2026-10-21__new_green</code> (5 Peru, 1
+      Indonesia), where xl0_v7r_s123 finds no pile and xl0_v6_s42 cropped all 6: a weakness on green beans. 4 photos
+      ML-19 excluded as fallbacks with background are cropped now; they stay excluded. The owner's review
+      (<code>p6_review_items.py --session</code>, new): 77 of the 88 raccoon items accepted, the 6 new_green
+      fallbacks declined. <code>merge_segpool</code>: 1,493 photos, 31 excluded. The crops against xl0_v6_s42's:
+      <code>analysis/ml16/recrop_report.txt</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),
