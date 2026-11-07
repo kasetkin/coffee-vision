@@ -388,6 +388,17 @@
       (<code>p6_review_items.py --session</code>, new): 77 of the 88 raccoon items accepted, the 6 new_green
       fallbacks declined. <code>merge_segpool</code>: 1,493 photos, 31 excluded. The crops against xl0_v6_s42's:
       <code>analysis/ml16/recrop_report.txt</code>.</div>
+    <div><div class="when">2026-11-07</div>The classifier on the new crops, exp280&ndash;282 (seeds 42, 123, 7; exp277&ndash;279's
+      recipe, Q1), about 3 h 10 min a seed. Paired with exp279/277/278 (<code>analysis/ml16/compare_280_282.txt</code>):
+      val macro-F1 +0.0057, +0.0121, &minus;0.0002 (mean +0.0058); test &minus;0.0013, &minus;0.0088, &minus;0.0138
+      (mean &minus;0.0080), lower at every seed. Test F1 per class, mean over seeds: Ethiopia &minus;0.024, Colombia, Peru
+      &minus;0.014, Guatemala &minus;0.012, Indonesia &minus;0.011, the rest within &plusmn;0.008. The test sets are not
+      the same photos: renames (80c1674, fd490ce), D10's photos and the exclusions redrew every class's split but
+      Kenya's, Costa Rica's and Rwanda's (and Vietnam's at seed 42). On the photos in both arms
+      (<code>analysis/ml16/common_photos.py</code>): 0.9541&rarr;0.9474, 0.9587&rarr;0.9563, 0.9564&rarr;0.9094; seed 7's
+      drop is mostly Indonesia (6 patches) and one Rwanda photo whose patches all went to Indonesia, a photo whose crop
+      is the same bar 2 px. No D18 fallback in any split; 7 training patches under D17's bean share. The owner
+      decides (ADR 0002).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

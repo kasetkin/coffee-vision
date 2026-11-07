@@ -1,0 +1,22 @@
+seed 42 (exp280 vs exp279): identical test photos in Kenya, CostaRica, Vietnam, Rwanda
+  new  on the common photos: macro-F1 0.9474, 886 patches
+  base on the common photos: macro-F1 0.9541, 898 patches
+seed 123 (exp281 vs exp277): identical test photos in Kenya, CostaRica, Rwanda
+  new  on the common photos: macro-F1 0.9563, 852 patches
+  base on the common photos: macro-F1 0.9587, 862 patches
+seed 7 (exp282 vs exp278): identical test photos in Kenya, CostaRica, Rwanda
+  new  on the common photos: macro-F1 0.9094, 847 patches
+  base on the common photos: macro-F1 0.9564, 860 patches
+
+per-class test F1 on the common photos, baseline -> new
+  class                  s42            s123              s7
+  Ethiopia      0.984->1.000    0.973->0.968    1.000->1.000
+  Kenya         0.971->0.984    0.981->0.981    0.987->0.972
+  Colombia      0.842->0.828    0.962->0.947    0.900->0.744
+  CostaRica     0.997->0.988    0.997->0.997    0.987->0.994
+  Guatemala     0.865->0.919    0.750->0.778    0.828->0.857
+  Brazil        0.909->0.811    0.941->0.923    0.952->0.968
+  Vietnam       1.000->1.000    0.993->1.000    1.000->1.000
+  Indonesia     0.983->0.982    1.000->0.982    0.933->0.632
+  Peru          0.993->0.976    0.997->0.987    0.979->0.956
+  Rwanda        0.997->0.987    0.994->1.000    0.997->0.971
