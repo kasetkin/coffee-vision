@@ -382,6 +382,15 @@
     <div><div class="when">2026-11-03</div>The owner's call: merge <code>ops16-example-photos</code> into ML-16's
       branch now and continue both tickets there. A test merge (<code>git merge-tree</code>) was clean; ML-16's
       session was idle. P6 and P7 are done on <code>ml16-photos-2026-11-03</code>.</div>
+    <div><div class="when">2026-11-07</div>P6 on ML-16's model, <code>dino3b16_segxl0v7r_country_aug8_s42</code> with
+      <code>xl0_v7r_s123</code> (ML-16 D11). None of the five sha256s among the 2,555 photos under <code>dataset/</code>
+      or in the segmenter dataset. Each JXL against its original (<code>segment_photo</code>, then
+      <code>classify_segmented</code> at the app's 40 patches): Brazil 0.996/0.996, Ethiopia 0.973/0.973, Indonesia
+      0.997/0.997, the cappuccino refused both; the owner accepted the three bean masks
+      (<code>labels/ml2/review/ops16_p6_xl0_v7r_s123.decisions.jsonl</code>). Vietnam fails: xl0_v7r_s123 leaves it,
+      original and JXL alike, an empty mask (xl0_v6_s42: 0.434), and the whole-photo fallback answers Brazil, 0.663 and
+      0.674. The owner's call: swap the Vietnam example. No Vietnam photo is outside every set, so the new one is a
+      new photo of the owner's (ADR 0032).</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,
