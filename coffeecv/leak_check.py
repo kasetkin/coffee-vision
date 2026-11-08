@@ -35,6 +35,8 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import NamedTuple
 
@@ -92,6 +94,18 @@ def published_files(root: Path = REPO_ROOT, staged: bool = False) -> list[str]:
            else ["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
     out = subprocess.run(["git", "-C", str(root), *cmd], capture_output=True, check=True).stdout
     return sorted({p for p in out.decode().split("\0") if p})
+
+
+@contextmanager
+def staged_tree(root: Path, files: list[str]) -> Iterator[Path]:
+    """A temp directory holding `files` as the index has them, each under its own path (`git checkout-index`,
+    which follows GIT_INDEX_FILE). A symlink comes out a symlink and a submodule an empty directory, so scan()
+    skips both as it does on disk. A git failure raises, with git's message on stderr: the check never passes
+    on a tree it could not write. The directory is removed on every exit."""
+    with tempfile.TemporaryDirectory(prefix="leak_check.") as tmp:
+        subprocess.run(["git", "-C", str(root), "checkout-index", f"--prefix={tmp}/", "-z", "--stdin"],
+                       input="".join(f"{p}\0" for p in files).encode(), stdout=subprocess.DEVNULL, check=True)
+        yield Path(tmp)
 
 
 def load_private_patterns(path: Path) -> list[re.Pattern[bytes]] | None:
@@ -185,7 +199,7 @@ def scan(root: Path = REPO_ROOT, private: list[re.Pattern[bytes]] = (), files: l
     return found + image_findings(images, root)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--patterns", type=Path, default=PRIVATE_PATTERNS,
                     help=f"the owner's private regexes (default: {PRIVATE_PATTERNS.relative_to(REPO_ROOT)})")
@@ -195,8 +209,12 @@ def main(argv: list[str] | None = None) -> int:
     private = load_private_patterns(args.patterns)
     if private is None:
         print(f"note: {args.patterns} not found, private patterns not checked")
-    files = published_files(staged=args.staged)
-    found = scan(REPO_ROOT, private or [], files)
+    files = published_files(root, staged=args.staged)
+    if args.staged:
+        with staged_tree(root, files) as tree:
+            found = scan(tree, private or [], files)
+    else:
+        found = scan(root, private or [], files)
     for f in found:
         print(f)
     what = f"{len(files)} {'staged' if args.staged else 'published'} files"
