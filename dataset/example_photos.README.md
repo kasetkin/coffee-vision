@@ -1,8 +1,12 @@
 # Example photos
 
-The originals of the five example photos the page offers (GLOSSARY.md, "Example photo"; ticket OPS-16), moved
+The originals of the example photos the page offers (GLOSSARY.md, "Example photo"; ticket OPS-16), moved
 here from the dataset on 2026-11-03 (ticket ML-16 D3). Their lossy JPEG XL re-encodes are public, in
 `webapp/static/examples/` (ADR 0032); these originals stay private, like the rest of `dataset/`.
+
+The page offers four since ML-16's release (ML-16 D12, 2026-11-08): the Vietnam one, `PXL_20261007_043818022.jpg`,
+left the list when `xl0_v7r_s123` found no beans in it and the whole-photo fallback answered Brazil. Its original
+stays here, still in no set, so a later release can bring it back on a segmenter that finds its pile.
 
 **Read by no pipeline, and in no training or evaluation set**: this folder has no `class_*` folders, is not in
 `dvc.yaml`'s segcrop list, is listed in `coffeecv/coverage_report.py`'s `EXCLUDED`, and none of its photos is in

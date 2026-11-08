@@ -227,6 +227,14 @@
         <td>(a), 2026-11-07: "ship xl0_v7r_s123". Shipped as <code>models/dino3b16_segxl0v7r_country_aug8_s42.pt</code>
           (<code>fit_frozen_head --ship 280 --seed-exps 280 281 282</code>), val macro-F1 0.9737, test 0.9762; its OOD
           reference and probe, the LiteRT conversion, OPS-16 P6 and the release still to come.</td></tr>
+      <tr><td class="id">D12</td><td>The Vietnam example, after <code>xl0_v7r_s123</code> left it an empty mask and the
+        whole-photo fallback answered Brazil (OPS-16 P6)?</td>
+        <td>(a) a new photo, Vietnam or another country, from outside every set (b) the page with four examples</td>
+        <td>(b), 2026-11-08: "let's ship 4 examples". No Vietnam photo is outside every set (ADR 0032); the only bean
+          photos outside them are the 18 the re-crop's review excluded, and the owner's two new photos of 2026-11-07
+          (Peru, Ethiopia: light roasts in a grinder) were both answered Guatemala, by the live model too.
+          <code>vietnam-robusta</code> left <code>examples.json</code>, the script and the page's files; its original stays
+          in <code>dataset/example_photos/</code>, still in no set.</td></tr>
     </tbody>
   </table></div>
 

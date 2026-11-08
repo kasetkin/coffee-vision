@@ -122,10 +122,10 @@ class ExampleCheck(unittest.TestCase):
         self.assertIn("FAIL  example brazil-grinder: got 'Colombia', want 'Brazil'", lines)
 
     def test_a_bean_photo_refused_fails(self):
-        FakeFront.answers["vietnam-robusta"] = REFUSED
+        FakeFront.answers["indonesia-roasted"] = REFUSED
         code, lines = self.run_check()
         self.assertEqual(code, 1)
-        self.assertIn("FAIL  example vietnam-robusta: got 'refused_ood', want 'Vietnam'", lines)
+        self.assertIn("FAIL  example indonesia-roasted: got 'refused_ood', want 'Indonesia'", lines)
 
     def test_the_negative_not_refused_fails(self):
         FakeFront.answers["cappuccino"] = predicted("Brazil")

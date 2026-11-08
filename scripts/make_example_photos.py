@@ -40,8 +40,6 @@ EXAMPLES = (
             "random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131741_Pixel_9_Pro_Brazil.jpg"),
     Example("ethiopia-green", "91077cd6cf3f9f154ca693ee347116485c2b8a475e89f59c4aae6452c4296b81",
             "2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6302D.HEIC"),
-    Example("vietnam-robusta", "6f9d2dcbd82f898de0e16f5e6aab92f4bd28e029e6dc9b3a4c5f449f813797b1",
-            "random_date_raccoon/class_009__Vietnam_Robusta/PXL_20261007_043818022.jpg"),
     Example("indonesia-roasted", "b3071423896a03d93959b0ca10054608d2408c15a722a559ae73fbc2cb14ce1b",
             "2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200224.JPG"),
     Example("cappuccino", "0342176ffd272b836a3cf1989bdcb5a5ebb4d52551333263ecc31bdf1b5abf63",
