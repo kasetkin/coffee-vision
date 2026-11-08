@@ -108,11 +108,10 @@
           <code>image_findings(paths, root)</code> already maps back by <code>relpath</code> to the root it is
           given.</td></tr>
       <tr><td class="id">R2</td><td><strong>The hook gets slower.</strong></td>
-        <td>One <code>git show</code> per staged file adds a process start each, as in <code>ruff_staged</code>; the
-          leak check's own start (about 1.7 s, the torch import through <code>coffeecv.config</code>) dominates for a
-          small commit. Measure before and after on a commit of about 30 files; D1 (b) avoids the per-file cost.
-          Corrected 2026-11-08 (D3): the start is about 0.33 s, no torch is imported, and D1 (c) reads the whole
-          staged set in one process. The measurement stays.</td></tr>
+        <td>D1 (c) reads the whole staged set with one <code>git checkout-index</code>, beside the leak check's own
+          start of about 0.33 s (no torch is imported). Measure before and after on a commit of about 30 files.
+          Corrected 2026-11-08 (D3): this row first gave a 1.7 s start through a torch import and a per-file
+          <code>git show</code>, both out of date.</td></tr>
       <tr><td class="id">R3</td><td><strong>A second index reader drifts from the first.</strong></td>
         <td><code>ruff_staged</code> already reads blobs and filters index modes. A copy in <code>leak_check</code>
           could diverge (a mode skipped in one, not the other); D2 decides where the reader lives.

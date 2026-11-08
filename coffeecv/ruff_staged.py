@@ -9,16 +9,18 @@ mode. A deletion is not linted.
 
 Each staged blob (`git show :<path>`) is piped into `python -m ruff check --stdin-filename <path> -` from
 the repo root, so a file staged in part (`git add -p`) is linted as it is staged: a finding only on disk
-passes, one in the index is refused, even when fixed on disk. leak_check --staged reads the disk instead,
-until OPS-5. The rules are pyproject.toml's [tool.ruff], resolved from <path>; with force-exclude, a staged
-file under third_party/ passes. scripts/check.sh lints the whole working tree before a push or a deploy.
+passes, one in the index is refused, even when fixed on disk. leak_check --staged reads the index too,
+through a temp tree (OPS-5); this module keeps its own per-file read, since Ruff resolves its config and
+force-exclude from the real path in the repo (OPS-5 D2). The rules are pyproject.toml's [tool.ruff],
+resolved from <path>; with force-exclude, a staged file under third_party/ passes. scripts/check.sh lints
+the whole working tree before a push or a deploy.
 
 Known limit: Ruff reads its config from the pyproject.toml on disk, not the one in the index, so the staged
 files are linted with the [tool.ruff] settings on disk: a change to them staged in part, or not staged, applies
 to this commit's check, and the settings being committed may differ. Not fixed (OPS-4 code review, R6).
 
-Cost: about 85 ms per staged file, most of it the start of `python -m ruff`, plus about 1.7 s for this
-module's own start (leak_check imports torch through coffeecv.config). Measured 2026-10-07.
+Cost: about 85 ms per staged file, most of it the start of `python -m ruff`, plus about 0.36 s for this
+module's own start (no torch). Measured 2026-11-08: 2.9 s for 30 staged files.
 
 Exit status is non-zero on any finding, and on any other nonzero Ruff exit (a bad config), which is printed
 with Ruff's message and counted apart as a Ruff error. A Ruff missing from the interpreter fails before any

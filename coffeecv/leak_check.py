@@ -4,9 +4,13 @@ ignored (what `git add -A` would add). scripts/check.sh runs it in both tiers.
     python -m coffeecv.leak_check [--patterns FILE]
     python -m coffeecv.leak_check --staged      # only the files staged for commit: .githooks/pre-commit
 
---staged reads each staged file's working-tree copy, so a file staged in part (`git add -p`) is checked
-as it stands on disk. A leak that gets into a commit stays in history (it is not rewritten), which is why
-the hook checks at commit time rather than only at push.
+--staged checks each staged file as it is staged, from the index, not its copy on disk (OPS-5): the staged
+files are written into a temp directory with one `git checkout-index` and scanned there. A file staged in
+part (`git add -p`) is checked as it will be committed: a leak in the index is refused even when fixed on
+disk, and a leak only on disk does not block the commit. The index is the one git hands the hook, so
+`git commit -a` and `git commit <path>` are checked too. A leak that gets into a commit stays in history (it
+is not rewritten), which is why the hook checks at commit time rather than only at push. The full scan
+reads the working tree on purpose: it checks what `git add -A` would publish.
 
 Private, by the owner's rule of 2026-10-07: public IP addresses, email addresses, credentials, and GPS or
 other identifying photo metadata. Fine to publish: SSH aliases, the DVC remote URL, the VM's user name and
@@ -160,7 +164,7 @@ def image_findings(paths: list[str], root: Path = REPO_ROOT) -> list[Finding]:
     """Deny-listed tags in `paths`, one exiftool call for all of them."""
     if not paths:
         return []
-    # Imported here: it pulls in torch (through coffeecv.dataset), which only the image check needs.
+    # Imported here: it pulls in the photo decoders (Pillow, pillow_heif, rawpy), which only the image check needs.
     from coffeecv import strip_metadata as sm
     with tempfile.NamedTemporaryFile("w", suffix=".args") as argfile:
         argfile.write("\n".join(str(root / p) for p in paths) + "\n")
