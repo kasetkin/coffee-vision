@@ -13,7 +13,7 @@
     Written 2026-11-08; every decision (D1&ndash;D12) taken the same day; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1, the page, built 2026-11-08 (<code>9a67e21</code> and its review fixes); not released</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1, the page, built 2026-11-08 (<code>9a67e21</code>, <code>bbb4479</code>); not released</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: layout above the photo</span></div>
@@ -222,28 +222,29 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>On load, the format chips are folded and an "Accepted formats" button opens
+    <li><span class="box done"></span><span>On load, the format chips are folded and an "Accepted formats" button opens
       and closes them; the nine chips are those of OPS-18 D5.</span></li>
-    <li><span class="box"></span><span>The buttons are on a line of their own under Choose Photo and Take Photo,
+    <li><span class="box done"></span><span>The buttons are on a line of their own under Choose Photo and Take Photo,
       "Accepted formats" first; each folds and opens only its own list, its arrow and its expanded state saying
       which, and both lists may be open at once (D3, D4, D11, D12).</span></li>
-    <li><span class="box"></span><span>Before any pick, the example row is shown in full and there is no "Examples"
+    <li><span class="box done"></span><span>Before any pick, the example row is shown in full and there is no "Examples"
       button.</span></li>
-    <li><span class="box"></span><span>After a pick of each kind (Choose Photo, Take Photo, an example), the row is
+    <li><span class="box done"></span><span>After a pick of each kind (Choose Photo, Take Photo, an example), the row is
       hidden and the "Examples" button is shown. The button opens the row, and picking from the open row folds it
       again.</span></li>
-    <li><span class="box"></span><span>Every pick folds the format list too, an example's at the click; a cancelled
+    <li><span class="box done"></span><span>Every pick folds the format list too, an example's at the click; a cancelled
       picker and "Use full photo instead" fold neither list (D8, D10). The same on every screen (D9).</span></li>
-    <li><span class="box"></span><span>In headless Chromium at 402&times;874, once an example's answer is in, the top
+    <li><span class="box done"></span><span>In headless Chromium at 402&times;874, once an example's answer is in, the top
       of <code>#result</code> is inside the first screen. The measured positions are recorded in Activity.</span></li>
-    <li><span class="box"></span><span>When <code>examples.json</code> cannot be read, the page shows neither the row
+    <li><span class="box done"></span><span>When <code>examples.json</code> cannot be read, the page shows neither the row
       nor the "Examples" button.</span></li>
-    <li><span class="box"></span><span>A 400 "could not read this as an image" opens the format list in its usual
+    <li><span class="box done"></span><span>A 400 "could not read this as an image" opens the format list in its usual
       place, right above the refusal's message (D6).</span></li>
-    <li><span class="box"></span><span>OPS-16 D10 carries an "Amended by OPS-20 D1" note, and OPS-18 D5 an "Amended
+    <li><span class="box done"></span><span>OPS-16 D10 carries an "Amended by OPS-20 D1" note, and OPS-18 D5 an "Amended
       by OPS-20 D5" note.</span></li>
     <li><span class="box"></span><span><code>tests/test_example_photos.py</code> covers the "Examples" button, and
-      <code>tests/test_accepted_formats_named.py</code> still passes unchanged. <code>scripts/check.sh</code> passes.
+      <code>tests/test_accepted_formats_named.py</code> still passes unchanged. <code>scripts/check.sh</code> passes. <span class="result">These three done 2026-11-08 (P1); the release
+      waits for P2.</span>
       A release is live, <code>--verify</code> passes, and the owner checks it on a phone.</span></li>
   </ul>
 
@@ -283,6 +284,9 @@
       put <code>#preview-wrap</code> at 562&nbsp;px and <code>#result</code> at 980&nbsp;px, below the first screen
       (874); with the folds, 197&nbsp;px and 615&nbsp;px, so the photo and the answer move up 365&nbsp;px. The OPS-16 D10 and OPS-18 D5 notes added.
       Not released; P2 waits for the owner.</div>
+    <div><div class="when">2026-11-08</div>P1's review fixes are <code>bbb4479</code>; acceptance ticked for
+      everything P1 covers. What is left is P2: the release, <code>--verify</code> and the owner's check on a
+      phone.</div>
   </div>
 
   <footer>Related: <code>webapp/static/index.html</code>, <code>tests/test_example_photos.py</code>,
