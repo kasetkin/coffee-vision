@@ -14,7 +14,7 @@
     <code>ops5-leak-check-index</code>; closed by the owner 2026-11-08.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-10-07; planned 2026-11-08; implemented 2026-11-08 on <code>ops5-leak-check-index</code> (<code>e488fab</code>, <code>c850ef3</code>, <code>916107e</code>); not yet merged to <code>main</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-10-07; planned 2026-11-08; implemented 2026-11-08 on <code>ops5-leak-check-index</code> (<code>e488fab</code>, <code>c850ef3</code>, <code>916107e</code>); merged to <code>main</code> in <code>127fa70</code> 2026-11-08</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -201,6 +201,7 @@
     <div><div class="when">2026-11-08</div>Owner agrees the plan as recommended: <a href="plan_leak_check_staged_read.html">plan</a> written (P1 staged read, test first; P2 comments, timing and a live check; P3 owner stop), branch <code>ops5-leak-check-index</code>, Triage <code>bug, ready-for-agent</code>. Not implemented.</div>
     <div><div class="when">2026-11-08</div>Implemented on <code>ops5-leak-check-index</code> by the <a href="plan_leak_check_staged_read.html">plan</a>'s P1&ndash;P2: <code>e488fab</code> (the staged read through a <code>checkout-index</code> temp tree, <code>main(argv, root)</code>, the D4 tests, each seen failing first), <code>c850ef3</code> (docstrings, the hook's header, the D3 timing claims, R2) and <code>916107e</code> (review fixes). Found beyond the ticket: <code>checkout-index</code> refuses a staged skip-worktree entry, which would have refused every commit touching one; it now reads its staged blob (<code>--ignore-skip-worktree-bits</code>), with a test. Measured: the hook on 30 staged Python files 3.38 s before, 3.52 s after; the leak check 0.33 s, then 0.35 s; a staged 12 MP JPEG adds about 0.3 s. A live check in this repo refused a staged leak removed on disk. <code>scripts/check.sh --full</code> passes on <code>916107e</code>. Status In progress: the owner reviews, merges by a merge commit (ADR 0017) and closes.</div>
     <div><div class="when">2026-11-08</div>Closed by the owner. The branch <code>ops5-leak-check-index</code> is not yet merged to <code>main</code>; it joins by a merge commit (ADR 0017).</div>
+    <div><div class="when">2026-11-08</div><code>ops5-leak-check-index</code> merged to <code>main</code> by a merge commit, <code>127fa70</code> (ADR 0017), on the owner's word. Not pushed.</div>
   </div>
 
   <footer>Related: <a href="plan_leak_check_staged_read.html">plan</a>, <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
