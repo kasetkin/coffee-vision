@@ -744,6 +744,43 @@ revert_both() {
 }
 
 # -------------------------------------------------------------------------------------------- verify
+# The Origin of every check through the domain that plays a cross-origin caller (ticket OPS-19 D7): its lines in the
+# front's access log, which records the Origin (D3), are plainly the deploy's own.
+VERIFY_ORIGIN=https://verify.invalid
+
+header_values() {   # header_values <name> <curl -D file>: the last answer's values of that header joined by ", ", or -
+  awk -v n="$(tr '[:upper:]' '[:lower:]' <<<"$1")" '
+    { sub(/\r$/, "") }
+    /^HTTP\// { v = ""; next }   # a new answer: a 100 Continue comes first
+    { i = index($0, ":")
+      if (i && tolower(substr($0, 1, i - 1)) == n) { s = substr($0, i + 1); sub(/^[ \t]+/, "", s); v = v (v == "" ? "" : ", ") s } }
+    END { print (v == "" ? "-" : v) }' "$2"
+}
+
+# /analyze answers a cross-origin caller (ticket OPS-19 D7, ADR 0035): a preflight is the front nginx's 204, and the
+# check service's refusal of a file that is not a photo is readable from another origin. Neither reaches the worker.
+# Calls verify's check(). The headers of a full answer, the 200, are checked on verify's own POST.
+verify_cors() {   # verify_cors <the check service's state, systemctl is-enabled: only "enabled" posts the refusal>
+  local hdr code
+  hdr=$(mktemp)
+  code=$(curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -X OPTIONS -H "Origin: $VERIFY_ORIGIN" \
+              -H "Access-Control-Request-Method: POST" "$PUBLIC_URL/analyze")
+  check "public OPTIONS /analyze (a preflight)" "$code" 204
+  check "    its Access-Control-Allow-Origin" "$(header_values Access-Control-Allow-Origin "$hdr")" "*"
+  check "    its Access-Control-Allow-Methods" "$(header_values Access-Control-Allow-Methods "$hdr")" POST
+  check "    its Access-Control-Allow-Headers" "$(header_values Access-Control-Allow-Headers "$hdr")" "*"
+  check "    its Access-Control-Max-Age" "$(header_values Access-Control-Max-Age "$hdr")" 7200
+  if [[ "$1" == enabled ]]; then
+    code=$(printf 'not a photo\n' | curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -H "Origin: $VERIFY_ORIGIN" \
+                -F "photo=@-;filename=beans.jpg" "$PUBLIC_URL/analyze")
+    check "public POST /analyze of a text file, cross-origin" "$code" 400
+    check "    its Access-Control-Allow-Origin" "$(header_values Access-Control-Allow-Origin "$hdr")" "*"
+  else
+    note "the check service is not enabled: the cross-origin refusal's check skipped"
+  fi
+  rm -f "$hdr"
+}
+
 verify() {   # returns non-zero on a failed check
   say "Verify what current serves"
   [[ -n "$PUBLIC_URL" || -n "$PUBLIC_URL_GIVEN" ]] || die "DOMAIN is not set -- the public checks need it (DOMAIN=... $0 --verify)"
@@ -821,16 +858,21 @@ verify() {   # returns non-zero on a failed check
     # the two are equal). Reported, not checked (D11). curl's own timers cannot say it: its start of transfer is
     # the upload's.
     post_analyze() {
-      times=$(curl -sN -D "$hdr" -F "photo=@$photo" "$PUBLIC_URL/analyze" | tee "$body" \
+      times=$(curl -sN -D "$hdr" -H "Origin: $VERIFY_ORIGIN" -F "photo=@$photo" "$PUBLIC_URL/analyze" | tee "$body" \
               | "$LOCAL_PY" -c 'import sys, time; t0 = time.monotonic(); [print(f"{time.monotonic() - t0:.2f}", flush=True) for _ in sys.stdin.buffer]' \
               | paste -sd' ')
       code=$(awk '/^HTTP/ {c = $2} END {print c}' "$hdr")   # the last status line: a 100 Continue comes first
     }
     post_analyze
     if [[ "$code" == 503 ]]; then sleep 3; post_analyze; fi
+    # Sent as a cross-origin caller (OPS-19 D7): the answer, the offline 503 included, is readable from its page.
+    local allow_origin expose
+    allow_origin=$(header_values Access-Control-Allow-Origin "$hdr"); expose=$(header_values Access-Control-Expose-Headers "$hdr")
     rm -f "$hdr"
     if [[ "$enabled" == enabled ]]; then
       check "public POST /analyze" "$code" 200
+      check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
+      check "    its Access-Control-Expose-Headers" "$expose" X-Request-Id
       check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "preview, classification"
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
@@ -848,7 +890,9 @@ verify() {   # returns non-zero on a failed check
       if (( examples_rc != 0 )); then fails=$((fails + (examples_failed > 0 ? examples_failed : 1))); fi
     else
       check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
+      check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
     fi
+    verify_cors "$(kv ENABLED "$front")"
     rm -f "$body"
   fi
   return $(( fails > 0 ))

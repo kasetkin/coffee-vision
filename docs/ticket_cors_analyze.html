@@ -1,0 +1,275 @@
+<title>Other sites' pages can call /analyze and read the answer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-19 · coffee-vision · the front's site and the public contract</div>
+  <h1>The front answers <code>/analyze</code> with CORS headers, so a script on another site's page can send a photo and read the answer</h1>
+  <p class="lede">Today <code>/analyze</code> is open to anyone with <code>curl</code> or a server, but a browser
+    blocks a script on any other origin from reading its answer, because the front sends no
+    <code>Access-Control-Allow-Origin</code> on it. This ticket adds CORS to <code>/analyze</code> at the front's nginx,
+    on every answer including the front's own refusals, and says so in the public contract. Written 2026-11-08;
+    D1&ndash;D7 decided the same day (<a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>);
+    planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>; implemented locally (P1&ndash;P3), not released.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; D1&ndash;D7 decided 2026-11-08; P1&ndash;P3 done 2026-11-08 (<code>adff0b3</code>, <code>a6a142e</code>, <code>c3c606d</code>, <code>4f85a0c</code>); not released</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Front: public API access from browsers</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>tests/test_front_site.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code> ("For agents"), <code>docs/inference_path.html</code>, <code>docs/logging_plan.html</code>, <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), <code>docs/adr/0035-the-api-is-open-to-pages-on-any-origin.md</code>, a release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At the next deploy, the front's site adds CORS headers to <code>/analyze</code>'s answers and answers its preflight, and its access log gains the request's <code>Origin</code>. The page, the check service, the inference host and the models do not change, but the front's site ships only with a full two-host release, which stops photo answers for under 2 minutes (ADR 0026).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-08.</strong> "create ticket to enable CORS for "/analyze" request so other sites
+      could use our service"</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a <b>cross-origin caller</b> (a script on a page served from an origin other than the live site's) can send
+    a photo to <code>/analyze</code>, but the browser hides the answer from it. After this ticket the front's nginx
+    sends <code>Access-Control-Allow-Origin: *</code> (D1) on every
+    <code>/analyze</code> answer: the streamed 200, the check service's and the app's 400, 413 and 503, and the front's
+    own 413, busy 503 and offline 503. It also answers a preflight <code>OPTIONS</code> itself (D2), without taking
+    the one-at-a-time gate. The work has three parts: the front's site and its tests, the contract
+    (<code>llms.txt</code>, <code>openapi.json</code>, the README), and a front release verified on the domain with a
+    cross-origin request.</p>
+
+  <h2>2. Background</h2>
+  <p>Read from the code at <code>89d628a</code>.</p>
+  <ul>
+    <li><b>The front already uses CORS for the agent files.</b>
+      <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code> sends
+      <code>Access-Control-Allow-Origin "*"</code> on <code>/llms.txt</code>, <code>/openapi.json</code> and
+      <code>/.well-known/ard.json</code>, "so a tool running in a browser can fetch them too". The
+      <code>/analyze</code> location sends none. Neither the check service (<code>webapp/front/check_service.py</code>)
+      nor the app (<code>webapp/app.py</code>) sets a CORS header.</li>
+    <li><b>The API is already public.</b> <code>webapp/README.md</code>, "For agents": "open to LLM agents acting for a
+      person, through the same <code>POST /analyze</code> the page uses: no key, no separate endpoint", and
+      <code>robots.txt</code> allows <code>/analyze</code>. CORS limits only what a browser lets a page read. A server
+      or <code>curl</code> can already call <code>/analyze</code> from anywhere.</li>
+    <li><b>A cross-origin upload already reaches the front.</b> A <code>fetch</code> with a
+      <code>FormData</code> body and no custom headers is a CORS "simple request": the browser sends it with no
+      preflight and only hides the answer. So a page elsewhere can already make the service classify a photo and hold
+      the gate for about 9&ndash;11 s; it just cannot read the result. CORS changes who can read the answer, not who
+      can send a photo.</li>
+    <li><b>Preflight.</b> A caller that adds a header outside the CORS safelist (a custom <code>X-</code> header, for
+      example) triggers an <code>OPTIONS</code> preflight. <code>Access-Control-Allow-Headers: *</code> allows any such
+      header except <code>Authorization</code>, which the Fetch standard requires to be named; the API takes no
+      credentials, so it is not allowed (D2). Browsers cap <code>Access-Control-Max-Age</code>: Chrome at 7200 s,
+      Firefox at 86400 s. Today that goes to the check service,
+      which has only <code>do_POST</code> and <code>do_GET</code>, so <code>http.server</code> answers 501 and the
+      browser gives up.</li>
+    <li><b>nginx's <code>add_header</code> traps.</b> Without <code>always</code> it adds the header only to 2xx and
+      3xx answers, so a script could not read a 413 or a busy 503 and would see an opaque network error instead. The
+      front's 413 and 503 come from the named locations <code>@too_large</code>, <code>@busy</code> and
+      <code>@offline</code>, which do not inherit <code>/analyze</code>'s <code>add_header</code> and need their own.
+      An <code>add_header</code> in a location also drops any inherited from the server level.</li>
+    <li><b>Streaming.</b> The answer is NDJSON in two parts (ADR 0023). A cross-origin <code>fetch</code> can read it
+      as a stream through <code>response.body</code>, as the page does, once the answer carries
+      <code>Access-Control-Allow-Origin</code>. Nothing about buffering changes.</li>
+    <li><b>One worker for everyone.</b> <code>limit_conn</code> at the front lets one photo through at a time, for
+      every caller together (OPS-15 D11). <code>llms.txt</code>, "Limits", tells callers to wait about 10 s on a busy
+      503 and not to send in parallel.</li>
+    <li><b>Logging.</b> The front's access log (<code>coffee_cv_front_minimal</code>) records no
+      <code>Origin</code> or <code>Referer</code>. <code>docs/logging_plan.html</code> excluded <code>Referer</code> as
+      adding nothing for a single-page app. With other sites calling, the request's <code>Origin</code> is the only way
+      to tell their traffic from the page's.</li>
+    <li><b>Tests.</b> <code>tests/test_front_site.py</code> runs the rendered front site against a fake inference host
+      (for example <code>test_a_second_photo_while_one_is_in_flight_is_busy</code>), so CORS on each answer can be
+      tested there.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A cross-origin caller can POST a photo, but the browser blocks it from reading any answer, a refusal
+          included.</li>
+        <li>A preflight <code>OPTIONS /analyze</code> gets a 501 from the check service.</li>
+        <li><code>llms.txt</code> and <code>openapi.json</code> say nothing about calling from a browser.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Every <code>/analyze</code> answer carries <code>Access-Control-Allow-Origin: *</code> (D1) and exposes
+          <code>X-Request-Id</code> (D4), the front's own 413 and 503 included, so a cross-origin caller reads the
+          answer, streamed, and the errors.</li>
+        <li><code>OPTIONS /analyze</code> gets a 204 with the allowed method and headers from the front's nginx (D2),
+          without taking the gate or reaching the check service.</li>
+        <li>The front's access log records each request's <code>Origin</code> (D3).</li>
+        <li><code>llms.txt</code>, <code>openapi.json</code> and the README say the API can be called from a page on
+          any site, with a short <code>fetch</code> example, and what it asks of that site (D5).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The page.</strong> It is same-origin and does not need CORS.</li>
+    <li><strong>The one-at-a-time gate and the limits.</strong> One photo at a time for every caller, 40 MB and
+      60 megapixels a photo. CORS adds no capacity.</li>
+    <li><strong>The check service, the inference host and the models.</strong> The headers are the front nginx's; the
+      inference host stays reachable only from the front (ADR 0031).</li>
+    <li><strong>No key, no account, no cookies.</strong> The API takes no credentials, so CORS allows none
+      (no <code>Access-Control-Allow-Credentials</code>).</li>
+    <li><strong>The photo is never stored</strong>, whichever site sends it.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A popular site's visitors take the one worker, and the page's own visitors
+        get "busy".</strong></td>
+        <td>The gate is shared by every caller (section 2), and a page elsewhere can already hold it without CORS, so
+          this ticket makes such use worth building rather than newly possible. Mitigation: D3 logs the
+          <code>Origin</code>, so the owner can see who uses the service; a later ticket (a per-origin limit, or an
+          allow-list, D1 (b)) can narrow access if one site crowds out the page. The owner accepts the rest in D1.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A script cannot read the front's own refusals, and sees a network error
+        where the contract promises a 413 or 503.</strong></td>
+        <td>nginx's <code>add_header</code> needs <code>always</code> for error statuses, and the named locations need
+          their own (section 2). A <code>proxy_hide_header</code> drops any CORS header from the check service's answer
+          (D1), so one sent upstream someday is never doubled, which a browser rejects. Tests in <code>tests/test_front_site.py</code> check the header on the 200, a 400, the
+          front's 413, the busy 503 and the offline 503.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A preflight takes the gate, or reaches the check service.</strong></td>
+        <td>A <code>return 204</code> for <code>OPTIONS</code> in <code>location = /analyze</code> runs in nginx's
+          rewrite phase, before <code>limit_conn</code>. A test sends a preflight while a photo is in flight and expects
+          a 204, not a busy 503.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Visitors of another site send their photos here without seeing this site's
+        terms.</strong></td>
+        <td>The page's promise that the photo is never stored holds for every caller, but those visitors never read it.
+          The contract says so to the site that makes the call, and asks it (a "should": nothing can enforce it) to tell
+          its visitors where their photo goes (D5).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which origins may read the answer?</td>
+        <td>(a) any origin, <code>Access-Control-Allow-Origin: *</code>, as for the agent files (recommended: it
+          matches "free, no key, no account", the API is already open to servers, and a <code>*</code> cannot be
+          combined with credentials, which the API has none of) (b) an allow-list of origins in the deploy's config,
+          echoed back with <code>Vary: Origin</code>, so each new site asks the owner first</td>
+        <td><b>(a)</b>, 2026-11-08. <code>Access-Control-Allow-Origin: *</code> on every <code>/analyze</code>
+          answer. An allow-list would limit who reads the answer, not who takes the gate, since a simple request is
+          sent either way. Also a <code>proxy_hide_header Access-Control-Allow-Origin</code> (and the other CORS
+          response headers) on <code>/analyze</code>, so the header is never doubled if the app or the check service
+          ever sends one.</td></tr>
+      <tr><td class="id">D2</td><td>Does the front answer a preflight?</td>
+        <td>(a) yes: <code>OPTIONS</code> gets a 204 from the front's nginx with
+          <code>Access-Control-Allow-Methods: POST</code>, <code>Access-Control-Allow-Headers: *</code> and
+          <code>Access-Control-Max-Age: 86400</code> (recommended: a caller's library may add a header, and a 204 from
+          nginx costs nothing) (b) no: only simple requests work, and the contract says to send no custom headers</td>
+        <td><b>(a)</b>, 2026-11-08, with <code>Access-Control-Max-Age: 7200</code>, Chrome's cap, not 86400.
+          <code>Allow-Headers: *</code> does not cover <code>Authorization</code>, and it stays unlisted: the API
+          takes no credentials.</td></tr>
+      <tr><td class="id">D3</td><td>Does the front's access log record the request's <code>Origin</code>?</td>
+        <td>(a) yes, as one more field of <code>coffee_cv_front_minimal</code>, kept 365 days like the rest of the line
+          (recommended: it is a site's address, not a visitor's, and without it R1 cannot be seen) (b) no, as for
+          <code>Referer</code> today</td>
+        <td><b>(a)</b>, 2026-11-08. Logged as <code>"$http_origin"</code>, quoted like <code>$request</code>:
+          browsers send <code>Origin</code> on every POST, so the page's own uploads log the live site's origin, a
+          cross-origin caller its own, a sandboxed or <code>file://</code> page <code>null</code>, and
+          <code>curl</code> or an agent <code>-</code>. No field joins it to the stream log's visitor IPs.
+          <code>docs/logging_plan.html</code> gains the field.</td></tr>
+      <tr><td class="id">D4</td><td>Is the app's <code>X-Request-Id</code> exposed to cross-origin scripts?</td>
+        <td>(a) yes, <code>Access-Control-Expose-Headers: X-Request-Id</code>, so another site can quote a request when
+          it reports a problem (recommended) (b) no (c) as (a), and the front also sends its own
+          <code>$request_id</code> on its 413 and 503 refusals</td>
+        <td><b>(a)</b>, 2026-11-08. Not (c): the front's refusals (too large, busy, offline) have nothing to report,
+          and the page's answers stay as they are.</td></tr>
+      <tr><td class="id">D5</td><td>What does the contract ask of a site that calls the API from its page?</td>
+        <td>(a) <code>llms.txt</code> and <code>openapi.json</code> say the API may be called from any page, ask the
+          site to tell its visitors their photo is sent here, and ask it to wait and retry on a busy 503 rather than
+          loop (recommended) (b) say only that CORS is allowed</td>
+        <td><b>(a)</b>, 2026-11-08, with a short <code>fetch</code> example. Telling visitors is a "should", not a
+          "must": nothing can enforce it, and the photo is never stored whoever sends it.</td></tr>
+      <tr><td class="id">D6</td><td>Does "the API is open to pages on any origin" get an ADR?</td>
+        <td>(a) yes, if D1 is (a): it binds later tickets (a per-origin limit, a key, analytics) and is hard to take
+          back once other sites depend on it (recommended) (b) no, a D-number here is enough</td>
+        <td><b>(a)</b>, 2026-11-08:
+          <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>, "The API is open to pages on any
+          origin".</td></tr>
+      <tr><td class="id">D7</td><td>How is the release checked on the domain?</td>
+        <td>(a) <code>--verify</code> gains <code>curl</code> checks (a request with an <code>Origin</code> header
+          gets <code>Access-Control-Allow-Origin</code> on a 4xx; <code>OPTIONS</code> gets a 204), and the owner
+          runs one browser <code>fetch</code> by hand from the devtools console of an unrelated page, recorded in
+          Activity (recommended: the header is checked on every deploy at no cost) (b) a headless browser in
+          <code>--verify</code> (c) the browser check by hand only</td>
+        <td><b>(a)</b>, 2026-11-08. Not (b): a headless browser is a heavy dependency for the deploy, for one
+          check.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The front's site sends <code>Access-Control-Allow-Origin: *</code> (D1) on
+      every <code>/analyze</code> answer: the streamed 200, the check service's 400 and 413, the front's own 413, the
+      busy 503 and the offline 503, never twice; tested in <code>tests/test_front_site.py</code>.</span></li>
+    <li><span class="box"></span><span>Per D2, <code>OPTIONS /analyze</code> gets a 204 with
+      <code>Access-Control-Allow-Methods: POST</code>, <code>Access-Control-Allow-Headers: *</code> and
+      <code>Access-Control-Max-Age: 7200</code>, even while a photo is in flight, and never reaches the check
+      service; tested.</span></li>
+    <li><span class="box"></span><span>The agent files' CORS is unchanged, and no other path gains it; tested.</span></li>
+    <li><span class="box"></span><span>Per D3, <code>coffee_cv_front_minimal</code> records
+      <code>"$http_origin"</code>, and <code>docs/logging_plan.html</code> says so. Per D4, every
+      <code>/analyze</code> answer sends <code>Access-Control-Expose-Headers: X-Request-Id</code>; tested.</span></li>
+    <li><span class="box"></span><span><code>llms.txt</code>, <code>openapi.json</code>, <code>webapp/README.md</code>
+      ("For agents") and <code>docs/inference_path.html</code> say what D5 decides, calling the other side a
+      cross-origin caller;
+      <code>tests/test_agent_files.py</code> passes.</span></li>
+    <li><span class="box"></span><span>A front release, verified on the domain (<code>docs/agents/deploy.md</code>)
+      per D7: <code>--verify</code> passes with its new CORS checks, and the owner's <code>fetch</code> from the
+      devtools console of an unrelated page reads both parts of the answer for an example photo, and a busy 503's
+      JSON.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>API keys, accounts or per-site quotas. A per-origin limit is a later ticket if R1 shows up in the log.</li>
+    <li>More capacity: a second worker or a queue (OPS-10, the request-queue ticket).</li>
+    <li>An embeddable widget or script for other sites to drop in; this ticket opens the API only.</li>
+    <li>CORS on any path other than <code>/analyze</code>, beyond the agent files that already have it.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Ticket written from the owner's request, the front's site template, the check
+      service, <code>llms.txt</code> and the README's "For agents", at <code>89d628a</code>. D1&ndash;D6 open. Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilled with the owner. D1&ndash;D5 decided as recommended, with three
+      corrections from checking the Fetch standard and the code: <code>Max-Age</code> 7200 (Chrome's cap), the
+      preflight's <code>Authorization</code> example dropped, and a <code>proxy_hide_header</code> so the CORS header
+      is never doubled. D7 (how the release is checked) added and decided. The other side is called a
+      <b>cross-origin caller</b> in this ticket and the contract; it does not enter <code>GLOSSARY.md</code>, which
+      holds the project's own terms, not the web's. D6 open.</div>
+    <div><div class="when">2026-11-08</div>D6 decided (a):
+      <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a> written. Triage set to
+      <code>ready-for-agent</code>. Planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>, P1&ndash;P4.
+      Not implemented.</div>
+    <div><div class="when">2026-11-08</div>P1&ndash;P3 built on <code>ops19-cors-analyze</code> and reviewed
+      (<a href="plan_cors_analyze.html">the plan</a>'s Activity): the site, its tests against a real nginx, the contract,
+      and <code>--verify</code>'s CORS checks. The owner cut the local rehearsal short and gave the go to merge and test
+      on the real server. Not released.</div>
+  </div>
+
+  <footer>Related: <a href="plan_cors_analyze.html">the plan</a>,
+    <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="ticket_front_and_inference_host.html">OPS-15</a>,
+    <a href="ticket_webapp_request_queue.html">the request-queue ticket</a>,
+    <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>webapp/static/llms.txt</code>,
+    <a href="https://fetch.spec.whatwg.org/#http-cors-protocol">the Fetch standard's CORS protocol</a>.</footer>
+</main>

@@ -79,6 +79,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
     # garbage: not HTTP; or an int, a plain status with a JSON body
     reply = "stream"
     release = threading.Event()   # set: answer at once; cleared: hold the answer until it is set
+    extra_headers: dict[str, str] = {}   # sent with every status or stream answer as well (tests/test_front_site.py)
 
     def do_POST(self):  # noqa: N802
         body = self.rfile.read(int(self.headers["Content-Length"]))
@@ -99,6 +100,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
             self.send_header("X-Request-Id", "abcd1234")
+            self.send_extra_headers()
             self.end_headers()
             self.wfile.write(payload)
             return
@@ -106,11 +108,16 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("X-Accel-Buffering", "no")
         self.send_header("X-Request-Id", "abcd1234")
+        self.send_extra_headers()
         self.end_headers()
         self.wfile.write(b'{"part": "preview"}\n')
         self.wfile.flush()
         time.sleep(1.0)
         self.wfile.write(b'{"part": "classification"}\n')
+
+    def send_extra_headers(self):
+        for k, v in FakeInferenceHost.extra_headers.items():
+            self.send_header(k, v)
 
     def log_message(self, *args):
         pass

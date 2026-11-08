@@ -273,6 +273,7 @@
       <tr><td>raw User-Agent string</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
       <tr><td>coarse UA category (OS + browser family)</td><td class="why">HEIC/AVIF decode failures cluster by browser family &mdash; this is the actual useful signal</td><td><span class="pill collect">collect</span></td></tr>
       <tr><td>Referer header</td><td class="why">single-page app, one entry point &mdash; adds nothing</td><td><span class="pill exclude">exclude</span></td></tr>
+      <tr><td>Origin header, per request</td><td class="why">a site's address, not a visitor's: the page's own uploads log the live site, another site's page its own, <code>curl</code> or an agent &ldquo;-&rdquo;; the only way to tell other sites' traffic from the page's, now that <code>/analyze</code> answers every origin (OPS-19 D3, <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
     </tbody>
   </table></div>
   <p class="section-note" style="margin-top:10px;">
@@ -355,7 +356,7 @@
     <tbody>
       <tr><td>App structured log</td><td class="why">categories A, B, D, E as one JSON line per request</td><td class="why">365 days</td><td class="why">dedicated file + logrotate, daily, compressed &mdash; not <code>journald</code> at this duration: a year of this would compete with the system journal's own retention budget for everything else on the box</td></tr>
       <tr><td>nginx access log, the inference host (<code>coffee-cv.access</code>)</td><td class="why">UA category, status, path, request_id &mdash; no client IP (see &sect;03-C)</td><td class="why">365 days</td><td class="why">logrotate, rotate daily, compress, keep 365</td></tr>
-      <tr><td>nginx access log, the front (<code>coffee-cv-front.access</code>)</td><td class="why">status, path, time, bytes; nginx's own <code>$request_id</code>, then the app's (&ldquo;-&rdquo; for a request refused at the front) &mdash; no client IP</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365</td></tr>
+      <tr><td>nginx access log, the front (<code>coffee-cv-front.access</code>)</td><td class="why">status, path, time, bytes; nginx's own <code>$request_id</code>, then the app's (&ldquo;-&rdquo; for a request refused at the front); last, the request's <code>Origin</code> (OPS-19 D3) &mdash; no client IP</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365</td></tr>
       <tr><td>session log, the front (<code>coffee-cv-front.sessions</code>)</td><td class="why">the visitor's IP per TLS session, its end time, length and bytes (&sect;03-C)</td><td class="why">30 days</td><td class="why">logrotate on the proxy, daily, compress, keep 30</td></tr>
       <tr><td>Aggregated daily/hourly rollups (F)</td><td class="why">counts and percentiles only &mdash; no per-request rows</td><td class="why">indefinite</td><td class="why">not personal data once aggregated &mdash; no individual request is recoverable from it</td></tr>
     </tbody>

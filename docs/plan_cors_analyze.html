@@ -1,0 +1,259 @@
+<title>Implementation plan: other sites' pages can call /analyze and read the answer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-19 · coffee-vision · implementation</div>
+  <h1>Implementation plan: other sites' pages can call /analyze and read the answer</h1>
+  <p class="lede">The order of work for <a href="ticket_cors_analyze.html">ticket OPS-19</a>. There are three local
+    strands: the front's site and its tests, the contract and the docs, and <code>--verify</code>'s CORS checks. Then
+    one release, which needs the owner's go and the owner's browser check. The site comes first because everything
+    else describes or checks what it does. Nothing reaches the live site before P4.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1&ndash;P3 done 2026-11-08; P4 in progress</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_cors_analyze.html"><code>ticket_cors_analyze.html</code></a> (OPS-19)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>5682d93</code>, not from the ticket alone. Seven things the ticket does not
+      cover turned up. They are folded in below. None of them needs a decision.</p>
+    <ol>
+      <li><b>The front's site ships only with a full release.</b> <code>build_front</code> in
+        <code>scripts/deploy_webapp.sh</code> renders the site template for each release, and there is no front-only
+        deploy. So P4 is a full two-host deploy of the live model, and it stops photo answers for under 2 minutes
+        (ADR 0026). Folded into P4.</li>
+      <li><b>The preflight answer needs its own headers.</b> <code>if ($request_method = OPTIONS) { ... return 204;
+        }</code> is safe in nginx, since a <code>return</code> is one of the two things an <code>if</code> in a location
+        does reliably, and it runs in the rewrite phase, before <code>limit_conn</code>. But an <code>add_header</code>
+        inside the <code>if</code> replaces the location's own, so the block lists every CORS header itself. Folded
+        into P1.</li>
+      <li><b>The inference host's own busy 503 has no JSON body</b> (<code>llms.txt</code>, "Errors"). The check service
+        relays it, so the location's <code>add_header ... always</code> covers it, but no test answers 503 through the
+        front's site yet. <code>FakeInferenceHost.reply = 503</code> (in <code>tests/test_front_check_service.py</code>)
+        can. Folded into P1.</li>
+      <li><b>A CORS header from upstream would reach the browser twice.</b> The check service relays every header from
+        the inference host except its hop-by-hop ones (<code>NOT_RELAYED</code>). To test D1's
+        <code>proxy_hide_header</code>, the fake inference host needs a way to add one header to its answer. Folded into
+        P1.</li>
+      <li><b>Nothing parses the front's access log</b> except <code>tests/test_front_site.py</code>. Adding
+        <code>"$http_origin"</code> at the <em>end</em> of the line keeps every existing field in place. The README's
+        <code>tail -f</code> comment (line 254) and <code>docs/logging_plan.html</code> (&sect;06's table, and the
+        excluded-fields table beside <code>Referer</code>) describe the line. Folded into P1 and P2.</li>
+      <li><b>The owner's browser check cannot fetch an example photo cross-origin.</b> <code>/examples/</code> has no
+        CORS, and the ticket keeps it that way. So the check snippet in P4 picks a local file through an
+        <code>&lt;input type=file&gt;</code> added to the page. It also runs from a page with no restrictive
+        Content-Security-Policy (<code>https://example.org</code>), since a site's own <code>connect-src</code> blocks
+        the fetch before CORS is even reached.</li>
+      <li><b><code>--verify</code> already keeps the headers of its POST</b> (<code>post_analyze</code> writes them to
+        <code>$hdr</code>). Adding an <code>Origin</code> header there checks D1 and D4 on the real 200 at no extra cost.
+        Folded into P3.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 changes the site and proves each answer's headers locally against a real nginx. P2 documents what P1 does. P3
+    teaches <code>--verify</code> to check it, so the release in P4 is checked and rolled back on a failure like any
+    other. Only P4 touches the live site.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes the live site?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>CORS, the preflight and the <code>Origin</code> log field in the front's site;
+        tests</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>The contract and the docs: <code>llms.txt</code>, <code>openapi.json</code>, the
+        README, <code>inference_path.html</code>, <code>logging_plan.html</code></td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td><code>--verify</code>'s CORS checks</td><td>local, rehearsed</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>The release, and the owner's browser check <span class="pill sm open">stop</span></td>
+        <td>both hosts, owner</td><td>yes: a full deploy, photo answers down for under 2 minutes</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None. Every decision is in the ticket (D1&ndash;D7, <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR
+    0035</a>), and the findings above needed none.</p>
+
+  <h2>3. P1 &mdash; The front's site answers cross-origin callers</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>adff0b3</code>; 20 tests in <code>tests/test_front_site.py</code> pass against a real nginx</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>All in <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, test first in
+    <code>tests/test_front_site.py</code>. <code>location = /analyze</code> gains
+    <code>Access-Control-Allow-Origin "*" always</code> and <code>Access-Control-Expose-Headers "X-Request-Id"
+    always</code> (D1, D4). It also gets <code>proxy_hide_header</code> for the six CORS response headers (D1), and an
+    <code>if ($request_method = OPTIONS)</code> block that adds <code>Allow-Origin *</code>,
+    <code>Allow-Methods POST</code>, <code>Allow-Headers *</code> and <code>Max-Age 7200</code>, then
+    <code>return 204</code> (D2). <code>@too_large</code>, <code>@busy</code> and <code>@offline</code> each gain the
+    same two <code>always</code> headers as the location. <code>coffee_cv_front_minimal</code> gains
+    <code>"$http_origin"</code> at the end (D3).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The fake inference host (<code>tests/test_front_check_service.py</code>) gains a
+      class attribute for extra answer headers, reset in each <code>setUp</code>, so a test can make upstream send
+      <code>Access-Control-Allow-Origin</code>.</span></li>
+    <li><span class="box"></span><span>Tests, each sending an <code>Origin</code>. Each of these answers carries
+      exactly one <code>Access-Control-Allow-Origin: *</code> and
+      <code>Access-Control-Expose-Headers: X-Request-Id</code>:
+      <ul>
+        <li>the streamed 200, with <code>X-Request-Id</code> still there;</li>
+        <li>the check service's 400 and 413;</li>
+        <li>nginx's 413;</li>
+        <li>the busy 503 from the gate;</li>
+        <li>the inference host's own 503, relayed;</li>
+        <li>the offline 503 from the check service (inference host down);</li>
+        <li>the offline 503 from nginx (check service stopped);</li>
+        <li>a 200 whose upstream sent its own CORS header.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>Tests: <code>OPTIONS /analyze</code> gets a 204 with the four preflight headers.
+      It also gets a 204 while a photo is in flight, not a busy 503, and with the check service stopped, which proves it
+      never reaches it.</span></li>
+    <li><span class="box"></span><span>Tests: the agent files keep their header. <code>/</code> and an example photo
+      have none.</span></li>
+    <li><span class="box"></span><span>Test: an upload sent with an <code>Origin</code> header has that origin, quoted,
+      at the end of its line in <code>coffee-cv-front.access</code>. One without has <code>"-"</code>.</span></li>
+    <li><span class="box"></span><span>The template's comments say why: <code>always</code>, the named locations,
+      the <code>if</code> holding its own headers, <code>proxy_hide_header</code>, and Chrome's Max-Age cap. Each cites
+      OPS-19 and ADR 0035.</span></li>
+    <li><span class="box"></span><span>Checks: <code>tests/test_front_site.py</code> passes with a real nginx (not
+      skipped), and <code>scripts/check.sh</code> is green.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The contract and the docs</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>a6a142e</code>; <code>tests/test_agent_files.py</code> passes</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>The texts that say what P1 does, all calling the other side a cross-origin caller (the ticket's Activity). They
+    also say what D5 asks of a calling site.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>webapp/static/llms.txt</code>: a short section, "From a web page". It says
+      the API may be called from a page on any site. It gives a <code>fetch</code> example with a
+      <code>FormData</code> body, reading both NDJSON lines from <code>response.body</code>. It says the site
+      <em>should</em> tell its visitors their photo is sent here, and that it is never stored. On a busy 503 the site
+      waits about 10 s and retries, never in a loop and never in parallel, as in "Limits".</span></li>
+    <li><span class="box"></span><span><code>webapp/static/openapi.json</code>: the API's description says the same in a
+      sentence.</span></li>
+    <li><span class="box"></span><span><code>webapp/README.md</code>: "For agents" says <code>/analyze</code> answers
+      every origin too (ADR 0035), and the access log's <code>tail -f</code> comment names the <code>Origin</code>
+      field.</span></li>
+    <li><span class="box"></span><span><code>docs/inference_path.html</code>: the front's step (around line 298) names
+      the CORS headers and the preflight answered before the gate.</span></li>
+    <li><span class="box"></span><span><code>docs/logging_plan.html</code>: &sect;06's row for
+      <code>coffee-cv-front.access</code> lists the <code>Origin</code>. A row beside <code>Referer</code>'s marks it
+      included, because it is a site's address, not a visitor's, and it is the only way to tell other sites' traffic
+      from the page's (OPS-19 D3).</span></li>
+    <li><span class="box"></span><span>Checks: <code>tests/test_agent_files.py</code> passes (every URL in the files is
+      one the release serves), <code>llms.txt</code> stays ASCII, and <code>scripts/check.sh</code> is green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; <code>--verify</code> checks CORS on the domain</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>c3c606d</code>, <code>4f85a0c</code>; the checks run against a real nginx; the rehearsal cut short by the owner (see Activity); shellcheck not run</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>D7 (a). These checks are in <code>verify()</code>'s public block in <code>scripts/deploy_webapp.sh</code>, so a
+    failure rolls a full deploy back like any other check. They use the origin <code>https://verify.invalid</code>, so
+    their lines in the access log are plainly the deploy's own.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>post_analyze</code> sends <code>-H "Origin: https://verify.invalid"</code>.
+      When the backend is enabled, <code>check</code> covers <code>Access-Control-Allow-Origin</code> = <code>*</code>
+      and <code>Access-Control-Expose-Headers</code> = <code>X-Request-Id</code> from <code>$hdr</code>. The 503
+      branch with no backend checks the same header on the front's offline answer.</span></li>
+    <li><span class="box"></span><span>A preflight: <code>curl -X OPTIONS</code> with <code>Origin</code> and
+      <code>Access-Control-Request-Method: POST</code>, checked for a 204 and the four headers.</span></li>
+    <li><span class="box"></span><span>A refusal: a POST of a text file as <code>photo</code>, checked for a 400 that
+      carries <code>Access-Control-Allow-Origin: *</code>. It is refused at the front in milliseconds and never reaches
+      the worker.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/deploy.md</code>'s <code>--verify</code> paragraph names the
+      new checks.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/rehearse_deploy_local.sh</code> passes (the runbook asks
+      for it before a change to the deploy script), <code>shellcheck</code> is clean, and <code>scripts/check.sh</code>
+      is green.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; The release, and the owner's browser check <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-08: the owner's go to release, given; merged into main locally</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3; the owner's go</span></div>
+  </div>
+  <p>Per <code>docs/agents/deploy.md</code>. Only pushed commits deploy, and a deploy stops photo answers for under
+    2 minutes. So this phase starts with the owner's go to merge, push and deploy.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the go to merge <code>ops19-cors-analyze</code> into
+      <code>main</code> (a merge commit, ADR 0017), push, and deploy the live model at the merge commit.</span></li>
+    <li><span class="box"></span><span>The full deploy, then <code>DOMAIN=... scripts/deploy_webapp.sh --verify</code>
+      passes with P3's checks.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: from the devtools console of <code>https://example.org</code>
+      (it has no Content-Security-Policy that blocks the fetch), run the snippet below. Pick a bean photo, such as an
+      example photo saved from the site first. Then confirm that the first answer is a 200 with both parts, and the
+      second a 503 with the busy JSON.</span></li>
+    <li><span class="box"></span><span>Record the release, <code>--verify</code>'s result and the owner's check in the
+      ticket's Activity. Tick its acceptance list and set its Status. The owner closes the ticket.</span></li>
+  </ol>
+  <pre><code>const i = Object.assign(document.createElement("input"), {type: "file"});
+document.body.prepend(i);
+// pick the photo in the file chooser that appears at the top of the page, then:
+const send = () =&gt; { const f = new FormData(); f.append("photo", i.files[0]);
+  return fetch("https://coffee.kasetkin.com/analyze", {method: "POST", body: f}); };
+const [a, b] = await Promise.all([send(), send()]);
+console.log(a.status, a.headers.get("X-Request-Id"), (await a.text()).trim().split("\n").map(l =&gt; JSON.parse(l).part));
+console.log(b.status, await b.json());</code></pre>
+  <p>The two requests are sent together on purpose, so that the second finds the gate held. The contract asks callers
+    never to do this.</p>
+
+  <h2>7. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: every <code>/analyze</code> answer listed in its tasks carries exactly one
+      <code>Access-Control-Allow-Origin: *</code> and the exposed <code>X-Request-Id</code>, against a real nginx. The
+      preflight is a 204 while the gate is held and with the check service stopped. The <code>Origin</code> is the
+      access log line's last field.</span></li>
+    <li><span class="box"></span><span>P2: <code>tests/test_agent_files.py</code> passes, and the texts say what D5
+      decides.</span></li>
+    <li><span class="box"></span><span>P3: the local rehearsal passes with the new checks.</span></li>
+    <li><span class="box"></span><span>P4: <code>--verify</code> passes on the domain, and the owner's fetch from
+      another origin reads both parts and a busy 503's JSON.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". CORS on <code>/examples/</code> is one of those, though a
+      cross-origin caller cannot fetch the example photos without it (finding 6).</li>
+    <li>A check of the front's own 413 or busy 503 in <code>--verify</code>. P1's tests cover them, and on the domain a
+      busy 503 needs a held photo.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Claude reads ticket OPS-19 at <code>5682d93</code> and writes this plan.
+      Seven findings not in the ticket, all folded in; no questions for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-08</div>P1 done, test first: each answer's CORS headers, the preflight and the
+      Origin log field against a real nginx (8 new tests). Two failures the ticket predicted showed up red first: the
+      front's own 413 and 503 had no header, and a preflight got a 501, or a busy 503 while a photo was in flight.</div>
+    <div><div class="when">2026-11-08</div>P2 done: <code>llms.txt</code> gains "From a web page" (the CORS headers, a
+      <code>fetch</code> example reading the stream, and D5's asks of a calling site), and <code>openapi.json</code>, the
+      README, <code>inference_path.html</code> and <code>logging_plan.html</code> say what P1 does. The example was
+      checked by reading only: there is no JavaScript runtime in the dev container, so P4's browser check is its
+      first run.</div>
+    <div><div class="when">2026-11-08</div>P3 done. <code>verify_cors</code> and <code>header_values</code>, taken from
+      the script as written, ran against the tests' real nginx: every check passed on the new site, a preflight 204 with
+      the check service stopped included, and 13 failed on the site from before P1. The local rehearsal, from a scratch
+      clone whose main was this branch, passed its bootstrap, both refusals, deploy 1 with <code>--verify</code>, and
+      the refused deploy whose inference host's <code>nginx -t</code> fails; the owner then stopped it, to test on the
+      real server instead. Not run: deploy 2, <code>--compare</code>, the failed redeploy and the rollbacks, which the
+      change does not touch (its checks are in <code>verify</code>'s public block, which the rehearsal skips), and
+      shellcheck, which is not installed here. Code review: <code>4f85a0c</code> fixed its findings (the cross-origin
+      caller named in the contract, llms.txt's retry advice agreeing with its Limits, D5 in
+      <code>inference_path.html</code>).</div>
+  </div>
+
+  <footer>Related: <a href="ticket_cors_analyze.html">OPS-19 ticket</a>,
+    <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>,
+    <a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>,
+    <a href="agents/deploy.md">the deploy runbook</a>, <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>,
+    <code>tests/test_front_site.py</code>, <code>scripts/deploy_webapp.sh</code>.</footer>
+</main>

@@ -7,8 +7,11 @@
 # in the stream block's session log (coffee-cv-stream.conf.template, ticket OPS-15 D20), rotated at 30 days; this file
 # keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included, and
 # $upstream_http_x_request_id, the app's, relayed by the check service, which joins a line to the inference host's
-# logs and is "-" for what never reached the app.
-log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent';
+# logs and is "-" for what never reached the app. Last, the Origin the browser sends with a POST (ticket OPS-19 D3, ADR
+# 0035): the live site's for the page's own uploads, another site's for a cross-origin caller, "null" for a sandboxed
+# or file:// page, "-" for curl or an agent. A site's address, not a visitor's, and the only way to tell other sites'
+# traffic from the page's.
+log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent "$http_origin"';
 
 # One photo at a time for everyone (D11): the inference host has one worker, and over its 2.1 Mbit/s link a second
 # upload must never start crossing. Keyed on the server_name below, a fixed value, not per IP (NAT shares addresses);
@@ -68,6 +71,18 @@ server {
     }
 
     location = /analyze {
+        # A cross-origin caller's preflight (OPS-19 D2, ADR 0035), answered here: the check service has no OPTIONS. A
+        # `return` runs in the rewrite phase, before limit_conn, so a preflight never takes the gate nor waits on a photo
+        # in flight. An add_header inside the `if` replaces the location's, so the block names every header it sends.
+        # Allow-Headers `*` admits any header but Authorization, which stays unlisted: the API takes no credentials.
+        # Max-Age at Chrome's cap, 7200 s (Firefox's is 86400).
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "POST" always;
+            add_header Access-Control-Allow-Headers "*" always;
+            add_header Access-Control-Max-Age "7200" always;
+            return 204;
+        }
         limit_conn coffee_cv_front_inflight 1;
         # ML-19 D23 (10 MB by OPS-16 D8 before): a 40 MB photo, plus check_service.py's FORM_ALLOWANCE (64 KB) for the
         # form around it; the check service caps the photo itself at 40 MB, as the page measures it. The upload is held
@@ -91,6 +106,19 @@ server {
         proxy_buffer_size 1m;
         proxy_buffers 4 1m;
 
+        # Readable from a page on any origin, X-Request-Id included (ticket OPS-19 D1, D4; ADR 0035): no key, no
+        # cookie, so `*`. `always`, or nginx adds them to 2xx and 3xx answers alone, and a script would see a refusal as
+        # an opaque network error.
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        # Only these: one the check service or the app ever sent would reach the browser twice, which it rejects (D1).
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_hide_header Access-Control-Expose-Headers;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+        proxy_hide_header Access-Control-Max-Age;
+
         # The front's own refusals, as JSON like the app's (the page and llms.txt read the error).
         error_page 413 = @too_large;
         error_page 503 = @busy;
@@ -100,18 +128,26 @@ server {
         error_page 502 504 = @offline;
     }
 
+    # The front's refusals in their own locations: they inherit none of /analyze's add_header, so each sends the same
+    # two CORS headers itself (OPS-19 D1, D4), or a cross-origin caller cannot read the error the contract promises.
     location @too_large {
         default_type application/json;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
         return 413 '{"error": "this photo is over the 40 MB limit"}';
     }
 
     location @busy {
         default_type application/json;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
         return 503 '{"error": "the classifier is busy with another photo"}';
     }
 
     location @offline {
         default_type application/json;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Expose-Headers "X-Request-Id" always;
         return 503 '{"error": "the classifier is offline"}';
     }
 }
