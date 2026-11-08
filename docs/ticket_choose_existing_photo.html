@@ -12,9 +12,9 @@
     Choose Photo (an existing photo) and Take Photo (the camera); a desktop keeps one.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1, D2 decided 2026-11-08 (two controls on every mobile browser); built 2026-11-08 on <code>ops17-ios-choose-photo</code>, not released; the owner's check on the phones next</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
-    <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D7 decided 2026-11-08 (two controls on every mobile browser); built 2026-11-08 on <code>ops17-ios-choose-photo</code>, not released; the owner's check on the phones next</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload control</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code> (the <code>#photo-input</code> file input and its label), the page's tests, a release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
@@ -120,6 +120,28 @@
         <td>Wider than either, 2026-11-08: "let's make two buttons (choose photo, take photo) for all mobile versions".
           Every mobile browser, iOS and Android, phone and tablet (an iPad told apart from a Mac by its touch points),
           shows both controls; a desktop browser shows Choose Photo only.</td></tr>
+      <tr><td class="id">D3</td><td>How does the page tell a phone or tablet from a desktop?</td>
+        <td>(a) the user agent (Android, iPhone, iPad, iPod, "Mobi"), and a Mac platform with touch points for iPadOS
+          Safari (b) a coarse pointer (CSS <code>pointer: coarse</code>), which also matches touchscreen laptops</td>
+        <td>(a), 2026-11-08, as recommended. An iPhone asking for the desktop site reports a Mac with touch points and
+          gets both controls; a touchscreen Windows laptop and an Android tablet in desktop mode get one, and the
+          tablet's Choose Photo still offers its camera through the system's menu.</td></tr>
+      <tr><td class="id">D4</td><td>The two controls' order and look?</td>
+        <td>(a) Choose Photo first, both the same style and width (b) Take Photo a lighter, secondary style (c) Take
+          Photo first</td>
+        <td>(a), 2026-11-08, as recommended: a photo already taken is the common case, and two equal buttons are the
+          easiest to hit.</td></tr>
+      <tr><td class="id">D5</td><td>Where is it checked before visitors see it?</td>
+        <td>(a) live: deployed, then the owner checks on an iPhone, an Android phone and a desktop, with
+          <code>--rollback</code> at hand (b) a local app reached from the phone first</td>
+        <td>(a), 2026-11-08. The page is the only change; photo answers are down for the deploy's two minutes or
+          so.</td></tr>
+      <tr><td class="id">D6</td><td>What iOS sends from the library, HEIC or a JPEG it converts (R2)?</td>
+        <td>(a) read from the front's check-service log for the owner's test uploads, read-only (b) not looked at</td>
+        <td>(a), 2026-11-08, as recommended; the answer goes into this ticket's Activity.</td></tr>
+      <tr><td class="id">D7</td><td>Does the server learn which control a photo came from?</td>
+        <td>(a) no (b) a form field, logged</td>
+        <td>(a), 2026-11-08, as recommended: that is visitor analytics, OPS-3, on hold.</td></tr>
     </tbody>
   </table></div>
 
@@ -130,10 +152,12 @@
       same path (the preview, the one-at-a-time lock of OPS-7 D4); elsewhere the page as today.</span></li>
     <li><span class="box done"></span><span>A fast-tier test that holds both controls' attributes and the platform check
       (D1, D2).</span></li>
-    <li><span class="box"></span><span>On a local app, the owner on an iPhone in Safari: a library photo chosen with
-      Choose Photo and answered; a new photo taken with Take Photo and answered.</span></li>
-    <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>); on the live site the same
-      check on an iPhone and on an Android phone, and one control on a desktop.</span></li>
+    <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>) (D5).</span></li>
+    <li><span class="box"></span><span>On the live site, the owner on an iPhone and on an Android phone: a library
+      photo chosen with Choose Photo and answered, a new photo taken with Take Photo and answered; one control on a
+      desktop (D5).</span></li>
+    <li><span class="box"></span><span>What iOS sent from the library, read from the front's log and written here
+      (D6).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -159,6 +183,8 @@
       are disabled while a photo is in flight (OPS-7 D4). <code>tests/test_photo_controls.py</code> holds it (6 tests,
       failing on the page before). No browser runs here, so neither the detection nor the pickers were seen working:
       that is the owner's check on an iPhone and an Android phone. Not released.</div>
+    <div><div class="when">2026-11-08</div>Grilled with the owner: D3&ndash;D7 decided, all as recommended but D5's
+      (a), the check on the live site. Priority High, triage <code>bug, ready-for-agent</code>.</div>
   </div>
 
   <footer>Related: <code>webapp/static/index.html</code>,
