@@ -760,7 +760,7 @@ header_values() {   # header_values <name> <curl -D file>: the last answer's val
 # /analyze answers a cross-origin caller (ticket OPS-19 D7, ADR 0035): a preflight is the front nginx's 204, and the
 # check service's refusal of a file that is not a photo is readable from another origin. Neither reaches the worker.
 # Calls verify's check(). The headers of a full answer, the 200, are checked on verify's own POST.
-verify_cors() {   # verify_cors <the check service is enabled: 1 or empty>
+verify_cors() {   # verify_cors <the check service's state, systemctl is-enabled: only "enabled" posts the refusal>
   local hdr code
   hdr=$(mktemp)
   code=$(curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -X OPTIONS -H "Origin: $VERIFY_ORIGIN" \
@@ -770,7 +770,7 @@ verify_cors() {   # verify_cors <the check service is enabled: 1 or empty>
   check "    its Access-Control-Allow-Methods" "$(header_values Access-Control-Allow-Methods "$hdr")" POST
   check "    its Access-Control-Allow-Headers" "$(header_values Access-Control-Allow-Headers "$hdr")" "*"
   check "    its Access-Control-Max-Age" "$(header_values Access-Control-Max-Age "$hdr")" 7200
-  if [[ -n "$1" ]]; then
+  if [[ "$1" == enabled ]]; then
     code=$(printf 'not a photo\n' | curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -H "Origin: $VERIFY_ORIGIN" \
                 -F "photo=@-;filename=beans.jpg" "$PUBLIC_URL/analyze")
     check "public POST /analyze of a text file, cross-origin" "$code" 400
@@ -892,7 +892,7 @@ verify() {   # returns non-zero on a failed check
       check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
       check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
     fi
-    verify_cors "$([[ "$(kv ENABLED "$front")" == enabled ]] && echo 1)"
+    verify_cors "$(kv ENABLED "$front")"
     rm -f "$body"
   fi
   return $(( fails > 0 ))

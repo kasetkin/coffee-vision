@@ -314,7 +314,9 @@
     (ticket OPS-19, <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>): every answer, its own
     413 and 503 included, carries <code>Access-Control-Allow-Origin: *</code> and exposes <code>X-Request-Id</code>,
     and a preflight <code>OPTIONS</code> gets a 204 from nginx before the one-at-a-time gate, never reaching the check
-    service. The app and the check service send no CORS header, and the front strips any they would.
+    service. The app and the check service send no CORS header, and the front strips any they would. The contract
+    (<code>llms.txt</code>, "From a web page", OPS-19 D5) asks a calling site to tell its visitors their photo is sent
+    here, and to wait and retry on a busy 503, never in a loop: it shares the one worker with the page.
   </div>
 
   <div class="callout">

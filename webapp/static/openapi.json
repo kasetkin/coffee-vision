@@ -4,7 +4,7 @@
     "title": "Coffee Bean Origin Classifier",
     "version": "1",
     "summary": "One photo of whole coffee beans in, the likely country of origin out.",
-    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. At most 40 MB and 60 megapixels a photo (camera RAW: 16 megapixels). One photo at a time for everyone: on a busy 503, wait about 10 s and retry, and never send photos in parallel; on an offline 503, try again in a few minutes. A script on a page of any site may call it and read the answer (Access-Control-Allow-Origin: *, X-Request-Id exposed, no credentials); that site should tell its visitors their photo is sent here. Guide for agents: https://coffee.kasetkin.com/llms.txt"
+    "description": "Send one photo of whole coffee beans, green or roasted. The answer scores every country the model knows, or refuses when the photo does not look like the beans it was trained on. Free, no key. The photo is never stored. At most 40 MB and 60 megapixels a photo (camera RAW: 16 megapixels). One photo at a time for everyone: on a busy 503, wait about 10 s and retry, and never send photos in parallel; on an offline 503, try again in a few minutes. A cross-origin caller, a script on a page of any site, may call it and read the answer (Access-Control-Allow-Origin: *, X-Request-Id exposed, no credentials); that site should tell its visitors their photo is sent here. Guide for agents: https://coffee.kasetkin.com/llms.txt"
   },
   "externalDocs": {
     "description": "What the model knows and how it works",
