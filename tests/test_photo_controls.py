@@ -24,15 +24,20 @@ class _Elements(HTMLParser):
         self.by_id: dict[str, tuple[str, dict[str, str | None]]] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        a = dict(attrs)
-        if a.get("id"):
-            self.by_id[a["id"]] = (tag, a)
+        by_name = dict(attrs)
+        if by_name.get("id"):
+            self.by_id[by_name["id"]] = (tag, by_name)
 
 
 def element(id_: str) -> tuple[str, dict[str, str | None]]:
     parser = _Elements()
     parser.feed(INDEX)
     return parser.by_id[id_]
+
+
+def js_function(head: str) -> str:
+    """The page script's function that opens with `head`, up to its closing brace at the start of a line."""
+    return INDEX.split(head)[1].split("\n}")[0]
 
 
 class PhotoControls(unittest.TestCase):
@@ -57,12 +62,12 @@ class PhotoControls(unittest.TestCase):
         self.assertIn("hidden", element("camera-label")[1])
         self.assertIn("cameraLabel.hidden = !isMobile();", INDEX)
         for platform in ("Android", "iPhone", "iPad", "iPod", "Mobi"):
-            self.assertIn(platform, INDEX.split("function isMobile()")[1].split("}")[0])
+            self.assertIn(platform, js_function("function isMobile() {"))
         self.assertIn("navigator.maxTouchPoints > 1", INDEX)   # iPadOS Safari, which reports a Mac
 
     def test_both_answer_a_pick_and_both_wait_while_a_photo_is_in_flight(self):   # as OPS-7 D4
         self.assertIn("for (const input of [fileInput, cameraInput])", INDEX)
-        busy = INDEX.split("function setBusy(busy) {")[1].split("\n}")[0]
+        busy = js_function("function setBusy(busy) {")
         for line in ("fileInput.disabled = busy;", "cameraInput.disabled = busy;",
                      "photoLabel.classList.toggle('disabled', busy);", "cameraLabel.classList.toggle('disabled', busy);"):
             self.assertIn(line, busy)
