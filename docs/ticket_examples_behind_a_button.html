@@ -13,7 +13,7 @@
     Written 2026-11-08; every decision (D1&ndash;D12) taken the same day; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1, the page, built 2026-11-08 (<code>9a67e21</code>, <code>bbb4479</code>), merged to <code>main</code> in <code>65dc8c0</code>; not released</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1, the page, built 2026-11-08 (<code>9a67e21</code>, <code>bbb4479</code>), merged to <code>main</code> in <code>65dc8c0</code>; live 2026-11-08 in <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: layout above the photo</span></div>
@@ -289,6 +289,12 @@
       phone.</div>
     <div><div class="when">2026-11-08</div>Merged to <code>main</code> in <code>65dc8c0</code>, by merge commit
       (ADR 0017), at the owner's request. Not pushed, not released: P2 waits for the owner's go.</div>
+    <div><div class="when">2026-11-08</div>Released at the owner's request: <code>main</code> pushed (with OPS-5's
+      unpushed commits), then the full deploy of <code>70278a9</code> with the live model, release <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>.
+      <code>check.sh --full</code> passed, and the deploy's <code>--verify</code> passed through the domain with no
+      failure: the page is the release's, <code>/analyze</code> answered both parts with the smoke photo's top-1, the
+      four examples got Brazil, Ethiopia, Indonesia and the cappuccino's refusal, and the CORS checks held. What is
+      left is the owner's check on a phone.</div>
   </div>
 
   <footer>Related: <code>webapp/static/index.html</code>, <code>tests/test_example_photos.py</code>,

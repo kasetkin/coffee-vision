@@ -11,7 +11,7 @@
     owner's go and the owner's phone. Nothing reaches the live site before P2.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1 done 2026-11-08, merged to <code>main</code> in <code>65dc8c0</code>; P2 waits for the owner</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1 done 2026-11-08, merged to <code>main</code> in <code>65dc8c0</code>; released 2026-11-08; the owner's phone check open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_examples_behind_a_button.html"><code>ticket_examples_behind_a_button.html</code></a> (OPS-20)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -112,14 +112,14 @@
 
   <h2>4. P2 &mdash; The release and the owner's check <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">released 2026-11-08, <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>; <code>--verify</code> passed; the owner's phone check open</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Stop for the owner: merge to <code>main</code> and push, and the go for a
+    <li><span class="box done"></span><span>Stop for the owner: merge to <code>main</code> and push, and the go for a
       deploy, which stops photo answers for under 2 minutes (<a href="agents/deploy.md">deploy.md</a>).</span></li>
-    <li><span class="box"></span><span>The release deployed; <code>scripts/deploy_webapp.sh --verify</code> passes
-      through the domain.</span></li>
+    <li><span class="box done"></span><span>The release deployed; <code>scripts/deploy_webapp.sh --verify</code> passes
+      through the domain. <span class="result">Done 2026-11-08: <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>.</span></span></li>
     <li><span class="box"></span><span>Stop for the owner: the page checked on a phone.</span></li>
   </ol>
 
@@ -149,6 +149,12 @@
       the owner.</div>
     <div><div class="when">2026-11-08</div>Merged to <code>main</code> in <code>65dc8c0</code>, by merge commit
       (ADR 0017), at the owner's request. Not pushed, not released: P2 waits for the owner's go.</div>
+    <div><div class="when">2026-11-08</div>Released at the owner's request: <code>main</code> pushed (with OPS-5's
+      unpushed commits), then the full deploy of <code>70278a9</code> with the live model, release <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>.
+      <code>check.sh --full</code> passed, and the deploy's <code>--verify</code> passed through the domain with no
+      failure: the page is the release's, <code>/analyze</code> answered both parts with the smoke photo's top-1, the
+      four examples got Brazil, Ethiopia, Indonesia and the cappuccino's refusal, and the CORS checks held. What is
+      left is the owner's check on a phone.</div>
   </div>
 
   <footer>Related: <a href="ticket_examples_behind_a_button.html">OPS-20 ticket</a>,
