@@ -4048,13 +4048,13 @@ stages:
       size: 25282
     - path: data/canonical
       hash: md5
-      md5: 9965a35cff120e411419b91b9c172b74.dir
-      size: 5553179264
-      nfiles: 2375
+      md5: 5a30e49bf0089d997e0be5e9e71b1136.dir
+      size: 5749575139
+      nfiles: 2462
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 39360180306041822f125b3162c69938
-      size: 413582
+      md5: 0e52903b29e2f09e5a5b79d1ef8f829d
+      size: 443019
     - path: models/seg/xl0_v6_s42.pt
       hash: md5
       md5: ef6f149a1ec9d5a1b131faba9d399b56
@@ -4075,9 +4075,9 @@ stages:
     outs:
     - path: data/seg_masks_ml19/xl0_v6_s42
       hash: md5
-      md5: 632a3c694e3608162c32c871fd3395b8.dir
-      size: 2656259
-      nfiles: 361
+      md5: e5681f248ca31d342173f41c8c0120ed.dir
+      size: 3015565
+      nfiles: 383
   seg_ml16_finetune@xl0_v7_s42:
     cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed 42 --name 
       xl0_v7_s42 --threads 8
@@ -4560,13 +4560,13 @@ stages:
       size: 25282
     - path: data/canonical
       hash: md5
-      md5: 9965a35cff120e411419b91b9c172b74.dir
-      size: 5553179264
-      nfiles: 2375
+      md5: 5a30e49bf0089d997e0be5e9e71b1136.dir
+      size: 5749575139
+      nfiles: 2462
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 39360180306041822f125b3162c69938
-      size: 413582
+      md5: 0e52903b29e2f09e5a5b79d1ef8f829d
+      size: 443019
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -4587,9 +4587,9 @@ stages:
     outs:
     - path: data/seg_masks_ml19/xl0_v7r_s123
       hash: md5
-      md5: 544af63673cca52823546b99be42216d.dir
-      size: 2711468
-      nfiles: 361
+      md5: f9289f13c03552ab623bbb4e12426c1f.dir
+      size: 3076479
+      nfiles: 383
   litert_export@dino3b16_segxl0v7r_country_aug8_s42:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v7r_country_aug8_s42.pt --profile gpu_split && 
