@@ -427,6 +427,13 @@
       drop is mostly Indonesia (6 patches) and one Rwanda photo whose patches all went to Indonesia, a photo whose crop
       is the same bar 2 px. No D18 fallback in any split; 7 training patches under D17's bean share. The owner
       decides (ADR 0002).</div>
+    <div><div class="when">2026-11-08</div>The release's first stage stopped at the front: its installed
+      <code>coffee-cv-front.service</code> was OPS-15's (<code>MemoryMax=100M</code>), not ML-19's (600M), and only root
+      installs it (OPS-15 D9). The owner set <code>MemoryMax=600M</code> on the proxy by hand, restarted the service and
+      dropped the comment above the line; the template follows (the deploy compares the rendered unit byte for byte). The
+      600M's reasons stay in ML-19 D26, D38 and <code>analysis/ml19/p8/README.md</code>. The release before it staged on
+      the inference host in 88 s: the two graphs byte-identical to the live release's were copied on the host first, into
+      a <code>releases/seed-ml16-graphs</code> that the deploy's <code>--copy-dest</code> reads and its prune removes.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),
