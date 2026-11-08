@@ -15,7 +15,7 @@
     planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; D1&ndash;D20 decided 2026-11-08 (GIF and BMP, not TIFF; the accepted formats in one data file with one recogniser; only they reach a decoder); built 2026-11-08 on <code>ops18-gif-bmp-uploads</code>, R1 recorded; not released (D9)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-11-08; D1&ndash;D20 decided 2026-11-08 (GIF and BMP, not TIFF; the accepted formats in one data file with one recogniser; only they reach a decoder); built 2026-11-08 on <code>ops18-gif-bmp-uploads</code>, R1 recorded; live 2026-11-08 in release <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code> with OPS-17 and OPS-19 (D9 changed by the owner)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low (owner, 2026-11-08)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Front: accepted upload formats</span></div>
@@ -203,7 +203,8 @@
         <td>(a), 2026-11-08: "all as recommend". Added to <code>GLOSSARY.md</code> the same day.</td></tr>
       <tr><td class="id">D9</td><td>Its own release, or one with OPS-17?</td>
         <td>(a) its own front release, after OPS-17's is live (recommended) (b) one release with both</td>
-        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+        <td>(a), 2026-11-08: "all as recommend". Changed to (b) by the owner the same day: one release with
+          OPS-17 and OPS-19 (<code>bcd158e</code>).</td></tr>
       <tr><td class="id">D10</td><td>Which formats may the training store's canonicalization open?</td>
         <td>(a) the accepted formats, as the front: <code>.tif</code> and <code>.tiff</code> leave
           <code>PHOTO_EXTENSIONS</code> (recommended; the dataset holds none) (b) the store keeps TIFF (c) intake's
@@ -293,7 +294,7 @@
       (D12).</span></li>
     <li><span class="box done"></span><span>The four example photos, converted to GIF, run through a local front and
       inference host; their verdicts are recorded beside the originals' (R1).</span></li>
-    <li><span class="box"></span><span>Live in a release of its own, after OPS-17's (D9), verified on the domain
+    <li><span class="box done"></span><span>Live in a release of its own, after OPS-17's (D9), verified on the domain
       (<code>--verify</code>, per <code>docs/agents/deploy.md</code>): a GIF and a BMP sent with <code>curl -F photo=@...</code> each get a preview
       and a classification.</span></li>
   </ul>
@@ -358,6 +359,11 @@
       seg_ml19_predict) were recorded with <code>dvc commit</code>, as ML-19 P4's ten were; no output's hash changed.
       <code>scripts/check.sh --full</code>: 875 tests pass. Not released: D9's release, after OPS-17's is live, is the
       owner's.</div>
+    <div><div class="when">2026-11-08</div>Released with OPS-17 and OPS-19 in one release, the owner's change to D9
+      (<code>bcd158e</code>), as <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code>; <code>--verify</code> passed. On the domain, a 3000
+      &times; 2250 fixture photo (Kenya AA, Sony) sent with <code>curl -F photo=@...</code>: as a 4 MB GIF, a 200 with a
+      preview and a classification, Kenya at 0.98, in 17.3 s (<code>X-Request-Id</code> <code>2139f7d0</code>); as a
+      19 MB BMP, the same, Kenya at 0.96, in 23.5 s (<code>3e8f9242</code>). Closed on the owner's word.</div>
   </div>
 
   <footer>Related: <code>webapp/front/upload_check.py</code>, <code>coffeecv/canonical.py</code>,

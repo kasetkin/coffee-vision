@@ -12,7 +12,7 @@
     Choose Photo (an existing photo) and Take Photo (the camera); a desktop keeps one.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D8 decided 2026-11-08 (two controls on every mobile browser); built 2026-11-08 on <code>ops17-ios-choose-photo</code>, not released; the owner's check on the phones next</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-11-08; D1&ndash;D8 decided 2026-11-08 (two controls on every mobile browser); built 2026-11-08 on <code>ops17-ios-choose-photo</code>; live 2026-11-08 in release <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code> with OPS-18 and OPS-19, <code>--verify</code> passed; the phone check and D6 not recorded</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload control</span></div>
@@ -156,7 +156,7 @@
       same path (the preview, the one-at-a-time lock of OPS-7 D4); elsewhere the page as today.</span></li>
     <li><span class="box done"></span><span>A fast-tier test that holds both controls' attributes and the platform check
       (D1, D2).</span></li>
-    <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>) (D5).</span></li>
+    <li><span class="box done"></span><span>Live, verified on the domain (<code>--verify</code>) (D5).</span></li>
     <li><span class="box"></span><span>On the live site, the owner on an iPhone and on an Android phone: a library
       photo chosen with Choose Photo and answered, a new photo taken with Take Photo and answered; one control on a
       desktop (D5).</span></li>
@@ -195,6 +195,10 @@
       sets no <code>display</code>), and both labels are equal width (D4). The test now reads the script's functions
       through one helper. Kept as is: the accept list, written on both inputs and held equal by the test.
       <code>scripts/check.sh --full</code> run. Not released.</div>
+    <div><div class="when">2026-11-08</div>Released with OPS-18 and OPS-19 in one release at the owner's word
+      (<code>bcd158e</code>), as <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code>. <code>--verify</code> passed: the page on the domain is
+      the release's <code>index.html</code>. Not done: the owner's check on an iPhone and an Android phone, and D6 (what
+      iOS sends from the library), so those two acceptance items stay unticked. Closed on the owner's word.</div>
   </div>
 
   <footer>Related: <code>webapp/static/index.html</code>,

@@ -12,7 +12,7 @@
     else describes or checks what it does. Nothing reaches the live site before P4.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1&ndash;P3 done 2026-11-08; P4 in progress</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-11-08; no questions open; P1&ndash;P4 done 2026-11-08; live in <code>bcd158e</code></span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_cors_analyze.html"><code>ticket_cors_analyze.html</code></a> (OPS-19)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -177,7 +177,7 @@
 
   <h2>6. P4 &mdash; The release, and the owner's browser check <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-08: the owner's go to release, given; merged into main locally</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>bcd158e</code>, release <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code>, with OPS-17 and OPS-18; <code>--verify</code> passed; the owner's browser check not run</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1, P2, P3; the owner's go</span></div>
   </div>
   <p>Per <code>docs/agents/deploy.md</code>. Only pushed commits deploy, and a deploy stops photo answers for under
@@ -249,6 +249,12 @@ console.log(b.status, await b.json());</code></pre>
       shellcheck, which is not installed here. Code review: <code>4f85a0c</code> fixed its findings (the cross-origin
       caller named in the contract, llms.txt's retry advice agreeing with its Limits, D5 in
       <code>inference_path.html</code>).</div>
+    <div><div class="when">2026-11-08</div>P4 done. The owner chose one release for OPS-17, OPS-18 and OPS-19, which
+      overrides OPS-18's D9. <code>main</code> at <code>bcd158e</code> pushed and deployed with the live model as
+      <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code>; the full suite passed first, photo answers were down 50 s, and
+      <code>--verify</code> passed with P3's checks. Measured on the domain: the preflight answered in 0.000 s, the
+      cross-origin 400 in 0.002 s (the front's access log). The browser check from https://example.org was not
+      run.</div>
   </div>
 
   <footer>Related: <a href="ticket_cors_analyze.html">OPS-19 ticket</a>,

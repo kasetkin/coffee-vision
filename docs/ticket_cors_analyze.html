@@ -11,10 +11,10 @@
     <code>Access-Control-Allow-Origin</code> on it. This ticket adds CORS to <code>/analyze</code> at the front's nginx,
     on every answer including the front's own refusals, and says so in the public contract. Written 2026-11-08;
     D1&ndash;D7 decided the same day (<a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>);
-    planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>; implemented locally (P1&ndash;P3), not released.</p>
+    planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>; live 2026-11-08 (<code>bcd158e</code>), closed.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; D1&ndash;D7 decided 2026-11-08; P1&ndash;P3 done 2026-11-08 (<code>adff0b3</code>, <code>a6a142e</code>, <code>c3c606d</code>, <code>4f85a0c</code>); not released</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-11-08; D1&ndash;D7 decided 2026-11-08; P1&ndash;P3 done 2026-11-08 (<code>adff0b3</code>, <code>a6a142e</code>, <code>c3c606d</code>, <code>4f85a0c</code>); live 2026-11-08 in release <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code> with OPS-17 and OPS-18, <code>--verify</code> passed; the owner's browser check not recorded</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Front: public API access from browsers</span></div>
@@ -214,18 +214,18 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The front's site sends <code>Access-Control-Allow-Origin: *</code> (D1) on
+    <li><span class="box done"></span><span>The front's site sends <code>Access-Control-Allow-Origin: *</code> (D1) on
       every <code>/analyze</code> answer: the streamed 200, the check service's 400 and 413, the front's own 413, the
       busy 503 and the offline 503, never twice; tested in <code>tests/test_front_site.py</code>.</span></li>
-    <li><span class="box"></span><span>Per D2, <code>OPTIONS /analyze</code> gets a 204 with
+    <li><span class="box done"></span><span>Per D2, <code>OPTIONS /analyze</code> gets a 204 with
       <code>Access-Control-Allow-Methods: POST</code>, <code>Access-Control-Allow-Headers: *</code> and
       <code>Access-Control-Max-Age: 7200</code>, even while a photo is in flight, and never reaches the check
       service; tested.</span></li>
-    <li><span class="box"></span><span>The agent files' CORS is unchanged, and no other path gains it; tested.</span></li>
-    <li><span class="box"></span><span>Per D3, <code>coffee_cv_front_minimal</code> records
+    <li><span class="box done"></span><span>The agent files' CORS is unchanged, and no other path gains it; tested.</span></li>
+    <li><span class="box done"></span><span>Per D3, <code>coffee_cv_front_minimal</code> records
       <code>"$http_origin"</code>, and <code>docs/logging_plan.html</code> says so. Per D4, every
       <code>/analyze</code> answer sends <code>Access-Control-Expose-Headers: X-Request-Id</code>; tested.</span></li>
-    <li><span class="box"></span><span><code>llms.txt</code>, <code>openapi.json</code>, <code>webapp/README.md</code>
+    <li><span class="box done"></span><span><code>llms.txt</code>, <code>openapi.json</code>, <code>webapp/README.md</code>
       ("For agents") and <code>docs/inference_path.html</code> say what D5 decides, calling the other side a
       cross-origin caller;
       <code>tests/test_agent_files.py</code> passes.</span></li>
@@ -262,6 +262,14 @@
       (<a href="plan_cors_analyze.html">the plan</a>'s Activity): the site, its tests against a real nginx, the contract,
       and <code>--verify</code>'s CORS checks. The owner cut the local rehearsal short and gave the go to merge and test
       on the real server. Not released.</div>
+    <div><div class="when">2026-11-08</div>Released with OPS-17 and OPS-18 in one release at the owner's word
+      (<code>bcd158e</code>, merged into <code>main</code> and pushed), as <code>20261108T1418Z-bcd158e-dino3b16_segxl0v7r_country_aug8_s42</code>. The full suite
+      passed before the deploy (755 s); photo answers were down 50 s. <code>--verify</code> passed, its CORS checks
+      included: the 200 carried <code>Access-Control-Allow-Origin: *</code> and exposed <code>X-Request-Id</code>, the
+      preflight got a 204 with its four headers, and a text file's 400 carried the header. The front's access log ends
+      each line with the Origin (D3): <code>"https://verify.invalid"</code> on the deploy's preflight and refusal,
+      <code>"-"</code> on <code>curl</code>'s posts. The owner's fetch from another site's devtools console (P4) was
+      not run, so the last acceptance item stays unticked. Closed on the owner's word.</div>
   </div>
 
   <footer>Related: <a href="plan_cors_analyze.html">the plan</a>,
