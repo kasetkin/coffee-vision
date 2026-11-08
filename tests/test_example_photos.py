@@ -94,8 +94,8 @@ class ThePage(unittest.TestCase):
         self.assertIn("`This coffee is from ${example.country}.`", self.INDEX)
 
 
-class _Card(HTMLParser):
-    """The card's elements in document order, as (tag, attrs, own text), and each button's text by id."""
+class _Elements(HTMLParser):
+    """The page's elements in document order, as (tag, attrs, own text), and each button's text by id."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -103,14 +103,12 @@ class _Card(HTMLParser):
         self.text: dict[str, str] = {}
         self._button: str | None = None
         self._hidden_depth = 0   # inside an aria-hidden element: its text is not the button's label
-        self._stack: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         a = {k: (v if v is not None else "") for k, v in attrs}
         self.elements.append((tag, a))
         if tag in ("br", "img", "input", "meta", "link"):
             return
-        self._stack.append(tag)
         if tag == "button" and a.get("id"):
             self._button = a["id"]
             self.text[self._button] = ""
@@ -118,8 +116,6 @@ class _Card(HTMLParser):
             self._hidden_depth += 1
 
     def handle_endtag(self, tag):
-        if self._stack and self._stack[-1] == tag:
-            self._stack.pop()
         if self._hidden_depth:
             self._hidden_depth -= 1
         if tag == "button":
@@ -136,24 +132,25 @@ class TheFolds(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        card = _Card()
+        card = _Elements()
         card.feed(ThePage.INDEX)
         cls.card = card
         cls.ids = [a.get("id") for _, a in card.elements]
         cls.by_id = {a["id"]: (tag, a) for tag, a in card.elements if a.get("id")}
 
-    def index(self, pred) -> int:
-        return next(i for i, (tag, a) in enumerate(self.card.elements) if pred(tag, a))
+    def by_class(self, name) -> int:
+        """The index of the first element with this class."""
+        return next(i for i, (_, a) in enumerate(self.card.elements) if name in a.get("class", "").split())
 
     def test_the_buttons_are_a_line_of_their_own_under_the_controls(self):   # D3
-        controls = self.index(lambda t, a: "controls" in a.get("class", "").split())
-        folds = self.index(lambda t, a: "folds" in a.get("class", "").split())
+        controls = self.by_class("controls")
+        folds = self.by_class("folds")
         # Nothing but the controls' two labels between them.
         between = [t for t, _ in self.card.elements[controls + 1:folds]]
         self.assertEqual(between, ["label", "label"])
 
     def test_accepted_formats_first_then_examples(self):   # D7, D12
-        folds = self.index(lambda t, a: "folds" in a.get("class", "").split())
+        folds = self.by_class("folds")
         buttons = [a["id"] for t, a in self.card.elements[folds + 1:folds + 6] if t == "button"]
         self.assertEqual(buttons, ["formats-toggle", "examples-toggle"])
         self.assertEqual(" ".join(self.card.text["formats-toggle"].split()), "Accepted formats")
@@ -176,19 +173,21 @@ class TheFolds(unittest.TestCase):
                 self.assertEqual((tag, a.get("class"), a.get("aria-hidden")), ("span", "arrow", "true"))
         self.assertEqual(ThePage.INDEX.count('<span class="arrow" aria-hidden="true">&#9656;</span>'), 2)
 
-    def test_examples_appears_only_after_a_pick(self):   # D1
+    def test_examples_is_not_offered_before_a_pick(self):   # D1: the row itself is, in full
         self.assertIn("hidden", self.by_id["examples-toggle"][1])
         self.assertNotIn("hidden", self.by_id["formats-toggle"][1])
 
-    def test_the_chips_are_the_formats_list_and_outside_the_buttons(self):   # D5, R5
+    def test_the_chips_are_the_formats_list_and_hold_no_button(self):   # D5, R5
         tag, a = self.by_id["formats"]
         self.assertEqual(tag, "div")
         self.assertIn("formats-hint", a.get("class", "").split())
+        inside = self.card.elements[self.ids.index("formats") + 1:self.ids.index("examples")]
+        self.assertEqual({t for t, _ in inside}, {"span"})   # the chips, and nothing a test would count as one
         # A folded flex box needs its own rule: display: flex wins over the hidden attribute.
         self.assertIn(".formats-hint[hidden] { display: none; }", ThePage.INDEX)
 
     def test_the_lists_stack_in_todays_order_under_the_buttons(self):   # D11
-        folds = self.index(lambda t, a: "folds" in a.get("class", "").split())
+        folds = self.by_class("folds")
         self.assertLess(folds, self.ids.index("formats"))
         self.assertLess(self.ids.index("formats"), self.ids.index("examples"))
         self.assertLess(self.ids.index("examples"), self.ids.index("preview-wrap"))

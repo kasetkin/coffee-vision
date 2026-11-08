@@ -321,7 +321,6 @@ const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
 const examplesEl = document.getElementById('examples');
 const exampleRow = document.getElementById('example-row');
-const formatsEl = document.getElementById('formats');
 const formatsToggle = document.getElementById('formats-toggle');
 const examplesToggle = document.getElementById('examples-toggle');
 
@@ -499,20 +498,26 @@ for (const input of [fileInput, cameraInput]) {
 // (D4, D11); neither is disabled while a photo is in flight, since opening a list sends nothing.
 let picked = false;
 
-function setOpen(toggle, list, open) {
-  list.hidden = !open;
+function setOpen(toggle, open) {
+  document.getElementById(toggle.getAttribute('aria-controls')).hidden = !open;
   toggle.setAttribute('aria-expanded', String(open));
   toggle.querySelector('.arrow').textContent = open ? '▾' : '▸';
 }
-formatsToggle.addEventListener('click', () => setOpen(formatsToggle, formatsEl, formatsEl.hidden));
-examplesToggle.addEventListener('click', () => setOpen(examplesToggle, examplesEl, examplesEl.hidden));
+for (const toggle of [formatsToggle, examplesToggle]) {
+  toggle.addEventListener('click', () => setOpen(toggle, toggle.getAttribute('aria-expanded') !== 'true'));
+}
 
-// Every pick folds both lists, at the pick (D2, D8), on every screen (D9); "Examples" is offered from then on, if the
-// row was built (OPS-16 D13: a list that cannot be read shows neither).
+// Every pick folds both lists, at the pick (D2, D8), on every screen (D9), and from then on offers "Examples" in the
+// row's place.
 function foldLists() {
   picked = true;
-  setOpen(formatsToggle, formatsEl, false);
-  setOpen(examplesToggle, examplesEl, false);
+  setOpen(formatsToggle, false);
+  setOpen(examplesToggle, false);
+  offerExamples();
+}
+
+// "Examples" only over a row that was built (OPS-16 D13: a list that cannot be read shows neither).
+function offerExamples() {
   examplesToggle.hidden = exampleRow.childElementCount === 0;
 }
 
@@ -576,10 +581,13 @@ async function loadExamples() {
     caption.textContent = example.caption;
     button.append(img, caption);
     button.addEventListener('click', () => chooseExample(example));
+    // A list that comes in while a photo is in flight: its buttons wait like the rest (OPS-7 D4), since "Examples"
+    // can open the row then (ticket OPS-20).
+    button.disabled = fileInput.disabled;
     exampleRow.append(button);
   }
   // A list that comes in after the first pick offers its button and leaves the row folded (ticket OPS-20 D1).
-  if (picked) examplesToggle.hidden = false;
+  if (picked) offerExamples();
   else examplesEl.hidden = false;
 }
 
@@ -645,7 +653,7 @@ async function analyze(file, skipCrop, example) {
       renderRefused(refusalFor(res.status, data));
       // Ticket OPS-20 D6: the chips open in their place, right above this refusal, the preview being hidden.
       if (res.status === 400 && String(data.error || '').startsWith(UNREADABLE_ERROR)) {
-        setOpen(formatsToggle, formatsEl, true);
+        setOpen(formatsToggle, true);
       }
       return;
     }

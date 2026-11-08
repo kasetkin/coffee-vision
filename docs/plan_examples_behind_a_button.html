@@ -11,7 +11,7 @@
     owner's go and the owner's phone. Nothing reaches the live site before P2.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1 started 2026-11-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1 done 2026-11-08; P2 waits for the owner</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_examples_behind_a_button.html"><code>ticket_examples_behind_a_button.html</code></a> (OPS-20)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -64,7 +64,7 @@
 
   <h2>3. P1 &mdash; The lists fold behind their buttons</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-11-08</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>9a67e21</code> and the review fixes after it</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>All in <code>webapp/static/index.html</code>, test first. Under <code>.controls</code>, a line of its own
@@ -75,19 +75,19 @@
     folded together with its button. The buttons are not disabled while a photo is in flight (the ticket's "busy
     rule").</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>Tests in <code>tests/test_example_photos.py</code>, read from the HTML: the line
+    <li><span class="box done"></span><span>Tests in <code>tests/test_example_photos.py</code>, read from the HTML: the line
       sits right under the controls, the two buttons in D12's order with D7's labels, each controlling its own list
       and folded on load, the "Examples" button hidden on load, the chips hidden on load and outside the
       buttons, the lists in today's order (D11).</span></li>
-    <li><span class="box"></span><span>Test in <code>tests/test_agent_files.py</code>: the page's
+    <li><span class="box done"></span><span>Test in <code>tests/test_agent_files.py</code>: the page's
       <code>UNREADABLE_ERROR</code> is the words the front and the app start their 400 with (D6).</span></li>
-    <li><span class="box"></span><span>The page: the line, the two buttons and their styles (smaller and lighter than
+    <li><span class="box done"></span><span>The page: the line, the two buttons and their styles (smaller and lighter than
       the upload controls, R3), <code>.formats-hint[hidden]</code>; a pick folds both lists and shows the "Examples"
       button when the row was built (D2, D8, D10); a late <code>examples.json</code> after a pick shows the button,
       not the row; a 400 starting with <code>UNREADABLE_ERROR</code> opens the format list (D6).</span></li>
-    <li><span class="box"></span><span>OPS-16 D10 gains "Amended by OPS-20 D1", and OPS-18 D5 "Amended by OPS-20
+    <li><span class="box done"></span><span>OPS-16 D10 gains "Amended by OPS-20 D1", and OPS-18 D5 "Amended by OPS-20
       D5".</span></li>
-    <li><span class="box"></span><span>Checks: in headless Chromium (Playwright, a script outside the repo as for
+    <li><span class="box done"></span><span>Checks: in headless Chromium (Playwright, a script outside the repo as for
       OPS-16 P4) at 402&times;874, with the page served from the worktree. On load the chips are folded and the row is
       in full with no "Examples" button. Each button opens and folds its own list, with its arrow and
       <code>aria-expanded</code>, and both may be open. A pick of each kind (a file through Choose Photo, through Take
@@ -96,8 +96,19 @@
       an image" opens the chips above the refusal. With no <code>examples.json</code> there is no row and no button.
       Once an example's answer is in, the top of <code>#result</code> is inside the first screen, with the positions
       recorded in the ticket's Activity. <code>tests/test_accepted_formats_named.py</code> passes unchanged, and
-      <code>scripts/check.sh</code> is green.</span></li>
+      <code>scripts/check.sh</code> is green. <span class="result">Done 2026-11-08: all 43 checks pass
+      (<code>/tmp/ops20/e2e.py</code>, the page served from the worktree: 42 with <code>/analyze</code> faked for
+      every branch, the measurement through the live site's). Measured at 402&times;874 on the live model (example 1, Brazil top-1 on both pages), once the answer was in: today's page
+      put <code>#preview-wrap</code> at 562&nbsp;px and <code>#result</code> at 980&nbsp;px, below the first screen
+      (874); with the folds, 197&nbsp;px and 615&nbsp;px, so the photo and the answer move up 365&nbsp;px.</span></span></li>
   </ol>
+  <p><b>As run (2026-11-08).</b> The tests in the repo read the HTML only; what the buttons do is held by the browser
+    check, which lives outside the repo, as OPS-16 P4's did. <code>/code-review</code> found two cases of a list that
+    comes in after the first pick, both fixed and added to the browser check, each failing on <code>9a67e21</code>'s
+    page and passing after: a list arriving while a photo is in flight built its example buttons enabled, and
+    "Examples" could then open the row mid-flight (OPS-7 D4); and an empty list offered "Examples" over an empty row.
+    With both lists open during a wait, a D6 refusal has the row between the chips and its message; D11 allows
+    both open, so that stays.</p>
 
   <h2>4. P2 &mdash; The release and the owner's check <span class="pill sm open">stop</span></h2>
   <div class="fields">
@@ -131,6 +142,11 @@
   <div class="log">
     <div><div class="when">2026-11-08</div>Claude reads ticket OPS-20 at <code>d78a684</code> and writes this plan.
       Five findings not in the ticket, none needing a decision; no questions. P1 started.</div>
+    <div><div class="when">2026-11-08</div>P1 done in <code>9a67e21</code>, with the fixes from its
+      <code>/code-review</code> after it: the two late-list cases above, and the tests and the page's
+      <code>setOpen</code> tidied (the list found through the button's <code>aria-controls</code>). Every browser
+      check passes; the measurement is in the ticket. <code>scripts/check.sh</code> green. P2, the release, waits for
+      the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_examples_behind_a_button.html">OPS-20 ticket</a>,
