@@ -216,7 +216,9 @@
         <td>2026-11-03: a row under "Choose Photo", "No photo? Try one of ours:", each thumbnail captioned with its
           setting only ("Roasted, in a grinder", "Green, in a tray", "Robusta, on a table", "Roasted, close up", "A
           cappuccino, no beans"). Once the answer is in, one line gives the truth: "This coffee is from Brazil."; for
-          the cappuccino, "No coffee beans here: the classifier should refuse it."</td></tr>
+          the cappuccino, "No coffee beans here: the classifier should refuse it." <em>Amended by
+          <a href="ticket_examples_behind_a_button.html">OPS-20</a> D1</em>: the row is in full only until the first
+          pick, then folds behind an "Examples" button.</td></tr>
       <tr><td class="id">D11</td><td>Does the deploy check the examples?</td>
         <td>(a) yes, and a wrong answer fails (b) report only (c) no</td>
         <td>(a), 2026-11-03: an <code>example</code> role in <code>fixtures.txt</code>; <code>--verify</code> sends

@@ -1,0 +1,139 @@
+<title>Implementation plan: the example row and the format chips fold behind buttons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-20 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the example row and the format chips fold behind buttons</h1>
+  <p class="lede">The order of work for <a href="ticket_examples_behind_a_button.html">ticket OPS-20</a>. One change to
+    the page and its tests, checked in headless Chromium at the ticket's phone size, then one release, which needs the
+    owner's go and the owner's phone. Nothing reaches the live site before P2.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; no questions open; P1 started 2026-11-08</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_examples_behind_a_button.html"><code>ticket_examples_behind_a_button.html</code></a> (OPS-20)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>d78a684</code>, not from the ticket alone. Five things the ticket does not
+      cover turned up. They are folded in below. None of them needs a decision.</p>
+    <ol>
+      <li><b><code>hidden</code> does not hide the chips.</b> <code>.formats-hint</code> sets <code>display:
+        flex</code>, which wins over the <code>hidden</code> attribute's user-agent <code>display: none</code>. The
+        folded list needs a rule of its own, <code>.formats-hint[hidden]</code>. Folded into P1.</li>
+      <li><b>The example list can arrive after the first pick.</b> <code>loadExamples()</code> runs on load and
+        unhides the row when <code>examples.json</code> is in. On a slow line a visitor may pick a photo first, and the
+        row would then open under the folded line. Once a pick has happened, a late list shows the "Examples" button
+        and leaves the row folded. Folded into P1.</li>
+      <li><b>The fold belongs to the two pick handlers, not to <code>choose()</code>.</b> An example reaches
+        <code>choose()</code> again once it has downloaded. Folding there would close a list the visitor opened during
+        the download, and <code>choose()</code> also runs, and clears the photo, for a <code>change</code> with no
+        file. So the fold sits in the file inputs' <code>change</code> handler, only when a file came (D10), and at
+        the top of <code>chooseExample()</code> (D2, D10). "Use full photo instead" calls <code>analyze()</code>
+        directly and folds nothing. Folded into P1.</li>
+      <li><b>The refusal's words are not a constant.</b> The front (<code>webapp/front/check_service.py</code>, twice)
+        and the app (<code>webapp/app.py</code>) each write <code>"could not read this as an image: ..."</code>
+        inline. The page's D6 constant is held to all three in <code>tests/test_agent_files.py</code>, as its
+        <code>OFFLINE_ERROR</code> is. The front and the app are not changed (the ticket's "What does not change").
+        Folded into P1.</li>
+      <li><b>The page ships only with a full release.</b> As for OPS-19, the front's files are built per release,
+        so P2 is a full two-host deploy of the live model. Photo answers stop for under 2 minutes (ADR 0026). Folded
+        into P2.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 is the whole change, local, with the browser check that measures the ticket's acceptance line. P2 ships it.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes the live site?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The two buttons and the folds in <code>index.html</code>; tests; the headless
+        Chromium check; the amended-by notes in OPS-16 and OPS-18</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>The release, <code>--verify</code>, and the owner's phone check <span class="pill sm open">stop</span></td>
+        <td>both hosts, owner</td><td>yes: a full deploy, photo answers down for under 2 minutes</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None. Every decision is in the ticket (D1&ndash;D12), and the findings above needed none.</p>
+
+  <h2>3. P1 &mdash; The lists fold behind their buttons</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">started 2026-11-08</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>All in <code>webapp/static/index.html</code>, test first. Under <code>.controls</code>, a line of its own
+    (<code>div.folds</code>) holds two <code>button</code>s, "Accepted formats" then "Examples" (D3, D7, D12). Each
+    has <code>aria-controls</code> naming its list, <code>aria-expanded</code>, and an arrow in an
+    <code>aria-hidden</code> span, &#9656; folded and &#9662; open (D4). The chips' <code>div.formats-hint</code> gets
+    an id and <code>hidden</code> from load (D5). Neither button is inside it (R5). One function sets a list open or
+    folded together with its button. The buttons are not disabled while a photo is in flight (the ticket's "busy
+    rule").</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Tests in <code>tests/test_example_photos.py</code>, read from the HTML: the line
+      sits right under the controls, the two buttons in D12's order with D7's labels, each controlling its own list
+      and folded on load, the "Examples" button hidden on load, the chips hidden on load and outside the
+      buttons, the lists in today's order (D11).</span></li>
+    <li><span class="box"></span><span>Test in <code>tests/test_agent_files.py</code>: the page's
+      <code>UNREADABLE_ERROR</code> is the words the front and the app start their 400 with (D6).</span></li>
+    <li><span class="box"></span><span>The page: the line, the two buttons and their styles (smaller and lighter than
+      the upload controls, R3), <code>.formats-hint[hidden]</code>; a pick folds both lists and shows the "Examples"
+      button when the row was built (D2, D8, D10); a late <code>examples.json</code> after a pick shows the button,
+      not the row; a 400 starting with <code>UNREADABLE_ERROR</code> opens the format list (D6).</span></li>
+    <li><span class="box"></span><span>OPS-16 D10 gains "Amended by OPS-20 D1", and OPS-18 D5 "Amended by OPS-20
+      D5".</span></li>
+    <li><span class="box"></span><span>Checks: in headless Chromium (Playwright, a script outside the repo as for
+      OPS-16 P4) at 402&times;874, with the page served from the worktree. On load the chips are folded and the row is
+      in full with no "Examples" button. Each button opens and folds its own list, with its arrow and
+      <code>aria-expanded</code>, and both may be open. A pick of each kind (a file through Choose Photo, through Take
+      Photo, an example) folds both lists and shows "Examples", an example's at the click. A pick from the reopened
+      row folds it again. A cancelled picker and "Use full photo instead" fold nothing. A 400 "could not read this as
+      an image" opens the chips above the refusal. With no <code>examples.json</code> there is no row and no button.
+      Once an example's answer is in, the top of <code>#result</code> is inside the first screen, with the positions
+      recorded in the ticket's Activity. <code>tests/test_accepted_formats_named.py</code> passes unchanged, and
+      <code>scripts/check.sh</code> is green.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The release and the owner's check <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: merge to <code>main</code> and push, and the go for a
+      deploy, which stops photo answers for under 2 minutes (<a href="agents/deploy.md">deploy.md</a>).</span></li>
+    <li><span class="box"></span><span>The release deployed; <code>scripts/deploy_webapp.sh --verify</code> passes
+      through the domain.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the page checked on a phone.</span></li>
+  </ol>
+
+  <h2>5. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the browser checks above all pass, and the measured positions are in the
+      ticket.</span></li>
+    <li><span class="box"></span><span>P2: <code>--verify</code> passes, and the owner has checked the page on a
+      phone.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". The front's and the app's refusal wording stay inline (finding
+      4).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Claude reads ticket OPS-20 at <code>d78a684</code> and writes this plan.
+      Five findings not in the ticket, none needing a decision; no questions. P1 started.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_examples_behind_a_button.html">OPS-20 ticket</a>,
+    <code>webapp/static/index.html</code>, <a href="plan_example_photos.html">OPS-16 plan</a> (P4's browser
+    check).</footer>
+</main>
