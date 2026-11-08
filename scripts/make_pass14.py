@@ -56,17 +56,21 @@ def find_photo(row: dict) -> tuple[Path, bytes]:
 
 def stored_size(data: bytes, name: str) -> tuple[int, int]:
     """The photo's width and height as its decoder stores them, before any turn, from its header."""
-    if cn._sniff(data, name) == "heif":
+    fmt = cn.accepted_format(data, name)
+    if fmt.decoder == "pillow_heif":
         import pillow_heif
         return pillow_heif.open_heif(__import__("io").BytesIO(data)).size
-    if cn._sniff(data, name) == "raw":
+    if fmt.decoder == "imagecodecs.jpegxl":
+        header = cn.read_header(data)
+        return header.width, header.height
+    if fmt.decoder == "rawpy":
         import io
 
         import rawpy
         with rawpy.imread(io.BytesIO(data)) as raw:   # rawpy's postprocess turns by the raw's flip: as decoded
             s = raw.sizes
             return (s.width, s.height) if s.flip in (0, 3) else (s.height, s.width)
-    return cn._pillow_metadata(data)[3]
+    return cn._pillow_metadata(data, cn.pillow_plugin(fmt))[3]
 
 
 def carry(row: dict, write: bool) -> tuple[dict, dict | None]:

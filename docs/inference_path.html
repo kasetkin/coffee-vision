@@ -297,8 +297,10 @@
     hands it to <b>the front</b>, an nginx site on the same machine that terminates TLS, serves the page, lets one
     <code>/analyze</code> through at a time and refuses a body over 40 MB (413; ML-19 D23, 10 MB by OPS-16 D8 and 5 MB before). Its check service,
     <code>webapp/front/check_service.py</code>, reads the form and checks the photo's first bytes (and a RAW file's
-    extension) against the formats the public contract names (<code>upload_check.py</code>; GIF, BMP and a plain
-    TIFF are refused there, though Pillow would open them), then canonicalizes the photo (ticket ML-19, ADR 0033:
+    extension) against the accepted formats (<code>upload_check.py</code> calling <code>canonical.recognise</code> on
+    <code>coffeecv/data/accepted_formats.csv</code>; ticket OPS-18, ADR 0034: GIF and BMP pass since OPS-18, and only a
+    plain TIFF is refused there, though Pillow would open it), then canonicalizes the photo, opening it with its
+    format's decoder and no other (ticket ML-19, ADR 0033:
     <code>coffeecv/canonical.py</code>, the code that built training's canonical store; a photo over its pixel ceiling,
     60 MP or 16 MP for RAW, is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and

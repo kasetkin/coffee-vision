@@ -320,6 +320,187 @@ class Encoder(unittest.TestCase):
                            numthreads=1)
 
 
+def pillow_bytes(fmt: str, mode: str = "RGB", **save) -> bytes:
+    buf = io.BytesIO()
+    Image.new(mode, (32, 24), (120, 80, 40) if mode == "RGB" else 1).save(buf, format=fmt, **save)
+    return buf.getvalue()
+
+
+def bmp_head(info_size: int) -> bytes:
+    """A BMP's file header and the size field of its info header (R4): BM, the file size, two reserved words, the
+    pixels' offset, then the info header's size."""
+    return b"BM" + (1000).to_bytes(4, "little") + bytes(4) + (14 + info_size).to_bytes(4, "little") + \
+        info_size.to_bytes(4, "little") + bytes(44)
+
+
+class Recogniser(unittest.TestCase):
+    """canonical.recognise (OPS-18 D14, D17, D18): a file's row of accepted_formats.csv from its first bytes and name."""
+
+    def test_every_row_has_its_rule_and_every_rule_a_row(self):   # D14
+        self.assertEqual(set(cn.RULES), set(cn.ACCEPTED_FORMATS))
+
+    def test_the_file_names_gif_and_bmp_and_no_tiff(self):   # D2
+        ids = set(cn.ACCEPTED_FORMATS)
+        self.assertLessEqual({"jpeg", "png", "webp", "heif", "avif", "jxl", "gif", "bmp"}, ids)
+        self.assertNotIn("tiff", ids)
+        self.assertNotIn(".tif", cn.PHOTO_EXTENSIONS)
+        self.assertNotIn(".tiff", cn.PHOTO_EXTENSIONS)
+        self.assertEqual(cn.RAW_EXTENSIONS, frozenset({".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2",
+                                                        ".pef", ".srw"}))   # D15, D19
+
+    def test_every_list_of_raw_extensions_is_the_files(self):   # D19
+        from coffeecv import photo_io
+        self.assertIs(photo_io.RAW_EXTENSIONS, cn.RAW_EXTENSIONS)
+
+    def test_each_pillow_written_format_by_its_content(self):
+        for fmt, want in (("JPEG", "jpeg"), ("PNG", "png"), ("WEBP", "webp"), ("AVIF", "avif"), ("GIF", "gif"),
+                          ("BMP", "bmp")):
+            with self.subTest(format=fmt):
+                self.assertEqual(cn.recognise(pillow_bytes(fmt)[:cn.HEAD_BYTES], "photo.jpg"), want)
+        self.assertEqual(cn.recognise(b"GIF87a" + bytes(58)), "gif")
+
+    def test_a_bmp_needs_a_known_info_header_size(self):   # R4
+        for size in (12, 40, 52, 56, 64, 108, 124):
+            with self.subTest(size=size):
+                self.assertEqual(cn.recognise(bmp_head(size)), "bmp")
+        for head in (bmp_head(41), bmp_head(0), b"BM" + b"Dear visitor, not a photo." * 3, b"BM"):
+            with self.subTest(head=head[:20]):
+                self.assertIsNone(cn.recognise(head, "scan.bmp"))
+
+    def test_heif_by_its_major_or_a_compatible_brand(self):   # D18
+        heic = b"\x00\x00\x00\x1cftypheic\x00\x00\x00\x00mif1heicmiaf" + bytes(36)
+        for major in (b"heic", b"hevm", b"hevs", b"mif1", b"isom"):
+            with self.subTest(major=major):
+                self.assertEqual(cn.recognise(heic[:8] + major + heic[12:]), "heif")
+        avif = b"\x00\x00\x00\x20ftypavif\x00\x00\x00\x00avifmif1miafMA1B" + bytes(32)
+        self.assertEqual(cn.recognise(avif), "avif")    # AVIF lists mif1 too: its major brand decides
+        self.assertIsNone(cn.recognise(b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + bytes(40)))
+
+    def test_a_raw_file_by_its_extension_and_its_familys_signature(self):
+        tiff = b"II*\x00\x08\x00\x00\x00" + bytes(56)
+        self.assertEqual(cn.recognise(tiff, "IMG_0001.DNG"), "dng")
+        self.assertEqual(cn.recognise(b"MM\x00*" + bytes(60), "DSC_0001.nef"), "nef")
+        self.assertIsNone(cn.recognise(tiff, "DSCF0001.raf"))
+        self.assertIsNone(cn.recognise(pillow_bytes("JPEG")[:64], "DSC_0001.nef"))   # a JPEG named .nef
+
+    def test_a_plain_tiff_and_what_is_no_photo_have_no_row(self):   # D2
+        for head, name in ((b"II*\x00" + bytes(60), "scan.tif"), (b"MM\x00*" + bytes(60), "scan.jpg"),
+                           (b"", "photo.jpg"), (b"\xff\xd8", "photo.jpg"), (b"Dear visitor" * 5, "photo.png")):
+            with self.subTest(name=name, head=head[:8]):
+                self.assertIsNone(cn.recognise(head, name))
+
+
+def bmp32_with_alpha(rgba: np.ndarray) -> bytes:
+    """A 32-bit BMP with an alpha mask (BITMAPV5HEADER, BI_BITFIELDS), as an editor writes one; Pillow writes none."""
+    h, w = rgba.shape[:2]
+    pixels = np.ascontiguousarray(rgba[::-1][..., [2, 1, 0, 3]]).tobytes()   # bottom-up rows, BGRA
+    info = b"".join(v.to_bytes(4, "little", signed=True) for v in (124, w, h)) + (1).to_bytes(2, "little") + \
+        (32).to_bytes(2, "little") + b"".join(v.to_bytes(4, "little") for v in (
+            3, len(pixels), 2835, 2835, 0, 0, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)) + \
+        b"BGRs" + bytes(36 + 12) + (4).to_bytes(4, "little") + bytes(12)
+    assert len(info) == 124
+    return b"BM" + (14 + 124 + len(pixels)).to_bytes(4, "little") + bytes(4) + (14 + 124).to_bytes(4, "little") + \
+        info + pixels
+
+
+def gif(frames: list[np.ndarray], transparency: int | None = None) -> bytes:
+    """A palette GIF of `frames` (2-D palette indices) over a palette whose index i is (40 i, 200 - 40 i, 30)."""
+    palette = [c for i in range(256) for c in (min(255, 40 * i), max(0, 200 - 40 * i), 30)]
+    ims = []
+    for f in frames:
+        im = Image.fromarray(f.astype(np.uint8), "P")
+        im.putpalette(palette)
+        ims.append(im)
+    buf = io.BytesIO()
+    extra = {} if transparency is None else {"transparency": transparency}
+    ims[0].save(buf, "GIF", save_all=len(ims) > 1, append_images=ims[1:], duration=100, loop=0, **extra)
+    return buf.getvalue()
+
+
+def srgb_back(data: bytes) -> np.ndarray:
+    """An original decoded, converted to Rec.2020 as canonicalization converts it, and back to 8-bit sRGB: the lossy
+    encode left out, as in test_transparent_pixels_become_the_fill_grey, so a sharp edge does not ring. Checks too that
+    it canonicalizes."""
+    assert cn.is_canonical(cn.canonicalize(data))
+    src = cn.decode(data)
+    rec = cn.to_rec2020(src.pixels, src.full, src.profile)
+    return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
+                            outdtype=np.uint8).astype(int)
+
+
+class GifAndBmp(unittest.TestCase):
+    """OPS-18 R3: what GIF and BMP originals canonicalize to (D1, ML-19 D13)."""
+
+    def test_a_still_gif(self):
+        back = srgb_back(gif([np.full((24, 32), 2)]))
+        self.assertEqual(back.shape, (24, 32, 3))
+        self.assertLessEqual(int(np.abs(back - (80, 120, 30)).max()), 2)
+
+    def test_a_gifs_transparent_palette_index_is_the_fill_grey(self):   # ML-19 D13
+        f = np.full((24, 32), 2)
+        f[:, :16] = 0
+        back = srgb_back(gif([f], transparency=0))
+        self.assertLessEqual(int(np.abs(back[:, :16] - cn.FILL_SRGB).max()), 1)
+        self.assertLessEqual(int(np.abs(back[:, 16:] - (80, 120, 30)).max()), 2)
+
+    def test_an_animated_gif_is_its_first_frame(self):   # D1
+        data = gif([np.full((24, 32), 1), np.full((24, 32), 4)])
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual(im.n_frames, 2)
+        self.assertLessEqual(int(np.abs(srgb_back(data) - (40, 160, 30)).max()), 2)
+
+    def test_a_24_bit_bmp(self):
+        a = np.asarray(patches(SRGB_PATCHES))
+        buf = io.BytesIO()
+        Image.fromarray(a).save(buf, "BMP")
+        self.assertEqual(buf.getvalue()[28], 24)
+        self.assertLess(np.abs(srgb_back(buf.getvalue()) - a).mean(), 2)
+
+    def test_a_32_bit_bmps_alpha_is_laid_over_the_fill_grey(self):   # R3: recorded as Pillow 12.3.0 reads it
+        a = np.zeros((24, 32, 4), np.uint8)
+        a[:, :16] = (10, 200, 30, 0)
+        a[:, 16:] = (10, 200, 30, 255)
+        back = srgb_back(bmp32_with_alpha(a))
+        self.assertLessEqual(int(np.abs(back[:, :16] - cn.FILL_SRGB).max()), 1)
+        self.assertLessEqual(int(np.abs(back[:, 16:] - (10, 200, 30)).max()), 1)
+
+
+class OnlyTheRowsDecoder(unittest.TestCase):
+    """ADR 0034, OPS-18 D4: a file is opened with its row's decoder alone, never Pillow's other plugins."""
+
+    def test_pillow_is_only_ever_given_the_rows_one_format(self):
+        from unittest import mock
+        seen = []
+        real_open = Image.open
+
+        def spy(fp, mode="r", formats=None):
+            seen.append(formats)
+            return real_open(fp, mode, formats)
+
+        with mock.patch.object(cn.Image, "open", spy):
+            for data, fmt in ((jpeg(patches(SRGB_PATCHES)), "JPEG"), (png(patches(SRGB_PATCHES)), "PNG"),
+                              (pillow_bytes("WEBP"), "WEBP"), (pillow_bytes("AVIF"), "AVIF"),
+                              (gif([np.full((8, 8), 1)]), "GIF"), (pillow_bytes("BMP"), "BMP")):
+                seen.clear()
+                with self.subTest(format=fmt):
+                    cn.canonicalize(data)
+                    cn.applied_orientation(data)
+                    self.assertTrue(seen)
+                    self.assertEqual(set(map(tuple, seen)), {(fmt,)})
+
+    def test_a_file_that_passes_a_rule_and_fails_its_decoder_is_unreadable(self):
+        for data in (bmp_head(40) + b"\x00" * 100, b"GIF89a" + b"\xff" * 100, b"RIFF\x00\x00\x00\x00WEBP" + bytes(64)):
+            with self.subTest(head=data[:6]), self.assertRaises(cn.Unreadable):
+                cn.canonicalize(data)
+
+    def test_a_file_in_no_accepted_format_is_unreadable_unopened(self):   # D2: a plain TIFF, which Pillow reads
+        buf = io.BytesIO()
+        Image.new("RGB", (16, 16), (120, 80, 40)).save(buf, "TIFF")
+        for data, name in ((buf.getvalue(), "scan.tif"), (buf.getvalue(), "scan.jpg"), (pillow_bytes("PCX"), "x.pcx")):
+            with self.subTest(name=name), self.assertRaises(cn.Unreadable):
+                cn.canonicalize(data, name)
+
+
 class Readers(unittest.TestCase):
     def test_a_srgb_jpeg_xl_upload_is_canonicalized(self):
         a = np.asarray(patches(SRGB_PATCHES))

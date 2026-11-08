@@ -15,7 +15,7 @@
     planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D20 decided 2026-11-08 (GIF and BMP, not TIFF; the accepted formats in one data file with one recogniser; only they reach a decoder); not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08; D1&ndash;D20 decided 2026-11-08 (GIF and BMP, not TIFF; the accepted formats in one data file with one recogniser; only they reach a decoder); built 2026-11-08 on <code>ops18-gif-bmp-uploads</code>, R1 recorded; not released (D9)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low (owner, 2026-11-08)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Front: accepted upload formats</span></div>
@@ -264,34 +264,34 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>coffeecv/data/accepted_formats.csv</code>: one row per accepted format
+    <li><span class="box done"></span><span><code>coffeecv/data/accepted_formats.csv</code>: one row per accepted format
       (a row per RAW extension), with id, chip label, <code>group</code>, extensions, MIME types and decoder (D13&ndash;D15);
       GIF and BMP in it, no TIFF; in both releases' manifests.</span></li>
-    <li><span class="box"></span><span>One recogniser in <code>canonical.py</code>, one rule per row id, a test pairing
+    <li><span class="box done"></span><span>One recogniser in <code>canonical.py</code>, one rule per row id, a test pairing
       rows and rules (D14, D17). GIF by <code>GIF87a</code> or <code>GIF89a</code>; BMP by <code>BM</code> and a known
       info-header size (R4); HEIF by major or compatible brand, the longer list (D18).</span></li>
-    <li><span class="box"></span><span><code>decode</code> opens a file with its row's decoder only (Pillow with
+    <li><span class="box done"></span><span><code>decode</code> opens a file with its row's decoder only (Pillow with
       <code>formats=</code> that one format); a file that passes a rule and fails that decoder is
       <code>Unreadable</code>, never handed to another (D4, a test).</span></li>
-    <li><span class="box"></span><span><code>PHOTO_EXTENSIONS</code>, every <code>RAW_EXTENSIONS</code>
+    <li><span class="box done"></span><span><code>PHOTO_EXTENSIONS</code>, every <code>RAW_EXTENSIONS</code>
       (<code>canonical</code>, <code>upload_check</code>, <code>photo_io</code>) and the refusal message come from the
       file (D10, D19, D20); <code>canonicalize_folder</code> reports a file that is not an accepted format and goes on
       (D16).</span></li>
-    <li><span class="box"></span><span>The front's check calls the recogniser (D3, D17).
+    <li><span class="box done"></span><span>The front's check calls the recogniser (D3, D17).
       <code>tests/test_front_upload_check.py</code>: GIF and BMP accepted; a plain TIFF and a non-BMP file starting
       <code>BM</code> refused (D2, R4); a HEIF with a <code>hevm</code> major brand and one with <code>heic</code> as a
       compatible brand only accepted and decoded (D18); every accepted format decoded by <code>canonical.decode</code>,
       not <code>photo_io</code> (D7).</span></li>
-    <li><span class="box"></span><span><code>tests/test_canonical.py</code>: a still GIF, a GIF with a transparent
+    <li><span class="box done"></span><span><code>tests/test_canonical.py</code>: a still GIF, a GIF with a transparent
       palette index, an animated GIF, a 24-bit BMP and a 32-bit BMP with an alpha mask canonicalize as D1 and ML-19 D13
       say (R3).</span></li>
-    <li><span class="box"></span><span><code>llms.txt</code> (with D1's first-frame note), <code>openapi.json</code>,
+    <li><span class="box done"></span><span><code>llms.txt</code> (with D1's first-frame note), <code>openapi.json</code>,
       the page's format chips (D5) and every <code>accept</code> list on the page name GIF and BMP;
       <code>docs/inference_path.html</code> says only a plain TIFF is refused.</span></li>
-    <li><span class="box"></span><span>A fast-tier test holds <code>llms.txt</code>, <code>openapi.json</code>, the
+    <li><span class="box done"></span><span>A fast-tier test holds <code>llms.txt</code>, <code>openapi.json</code>, the
       page's chips and its <code>accept</code> lists to the file: every accepted format named, nothing else
       (D12).</span></li>
-    <li><span class="box"></span><span>The four example photos, converted to GIF, run through a local front and
+    <li><span class="box done"></span><span>The four example photos, converted to GIF, run through a local front and
       inference host; their verdicts are recorded beside the originals' (R1).</span></li>
     <li><span class="box"></span><span>Live in a release of its own, after OPS-17's (D9), verified on the domain
       (<code>--verify</code>, per <code>docs/agents/deploy.md</code>): a GIF and a BMP sent with <code>curl -F photo=@...</code> each get a preview
@@ -329,6 +329,21 @@
       Summary, Component, Production impact and Scope brought up to D1&ndash;D20. Not planned, not implemented.</div>
     <div><div class="when">2026-11-08</div>Grilling done: the owner confirmed the shared understanding. D3, D4, D10,
       D11, D12 and D17 recorded as <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>; Triage set to ready-for-agent. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Built on <code>ops18-gif-bmp-uploads</code>, from <code>main</code> after
+      OPS-17's merge (R2), without a plan: the five parts of the Summary, every Scope item but the release.
+      <code>coffeecv/data/accepted_formats.csv</code> (18 rows, a RAW row per extension) and
+      <code>canonical.recognise</code>, <code>RULES</code>, <code>accepted_format</code>; <code>decode</code>,
+      <code>applied_orientation</code> and the metadata read open Pillow with <code>formats=</code> the row's plugin.
+      The labels are <code>llms.txt</code>'s (JPEG, WebP, JPEG XL), so the page's chips changed from JPG, WEBP and
+      JPEG XL/JXL, and the RAW chip reads "camera RAW (&hellip;)": one label serves the chips, the texts and the
+      refusal message (D14, D20). <code>.hif</code> (already in <code>PHOTO_EXTENSIONS</code>) joins the
+      <code>accept</code> lists. Checked against the original: all 2,560 photos under <code>dataset/</code> get the
+      decoder the old <code>_sniff</code> gave them, and the same ones count as photos; 12 photos (3 per decoder) made
+      again are byte-identical to the store's. R1, recorded in
+      <code>analysis/ops18/r1_gif_examples.md</code>: as GIFs, all four examples keep their verdicts (Ethiopia 0.99 to
+      0.63); as BMPs, the two over about 13 MP are over the 40 MB cap. Found there: a 50 MP GIF peaked at 617 MB on the
+      local front, over the unit's MemoryMax of 600M (swap allowed), since Pillow's path holds the palette image, its
+      RGB conversion and the array at once; WebP and AVIF took the same path before. Not released.</div>
   </div>
 
   <footer>Related: <code>webapp/front/upload_check.py</code>, <code>coffeecv/canonical.py</code>,

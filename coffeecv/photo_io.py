@@ -11,16 +11,18 @@ import pillow_jxl  # noqa: F401 -- import alone registers JPEG XL with Pillow
 import rawpy
 from PIL import Image
 
+from coffeecv import canonical
+
 pillow_heif.register_heif_opener()
 # AVIF and JPEG XL (pillow_avif/pillow_jxl above) need no explicit register_opener()
 # call -- each self-registers with Pillow's `Image.ID` on import, same effect as this
 # line has for HEIF, just triggered differently by each library's own __init__.
 
 
-# Major-brand camera RAW extensions LibRaw (via rawpy) decodes. Unlike every
-# other format this module registers, Pillow can't open these at all -- there's no opener to
-# register, so load_rgb_image branches explicitly instead.
-RAW_EXTENSIONS = {".dng", ".cr2", ".cr3", ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef", ".srw"}
+# Camera RAW extensions LibRaw (via rawpy) decodes: the accepted formats' (coffeecv/data/accepted_formats.csv, ADR
+# 0034, ticket OPS-18 D19). Unlike every other format this module registers, Pillow can't open these at all -- there's
+# no opener to register, so load_rgb_image branches explicitly instead.
+RAW_EXTENSIONS = canonical.RAW_EXTENSIONS
 
 # Pillow refuses a photo above twice Image.MAX_IMAGE_PIXELS (89.5 MP by default, so 179 MP) as a possible
 # decompression bomb, and warns above it. The dataset's photos are the owner's own, and a phone's 200 MP mode
@@ -34,7 +36,6 @@ def load_rgb_image(path: Path) -> np.ndarray:
     if Path(path).suffix.lower() == ".jxl":
         # A canonical photo (ticket ML-19, ADR 0033) is Rec.2020: read as 8-bit sRGB by its own decoder, never as
         # Pillow's numbers. Any other JPEG XL is read as before until P9 makes this function canonical-only.
-        from coffeecv import canonical
         data = Path(path).read_bytes()
         if canonical.is_canonical(data):
             return canonical.load_canonical(data)

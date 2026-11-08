@@ -28,7 +28,7 @@
                   "photo": {
                     "type": "string",
                     "contentMediaType": "application/octet-stream",
-                    "description": "The image file, at most 40 MB and 60 megapixels (camera RAW: 16 megapixels): JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. Best: a handful of whole beans filling most of the frame."
+                    "description": "The image file, at most 40 MB and 60 megapixels (camera RAW: 16 megapixels): JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. An animated GIF is read as its first frame. Best: a handful of whole beans filling most of the frame."
                   },
                   "skip_crop": {
                     "type": "string",

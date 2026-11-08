@@ -1,30 +1,31 @@
-"""The front's format check agrees with what the inference host decodes (ticket OPS-15 P1). Plain unittest.
+"""The front's format check refuses what is in no accepted format, and lets through what canonicalization decodes
+(tickets OPS-15 P1, OPS-18; ADR 0034). Plain unittest.
 
     python -m unittest tests.test_front_upload_check
 
-webapp/front/upload_check.py runs on the front, which has the standard library only (D7), so it cannot import
-coffeecv.photo_io: this holds its RAW extensions to photo_io's, and checks that every format the public contract
-names (webapp/static/llms.txt), written by Pillow here, is both accepted by the front and decoded by load_rgb_image.
+webapp/front/upload_check.py words the refusal; the recogniser it calls is coffeecv.canonical's, the one decode
+dispatches on (OPS-18 D17). So this checks that every accepted format, written here, is both let through by the
+front and decoded by canonical.decode (D7), and that a plain TIFF and the near misses of each signature are refused.
 """
 from __future__ import annotations
 
 import io
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
+import imagecodecs as ic
+import numpy as np
+import pillow_heif
 from PIL import Image
 
-from coffeecv import photo_io
+from coffeecv import canonical as cn
 from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import upload_check  # noqa: E402
 
-# Pillow's name for each format the contract names, with the extension a phone or camera gives it.
-PILLOW_FORMATS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "HEIF": ".heic", "AVIF": ".avif", "JXL": ".jxl"}
 # A RAW file's first bytes, by extension: the signature of the family LibRaw identifies it by.
 TIFF_LE, TIFF_BE = b"II*\x00\x08\x00\x00\x00", b"MM\x00*\x00\x00\x00\x08"
 RAW_HEADS = {
@@ -32,41 +33,67 @@ RAW_HEADS = {
     ".srw": TIFF_LE, ".orf": b"IIRO\x08\x00\x00\x00", ".rw2": b"IIU\x00\x18\x00\x00\x00",
     ".cr3": b"\x00\x00\x00\x18ftypcrx \x00\x00\x00\x01crx isom", ".raf": b"FUJIFILMCCD-RAW 0201FF383501",
 }
+PIXELS = np.full((24, 32, 3), (120, 80, 40), np.uint8)
 
 
 def pillow_bytes(fmt: str) -> bytes:
     buf = io.BytesIO()
-    Image.new("RGB", (32, 24), (120, 80, 40)).save(buf, format=fmt)
+    Image.fromarray(PIXELS).save(buf, format=fmt)
     return buf.getvalue()
+
+
+def heic(major: bytes = b"heic", compatible: bytes = b"mif1heicmiaf") -> bytes:
+    """A HEIC from pillow-heif, its ftyp box's brands replaced (same length: the box keeps its size)."""
+    buf = io.BytesIO()
+    pillow_heif.from_bytes("RGB", (32, 24), PIXELS.tobytes()).save(buf, format="HEIF", quality=90)
+    data = buf.getvalue()
+    assert data[4:8] == b"ftyp" and data[16:28] == b"mif1heicmiaf", data[:32]
+    return data[:8] + major + data[12:16] + compatible + data[28:]
+
+
+# One photo per accepted format but RAW, with the extension a phone, camera or editor gives it.
+SAMPLES = {
+    "jpeg": (".jpg", lambda: pillow_bytes("JPEG")), "png": (".png", lambda: pillow_bytes("PNG")),
+    "webp": (".webp", lambda: pillow_bytes("WEBP")), "heif": (".heic", heic),
+    "avif": (".avif", lambda: pillow_bytes("AVIF")), "jxl": (".jxl", lambda: ic.jpegxl_encode(PIXELS, level=95)),
+    "gif": (".gif", lambda: pillow_bytes("GIF")), "bmp": (".bmp", lambda: pillow_bytes("BMP")),
+}
 
 
 def head(data: bytes) -> bytes:
     return data[:upload_check.HEAD_BYTES]
 
 
-class SameRawExtensionsAsTheDecoder(unittest.TestCase):
-    def test_raw_extensions_are_photo_ios(self):
-        self.assertEqual(upload_check.RAW_EXTENSIONS, frozenset(photo_io.RAW_EXTENSIONS))
+class AcceptsWhatCanonicalizationDecodes(unittest.TestCase):
+    def test_every_accepted_format_has_a_sample_here(self):
+        self.assertEqual(set(SAMPLES) | {f.id for f in cn.ACCEPTED_FORMATS.values() if f.group == "camera RAW"},
+                         set(cn.ACCEPTED_FORMATS))
+        self.assertEqual(set(RAW_HEADS), cn.RAW_EXTENSIONS)
 
-    def test_every_raw_extension_has_a_test_header(self):
-        self.assertEqual(set(RAW_HEADS), set(photo_io.RAW_EXTENSIONS))
+    def test_each_format_is_let_through_and_decoded(self):   # D7
+        for fid, (ext, make) in SAMPLES.items():
+            with self.subTest(format=fid):
+                data = make()
+                self.assertIsNone(upload_check.refusal(f"photo{ext}", head(data)))
+                self.assertEqual(cn.decode(data, f"photo{ext}").pixels.shape[:2], (24, 32))
 
+    def test_gif_and_bmp(self):   # OPS-18 D2
+        for fmt in ("GIF", "BMP"):
+            with self.subTest(format=fmt):
+                self.assertIsNone(upload_check.refusal(f"photo.{fmt.lower()}", head(pillow_bytes(fmt))))
 
-class AcceptsWhatTheDecoderReads(unittest.TestCase):
-    def test_each_pillow_format_is_accepted_and_decoded(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            for fmt, ext in PILLOW_FORMATS.items():
-                with self.subTest(format=fmt):
-                    data = pillow_bytes(fmt)
-                    self.assertIsNone(upload_check.refusal(f"photo{ext}", head(data)))
-                    path = Path(tmp) / f"photo{ext}"
-                    path.write_bytes(data)
-                    self.assertEqual(photo_io.load_rgb_image(path).shape, (24, 32, 3))
+    def test_a_heif_by_a_hevm_major_or_a_compatible_heic_brand(self):   # D18
+        # The second: major brand isom, heic and mif1 compatible only (libheif needs mif1 to read it as an image).
+        for data in (heic(major=b"hevm"), heic(major=b"isom")):
+            with self.subTest(brands=data[8:28]):
+                self.assertIsNone(upload_check.refusal("IMG_0001.HEIC", head(data)))
+                self.assertEqual(cn.decode(data, "IMG_0001.HEIC").pixels.shape[:2], (24, 32))
 
     def test_content_decides_not_the_name(self):
-        # Pillow opens by content, so a PNG named .jpg is read; the front lets it through too.
+        # Canonicalization opens by content, so a PNG named .jpg is read; the front lets it through too.
         self.assertIsNone(upload_check.refusal("photo.jpg", head(pillow_bytes("PNG"))))
         self.assertIsNone(upload_check.refusal("photo", head(pillow_bytes("JPEG"))))
+        self.assertIsNone(upload_check.refusal("photo.bmp", head(pillow_bytes("GIF"))))
 
     def test_each_raw_extension_with_its_header_is_accepted(self):
         for ext, raw_head in RAW_HEADS.items():
@@ -80,10 +107,15 @@ class AcceptsWhatTheDecoderReads(unittest.TestCase):
 
 
 class RefusesWhatItCannotBe(unittest.TestCase):
-    def assert_refused(self, filename: str, data: bytes):
+    def assert_refused(self, filename: str, data: bytes) -> str:
         reason = upload_check.refusal(filename, head(data))
         self.assertIsInstance(reason, str)
         self.assertTrue(reason)
+        return reason
+
+    def test_the_message_names_the_accepted_formats(self):   # D20
+        self.assertEqual(self.assert_refused("photo.jpg", b"not a photo" * 8),
+                         "not a JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP or camera RAW file")
 
     def test_a_renamed_text_file(self):
         self.assert_refused("photo.jpg", b"Dear visitor, this is not a photo.\n" * 4)
@@ -95,20 +127,27 @@ class RefusesWhatItCannotBe(unittest.TestCase):
         self.assert_refused("photo.jpg", b"\xff\xd8")
         self.assert_refused("photo.png", pillow_bytes("PNG")[:5])
         self.assert_refused("photo.webp", pillow_bytes("WEBP")[:10])
+        self.assert_refused("photo.gif", b"GIF8")
 
-    def test_formats_the_contract_does_not_name(self):
-        for fmt in ("GIF", "BMP"):
+    def test_a_plain_tiff(self):   # D2: refused for now
+        self.assert_refused("scan.tif", TIFF_LE + bytes(64))
+        self.assert_refused("scan.jpg", TIFF_BE + bytes(64))
+        self.assert_refused("scan.tiff", pillow_bytes("TIFF"))
+
+    def test_a_file_that_starts_bm_and_is_not_a_bmp(self):   # R4
+        self.assert_refused("photo.bmp", b"BM" + b"Dear visitor, this is not a photo.\n" * 2)
+        self.assert_refused("photo.bmp", b"BM" + bytes(12) + (41).to_bytes(4, "little") + bytes(46))
+
+    def test_other_formats_pillow_reads(self):   # ADR 0034: refused though a decoder exists
+        for fmt in ("PCX", "TGA", "PPM", "ICO"):
             with self.subTest(format=fmt):
                 self.assert_refused(f"photo.{fmt.lower()}", pillow_bytes(fmt))
 
-    def test_a_plain_tiff_which_the_contract_does_not_name(self):
-        self.assert_refused("scan.tif", TIFF_LE + bytes(64))
-        self.assert_refused("scan.jpg", TIFF_BE + bytes(64))
-
     def test_a_raw_extension_on_another_format(self):
-        # The app hands a .nef to rawpy whatever it holds, which cannot read a JPEG.
-        self.assert_refused("DSC_0001.nef", pillow_bytes("JPEG"))
-        self.assert_refused("IMG_0001.cr3", pillow_bytes("HEIF"))
+        # rawpy is handed a .nef whatever it holds, and cannot read a JPEG.
+        self.assertEqual(self.assert_refused("DSC_0001.nef", pillow_bytes("JPEG")),
+                         "the file is named .nef but is not a NEF camera RAW file")
+        self.assert_refused("IMG_0001.cr3", heic())
         self.assert_refused("DSCF0001.raf", TIFF_LE + bytes(64))
 
     def test_an_iso_media_file_that_is_not_an_image(self):

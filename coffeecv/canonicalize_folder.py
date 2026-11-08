@@ -6,8 +6,9 @@ to its canonical photo.
     python -m coffeecv.canonicalize_folder <folder> [--jobs 4] [--threads 2]
 
 Run as the canonicalize@<folder> stages of dvc.yaml, on the store's machine only: libjxl's output depends on the CPU
-(D51), and this machine's and the front's agree. A photo that cannot be read fails the stage, by name. Files that are
-not photos (manifests, READMEs) are left out. coffeecv.canonical refuses any imagecodecs but its own: a new version is
+(D51), and this machine's and the front's agree. A photo that cannot be read fails the stage, by name. A file whose
+extension is in no accepted format (coffeecv/data/accepted_formats.csv: a manifest, a README, a TIFF) is reported and
+left out, as intake reports one (ticket OPS-18 D16; ADR 0034). coffeecv.canonical refuses any imagecodecs but its own: a new version is
 a new store (ADR 0033).
 """
 from __future__ import annotations
@@ -28,8 +29,10 @@ from coffeecv import canonical as cn
 DATASET_MAX_PIXELS = 2**28
 
 
-def photos(folder: Path) -> list[Path]:
-    return sorted(p for p in folder.rglob("*") if p.is_file() and cn.is_photo(p))
+def photos(folder: Path) -> tuple[list[Path], list[Path]]:
+    """(the photos under `folder`, the other files), sorted; hidden files are neither."""
+    files = sorted(p for p in folder.rglob("*") if p.is_file() and not p.name.startswith("."))
+    return [p for p in files if cn.is_photo(p)], [p for p in files if not cn.is_photo(p)]
 
 
 def canonicalize_one(job: tuple[Path, Path, int]) -> tuple[str, int, int, float, str]:
@@ -61,7 +64,11 @@ def main() -> None:
     source = args.dataset / args.folder
     if not source.is_dir():
         raise SystemExit(f"{source} is not a folder")
-    todo = [(p, cn.canonical_path(p, args.dataset, args.store), args.threads) for p in photos(source)]
+    found, others = photos(source)
+    if others:
+        print(f"{len(others)} files not in an accepted format, left alone:\n  "
+              + "\n  ".join(p.relative_to(args.dataset).as_posix() for p in others), flush=True)
+    todo = [(p, cn.canonical_path(p, args.dataset, args.store), args.threads) for p in found]
     t0, done, failed, size_in, size_out = time.perf_counter(), 0, [], 0, 0
     # spawn, not fork: rawpy's OpenMP can deadlock in a forked worker (rawpy's own warning, seen 2026-11-03)
     with ProcessPoolExecutor(max_workers=args.jobs, mp_context=multiprocessing.get_context("spawn")) as pool:

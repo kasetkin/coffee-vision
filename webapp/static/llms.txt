@@ -20,9 +20,9 @@ Call it with one multipart form upload:
 curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
 ```
 
-- `photo` (required): the image file. JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL and camera RAW (DNG, CR2, CR3, NEF,
-  ARW, RAF, ORF, RW2, PEF, SRW); a RAW file needs its usual extension in the filename. At most 40 MB
-  and 60 megapixels (a RAW file: 16 megapixels).
+- `photo` (required): the image file. JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP and camera RAW (DNG, CR2,
+  CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW); any other format is refused. A RAW file needs its usual extension in the
+  filename. An animated GIF is read as its first frame. At most 40 MB and 60 megapixels (a RAW file: 16 megapixels).
 - `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
 
 The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
