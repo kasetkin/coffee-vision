@@ -448,9 +448,10 @@ class CommittedFile(unittest.TestCase):
         # (ML-16 D3, ADR 0032); the pool keeps its 313. 2026-11-04 the 2 user_realworld negatives the owner moved
         # out of random_date_raccoon (ML-19 P6's review); then random_date_raccoon in full (whole_folders, amending
         # D12): its 140 photos not yet listed, and the draw's 17 from the other folders, which match the 311
-        # segmenter positives without it. Then the owner's 10 new Brazil photos in it, the same day.
+        # segmenter positives without it. Then the owner's 10 new Brazil photos in it, the same day. 2026-11-08 the
+        # owner's 87 photos of 2026-11-05 and 2026-11-06 in it (ML-16 D10, D13).
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 311, "pool": 480, "negative": 615, "internet_positive": 11})
+                         {"segmenter_positive": 311, "pool": 567, "negative": 615, "internet_positive": 11})
         whole = RunConfig.from_params_yaml().seg_dataset["whole_folders"]
         drawn = [e for e in self.photos if e["source"] == "pool" and e["folder"] not in whole]
         self.assertEqual(len(drawn), 311)
