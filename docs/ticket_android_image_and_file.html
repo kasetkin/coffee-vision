@@ -1,0 +1,218 @@
+<title>OPS-21: Choose Image and Select File on Android</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-21 · coffee-vision · the web page</div>
+  <h1>On Android the page's two controls are Choose Image (the photo picker) and Select File (a file browser)</h1>
+  <p class="lede">Since OPS-17 an Android phone shows Choose Photo and Take Photo, and both open the same system
+    chooser, Camera or Files, in Chrome and in Firefox. The owner tested candidate inputs on an Android phone
+    (2026-11-08) and chose two controls that each do one thing: Choose Image opens the photo picker, Select File a file
+    browser; no Take Photo. iOS and desktop do not change. Written 2026-11-08; D1, D2 decided, D3&ndash;D7 open; not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2 decided, D3&ndash;D7 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code> (the file inputs, their labels, <code>isMobile()</code>), <code>tests/test_photo_controls.py</code>, <code>tests/test_accepted_formats_named.py</code>, ADR 0034, a release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the check on an Android phone)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The page only, at the next deploy: which controls an Android browser shows and what each opens. The front, the host and the models do not change.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the live release's page put back, 2026-11-08 (Activity)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-08.</strong> "on Android (firefox, chrome) both buttons do the same: launch system
+      menu with same buttons "camera" and "files". Can we some how tell the OS or browser that button "choose photo"
+      should not propose camera and button "take photo" should not propose files?" Then: "let's try different meanings
+      for two buttons: "choose image" and "select file", for Android only now. "choose image" will open image picker
+      maybe with it's own camera. And "select file" should open file browser." After the test: "let's keep 2 buttons
+      and for now do not keep "live camera" as necessary element. If OS image picker gives it -- that's good. If not
+      -- user will take photo himself."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>HTML has one hint about the camera, <code>capture</code>, and nothing that says "no camera". What an Android
+    browser opens follows from the input's <code>accept</code> list. The page's list carries file extensions
+    (<code>.dng</code>, <code>.cr3</code>, <code>.hif</code>, &hellip;) beside its MIME types; in Chrome that defeats
+    both <code>capture</code> and the photo picker, so both of OPS-17's controls open the same Camera / Files chooser.
+    After this ticket an Android browser shows two controls: <strong>Choose Image</strong>, whose list is the accepted
+    MIME types alone (Chrome opens the photo picker), and <strong>Select File</strong>, whose list names no image type
+    (Chrome and Firefox offer Files only). Take Photo is not shown on Android (D1). iOS keeps Choose Photo and Take
+    Photo; a desktop keeps Choose Photo.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The inputs today</strong> (<code>webapp/static/index.html</code> at 305bc68): <code>photo-input</code>
+      (Choose Photo) and <code>camera-input</code> (Take Photo, <code>capture="environment"</code>), each with the
+      accepted formats' MIME types and then their extensions, held to <code>coffeecv/data/accepted_formats.csv</code> by
+      <code>tests/test_accepted_formats_named.py</code> (ADR 0034). Take Photo's label is shown when
+      <code>isMobile()</code> finds a phone or tablet (OPS-17 D2, D3).</li>
+    <li><strong>Chrome on Android</strong>, read from Chromium's <code>ui/android/.../SelectFileDialog.java</code>
+      (main, 2026-11-08; read, not run): each <code>accept</code> entry becomes a MIME type, an extension through
+      Android's <code>MimeTypeMap</code>, and an extension it does not know becomes
+      <code>application/octet-stream</code>. The camera opens directly only when <code>capture</code> is set and every
+      entry is an <code>image/</code> type; the photo picker opens only without <code>capture</code> and with image (or
+      video) types alone; otherwise a chooser, with the camera in it whenever any entry is an <code>image/</code> type,
+      or the list is empty or <code>*/*</code>.</li>
+    <li><strong>Firefox on Android</strong>, read from <code>android-components</code>'
+      <code>feature/prompts/file/FilePicker.kt</code> and <code>MimeType.kt</code> (mozilla-firefox/firefox main): the
+      chooser offers the camera when any entry starts with <code>image/</code> and the camera permission is granted; the
+      photo picker is only a fallback when permissions are denied. The test (below) found <code>capture</code> has no
+      effect.</li>
+    <li><strong>The owner's test, 2026-11-08</strong>, on an Android phone, a throwaway page served at the domain in
+      place of the live page (Activity), each input hidden behind a label as on the live page:
+      <div class="table-wrap"><table>
+        <thead><tr><th>Input</th><th><code>accept</code>, <code>capture</code></th><th>Chrome</th><th>Firefox</th></tr></thead>
+        <tbody>
+          <tr><td class="id">A1</td><td><code>image/*</code></td><td>Photo picker, no camera in it</td><td>Camera / Files chooser</td></tr>
+          <tr><td class="id">A2</td><td>the accepted MIME types, no extensions</td><td>Photo picker, no camera in it</td><td>Camera / Files chooser</td></tr>
+          <tr><td class="id">B1</td><td><code>application/octet-stream</code></td><td>Files only</td><td>Files only</td></tr>
+          <tr><td class="id">C1</td><td><code>image/*</code>, <code>capture="environment"</code></td><td>The camera, directly</td><td>Camera / Files chooser</td></tr>
+          <tr><td class="id">L1</td><td>live Choose Photo: MIME types and extensions</td><td>Camera / Files chooser</td><td>Camera / Files chooser</td></tr>
+          <tr><td class="id">L2</td><td>live Take Photo: the same, <code>capture="environment"</code></td><td>Camera / Files chooser</td><td>Camera / Files chooser</td></tr>
+        </tbody>
+      </table></div>
+      What a picked file arrived as (its name, type and size, shown on the test page) was not reported.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Android, Chrome and Firefox: Choose Photo and Take Photo both open a Camera / Files chooser.</li>
+        <li>iOS: Choose Photo (the library, Files, iOS's camera entry) and Take Photo (the camera).</li>
+        <li>Desktop: Choose Photo.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Android: Choose Image and Select File. Chrome: the photo picker, and Files. Firefox: the Camera / Files
+          chooser, and Files. No control opens the camera in Chrome: a visitor takes the photo first (D1).</li>
+        <li>iOS and desktop: as now.</li>
+        <li>A test holds both Android inputs' lists and the platform check.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>iOS and desktop.</strong> Their controls, labels and <code>accept</code> lists stay as OPS-17 left them
+      (D2).</li>
+    <li><strong>What the service accepts.</strong> <code>accepted_formats.csv</code>, the front's check, its 40 MB cap and
+      canonicalization (ADR 0033, ADR 0034). Select File lets a visitor pick any file; the front refuses one in no
+      accepted format, as it refuses one sent by any other caller.</li>
+    <li><strong>The path after a pick.</strong> Each control feeds <code>choose()</code> and is disabled while a photo is
+      in flight (OPS-7 D4).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>No camera on the page in Chrome on Android.</strong></td>
+        <td>The test: Chrome's photo picker has no camera, and Select File offers none. Accepted by the owner (D1): a
+          visitor takes the photo with the camera app first.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The photo picker may not show every accepted format</strong> (a RAW file, a
+        photo outside the gallery).</td>
+        <td>Not checked. Select File reaches any file the phone holds.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Select File shows every file, not only photos.</strong></td>
+        <td>Its list names no image type, or the camera comes back (Background). A wrong file gets the front's refusal,
+          which names the accepted formats.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Browsers change this behaviour</strong>; it is read from source and one test
+        on one phone, not from a specification.</td>
+        <td>The test after the release (D7) repeats it on Chrome and Firefox.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which controls does Android show?</td>
+        <td>(a) Choose Image and Select File (b) the same and Take Photo (C1, the camera directly in Chrome)</td>
+        <td>(a), 2026-11-08: "let's keep 2 buttons and for now do not keep "live camera" as necessary element. If OS
+          image picker gives it -- that's good. If not -- user will take photo himself." Changes OPS-17 D1, D2 for
+          Android.</td></tr>
+      <tr><td class="id">D2</td><td>Which platforms change?</td>
+        <td>(a) Android only (b) every mobile platform</td>
+        <td>(a), 2026-11-08: "for Android only now". iOS keeps Choose Photo and Take Photo, a desktop Choose
+          Photo.</td></tr>
+      <tr><td class="id">D3</td><td>Choose Image's <code>accept</code> list?</td>
+        <td>(a) the accepted formats' MIME types, without extensions (A2), so the picker is limited to formats the
+          service reads (recommended) (b) <code>image/*</code> (A1)</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>Select File's <code>accept</code> list?</td>
+        <td>(a) <code>application/octet-stream</code> (B1, tested) (b) another type that is not an image</td>
+        <td>Open; (a) recommended, the one tested.</td></tr>
+      <tr><td class="id">D5</td><td>ADR 0034 says the page's <code>accept</code> lists name every accepted format and
+        nothing else; D3 and D4 depart from it on Android. How?</td>
+        <td>(a) amend the ADR's consequences: on Android, Choose Image's list is the file's MIME types alone and Select
+          File's names no format; the test holds both (recommended) (b) a new ADR that supersedes it</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D6</td><td>How does the page tell Android?</td>
+        <td>(a) <code>Android</code> in the user agent; a tablet asking for the desktop site reports Linux and gets the
+          desktop control (recommended) (b) a client hint (<code>navigator.userAgentData</code>), which Firefox does
+          not have</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D7</td><td>Where is it checked, and is a failed check rolled back?</td>
+        <td>(a) live, as OPS-17 D5: the owner on an Android phone (Chrome and Firefox), an iPhone and a desktop;
+          a rollback is the owner's to decide, as OPS-17 D8 (b) a local app reached from the phone first</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The live release's page put back, its checksum the release's, both services
+      started, <code>--verify</code> passed (Activity, 2026-11-08), before this ticket's release.</span></li>
+    <li><span class="box"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Image with
+      D3's list and no <code>capture</code>, Select File with D4's, no Take Photo; both feed <code>choose()</code> and
+      wait while a photo is in flight. iOS and desktop as today.</span></li>
+    <li><span class="box"></span><span>ADR 0034 as D5 decides, and the tests: the Android lists, the platform check,
+      and the iOS and desktop lists unchanged.</span></li>
+    <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>).</span></li>
+    <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Image opens the photo picker
+      and Select File Files only, in Firefox as the test found, a photo answered from each; the iPhone and the desktop
+      as before.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A camera control on Android (D1); it can come back as C1 if the owner wants it.</li>
+    <li>Changing iOS's controls (D2).</li>
+    <li>Firefox's ignoring <code>capture</code>: a browser's behaviour, not the page's.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>The owner's report: on Android both OPS-17 controls open the same Camera /
+      Files chooser. The cause read from Chromium's and Firefox's file-picker source: the extensions in the
+      <code>accept</code> lists.</div>
+    <div><div class="when">2026-11-08</div>The live site taken down for a test, on the owner's word: on the inference
+      host <code>coffee-cv-web</code> stopped, on the front <code>coffee-cv-front</code> stopped, and the live release's
+      (<code>20261108T1703Z-70278a9</code>) <code>webapp/static/index.html</code> on the front replaced by a throwaway
+      test page, not in git; the release's page kept in the deploy user's home as
+      <code>index.html.live-20261108T1703Z-70278a9</code>, sha256 <code>3139bc69&hellip;</code>. The domain served the
+      test page (its sha256 checked); <code>/analyze</code> answered 503. The release no longer matches its manifest
+      until the page is put back, and <code>--rollback</code> to it after the next release would serve the test
+      page.</div>
+    <div><div class="when">2026-11-08</div>The owner's test on an Android phone, Chrome and Firefox (Background). D1, D2
+      decided. Ticket written; D3&ndash;D7 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>The live site put back, on the owner's word: the release's page copied back
+      from the deploy user's home (sha256 <code>3139bc69&hellip;</code> checked before and after), <code>coffee-cv-front</code>
+      and <code>coffee-cv-web</code> started; the domain serves the release's page, and <code>--verify</code> passed on
+      release <code>20261108T1703Z-70278a9</code>, every check ok.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a> (the accept lists), OPS-7 (one photo at
+    a time), Chromium <code>ui/android/java/src/org/chromium/ui/base/SelectFileDialog.java</code>, Firefox
+    <code>mobile/android/android-components/components/feature/prompts/src/main/java/mozilla/components/feature/prompts/file/</code>.</footer>
+</main>
