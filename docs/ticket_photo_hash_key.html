@@ -1,0 +1,227 @@
+<title>A photo is keyed by its hash, its path a value</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-18 · coffee-vision · dataset records, segmenter dataset, labelling, classifier split</div>
+  <h1>Every record finds a photo by its hash, and keeps its path only to find the file</h1>
+  <p class="lede">Today most records name a dataset photo by its path, so every rename by the owner means editing
+    records by hand, and a record that is missed quietly stops applying (the pool exclusion of 2026-11-03). The owner
+    asked for the hash to be the main key, with the path stored against it for moving and finding files. Written
+    2026-11-03 with its decisions open; to be done after <a href="ticket_next_training_session.html">ML-16</a>. Not
+    planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D7 open; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: how records name a photo</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code> and <code>coffeecv/seg_dataset.py</code>, <code>labels/ml5/split_units.yaml</code>, <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_predict.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>labels/ml3/pool_exclude.csv</code> and <code>analysis/ml3/mask_review.py</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>dataset/segmenter_positives.manifest.csv</code>, <code>coffeecv/dataset.py</code> (the classifier split), <code>coffeecv/rename_photos.py</code> and <code>labels/photo_renames.csv</code>; a new hash-to-path index</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-03</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-16</span> <span class="tag">the owner: "we will do it later, not before ML-16"</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-03.</strong> "about photos by path: let's fix this. The main key should be hash,
+      but we can store path as a value from hash for easier move or find operations." Then: "write ticket with open
+      questions, we will do it later, not before ML-16".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a photo's identity in most records is its path under <code>dataset/</code>. After this ticket, the records
+    name a photo by its hash, and one committed index maps each hash to the path or paths where the file is now. A
+    rename or move then changes one line of the index, rebuilt by a command, instead of every record that names the
+    photo. The work splits into: the index; the small records (pool exclusions, reference photos, strip manifest);
+    the segmenter dataset and the labelling sessions; the classifier's split, which changes every split and so lands
+    with a training session; and retiring the rename tool. Which hash, how copies count and how the split is derived
+    are the owner's decisions (D1&ndash;D7), all open.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>Records keyed by path today</strong> (read 2026-11-03):
+      <ul>
+        <li><code>labels/ml5/seg_dataset.yaml</code>: one entry per photo, keyed by <code>path</code>, with its
+          <code>sha256</code>; a group is named by a path. The file is append-only (ML-5 D11): a rebuild refuses a listed
+          path that is gone, so on 2026-11-03 13 renamed entries were edited by hand.</li>
+        <li><code>labels/ml5/split_units.yaml</code>: the owner's ties between photos, by path.</li>
+        <li><code>coffeecv/seg_review.py</code>: a photo's item id is <code>seg_dataset.photo_id(path)</code>, which
+          also names its mask files under <code>data/ml5_labels/&lt;session&gt;/</code>. Since ML-16 D2 a carried or
+          rechecked label falls back to the sha256 when the path is gone; <code>seg_predict</code> and
+          <code>seg_finetune</code> read the same ids (<code>seg_finetune</code> checks each label's sha256).</li>
+        <li><code>labels/ml3/pool_exclude.csv</code>: session, class folder and file name.
+          <code>merge_rig --exclude</code> silently skips a row that names no photo, so the row for the declined
+          <code>IMG_20261008_092822</code> stopped applying when the owner renamed it (fixed in <code>f15342d</code>;
+          its derivation in <code>analysis/ml3/mask_review.py</code> follows renames by sha256 since
+          <code>3249e92</code>).</li>
+        <li><code>coffeecv_dino/reference_photos.txt</code>: a path, with an optional draw key so a rename keeps the
+          fixture (<a href="ticket_strip_metadata_parallel.html">ML-14</a> D16).</li>
+        <li><code>labels/ml3/strip_manifest.csv</code>: one row per path; a rename adds a same-hash row (99 rows on
+          2026-11-03).</li>
+        <li><code>dataset/segmenter_positives.manifest.csv</code>: <code>duplicate_of</code> names a path (15 rewritten on
+          2026-11-03).</li>
+        <li><code>coffeecv/dataset.py</code>: the classifier's photos are <code>CapturePhoto(capture, name)</code>, and
+          <code>split_photos_by_class</code> sorts a class's photos by <code>(capture, name)</code>, then shuffles with
+          a seed of <code>(seed, class_idx, 9999)</code> (<a href="ticket_retire_cross_rig.html">ML-1</a> D1(b)). Any
+          rename or added photo in a class reshuffles that whole class's split. The patch boxes are drawn per
+          <code>photo_idx</code> in the same sorted order (ML-8 D2), so they move too.</li>
+        <li><code>coffeecv/rename_photos.py</code> with <code>labels/photo_renames.csv</code> (8 rows): rewrites the
+          live records after a rename, for OOD negatives only.</li>
+      </ul></li>
+    <li><strong>Copies</strong> (2026-11-03): <code>dataset/</code> holds 2,465 photos with 2,407 distinct sha256s, in 58
+      copy groups. Most are segmenter positives copied from pool photos (54 of the 313). One hash can therefore
+      have several paths, and the index must allow that.</li>
+    <li><strong>Copies the classifier counts twice</strong>: 4 byte-identical pairs in the classifier's pool (1,433
+      photos), all in <code>2026-08-25__oneplus</code>, each a <code>-2</code> file beside its original: Colombia
+      Pink Bourbon <code>193337626</code> and <code>193428942</code>, Vietnam Robusta <code>193823453</code> and
+      <code>193927646</code>. On the split as computed on 2026-11-03, 3 of the 4 pairs sit in two splits:
+      <code>193428942</code> in train and val, <code>193823453</code> in train and val, <code>193927646</code> in train
+      and test. <code>seg_dataset</code> already keeps one entry per sha256.</li>
+    <li><strong>A file's hash is not permanent</strong>: the metadata strip changes the file's bytes and keeps its
+      pixels (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>). The strip manifest records
+      <code>sha256_before</code>, <code>sha256_after</code> and <code>pixel_sha256</code> for every photo it
+      handled.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A rename means finding and editing every record that names the photo, by hand or with
+          <code>rename_photos</code> (OOD negatives only).</li>
+        <li>A missed record silently stops applying, or a test fails far from the rename.</li>
+        <li>Adding or renaming one photo reshuffles its class's classifier split.</li>
+        <li>A byte copy in the classifier's pool is two photos, and can sit in two splits.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Records name a photo by its hash; one committed index maps each hash to its present path or paths.</li>
+        <li>A rename is one command that rebuilds the index; a test fails while any index line names a missing
+          file.</li>
+        <li>Depending on D4, a photo's classifier split does not move when other photos are added or renamed.</li>
+        <li>Depending on D3, a byte copy is one photo to the classifier.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The photos' names and folders.</strong> The owner keeps naming and moving files as now; the class still
+      comes from the class folder.</li>
+    <li><strong>Run records.</strong> <code>analysis/</code>, <code>outputs/</code>, <code>experiments/</code>, verdict
+      logs and model cards keep the paths their runs read, as <code>rename_photos</code> already leaves them.</li>
+    <li><strong>Grouping and splits already given.</strong> The segmenter dataset's entries keep their split and group
+      (ML-5 D11, <a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>); only how they are keyed
+      changes.</li>
+    <li><strong>The strip.</strong> <code>coffeecv.strip_metadata</code> and its checks stay as they are (ADR 0013).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A re-strip changes every key it touches.</strong></td>
+        <td>The strip rewrites metadata, so the file sha256 changes while the pixels stay (ADR 0013). Mitigation:
+          strip before a photo enters any record, as now; or key by the pixel hash (D1 (b)); the strip manifest's
+          before and after hashes allow a re-key.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A new classifier split breaks comparison with earlier runs.</strong></td>
+        <td>Any change to how the split is derived (D4) moves photos between train, val and test, so runs before and
+          after cannot be paired (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>). Mitigation: it
+          lands with a training session that sets a new baseline, not alone.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Re-keying an append-only file could move a listed entry.</strong></td>
+        <td><code>seg_dataset.yaml</code> is append-only (ML-5 D11). Mitigation: a migration test that every
+          entry keeps its split and group, and that the set of photos is unchanged.</td></tr>
+      <tr><td class="id">R4</td><td><strong>One hash, several paths.</strong></td>
+        <td>58 copy groups under <code>dataset/</code>. The index maps a hash to a list of paths, and a record that
+          means one particular copy (the segmenter positive, not its pool original) has to say which (D5).</td></tr>
+      <tr><td class="id">R5</td><td><strong>Mask files renamed under DVC.</strong></td>
+        <td>If labelling items become hashes (D6), mask files of new sessions get new names; earlier sessions stay
+          under their ids, so the carry needs to read both. Closed sessions are not rewritten.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which hash is the key?</td>
+        <td>(a) the file's sha256, as <code>seg_dataset.yaml</code> and the labels already record (b) the decoded
+          pixels' sha256 (<code>pixel_sha256</code>), which survives a metadata change but costs a full decode
+          per photo (c) both: file sha256 as the key, the pixel hash kept to re-key after a re-strip. Claude
+          recommends (a).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Where does the hash-to-path map live?</td>
+        <td>(a) a committed index, e.g. <code>labels/photo_index.csv</code> (sha256, path), rebuilt by a command and
+          checked by a test against the files (b) computed from <code>dataset/</code> on every run, nothing committed
+          (c) the strip manifest, extended. Claude recommends (a): a diff shows each rename, and it needs no photos
+          checked out to read.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>Does a byte copy in the classifier's pool count once?</td>
+        <td>(a) yes, one photo per hash, in one split (b) no, as today. Claude recommends (a): today 3 of the 4 pairs
+          sit in two splits.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>How is a photo's classifier split derived?</td>
+        <td>(a) from its own hash and the seed, per photo, so it never moves when others are added or renamed;
+          the split shares then hold only on average (b) the same seeded shuffle as now, over photos sorted by
+          hash instead of (folder, name) (c) unchanged (ML-1 D1(b)). Both (a) and (b) change every split once, and
+          land with a training session (R2). Claude recommends (a).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D5</td><td>How is <code>seg_dataset.yaml</code> keyed, and which copy does an entry mean?</td>
+        <td>(a) keyed by sha256 with the path as a value, migrated once with every split and group kept; an entry
+          names its source, so a segmenter positive and its pool original stay apart (b) keyed by path, as now. Claude
+          recommends (a).</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D6</td><td>How does a labelling session name a photo and its mask files?</td>
+        <td>(a) by sha256, from the next session on; the carry reads earlier sessions by their ids (b) by the
+          path-derived id, with ML-16 D2's sha256 fallback, as now.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D7</td><td>Is "a photo is identified by its hash" an ADR?</td>
+        <td>(a) yes, a new ADR; it replaces ML-1 D1(b)'s sort key if D4 is (a) or (b) (b) no, decisions in this
+          ticket only.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>D1&ndash;D7 decided by the owner, and a plan written.</span></li>
+    <li><span class="box"></span><span>The hash-to-path index and its rebuild command; a test fails while an index line
+      names a missing file or a photo is missing from the index.</span></li>
+    <li><span class="box"></span><span>The pool exclusions, reference photos, strip manifest and the segmenter positives'
+      <code>duplicate_of</code> name photos by hash.</span></li>
+    <li><span class="box"></span><span>The segmenter dataset and the owner's split units keyed per D5, every listed
+      entry's split and group unchanged.</span></li>
+    <li><span class="box"></span><span>The labelling, fine-tuning and prediction tools per D6.</span></li>
+    <li><span class="box"></span><span>The classifier per D3 and D4, landing with a training session.</span></li>
+    <li><span class="box"></span><span>A rename of a photo by the owner needs only the index rebuild: tested by renaming
+      a photo in a fixture and running every record's reader.</span></li>
+    <li><span class="box"></span><span><code>coffeecv/rename_photos.py</code> and <code>labels/photo_renames.csv</code>
+      retired, or kept for history only.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>ML-16 and its training session: this ticket starts after it.</li>
+    <li>Rewriting run records, closed labelling sessions or experiment folders to new keys.</li>
+    <li>Near-copies by content (<code>coffeecv.find_duplicates</code>): only byte-identical files share a hash.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-03</div>Ticket written from the owner's request, after ML-16 D2 (<code>seg_review</code>
+      carries by sha256) and <code>3249e92</code> (the pool exclusions follow renames by sha256). Counts read from
+      <code>dataset/</code> the same day. D1&ndash;D7 open. Not planned, not implemented; after ML-16.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (D2),
+    <a href="ticket_segmenter_dataset.html">ML-5</a> (D11, the segmenter dataset),
+    <a href="ticket_retire_cross_rig.html">ML-1</a> (D1(b), the classifier split),
+    <a href="ticket_strip_metadata_parallel.html">ML-14</a> (D16, the reference photos),
+    <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>,
+    <a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>.</footer>
+</main>

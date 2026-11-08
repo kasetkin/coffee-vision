@@ -34,7 +34,7 @@ class LargePhotos(unittest.TestCase):
         self.assertEqual(rgb.shape, (GALAXY_200MP[1], GALAXY_200MP[0], 3))
 
     def test_the_web_services_modules_keep_pillows_limit(self):
-        modules = [m.removesuffix(".py").replace("/", ".") for m in LIBRARY]
+        modules = [m.removesuffix(".py").replace("/", ".") for m in LIBRARY if m.endswith(".py")]
         code = ("import json, sys\nfrom PIL import Image\n"
                 + "".join(f"import {m}\n" for m in modules)
                 + "print(json.dumps([Image.MAX_IMAGE_PIXELS, 'coffeecv.dataset' in sys.modules]))")

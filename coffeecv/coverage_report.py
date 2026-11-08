@@ -62,13 +62,15 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
 #   the numeric id) and renaming it would rewrite a DVC-tracked directory,
 #   invalidating the box rig's crop stage and forcing a re-crop -- real cost for
 #   a cosmetic gain. Remove this entry if the directory is ever renamed.
-ACCEPTED_DRIFT = {"009"}
+#   class_013: random_date_raccoon holds `class_013__Brazil_SulDeMinas` and, since ticket ML-16 D10 (2026-11-06),
+#   the owner's `class_013__Brazil_Decaff`: a second coffee of the same country, so the same class (ML-3), kept in
+#   its own folder by the owner's choice. The loader pools a class's folders by id.
+ACCEPTED_DRIFT = {"009", "013"}
 
 # Deliberately outside the pipeline -- flat directories with no class_* children,
 # absent from dvc.yaml's segcrop foreach on purpose. Listed here so check 2 does not
 # flag them forever; anything NOT here and not in the foreach is a real finding.
 EXCLUDED = {
-    "2026-07-24__first_pictures",   # pre-project exploratory shots, no class structure
     "2026-08-06__box_pictures",     # superseded by 2026-08-07__box_pictures_all_classes
     "classes_labels_only",          # label reference photos, not training data
     # The OOD sets (ticket ML-3 P4): read by the OOD tools from their manifests, never segcropped. Their
@@ -77,6 +79,9 @@ EXCLUDED = {
     "ood_negatives",
     "segmenter_positives",
     "ood_positives_internet",
+    # The example photos' originals (ticket ML-16 D3, ADR 0032): in no set, read only by
+    # scripts/make_example_photos.py.
+    "example_photos",
 }
 
 

@@ -1,0 +1,1 @@
+{"host": "yappy", "cpu": "Intel(R) N100", "glibc": "2.36", "python": "3.12.14", "imagecodecs": "2026.10.10", "lcms": "lcms2 2.19.0", "libjxl": "libjxl 0.12.0", "numpy": "2.5.3", "opencv": "5.0.0", "cv2_cpu": "SSE SSE2 SSE3 *SSE4.1 *SSE4.2 *AVX *FP16 *AVX2 *AVX512-SKX?"}

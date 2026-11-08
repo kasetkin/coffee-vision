@@ -1,0 +1,4 @@
+# The 16-bit Rec.2020 array handed to the encoder, p3rot6.jpg at effort 7, 2026-11-03 (copied from the terminal):
+local            rec 282d11543c5ca8b9  jxl 74deb6e52544c58b
+yappy            rec 282d11543c5ca8b9  jxl ab9e45df1722630c
+front            rec 282d11543c5ca8b9  jxl 74deb6e52544c58b

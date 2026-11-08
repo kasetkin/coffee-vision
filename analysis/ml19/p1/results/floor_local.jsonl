@@ -1,0 +1,5 @@
+{"megapixels": 12.0, "effort": 7, "threads": 2, "frame_mb": 69, "peak_loaded_mb": 130, "peak_mb": 413, "encode_s": 2.7, "bytes": 1853261}
+{"megapixels": 25.0, "effort": 7, "threads": 2, "frame_mb": 143, "peak_loaded_mb": 204, "peak_mb": 591, "encode_s": 5.95, "bytes": 3612590}
+{"megapixels": 40.0, "effort": 7, "threads": 2, "frame_mb": 229, "peak_loaded_mb": 290, "peak_mb": 766, "encode_s": 8.98, "bytes": 5197606}
+{"megapixels": 50.0, "effort": 7, "threads": 2, "frame_mb": 286, "peak_loaded_mb": 347, "peak_mb": 878, "encode_s": 11.15, "bytes": 6059285}
+{"megapixels": 60.0, "effort": 7, "threads": 2, "frame_mb": 343, "peak_loaded_mb": 405, "peak_mb": 993, "encode_s": 13.84, "bytes": 7782392}

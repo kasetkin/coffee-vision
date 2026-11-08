@@ -19,6 +19,27 @@ from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.repo_files import read_csv, sha256_file
 from coffeecv.seg_review import paired_items
 
+# Since ML-19 P6 the module reads each record's canonical photo (coffeecv.canonical_store, tested on its own in
+# tests/test_canonical_store.py); these toy photos are read as they are, their sha256 still checked.
+def _toy_load(path, sha256=None):
+    from coffeecv.repo_files import sha256_file as _sha
+    full = REPO_ROOT / path
+    if sha256 is not None and _sha(full) != sha256:
+        raise ValueError(f"{path}: sha256 differs from the record")
+    return np.array(Image.open(full).convert("RGB"))
+
+
+_LOAD_PATCH = mock.patch.object(seg_predict, "load_for_record", _toy_load)
+
+
+def setUpModule():
+    _LOAD_PATCH.start()
+
+
+def tearDownModule():
+    _LOAD_PATCH.stop()
+
+
 
 class StubSegmenter:
     weights_sha256, decoder_sha256, pred_iou = "w" * 64, "d" * 64, 0.9

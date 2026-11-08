@@ -1,0 +1,17 @@
+{
+ "srgb_patches_untagged.png": {
+  "input_sha256": "cc0118e6759e84c98c77642e56b2d729ab7fbe6fc3d2fccb17c259dcffc48d6c",
+  "canonical_sha256": "9e4865e8291d8f7099adb57c4f10757654c8ea1f9d082b794a066bb272e7a068",
+  "srgb_sha256": "27b96d27e073bc06395c86746915834c9f569bd778df5161506896f64d38c99e"
+ },
+ "p3_patches.png": {
+  "input_sha256": "ed0c078eab149d7825f8d85d686ef9c1acf9b0d4ef7a9b685a78a0ad4f2abc9b",
+  "canonical_sha256": "da301489770e028895230de60a2a49c02ea7cf87b52532aa4a9214c0ea9cccc2",
+  "srgb_sha256": "b541daad93beb0c8c124af64d42d0338476aaa1bbeec95b932af16eac6e34d12"
+ },
+ "srgb_patches_rot6.jpg": {
+  "input_sha256": "a1f1b660adf765e9d001416ddc1605525ee3d4ca1b372fab300f6b14f2fb973e",
+  "canonical_sha256": "8ed01bb5321c4703117d38b30a69d60adfeda1e66f24e515e6c6dafa2817979a",
+  "srgb_sha256": "f77e3e6124451595e4491103563a86ab84ad60ff98d57aa7f47711bf3230b1f8"
+ }
+}

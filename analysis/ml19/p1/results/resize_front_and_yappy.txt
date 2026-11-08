@@ -1,0 +1,8 @@
+# `pipeline.py resize` on the front (under MemoryMax=500M, exit 0) and on yappy, 2026-11-03. Copied from the
+# terminal: the remote directories were deleted before these were saved to files. The hashes equal resize_local.jsonl's.
+front: {"input": [7000, 6000, "uint8"], "output": [5600, 4800], "sha256": "e9c4db71fceafbc94b5dd6fd06b88150406f8002433d482ae19cc0b9dc1be7fd", "peak_mb": 342}
+front: {"input": [4000, 5000, "uint16"], "output": [3200, 4000], "sha256": "30ea07234735634ce196c79b8eeea9792c6169082d2fa1f50b260882df7100d5", "peak_mb": 342}
+front: {"input": [6145, 8165, "uint8"], "output": [4916, 6532], "sha256": "c9d92d0e3faf5ecd39adf94b1e91861e87692be3b29c698984d8c2c3e71893d4", "peak_mb": 396}
+yappy: {"input": [7000, 6000, "uint8"], "output": [5600, 4800], "sha256": "e9c4db71fceafbc94b5dd6fd06b88150406f8002433d482ae19cc0b9dc1be7fd", "peak_mb": 343}
+yappy: {"input": [4000, 5000, "uint16"], "output": [3200, 4000], "sha256": "30ea07234735634ce196c79b8eeea9792c6169082d2fa1f50b260882df7100d5", "peak_mb": 343}
+yappy: {"input": [6145, 8165, "uint8"], "output": [4916, 6532], "sha256": "c9d92d0e3faf5ecd39adf94b1e91861e87692be3b29c698984d8c2c3e71893d4", "peak_mb": 396}

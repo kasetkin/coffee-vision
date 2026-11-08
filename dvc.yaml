@@ -10,6 +10,45 @@ stages:
   # seg_ml5_finetune, seg_ml5_predict@xl0_v1/v2: data/ml5_labels/pass1, pass2) were removed on 2026-10-21 with the
   # code only they ran (owner); they are in git history and dvc.lock before then, their outputs in the DVC cache.
 
+  # Ticket ML-19 P4 (D18, D33, D49; ADR 0033): the canonical store, one stage per dataset folder a model reads. Every
+  # photo becomes data/canonical/<folder>/.../<its file name>.jxl (coffeecv.canonical.canonical_path); the originals
+  # stay untouched, there is no manifest. Built on this machine only: libjxl's output depends on the CPU (D51). A
+  # photo appended to a folder re-runs its whole stage (D49): the unchanged photos come back byte-identical.
+  # Not in the store (D37): classes_labels_only, VERY_BIG_NEGATIVES, example_photos.
+  canonicalize:
+    foreach:
+      - 2026-08-07__box_pictures_all_classes
+      - 2026-08-09__pixel_cam
+      - 2026-08-09__sony_cam
+      - 2026-08-25__iphone
+      - 2026-08-25__oneplus
+      - 2026-08-27__oneplus_flash
+      - 2026-08-30__oneplus
+      - 2026-08-30__pixel
+      - 2026-08-30__sony
+      - 2026-09-11__oneplus
+      - 2026-09-11__pixel
+      - 2026-09-11__sony
+      - 2026-09-24__oneplus
+      - 2026-09-24__pixel
+      - 2026-09-24__sony
+      - random_date_raccoon
+      - 2026-10-21__new_green
+      - segmenter_positives
+      - ood_negatives
+      - ood_positives_internet
+    do:
+      cmd: python -m coffeecv.canonicalize_folder ${item} --jobs 4
+      deps:
+        - dataset/${item}
+        - coffeecv/canonical.py
+        - coffeecv/canonicalize_folder.py
+        - coffeecv/jxl_encode.py
+        - coffeecv/jxl_header.py
+        - coffeecv/data/rec2020_bt709.icc
+      outs:
+        - data/canonical/${item}
+
   # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
   # the filled D4 crop and its bean mask, or the whole photo on a D18 fallback. The segmenter is params.yaml's
@@ -47,7 +86,10 @@ stages:
     do:
       cmd: python -m coffeecv.segcrop_session --session ${item} --threads 4
       deps:
-        - dataset/${item}
+        # Ticket ML-19 P6 (D18): the session's canonical photos, not the originals; crops as lossless JPEG XL (D32).
+        - data/canonical/${item}
+        - coffeecv/canonical.py
+        - coffeecv/crop_io.py
         - coffeecv/segcrop_session.py
         - coffeecv/segment_beans.py
         - coffeecv/sam_loader.py
@@ -161,6 +203,8 @@ stages:
   # Ticket ML-9 P2: the next fine-tune, on the owner's pass-4 labels (carried from pass3: ML-8's appends and the
   # photos of 2026-10-21), with params.yaml's seg_ft whose augment takes the groups shared with the classifier
   # (ADR 0027; plan Q1). Its own stage, as seg_ml6_finetune is frozen with XL0-v3's recipe.
+  # Frozen 2026-11-03 (ticket ML-19 P6): seg_finetune reads canonical photos since, and labels in their geometry
+  # (pass14); this stage is the record of a fine-tune on the original photos, its labels in their frame.
   seg_ml9_finetune:
     foreach:
       xl0_v4:
@@ -173,6 +217,7 @@ stages:
         labels: pass4
         seed: 7
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
         - coffeecv/seg_finetune.py
@@ -200,6 +245,8 @@ stages:
   # seeds (ADR 0002); only the seed-123 runs predict test masks, until Q4 names another for P4. lr 3e-5 at seed 7 was
   # stopped by the owner in its epoch 10 (2026-10-23), tracking seeds 123 and 42 at 3e-5, both about 0.04 below every
   # 1e-4 seed; its item was removed with nothing written (plan P3b).
+  # Frozen 2026-11-03 (ticket ML-19 P6): seg_finetune reads canonical photos since, and labels in their geometry
+  # (pass14); this stage is the record of a fine-tune on the original photos, its labels in their frame.
   seg_ml9_finetune_lr:
     foreach:
       xl0_v4_lr3e5:
@@ -211,6 +258,7 @@ stages:
         seed: 42
         lr: 3.0e-5
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --lr ${item.lr} --name
         ${key} --threads 8
       deps:
@@ -266,6 +314,8 @@ stages:
   # validation label (seg_review --recheck pass6; 179 of 263 redrawn) and the positives of 2026-10-25. Only the
   # labels differ from seg_ml9_finetune@xl0_v4: params.yaml's seg_ft at lr 1e-4 (ML-9 D8), 8 threads. Seed 123
   # first, as XL0-v4; seeds 42 and 7 weigh it over seeds (ADR 0002), one run at a time (12 cores; ML-9 P3b).
+  # Frozen 2026-11-03 (ticket ML-19 P6): seg_finetune reads canonical photos since, and labels in their geometry
+  # (pass14); this stage is the record of a fine-tune on the original photos, its labels in their frame.
   seg_xl0v5_finetune:
     foreach:
       xl0_v5:
@@ -278,6 +328,7 @@ stages:
         labels: pass7
         seed: 7
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
         - coffeecv/seg_finetune.py
@@ -338,6 +389,8 @@ stages:
   # seed (D3). Resumes after a reboot through `dvc repro -s` (P2). P6a (ticket D12): seed 42, the seed the one
   # difference from xl0_v6; seeds 7 and 239 stopped by the owner before their first epoch (2026-10-29), their items
   # removed. The owner adopted xl0_v6_s42 (D14).
+  # Frozen 2026-11-03 (ticket ML-19 P6): seg_finetune reads canonical photos since, and labels in their geometry
+  # (pass14); this stage is the record of a fine-tune on the original photos, its labels in their frame.
   seg_xl0v6_finetune:
     foreach:
       xl0_v6:
@@ -347,6 +400,7 @@ stages:
         labels: pass10
         seed: 42
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
         - coffeecv/seg_finetune.py
@@ -355,6 +409,75 @@ stages:
         - third_party/efficientvit/efficientvit
         - data/ml5_labels/${item.labels}
         - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
+  # Ticket ML-16: the segmenter retrained on canonical photos (ML-19, ADR 0033), on the owner's pass16 labels: pass10's
+  # rechecked in the canonical geometry and every positive new since, 482 training and 120 validation positives
+  # (ML-19 P5, P6). XL0-v6's recipe unchanged (params.yaml seg_ft, 8 threads); seed 42, xl0_v6_s42's, the live
+  # segmenter's: other seeds only if the result calls for them (the owner, 2026-11-04). Judged by the owner against
+  # xl0_v6_s42's masks of the same canonical test photos (seg_ml19_predict).
+  seg_ml16_finetune:
+    foreach:
+      xl0_v7_s42:
+        labels: pass16
+        seed: 42
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - coffeecv/canonical.py
+        - coffeecv/canonical_store.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/${item.labels}
+        - data/canonical
+        - models_pretrained/${seg_ft.weights}
+      params:
+        - params.yaml:
+            - seg_ft
+            - augment
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - models/seg/${key}.pt
+        - models/seg/${key}.json:
+            cache: false
+
+  # Ticket ML-16 D7: xl0_v7_s42 refined. Each run starts from its chosen decoder (epoch 20, score 0.9792; --init) at
+  # a fifth of the recipe's rate (--lr 2e-5, still cosine to lr_min over seg_ft.epochs, patience 8), on the same
+  # labels; seeds other than its 42, run one after another (each run deletes other runs' resume slots). A run that
+  # never beats epoch 0, the init's own score, writes the init's decoder again. Seed 2026, the third, dropped by the
+  # owner while it loaded (D8, 2026-11-06): xl0_v7r_s123 ships.
+  seg_ml16_refine:
+    foreach:
+      xl0_v7r_s123:
+        seed: 123
+      xl0_v7r_s7:
+        seed: 7
+    do:
+      cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed ${item.seed} --name ${key}
+        --init models/seg/xl0_v7_s42.pt --lr 2e-5 --threads 8
+      deps:
+        - coffeecv/seg_finetune.py
+        - coffeecv/augment.py
+        - coffeecv/sam_loader.py
+        - coffeecv/canonical.py
+        - coffeecv/canonical_store.py
+        - third_party/efficientvit/efficientvit
+        - data/ml5_labels/pass16
+        - data/canonical
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/xl0_v7_s42.pt
       params:
         - params.yaml:
             - seg_ft
@@ -396,6 +519,36 @@ stages:
       outs:
         - data/seg_masks_xl0v6/${key}
 
+  # Ticket ML-19 P7 (D14, D48): today's segmenter's masks of the canonical test split, stored for ML-16's blind paired
+  # session against its new segmenter: the baseline that separates the input's change from the training's.
+  # xl0_v7r_s123 (ML-16 D8), the segmenter this release ships: its masks of the same photos, for the tiny-mask
+  # threshold and the owner's look.
+  seg_ml19_predict:
+    foreach:
+      xl0_v6_s42:
+        model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
+      xl0_v7r_s123:
+        model: ${seg_ft.weights}:models/seg/xl0_v7r_s123.pt
+    do:
+      cmd: python -m coffeecv.seg_predict ${item.model} --split test --threads 4 --out data/seg_masks_ml19/${key}
+      deps:
+        - coffeecv/seg_predict.py
+        - coffeecv/segment_beans.py
+        - coffeecv/sam_loader.py
+        - coffeecv/canonical.py
+        - coffeecv/canonical_store.py
+        - third_party/efficientvit/efficientvit
+        - labels/ml5/seg_dataset.yaml
+        - data/canonical
+        - models_pretrained/${seg_ft.weights}
+        - models/seg/${key}.pt
+      params:
+        - params.yaml:
+            - seg_prompt
+            - seg_mask_select
+      outs:
+        - data/seg_masks_ml19/${key}
+
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the
   # head, the manifest and D7's check on the CPU against PyTorch in this environment. --profile is the serving host's
@@ -403,7 +556,7 @@ stages:
   # Live since 2026-10-29 (ticket ML-13): dino3b16_segxl0v6_country_aug8_s42; the four above it are the releases before it.
   # Each model names the decoder its card was trained with (training_config.seg_decoder), which the export converts:
   # ticket ML-9's candidate is the first on XL0-v4, the XL0-v5 candidate (exp276) the first on XL0-v5, ML-13's
-  # (exp279) the first on xl0_v6_s42.
+  # (exp279) the first on xl0_v6_s42, ticket ML-16's (exp280, D11) the first on xl0_v7r_s123.
   litert_export:
     foreach:
       allrigs_dino3b16_segxl0v3_country_s42: {seg: xl0_v3}
@@ -411,6 +564,7 @@ stages:
       dino3b16_segxl0v4_country_aug8_s42: {seg: xl0_v4}
       dino3b16_segxl0v5_country_aug8_s42: {seg: xl0_v5}
       dino3b16_segxl0v6_country_aug8_s42: {seg: xl0_v6_s42}
+      dino3b16_segxl0v7r_country_aug8_s42: {seg: xl0_v7r_s123}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split

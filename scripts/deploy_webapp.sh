@@ -93,6 +93,9 @@ FIX="$APP_ROOT/fixtures"          # on the VM: probe script, photos, expected an
 # The fixed photos every release is run through: webapp/deploy/fixtures.txt, one "<role> <sha256> <path>"
 # per line (one smoke photo; the compare set). One file for the deploy, the probe, the test and the rehearsal.
 FIXTURES="$DEPLOY_DIR/fixtures.txt"
+# Ticket ML-19 D34: the fixtures as the inference host reads them, canonicalized here (canonical_fixtures.py): the
+# photos, and their list in fixtures.txt's format, sent to the host in place of the originals.
+CANON_FIX="$SCRATCH/fixtures"
 fixtures() { awk -v r="$1" '$1 == r {print $3}' "$FIXTURES"; }   # fixtures <role>: repo paths
 
 # Keepalives: a silent link is noticed in ~1 min instead of hanging, and an idle one is not dropped.
@@ -312,12 +315,14 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
     || die "the staged tree does not match the manifest"
 
   check_fixtures
+  canonical_fixtures
   note "expected smoke answers: the staged tree's own webapp.app, locally"
   local logs; logs=$(mktemp -d)
   # The models on this machine's CPU (COFFEE_CV_LITERT_ON_CPU): the release's accelerator is the host's (ML-7 P10).
   (cd "$STAGE" && COFFEE_CV_CHECKPOINT="models/$model.pt" COFFEE_CV_LOG_DIR="$logs" PYTHONDONTWRITEBYTECODE=1 \
       COFFEE_CV_LITERT_ON_CPU=1 COFFEE_CV_WARMUP_PHOTO="$REPO/$(fixtures smoke)" \
-      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$REPO/$(fixtures smoke)" 2>"$logs/stderr") \
+      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$CANON_FIX/$(basename "$(fixtures smoke)").jxl" \
+      2>"$logs/stderr") \
       > "$SCRATCH/$ID.expected.json" || { tail -20 "$logs/stderr"; die "the staged tree failed locally"; }
   rm -rf "$logs"
   jq -r '"   /analyze \(.analyze.parts[1].verdict // .analyze.parts[1].part), top-1 \(.analyze.parts[1].ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
@@ -329,7 +334,7 @@ build_front() {   # sets FSTAGE: the front's tree of release $ID, from the same 
   FSTAGE="$SCRATCH/$ID.front"
   rm -rf "$FSTAGE"; mkdir -p "$FSTAGE"
   # shellcheck disable=SC2046
-  git -C "$REPO" archive "$SHA" -- $("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front | jq -r '.git[]') \
+  git -C "$REPO" archive "$SHA" -- $("$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front | jq -r '.git[]') \
     | tar -x -C "$FSTAGE"
   install -D -m 0644 "$STAGE/webapp/BUILD_INFO.json" "$FSTAGE/webapp/BUILD_INFO.json"
   render "$SHA" webapp/deploy/coffee-cv-front.nginx.conf.template DOMAIN="$DOMAIN" FRONT_PORT="$FRONT_PORT" \
@@ -337,7 +342,8 @@ build_front() {   # sets FSTAGE: the front's tree of release $ID, from the same 
   # The check service's two settings (webapp/front/check_service.py, options): read by its unit at each start.
   printf 'COFFEE_CV_FRONT_LISTEN=127.0.0.1:%s\nCOFFEE_CV_INFERENCE_URL=http://%s:%s\n' \
     "$CHECK_PORT" "$INFERENCE_ADDR" "$INFERENCE_PORT" > "$FSTAGE/front.env"
-  (cd "$FSTAGE" && find . -type f -printf '%P\n') | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - \
+  (cd "$FSTAGE" && find . -type f -printf '%P\n') \
+    | "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front --check-staged - \
     || die "the front's staged tree does not match its manifest"
   note "the front's tree: $(find "$FSTAGE" -type f | wc -l) files, its site and front.env rendered"
 }
@@ -353,12 +359,17 @@ check_fixtures() {
   done < <(grep -v '^#' "$FIXTURES" | grep .)
 }
 
-send_fixtures() {
-  local files=() path
-  while read -r path; do files+=("$REPO/$path"); done < <(awk '!/^#/ && NF {print $3}' "$FIXTURES")
+canonical_fixtures() {   # ML-19 D34: every fixture canonicalized here, the store's machine (D51), into $CANON_FIX
+  "$LOCAL_PY" "$DEPLOY_DIR/canonical_fixtures.py" "$FIXTURES" "$CANON_FIX" >/dev/null \
+    || die "the fixtures could not be canonicalized"
+}
+
+send_fixtures() {   # the canonical fixtures and their list (ML-19 D34): the host takes canonical photos only
+  local files=() name
+  while read -r name; do files+=("$CANON_FIX/$name"); done < <(awk '!/^#/ && NF {print $3}' "$CANON_FIX/fixtures.canonical.txt")
   vm 'mkdir -p "$APP_ROOT/fixtures/photos" "$APP_ROOT/fixtures/expected"'
   to_vm -a --chmod=D755,F644 "${files[@]}" "$FIX/photos/"
-  to_vm -a --chmod=F644 "$DEPLOY_DIR/release_probe.py" "$FIXTURES" "$FIX/"
+  to_vm -a --chmod=F644 "$DEPLOY_DIR/release_probe.py" "$CANON_FIX/fixtures.canonical.txt" "$FIX/"
 }
 
 # --------------------------------------------------------------------------------------------- stage
@@ -459,7 +470,7 @@ stage_front() {   # release $ID on the front: uploaded unless complete there, ch
       date -u +%FT%TZ > "$R/.complete"
     fi' ID="$ID" EXPECT="$expect" || die "staging the front's release failed"
   listing=$(fe 'cd "$APP_ROOT/releases/$ID" && find . -path ./.venv -prune -o -type f -printf "%P\n"' ID="$ID")
-  "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --front --check-staged - <<<"$listing" \
+  "$LOCAL_PY" "$DEPLOY_DIR/release_manifest.py" --ref "$SHA" --front --check-staged - <<<"$listing" \
     || die "the front's release on $FRONT_HOST does not match its manifest"
   # The unit is the owner's to install (D9): it must be this release's, or the release would run under another.
   unit=$(render "$SHA" webapp/deploy/coffee-cv-front.service.template FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
@@ -581,7 +592,7 @@ smoke() {   # smoke <release id>: the release, in production's own sandbox, on p
     # The boot record of the worker (ADR 0021): its time, memory and, on a GPU host, the GPU proof of ADR 0020.
     echo "SMOKE_BOOT $($SUDO journalctl -u "$U" --no-pager -o cat | sed -n "s/^INFO:webapp.app:boot //p" | tail -1)"
     echo "SMOKE_LOG $(grep "\"endpoint\": \"/analyze\"" "$LOG_ROOT/smoke/app.jsonl" | grep "\"msg\": \"request\"" | tail -1)"
-  ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "$(fixtures smoke)")") || rc=$?
+  ' UNIT="$unit" SMOKE_CPU="$SMOKE_CPU" SMOKE_PORT="$SMOKE_PORT" PHOTO="$(basename "$(fixtures smoke)").jxl") || rc=$?
   printf '%s\n' "$out" > "$SCRATCH/$id.smoke.txt"
   if (( rc != 0 )); then
     grep -v '^SMOKE_LOG \|^SMOKE_PART ' <<<"$out" | sed 's/^/   /'
@@ -824,6 +835,17 @@ verify() {   # returns non-zero on a failed check
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
+      # The page's example photos (ticket OPS-16 D14, D17): each fetched through the domain, held to the release
+      # commit's file, posted, and its answer held to its country or a refusal; one after another, about 1.5 min. A
+      # wrong one fails verify, which rolls a full deploy back. Not fixtures (D16): nothing here reaches the VM. The
+      # commit is the inference host's (its BUILD_INFO.json) while the front serves the files: the same release, as
+      # "the front's current release" above checks.
+      local examples examples_rc=0 examples_failed line
+      examples=$("$LOCAL_PY" "$DEPLOY_DIR/example_check.py" --url "$PUBLIC_URL" --commit "$(kv COMMIT "$out")" \
+                 --repo "$REPO") || examples_rc=$?
+      while IFS= read -r line; do [[ -n "$line" ]] && note "$line"; done <<<"$examples"
+      examples_failed=$(grep -c '^FAIL' <<<"$examples" || true)
+      if (( examples_rc != 0 )); then fails=$((fails + (examples_failed > 0 ? examples_failed : 1))); fi
     else
       check "public POST /analyze (no backend yet: the front says offline, D12)" "$code" 503
     fi
@@ -890,11 +912,12 @@ compare() {   # compare <release id>: the release on the host, on its accelerato
     || die "coffeecv/ here is not the release's ($sha): check out $sha for PyTorch's reference"
   preflight
   check_fixtures
+  canonical_fixtures
   send_fixtures
   say "Compare $id: the release on $HOST against PyTorch here ($TORCH_PY), $(fixtures compare | wc -l) photos, ML-7 D7's bars"
   mkdir -p "$SCRATCH"
   local t0=$SECONDS photos=()
-  while read -r p; do photos+=("$REPO/$p"); done < <(fixtures compare)
+  while read -r p; do photos+=("$CANON_FIX/$(basename "$p").jxl"); done < <(fixtures compare)   # D34: the same bytes
   (cd "$REPO" && "$TORCH_PY" -B "$DEPLOY_DIR/release_probe.py" classify-torch --checkpoint "models/$model.pt" \
       "${photos[@]}" 2> >(tail -5 >&2)) > "$SCRATCH/$id.compare-torch.json" || die "PyTorch's reference run failed"
   note "PyTorch here: $((SECONDS - t0)) s"
@@ -907,7 +930,7 @@ compare() {   # compare <release id>: the release on the host, on its accelerato
     envs=()
     while IFS= read -r line; do [[ -n "$line" ]] && envs+=(-E "$line"); done < "$R/release.env"
     capped "$CAP_CPU" "$R" "${envs[@]}" -E COFFEE_CV_LOG_DIR=/tmp/probe-logs -E PYTHONDONTWRITEBYTECODE=1 \
-      "$R/.venv/bin/python" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.txt" \
+      "$R/.venv/bin/python" -B "$APP_ROOT/fixtures/release_probe.py" classify --list "$APP_ROOT/fixtures/fixtures.canonical.txt" \
         --role compare --dir "$APP_ROOT/fixtures/photos" 2> >(tail -5 >&2)' ID="$id" \
     > "$SCRATCH/$id.compare-release.json" || die "the release's run failed"
   note "the release on $HOST: $((SECONDS - t0)) s"

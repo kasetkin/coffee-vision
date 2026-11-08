@@ -284,23 +284,27 @@
     parts is included.
   </p>
   <div class="scope">
-    <span>model: dino3b16_segxl0v6_country_aug8_s42</span>
-    <span>segmenter: EfficientViT-SAM XL0 + xl0_v6_s42 decoder</span>
+    <span>model: dino3b16_segxl0v7r_country_aug8_s42</span>
+    <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-10-29</span>
+    <span>as of 2026-11-08 (ML-16: xl0_v7r_s123; ML-19: canonical photos)</span>
   </div>
 
   <div class="callout">
     <b>Before <code>app.py</code></b> (ticket OPS-15, ADR 0031, live 2026-11-02): the photo reaches the app through
     two hosts. The proxy that serves the domain reads the TLS session's SNI in its <code>stream {}</code> block and
     hands it to <b>the front</b>, an nginx site on the same machine that terminates TLS, serves the page, lets one
-    <code>/analyze</code> through at a time and refuses a body over 5 MB (413). Its check service,
+    <code>/analyze</code> through at a time and refuses a body over 40 MB (413; ML-19 D23, 10 MB by OPS-16 D8 and 5 MB before). Its check service,
     <code>webapp/front/check_service.py</code>, reads the form and checks the photo's first bytes (and a RAW file's
     extension) against the formats the public contract names (<code>upload_check.py</code>; GIF, BMP and a plain
-    TIFF are refused there, though Pillow would open them), then forwards the visitor's bytes unchanged over the tailnet, in
-    plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and <code>analyze()</code>. Nothing
-    is decoded before <code>analyze()</code>, so every pixel the model sees comes from the code path training uses.
+    TIFF are refused there, though Pillow would open them), then canonicalizes the photo (ticket ML-19, ADR 0033:
+    <code>coffeecv/canonical.py</code>, the code that built training's canonical store; a photo over its pixel ceiling,
+    60 MP or 16 MP for RAW, is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
+    tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
+    <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest
+    to 8-bit sRGB, so every pixel the model sees is the canonical photo training reads. Until ML-19 the front forwarded
+    the visitor's bytes unchanged and the host decoded them.
     The two streamed parts come back the same way, unbuffered at each hop. A photo the front refuses never crosses
     the inference host's slow link; while the app is down, the front answers <code>503</code>, "the classifier is
     offline".
@@ -343,17 +347,17 @@
   <g>
     <rect x="140" y="50" width="320" height="46" rx="8" style="fill:none; stroke:var(--border-strong); stroke-dasharray:4 3" stroke-width="1.5"/>
     <text x="300" y="69" text-anchor="middle" style="font-size:12px; fill:var(--muted)">POST /analyze: photo, skip_crop</text>
-    <text x="300" y="85" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">analyze() &middot; upload saved to a tempfile</text>
+    <text x="300" y="85" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">analyze() &middot; the canonical photo the front sent</text>
   </g>
   <line x1="300" y1="96" x2="300" y2="120" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
 
-  <!-- N1 load_rgb_image -->
+  <!-- N1 load_canonical -->
   <g>
     <rect x="140" y="120" width="320" height="86" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
-    <text x="300" y="142" text-anchor="middle" style="font-size:14px; font-weight:600">load_rgb_image()</text>
-    <text x="300" y="158" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">photo_io.py</text>
-    <text x="300" y="177" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">.dng/.cr2/&#8230; &#8594; rawpy, camera white balance</text>
-    <text x="300" y="193" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">else Pillow (JPEG, PNG, HEIC, AVIF, JXL) &#8594; RGB</text>
+    <text x="300" y="142" text-anchor="middle" style="font-size:14px; font-weight:600">canonical_problems() + load_canonical()</text>
+    <text x="300" y="158" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">canonical.py</text>
+    <text x="300" y="177" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">not a canonical photo &#8594; 400, saying why</text>
+    <text x="300" y="193" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">Rec.2020 JPEG XL &#8594; 16-bit &#8594; 8-bit sRGB</text>
   </g>
   <line x1="460" y1="163" x2="686" y2="163" stroke="var(--refuse)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#aRefuse)"/>
   <text x="573" y="156" text-anchor="middle" style="font-size:10.5px; fill:var(--refuse-ink)">cannot decode</text>
@@ -370,7 +374,7 @@
     <rect x="140" y="230" width="320" height="104" rx="8" style="fill:var(--surface); stroke:var(--accent)" stroke-width="1.5"/>
     <text x="300" y="252" text-anchor="middle" style="font-size:14px; font-weight:600">BeanSegmenter.predict_mask()</text>
     <text x="300" y="268" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--muted)">segment_beans.py &middot; via infer.segment_decoded()</text>
-    <text x="300" y="287" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">XL0 encoder at 1024 px + xl0_v6_s42 decoder, GPU fp32</text>
+    <text x="300" y="287" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">XL0 encoder at 1024 px + xl0_v7r_s123 decoder, GPU fp32</text>
     <text x="300" y="303" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">whole-photo box prompt &#8594; 3rd output &#8594; bean mask</text>
     <text x="300" y="321" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">skip_crop=1 from the page: not run, whole photo</text>
   </g>
@@ -536,7 +540,8 @@
       classification part. "Use full photo instead" on the page re-sends the photo with <code>skip_crop=1</code>: the
       segmenter does not run, the whole photo is classified, and the preview has no mask and no box. The server never
       takes a box from the client.</p>
-    <pre>photo = load_rgb_image(path)                   <span class="c"># 400 if it cannot be read</span>
+    <pre>problems = canonical.canonical_problems(data)  <span class="c"># 400 if not a canonical photo (ML-19 D12)</span>
+photo = canonical.load_canonical(data)         <span class="c"># 8-bit sRGB; 400 if it cannot be read</span>
 seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter)
 <span class="k">yield</span> json.dumps(_preview_part(seg)) + <span class="s">"\n"</span>     <span class="c"># part 1</span>
 entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref,
@@ -550,7 +555,7 @@ entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref,
       <h3>Bean region and bean pitch — patches measured in beans, on the mask</h3>
       <span class="file">coffeecv/infer.py &middot; segment_decoded(), sample_patches()</span>
     </div>
-    <p>The segmenter is the one the model's training crops were cut with (XL0-v6 seed 42, ticket ML-13, 2026-10-29), named and
+    <p>The segmenter is the one the model's training crops were cut with (XL0-v7 refined at seed 123, <code>xl0_v7r_s123</code>, ticket ML-16, 2026-11-08), named and
       sha-pinned by the model's own config through <code>seg_params(cfg)</code>; a mismatch fails the worker's boot, not
       a request. It sees the photo at 1024 px on its long side, prompted with one box over the whole photo, and its
       mask is scaled back to the full photo. Non-bean pixels in the crop are filled with ImageNet's mean colour, and the

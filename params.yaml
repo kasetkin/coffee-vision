@@ -105,6 +105,9 @@ seg_mask_select: multi3
 # test-positive masks, the 2 accepted empty ones not counted (smallest IMG_20261022_110423, 0.057042), 0.021008
 # before; the same 3 test positives fall under either value, and 156/160 test negatives are empty or tiny under
 # either. analysis/xl0v6/paired_s42_report.txt.
+# XL0-v7, xl0_v7r_s123 (ML-16 D9, the owner, 2026-11-06): kept, not re-derived ("Reuse 0.028521 const."). The owner
+# judged 70 of its 200 canonical test-positive masks (61 accepted, 9 declined; "in general masks are good", some with
+# small holes); 4 of the 200 fall under it.
 seg_min_area_frac: 0.028521
 
 # Ticket ML-2 P3 (plan §6): where the bean region comes from. segment = the segmenter
@@ -124,11 +127,14 @@ crop_method: segment
 # test positives passed blind, analysis/xl0v5/); every session re-cropped with it. XL0-v6 seed 42 (ML-13 D14, the
 # owner, 2026-10-29): XL0-v5's recipe on the pass-10 labels, seed 42 (models/seg/xl0_v6_s42.json; 122 against
 # XL0-v5's 115 of 135 test positives passed blind, test negatives empty 154 against 119 of 160, analysis/xl0v6/);
-# every session re-cropped with it in ML-13 P7.
+# every session re-cropped with it in ML-13 P7. XL0-v7, xl0_v7r_s123 (ML-16 D8, the owner, 2026-11-06): XL0-v6's
+# recipe on canonical photos and pass16, seed 42 (xl0_v7_s42), then refined from its chosen decoder at 2e-5, seed 123
+# (models/seg/xl0_v7r_s123.json; val mIoU 0.981, neg_select empty 1.000, score 0.9903 against xl0_v7_s42's 0.9792),
+# chosen by the owner on these scores; seg_min_area_frac above kept (D9).
 seg_weights: efficientvit_sam/efficientvit_sam_xl0.pt
 seg_weights_sha256: 9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8
-seg_decoder: models/seg/xl0_v6_s42.pt
-seg_decoder_sha256: b3fcbf9f1ac6ae7e4feeff82b30084360ef6eb391ded28dbfca3c91ff785903b
+seg_decoder: models/seg/xl0_v7r_s123.pt
+seg_decoder_sha256: 996bddf8742d02cf47eaece90306f705a48d7ec4436aba16848f009e471e6f5b
 # D4: keep >= 95% of the bean region (cut 1.25% of its pixels per side).
 seg_keep_frac: 0.95
 # D17: reject a patch box under 80% bean region; after 20 x n candidates, top up
@@ -246,6 +252,10 @@ seg_dataset:
     train: 0.60
     validation: 0.15
     test: 0.25
+  # Pool folders listed in full, on every build, rather than drawn (the owner, 2026-11-04, amending ML-5 D12): the
+  # photos of new phones the segmenter must learn; the draw matches the segmenter positives with the other folders.
+  whole_folders:
+    - random_date_raccoon
 
 # Ticket ML-5 P6/P10 (D22): in the blind paired review of XL0-v1 and XL0-v2 test masks, which model's mask is on
 # the left is drawn per photo from this seed (coffeecv/seg_review.py paired). 2210 is no other seed here.

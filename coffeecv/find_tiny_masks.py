@@ -24,7 +24,7 @@ import torch
 
 from coffeecv.config import REPO_ROOT, RunConfig
 from coffeecv.crop_tray import IMAGE_SUFFIXES, repo_relative
-from coffeecv.dataset import load_rgb_image
+from coffeecv.canonical_store import load_photo
 from coffeecv.segment_beans import BeanSegmenter, seg_params, segment_and_crop
 
 RAW_ROOT = REPO_ROOT / "dataset"
@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tiny, t0 = [], time.perf_counter()
     for i, photo in enumerate(photos, 1):
-        area = segment_and_crop(load_rgb_image(photo), seg).info["mask_area_frac"]
+        area = segment_and_crop(load_photo(photo), seg).info["mask_area_frac"]   # canonical (ML-19 P6)
         if area == 0 or area < cutoff:
             tiny.append((area, repo_relative(photo)))
             print(f"  TINY {area:.4f}  {repo_relative(photo)}", flush=True)

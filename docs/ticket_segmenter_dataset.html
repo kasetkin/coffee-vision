@@ -188,7 +188,12 @@
         <td>(a), 2026-10-08: append-only. The pool draw tops up by the same count, also assigned on arrival.</td></tr>
       <tr><td class="id">D12</td><td>How are the pool photos drawn?</td>
         <td>(a) Proportional to folder size. (b) Equal per folder. (c) Equal per camera.</td>
-        <td>(a), 2026-10-08: as many as <code>segmenter_positives</code> holds (128), skipping photos already in it.</td></tr>
+        <td>(a), 2026-10-08: as many as <code>segmenter_positives</code> holds (128), skipping photos already in it.
+          Amended 2026-11-04 by the owner: a pool folder named in <code>params.yaml</code>'s
+          <code>seg_dataset.whole_folders</code> (<code>random_date_raccoon</code>) is listed in full on every build,
+          the photos whose masks were declined included, rather than drawn; the draw matches the segmenter positives
+          with the other folders' photos. "I propose we always include all photos from this folder as positives for
+          segmenter."</td></tr>
       <tr><td class="id">D13</td><td>Split ratios?</td>
         <td>70/15/15 or 60/15/25.</td>
         <td>60/15/25 train/validation/test within each source, 2026-10-08. Byte-identical files and shots within 120 s form one group and never straddle two splits. Amended 2026-10-21 by the owner: 3 s, not 120 s (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</td></tr>
@@ -325,6 +330,12 @@
     <div><div class="when">2026-10-09</div>Closed by the owner after the release.</div>
     <div><div class="when">2026-10-21</div>D13's grouping amended by the owner: shots group within 3 s, not 120 s, for
       photos added from then on (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</div>
+    <div><div class="when">2026-11-04</div>D12 amended by the owner (ML-19 P6's review of the photos new to the crops):
+      <code>random_date_raccoon</code>, the folder of the new phones, joins the dataset in full. The rebuild listed its
+      140 photos not yet listed (its other 22 are byte copies of segmenter positives) and drew 17 more from the other
+      folders: 1,407 photos, 470 pool. <code>coffeecv.seg_dataset</code>'s <code>whole_folders</code>.</div>
+    <div><div class="when">2026-11-04</div>The owner's 10 new Brazil photos in <code>random_date_raccoon</code>, listed
+      in full by D12 as amended (6 train, 2 validation, 2 test): 1,417 photos, 480 pool. Labelled in pass16.</div>
   </div>
 
   <footer>Related: <a href="plan_segmenter_dataset.html">ML-5 plan</a>, <a href="ticket_segmentation_mask.html">ML-2</a>

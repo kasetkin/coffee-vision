@@ -5,15 +5,16 @@ What is live, what its numbers mean, and where each run is written up. For what 
 
 ## The live model
 
-`dino3b16_segxl0v6_country_aug8_s42` (exp279, ticket [ML-13](ticket_segmenter_xl0v6.html)), live since 2026-10-29:
+`dino3b16_segxl0v7r_country_aug8_s42` (exp280, ticket [ML-16](ticket_next_training_session.html)), live from ML-16's release (2026-11-08):
 
-- **Pipeline:** the XL0-v6 segmenter (`xl0_v6_s42`) marks the bean region and crops to it (a mask under 2.85% of the photo counts as none); patches of the crop go through a frozen DINOv3 ViT-B/16 (`cls_mean` readout); a logistic-regression head at C = 0.1 (fixed, ML-1 D3, ADR 0006) scores the 10 countries; patch scores are pooled per photo. No TTA. The OOD probe refuses photos that do not look like the training data (threshold 0.5, ADR 0016).
-- **Training data:** one pool, `data/segcropped/pool`, every session's crops cut by the segmenter (the `merge_segpool` stage; no camera or rig, ADR 0024), 1,376 photos, split 70/15/15 within each class, 600/160/160 patches per class. The head is fitted on each training patch and 8 augmented views of it (ADR 0025). The label is the country (ADR 0012).
-- **Scores:** in-distribution val 0.9680, test 0.9775 patch macro-F1, one seed (42). The model it replaced, on the same photos and seed but XL0-v5's crops (exp276): val 0.9718, test 0.9813, inside that model's own seed spread (exp276-278: val 0.9614-0.9718, test 0.9694-0.9813). On exp279's test patches (XL0-v6's crops, none of the 209 photos trained on by either), both score 0.9775 patch macro-F1 and get every photo right (`analysis/xl0v6/live_baseline.txt`). What changed is the segmenter: the owner preferred its test masks blind, 122 of 135 accepted against XL0-v5's 115 (`analysis/xl0v6/paired_s42_report.txt`).
-- **OOD guard:** caught 160/160 test negatives and refused 0/135 bean photos, 71 of them never trained on (`analysis/xl0v6/ood_eval.txt`).
+- **Pipeline:** the XL0-v7r segmenter (`xl0_v7r_s123`) marks the bean region and crops to it (a mask under 2.85% of the photo counts as none); patches of the crop go through a frozen DINOv3 ViT-B/16 (`cls_mean` readout); a logistic-regression head at C = 0.1 (fixed, ML-1 D3, ADR 0006) scores the 10 countries; patch scores are pooled per photo. No TTA. The OOD probe refuses photos that do not look like the training data (threshold 0.5, ADR 0016). Photos are read as canonical 8-bit sRGB (ticket [ML-19](ticket_canonicalization.html)).
+- **Training data:** one pool, `data/segcropped/pool`, every session's crops cut by the segmenter (the `merge_segpool` stage; no camera or rig, ADR 0024), 1,493 photos, split 70/15/15 within each class, 600/160/160 patches per class. The head is fitted on each training patch and 8 augmented views of it (ADR 0025). The label is the country (ADR 0012).
+- **Scores:** in-distribution val 0.9737, test 0.9762 patch macro-F1 at seed 42; over seeds 42/123/7 (exp280-282) val 0.9612-0.9788, test 0.9556-0.9762. Against the model it replaced, paired by seed (exp279/277/278 on XL0-v6's crops): val +0.0058 on average (-0.0002 to +0.0121), test -0.0080 (-0.0138 to -0.0013), lower at every seed, on test sets that renames, ML-16's 87 new photos and the exclusions redrew for 7 of the 10 classes (`analysis/ml16/compare_280_282.txt`, `analysis/ml16/common_photos.txt`). The owner shipped it on that evidence (ML-16 D11).
+- **OOD guard:** caught 160/160 test negatives and refused 2/200 bean photos, both never trained on and both left without a mask by the segmenter (`analysis/ml16/ood_eval.txt`).
+- **Known weakness:** `xl0_v7r_s123` finds no beans in a few photos XL0-v6 cropped, green beans and a plain pile among them (ML-16's re-crop: 11 D18 fallbacks against 5); such a photo is classified on the whole frame. The page's Vietnam example left the list for this (ML-16 D12).
 - **Serving:** the model's LiteRT conversion on the web host's GPU, without torch (ticket ML-7, ADR 0019, ADR 0020); about 8.5 s server-side per photo. [inference_path.html](inference_path.html) traces a photo through it step by step; [webapp/README.md](../webapp/README.md) covers running and deploying it.
 
-`models/` also holds the four models before it, `dino3b16_segxl0v5_country_aug8_s42` (exp276, live 2026-10-27 to 2026-10-29), `dino3b16_segxl0v4_country_aug8_s42` (exp273, ticket ML-9, live 2026-10-24 to 2026-10-27), `dino3b16_segxl0v3_country_aug8_s123` (exp271, ticket ML-8, live 2026-10-20 to 2026-10-24) and `allrigs_dino3b16_segxl0v3_country_s42` (exp267, ticket ML-6, live 2026-10-13 to 2026-10-20), not retired.
+`models/` also holds the five models before it, `dino3b16_segxl0v6_country_aug8_s42` (exp279, ticket ML-13, live 2026-10-29 to 2026-11-08), `dino3b16_segxl0v5_country_aug8_s42` (exp276, live 2026-10-27 to 2026-10-29), `dino3b16_segxl0v4_country_aug8_s42` (exp273, ticket ML-9, live 2026-10-24 to 2026-10-27), `dino3b16_segxl0v3_country_aug8_s123` (exp271, ticket ML-8, live 2026-10-20 to 2026-10-24) and `allrigs_dino3b16_segxl0v3_country_s42` (exp267, ticket ML-6, live 2026-10-13 to 2026-10-20), not retired.
 
 ## Reading the numbers
 
@@ -23,7 +24,7 @@ Quote ranges over seeds, not a single run: seed-to-seed spread is wider than mos
 
 Roast state is uneven across countries (pool photos, `data/segcropped/pool/merge_manifest.json`): Brazil (class 013, 10 photos), Colombia (class 014, 19) and Guatemala (26) have roasted photos beside their green ones, Ethiopia and Vietnam one roasted photo each; Kenya and Costa Rica are green only; Indonesia, Peru and Rwanda are roasted only. For the one-state countries roast state alone narrows the answer, and no number above says how a model does on them in the other state.
 
-Those counts are ML-8's pool. ML-9's added the 2026-10-21 photos, green Indonesia (class 015, a coffee of its own) and green Peru (class 011) among them, and 33 more Brazil photos, less the owner's exclusions ([ML-9](ticket_green_origins_retrain.html)); it was the first model to see Indonesia and Peru green. XL0-v5's added 32 more Brazil photos (2026-10-24 to 2026-10-26) and 18 the owner readmitted from the exclusions on XL0-v4's masks (2026-10-24). The live model's is the same 1,376 photos, re-cropped by XL0-v6; `merge_manifest.json` has the counts per class and session.
+Those counts are ML-8's pool. ML-9's added the 2026-10-21 photos, green Indonesia (class 015, a coffee of its own) and green Peru (class 011) among them, and 33 more Brazil photos, less the owner's exclusions ([ML-9](ticket_green_origins_retrain.html)); it was the first model to see Indonesia and Peru green. XL0-v5's added 32 more Brazil photos (2026-10-24 to 2026-10-26) and 18 the owner readmitted from the exclusions on XL0-v4's masks (2026-10-24). XL0-v6's was the same 1,376 photos. ML-16's added the owner's photos of 2026-10-30 to 2026-11-06 (87 on 2026-11-05 and 2026-11-06 alone: Ethiopia, Brazil, Indonesia, Colombia), less the five example photos (ADR 0032) and the owner's exclusions, 1,493 photos in all, re-cropped by `xl0_v7r_s123`; `merge_manifest.json` has the counts per class and session.
 
 ## How it got here
 
@@ -37,13 +38,14 @@ Those counts are ML-8's pool. ML-9's added the 2026-10-21 photos, green Indonesi
 - **ML-8** (live 2026-10-20): one pool for every session and an augmented head.
 - **ML-9** (live 2026-10-24): the XL0-v4 segmenter, and green Indonesia and Peru in training.
 - **XL0-v5** (live 2026-10-27): the XL0-v5 segmenter, fine-tuned on the pass7 labels.
-- **ML-13** (live 2026-10-29): the XL0-v6 segmenter, fine-tuned on the pass10 labels at seed 42; the live model above.
+- **ML-13** (live 2026-10-29): the XL0-v6 segmenter, fine-tuned on the pass10 labels at seed 42.
+- **ML-16** (live 2026-11-08): the XL0-v7r segmenter (XL0-v7 refined at seed 123), canonical photos (ML-19), 87 new photos; the live model above.
 
 Every other model is retired; each one's card, sidecars and `.pt.dvc` are in git history and its `.pt` in the DVC cache and remote. `EXPERIMENTS_LOG.md`'s exp270-272 entry lists the last ones retired.
 
 ## Where runs are written up
 
-`EXPERIMENTS_LOG.md` holds the experiment history through exp279. exp264-269 (ML-5, ML-6) are summarised there by pointer only; their write-ups are in `docs/plan_segmenter_dataset.html` and `docs/plan_segmenter_retrain.html`. Each ML-n ticket's plan (`docs/plan_*.html`) has the fuller record of its runs; `experiments/index.csv` has every run.
+`EXPERIMENTS_LOG.md` holds the experiment history through exp279; exp280-282 (ML-16) are written up in `analysis/ml16/` and the ML-16 ticket. exp264-269 (ML-5, ML-6) are summarised there by pointer only; their write-ups are in `docs/plan_segmenter_dataset.html` and `docs/plan_segmenter_retrain.html`. Each ML-n ticket's plan (`docs/plan_*.html`) has the fuller record of its runs; `experiments/index.csv` has every run.
 
 In the log, phases 1-14 (through exp105) were written contemporaneously and are authoritative prose. Phases 15-17 (exp106-175) were **reconstructed on 2026-09-03** from `index.csv` and the archived configs — the numbers are recomputed and exact, but the reasoning-as-it-happened is genuinely lost for those runs, and the section says so. Per-experiment metrics, configs, curves and predictions are archived in `experiments/` — see `experiments/README.md`; `experiments/index.csv` is the one-row-per-run summary and is regenerated from the archive directories by `archive_experiment.rebuild_index()`, never hand-edited.
 

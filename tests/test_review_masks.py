@@ -78,6 +78,22 @@ class Review(unittest.TestCase):
         self.assertEqual(c.post("/decide/9", json={"decision": "accept"}).status_code, 404)
         self.assertFalse(self.decisions.exists())
 
+    def test_canonical_shows_the_canonical_photo_and_refuses_a_mask_of_another_size(self):   # ML-19 P5
+        from coffeecv import canonical as cn
+        self.patch.stop()
+        seen = []
+        real = review_masks.canonical_rgb
+        with mock.patch.object(review_masks, "canonical_rgb", lambda p: seen.append(p) or real(p)):
+            c = review_masks.create_app(self.items, self.decisions, "rule", canonical=True).test_client()
+            self.assertEqual(c.get("/img/0/view.jpg").status_code, 200)
+        self.assertEqual(seen, [Path(self.items[0]["path"])])
+        canon = cn.load_canonical(cn.canonicalize_file(Path(self.items[0]["path"])))
+        self.assertEqual(canon.shape, (300, 400, 3))
+        Image.fromarray(np.zeros((10, 10), bool)).convert("1").save(self.items[1]["mask"])
+        c = review_masks.create_app(self.items, self.decisions, "rule", canonical=True).test_client()
+        self.assertEqual(c.get("/img/1/view.jpg").status_code, 500)
+        self.patch.start()
+
     def test_page_and_images(self):
         c = self.client()
         page = c.get("/item/2").get_data(as_text=True)

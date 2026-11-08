@@ -13,15 +13,15 @@
     data and the labels are done.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the training session not decided, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-02; photos in the segmenter dataset (fd490ce, ca8a61c, 7b2ea74) and labelled in pass11 (2026-11-02); the 17 positives of 2026-11-03 and the owner's 99 renames in the dataset, labelled in pass12 (2026-11-03); 8 more positives that afternoon, in the dataset, labelled in pass13 (2026-11-03); OPS-16 P1&ndash;P5 merged into this branch (<code>0636177</code>), the two ship in one release; D3 done (2026-11-03): the five example photos out of every set; the retrain of both models decided, after ML-19 (canonicalization); the segmenter's fine-tune decided 2026-11-04 (D4&ndash;D6: seed 42, XL0-v6's recipe, the owner judges), on pass16; <code>xl0_v7_s42</code> trained (2026-11-05, epoch 20, score 0.9792), refined over two seeds (D7), <code>xl0_v7r_s123</code> chosen for the release (D8, 2026-11-06), the threshold kept (D9); the classifier retrained on its crops (exp280&ndash;282), exp280 shipped (D11, 2026-11-07)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos and segmenter labels</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code></span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/segmenter_positives</code> (its <code>.dvc</code>, manifest and README), <code>dataset/random_date_raccoon.dvc</code>, <code>dataset/ood_negatives/user_realworld</code> (its <code>.dvc</code>, manifest and README), <code>dataset/classes_labels_only.dvc</code>, <code>coffeecv_dino/reference_photos.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>labels/ml5/pass11.*</code>, <code>data/ml5_labels/pass11</code>, <code>labels/ml5/pass12.*</code>, <code>data/ml5_labels/pass12</code>, <code>coffeecv/seg_review.py</code> (carry and recheck by sha256), <code>dataset/example_photos</code> (new; its <code>.dvc</code>, manifest and README), <code>dataset/2026-08-25__iphone.dvc</code>, <code>dataset/2026-08-30__sony.dvc</code>, <code>coffeecv/coverage_report.py</code></span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict and fix)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-02</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-19</span> <span class="tag">the retrain reads canonical photos and pass16 (ML-19: the owner's labels of every positive new since pass10, 2026-11-04); builds on ML-13's <code>xl0_v6_s42</code> (live) and its pass10</span></span></div>
   </div>
 
   <div class="callout info">
@@ -37,6 +37,14 @@
     labels: the 401 that pass10 accepted, carried over, and the 39 the owner judged on 2026-11-02. The next
     training session can read them. Choosing that session (segmenter, classifier or both) and planning it are left
     for later.</p>
+  <p>On 2026-11-03 17 more segmenter positives joined, with 17 pool photos and 1 negative, and the owner renamed 99
+    photos of <code>random_date_raccoon</code>. The owner labelled the 26 new training and validation photos the same
+    day in pass12, on <code>xl0_v6_s42</code>'s masks; pass12 carries pass11's 440 labels, the 11 of renamed photos
+    among them, found by their sha256 (D2). Every one of the 466 training and validation positives then had an
+    accepted label in pass12. A third arrival that afternoon brought 8 more positives (train 5, validation 1, test
+    2) and 8 Colombia pool photos. The owner labelled its 6 training and validation positives and the pool draw's 6
+    the same day in pass13, which carries pass12's 466 labels: all 478 training and validation positives have an
+    accepted label in pass13.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -58,6 +66,33 @@
       <code>random_date_raccoon/class_014__Colombia_Excelso/IMG_20261016_120546.jpg</code> did not carry, because
       the owner renamed the photo to <code>20261016_120546_KB2005_Colombia.jpg</code> (<code>ca8a61c</code>). A
       label is keyed by path, so pass11 showed the photo again.</li>
+    <li><strong>The batch of 2026-11-03</strong> (README section "2026-11-03"): 17 Colombia grinder-hopper photos
+      in a café, in two arrivals that day: 8 on a Pixel 9 Pro, then 5 on a OnePlus and 4 on a G8441. From above,
+      wide or close. Stripped, 0 checks failing; no copies under <code>dataset/</code> (nearest 0.71); no two within
+      3 s. In the segmenter dataset: train 10, validation 3, test 4, with 17 pool photos (the same split counts). With
+      them: 19 pool photos in <code>random_date_raccoon</code> (5 Ethiopia, 14 Colombia), 1
+      <code>user_realworld</code> negative (a cappuccino, no beans; train) and 1 label card in
+      <code>classes_labels_only</code>, all stripped. The segmenter dataset now lists 1,235 photos: 305 segmenter
+      positives (train 183, validation 46, test 76), 305 pool photos (the same split counts), 11 internet positives and
+      614 negatives.</li>
+    <li><strong>The third arrival of 2026-11-03</strong> (README section "2026-11-03"): 8 Colombia positives on a
+      Galaxy Z Fold8 Ultra (15:05 to 15:07), shot between 8 Colombia pool photos of the same hopper that went to
+      <code>random_date_raccoon/class_014__Colombia_Excelso</code>. Three are 200 MP. Stripped (EXIF GPS, Samsung's
+      maker note, EXIF thumbnails), 0 checks failing; no copies (nearest 0.80); the nearest positive and pool photo
+      4 s apart, so no group spans them. In the segmenter dataset: train 5, validation 1, test 2, with the pool
+      draw's 8 (none of the new pool photos drawn). It now lists 1,251 photos: 313 segmenter positives (train 188,
+      validation 47, test 78), 313 pool photos (the same split counts), 11 internet positives and 614
+      negatives.</li>
+    <li><strong>The renames of 2026-11-03</strong>: the owner renamed 99 photos of <code>random_date_raccoon</code>
+      (bytes unchanged) to the <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_&lt;country&gt;</code> form: 2 of class_001, 26 of
+      class_005, 71 of class_013. The records in use follow the new names: <code>labels/ml5/seg_dataset.yaml</code>
+      (13 entries' path and group), the segmenter positives' manifest (15 <code>duplicate_of</code>) and
+      <code>coffeecv_dino/reference_photos.txt</code> (2 lines, each keeping its old path as its draw key, ML-14 D16),
+      and <code>labels/ml3/pool_exclude.csv</code> (1 row: the declined <code>IMG_20261008_092822</code>, missed in
+      <code>80c1674</code> and fixed after, as <code>merge_rig</code> skips a row naming no photo without a word).
+      Older records keep the names they read, as on 2026-10-30. pass11's labels of 11 of these pool photos (train 10,
+      validation 1) are under the old paths; pass12 carried them by sha256 (D2), where until then a rename lost a
+      label, as with <code>IMG_20261016_120546</code>.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -75,6 +110,9 @@
         <li>pass11 (<code>xl0_v6_s42</code> as proposer and redraw model, carrying pass10) holds an accepted label for
           all 440 training and validation positives, and the 453 negatives' empty labels.</li>
         <li><code>data/ml5_labels/pass11</code> in DVC and on the remote.</li>
+        <li>pass12 (<code>xl0_v6_s42</code>, carrying pass11 by path or sha256) holds an accepted label for all 466
+          training and validation positives, and the 454 negatives' empty labels; <code>data/ml5_labels/pass12</code>
+          in DVC and on the remote.</li>
       </ul>
     </div>
   </div>
@@ -88,19 +126,186 @@
     <li><strong>pass10.</strong> pass11 copied pass10's accepted labels and left pass10's files as they were.</li>
   </ul>
 
-  <h2>5. Scope and acceptance</h2>
+  <h2>5. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Does <code>dataset/2026-07-24__first_pictures</code> (pre-project exploratory shots, and
+        the 32 JPEG XL files the owner put under its <code>JXL/</code> on 2026-11-02) feed either model?</td>
+        <td>(a) neither model (b) as other sessions</td>
+        <td>(a), 2026-11-03: "Ignore folder dataset/2026-07-24__first_pictures for both segmenter and classifier. Do
+          not use them." Then the owner removed the folder from the repository (2026-11-03): its <code>.dvc</code>
+          and <code>.gitignore</code> entry are gone, its cache objects stay. Neither model had used it (the
+          classifier's sessions are <code>dvc.yaml</code>'s segcrop list, the segmenter's pool draw reads only
+          <code>class_*</code> folders). The 17 segmenter positives copied from it have an empty
+          <code>duplicate_of</code> now.</td></tr>
+      <tr><td class="id">D2</td><td>How does a photo find its earlier label, and other records about it?</td>
+        <td>(a) by its sha256 where possible (b) by its path, as before</td>
+        <td>(a), 2026-11-03: "use hash for images, not path where possible". Done for the labelling sessions:
+          <code>seg_review</code>'s carry and recheck take the earlier label of the same path and sha256, else the one
+          earlier label of the same sha256 whose path the data no longer has (a renamed photo); a byte copy of a photo
+          still in the data never takes its label. A carried label names the photo by its path now, its verdicts
+          marked <code>carried_from_path</code>. Still by path, each a change to a recorded decision, proposed to the
+          owner and not decided: <code>seg_dataset build</code> (a rename is refused, the entries are edited by hand;
+          ML-5 D11) and the classifier's split, seeded on the sorted (folder, name) list (ML-1 D1(b)).</td></tr>
+      <tr><td class="id">D3</td><td>The five example photos of <a href="ticket_example_photos.html">OPS-16</a>: stay in
+        the dataset, or leave it?</td>
+        <td>(a) stay (b) leave every set, before this ticket's retrain</td>
+        <td>(b), 2026-11-03: "let's remove this photos from training set" (OPS-16 D5, D6;
+          <a href="adr/0032-example-photos-are-public-and-in-no-dataset.md">ADR 0032</a>). Their originals move to
+          a private DVC folder, <code>dataset/example_photos/</code>, read by no pipeline: Brazil
+          <code>20261016_131741_Pixel_9_Pro_Brazil.jpg</code> and Vietnam <code>PXL_20261007_043818022.jpg</code>
+          (<code>random_date_raccoon</code>), Ethiopia <code>IMG_6302D.HEIC</code> (<code>2026-08-25__iphone</code>),
+          Indonesia <code>PIC_20260830_200224.JPG</code> (<code>2026-08-30__sony</code>), and the cappuccino
+          <code>PXL_20261031_072103744.jpg</code> (<code>ood_negatives/user_realworld</code>). The byte copies of the
+          Vietnam and Indonesia photos leave <code>segmenter_positives</code>, and all three segmenter entries leave
+          <code>seg_dataset.yaml</code>. The Brazil, Ethiopia, Vietnam and Indonesia splits are redrawn, in the same
+          data change as this ticket's new photos; the segmenter test loses one photo, the
+          <code>user_realworld</code> holdout one negative. OPS-16 ships in the release of this ticket's
+          retrain. <em>Done</em> 2026-11-03: the five originals moved, bytes unchanged, the two copies deleted;
+          <code>seg_dataset.yaml</code> lost its three entries by hand, the second exception to its append-only
+          rule (ML-5 D11), and <code>seg_dataset build</code> then adds nothing. The pool keeps its 313 photos
+          against 311 positives, so the next 2 new positives draw no pool photo.</td></tr>
+      <tr><td class="id">D4</td><td>The segmenter's fine-tune: which seeds?</td>
+        <td>(a) seed 42 only, xl0_v6_s42's (b) several (ADR 0002)</td>
+        <td>(a), 2026-11-04: "Use seed 42 for now, other seeds maybe will be used later depending on results."
+          <code>seg_ml16_finetune@xl0_v7_s42</code>.</td></tr>
+      <tr><td class="id">D5</td><td>Its recipe?</td>
+        <td>(a) XL0-v6's unchanged (<code>params.yaml</code> <code>seg_ft</code>) (b) changed</td>
+        <td>(a), 2026-11-04, as recommended: the canonical input and pass16's labels are already two differences from
+          xl0_v6_s42; a third would leave the comparison unreadable.</td></tr>
+      <tr><td class="id">D6</td><td>Who judges it, and against what?</td>
+        <td>The owner, blind and paired, against xl0_v6_s42's masks of the same canonical test photos
+          (<code>seg_ml19_predict</code>, ML-19 D14, D48)</td>
+        <td>2026-11-04: "judge will be me".</td></tr>
+      <tr><td class="id">D7</td><td>After <code>xl0_v7_s42</code> (epoch 20 chosen, score 0.9792; stopped after epoch
+        28): refine it?</td>
+        <td>(a) judge it as it is (b) fine-tune again from its chosen decoder, at a lower rate, over several seeds</td>
+        <td>(b), 2026-11-05: "try fine-tuning segmenter from saved check-point xl0_v7_s42, epoch 20. Select different
+          seed and because we already start from model with 0.979 score I think we should start with decreased
+          learning rate. I think we should try multiple seeds this time. Try 3 of them, but maybe I will interrupt
+          process at some point if we will receive very good results midway." Claude's values:
+          <code>--lr 2e-5</code> (a fifth of the recipe's 1e-4, under the 5e-5 the schedule had reached at epoch
+          20), everything else the recipe's (cosine to 1e-6 over 40 epochs, patience 8; a fresh optimizer); seeds
+          123, 7 and 2026, one after another: <code>seg_ml16_refine@xl0_v7r_s{123,7,2026}</code>, with
+          <code>seg_finetune --init</code> (new). Epoch 0 of each run is xl0_v7_s42's own score, so a run keeps a
+          decoder only if it beats that on the same validation photos that chose it; a margin of one negative
+          (0.006) or so is within noise there, and the owner's review on the test photos decides.</td></tr>
+      <tr><td class="id">D8</td><td>Which segmenter does this release ship?</td>
+        <td>xl0_v7r_s123 (score 0.9903), xl0_v7r_s7 (0.9849), xl0_v7_s42 (0.9792), or seed 2026 first</td>
+        <td><code>xl0_v7r_s123</code>, 2026-11-06: "drop seed 2026 and use xl0_v7r_s123 for this release". Seed
+          2026 was stopped while it loaded its photos, before any epoch. <code>params.yaml</code>
+          <code>seg_decoder</code> names it; its masks of the canonical test photos are
+          <code>seg_ml19_predict@xl0_v7r_s123</code>. Chosen on the validation scores, in place of D6's blind paired
+          session.</td></tr>
+      <tr><td class="id">D9</td><td>The tiny-mask threshold (<code>seg_min_area_frac</code>) for xl0_v7r_s123?</td>
+        <td>(a) re-derived by ML-2 D18's rule from the owner's accepted test-positive masks (b) XL0-v6's 0.028521
+          kept</td>
+        <td>(b), 2026-11-06: "in general masks are good, though I can improve some of them, especially small
+          "holes" inside correct region. Reuse 0.028521 const." First (a) was started: the owner judged 70 of the 200
+          canonical test-positive masks on <code>review_masks --canonical</code> (61 accepted, 9 declined, all 9
+          OnePlus photos of 2026-08-25 and 2026-08-27;
+          <code>labels/ml2/review/ml16_d9_xl0_v7r_s123.decisions.jsonl</code>). The 61 would give 0.073341. 4 of
+          the 200 test positives fall under 0.028521: the two internet photos that fell under it for XL0-v6 too, and two photos of
+          2026-11-03 and 2026-11-04.</td></tr>
+      <tr><td class="id">D10</td><td>The owner's 87 photos of 2026-11-05 and 2026-11-06 in
+        <code>dataset/random_date_raccoon</code>: in this release?</td>
+        <td>(a) in the classifier's training now (b) a later release</td>
+        <td>(a), 2026-11-06: "I've added more photos to the dataset/random_date_raccoon folder. Strip them from private
+          data, add to the DVC, make canonical variants, crop using xl0_v7r_s123 segmenter. I want to use this new
+          photos for classifier training." Ethiopia 34, Brazil Decaff 22 (a new folder, <code>class_013__Brazil_Decaff</code>:
+          class 013, so it trains as Brazil), Indonesia 14, Colombia 9, Brazil SulDeMinas 8; Pixel 9 Pro, OnePlus and
+          G8441. Stripped (87 of 87, 0 failing), no copies (<code>find_duplicates</code>: none at 0.97 or above). The
+          owner judged their crops (2026-11-07): 77 accepted, 11 declined (4 of them D18 fallbacks), and declined the 6
+          fallbacks the re-crop made in <code>2026-10-21__new_green</code>, all excluded
+          (<code>labels/ml3/pool_exclude.csv</code>, 31 rows). The four classes they join get their photo split
+          redrawn (ML-1 D1(b)), as with D3's.</td></tr>
+      <tr><td class="id">D11</td><td>Which classifier ships with <code>xl0_v7r_s123</code>, after exp280&ndash;282 tested
+        lower than exp279/277/278 at every seed (test mean &minus;0.0080, on redrawn test sets)?</td>
+        <td>(a) ship <code>xl0_v7r_s123</code> with exp280, seed 42 (b) first a run on xl0_v6_s42's crops of today's photos,
+          isolating the segmenter (c) hold the release, keep exp279</td>
+        <td>(a), 2026-11-07: "ship xl0_v7r_s123". Shipped as <code>models/dino3b16_segxl0v7r_country_aug8_s42.pt</code>
+          (<code>fit_frozen_head --ship 280 --seed-exps 280 281 282</code>), val macro-F1 0.9737, test 0.9762; its OOD
+          reference and probe, the LiteRT conversion, OPS-16 P6 and the release still to come.</td></tr>
+      <tr><td class="id">D12</td><td>The Vietnam example, after <code>xl0_v7r_s123</code> left it an empty mask and the
+        whole-photo fallback answered Brazil (OPS-16 P6)?</td>
+        <td>(a) a new photo, Vietnam or another country, from outside every set (b) the page with four examples</td>
+        <td>(b), 2026-11-08: "let's ship 4 examples". No Vietnam photo is outside every set (ADR 0032); the only bean
+          photos outside them are the 18 the re-crop's review excluded, and the owner's two new photos of 2026-11-07
+          (Peru, Ethiopia: light roasts in a grinder) were both answered Guatemala, by the live model too.
+          <code>vietnam-robusta</code> left <code>examples.json</code>, the script and the page's files; its original stays
+          in <code>dataset/example_photos/</code>, still in no set.</td></tr>
+      <tr><td class="id">D13</td><td>D10's 87 photos join the segmenter dataset (<code>random_date_raccoon</code> is a whole
+        folder, a step D10 missed): 22 land in its test split, at least 5 of them in exp280's classifier test split,
+        which the shipped probe was fitted on. Refit the probe?</td>
+        <td>(a) ship the probe as is, noted here (b) refit and re-measure it (about 3 h)</td>
+        <td>(a), 2026-11-08. The probe serves as fitted; its report (<code>analysis/ml16/ood_eval.txt</code>) was measured
+          before the 87 joined, on photos it was not fitted on. A later <code>ood_eval</code> of this probe on the current
+          dataset includes a few photos it was fitted on; the next refit drops them.</td></tr>
+      <tr><td class="id">D14</td><td>The release (ML-16, ML-19, OPS-16): the example files, the host's upload, the merge</td>
+        <td>&mdash;</td>
+        <td>2026-11-08, as recommended: the four examples committed as canonical JXLs (ML-19 D17, P10's call): the front
+          passes them on as they are, where the q90 Brazil took 413 MB and 23 s to canonicalize under its 500 MB cap; masks
+          within IoU 0.998 of the accepted ones, the same answers. The identical graphs copied on the host by hand, as in
+          ML-13. The branch joins <code>main</code> by a merge commit, never a fast-forward (ADR 0017).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The 7 photos of 2026-10-30 and the 18 of 2026-11-02 stripped, in DVC,
       in the manifest and in the segmenter dataset (<code>fd490ce</code>, <code>ca8a61c</code>,
       <code>7b2ea74</code>).</span></li>
+    <li><span class="box done"></span><span>The 17 positives of 2026-11-03 and the day's other new photos stripped, in
+      DVC, in their manifests and in the segmenter dataset; the owner's 99 renames in the records in use
+      (2026-11-03).</span></li>
+    <li><span class="box done"></span><span><code>dataset/2026-07-24__first_pictures</code> removed from the repository,
+      used by neither model (D1).</span></li>
+    <li><span class="box done"></span><span>Every training and validation positive of the first two arrivals of
+      2026-11-03 with an accepted label in pass12, renamed photos carried by sha256 (D2); the session's masks in DVC,
+      pushed and checked on the remote.</span></li>
+    <li><span class="box done"></span><span>The 8 positives and 8 pool photos of the third arrival of 2026-11-03
+      stripped, in DVC and pushed, in the manifest and in the segmenter dataset.</span></li>
+    <li><span class="box done"></span><span>The third arrival's 5 training and 1 validation positives with an
+      accepted label, in pass13; the session's masks in DVC, pushed and checked on the remote.</span></li>
     <li><span class="box done"></span><span>Every training and validation positive with an accepted label in pass11;
       the session's masks in DVC, pushed and checked on the remote.</span></li>
+    <li><span class="box done"></span><span>The five example photos of OPS-16 out of every set and in
+      <code>dataset/example_photos/</code>, before the retrain (D3); in DVC, pushed and checked on the
+      remote.</span></li>
   </ul>
+
+  <h2>7. What is left, in order</h2>
+  <p>Since <code>0636177</code> this branch, <code>ml16-photos-2026-11-03</code>, also carries
+    <a href="ticket_example_photos.html">OPS-16</a> P1&ndash;P5: the example files, the front serving them, the
+    10 MB cap, the page's row and <code>--verify</code>'s example check, built and tested, not released. The order
+    below only says what waits on what; the training session itself is still the owner's to start and plan.</p>
+  <ol class="tasks">
+    <li><span class="box done"></span><span>D3, the data change: the five originals (found by sha256, OPS-16's plan P1
+      table) into <code>dataset/example_photos/</code> with a manifest, out of the classifier pool, the segmenter
+      dataset (with the byte copies in <code>segmenter_positives</code>) and <code>user_realworld</code>. In DVC,
+      pushed and checked on the remote. Before any retrain. <em>Done</em> 2026-11-03.</span></li>
+    <li><span class="box"></span><span><a href="ticket_canonicalization.html">ML-19</a>, canonicalization: the canonical store, pass14 (pass13's masks in
+      the canonical geometry), the crop stage on canonical photos, and today's models on canonical test photos as the
+      baseline. The owner, 2026-11-03: before retraining both models.</span></li>
+    <li><span class="box"></span><span>The training session, when the owner starts it: chosen and planned then.
+      The owner, 2026-11-03: "We will retrain both: segmenter and classifier", on canonical photos.
+      Two DVC stages are already stale and are its first re-run: <code>segcrop@random_date_raccoon</code> (the new
+      and renamed photos, and D3's two leaving it), <code>segcrop@2026-08-25__iphone</code> and
+      <code>segcrop@2026-08-30__sony</code> (D3), and <code>merge_segpool</code>
+      (<code>labels/ml3/pool_exclude.csv</code>, the rename). <code>docs/patch_samples.txt</code>, the README's
+      sample sheet, names the crops of the Ethiopia and Vietnam examples, which the re-crop no longer makes: two
+      other photos for those rows, and the sheet redrawn, when it is next drawn.</span></li>
+    <li><span class="box"></span><span>OPS-16 P6 on the model that session chooses: each example against its
+      original, the owner's look at the bean examples' masks.</span></li>
+    <li><span class="box"></span><span>One release of both tickets (OPS-16 P7, D6): this branch merged into
+      <code>main</code> and pushed, one deploy, <code>--verify</code> with the five examples.</span></li>
+  </ol>
 
   <h2>Out of scope</h2>
   <ul>
     <li>The training session itself, and everything after it (re-crop, retrain, comparison, release). It is not
-      decided or planned; the owner will start it.</li>
+      decided or planned; the owner will start it. Its release is also OPS-16's (D3, OPS-16 D6).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -118,6 +323,110 @@
       2026-11-02 were shown to the owner outside the page, with no verdicts recorded. Claude's reading: holes and
       ragged edges on the foil-bag photo <code>20261030_185843</code>; the other three look clean. <code>data/ml5_labels/pass11</code> added to DVC and
       pushed; all 936 objects (1,369 files) checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>New photos and renames from the owner. <code>coffeecv.strip_metadata</code>
+      over <code>segmenter_positives</code>, <code>random_date_raccoon</code>, <code>classes_labels_only</code> and
+      <code>user_realworld</code>: 119 photos checked, the 20 new ones stripped (EXIF GPS, C2PA, the Apple maker
+      note, HDR+ XMP, EXIF thumbnails), the 99 renamed ones clean under their new paths, 0 failing; a second
+      <code>--dry-run</code> finds all 986 clean. <code>coffeecv.find_duplicates</code>: no copies (nearest 0.75).
+      <code>seg_dataset build</code>: 17 added (8 positives, 8 pool, 1 negative). Not done: the 32 JPEG XL files the
+      owner put under <code>dataset/2026-07-24__first_pictures/JXL/</code> stay out of DVC, as the stripper reads no
+      <code>.jxl</code> and 23 of them hold Brotli-compressed EXIF exiftool here cannot read;
+      <code>segcrop@random_date_raccoon</code> is stale until the next re-crop. No labelling session.</div>
+    <div><div class="when">2026-11-03</div>A second arrival the same day: 9 segmenter positives (5 OnePlus, 4 G8441)
+      and 9 Colombia pool photos in <code>random_date_raccoon</code>. All 18 stripped (EXIF GPS, Sony's maker note,
+      HDR+ XMP, EXIF thumbnails), 0 failing; a second <code>--dry-run</code> finds all 482 photos of the two folders
+      clean; no copies (nearest 0.77). <code>seg_dataset build</code>: 18 added (9 positives: train 5, validation 2,
+      test 2; and the pool draw's 9). The owner's D1: <code>2026-07-24__first_pictures</code> feeds neither model; the
+      owner then removed it, its JPEG XL files with it, and <code>dvc remove</code> dropped its <code>.dvc</code>.</div>
+    <div><div class="when">2026-11-03</div>pass12: <code>seg_review label --session pass12 --proposer xl0_v6_s42
+      --redraw xl0_v6_s42 --carry pass11</code>. A first prepare carried 429 labels by path; the owner asked for
+      hashes (D2), it was stopped and deleted (nothing judged), and the rerun carried all 440 of pass11's, the 11
+      renamed pool photos by sha256. xl0_v6_s42 proposed the 26 others in 116 s on the CPU: the 13 new training and
+      validation segmenter positives and 13 new pool photos. The owner accepted all 26, no drops: none in round 1, 18
+      in round 2, 4 in round 3, 4 in round 4 (64 verdicts, 38 declines). 18 needed a fence, 8 brush strokes, 6 both.
+      Four rounds: <code>20261103_123829</code>, <code>144040</code> and <code>144105</code> and the pool's
+      <code>IMG_6275</code>. <code>data/ml5_labels/pass12</code> added to DVC and pushed; all 996 objects (1,434
+      files) checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>D3 from the owner, in the grilling session that wrote
+      <a href="ticket_example_photos.html">OPS-16</a>: its five example photos leave every set before this ticket's
+      retrain, and the two tickets ship in one release. Not done yet.</div>
+    <div><div class="when">2026-11-03</div>A third arrival: 8 segmenter positives and 8 Colombia pool photos in
+      <code>random_date_raccoon</code>, all on a Galaxy Z Fold8 Ultra between 15:04:48 and 15:07:26. All 16 stripped
+      (EXIF GPS, Samsung's maker note, EXIF thumbnails), 0 failing; a second <code>--dry-run</code> finds all 498
+      photos of the two folders clean; no copies (nearest 0.80). <code>seg_dataset build</code>: 16 added (8
+      positives: train 5, validation 1, test 2; and the pool draw's 8). Both folders added to DVC and pushed; all 477
+      objects checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>pass13: <code>seg_review label --session pass13 --proposer xl0_v6_s42
+      --redraw xl0_v6_s42 --carry pass12</code>. All 466 of pass12's labels carried; xl0_v6_s42 proposed the 12
+      others in 68 s on the CPU: the third arrival's 5 training and 1 validation positives and the pool draw's 6
+      training and validation photos. The owner accepted all 12, no drops: none in round 1, 7 in round 2, 3 in round
+      3, 2 in round 4 (31 verdicts, 19 declines). 8 needed a fence, 6 brush strokes, 5 both. Four rounds:
+      <code>20261103_150511</code> and the validation photo <code>150550</code>; every one of the 6 positives took
+      2 or more. <code>data/ml5_labels/pass13</code> added to DVC and pushed; all 1,026 objects (1,465 files)
+      checked on the remote.</div>
+    <div><div class="when">2026-11-03</div>The rest of D2, every record keyed by hash with the path as a value, is
+      written up as <a href="ticket_photo_hash_key.html">ML-18</a>, its decisions open; the owner: "we will do it
+      later, not before ML-16".</div>
+    <div><div class="when">2026-11-03</div>At the owner's call, OPS-16's branch <code>ops16-example-photos</code>
+      (its plan P1&ndash;P5) merged into this one (<code>0636177</code>); both tickets go on here and ship in one
+      release. The merged branch passes <code>scripts/check.sh</code>. Section 7 lists what is left, in order. D3
+      not done.</div>
+    <div><div class="when">2026-11-03</div>D3 done. The five originals, found by sha256, moved into the new
+      <code>dataset/example_photos/</code> (bytes unchanged): Brazil and Vietnam from <code>random_date_raccoon</code>,
+      Ethiopia from <code>2026-08-25__iphone</code>, Indonesia from <code>2026-08-30__sony</code>, the cappuccino
+      from <code>user_realworld</code>; the Vietnam and Indonesia byte copies deleted from
+      <code>segmenter_positives</code>. Their rows left <code>segmenter_positives.manifest.csv</code> and
+      <code>user_realworld.manifest.csv</code>, and their three entries <code>labels/ml5/seg_dataset.yaml</code>
+      (positives train 1 and test 1, the negative train): it now lists 1,248 photos, 311 segmenter positives (train
+      187, validation 47, test 77), 313 pool photos, 613 negatives and 11 internet positives, and
+      <code>seg_dataset build</code> adds nothing. The new folder has a manifest (example, country, sha256, where
+      from) and a README, is in <code>coverage_report</code>'s <code>EXCLUDED</code>, and is read only by
+      <code>scripts/make_example_photos.py</code>, which finds all five there. <code>strip_metadata</code> over it:
+      5 checked, 0 private tags (rows under the new paths). No other copy under <code>dataset/</code> by sha256.
+      Earlier records (verdicts, paired logs, experiments) keep the paths they read. Six folders added to DVC and
+      pushed; their objects checked on the remote. The classifier's Brazil, Ethiopia, Vietnam and Indonesia splits
+      redraw at the next re-crop, as D3 expected.</div>
+    <div><div class="when">2026-11-03</div>The owner: "We will retrain both: segmenter and classifier." First,
+      <a href="ticket_canonicalization.html">ML-19</a> (canonicalization), written from a grilling session the same day: both models read canonical photos
+      from then on, the segmenter's labels move to pass14, and today's models are re-run on canonical test photos as
+      the baseline. ML-19 ships in this ticket's release. The stale <code>segcrop</code> stages wait for it.</div>
+    <div><div class="when">2026-11-04</div>Through ML-19 P6, the owner reviewed and corrected every segmenter positive new
+      since pass10 (pass15, then pass16 for 10 new Brazil photos): pass16 holds an accepted label for all 602
+      training and validation positives of the 1,417-photo dataset, <code>random_date_raccoon</code> in full (ML-5
+      D12 amended). The segmenter retrain reads pass16.</div>
+    <div><div class="when">2026-11-05</div><code>xl0_v7_s42</code> trained (<code>seg_ml16_finetune</code>, run
+      directly while the DVC push ran, to be recorded with <code>dvc commit</code>): 15.5 h, 62 min of it loading and
+      encoding; stopped after epoch 28 with no better score for 8 epochs, epoch 20 kept: val mIoU 0.970, 0.988 of the
+      neg_select photos empty, score 0.9792. Not comparable with xl0_v6_s42's 0.982, chosen on other validation
+      photos; on these, xl0_v6_s42's val mIoU is 0.967. D7: its refinement, <code>seg_ml16_refine</code>, three
+      seeds from its chosen decoder at 2e-5.</div>
+    <div><div class="when">2026-11-06</div>D7's runs (<code>seg_ml16_refine</code>, each from xl0_v7_s42's chosen
+      decoder; epoch 0 reproduced its 0.9792 exactly in both). <code>xl0_v7r_s123</code>: 14 h 25 min, stopped after
+      epoch 26, epoch 18 kept: val mIoU 0.981, every neg_select photo empty, score 0.9903. <code>xl0_v7r_s7</code>:
+      stopped after epoch 15, epoch 7 kept: 0.982, 0.988, 0.9849. Both recorded with <code>dvc commit</code>, their
+      models pushed and checked on the remote. Seed 2026 stopped by the owner (D8) while it loaded; it left no model
+      and no resume state.</div>
+    <div><div class="when">2026-11-07</div>The re-crop with <code>xl0_v7r_s123</code> (D8, D9): every
+      <code>segcrop</code> stage by <code>dvc repro -s</code>, one at a time, about 3 h. The owner's 87 new photos (D10)
+      joined first: <code>dvc add dataset/random_date_raccoon</code> (278 photos), then
+      <code>canonicalize@random_date_raccoon</code> (12 min). D18 fallbacks: 11, against xl0_v6_s42's 5 on the same
+      photos; new are 4 of the new raccoon photos and 6 green photos of <code>2026-10-21__new_green</code> (5 Peru, 1
+      Indonesia), where xl0_v7r_s123 finds no pile and xl0_v6_s42 cropped all 6: a weakness on green beans. 4 photos
+      ML-19 excluded as fallbacks with background are cropped now; they stay excluded. The owner's review
+      (<code>p6_review_items.py --session</code>, new): 77 of the 88 raccoon items accepted, the 6 new_green
+      fallbacks declined. <code>merge_segpool</code>: 1,493 photos, 31 excluded. The crops against xl0_v6_s42's:
+      <code>analysis/ml16/recrop_report.txt</code>.</div>
+    <div><div class="when">2026-11-07</div>The classifier on the new crops, exp280&ndash;282 (seeds 42, 123, 7; exp277&ndash;279's
+      recipe, Q1), about 3 h 10 min a seed. Paired with exp279/277/278 (<code>analysis/ml16/compare_280_282.txt</code>):
+      val macro-F1 +0.0057, +0.0121, &minus;0.0002 (mean +0.0058); test &minus;0.0013, &minus;0.0088, &minus;0.0138
+      (mean &minus;0.0080), lower at every seed. Test F1 per class, mean over seeds: Ethiopia &minus;0.024, Colombia, Peru
+      &minus;0.014, Guatemala &minus;0.012, Indonesia &minus;0.011, the rest within &plusmn;0.008. The test sets are not
+      the same photos: renames (80c1674, fd490ce), D10's photos and the exclusions redrew every class's split but
+      Kenya's, Costa Rica's and Rwanda's (and Vietnam's at seed 42). On the photos in both arms
+      (<code>analysis/ml16/common_photos.py</code>): 0.9541&rarr;0.9474, 0.9587&rarr;0.9563, 0.9564&rarr;0.9094; seed 7's
+      drop is mostly Indonesia (6 patches) and one Rwanda photo whose patches all went to Indonesia, a photo whose crop
+      is the same bar 2 px. No D18 fallback in any split; 7 training patches under D17's bean share. The owner
+      decides (ADR 0002).</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),

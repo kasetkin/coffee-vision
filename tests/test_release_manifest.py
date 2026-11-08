@@ -23,10 +23,11 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import LITERT_RUNTIME, VK_ICD, all_files, front_manifest, manifest, unexpected  # noqa: E402
 
+from coffeecv import canonical  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
 
 # The model the live release serves, the one with a LiteRT export (dvc.yaml's litert_export, ticket ML-7 P9).
-MODELS = ("dino3b16_segxl0v6_country_aug8_s42",)
+MODELS = ("dino3b16_segxl0v7r_country_aug8_s42",)
 # The deploy's smoke photo, from the same list the deploy uses.
 PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.txt").read_text().splitlines()
                     if line.startswith("smoke "))
@@ -54,7 +55,7 @@ sys.addaudithook(hook)
 import io
 import webapp.app as app
 client = app.app.test_client()
-r = client.post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jpg")}, content_type="multipart/form-data")
+r = client.post("/analyze", data={"photo": (io.BytesIO(photo), "photo.jxl")}, content_type="multipart/form-data")
 parts = [json.loads(line)["part"] for line in r.get_data(as_text=True).splitlines()]   # runs the whole stream
 print("TRACE " + json.dumps({"opened": sorted(opened), "status": {"/analyze": [r.status_code, parts]}}))
 """
@@ -85,7 +86,11 @@ class TestReleaseManifest(unittest.TestCase):
                     env = {**os.environ, "COFFEE_CV_CHECKPOINT": f"models/{model}.pt", "COFFEE_CV_LOG_DIR": logs,
                            "PYTHONDONTWRITEBYTECODE": "1", "COFFEE_CV_LITERT_ON_CPU": "1",
                            "COFFEE_CV_WARMUP_PHOTO": m["env"]["COFFEE_CV_WARMUP_PHOTO"]}
-                    out = subprocess.run([sys.executable, "-c", TRACE, str(REPO), str(PHOTO)], cwd=REPO,
+                    # The host takes canonical photos only (ML-19 D12): the photo crosses as the front sends it,
+                    # made here so that the traced process opens only what the app opens.
+                    canon = Path(logs) / "smoke.jxl"
+                    canon.write_bytes(canonical.canonicalize_file(PHOTO))
+                    out = subprocess.run([sys.executable, "-c", TRACE, str(REPO), str(canon)], cwd=REPO,
                                          env=env, capture_output=True, text=True, timeout=900)
                 self.assertEqual(out.returncode, 0, out.stderr[-3000:])
                 trace = json.loads(next(line[6:] for line in out.stdout.splitlines()
@@ -183,10 +188,34 @@ class TestTwoReleases(unittest.TestCase):
         front = front_manifest()
         self.assertTrue({"webapp/front/check_service.py", "webapp/front/upload_check.py", "webapp/front/pyproject.toml",
                          "webapp/front/uv.lock"} <= set(front["git"]))
-        self.assertFalse(any(p.startswith(("coffeecv/", "models/")) or p == "webapp/app.py" for p in front["git"]))
+        # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization and nothing else of it.
+        self.assertEqual({p for p in front["git"] if p.startswith("coffeecv/")},
+                         {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/jxl_encode.py",
+                          "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc"})
+        self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
                 self.assertTrue((REPO / p).is_file(), f"{p} is not in the repo")
+
+    def test_the_fronts_coffeecv_modules_import_only_each_other(self):
+        """What check_service imports from coffeecv, followed module by module, is all in the front's release."""
+        import ast
+        shipped = {p for p in front_manifest()["git"] if p.endswith(".py")}
+        todo, seen = ["webapp/front/check_service.py"], set()
+        while todo:
+            path = todo.pop()
+            if path in seen:
+                continue
+            seen.add(path)
+            for node in ast.walk(ast.parse((REPO / path).read_text())):
+                names = [node.module] if isinstance(node, ast.ImportFrom) and node.module else \
+                    [a.name for a in node.names] if isinstance(node, ast.Import) else []
+                for name in names:
+                    if name.startswith("coffeecv"):
+                        mod = name if name != "coffeecv" else "coffeecv." + node.names[0].name
+                        todo.append(mod.replace(".", "/") + ".py")
+        self.assertTrue(seen - {"webapp/front/check_service.py"})
+        self.assertEqual(seen - shipped, set())
 
     def test_each_release_carries_its_own_site(self):
         self.assertIn("inference.nginx.conf", _synthetic(CARD)["generated"])

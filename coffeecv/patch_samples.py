@@ -74,7 +74,8 @@ def cut_patch(crop: Path, cfg: RunConfig) -> Image.Image:
     from coffeecv.dataset import load_bean_mask
     from coffeecv.infer import SegmentedPhoto, sample_patches
     path = REPO_ROOT / crop
-    rgb = np.array(Image.open(path).convert("RGB"))
+    from coffeecv.crop_io import load_crop
+    rgb = load_crop(path) if path.suffix == ".jxl" else np.array(Image.open(path).convert("RGB"))
     seg = SegmentedPhoto(photo=rgb, rgb=rgb, mask=load_bean_mask(path, rgb.shape[:2]), photo_mask=None,
                          crop_info=None, seg_diag={}, timing_ms={})
     patches, _ = sample_patches(seg, cfg, n_patches=1, seed_key=[0, 0])

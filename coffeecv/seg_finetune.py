@@ -49,6 +49,11 @@ _toy), which touches its own only; the slot goes once the model and its card are
 DVC deletes those before it reruns a stage. A reboot after the model is written and before DVC writes dvc.lock
 leaves the model and no slot: then `dvc commit` the stage (after checking the card's chosen), do not rerun it.
 
+Warm start (ticket ML-16 D7): `--init models/seg/<model>.pt` loads a fine-tuned decoder of the same base weights,
+output and prompt before the run, so it refines that decoder rather than the pretrained one (the optimizer starts
+fresh). Epoch 0's selection is then the init's own, so a run that never beats it writes the init's decoder again. The
+init's sha256 is in the fingerprint and the card; the card's base_weights stay the pretrained base it loads over.
+
 Out: models/seg/<name>.pt ({"mask_decoder", "base_weights_sha256", ...}) + .json (params with the pipeline,
 albumentations' version, label session and label-set hash, history, the chosen epoch, the epochs a run resumed
 at).
@@ -74,8 +79,8 @@ import torch.nn.functional as F
 from PIL import Image
 
 from coffeecv import augment, model_io
+from coffeecv.canonical_store import load_for_record
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_rgb_image
 from coffeecv.repo_files import atomic_write, differing_keys, read_csv, remove_tree, sha256_file, tree_sha256
 from coffeecv.sam_loader import build_sam, variant_of
 
@@ -83,8 +88,10 @@ LABELS_ROOT = REPO_ROOT / "data" / "ml5_labels"     # seg_review.MASK_ROOT: <ses
 MODEL_DIR = REPO_ROOT / "models" / "seg"
 RESUME_ROOT = REPO_ROOT / "outputs" / "seg_finetune"   # <name>/resume.pt, a run's slot (ML-13 P2); not a DVC output
 TOY_SUFFIX = "_toy"               # a toy run touches its own slot only
-CODE_DEPS = ("coffeecv/seg_finetune.py", "coffeecv/augment.py", "coffeecv/sam_loader.py",
-             "third_party/efficientvit/efficientvit")   # the fine-tune stages' code deps in dvc.yaml (a test holds them)
+# The fine-tune stages' code deps in dvc.yaml (a test holds them); the canonical modules since ML-19 P6 (photos are
+# read from the canonical store), first a dep of seg_ml16_finetune.
+CODE_DEPS = ("coffeecv/seg_finetune.py", "coffeecv/augment.py", "coffeecv/sam_loader.py", "coffeecv/canonical.py",
+             "coffeecv/canonical_store.py", "third_party/efficientvit/efficientvit")
 LOW = 256                         # the decoder's low-res logits
 PROMPT_FRAME = 1024               # SAM's prompt coordinates (model.image_size[0])
 IGNORE = 255
@@ -254,11 +261,9 @@ def label_set(session: str, rows: list[dict]) -> dict:
 
 
 def load_pair(r: dict) -> tuple[np.ndarray, np.ndarray]:
-    """(photo, bool label) of a labels.csv row at full resolution, the photo checked against its sha256."""
-    photo = REPO_ROOT / r["path"]
-    if sha256_file(photo) != r["photo_sha256"]:
-        raise ValueError(f"{r['path']}: sha256 differs from labels.csv")
-    rgb = load_rgb_image(photo)
+    """(photo, bool label) of a labels.csv row at full resolution: the original checked against its sha256, the
+    photo read from its canonical photo (ticket ML-19 P6; pass14's labels are in that geometry)."""
+    rgb = load_for_record(r["path"], r["photo_sha256"])
     mask = np.array(Image.open(REPO_ROOT / r["mask"])) > 0
     if mask.shape != rgb.shape[:2]:
         raise ValueError(f"{r['id']}: label {mask.shape} does not match photo {rgb.shape[:2]}")
@@ -337,14 +342,15 @@ def epoch_batches(data: TrainSet, p: FtParams, rng: np.random.Generator, aug) ->
 
 # ---------------------------------------------------------------- resume after a reboot (ML-13 D7, D8; plan P2)
 
-def run_fingerprint(seed: int, name: str, cfg: RunConfig, p: FtParams, rows: list[dict], weights_sha256: str) -> dict:
+def run_fingerprint(seed: int, name: str, cfg: RunConfig, p: FtParams, rows: list[dict], weights_sha256: str,
+                    init: dict | None = None) -> dict:
     """What a run reads, so a resume continues only the run it was saved by: what the fine-tune stage in dvc.yaml
-    lists (code, labels, base weights, params seg_ft (--lr applied, its shared groups expanded), augment,
-    seg_prompt and seg_mask_select), with the seed, the name, the threads and the library versions. One flat dict,
+    lists (code, labels, base weights, the --init decoder, params seg_ft (--lr applied, its shared groups expanded),
+    augment, seg_prompt and seg_mask_select), with the seed, the name, the threads and the library versions. One flat dict,
     so a mismatch names its keys."""
     return {"seed": seed, "name": name, "threads": torch.get_num_threads(), "torch": str(torch.__version__),
             "albumentations": augment.version(), "label_set_sha256": label_set_sha256(rows),
-            "base_weights_sha256": weights_sha256, "seg_ft": json.dumps(asdict(p), sort_keys=True),
+            "base_weights_sha256": weights_sha256, "init_sha256": init and init["sha256"], "seg_ft": json.dumps(asdict(p), sort_keys=True),
             "augment": json.dumps(cfg.augment, sort_keys=True), "seg_prompt": cfg.seg_prompt,
             "seg_mask_select": cfg.seg_mask_select,
             **{f"sha256 {d}": tree_sha256(REPO_ROOT / d) for d in CODE_DEPS}}
@@ -483,14 +489,29 @@ def evaluate(model, sel: Selection, k: int, min_area_frac: float) -> dict:
     return {"val_miou": miou, "neg_select_empty": neg, "score": float(np.nanmean([miou, neg]))}
 
 
-def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict], name: str) -> dict:
-    """The fine-tune, resumed from `name`'s slot when it holds this run's state (ResumeSlot)."""
+def load_init(model, path: Path, weights_sha256: str, cfg: RunConfig) -> dict:
+    """--init (ML-16 D7): a fine-tuned decoder over these base weights, with this run's output and prompt, loaded
+    into `model`; what the fingerprint and the card record of it."""
+    ck = torch.load(path, map_location="cpu", weights_only=True)
+    for key, want in (("base_weights_sha256", weights_sha256), ("output", cfg.seg_mask_select),
+                      ("prompt", cfg.seg_prompt)):
+        if ck.get(key) != want:
+            raise ValueError(f"--init {path}: its {key} is {ck.get(key)!r}, this run's is {want!r}")
+    model.mask_decoder.load_state_dict(ck["mask_decoder"])
+    shown = path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path
+    return {"model": str(shown), "sha256": sha256_file(path)}
+
+
+def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict], name: str, init: Path | None = None) -> dict:
+    """The fine-tune, from the pretrained decoder or `init`'s (load_init), resumed from `name`'s slot when it holds
+    this run's state (ResumeSlot)."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     predictor, wsha = build_sam(p.weights)
     model = predictor.model
     frame = encoder_frame(model)
-    slot = ResumeSlot(name, run_fingerprint(seed, name, cfg, p, rows, wsha))
+    init_ref = None if init is None else load_init(model, init, wsha, cfg)
+    slot = ResumeSlot(name, run_fingerprint(seed, name, cfg, p, rows, wsha, init_ref))
     resume = slot.open()
     t0 = time.perf_counter()
     data, sel = TrainSet(rows, encoder_frame(model)), Selection(rows, model)
@@ -567,7 +588,8 @@ def train(seed: int, cfg: RunConfig, p: FtParams, rows: list[dict], name: str) -
             print(f"no better score for {p.patience} epochs; stopping", flush=True)
             break
     return {"seed": seed, "best": {a: b for a, b in best.items() if a != "state"}, "state": best["state"],
-            "history": history, "weights_sha256": wsha, "k": k, "frame": frame, "resumed_at": resumed_at}
+            "history": history, "weights_sha256": wsha, "k": k, "frame": frame, "resumed_at": resumed_at,
+            "init": init_ref}
 
 
 def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str) -> Path:
@@ -577,7 +599,7 @@ def write_model(res: dict, cfg: RunConfig, p: FtParams, labels: dict, name: str)
     torch.save({"mask_decoder": res["state"], "base_weights_sha256": res["weights_sha256"],
                 "output": cfg.seg_mask_select, "prompt": cfg.seg_prompt}, out)
     card = {"name": name, "seed": res["seed"], "labels": labels["session"], "label_set": labels,
-            "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"],
+            "base_weights": p.weights, "base_weights_sha256": res["weights_sha256"], "init": res.get("init"),
             "sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "seg_ft": asdict(p),
             "seg_prompt": cfg.seg_prompt, "seg_mask_select": cfg.seg_mask_select, "frame": res["frame"],
             "albumentations": augment.version(),
@@ -596,6 +618,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--threads", type=int, required=True, help="torch.set_num_threads")
     ap.add_argument("--lr", type=float, help="overrides params.yaml seg_ft.lr for this run, one candidate's own stage "
                                              "(ML-9 D8); the card records the rate used")
+    ap.add_argument("--init", type=Path, help="a fine-tuned decoder, models/seg/<model>.pt, to start from instead of the "
+                                              "pretrained one (ML-16 D7); the card records it")
     args = ap.parse_args(argv)
     torch.set_num_threads(args.threads)
     cfg = RunConfig.from_params_yaml()
@@ -605,7 +629,8 @@ def main(argv: list[str] | None = None) -> None:
             ap.error("--lr must be positive")
         p = replace(p, lr=args.lr)
     rows = label_rows(args.labels)
-    res = train(args.seed, cfg, p, rows, args.name)
+    init = None if args.init is None else (args.init if args.init.is_absolute() else REPO_ROOT / args.init)
+    res = train(args.seed, cfg, p, rows, args.name, init=init)
     out = write_model(res, cfg, p, label_set(args.labels, rows), args.name)
     drop_slot(args.name)
     print(f"wrote {out.relative_to(REPO_ROOT)}: epoch {res['best']['epoch']}, score {res['best']['score']:.4f}")

@@ -1,17 +1,25 @@
-"""The front's check service (ADR 0031, ticket OPS-15 P1): POST /analyze from the front's nginx, checked, then forwarded
-unchanged to the inference host, whose answer streams back as it arrives.
+"""The front's check service (ADR 0031, ticket OPS-15 P1; ADR 0033, ticket ML-19 P9): POST /analyze from the front's
+nginx, checked, canonicalized, then forwarded to the inference host, whose answer streams back as it arrives.
 
     python webapp/front/check_service.py --listen 127.0.0.1:8100 --inference http://<tailnet address>:12346
 
-It refuses what must not cross the tunnel to the inference host (2.1 Mbit/s, OPS-15 §2): an upload over 5 MB (D15)
-and a file that is not one of the formats the service reads (upload_check). Everything else goes on as the visitor
-sent it, the photo's bytes untouched (D2): decoding and every pixel the model sees stay on the inference host. An
-inference host that cannot be reached, or whose app is down behind its nginx, is a 503 "the classifier is offline"
-(D12), apart from its busy 503, which is relayed as it is.
+It refuses an upload over 40 MB (ML-19 D23; OPS-15 D15 and OPS-16 D8 before) and a file that is not one of the formats
+the service reads (upload_check). Then the photo becomes its
+canonical photo (coffeecv.canonical, ML-19 D12, D35): one already canonical goes on as it is (D17), any other is
+canonicalized here, a photo over the pixel ceiling (D38; a RAW one over its own, D24) is refused with a 413 from its
+header before any pixel is decoded, and one that cannot be read is the 400 the inference host gives. The form goes on
+with the canonical photo in place of the visitor's (named <stem>.jxl), every other field and header as sent; the
+original is never stored or forwarded (D21). An inference host that cannot be reached, or whose app is down behind its
+nginx, is a 503 "the classifier is offline" (D12), apart from its busy 503, which is relayed as it is.
 
-Standard library only (D7), on http.server (D19): the front's nginx gates one request at a time (D11), so a thread
-per request never means more than one at work. It logs one line per request to stderr, for the journal, with no
-client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20).
+On http.server (D19): the front's nginx gates one request at a time (D11), so a thread per request never means more
+than one at work, and canonicalizing (up to about 21 s and 460 MB at 60 MP, analysis/ml19/p8/README.md) happens
+inside the same one-at-a-time gate as the crossing. Since ML-19 the service is no longer standard-library only: it
+imports the release's coffeecv.canonical, with training's decoders, colour management and encoder at training's
+versions (coffeecv.lock_check). It logs one line per request to stderr, for the journal, with no
+client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20). A photo canonicalized
+here adds its extension, size, decoded depth, time and the process's peak and swapped memory while it was at work
+(ML-19 D38: the ceiling and MemoryMax are reviewed from these lines).
 """
 from __future__ import annotations
 
@@ -28,16 +36,34 @@ from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
 
-from upload_check import HEAD_BYTES, refusal
+from pathlib import Path, PurePath
 
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024   # D15, until ML-15: the photo's own size, as the page measures it
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # the release's root: coffeecv/
+from upload_check import HEAD_BYTES, RAW_EXTENSIONS, refusal  # noqa: E402
+
+from coffeecv import canonical  # noqa: E402
+
+# ML-19 D23: the photo's own size, as the page measures it. Since the front canonicalizes, the photo that crosses the
+# tunnel is the canonical one (at most about 14 MB at 60 MP, analysis/ml19/p4_sizes.md) and memory is held by the
+# pixel ceilings below, so this cap only bounds an upload: room for every photo the ceilings take (a 12 MP DNG is
+# 23 MB) and for a 200 MP JPEG (26-33 MB), refused by its pixels rather than its bytes. 10 MB before (OPS-16 D8).
+MAX_UPLOAD_BYTES = 40 * 1024 * 1024
 # The form around the photo (its boundaries, the part headers, skip_crop) is a few hundred bytes; the body may be this
-# much over the photo's cap, and the front's nginx allows the same (client_max_body_size 5184k).
+# much over the photo's cap, and the front's nginx allows the same (client_max_body_size 41024k).
 FORM_ALLOWANCE = 64 * 1024
-# D16: a 5 MB photo crosses the tunnel in about 20 s (2.1 Mbit/s measured into yappy, 2026-11-02) and /analyze takes
-# about 9-12 s there. Python applies this to the connect, to the whole upload (sendall), and to each read of the
-# answer: at most about 120 s before an answer starts, which the front's nginx outwaits (proxy_read_timeout 130s).
-INFERENCE_TIMEOUT_S = 60
+# D16, OPS-16 D8: 10 MB crosses the tunnel in about 40 s (2.1 Mbit/s measured into yappy, 2026-11-02) and
+# /analyze takes about 9-12 s there. The connect and the whole upload (sendall) get UPLOAD_TIMEOUT_S, then each read
+# of the answer ANSWER_TIMEOUT_S: at most about 180 s before an answer starts, which the front's nginx outwaits
+# (proxy_read_timeout 190s).
+UPLOAD_TIMEOUT_S = 120
+# ML-19 D38, decided by the owner 2026-11-04: the largest photo canonicalized here, in pixels, told from its header,
+# 60 MP as canonical.KEEP_MAX_PIXELS (ticket ML-19 P8: 50 MP took 400 MB and 17 s on the front, an 8-bit 60 MP 461 MB
+# and 21 s, under a 500M scope without swap; a 16-bit one is not measured). The unit's MemoryMax is 600M, swap allowed;
+# the log lines are the review. D24: a RAW photo is developed at 16 bits through several full frames, so its own
+# ceiling (a 12 MP DNG took 373 MB; a 50 MP one was killed at 500M): 16 MP, decided by the owner 2026-11-04.
+MAX_PIXELS = 60_000_000
+RAW_MAX_PIXELS = 16_000_000
+ANSWER_TIMEOUT_S = 60
 OFFLINE = {"error": "the classifier is offline"}
 BUSY = {"error": "the classifier is busy with another photo"}   # the front's nginx gate says the same (D11)
 TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"}   # and so does its 413
@@ -56,10 +82,23 @@ NOT_RELAYED = NOT_FORWARDED - {"host", "content-length"} | {"server", "date"}
 
 def photo_part(content_type: str, body: bytes) -> tuple[str, bytes, int] | None:
     """The `photo` form field's filename, its first HEAD_BYTES bytes and its size, or None when the body has none."""
+    found = _photo(content_type, body)
+    return None if found is None else (found[0], found[1][:HEAD_BYTES], len(found[1]))
+
+
+def _boundary(content_type: str) -> bytes | None:
     m = re.search(r'boundary="?([^";]+)"?', content_type)
     if not content_type.lower().startswith("multipart/form-data") or m is None:
         return None
-    for part in body.split(b"--" + m[1].encode())[1:]:
+    return b"--" + m[1].encode()
+
+
+def _photo(content_type: str, body: bytes) -> tuple[str, bytes, int] | None:
+    """The `photo` form field's filename, its bytes and the index of its part in the body split at the boundary."""
+    boundary = _boundary(content_type)
+    if boundary is None:
+        return None
+    for index, part in enumerate(body.split(boundary)[1:], 1):
         headers, sep, data = part.partition(b"\r\n\r\n")
         disposition = re.search(rb"(?im)^content-disposition:(.*)$", headers)
         if not sep or disposition is None or not re.search(rb';\s*name="photo"', disposition[1]):
@@ -69,8 +108,38 @@ def photo_part(content_type: str, body: bytes) -> tuple[str, bytes, int] | None:
         encoded = re.search(rb";\s*filename\*=[^']*'[^']*'([^;\s]+)", disposition[1])   # RFC 5987, as werkzeug reads
         filename = unquote(encoded[1].decode("ascii", "replace")) if encoded else \
             plain[1].decode("utf-8", "replace") if plain else ""
-        return (filename, data[:HEAD_BYTES], len(data)) if filename else None
+        return (filename, data, index) if filename else None
     return None
+
+
+def with_photo(content_type: str, body: bytes, filename: str, data: bytes) -> bytes:
+    """The form with its `photo` part replaced by `data` under `filename`, every other part as it was."""
+    boundary = _boundary(content_type)
+    parts = body.split(boundary)
+    _, _, index = _photo(content_type, body)
+    parts[index] = (f'\r\nContent-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
+                    "Content-Type: image/jxl\r\n\r\n").encode() + data + b"\r\n"
+    return boundary.join(parts)
+
+
+def reset_peak_memory() -> bool:
+    """Resets the process's peak resident memory (VmHWM) to its current size (Linux 4.0+): requests are canonicalized
+    one at a time, so the peak after one is its own. False where it cannot be reset: the peak is then the process's."""
+    try:
+        with open("/proc/self/clear_refs", "w") as f:
+            f.write("5")
+        return True
+    except OSError:
+        return False
+
+
+def process_memory_mb() -> tuple[int, int]:
+    """(peak resident, swapped out) of this process, in MB, from /proc/self/status; (0, 0) where it cannot be read."""
+    try:
+        status = dict(line.split(":", 1) for line in Path("/proc/self/status").read_text().splitlines() if ":" in line)
+        return tuple(round(int(status[k].split()[0]) / 1024) for k in ("VmHWM", "VmSwap"))
+    except (OSError, KeyError, ValueError):
+        return 0, 0
 
 
 class CheckHandler(BaseHTTPRequestHandler):
@@ -80,9 +149,10 @@ class CheckHandler(BaseHTTPRequestHandler):
     sys_version = ""
 
     def do_POST(self):  # noqa: N802
-        t0 = time.monotonic()
+        t0, self.photo_note = time.monotonic(), ""
         outcome = self.analyze() if urlsplit(self.path).path == "/analyze" else self.json(404, {"error": "not found"})
-        self.log_line(f"{self.command} {urlsplit(self.path).path} {outcome} {round((time.monotonic() - t0) * 1000)}ms")
+        self.log_line(f"{self.command} {urlsplit(self.path).path} {outcome} {round((time.monotonic() - t0) * 1000)}ms"
+                      + (f"; {self.photo_note}" if self.photo_note else ""))
 
     def do_GET(self):  # noqa: N802
         self.json(405 if urlsplit(self.path).path == "/analyze" else 404, {"error": "use POST /analyze"})
@@ -117,17 +187,50 @@ class CheckHandler(BaseHTTPRequestHandler):
         reason = refusal(filename, head)
         if reason is not None:
             return self.json(400, {"error": f"could not read this as an image: {reason}"})
-        # One photo crosses at a time (D11). The front's nginx gates first, but it frees its gate when a visitor
-        # leaves, and the crossing that visitor started goes on here until the inference host answers.
+        # One photo is canonicalized and crosses at a time (D11). The front's nginx gates first, but it frees its gate
+        # when a visitor leaves, and the crossing that visitor started goes on here until the inference host answers.
         if not self.crossing.acquire(blocking=False):
             return self.json(503, BUSY, "busy (a photo is still crossing)")
         try:
-            return self.forward(body)
+            content_type = self.headers.get("Content-Type", "")
+            _, data, _ = _photo(content_type, body)
+            raw = PurePath(filename).suffix.lower() in RAW_EXTENSIONS
+            try:
+                canon = self.canonicalize(data, filename, RAW_MAX_PIXELS if raw else MAX_PIXELS)
+            except canonical.TooLarge:
+                limit = (RAW_MAX_PIXELS if raw else MAX_PIXELS) / 1e6
+                return self.json(413, {"error": f"this photo has too many pixels; the limit is {limit:.0f} MP"
+                                                + (" for a camera RAW file" if raw else "")}, "413 (pixels)")
+            except canonical.Unreadable as exc:
+                return self.json(400, {"error": f"could not read this as an image: {exc}"})
+            except Exception as exc:   # noqa: BLE001 -- any other failure is an answer, not a dropped connection
+                return self.json(500, {"error": "could not process this photo"},
+                                 f"500 canonicalization failed ({type(exc).__name__}: {exc})")
+            del data
+            # The visitor's name, kept to a safe alphabet: it goes into the forwarded part's header.
+            name = f"{re.sub(r'[^A-Za-z0-9._-]', '_', PurePath(filename).stem)[:100] or 'photo'}.jxl"
+            return self.forward(with_photo(content_type, body, name, canon))
         finally:
             self.crossing.release()
 
+    def canonicalize(self, data: bytes, filename: str, max_pixels: int) -> bytes:
+        """canonical.canonicalize, noting in photo_note what was decoded and the memory it took (ML-19 D38)."""
+        if canonical.is_canonical(data):   # D17: goes on as it is
+            self.photo_note = "canonical as sent"
+            return data
+        t0, measured = time.monotonic(), reset_peak_memory()
+        source = canonical.decode(data, filename, max_pixels)
+        (h, w), bits = source.pixels.shape[:2], source.pixels.dtype.itemsize * 8
+        canon = canonical.encode(source)
+        del source
+        peak_mb, swap_mb = process_memory_mb()
+        self.photo_note = (f"{PurePath(filename).suffix.lower() or '(no extension)'} {w}x{h} "
+                           f"{bits}-bit, canonicalized in {time.monotonic() - t0:.1f} s, "
+                           f"peak {peak_mb} MB{'' if measured else ' (since the start)'}, swap {swap_mb} MB")
+        return canon
+
     def forward(self, body: bytes) -> str:
-        conn = http.client.HTTPConnection(*self.inference, timeout=INFERENCE_TIMEOUT_S)
+        conn = http.client.HTTPConnection(*self.inference, timeout=UPLOAD_TIMEOUT_S)
         try:
             conn.putrequest("POST", self.path, skip_accept_encoding=True)
             for k, v in self.headers.items():   # items(), not a dict: a header sent twice goes on twice
@@ -135,6 +238,7 @@ class CheckHandler(BaseHTTPRequestHandler):
                     conn.putheader(k, v)
             conn.putheader("Content-Length", str(len(body)))
             conn.endheaders(body)
+            conn.sock.settimeout(ANSWER_TIMEOUT_S)   # the photo has crossed: from here, each read of the answer
             resp = conn.getresponse()
         except (OSError, http.client.HTTPException) as exc:   # refused, unreachable, timed out, not HTTP
             conn.close()

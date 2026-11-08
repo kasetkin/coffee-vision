@@ -164,7 +164,13 @@ class SessionFixture(unittest.TestCase):
             self.entries.append({"path": str(f), "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
                                  "source": source, "split": split, "group": str(f)})
         self.labels_dir, self.mask_root = root / "labels", root / "masks"
-        self.patch = mock.patch.object(seg_review, "load_rgb_image", lambda p: np.array(Image.open(p)))
+        # Since ML-19 P6 sessions read each entry's canonical photo (coffeecv.canonical_store, tested on its own);
+        # these toy photos are read as they are, their sha256 still checked.
+        def toy(path, sha256=None):
+            if sha256 is not None and hashlib.sha256(Path(path).read_bytes()).hexdigest() != sha256:
+                raise ValueError(f"{path}: sha256 differs from the dataset file")
+            return np.array(Image.open(path))
+        self.patch = mock.patch.multiple(seg_review, load_for_record=toy, load_photo=toy)
         self.patch.start()
         self.proposer, self.redrawer = FakeDrawer("prop"), FakeDrawer("redraw")
         self.session = self.open()
@@ -565,6 +571,39 @@ class CarriedSession(SessionFixture):
         resumed = seg_review.LabelSession("pass2", self.entries, None, self.labels_dir, self.mask_root)
         self.assertEqual(resumed.carry, "pass1")
 
+    def renamed_entries(self, old="pool/p1.png", new="pool/p1_renamed.png"):
+        """self.entries with the photo at `old` (under dataset/) moved to `new`, bytes unchanged, as the owner
+        renames photos."""
+        root = Path(self.tmp.name) / "dataset"
+        (root / new).write_bytes((root / old).read_bytes())
+        return [{**e, "path": str(root / new), "group": str(root / new)} if e["path"] == str(root / old) else e
+                for e in self.entries]
+
+    def open_session(self, name, entries, **models):
+        return seg_review.LabelSession(name, entries, {"proposer": "prop2", "redraw": "redraw2", "rounds": 3, **models},
+                                       self.labels_dir, self.mask_root)
+
+    def test_a_renamed_photo_carries_its_label_by_its_sha256(self):
+        moved = self.open_session("pass5", self.renamed_entries(), carry="pass1")
+        moved.prepare(self.proposer2, self.redrawer2)
+        item = next(it for it in moved.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(moved.state(item), ("accepted", 2, None))
+        self.assertEqual(moved.row(item, 2)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(moved.row(item, 2)["path"], item["path"])
+        rows = [json.loads(x) for x in (self.labels_dir / "pass5.verdicts.jsonl").read_text().splitlines()]
+        self.assertEqual({(r["round"], r["path"], r.get("carried_from_path")) for r in rows if r["item"] == item["id"]},
+                         {(1, item["path"], self.entries[1]["path"]), (2, item["path"], self.entries[1]["path"])})
+        self.assertNotIn("pool__p1_renamed", self.redrawer2.prepared)
+        self.assertNotIn("carried_from_path", next(r for r in rows if r["item"] == "segmenter_positive__p0"))
+
+    def test_a_copy_of_a_photo_still_in_the_data_carries_nothing(self):
+        root = Path(self.tmp.name) / "dataset"
+        (root / "pool" / "p0_copy.png").write_bytes((root / "segmenter_positive" / "p0.png").read_bytes())
+        entries = self.entries + [{**self.entries[0], "path": str(root / "pool" / "p0_copy.png"), "source": "pool"}]
+        copied = self.open_session("pass5", entries, carry="pass1")
+        copied.prepare(self.proposer2, self.redrawer2)
+        self.assertEqual(copied.carried(), {"segmenter_positive__p0", "pool__p1"})
+
     def test_the_report_counts_carried_and_new_labels_apart(self):
         c = seg_review.create_label_app(self.open_pass2(), self.redrawer2, "rule").test_client()
         self.post(c, "/decide/1", {"decision": "accept"})                  # the new photo, p6
@@ -621,6 +660,14 @@ class RecheckedSession(CarriedSession):
         self.assertEqual(self.redrawer3.calls, [("pool__p1", [[0.5, 0.5], [0.2, 0.2]], [])])
         self.assertEqual(self.rechecked.state(self.item("pool__p1")), ("judge", 2, None))
 
+    def test_a_renamed_photo_is_rechecked_from_its_earlier_label(self):
+        moved = self.open_session("pass6", self.renamed_entries(), recheck="pass1")
+        moved.prepare(self.proposer3, self.redrawer3)
+        item = next(it for it in moved.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(moved.row(item, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual((moved.row(item, 1)["id"], moved.row(item, 1)["path"]), (item["id"], item["path"]))
+        self.assertEqual(moved.points(item, 1), {"include": [[0.5, 0.5]], "exclude": []})
+
     def test_a_second_prepare_changes_nothing(self):
         index = (self.mask_root / "pass3" / "r1" / "index.csv").read_text()
         self.open_pass3().prepare(self.proposer3, self.redrawer3)
@@ -646,6 +693,120 @@ class RecheckedSession(CarriedSession):
         meta = self.labels_dir / "pass2.session.json"
         meta.write_text(json.dumps({k: v for k, v in json.loads(meta.read_text()).items() if k != "recheck"}))
         self.assertIsNone(self.open_pass2().recheck)
+
+
+class RecheckedSinceSession(CarriedSession):
+    """The owner's review of every photo new since a segmenter's training session (ML-19, 2026-11-04): pass4
+    rechecks pass1 since pass9. pass9, the session the segmenter trained on, accepted p0 only; pass1 accepted p0 and
+    p1 and dropped p2; p6 is new. pass4 keeps p0 as carried, unshown, and shows p1 from its pass1 label and p2 and
+    p6 from the proposer's."""
+
+    def setUp(self):
+        super().setUp()
+        trained = seg_review.LabelSession("pass9", self.entries, {"proposer": "prop", "redraw": "redraw", "rounds": 3},
+                                          self.labels_dir, self.mask_root)
+        trained.prepare(self.proposer, self.redrawer)
+        c = seg_review.create_label_app(trained, self.redrawer, "rule").test_client()
+        self.post(c, "/decide/0", {"decision": "accept"})                  # p0 only
+        trained.write_labels()
+        self.proposer4, self.redrawer4 = FakeDrawer("prop4"), FakeDrawer("redraw4")
+        self.since = self.open_pass4()
+        self.since.prepare(self.proposer4, self.redrawer4)
+
+    def open_pass4(self, since="pass9", recheck="pass1", entries=None, name="pass4"):
+        return seg_review.LabelSession(name, entries or self.entries,
+                                       {"proposer": "prop4", "redraw": "redraw4", "recheck": recheck,
+                                        "since": since, "rounds": 3}, self.labels_dir, self.mask_root)
+
+    def test_the_photos_the_since_session_accepted_are_carried_and_the_rest_shown(self):
+        self.assertEqual(self.since.carried(), {"segmenter_positive__p0"})
+        c = seg_review.create_label_app(self.open_pass4(), self.redrawer4, "rule").test_client()
+        shown = [self.info(c, i) for i in range(3)]
+        self.assertEqual([(s["item"], s["status"], s["round"], s["model"]) for s in shown],
+                         [("pool__p1", "judge", 1, "redraw"), ("internet_positive__p2", "judge", 1, "prop4"),
+                          ("segmenter_positive__p6", "judge", 1, "prop4")])
+        self.assertEqual(c.get("/item/3").status_code, 404)
+        p1 = next(it for it in self.since.items if it["id"] == "pool__p1")
+        self.assertEqual(self.since.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(shown[0]["points"], {"include": [[0.5, 0.5]], "exclude": []})     # what drew p1's label
+        self.assertEqual(sorted(self.redrawer4.prepared), ["internet_positive__p2", "pool__p1", "segmenter_positive__p6"])
+
+    def test_the_carried_label_equals_the_rechecked_sessions(self):
+        row = {r["id"]: r for r in self.since.write_labels()}["segmenter_positive__p0"]
+        self.assertEqual({k: v for k, v in row.items() if k != "mask"},
+                         {k: v for k, v in self.pass1_labels["segmenter_positive__p0"].items() if k != "mask"})
+        verdicts = [json.loads(x) for x in (self.labels_dir / "pass4.verdicts.jsonl").read_text().splitlines()]
+        self.assertEqual({(r["item"], r["carried_from"]) for r in verdicts}, {("segmenter_positive__p0", "pass1")})
+
+    def test_a_photo_renamed_since_is_still_carried_by_its_sha256(self):
+        moved = self.open_pass4(entries=self.renamed_entries("segmenter_positive/p0.png", "segmenter_positive/p0_new.png"),
+                                name="pass5")
+        moved.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual(moved.carried(), {"segmenter_positive__p0_new"})
+
+    def test_a_second_prepare_changes_nothing(self):
+        files = (self.labels_dir / "pass4.verdicts.jsonl", self.mask_root / "pass4" / "r1" / "index.csv")
+        before = [f.read_text() for f in files]
+        self.open_pass4().prepare(self.proposer4, self.redrawer4)
+        self.assertEqual([f.read_text() for f in files], before)
+
+    def test_the_session_file_records_since_and_a_resume_with_another_is_refused(self):
+        self.assertEqual(json.loads((self.labels_dir / "pass4.session.json").read_text())["since"], "pass9")
+        with self.assertRaisesRegex(ValueError, "since"):
+            self.open_pass4(since="pass1")
+        self.assertEqual(seg_review.LabelSession("pass4", self.entries, None, self.labels_dir, self.mask_root).since,
+                         "pass9")
+
+    def label_set(self, name="set1"):
+        """pass1's labels.csv as a label set: labels and masks, no session file (as scripts/make_pass14.py writes
+        pass14)."""
+        d = self.mask_root / name
+        d.mkdir(parents=True)
+        (d / "labels.csv").write_bytes((self.mask_root / "pass1" / "labels.csv").read_bytes())
+        return name
+
+    def test_a_label_set_is_rechecked_and_carried_from_its_labels(self):
+        s = self.open_pass4(recheck=self.label_set(), name="pass7")
+        s.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual(s.carried(), {"segmenter_positive__p0"})
+        p0 = next(it for it in s.items if it["id"] == "segmenter_positive__p0")
+        self.assertEqual(s.state(p0), ("accepted", 1, None))
+        row = {r["id"]: r for r in s.write_labels()}["segmenter_positive__p0"]
+        self.assertEqual((row["mask_sha256"], row["status"]), (self.pass1_labels["segmenter_positive__p0"]["mask_sha256"],
+                                                              "accepted"))
+        verdict = json.loads((self.labels_dir / "pass7.verdicts.jsonl").read_text().splitlines()[0])
+        self.assertEqual((verdict["carried_from"], verdict["carried_round"], verdict["decision"]), ("set1", 1, "accept"))
+        c = seg_review.create_label_app(s, self.redrawer4, "rule").test_client()
+        shown = [self.info(c, i) for i in range(3)]
+        self.assertEqual([(x["item"], x["round"], x["model"]) for x in shown],
+                         [("pool__p1", 1, "set1"), ("internet_positive__p2", 1, "prop4"),
+                          ("segmenter_positive__p6", 1, "prop4")])
+        self.assertEqual(shown[0]["points"], {"include": [[0.5, 0.5]], "exclude": []})     # what drew p1's label
+        p1 = next(it for it in s.items if it["id"] == "pool__p1")
+        self.assertEqual(s.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+
+    def test_a_label_set_rechecked_in_full_shows_every_positive(self):
+        s = seg_review.LabelSession("pass8", self.entries, {"proposer": "prop4", "redraw": "redraw4",
+                                                            "recheck": self.label_set(), "rounds": 3},
+                                    self.labels_dir, self.mask_root)
+        s.prepare(self.proposer4, self.redrawer4)
+        self.assertEqual((len(s.shown()), s.carried()), (4, set()))
+        p0 = next(it for it in s.items if it["id"] == "segmenter_positive__p0")
+        self.assertEqual(s.row(p0, 1)["mask_sha256"], self.pass1_labels["segmenter_positive__p0"]["mask_sha256"])
+
+    def test_a_label_sets_photo_renamed_since_is_found_by_its_sha256(self):
+        s = self.open_pass4(recheck=self.label_set(), entries=self.renamed_entries(), name="pass7")
+        s.prepare(self.proposer4, self.redrawer4)
+        p1 = next(it for it in s.items if it["id"] == "pool__p1_renamed")
+        self.assertEqual(s.row(p1, 1)["mask_sha256"], self.pass1_labels["pool__p1"]["mask_sha256"])
+        self.assertEqual(s.row(p1, 1)["path"], p1["path"])
+
+    def test_since_needs_a_recheck_and_the_since_sessions_labels(self):
+        with self.assertRaisesRegex(ValueError, "since needs --recheck"):
+            seg_review.LabelSession("pass6", self.entries, {"proposer": "p", "redraw": "r", "since": "pass9"},
+                                    self.labels_dir, self.mask_root)
+        with self.assertRaisesRegex(FileNotFoundError, "pass0"):
+            self.open_pass4(since="pass0", name="pass6").prepare(self.proposer4, self.redrawer4)
 
 
 class SessionMasksStayOutOfGit(unittest.TestCase):
@@ -681,6 +842,17 @@ class SessionMasksStayOutOfGit(unittest.TestCase):
             untracked = self.git(root, "status", "--porcelain", "-uall").stdout.split("\n")
             self.assertEqual([x[3:] for x in untracked if x.startswith("??") and x[3:].startswith("data/")],
                              [self.SESSION.with_suffix(".dvc").as_posix()])
+
+
+class EncodingCache(unittest.TestCase):
+    """A stored encoding is of the photo the session reads. Since ML-19 P6 that is the canonical photo (turned by
+    its EXIF orientation, colour-managed), not the original an encoding before then was made from, under the same
+    sha256 key: canonical encodings live apart, so no pre-canonical one is ever read for a redraw."""
+
+    def test_canonical_encodings_are_stored_apart_from_the_originals(self):
+        root, w = Path("/x/emb"), "9bc2f87bd23d6e6d1f7b5beff910f98835c7c333fac73e695bac0bec685968f8"
+        self.assertEqual(seg_review.embed_dir(root, w), root / "canonical" / "9bc2f87bd23d6e6d")
+        self.assertNotEqual(seg_review.embed_dir(root, w), root / w[:16])   # where the originals' encodings are
 
 
 @real_data
@@ -732,7 +904,7 @@ class PairedSession(unittest.TestCase):
                 wr.writeheader()
                 wr.writerows(rows)
         self.decisions = root / "labels" / "p10.paired.jsonl"
-        self.patch = mock.patch.object(seg_review, "load_rgb_image", lambda p: np.array(Image.open(p)))
+        self.patch = mock.patch.object(seg_review, "load_photo", lambda p: np.array(Image.open(p)))
         self.patch.start()
         self.items = seg_review.paired_items(self.entries, self.dirs)
         self.c = seg_review.create_paired_app(self.items, self.decisions, 7, "the rule").test_client()

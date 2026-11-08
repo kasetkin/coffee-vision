@@ -1,0 +1,15 @@
+test split: 1600 patches from ('data/segcropped/pool',) (/workspace/models/dino3b16_segxl0v6_country_aug8_s42.json (training_config)), built in 405 s; fallback photos []
+
+class         F1 today  F1 canonical   recall today -> canonical
+Ethiopia        0.9814        0.9191   0.9875 -> 0.8875
+Kenya           0.9444        0.9623   0.9563 -> 0.9563
+Colombia        0.9563        0.9156   0.9563 -> 0.8812
+CostaRica       0.9938        0.9969   0.9938 -> 0.9938
+Guatemala       0.9560        0.9202   0.9500 -> 0.9375
+Brazil          0.9782        0.9666   0.9812 -> 0.9938
+Vietnam         0.9969        1.0000   1.0000 -> 1.0000
+Indonesia       0.9938        0.9969   0.9938 -> 1.0000
+Peru            0.9778        0.9366   0.9625 -> 0.9688
+Rwanda          0.9969        0.9969   0.9938 -> 0.9938
+all             0.9775        0.9611   accuracy 0.9775 -> 0.9613, mcc 0.9750 -> 0.9571
+wrote analysis/ml19/p7/baseline.json in 642 s

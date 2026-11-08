@@ -49,6 +49,18 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    # The page's example photos and their list (ticket OPS-16, D13), revalidated on every visit like the page (D15): an
+    # example re-encoded under the same name is never served stale from a visitor's cache. `types` here replaces
+    # nginx's map for this location, and its mime.types has no JPEG XL; a missing example is still a 404.
+    location ^~ /examples/ {
+        types {
+            image/jxl        jxl;
+            image/webp       webp;
+            application/json json;
+        }
+        add_header Cache-Control "no-cache";
+    }
+
     # The files that describe the service to agents and their registries (webapp/README.md, "For agents"), readable
     # from any origin, so a tool running in a browser can fetch them too.
     location ~ ^/(llms\.txt|openapi\.json|\.well-known/ard\.json)$ {
@@ -57,20 +69,21 @@ server {
 
     location = /analyze {
         limit_conn coffee_cv_front_inflight 1;
-        # D15, until ML-15: a 5 MB photo, plus check_service.py's FORM_ALLOWANCE (64 KB) for the form around it; the
-        # check service caps the photo itself at 5 MB, as the page measures it. The upload is held on disk here before
-        # the check service reads it (client_body_buffer_size is nginx's small default), not in the proxy's memory (R1).
-        client_max_body_size 5184k;
+        # ML-19 D23 (10 MB by OPS-16 D8 before): a 40 MB photo, plus check_service.py's FORM_ALLOWANCE (64 KB) for the
+        # form around it; the check service caps the photo itself at 40 MB, as the page measures it. The upload is held
+        # on disk here before the check service reads it (client_body_buffer_size is nginx's small default), not in the
+        # proxy's memory (R1).
+        client_max_body_size 41024k;
         proxy_pass http://127.0.0.1:$CHECK_PORT;
         proxy_set_header Host $host;
         # No visitor IP reaches the inference host (D20): this nginx knows none, and one the visitor sends is dropped.
         proxy_set_header X-Real-IP "";
         proxy_set_header X-Forwarded-For "";
         proxy_set_header Forwarded "";
-        # D16: the check service gives the inference host 60 s for the upload and 60 s for each read of the answer, so
-        # up to about 120 s before its first byte, and answers its own 503 when that runs out; this waits longer, so the
-        # visitor gets that answer, and this nginx never frees its gate while a photo is still crossing.
-        proxy_read_timeout 130s;
+        # D16, OPS-16 D8: the check service gives the inference host 120 s for the upload and 60 s for each read of the
+        # answer, so up to about 180 s before its first byte, and answers its own 503 when that runs out; this waits
+        # longer, so the visitor gets that answer, and this nginx never frees its gate while a photo is still crossing.
+        proxy_read_timeout 190s;
         # The answer streams (ADR 0023): the app's X-Accel-Buffering: no, relayed by the check service, turns off this
         # nginx's buffering. Up to this much of the answer is still read ahead of the visitor, as on the inference host
         # (ticket OPS-7 D18): the whole answer, so the check service is never held by a slow phone. One request at a
@@ -89,7 +102,7 @@ server {
 
     location @too_large {
         default_type application/json;
-        return 413 '{"error": "this photo is over the 5 MB limit"}';
+        return 413 '{"error": "this photo is over the 40 MB limit"}';
     }
 
     location @busy {

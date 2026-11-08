@@ -31,6 +31,13 @@ DATASET_MAX_PIXELS = 2**28
 
 
 def load_rgb_image(path: Path) -> np.ndarray:
+    if Path(path).suffix.lower() == ".jxl":
+        # A canonical photo (ticket ML-19, ADR 0033) is Rec.2020: read as 8-bit sRGB by its own decoder, never as
+        # Pillow's numbers. Any other JPEG XL is read as before until P9 makes this function canonical-only.
+        from coffeecv import canonical
+        data = Path(path).read_bytes()
+        if canonical.is_canonical(data):
+            return canonical.load_canonical(data)
     if path.suffix.lower() in RAW_EXTENSIONS:
         try:
             with rawpy.imread(str(path)) as raw:

@@ -15,8 +15,8 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
+from coffeecv import crop_io
 from coffeecv.class_list import ClassList, folder_classes
 from coffeecv.config import RunConfig
 from coffeecv.dataset import (CAPTURES, MultiPhotoPatchDataset, pooled_class_photos, resolve_captures,
@@ -26,7 +26,7 @@ FRAC = {"train": 0.70, "val": 0.15, "test": 0.15}
 
 
 def write_capture(root: Path, name: str, counts: dict[str, int], per_folder_names: bool = False) -> Path:
-    """<root>/<name>/class_<id>__X/<name>_<i>__cropped.jpg, `counts[id]` photos per class. The names repeat
+    """<root>/<name>/class_<id>__X/<name>_<i>__cropped.jxl, `counts[id]` photos per class. The names repeat
     across a capture's folders unless `per_folder_names`, which puts the folder id in them too."""
     rng = np.random.default_rng(len(name))
     for cid, n in counts.items():
@@ -34,8 +34,7 @@ def write_capture(root: Path, name: str, counts: dict[str, int], per_folder_name
         d.mkdir(parents=True)
         stem = f"{name}_{cid}" if per_folder_names else name
         for i in range(n):
-            Image.fromarray(rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)).save(
-                d / f"{stem}_{i:03d}__cropped.jpg")
+            crop_io.write_crop(rng.integers(0, 255, (96, 96, 3), dtype=np.uint8), d / f"{stem}_{i:03d}__cropped.jxl")
     return root / name
 
 
@@ -160,7 +159,7 @@ class TestBudgetIsPerClass(unittest.TestCase):
             seed=7, crop_size=32, resize=32, safety_margin=0.97,
             patches_per_class={"train": 1, "val": 1, "test": 1, "all": 20}, photo_frac=FRAC)
         names = [m.photo_name for m in ds.meta]
-        self.assertEqual(names, sorted(p.name for p in (self.a / "class_001__X").glob("*__cropped.jpg")))
+        self.assertEqual(names, sorted(p.name for p in (self.a / "class_001__X").glob("*__cropped.jxl")))
 
 
 class TestCountryPool(unittest.TestCase):

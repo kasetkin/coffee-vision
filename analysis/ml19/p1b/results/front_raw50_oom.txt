@@ -1,0 +1,3 @@
+Nov 03 18:41:38 srv1695747579.hosttoname.com systemd[138828]: run-r352c778182a8484b8b6236d605c662f5.scope: A process of this unit has been killed by the OOM killer.
+Nov 03 18:41:38 srv1695747579.hosttoname.com systemd[138828]: run-r352c778182a8484b8b6236d605c662f5.scope: Failed with result 'oom-kill'.
+Nov 03 18:41:38 srv1695747579.hosttoname.com systemd[138828]: app.slice: A process of this unit has been killed by the OOM killer.

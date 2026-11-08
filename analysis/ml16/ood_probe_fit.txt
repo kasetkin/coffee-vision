@@ -1,0 +1,6 @@
+config: models/dino3b16_segxl0v7r_country_aug8_s42.json (training_config)
+
+fitting on 203 bean photos (test split; 24 dropped: in the segmenter test split's groups) + 455 training and validation negatives (0 dropped: ambiguous patch labels)
+  26320 patches (8120 bean / 18200 not-bean), 0 photos declined as unmeasurable
+  fitted negatives above 0.5 (in-sample): 455/455
+Wrote models/dino3b16_segxl0v7r_country_aug8_s42.ood_probe.json  (117 KB)

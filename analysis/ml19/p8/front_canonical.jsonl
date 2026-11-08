@@ -1,0 +1,26 @@
+{"photo": "srgb.jpg", "bytes_in": 3115068, "outcome": "canonical", "size": [3000, 4000], "bytes_out": 2565269, "seconds": 4.41, "peak_mb": 297}
+{"photo": "srgb.jpg", "exit": 0, "cgroup_peak_mb": 282}
+{"photo": "p3rot6.jpg", "bytes_in": 2959857, "outcome": "canonical", "size": [3000, 4000], "bytes_out": 2543307, "seconds": 4.49, "peak_mb": 298}
+{"photo": "p3rot6.jpg", "exit": 0, "cgroup_peak_mb": 280}
+{"photo": "heic8.heic", "bytes_in": 1257684, "outcome": "canonical", "size": [4032, 3024], "bytes_out": 1833666, "seconds": 4.42, "peak_mb": 289}
+{"photo": "heic8.heic", "exit": 0, "cgroup_peak_mb": 270}
+{"photo": "heic10.heic", "bytes_in": 7712625, "outcome": "canonical", "size": [4000, 3000], "bytes_out": 1303842, "seconds": 5.04, "peak_mb": 359}
+{"photo": "heic10.heic", "exit": 0, "cgroup_peak_mb": 340}
+{"photo": "png16.png", "bytes_in": 61302817, "outcome": "canonical", "size": [4000, 3000], "bytes_out": 1480627, "seconds": 4.73, "peak_mb": 396}
+{"photo": "png16.png", "exit": 0, "cgroup_peak_mb": 399}
+{"photo": "raw.dng", "bytes_in": 24029364, "outcome": "canonical", "size": [3000, 4000], "bytes_out": 1391787, "seconds": 4.55, "peak_mb": 368}
+{"photo": "raw.dng", "exit": 0, "cgroup_peak_mb": 373}
+{"photo": "dng10mp.dng", "bytes_in": 15681984, "outcome": "canonical", "size": [2732, 3628], "bytes_out": 4044081, "seconds": 4.3, "peak_mb": 354}
+{"photo": "dng10mp.dng", "exit": 0, "cgroup_peak_mb": 342}
+{"photo": "dcip3_20mp.jpg", "bytes_in": 4059128, "outcome": "canonical", "size": [5163, 3872], "bytes_out": 2801257, "seconds": 7.14, "peak_mb": 338}
+{"photo": "dcip3_20mp.jpg", "exit": 0, "cgroup_peak_mb": 320}
+{"photo": "dcip3_40mp.jpg", "bytes_in": 7663940, "outcome": "canonical", "size": [7302, 5477], "bytes_out": 5164472, "seconds": 14.28, "peak_mb": 423}
+{"photo": "dcip3_40mp.jpg", "exit": 0, "cgroup_peak_mb": 407}
+{"photo": "p3pixel50mp.jpg", "bytes_in": 6107683, "outcome": "canonical", "size": [6144, 8160], "bytes_out": 4456517, "seconds": 17.27, "peak_mb": 411}
+{"photo": "p3pixel50mp.jpg", "exit": 0, "cgroup_peak_mb": 400}
+{"photo": "dcip3_60mp.jpg", "bytes_in": 11504102, "outcome": "canonical", "size": [8944, 6708], "bytes_out": 7814449, "seconds": 21.39, "peak_mb": 474}
+{"photo": "dcip3_60mp.jpg", "exit": 0, "cgroup_peak_mb": 461}
+{"photo": "big84mp.jpg", "bytes_in": 19226439, "outcome": "TooLarge: 10584 x 7936 is over 60,000,000 pixels", "size": null, "bytes_out": 0, "seconds": 0.02, "peak_mb": 58}
+{"photo": "big84mp.jpg", "exit": 0, "cgroup_peak_mb": 58}
+{"photo": "fold200mp.jpg", "bytes_in": 32878700, "outcome": "TooLarge: Image size (199756800 pixels) exceeds limit of 178956970 pixels, could be decompression bomb DOS attack.", "size": null, "bytes_out": 0, "seconds": 0.02, "peak_mb": 71}
+{"photo": "fold200mp.jpg", "exit": 0, "cgroup_peak_mb": 81}

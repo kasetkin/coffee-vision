@@ -87,6 +87,20 @@ columns held.
   all (1200x1600) and no date in its name, so its `date` is the day the file reached the workspace,
   2026-10-19. Nothing to strip. Split with seed 20261021: dev.
 
+  One more on 2026-11-03: `PXL_20261031_072103744.jpg` (Pixel 9 Pro, 2026-10-31), a cappuccino with
+  latte art in a cup on a wooden table, no beans. Its private tags (EXIF GPS, C2PA, the HDR+ XMP, EXIF
+  thumbnails) stripped with `coffeecv.strip_metadata`. Split with seed 20261103: holdout. In the
+  segmenter dataset: train. The same day it became an example photo (OPS-16, ADR 0032) and left
+  this folder, its manifest row and the segmenter dataset, before any model trained on it; it is in
+  `dataset/example_photos/` (ML-16 D3).
+
+  Two more on 2026-11-04: `20261030_113737_KB2005.jpg` (Halloween cookies under a glass cloche in a café display
+  case) and `20261030_113926_KB2005.jpg` (a foamy drink and a bat-shaped cookie on a saucer), OnePlus KB2005,
+  2026-10-30. They came in as Colombia photos in `random_date_raccoon` (`..._KB2005_Colombia.jpg`), already
+  stripped (`labels/ml3/strip_manifest.csv`, 2026-10-30); the owner found them in ML-19 P6's review of the photos
+  new to the crops (both were D18 fallbacks) and moved them here, renamed, before any model trained on them.
+  109 s apart, so one group under the 120 s rule; split with seed 20261104: holdout.
+
   **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
   2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
   `split` column (ML-5 D16) and splits all 479 photos 60/15/25 itself, so about 120 holdout

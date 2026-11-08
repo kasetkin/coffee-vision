@@ -16,6 +16,7 @@ from coffeecv.bean_scale import estimate_bean_pitch
 from coffeecv.class_list import ClassList
 # load_rgb_image and RAW_EXTENSIONS moved to coffeecv.photo_io (ticket ML-7 P8: the web service decodes photos
 # without importing torch); imported here for the callers that read them from this module.
+from coffeecv import crop_io
 from coffeecv.photo_io import DATASET_MAX_PIXELS, RAW_EXTENSIONS, load_rgb_image  # noqa: F401
 from coffeecv.geometry import (
     Region,
@@ -63,9 +64,9 @@ def find_class_dir(cropped_dir: Path, class_id: str) -> Path:
 
 
 def bean_mask_path(cropped_photo: Path) -> Path:
-    """The bean-region mask the segcrop stage writes beside a `*__cropped.jpg` (ticket ML-2): same stem,
+    """The bean-region mask the segcrop stage writes beside a `*__cropped.jxl` (ticket ML-2; ML-19 D32): same stem,
     `__beanmask.png`, aligned pixel for pixel with the crop. Absent on a D18 fallback photo."""
-    return cropped_photo.with_name(cropped_photo.name.replace("__cropped.jpg", "__beanmask.png"))
+    return crop_io.mask_path(cropped_photo)
 
 
 def load_bean_mask(cropped_photo: Path, shape: tuple[int, int]) -> np.ndarray | None:
@@ -84,8 +85,9 @@ def list_cropped_photos(class_dir: Path) -> list[Path]:
     """`class_dir` lives under a crop root (`data/segcropped/<session or pool>/`), not
     the raw session directory — the crops are a pipeline output produced by the
     `segcrop` stage, while the raw photos stay `dvc add`-tracked data. Sibling files
-    such as `segcrop_report.json` and the bean masks are excluded by the `*__cropped.jpg` glob."""
-    photos = sorted(class_dir.glob("*__cropped.jpg"))
+    such as `segcrop_report.json` and the bean masks are excluded by the `*__cropped.jxl` glob (lossless crops of
+    canonical photos since ticket ML-19 D32; `*__cropped.jpg`, JPEG q95 of the originals, before)."""
+    photos = sorted(class_dir.glob(f"*{crop_io.CROP_SUFFIX}"))
     if not photos:
         raise FileNotFoundError(
             f"No cropped photos found in {class_dir}. Run the segmenter's crop stage first: "
@@ -441,7 +443,7 @@ class MultiPhotoPatchDataset(Dataset):
 
         The box RNG key is `[seed, class_idx, photo_idx, split]` since ticket ML-8 (D2): until then
         it also held the capture dir's position in the list (`capture_idx`, formerly `rig_idx`)."""
-        rgb = load_rgb_image(photo_path)
+        rgb = crop_io.load_crop(photo_path)
         h, w = rgb.shape[:2]
         region = compute_valid_region_rect(h, w, safety_margin)
         rng = np.random.default_rng(

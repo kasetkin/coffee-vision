@@ -1,0 +1,6 @@
+outs:
+- md5: 8aa070b1bb4b0fb98ec0f5cbf0c1982a.dir
+  size: 15477050
+  nfiles: 1222
+  hash: md5
+  path: pass16

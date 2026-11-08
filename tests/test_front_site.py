@@ -4,7 +4,7 @@
 
 webapp/deploy/coffee-cv-front.nginx.conf.template is what the proxy serves for the domain (ADR 0031): TLS on a local
 port that the proxy's stream map reaches, the page and the agent files from the release, and /analyze through the gate
-(D11), the 5 MB cap (D15) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
+(D11), the 40 MB cap (ML-19 D23; 10 MB by OPS-16 D8 before) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
 The visitor's IP is in the stream block's session log alone (webapp/deploy/coffee-cv-stream.conf.template, D20),
 rotated at 30 days. Here the stream server with that snippet, the site, the real check service and a fake inference
 host all run on loopback, the /var/log/nginx paths moved to a scratch directory; the visitor connects from 127.0.0.5,
@@ -57,6 +57,25 @@ class Visit(http.client.HTTPSConnection):
     def connect(self):
         raw = socket.create_connection((self.host, self.port), self.timeout, source_address=(VISITOR, 0))
         self.sock = self._context.wrap_socket(raw, server_hostname=DOMAIN)
+
+
+class SiteAgreesWithTheCheckService(unittest.TestCase):
+    """The site's limits, read from the template, are the check service's (OPS-15 D15, D16; OPS-16 D8)."""
+
+    SITE = SITE_TEMPLATE.read_text()
+    ANALYZE = re.search(r"location = /analyze \{(.*?)\n    \}", SITE, re.S)[1]
+
+    def test_the_body_cap_is_the_photos_cap_and_the_forms_allowance(self):
+        [size] = re.findall(r"^\s*client_max_body_size (\d+)k;", self.ANALYZE, re.M)
+        self.assertEqual(int(size) * 1024, check_service.MAX_UPLOAD_BYTES + check_service.FORM_ALLOWANCE)
+
+    def test_nginx_outwaits_the_check_services_longest_wait_for_an_answer(self):
+        [wait] = re.findall(r"^\s*proxy_read_timeout (\d+)s;", self.ANALYZE, re.M)
+        self.assertGreater(int(wait), check_service.UPLOAD_TIMEOUT_S + check_service.ANSWER_TIMEOUT_S)
+
+    def test_nginxs_own_413_says_what_the_check_services_does(self):
+        body = re.search(r"location @too_large \{.*?return 413 '([^']*)';", self.SITE, re.S)[1]
+        self.assertEqual(json.loads(body), check_service.TOO_LARGE)
 
 
 @real_data   # several seconds: nginx, the check service and the fake answers' one-second gaps
@@ -180,6 +199,19 @@ http {{
         resp.read()
         self.assertEqual(resp.status, 404)
 
+    def test_the_example_photos_are_served_revalidated_each_visit(self):
+        """OPS-16: the files the page's example row fetches, each with its type; no-cache, as the page (D15)."""
+        for path, kind in (("/examples/brazil-grinder.jxl", "image/jxl"), ("/examples/brazil-grinder.webp", "image/webp"),
+                           ("/examples/examples.json", "application/json")):
+            with self.subTest(path=path):
+                resp = self.visit("GET", path)
+                self.assertEqual((resp.status, resp.read()), (200, (STATIC / path[1:]).read_bytes()))
+                self.assertEqual(resp.getheader("Content-Type"), kind)
+                self.assertEqual(resp.getheader("Cache-Control"), "no-cache")
+        resp = self.visit("GET", "/examples/no-such-example.jxl")
+        resp.read()
+        self.assertEqual(resp.status, 404)
+
     def test_a_photo_reaches_the_inference_host_and_streams_back(self):
         forged = {"X-Real-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.9", "Forwarded": "for=203.0.113.9"}
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), forged)
@@ -194,14 +226,14 @@ http {{
         [seen] = FakeInferenceHost.seen
         self.assertEqual(set(forged) & set(seen["headers"]), set(), "a visitor's own IP header went through (D20)")
 
-    def test_a_photo_over_5_mb_is_refused_at_the_front(self):
-        photo = JPEG + b"\x00" * (5 * 2**20 - len(JPEG))
-        resp = self.visit("POST", "/analyze", form("beans.jpg", photo))   # exactly 5 MB: its form is larger
+    def test_a_photo_over_the_cap_is_refused_at_the_front(self):   # ML-19 D23
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES - len(JPEG))
+        resp = self.visit("POST", "/analyze", form("beans.jpg", photo))   # exactly the cap: its form is larger
         resp.read()
         self.assertEqual(resp.status, 200)
         FakeInferenceHost.seen.clear()
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00")),   # the check service's 413
-                         (413, {"error": "this photo is 5.1 MB; the limit is 5 MB"}))
+                         (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00" * 2**20)),   # nginx's, before it
                          (413, check_service.TOO_LARGE))
         self.assertEqual(FakeInferenceHost.seen, [])

@@ -10,6 +10,8 @@ meta:
     train: 0.6
     validation: 0.15
     test: 0.25
+  whole_folders:
+  - random_date_raccoon
   group_seconds: 3
 photos:
 - path: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082144425.jpg
@@ -24,6 +26,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: train
   group: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082520426.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082604932.jpg
+  sha256: 26676b6561b5418aa330200b9167a987201c7a37ae507bbc36b05ffcf772e286
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082604932.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082824262.jpg
   sha256: 45fc56520a04b285860f736dc4699b8acb249b86b4a114d1b7de8d1d426b932e
   source: pool
@@ -60,6 +68,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: train
   group: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_080905644.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081109849.jpg
+  sha256: 4cbba7c6093657fba9504390c694bffe2481adf7cb9f6fdeb620fa70d4326d6a
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: test
+  group: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081109849.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_002__Kenya_AA/PXL_20260807_081134287.jpg
   sha256: 193bf3470c55d849da47cf61b40e8af31129f6a3c8034a7e9ac131cb8f2ca250
   source: pool
@@ -90,6 +104,12 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: train
   group: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075607565.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075650831.jpg
+  sha256: ea319238bcb28738ec66f67688849f89d3461e62958cebb1c7a4dd399ba2a634
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075650831.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_003__Colombia_PinkBourbon/PXL_20260807_075843091.jpg
   sha256: 3f4aca19a392d89e197c47a4d3d6e789a7992dac79fb7f67e000c18bc28f75b3
   source: pool
@@ -180,12 +200,30 @@ photos:
   folder: 2026-08-07__box_pictures_all_classes
   split: validation
   group: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071148957.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071336299.jpg
+  sha256: e45e4fe8c11ada03f816def3685837198dcfd1bc64f07ce548ffd96079a15b3e
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071336299.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071551308.jpg
   sha256: b1090e352b5bc4ee42dbcf2321226bcdf784911155e2376c862137834e2fd48e
   source: pool
   folder: 2026-08-07__box_pictures_all_classes
   split: validation
   group: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071551308.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071751040.jpg
+  sha256: 3f20b983ec21cc2832adfc8168acb1dd4c829995f498df0f299264c0e2500afa
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_006__Brazil_Cerrado/PXL_20260807_071751040.jpg
+- path: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065437240.jpg
+  sha256: 25b68326327157a81ce7c49c3c4e20ee73a9fa3f1cf20cb9e3c04289decf5296
+  source: pool
+  folder: 2026-08-07__box_pictures_all_classes
+  split: train
+  group: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065437240.jpg
 - path: dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_065742955.jpg
   sha256: edb7530ba1565a4acf04184833f782428a9df74fa32a6ea2fc7936f1f879db29
   source: pool
@@ -270,6 +308,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130805009.jpg
+- path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130907543.jpg
+  sha256: ef485b5b682e62ac6e25712b7fc70d15a528cfbae399285db1ac5d11340e2aaa
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: test
+  group: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_130907543.jpg
 - path: dataset/2026-08-09__pixel_cam/class_001__Ethiopia_Sidamo/PXL_20260809_131226099.jpg
   sha256: 354c0067c808537a91b9c8d101b22c4111fbbc576a56f65fcd6297cab7bd847e
   source: pool
@@ -318,6 +362,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: validation
   group: dataset/2026-08-09__pixel_cam/class_002__Kenya_AA/PXL_20260809_132108186.jpg
+- path: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132249473.jpg
+  sha256: ac5614d301fcba96e330c1db720e86cc3fe486a0ff150af52debd9d4c21b5f3a
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132249473.jpg
 - path: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132314833.jpg
   sha256: eb0587b05910edc39e285b6eb0cbc72f65b3e11ad67036e23f59c603ad65680f
   source: pool
@@ -438,6 +488,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: test
   group: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140413654.jpg
+- path: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140441198.jpg
+  sha256: 9297a115b2dccc1be221758d85c77c3e4599477ccd8fe46c6b4a7595168f4a91
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140441198.jpg
 - path: dataset/2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140446566.jpg
   sha256: 7d6fa2d5d26845c70cf257cc0ef59fff27d0554a1335c5e392d6c3b5799279c6
   source: pool
@@ -480,6 +536,12 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133400908.jpg
+- path: dataset/2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133437015.jpg
+  sha256: 5bbc7329b9ab53ea4097392045cde0510e329d8d3937baaba60f196a671be2d1
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133437015.jpg
 - path: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_140658766.jpg
   sha256: 3f13ded97430216bb1122763682cb703bb684dfb9ad3fc8327b867c20c572920
   source: pool
@@ -498,12 +560,24 @@ photos:
   folder: 2026-08-09__pixel_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_141045769.jpg
+- path: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_141119041.jpg
+  sha256: 04bcfd1949458a4119ddc9bc8a647baa7d3b0e5e8454defaa33e85988b39103d
+  source: pool
+  folder: 2026-08-09__pixel_cam
+  split: train
+  group: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_141119041.jpg
 - path: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_141154062.jpg
   sha256: 0565f9aa231ce6e1195ed445935a831b6602d2ba3cd2b8fa710d3a8c36193d44
   source: pool
   folder: 2026-08-09__pixel_cam
   split: test
   group: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_141154062.jpg
+- path: dataset/2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_200852.JPG
+  sha256: abc068ef0a717078d81b57bc1756d96ec07a9c5284d10530df3902f22d39baf6
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: test
+  group: dataset/2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_200852.JPG
 - path: dataset/2026-08-09__sony_cam/class_001__Ethiopia_Sidamo/PIC_20260809_200920.JPG
   sha256: 7562985cbea9c9da3be8a8a2adce076c23065f67f33a3e48e7d4e42acd8d3880
   source: pool
@@ -600,6 +674,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_003__Colombia_PinkBourbon/PXL_20260809_132641461.jpg
+- path: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204934.JPG
+  sha256: dc56660602dae934247dc0860a6f44f66756eefab219543e061ca2fcee42170d
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: train
+  group: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204934.JPG
 - path: dataset/2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_205044.JPG
   sha256: 75f2614570336641db07a8b3cad0aa38760ace298705ec89949fe6431dd8696d
   source: pool
@@ -660,6 +740,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210324.JPG
+- path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210502.JPG
+  sha256: ca433be015eb40c2ed86bb3d85739bb7120c1cfbd065af6bedb9ca031cb62dc9
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: test
+  group: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210502.JPG
 - path: dataset/2026-08-09__sony_cam/class_006__Brazil_Cerrado/PIC_20260809_210532.JPG
   sha256: ce388fa4430d178a8cd78f518e11c1226f144eadab03d8bac6927cc6efd8dc24
   source: pool
@@ -720,6 +806,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_008__Ethiopia_Kochere/PXL_20260809_133400908.jpg
+- path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210713.JPG
+  sha256: b53880a071473cb937d328ee00da91af04960b326413c7ee302041868cbe92cc
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: train
+  group: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210713.JPG
 - path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210742.JPG
   sha256: d7e2d36b1ed3ccda8bdeadf24be3a8fa90282d9800e519923455ee4bb7be47e2
   source: pool
@@ -732,6 +824,12 @@ photos:
   folder: 2026-08-09__sony_cam
   split: train
   group: dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_140658766.jpg
+- path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210852.JPG
+  sha256: a8bcc06a36ea06b603357973f364b71e783ccfedd537cb4c013b2eba6330ea8b
+  source: pool
+  folder: 2026-08-09__sony_cam
+  split: train
+  group: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210852.JPG
 - path: dataset/2026-08-09__sony_cam/class_009__Vietnam_Robusta/PIC_20260809_210955.JPG
   sha256: e8be4dff6ab51fd1e73122c610c8f9f0278b56941060021786f144571aaf7035
   source: pool
@@ -762,6 +860,18 @@ photos:
   folder: 2026-08-25__iphone
   split: train
   group: dataset/2026-08-25__iphone/class_001__Ethiopia_Sidamo/IMG_6310.HEIC
+- path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6281.HEIC
+  sha256: ceed433e5e21bf471f20847048267fa0af2dea8b992cceb3648353f9932a928d
+  source: pool
+  folder: 2026-08-25__iphone
+  split: validation
+  group: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6281.HEIC
+- path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC
+  sha256: 5ce2f0ceb34a7ee213fdaf5a61e9d6b4efdf7fbd68f4a88ccd0f53cd191e8bc4
+  source: pool
+  folder: 2026-08-25__iphone
+  split: validation
+  group: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6282.HEIC
 - path: dataset/2026-08-25__iphone/class_002__Kenya_AA/IMG_6283.HEIC
   sha256: 688e67b71370a38afd273a822fa5b4ebd8e22cd9231d311ea89842a4e961fc1d
   source: pool
@@ -810,12 +920,24 @@ photos:
   folder: 2026-08-25__iphone
   split: validation
   group: dataset/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6273.HEIC
+- path: dataset/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6275.HEIC
+  sha256: 7eb01e3b72b979a9dd1ec61b6df894d4fe779dd5e25afd9e92e504c681364875
+  source: pool
+  folder: 2026-08-25__iphone
+  split: validation
+  group: dataset/2026-08-25__iphone/class_004__CostaRica_LaPastora/IMG_6275.HEIC
 - path: dataset/2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6348.HEIC
   sha256: ef252dda234f86b122708ba0a57f4ce9c24d661614858c702c244188a24020dc
   source: pool
   folder: 2026-08-25__iphone
   split: train
   group: dataset/2026-08-25__iphone/class_005__Guatemala_Tata/IMG_6348.HEIC
+- path: dataset/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6247.HEIC
+  sha256: deea536d5ab4cef443c346d63f8d338c5f3e54ffd33e59866ef171b0c06ad279
+  source: pool
+  folder: 2026-08-25__iphone
+  split: train
+  group: dataset/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6247.HEIC
 - path: dataset/2026-08-25__iphone/class_006__Brazil_Cerrado/IMG_6248.HEIC
   sha256: a876b23dfac3e8baef21515b09a85ba37cac2b8bec6fdf15025be56cb972f4d5
   source: pool
@@ -870,6 +992,12 @@ photos:
   folder: 2026-08-25__iphone
   split: train
   group: dataset/2026-08-25__iphone/class_009__Vietnam_Robusta/IMG_6319.HEIC
+- path: dataset/2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194645103.jpg
+  sha256: 7b6199c72dc80f4d3af44f069853d8e9b020fd71018024c52abca670461fd334
+  source: pool
+  folder: 2026-08-25__oneplus
+  split: train
+  group: dataset/2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194645103.jpg
 - path: dataset/2026-08-25__oneplus/class_001__Ethiopia_Sidamo/PXL_20260825_194742428.jpg
   sha256: 50635e89a9dd7817c0f4a513e6233a39e06bcecdddd7f7d0cc5071d0772f25ca
   source: pool
@@ -900,6 +1028,12 @@ photos:
   folder: 2026-08-25__oneplus
   split: train
   group: dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193325070.jpg
+- path: dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193337626-2.jpg
+  sha256: 855c84227639ff7cb9531e720361bf141785362f065f7e7fe46205b4a63ae9fa
+  source: pool
+  folder: 2026-08-25__oneplus
+  split: test
+  group: dataset/2026-08-25__oneplus/class_003__Colombia_PinkBourbon/PXL_20260825_193337626-2.jpg
 - path: dataset/2026-08-25__oneplus/class_004__CostaRica_LaPastora/PXL_20260825_195610599.jpg
   sha256: 78b1bc1141cf8c756aad038fa7a57fb14cdedf11fa8478de82e6850de830e19a
   source: pool
@@ -948,6 +1082,12 @@ photos:
   folder: 2026-08-25__oneplus
   split: validation
   group: dataset/2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192658754.jpg
+- path: dataset/2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192708927.jpg
+  sha256: 06f952e28afdaabba1410f4accff4625ccc1a024bf969373adcc5f2ec917af54
+  source: pool
+  folder: 2026-08-25__oneplus
+  split: test
+  group: dataset/2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_192708927.jpg
 - path: dataset/2026-08-25__oneplus/class_006__Brazil_Cerrado/PXL_20260825_193630621.jpg
   sha256: 4fe5adf95fb7b5891aa06e08d8c28e72ad6bbaae74fac8b49a0bc688f2d8cb3e
   source: pool
@@ -960,6 +1100,12 @@ photos:
   folder: 2026-08-25__oneplus
   split: test
   group: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195041576.jpg
+- path: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195052778.jpg
+  sha256: 39e2822134ed8728fbcedbd38aea36b3409755381ac7cfd447e69f34d6a9b252
+  source: pool
+  folder: 2026-08-25__oneplus
+  split: test
+  group: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195052778.jpg
 - path: dataset/2026-08-25__oneplus/class_007__Brazil_MonteCristo/PXL_20260825_195108562.jpg
   sha256: f62142d65f049b7b63ec58c159deac0b24beb539a09ec308c888fdf80e337883
   source: pool
@@ -1008,6 +1154,12 @@ photos:
   folder: 2026-08-25__oneplus
   split: test
   group: dataset/2026-08-25__oneplus/class_009__Vietnam_Robusta/PXL_20260825_193900810.jpg
+- path: dataset/2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185549141.jpg
+  sha256: a01d2a0da68266619cabb7d8c0f976090fb0686bf448bea2b8fd13df4764802e
+  source: pool
+  folder: 2026-08-27__oneplus_flash
+  split: test
+  group: dataset/2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185549141.jpg
 - path: dataset/2026-08-27__oneplus_flash/class_001__Ethiopia_Sidamo/PXL_20260827_185558837.jpg
   sha256: 0a798c121536b462c03649d973db29351c63a22d2d60bd2455e6abd28ba67fcb
   source: pool
@@ -1086,18 +1238,36 @@ photos:
   folder: 2026-08-27__oneplus_flash
   split: train
   group: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183926181.jpg
+- path: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184019805.jpg
+  sha256: b39dbeab4ef2548244f15e2e32c6c247ce177ce9c4d6c72e7b40bcfb5891db43
+  source: pool
+  folder: 2026-08-27__oneplus_flash
+  split: test
+  group: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184019805.jpg
 - path: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184028444.jpg
   sha256: 2fcb5f4e6d56293dd8821e5e62a2065b3181934603c427fd8513044f48aee5fb
   source: pool
   folder: 2026-08-27__oneplus_flash
   split: train
   group: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183926181.jpg
+- path: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184038418.jpg
+  sha256: 7720293d5d3ab0e45755a3aaf7d01f63b6e8bb2edb36f013bd508586101faeee
+  source: pool
+  folder: 2026-08-27__oneplus_flash
+  split: test
+  group: dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_184038418.jpg
 - path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185807199.jpg
   sha256: bb89038f121853f1a24700fcb9ad2ba19fd3dcf171723d6024e661eebef4e487
   source: pool
   folder: 2026-08-27__oneplus_flash
   split: test
   group: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185807199.jpg
+- path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185816195.jpg
+  sha256: 2bf6f72f5662c32b739eec9c0bba78be92467f971b61238b6da17b4b9da386ab
+  source: pool
+  folder: 2026-08-27__oneplus_flash
+  split: test
+  group: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185816195.jpg
 - path: dataset/2026-08-27__oneplus_flash/class_008__Ethiopia_Kochere/PXL_20260827_185847122.jpg
   sha256: 4185edbba567f54287877c9bd8159a77f315ed4036984aa05306c0119031031e
   source: pool
@@ -1152,6 +1322,12 @@ photos:
   folder: 2026-08-30__oneplus
   split: test
   group: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175351178.jpg
+- path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175450394.jpg
+  sha256: 48f81d54012ff460107b36041f88371e04bd91ef3dcedef2cf00c3f546772e10
+  source: pool
+  folder: 2026-08-30__oneplus
+  split: train
+  group: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175450394.jpg
 - path: dataset/2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175625319.jpg
   sha256: 9e756bb4750928784d922e013054ec63b558c5776ce87ce3e7181643a1694e20
   source: pool
@@ -1206,6 +1382,12 @@ photos:
   folder: 2026-08-30__pixel
   split: train
   group: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124028306.jpg
+- path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124429621.jpg
+  sha256: 691c633bb4cfb35c3cf77adc2c4bf5bd287357c659b0d1dc8eea52e051bf7094
+  source: pool
+  folder: 2026-08-30__pixel
+  split: test
+  group: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124429621.jpg
 - path: dataset/2026-08-30__pixel/class_010__Indonesia_Java/PXL_20260830_124505416.jpg
   sha256: b1b7ba18655539525bae5b39969219de09acfc6a49d683b68f88b1411207b0d3
   source: pool
@@ -1254,6 +1436,12 @@ photos:
   folder: 2026-08-30__sony
   split: train
   group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200512.JPG
+- path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200809.JPG
+  sha256: 3181eb461fc554d4124bffb024387813916b34c5c2a3c3ef88a4b81d64ceb534
+  source: pool
+  folder: 2026-08-30__sony
+  split: test
+  group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200809.JPG
 - path: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200836.JPG
   sha256: 840a55394da22c2e58b25ca059e202ffe05397d08a4efc5dfc3774a9262e7b2b
   source: pool
@@ -1362,6 +1550,18 @@ photos:
   folder: 2026-09-24__oneplus
   split: test
   group: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175059460.jpg
+- path: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175330148.jpg
+  sha256: 2c48864315353a25f55a4af2dbfadd1291f1d810e967e05a55e476bf4ddb61ba
+  source: pool
+  folder: 2026-09-24__oneplus
+  split: validation
+  group: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175330148.jpg
+- path: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175814602.jpg
+  sha256: 81d707aa521241d3306b5dce888b56864d9da6f6038dc44bc41a30a7e1568df9
+  source: pool
+  folder: 2026-09-24__oneplus
+  split: validation
+  group: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175814602.jpg
 - path: dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_180037009.jpg
   sha256: ddba827427d27b3e5815848ee35d26f91732c271f99dc8340ff6642dcda744df
   source: pool
@@ -1470,6 +1670,12 @@ photos:
   folder: 2026-09-24__pixel
   split: validation
   group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054328836.jpg
+- path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054456514.jpg
+  sha256: e52544bc0ba4574f2bc6558d1e1cee33d4ee08243cb424aebbc9a66736052054
+  source: pool
+  folder: 2026-09-24__pixel
+  split: test
+  group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054456514.jpg
 - path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_054741129.jpg
   sha256: db00ca5f08c288ac57763d54c01f9a33bfba2aeae1473188e7fd093fca86627c
   source: pool
@@ -1488,12 +1694,24 @@ photos:
   folder: 2026-09-24__pixel
   split: train
   group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055038934.jpg
+- path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055238524.jpg
+  sha256: f634a286edd659a66ace1f04cac1571412ff90a9522dd60e2bc21573f48de465
+  source: pool
+  folder: 2026-09-24__pixel
+  split: train
+  group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055238524.jpg
 - path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055404017.jpg
   sha256: f1d76bce9efff1ba8cc0ec36a326a3886a7e9bab6cdfb523e5ad1f22d6a70cd4
   source: pool
   folder: 2026-09-24__pixel
   split: train
   group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055404017.jpg
+- path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055617759.jpg
+  sha256: 226a5a03380c604a82c664ed937db84f03ad17ec1211b82b278361d3a1458d20
+  source: pool
+  folder: 2026-09-24__pixel
+  split: train
+  group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055617759.jpg
 - path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_055639328.jpg
   sha256: e85de4048a129a3bbdc094768988efe1d54d1cd61ec7bd38c8d3acb25958df5e
   source: pool
@@ -1524,6 +1742,12 @@ photos:
   folder: 2026-09-24__pixel
   split: train
   group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_074224216.jpg
+- path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_074353597.jpg
+  sha256: 9988480163785d216430945b7fa32e72e322d83cb68d258e7dd1181bcf1e3ab8
+  source: pool
+  folder: 2026-09-24__pixel
+  split: train
+  group: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_074353597.jpg
 - path: dataset/2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_074530013.jpg
   sha256: 11b5af1a12a8d7137d8b85e999d749a92755c54c28b834d5334ce66a90c66cca
   source: pool
@@ -1542,6 +1766,12 @@ photos:
   folder: 2026-09-24__sony
   split: train
   group: dataset/2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_200826.JPG
+- path: dataset/2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201057.JPG
+  sha256: 9dfa50568af8417031879563b598646f1f505c74bc526628ab7accd6c7536bd0
+  source: pool
+  folder: 2026-09-24__sony
+  split: train
+  group: dataset/2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201057.JPG
 - path: dataset/2026-09-24__sony/class_011__Peru_Minca/PIC_20260924_201748.JPG
   sha256: 39fe0eb7b4afb49ebc9d1740e5096654d033f97bc85dff83c5ace8fab0feddc5
   source: pool
@@ -1638,6 +1868,12 @@ photos:
   folder: 2026-10-21__new_green
   split: validation
   group: dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085406116.jpg
+- path: dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085458216.jpg
+  sha256: b1a04602cd39240b764922274f67259a0b97f025ca054258fccae72a0016278d
+  source: pool
+  folder: 2026-10-21__new_green
+  split: train
+  group: dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085458216.jpg
 - path: dataset/2026-10-21__new_green/class_015__Indonesia/PXL_20261021_085840333.jpg
   sha256: 493e03f9dcfc8601442ab108cb036dc29d3b57e7402f142fd43ce5358d7ce340
   source: pool
@@ -5154,6 +5390,18 @@ photos:
   batch: user_realworld
   split: train
   group: dataset/ood_negatives/user_realworld/20261010_120922.jpg
+- path: dataset/ood_negatives/user_realworld/20261030_113737_KB2005.jpg
+  sha256: 3b754bfa552083cac13c621a9ae6c12e4cff76e486695c452d26267d683690d0
+  source: negative
+  batch: user_realworld
+  split: train
+  group: dataset/ood_negatives/user_realworld/20261030_113737_KB2005.jpg
+- path: dataset/ood_negatives/user_realworld/20261030_113926_KB2005.jpg
+  sha256: 477a19351ae3d99e6b85ac163a1c01756d146ffc89154f38c62c2dc707e41e57
+  source: negative
+  batch: user_realworld
+  split: train
+  group: dataset/ood_negatives/user_realworld/20261030_113926_KB2005.jpg
 - path: dataset/ood_negatives/user_realworld/IMG_20260505_110109_307.jpg
   sha256: 5c16e4692ce4cfd2cda5f8cd17e8d715d79f2745ff6a66590f66ac86350f44bb
   source: negative
@@ -5377,102 +5625,1542 @@ photos:
   source: internet_positive
   split: test
   group: dataset/ood_positives_internet/internet_beans/internet_beans_020.jpg
-- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/PXL_20260927_101610945.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20260927_151610_Pixel_9_Pro_Ethiopia.jpg
   sha256: c68f3e5cefab7ea95446e2806784d4f6bc7a7e67e73db8f9b53aae9ffd9b7739
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/PXL_20260927_101610945.jpg
-- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/PXL_20261009_070751450.jpg
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20260927_151610_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110858_iPhone_13_Ethiopia.HEIC
+  sha256: db89ac7c0a418b98d8016ebae5502eecffa9a30d50aff9d7a1b5182372b855be
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110858_iPhone_13_Ethiopia.HEIC
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110905_iPhone_13_Ethiopia.HEIC
+  sha256: 2fb5dfc837f14ec005f832a8061347b6ad32a7104cbf4e7859582b80c5fd590b
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110905_iPhone_13_Ethiopia.HEIC
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110922_Pixel_9_Pro_Ethiopia.jpg
+  sha256: be4216e870907053c80ac1976f66d14582146514bfc3d92761b6de6fd0e5e9ea
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110922_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110934_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 40b0a74a8f73e2fb32cb979d85b92abff6101502d95cdd11b39a761e1968e00a
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110934_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110947_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 408eea6f5df82dda145c5a2cda4165ea2533037608eb149b89d34a679ed61de7
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110947_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121749_Pixel_9_Pro_Ethiopia.jpg
+  sha256: dec74ae6bfd71c3fb97e4dae088f0286c2af667a17c7cbbb3acf89f57d7018d9
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121749_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121803_Pixel_9_Pro_Ethiopia.jpg
+  sha256: a1b19b959aba8d22df9e458b51c47f634c6e7d451d81981778443bc19644fb35
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121803_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121816_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 41cbddca79410d2c9bcd3daab0939aa123442889e543ff58e2055d19ddcc1c07
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121816_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121852_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 923be7c50fbec039380b7500039afe6466243bb93bb9628f9df3be4efa4a560f
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121852_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121909_Pixel_9_Pro_Ethiopia.jpg
+  sha256: efcc31305093ef53c32660e3f3c020dfd0ab852bacb5c9cc975cde28c170604b
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121909_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122133_Pixel_9_Pro_Ethiopia.jpg
+  sha256: daf93b8c9865590b78816483a0df08c251f85fac4c3c986db318b250aa054ba6
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122133_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122143_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 9aa0deff255aad927e77bfe4436ba771de0e538993b496a71a48a194938b58ae
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122143_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122157_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 47e7a59381db29e6411a6507fa551213b86cdf497ff5c9eeb12e36e74704c70e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122157_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122204_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 27335e5ab245fe2c636ac575ff50d175921e52cf7ac57fd2061cbc149285d1ca
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122204_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122330_Pixel_9_Pro_Ethiopia.jpg
+  sha256: cf269aabe28ea1cfa387db0999f1a4f95abc1fe9245636eb09025238e6eb2b99
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122330_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122345_Pixel_9_Pro_Ethiopia.jpg
+  sha256: f5983c03507fe0fbd3aa64beb6e5e094a853bd5c5c03bc2afc07bc4ee75b900c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122345_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122356_Pixel_9_Pro_Ethiopia.jpg
+  sha256: 37d4a3e423b55ec1db7c93bac827d3ceb1276795e6a0ce3b160ff62190f43863
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122356_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122413_Pixel_9_Pro_Ethiopia.jpg
+  sha256: c013567e5edbd2b36009b8baf5a89566092a2fe360d75020ff578ff2faba7008
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122413_Pixel_9_Pro_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122826_OnePlus_Ethiopia.jpg
+  sha256: fcd6016c9c887e72131583e7ed18da057a5b434ba9795fdda8162143e30ace3c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122826_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122837_OnePlus_Ethiopia.jpg
+  sha256: 6624a327440479a2d8b66077278088c0d52d2ca8b4351c7e86553d0e9a4ec9c5
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122837_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122859_OnePlus_Ethiopia.jpg
+  sha256: 56e86246c87976abb91d8c1a058c25fefdd68984c85ddb3b0dc6d182a4c09656
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122859_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122915_OnePlus_Ethiopia.jpg
+  sha256: eaebf6168416def11e9946a7deaf78eda82f5921d5a660b51cf128f5b08a4c16
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122915_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122929_OnePlus_Ethiopia.jpg
+  sha256: f9fd8fdd1024e2201e2484b0d0a6bb45497e335b3018bf66a4690ca91d483092
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122929_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122951_OnePlus_Ethiopia.jpg
+  sha256: 9df712dbf3a874a4f0cb836e48823546fe82fc54e540c6250c46ca30a8b0c07a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_122951_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123036_OnePlus_Ethiopia.jpg
+  sha256: 22881c3d46adba194ea0a9bea891a69fc1dcf71fcede5835ee3cbf5b4f031cae
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123036_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123046_OnePlus_Ethiopia.jpg
+  sha256: b3451aac1a335cb374d902b729183edd301509c81cd67536d160d9985d36636e
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123046_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123105_OnePlus_Ethiopia.jpg
+  sha256: 547ac3a071ef9af314b8d70d548ba615c4b292837019d3a713a51a64e6913fc0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123105_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123125_OnePlus_Ethiopia.jpg
+  sha256: dee90cc7eb785a6590d25f4f01857d82ccda3bb732c5b9b1cc25b1878797bba2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123125_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123233_OnePlus_Ethiopia.jpg
+  sha256: 74cc36bd04fc66f8349770bb710c77b7a0d972525c34e6066d6fcacf6eb99a93
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123233_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123236_OnePlus_Ethiopia.jpg
+  sha256: 89394b97ce0bd5b4a82a2f85f7cbe9d532b83ff834df3394fe8b513d4dde8228
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123233_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123247_OnePlus_Ethiopia.jpg
+  sha256: ea0f17094fa584969a8f3cf95964801a6ab21fa4e37f0b3384b7a4b80a82e92e
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123247_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123259_OnePlus_Ethiopia.jpg
+  sha256: 15621c9f2285c28c5597ea1b6efc1ab20a206028beb091e219e0e0b113c99237
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_123259_OnePlus_Ethiopia.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143336_G8441_Ethiopia.JPG
+  sha256: c7a8f165f516a1aaf920c241cabf5c06b8a7a6352b57795721e00ccc500e195f
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143336_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143346_G8441_Ethiopia.JPG
+  sha256: 46e11d37adf0766898f7a56d3be92ae6656fbee88fef1ad4948abbaf196717ab
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143346_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143359_G8441_Ethiopia.JPG
+  sha256: ad886b5e209f47ea5395adde58ef43beaa213881ed09c24d8bd544dee08a30f2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143359_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143424_G8441_Ethiopia.JPG
+  sha256: d9f1cae8888f74b3ef2bb6aef820b5cfa8e3dc89dbcfd16f4855cee1b5cd5b32
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143424_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143458_G8441_Ethiopia.JPG
+  sha256: 55006138313390729c47b352926dc89aec68da4fe2c0cdcce3237bf5d71b2355
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143458_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143512_G8441_Ethiopia.JPG
+  sha256: 83aa439bf11872972105c510671eabf9411ea9cfbdf712f1c51f606f2d6f214c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143512_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143617_G8441_Ethiopia.JPG
+  sha256: 5ea577addaf077a26efcf8789bbceb83ebcc39f92a7a7c87064746ca88d67d96
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143617_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261006_114728_Pixel_9_Pro_Guatemala.jpg
+  sha256: e25dcc340c459c730a4ab62d7f185db6ab8aa8658f5dc7a89980fda59b8fd492
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261006_114728_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261006_114758_Pixel_9_Pro_Guatemala.jpg
+  sha256: 69df148d7c45a352eb2402095d0e77fff86290cee84151778bf8a615ee689e54
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261006_114758_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_092405_Pixel_9_Pro_Guatemala.jpg
+  sha256: a5dd1b1b22d4f59c29aad0a153b150033897cf21d790391b2926a9cc1a9791de
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_092405_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_092442_Pixel_9_Pro_Guatemala.jpg
+  sha256: 62ecf4b8e111044fbdea46a846162a7c812bf1285a6f5a1e9bff19543c250182
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_092442_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_112630_iPhone_15_Pro_Max_Guatemala.HEIC
+  sha256: f63cf0aed123ad4d1a15c0347a1ffd867ba9d69e3c75fc1a2c4a30ac539d63dc
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_112630_iPhone_15_Pro_Max_Guatemala.HEIC
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_112632_iPhone_15_Pro_Max_Guatemala.HEIC
+  sha256: 5b419bf8624c03e6dbeed44cc4b1eec979fa923131c4dce9cc3cb53878965266
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_112630_iPhone_15_Pro_Max_Guatemala.HEIC
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261008_112646_iPhone_15_Pro_Max_Guatemala.HEIC
+  sha256: 20abd24e304c2c85b1532fb72e5deb8165467391d3387103779671340255f6ec
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/segmenter_positives/IMG_9267.HEIC
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120731_Pixel_9_Pro_Guatemala.jpg
+  sha256: 521745f04b8b63cc4efbcfb544e600eccd78e5644f08bdfeeeb4584e4df3813a
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120731_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120738_Pixel_9_Pro_Guatemala.jpg
+  sha256: bc4d841e878e775d24bc366d7f3e956ceed9b80aae8c7da270ed6155b8a029e6
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120738_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120751_Pixel_9_Pro_Guatemala.jpg
   sha256: 592cda0270a31907def5a46180c292e6455f2ef9894b14f478d0f817ea402b68
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/PXL_20261009_070751450.jpg
-- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/PXL_20261012_053919102.jpg
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_120751_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_145251_Pixel_9_Pro_Guatemala.jpg
+  sha256: 773200224bda3a6df7eb03007964a6f89bfb5334c6dc94c3f589bf9cf064e40d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_145251_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_145300_Pixel_9_Pro_Guatemala.jpg
+  sha256: 9dcd21b169696aa816757c7203041522ccf353d45ed3b2f119333c96261f757e
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261009_145300_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261012_103919_Pixel_9_Pro_Guatemala.jpg
   sha256: 5bdcd85f6f0093a48bcad293315dd5b862c94876eec5527ff827cfd797aaf93a
   source: pool
   folder: random_date_raccoon
   split: validation
-  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/PXL_20261012_053919102.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125229.jpg
-  sha256: 47ce0da9564304097c1eae01b1532e50d826502247bdf5465f3e9ad52c7c3109
-  source: pool
-  folder: random_date_raccoon
-  split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125229.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/IMG_9392.HEIC
-  sha256: 9fff1f1de772afd25ce61d0e7f4c45bd51ce7eb72e99a423625ede2784a31fe7
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261012_103919_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261012_103924_Pixel_9_Pro_Guatemala.jpg
+  sha256: 6e7336fef9fffb406e6b635cf73b76239a2dbcc5baa6303813d8943df971a11a
   source: pool
   folder: random_date_raccoon
   split: test
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/IMG_9392.HEIC
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PIC_20261023_134932.JPG
-  sha256: 3e1519f1792f6bf3707ef3b798e0b740d9b49fd43b22da36f31396d08a7cf9ab
+  group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261012_103924_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114807_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: 191410f86921392821bb27726dbaa2ddaf1f589cb29c6409e1338c3f0ce9ef21
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114807_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114816_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: 00100aa283cb646ebc386bdb04396b2677ca9ed65cb4550ba58fd85cc427f0e4
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114816_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114825_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: a6d64ea1e5f8bff2c391256c2063074fcb9f7e51f456307aedb2117940ae7b04
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PIC_20261023_134932.JPG
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260930_085611461.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114825_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114842_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: 855a736d784983c94f801d56cff71400b66c3270c864332e7d07f36831c93da4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114842_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115025_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: 053121d5e2843b08f014bef55590d15c68c09b4a53c217518cafae0ffeaf0fdd
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115025_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115155_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: 6ef3fdf7723629e5c2542a093907e17ceb982241c053d9ac8abd5c2de1e91730
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115155_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115158_Pixel_9_Pro_Brazil_decaff.jpg
+  sha256: dbb5472198dd7bcb11c084b98c65e6dc0a23ef7a1fbadcbc43da140dfdc588b4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115155_Pixel_9_Pro_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115245_OnePlus_Brazil_decaff.jpg
+  sha256: ddad406640a6e774a71d2c3a7091ea61cafab44d2dfe81be0fcea7fa63fb6114
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115245_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115258_OnePlus_Brazil_decaff.jpg
+  sha256: 1e8db5b7c62c3cc08799b7b1ca0ca18aebcbbcc4ba2a47e12d321a857a71a25e
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115258_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115338_OnePlus_Brazil_decaff.jpg
+  sha256: 6fbc84d6015914dc3c02926f590a1bf73366e4a97f74a7736ecdf0f6d1294800
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115338_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115346_OnePlus_Brazil_decaff.jpg
+  sha256: 16ad4599d41113a57c9de85ee54a6dbdbbe535b24bd4ab803543914bcc2ef00e
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115346_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115501_OnePlus_Brazil_decaff.jpg
+  sha256: ea694d20b248e976ed8fb0a4bf0060bc78c5342c88a3f1837eded0abdd9fbe76
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115501_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115512_OnePlus_Brazil_decaff.jpg
+  sha256: 7b091ca6c4f5706ba8ade38e107f78c7daba9498bd03fac9e88a3779524b4120
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115512_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115603_OnePlus_Brazil_decaff.jpg
+  sha256: 8636b3922b695bb5034574e17bf39a5486c38da4c8fa24275a66bb7043ae1d41
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115603_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115622_OnePlus_Brazil_decaff.jpg
+  sha256: 857f75d80430eaa02d6f689c2a7dc30b51a00fe1bb6eb66e84ceeb03872e58d5
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115622_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115702_OnePlus_Brazil_decaff.jpg
+  sha256: 2b76e2b7ffb5c01932bf67079efd74a45526719a0554c68d374ce8caf1f245de
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115702_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115710_OnePlus_Brazil_decaff.jpg
+  sha256: bd4c377dafccd5786ee0fc7d7f3c6fbd71516965df09bf8acec6aaa6a1768f59
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_115710_OnePlus_Brazil_decaff.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135057_G8441_Brazil_decaff.JPG
+  sha256: 393ddb39e2da38fb9c8f0f18dd613aea701c29a21cdd02686ba2bfd252963de1
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135057_G8441_Brazil_decaff.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135107_G8441_Brazil_decaff.JPG
+  sha256: 3d2e2029b72f629acaf6bc0fc0f6e35926810379e051a2a7faafb349940e9b73
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135107_G8441_Brazil_decaff.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135125_G8441_Brazil_decaff.JPG
+  sha256: 0c9b10964e5367a21e46aebdcc5f5d80e0c14b918e041687d48d156c97cf7df6
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_135125_G8441_Brazil_decaff.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_140109_G8441_Brazil_decaff.JPG
+  sha256: 6b832b057bdc4909aa73de9419f04bf99a33b92ec0e8974f6c07c8dfe9749a75
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_140109_G8441_Brazil_decaff.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_140132_G8441_Brazil_decaff.JPG
+  sha256: b56897a5ee51f17af3142a323863021298152f264be35ffe5842442ed28f6797
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_140132_G8441_Brazil_decaff.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260926_172041_Pixel_9_Pro_Brazil.jpg
+  sha256: 0b50b33a6c36b674152818d6c41373f4beb8fc31141a801369c7a852c56b5d78
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260926_172041_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260926_172057_Pixel_9_Pro_Brazil.jpg
+  sha256: ea3f1026140057565941f017d74c7b855b0681795cf33fe9c4d230668c1b882b
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260926_172057_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260927_114722_Pixel_9_Pro_Brazil.jpg
+  sha256: 96e43d986a9d18b4810e6d0ed2c3858bc9828beac472f8a7a2645fd428b32aaf
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260927_114722_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260930_135611_Pixel_9_Pro_Brazil.jpg
   sha256: aa6f2e90126c2028b5f1745c9d8d7fa0f1374ebb07e57ae8d4892ae4d5b8dfd2
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20260930_085611461.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261007_063434735.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20260930_135611_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261007_113434_Pixel_9_Pro_Brazil.jpg
   sha256: 2eaca5602d67f655ccb980c0b70f0c5a4a32df37e5e9a7f884849e4e4d888fcb
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261007_063434735.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261022_055948467.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261007_113434_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131726_Pixel_9_Pro_Brazil.jpg
+  sha256: 779745a87fe4fae3261b92e2eb2c1b363f9fce2bf854c7a06a985d3bdb3412ca
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131726_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131731_Pixel_9_Pro_Brazil.jpg
+  sha256: ccc00063ca06778408ca65efadcc5112e36328a7ea6b9feef1ba5daea41b3bcc
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131731_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131736_Pixel_9_Pro_Brazil.jpg
+  sha256: 048ffd745702f50db0ac78b1167af0de9c83be2c95c22978b08bc42dffcc9d7e
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131736_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131807_iPhone_15_Pro_Max_Brazil.heic
+  sha256: eacad0e139754077bb71cf32f7bc85e7102b9fc9fd42e531ec5c3a2c119dce4e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261016_131807_iPhone_15_Pro_Max_Brazil.heic
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_105948_Pixel_9_Pro_Brazil.jpg
   sha256: 44e75527b212b54d18d05b105f23634743592b95785cd12f132209a129574394
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261022_055948467.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261023_121657797.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_105948_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_105952_Pixel_9_Pro_Brazil.jpg
+  sha256: b64097aa93b704f45dbbec62aa0fda240c57b607f33e20b159a7a9ee2b0c3b86
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_105952_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110003_Pixel_9_Pro_Brazil.jpg
+  sha256: d9242ae813e67cf5b63e833b6d2ac71260d1597c872ff88f98db399fd9c951d2
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110003_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110436_KB2005_Brazil.jpg
+  sha256: 7ef1507ba44e4927c6981ee5f294d04e902221855321e80067a29ea19cc9a693
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110436_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110450_iPhone_15_Pro_Max_Brazil.HEIC
+  sha256: 42908639f9b19df88c731d0f1b78d0b5a12f88524447f3baaf4cf45496a691c0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110450_iPhone_15_Pro_Max_Brazil.HEIC
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110510_iPhone_15_Pro_Max_Brazil.HEIC
+  sha256: 9fff1f1de772afd25ce61d0e7f4c45bd51ce7eb72e99a423625ede2784a31fe7
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110510_iPhone_15_Pro_Max_Brazil.HEIC
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110525_iPhone_15_Pro_Max_Brazil.HEIC
+  sha256: cdb6c8f99e6a93fa11858a8e70f79c550916340e482979bec3f66416a9925474
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110525_iPhone_15_Pro_Max_Brazil.HEIC
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110540_iPhone_15_Pro_Max_Brazil.HEIC
+  sha256: 854e48a3cd02338ea04628e55ebdf5aec0fde3569f93102ffec954f6144fa1b0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110540_iPhone_15_Pro_Max_Brazil.HEIC
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_113459_Pixel_9_Pro_Brazil.jpg
+  sha256: 25f4eabfeb11ae96993a818a9e3b8edda936ea356683f84278aa8bdd9f3e6432
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_113459_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_113824_Pixel_9_Pro_Brazil.jpg
+  sha256: ec48ff653f0cc95cc663e4e184684b5b6250cb558e7458b7dbf3359acddec4a4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_113824_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121657_OnePlus_Brazil.jpg
   sha256: cf3c4c117e882a8094794a95abd9c4140b5c072c99cce27f3aca20a6bed96314
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261023_121657797.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_060049223.jpg
-  sha256: 7db4d4e1e16aaded66d0017f54107bd56f2c0a81d4a8cb23eb74a4d4b65ca6f0
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121657_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121708_OnePlus_Brazil.jpg
+  sha256: e445fbf20634b290d7469e4837ad3326b15e679c9ae9743d599da48d5d287d35
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261025_060049223.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261026_054309193.jpg
-  sha256: d4aae14ed5c5847285f19081176da29272a5d985aaaf763195069c1d2c11cb5f
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121708_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121716_OnePlus_Brazil.jpg
+  sha256: fcf3b8cac87b12654cb53c119e584313d3a0c39323dcae9f03842cf58c52fd07
   source: pool
   folder: random_date_raccoon
   split: test
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/PXL_20261026_054309193.jpg
-- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/photo_6_2026-10-24_15-15-37.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121716_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121734_OnePlus_Brazil.jpg
+  sha256: 3a8148beb854de9035c66fd1884c0adb374f5497330ad01e46b8e0110cbe78fc
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_121734_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125134_Galaxy_Z_Fold6_Brazil.jpg
+  sha256: 1400b3101e73e3bc465c53b6aff93c92cc2a1afa820400707b4bb046ebc533c4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125134_Galaxy_Z_Fold6_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125154_Galaxy_Z_Fold6_Brazil.jpg
+  sha256: dee86d58a9689014a0978b28f5c83fe89c3bbcacd62bdac67d73b37f846cc578
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125154_Galaxy_Z_Fold6_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125213_Galaxy_Z_Fold6_Brazil.jpg
+  sha256: 9c8c596165ee8af6a8d34d300705042e6eb6c52cb472afc58bdb7adb686eebad
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125213_Galaxy_Z_Fold6_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125229_Galaxy_Z_Fold6_Brazil.jpg
+  sha256: 47ce0da9564304097c1eae01b1532e50d826502247bdf5465f3e9ad52c7c3109
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125229_Galaxy_Z_Fold6_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125252_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: f9062c22e7bb96436437d8454428fe1eebb98b9b40b478bcb2ebf11a69cfd1d0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125252_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125339_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 14ca2738463bbfb041dacf760249ded19367b4ff51f00dfe523718b4c5c65882
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125339_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125349_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 610e216ee469aeb53fe827f34a00dd2745a0b8eb2bdf1b3f686319ad25084a6a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_125349_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_134932_G8441_Brazil.JPG
+  sha256: 3e1519f1792f6bf3707ef3b798e0b740d9b49fd43b22da36f31396d08a7cf9ab
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_134932_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_134956_G8441_Brazil.JPG
+  sha256: 694e84f314062f6039e2ee00fbc61adf319528596834f53347db448807e72082
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_134956_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_135008_G8441_Brazil.JPG
+  sha256: 2e9312c487589cbc7bced61157f040e0e6a7d91b9d7bb76e1b1d377e13db430b
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_135008_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141113_SM-G973F_Brazil.jpg
+  sha256: c253d3f4aa0cfa5ae6ed3cbaa0710de2cba7018b0879d918b4c22e59631bcaac
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141113_SM-G973F_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141125_SM-G973F_Brazil.jpg
+  sha256: a5cef4fe030175c4480ea2ac59d685030da38ebda4b10120dd88adb90bf61238
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141125_SM-G973F_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141142_SM-G973F_Brazil.jpg
+  sha256: 0be88eb8be546cd3801aac00568eb65ee2a0542357d851cb0f01cd0b1b729acb
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141142_SM-G973F_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_112218_Pixel_9_Pro_Brazil.jpg
+  sha256: 87508d872aea376f0e568f384614632db7739640c0bf844f0b37d5134e4245d8
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_112218_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122753_OnePlus_Brazil.jpg
+  sha256: eb8cc12ba66266867a5089c2fd769c39a75f9d4f3227d27225ee4802ba9bff8d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122753_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122812_OnePlus_Brazil.jpg
+  sha256: 0406e9e1d257cc0d5ad0be9fd8333b48cab1c2b06693d0bdbb1b3a4a9c5e4f13
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122812_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122821_OnePlus_Brazil.jpg
+  sha256: 9e2939a2ab4cbcdb9403206841eee33a63503a4482014b92357f12245a1c855f
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_122821_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_124200_KB2005_Brazil.jpg
+  sha256: 7de7eb9ae3a695d8a031a64768837595b4ee915858770c24ca8af2faf5677475
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_124200_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_124218_KB2005_Brazil.jpg
+  sha256: c1c62ef2ba3a7400a0340ffd66a1c2001114dbba98114c41a043d1a27df875ab
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_124218_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_1.jpg
+  sha256: cbb84bb191227377a57dedab56b35dc94726391c268edd6584afd3416d9f403c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_2.jpg
+  sha256: 6fcc49947c3a13c6d629afad895d4e4c4d48c1a06f64c31f020fb0d13f406b80
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_3.jpg
+  sha256: 1bac240f7726aa200c44910a3319bbc5f07e71bcebb9bdd6d0ae6e9d7116d77f
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_4.jpg
+  sha256: afe9a64b28f7b4bc2790463b0cd36f47fab38e005b3689dd2fcb980cc158a749
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_5.jpg
+  sha256: 0051aec910b7dadbb516200996d1dbd019ca637737061491cfa295f338d8833b
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
   sha256: 1eef92723ba9ff420e24c52aff49cd0c349ff0c056989ee149ee504ee05fd99f
   source: pool
   folder: random_date_raccoon
   split: train
-  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/photo_6_2026-10-24_15-15-37.jpg
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_7.jpg
+  sha256: 88d1ecef7c846d82d4d203d66c15e4482a659075e5db8adbf98445a25753c622
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_8.jpg
+  sha256: ac23f405c0a3819283033b70262a262e1eb5e0971ace4efc9f9f006bf673c806
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_9.jpg
+  sha256: 66e144b7a28dc8e4311cba875736e853bc1b0eb3850e00e9818d89633908ca6d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_6.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110009_Pixel_9_Pro_Brazil.jpg
+  sha256: 240a482923c3e54d117694e8042fb8389f7fcaa6c5e0f67575bd19847e431fe2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110009_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110025_Pixel_9_Pro_Brazil.jpg
+  sha256: 6e61d772a46b695d9846ffdad65b3053a6aeb666bafadbd09c6f84a0a86a178a
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110025_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110049_Pixel_9_Pro_Brazil.jpg
+  sha256: 7db4d4e1e16aaded66d0017f54107bd56f2c0a81d4a8cb23eb74a4d4b65ca6f0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110049_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110121_Pixel_9_Pro_Brazil.jpg
+  sha256: fb9844ae874e7dbbf44c07aabf8d3f9271a3595ad43d0bc10341f14698d3307a
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_110121_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_112037_OnePlus_Brazil.jpg
+  sha256: fa9782169c43fd8689b44d65005417ed9308429b211056e75c4bc0fafeabbc63
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_112037_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_112146_OnePlus_Brazil.jpg
+  sha256: 42ea9f6d7ec38f80b7d4a1b7eb127af48ca51f9b75d588421d31036b953d0c11
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_112146_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124128_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 14f20cfd11ab09dd70951a36c73defdab6bf3d9db63673b1489b1180407332d9
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124128_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124154_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 2c51b58995fd2df8c3d775d6580118743ab6ad0e06553157f05fe61116a5adfd
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124154_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124204_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: a4a39dbcfff5cdd3082d77d37b12ff39da46d55c732e40f26c404e77e9440f06
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124204_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124223_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+  sha256: 7282f4e64ed243e22f5c1af0bae26e0313a889679bd6e4f2e5c468f0531b3776
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124223_Galaxy_Z_Fold8_Ultra_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124237_Pixel_7_Brazil.jpg
+  sha256: d94842283f325a7d910530ebeae50ba104c6119ff5cf48b518edfb3adcdc4fe7
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_124237_Pixel_7_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_131630_G8441_Brazil.JPG
+  sha256: b5f8d1994ad5478899fceaaa01fa27372f697d8cb5617500e40c39572413ff57
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261025_131630_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103148_OnePlus_Brazil.jpg
+  sha256: 69ddf362036ecc7e9c91c31ccbd98d4386f21a1338c09710cbf8bfbcbcf77b77
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103148_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103200_OnePlus_Brazil.jpg
+  sha256: 688f0aa2d5c2cffbc9236c2dceb6ef597c6561454260509508a3bf8e042d0a03
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103200_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103458_OnePlus_Brazil.jpg
+  sha256: 55c931bb132e7fae5717feca6f55920a89ef94e0350ef4c6979105c4a4848ad4
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_103458_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_104309_Pixel_9_Pro_Brazil.jpg
+  sha256: d4aae14ed5c5847285f19081176da29272a5d985aaaf763195069c1d2c11cb5f
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_104309_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_122926_G8441_Brazil.JPG
+  sha256: 2ac6ef64bd8e556ba96b32f9019ce647baa8ec8a2d6a960baaa452b9d17a5d18
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261026_122926_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115718_Pixel_9_Pro_Brazil.jpg
+  sha256: ec96659ef30ca2e924e25ad1f8dc5756a4fa2b87725542b948f75c71e8f7c97b
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115718_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115723_Pixel_9_Pro_Brazil.jpg
+  sha256: 2cb79865aa962b649ad11c45e73d2e093d4cf62739e9ebc7ef01268afcc94371
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115723_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115732_Pixel_9_Pro_Brazil.jpg
+  sha256: 4767b5277aad7e81f20fd56e979e24d8ec9fe295194ee468794bfea17a65ccce
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115732_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115748_Pixel_9_Pro_Brazil.jpg
+  sha256: dfce0a26a4f8e6442c6270664417a12054378e8415decde3a92c439a104468dc
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115748_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115754_Pixel_9_Pro_Brazil.jpg
+  sha256: 85dad29aaf0ecba27d1c846bca3448a2fa6eaab27bb67a1b28ba2956125b92b3
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_115754_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120905_Pixel_9_Pro_Brazil.jpg
+  sha256: 2c7e6b0ea49184d18241cdb40b74a72c9b93332609d81e4f5dcc71196282a120
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120905_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120916_Pixel_9_Pro_Brazil.jpg
+  sha256: 95039501c620779bf5a1979b4e07a0f0d7bee989b412e428f289307e34821b96
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_120916_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124629_Pixel_9_Pro_Brazil.jpg
+  sha256: 5e15a3a65d0b05c825fd3b3f94a130aa0153977ba2be66140db7e041961652c2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124629_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124709_KB2005_Brazil.jpg
+  sha256: ee717ad7a52662ae75eddd647c4374251705da4aa0a7c2a1e8be93e7248fa699
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124709_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124713_KB2005_Brazil.jpg
+  sha256: eea49827a22d6b5876e0c2260cbe230876b3df70565819d50fb7b55d010ef449
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261104_124713_KB2005_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113751_OnePlus_Brazil.jpg
+  sha256: 180d7de30e5a1014f47e8dd2eec263e1ef0a41a7df8f59717ee34c2e26a1d5eb
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113751_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113757_OnePlus_Brazil.jpg
+  sha256: 3cc22f163432de09846639b06989490b4c515003bb114f4433f55bcf7e18d76b
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113757_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113947_OnePlus_Brazil.jpg
+  sha256: 2190370e0ed8905f71d3aa967b8fd9faf542716dc4ae8d667c017af3482b9a0d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_113947_OnePlus_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_114028_Pixel_9_Pro_Brazil.jpg
+  sha256: 7b109c584c238076a90bf1770d1fcad303a1c359757fc45df9ffdd1c41ea47f9
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_114028_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_114037_Pixel_9_Pro_Brazil.jpg
+  sha256: 30e120d86d42683540a9a957a2a3d3975f3bcaf1ad229394e41ea05a180774a1
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_114037_Pixel_9_Pro_Brazil.jpg
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133823_G8441_Brazil.JPG
+  sha256: 619b72250449540742baeb5f011ddb711042e726a45ee278c7576bc736982f5e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133823_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133832_G8441_Brazil.JPG
+  sha256: 7572d042a8a8da602335049e6a70e5943610d62911b16f9b99b8a6a6cbb72f91
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133832_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133845_G8441_Brazil.JPG
+  sha256: aae7877cfd594125b9e57a0d7ef44b2b635a76e839856ef11101b36d116e153c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261105_133845_G8441_Brazil.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg
+  sha256: cc8811f6607f82ed5df83e06ee07d532d45fbd9eed319ddccdd415b0533ffaa5
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155921_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155940_Pixel_9_Pro_Colombia.jpg
+  sha256: 7da61fb15754f187a5243dcf87d0f005eae511b066577bda13518cd3e2a32252
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260927_155940_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260929_124258_Pixel_9_Pro_Colombia.jpg
+  sha256: d31e3e5c405565d0e24592b857234a2b548f5f4b1173a78dc196344ba92fa2f3
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20260929_124258_Pixel_9_Pro_Colombia.jpg
 - path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261002_121227_Pixel_9_Pro_Colombia.jpg
   sha256: 071329e9fd9b1d9707cb27c4511c2ada4a548d1a17cdde1b483938325ab39ee6
   source: pool
   folder: random_date_raccoon
   split: test
   group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261002_121227_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261004_103716_Pixel_9_Pro_Colombia.jpg
+  sha256: c589da66425009382832b6f3ffd03dbf72998d8d08ef5a2451ce2e3e50bb6951
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261004_103716_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_112627_Pixel_9_Pro_Colombia.jpg
+  sha256: 46e98e999a64eae9d09a0684f82f8d4c96017d86dba6d9e6ef01e5ef2593b4ad
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_112627_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_112643_Pixel_9_Pro_Colombia.jpg
+  sha256: 7e920a350dd16022ddeb3b1e1c0ec36631de14c9941a0aa40ebc22144aac6d43
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_112643_Pixel_9_Pro_Colombia.jpg
 - path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120546_KB2005_Colombia.jpg
   sha256: f5a2d2ee5320fe54facecc72b16660838c87adafcff11a600b38d0f2b638173b
   source: pool
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120546_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120622_iPhone_15_Pro_Max_Colombia.heic
+  sha256: e67dbd1c7137306d733ff1c6b9c361ebc11c503742b538ffd80f418a95bc6851
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120622_iPhone_15_Pro_Max_Colombia.heic
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120727_iPhone_15_Pro_Max_Colombia.heic
+  sha256: 2543cab61989d63d135e71a3826fd7a3d9354e4745439cabc6dfcb6ac9bc033a
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261016_120727_iPhone_15_Pro_Max_Colombia.heic
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112822_Pixel_9_Pro_Colombia.jpg
+  sha256: d93f0d585d2c04d72fe27b697a37a2a41a385e1b39644e9b85e041a162319b42
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112822_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112844_Pixel_9_Pro_Colombia.jpg
+  sha256: 176c112eb73370326851ae96ee50d4fb648e2867e307efe4d886715570746a07
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112844_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112903_Pixel_9_Pro_Colombia.jpg
+  sha256: d44a5a92943f0ac92bbc8ac42bd6f1aa4f72a5b051f5cc124270f10c2c4766cb
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_112903_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_115331_Pixel_7_Colombia.jpg
+  sha256: 33f36f86e2ace4e552ceda991b92bba5b104b74a2440347b718d81135dbdfa11
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_115331_Pixel_7_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_115345_KB2005_Colombia.jpg
+  sha256: b2dd54a06c13db6e512a1f7a5fb29c2e0083d4e6f4e143ac7238abd0b04b4a55
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261017_115345_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261018_090722_Pixel_9_Pro_Colombia.jpg
+  sha256: 9937d8e536c540b054769b19dbb171fb1514b7ea281a133b915376a470cb4df2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261018_090722_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261018_091054_Pixel_7_Colombia.jpg
+  sha256: e876b595dcf817bb6029567f8d10e95c2d5b5354e449ce0ab13968f12ee6f481
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261018_091054_Pixel_7_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261019_173807_Pixel_9_Pro_Colombia.jpg
+  sha256: d01ffd1fd4518f203b9174d83d1601543f6a3726c0aa439454dc1dd3aed9656a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261019_173807_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_103335_Pixel_9_Pro_Colombia.jpg
+  sha256: a8e52c65f16a68094852d247ca09443fca990f741fe44d654959a35f51176fa9
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_103335_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_103933_Pixel_7_Colombia.jpg
+  sha256: 9ba6566531130623d53994e1df1ced876a917a36f6a1c55bf7e739bf46e7b9ea
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_103933_Pixel_7_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122754_iPhone_15_Pro_Colombia.HEIC
+  sha256: e4cc2ab3d5ac44973223020a8a08fccd72da3c2fc0e6954b7a3e04ddbb56e452
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122754_iPhone_15_Pro_Colombia.HEIC
 - path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122800_iPhone_15_Pro_Colombia.HEIC
   sha256: a5035a750b40181adcc541a29ff962ed84fbfefb63d7545b8252d1aacf5c7e00
   source: pool
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122800_iPhone_15_Pro_Colombia.HEIC
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122811_iPhone_15_Pro_Colombia.HEIC
+  sha256: d874af7a10e61c5e90e38363898620f13489914429f32bc81f9d8995372d83c4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122811_iPhone_15_Pro_Colombia.HEIC
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122818_iPhone_15_Pro_Colombia.HEIC
+  sha256: 9457a13e1ab87910af5ce9f77c63ba9b293bb0ac8ece47bd5b1e5ccc672a3d7d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261020_122818_iPhone_15_Pro_Colombia.HEIC
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112026_Pixel_9_Pro_Colombia.jpg
+  sha256: 70f2cdb9d847e82d94b49bd5d3de039a158e5d6f9b39f008e03b6994c0a8b2dd
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112026_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112030_Pixel_9_Pro_Colombia.jpg
+  sha256: b66ebb145fc8f6e6aa537198046fd1d510ceda96fb6a836b101c271ba228ad49
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112030_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112033_Pixel_9_Pro_Colombia.jpg
+  sha256: e8f1ab693a12fae30b9a6ad7c25d880be84b00d66665d81a0a0e0eb3418832ff
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112030_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112528_Pixel_9_Pro_Colombia.jpg
+  sha256: bf16ac5a9a0c11fa37c5b210782e4a296d47d10371795693cd5d90fbe66eca54
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112528_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112539_Pixel_9_Pro_Colombia.jpg
+  sha256: 09ef59ee90faa03d9ce6602c4e1fae3c5d0b2202f27c07cd822a270a7a60ac9f
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112539_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112553_Pixel_9_Pro_Colombia.jpg
+  sha256: 9b1254647deea9e6af33feac5be00211c8c8c5d11a4c982e1318007ec84d9171
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112553_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112601_Pixel_9_Pro_Colombia.jpg
+  sha256: c3b6c76d4629e5aa865aae66cfed6cd8756433a714082c53597447b3faa9019a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112601_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112612_Pixel_9_Pro_Colombia.jpg
+  sha256: f266eb33526ddd3401c54e1cf05119eb75ea19c84799d2332513df1e56b5ec7c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112612_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113647_KB2005_Colombia.jpg
+  sha256: be8838414291fe4c44859ca4714308d9ede09b045032777682e0f40900e501c3
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113647_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113705_KB2005_Colombia.jpg
+  sha256: c0a3c3460f49e3f26b3750af028f5f03e6de430591a950724948702929f10e02
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113705_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113730_KB2005_Colombia.jpg
+  sha256: 3375342e6aed3863dd50a3a9461b270392589628ff9d2dfa9e6bcefa719501b9
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113730_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113759_KB2005_Colombia.jpg
+  sha256: 4a1a6cbd6cf18dadba43a31baab2966a1595beffc9a3746bbf362ca0e9cb4310
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113759_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113910_KB2005_Colombia.jpg
+  sha256: a9ac3e1a4f05c06bb4badbf84720192107c1bb4e68421c9e0081336e601a4828
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_113910_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122643_OnePlus_Colombia.jpg
+  sha256: 0dd44b468885bdf1ceea745a782f3e302efe42836401492239a263151dcf01fd
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122643_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122658_OnePlus_Colombia.jpg
+  sha256: c5c7982484b2fbecda1069a7bc2274ab734a4b0a214670a1fd210434b6d6a0a3
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122658_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122725_OnePlus_Colombia.jpg
+  sha256: f2f42827a0764079164b0a25847124c2555c972892728377917a8c07a0ff34a5
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122725_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122736_OnePlus_Colombia.jpg
+  sha256: 4317320612c12d25ae3eeaedf4107c0f5f3d1dcdc5f86f5093a279e4f102ae3f
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122736_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122751_OnePlus_Colombia.jpg
+  sha256: 6e3d42950a1e0c3f8d992c308feabaabe7237ed48aaa9553d6bd7aaaa46a98de
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122751_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122759_OnePlus_Colombia.jpg
+  sha256: 9328828a7c51a49fcdbbca37d76e7510904722c0bff67f4882ca0b7b6add3f8d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_122759_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144015_G8441_Colombia.JPG
+  sha256: 71d5bc2206293b82979d225e6ab2ec1264381a21ea21b939c3b3b414c96721d0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144015_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144026_G8441_Colombia.JPG
+  sha256: 85301b8fe2109dcd7f8bb251c59a79466fed617f978ef70554d91a5713d17359
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144026_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144036_G8441_Colombia.JPG
+  sha256: 47d24a01cf86e79dfc642d02dcf6cbd5a2505089f821c5cdbe433712910277ae
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144036_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144055_G8441_Colombia.JPG
+  sha256: 2de3d0a28107699ae26a8ddbebaccc3248de48812e7549f293e5d98e8681a288
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144055_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144122_G8441_Colombia.JPG
+  sha256: 4f4a17b705fe937ed394e7cfe5524e32b1599f616bb6fd573da8624efa69945a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144122_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144232_G8441_Colombia.JPG
+  sha256: c585606bf9194a76d73dd0ffc0c99b3aa7136bc0e32211c0cd917e08d6860cad
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_144232_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104301_KB2005_Colombia.jpg
+  sha256: 7ef87693fc2449e48859fb155ace3de95b577dc93c197c3844b2f518703d3aa9
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104301_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104306_KB2005_Colombia.jpg
+  sha256: 34c961dcc5b90f74cb63247f462bee60cd48cd5016473cb356c2cbd2789b02be
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104306_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104643_Pixel_9_Pro_Colombia.jpg
+  sha256: 6c0d19dec136aafd61344b69fa1a48fbd3eff2e125cf133cec4fbaf528ba7679
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_104643_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_110753_iPhone_13_Colombia.HEIC
+  sha256: cda3032a2d1985f41e52408c48c0ea4b3b6e3b55b39efe064f6fcac63b022084
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_110753_iPhone_13_Colombia.HEIC
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_110804_iPhone_13_Colombia.HEIC
+  sha256: 10f810c41ec87f97fd56fe2aa8b7a2469a97935158e79c6c2cf9f43d275daf5f
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_110804_iPhone_13_Colombia.HEIC
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123725_OnePlus_Colombia.jpg
+  sha256: 0e306671d5b22996cac092ff24a51cb730143f40104e06744333f4e371b50f0e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123725_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123740_OnePlus_Colombia.jpg
+  sha256: bc4b8ebe9434ebf71ef27d12e8f2df8611d9cceacb8c63189da924bc8ab02bb3
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123740_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123806_OnePlus_Colombia.jpg
+  sha256: 74057f0417494afc4428445b956cef248b202a4cb9837e285778d626e1170fd5
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123806_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123842_OnePlus_Colombia.jpg
+  sha256: 2a47f6dc9a85cabb2ca3f09fee15c2e2399eded094ed1ac987248a81567691ad
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/segmenter_positives/20261103_123845_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123849_OnePlus_Colombia.jpg
+  sha256: 79cb19ec9503141e9edee8d6864f05855f48a03c5407c66791187fffb012d8da
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_123849_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144046_G8441_Colombia.JPG
+  sha256: 7989d2b4991f5deedde8bd9cdf93e86b07f8953abaeb22ed44d5991372952514
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144046_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144111_G8441_Colombia.JPG
+  sha256: 5e10d9204a501e475c63df5fd98b6521e1afc20dbe8314ad8a3585c80b905ba6
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144111_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144126_G8441_Colombia.JPG
+  sha256: d75825179cff23f54f3dea5997bf509085d92bea6c80eb5526397924a73c36d0
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144126_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144142_G8441_Colombia.JPG
+  sha256: e12df9665d8834e8a545047c4b31df7cf6c7219288018101eb638ca0bd04ee72
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_144142_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150448_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 5db7f65ee858cd73626e23b51b98005541149e25e7dececc200e666130c1ba28
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150448_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150506_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: f299fdcaf6a05bf87dab244c6f4cde084b8ff00fc254102f9266cca0c4de3a0a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150506_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: fa4fbc7f9cf74ce5e6c88ca3f517983fe7448c17c72c87176a2bdf8d64a24525
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150542_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: d1b67bdb3211723bd09de8e3d325c02f9d2689d84d99557c9e48631baa55edbc
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150542_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150603_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 1602d74acd415632445bb73fc0007a95134f706257a0d4db2d94965f9d5f7c81
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150603_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150637_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: ff4ee5767016d6c9620dadcc297a4954e4410a13dbf3db6f63fa4aab912e5f1d
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150637_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150647_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 09cbda8c8a646a0fff301f4c9c13f0a01808388852c1fdc33940e4af0845a327
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150647_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150712_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: c1a5c84bbfdc3c385023afbe9e07de6b58a3e3c1dd7e009187a74ef124cb67df
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150712_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_101806_Pixel_9_Pro_Colombia.jpg
+  sha256: a94ecf85faeb49c653319ad1db3831d9724206102512cb41a7b6eeba47335c83
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_101806_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_122642_Pixel_9_Pro_Colombia.jpg
+  sha256: 8956946e1bf26cf869ce76819fc3fb3b733cc745c995e45b7871b441f7c82f0b
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_122642_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_122648_Pixel_9_Pro_Colombia.jpg
+  sha256: 3724da450858354770d931e18719cab1c32c09b5431d48024a48a9eb88d88dc0
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_122648_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131238_OnePlus_Colombia.jpg
+  sha256: 8e80bf89fb2dc7e39e5937fd84c48054fc703ee65196bc5023fdf511e020b1cf
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131238_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131244_OnePlus_Colombia.jpg
+  sha256: 9b4c0f45a28b4cdcc350f88a6500c0b42b2d7b25b8fb8130c7560708866b0172
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131244_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131255_OnePlus_Colombia.jpg
+  sha256: 36e9209cb65d3d627f3fe773fbd8e4ba34c8720ab66d52c65848685a702f3f0d
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_131255_OnePlus_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151332_G8441_Colombia.JPG
+  sha256: 54e6b8666aaa3d223dd442ed6ae3967b49f95fcd1d96a48f13a9a87f03705644
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151332_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151352_G8441_Colombia.JPG
+  sha256: 4902c15c3ad791b6c293762aef9cb0fecc553e47cded3c267c2e928b177f4e03
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151352_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151414_G8441_Colombia.JPG
+  sha256: 1a218bb78c1e7d597f74f96259f54ef7f8317c23d9fb302eff77da3be3a7f406
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151414_G8441_Colombia.JPG
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114137_Pixel_9_Pro_Indonesia.jpg
+  sha256: 6cbad0e868cb11944b20687b75b815591aecfad689501a1beb2584b5122361fd
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114137_Pixel_9_Pro_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114144_Pixel_9_Pro_Indonesia.jpg
+  sha256: 5718ae1688ad100ec9ee3857ff70def81fcb1c439f803957678c26354464ba07
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114144_Pixel_9_Pro_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114150_Pixel_9_Pro_Indonesia.jpg
+  sha256: 2157676b88fa8fde46b02dbe85b9ec17898462ee812cbefdab8dbcf98e6e9d39
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114150_Pixel_9_Pro_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114208_Pixel_9_Pro_Indonesia.jpg
+  sha256: cb6b9812f5923eabbed3e68c2fc0b47c95c801c3d42753ceabfa6ae4a0f57165
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114208_Pixel_9_Pro_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114229_Pixel_9_Pro_Indonesia.jpg
+  sha256: 07dc64f061721f173b9a378821c5b75d3202c0143611584cda1d016f372fd333
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114229_Pixel_9_Pro_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114246_OnePlus_Indonesia.jpg
+  sha256: 92d1f09e69055edee2b828bf0ce678714777a9d89504c2d9dba0ee0f14635a05
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114246_OnePlus_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114308_OnePlus_Indonesia.jpg
+  sha256: 96d70c2a85c67cf64c0176fcc2a722c15a6fca2d5d6ac278dad776fa2b30d214
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114308_OnePlus_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114349_OnePlus_Indonesia.jpg
+  sha256: 610a405f225f432a2530ab3cc643a323316289d71ef9894ee96d1ad2936d55cf
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114349_OnePlus_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114400_OnePlus_Indonesia.jpg
+  sha256: 464997e9bd96f55b82a6a321d8ab30903b9c50e43fa3ae87bcb159d0e817b871
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114400_OnePlus_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114507_OnePlus_Indonesia.jpg
+  sha256: c66ffd053130aff8ece5b8d64f0182711d40449b32c8a9da5c0c59ef6e83ea64
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_114507_OnePlus_Indonesia.jpg
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_134546_G8441_Indonesia.JPG
+  sha256: a0f68816449bb45dd4c6c293166864506e1b09d3cf9c83bb5da9e3f7217910cd
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_134546_G8441_Indonesia.JPG
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_134610_G8441_Indonesia.JPG
+  sha256: 0c654044068e281d398f2d943ac0ef1e4371574aabe68d0adbee9d04f82fa717
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_134610_G8441_Indonesia.JPG
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_134621_G8441_Indonesia.JPG
+  sha256: 68e877ff23da2ead01c61d72b59db825db7223b4a4f0d421a40de739f2055bee
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_134621_G8441_Indonesia.JPG
+- path: dataset/random_date_raccoon/class_015__Indonesia/20261105_134632_G8441_Indonesia.JPG
+  sha256: e58322a6d0d16798edd68af337c7b571ce3ed745a341adf1e7c272d4590e3f25
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_015__Indonesia/20261105_134632_G8441_Indonesia.JPG
 - path: dataset/segmenter_positives/20261023_125142.jpg
   sha256: e6b50f6b336a7faaaa119a2526e13939c81428e7fd2a76cdb36621d2165c1ab1
   source: segmenter_positive
@@ -6018,6 +7706,131 @@ photos:
   source: segmenter_positive
   split: validation
   group: dataset/segmenter_positives/20261102_132057_Pixel_9_Pro_Brazil.jpg
+- path: dataset/segmenter_positives/20261103_103842_Pixel_9_Pro_Colombia.jpg
+  sha256: f7c674226b56c66c2e4e79a7bb4197be9bdee1c461df3c99b8a0321e63b327a3
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_103842_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104236_Pixel_9_Pro_Colombia.jpg
+  sha256: 4aa4764daf00ac6f5b7b8612ffb24f54e442962903a931b8da23445617536c7e
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_104236_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104614_Pixel_9_Pro_Colombia.jpg
+  sha256: 0c988d6f1a819f64227d7ea7b6611237fc86a5d5259aa3dc4bfc397747e8db0f
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_104614_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104621_Pixel_9_Pro_Colombia.jpg
+  sha256: e37347a497e311654eb84c999eaed9600dccdc7470e7d3edc005b8002a2d5b20
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/20261103_104621_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104635_Pixel_9_Pro_Colombia.jpg
+  sha256: 818fbe7fc3fa0f4c6b2bad550e05877353dabd901caaa54ea0223c779dc82d26
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_104635_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104658_Pixel_9_Pro_Colombia.jpg
+  sha256: fe65882d160e7e9a7a2070a6025aa5c741462571096a3e1b1f94d29c9c9dc451
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_104658_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104711_Pixel_9_Pro_Colombia.jpg
+  sha256: 87ca0c402e877b29d0ab920f95306ece44b9f28f094026f68639792c4b18b63f
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_104711_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_104720_Pixel_9_Pro_Colombia.jpg
+  sha256: b96eb5d13eb3b6690832045d4f1e2ab32a0fcde3d14739574ec6c06e170eb44a
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_104720_Pixel_9_Pro_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_123715_OnePlus_Colombia.jpg
+  sha256: 328f7799aa59f673f79e6e7054347d1ff4f73a3c289c8c7d4328436301802930
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_123715_OnePlus_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_123732_OnePlus_Colombia.jpg
+  sha256: 5738bf9cb198a09c7e0baaec382f72f1bf94332e3d861d7d4960b76d84b29f7c
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_123732_OnePlus_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_123756_OnePlus_Colombia.jpg
+  sha256: e78bb306336081bac250d9601e9c71704f3c2617f96322f60785b3f2406fb268
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/20261103_123756_OnePlus_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_123829_OnePlus_Colombia.jpg
+  sha256: 8223462ac90f1a11142c75985a822d93dce4ee500ff59d9711a77371d16d58f7
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_123829_OnePlus_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_123845_OnePlus_Colombia.jpg
+  sha256: f2ae3fb01fa2d7dbaa641d0bbdfee8ae9eee5bfa47a4e4e74bcf01740831658b
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_123845_OnePlus_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_144040_G8441_Colombia.JPG
+  sha256: 1cd049841c26877d98eadf7a722cbcbd4dc15fd5795288e918c0df4f788da5c2
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_144040_G8441_Colombia.JPG
+- path: dataset/segmenter_positives/20261103_144105_G8441_Colombia.JPG
+  sha256: 2bca26f4926d4c472b2c9b6bd4e07dfa115daed125cc5fc09c71a09a97e950c5
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_144105_G8441_Colombia.JPG
+- path: dataset/segmenter_positives/20261103_144116_G8441_Colombia.JPG
+  sha256: 9ad9c460fbc78384baf9bc55acdd44b5f7a70196cac45f18363f8a5abfb9a152
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/20261103_144116_G8441_Colombia.JPG
+- path: dataset/segmenter_positives/20261103_144137_G8441_Colombia.JPG
+  sha256: 18281e99bac9662b23a523b234c46aa2b1cf8fa4a09f617777bffb9794da6754
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_144137_G8441_Colombia.JPG
+- path: dataset/segmenter_positives/20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: bc188f73459cf243a5092e171966860e21c987016eaa194782ea382f8367a397
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 69d1f16b83f26f361ada7fdb904e8e276d389c2a22ca7115cbfb78e1a306cf6a
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: cb0c97207e721c83028ebdff16a139ae62909b62f6ac9788c666e753130d5677
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150550_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 7546ed4e500cb51cf59d29f4d944ecd99e3280ebce11fc2254021f90c9f72fbd
+  source: segmenter_positive
+  split: validation
+  group: dataset/segmenter_positives/20261103_150550_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150626_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: b42a12e8b3056928824a42c1587de5d7a893ed425578c95b5666e91b42908999
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150626_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150641_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 552f2f0bfe586cd6e7f96fdd01b41322d1406b73316bc01280e2b1f774724bbd
+  source: segmenter_positive
+  split: test
+  group: dataset/segmenter_positives/20261103_150641_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150704_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 6df8c032f1666b6ab6926715cee629883a92615cfc6df46f43e350924ea4b1db
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150704_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+- path: dataset/segmenter_positives/20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+  sha256: 531866ff68e1821b76d8b3c994dacb134c7dec4ec416bcc4811bdfd7c88605a4
+  source: segmenter_positive
+  split: train
+  group: dataset/segmenter_positives/20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia.jpg
 - path: dataset/segmenter_positives/DSC_0001.JPG
   sha256: f40f89129abc211fa16f824b62c650d5a2f19c666595bd9a57884a3c14eb2d32
   source: segmenter_positive
@@ -6150,11 +7963,6 @@ photos:
   group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
 - path: dataset/segmenter_positives/PIC_20260830_200207.JPG
   sha256: fe74916c7f35372f1f9bd27601abbd889e8bc3b3266da33130dd7ac4a97137f9
-  source: segmenter_positive
-  split: test
-  group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
-- path: dataset/segmenter_positives/PIC_20260830_200224.JPG
-  sha256: b3071423896a03d93959b0ca10054608d2408c15a722a559ae73fbc2cb14ce1b
   source: segmenter_positive
   split: test
   group: dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200041.JPG
@@ -6753,11 +8561,6 @@ photos:
   source: segmenter_positive
   split: train
   group: dataset/segmenter_positives/PXL_20261006_064901464.jpg
-- path: dataset/segmenter_positives/PXL_20261007_043818022.jpg
-  sha256: 6f9d2dcbd82f898de0e16f5e6aab92f4bd28e029e6dc9b3a4c5f449f813797b1
-  source: segmenter_positive
-  split: train
-  group: dataset/segmenter_positives/PXL_20261007_043818022.jpg
 - path: dataset/segmenter_positives/PXL_20261007_055432129.jpg
   sha256: a5d9202800aa168f03dddc4da87f1aa390f0de5e9706064b7e8bbf24fc758323
   source: segmenter_positive

@@ -1,0 +1,8 @@
+{
+  "examples": [
+    {"name": "brazil-grinder", "caption": "Roasted, in a grinder", "country": "Brazil"},
+    {"name": "ethiopia-green", "caption": "Green, in a tray", "country": "Ethiopia"},
+    {"name": "indonesia-roasted", "caption": "Roasted, close up", "country": "Indonesia"},
+    {"name": "cappuccino", "caption": "A cappuccino, no beans", "country": null}
+  ]
+}

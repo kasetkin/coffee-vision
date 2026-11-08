@@ -1,0 +1,7 @@
+# efforts.sh logged the front's effort 8 and 9 failures as "failed": 0 (a bug, since fixed: $(basename) ran before
+# $? was read). The rerun of effort 8 on srgb.jpg on the front, 2026-11-03, under MemoryMax=500M, MemorySwapMax=0,
+# copied from the terminal:
+exit 137
+systemd[137431]: run-ra2fc298f1fbc4f819b00ad7710f7bc0f.scope: A process of this unit has been killed by the OOM killer.
+systemd[137431]: run-ra2fc298f1fbc4f819b00ad7710f7bc0f.scope: Failed with result 'oom-kill'.
+MemAvailable:     616716 kB   (after the run)

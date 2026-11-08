@@ -1,0 +1,4 @@
+{"photo": "dcip3_60mp.jpg", "effort": 7, "threads": 1, "buffering": null, "bytes": 7814449, "sha256": "fd38df95606ba3e8642461dc268f70f9a2f698a765afd0f5df6c383ecf32105c", "decoded_as": "JPEG8", "size": [8944, 6708], "decode_s": 0.18, "colour_s": 9.67, "encode_s": 22.52, "total_s": 32.37, "peak_after_decode_mb": 245, "rects": 20, "pixels_converted": 60858048, "peak_mb": 533}
+{"photo": "dcip3_60mp.jpg", "exit": 0, "cgroup_peak_mb": 500}
+{"photo": "p3pixel50mp.jpg", "effort": 7, "threads": 1, "buffering": null, "bytes": 4456517, "sha256": "ad9d0188d37df1aab483411228522113002a5532297d6696c11b129f9525eb9a", "decoded_as": "MPO8", "size": [6144, 8160], "decode_s": 0.12, "colour_s": 7.8, "encode_s": 18.16, "total_s": 26.09, "peak_after_decode_mb": 212, "rects": 12, "pixels_converted": 50692608, "peak_mb": 480}
+{"photo": "p3pixel50mp.jpg", "exit": 0, "cgroup_peak_mb": 459}

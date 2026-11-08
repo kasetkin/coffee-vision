@@ -38,6 +38,18 @@ _Avoid_: Main dataset
 A positive the owner chose for the segmenter because its setup differs from the pools (framing, container, distance).
 _Avoid_: OOD positive
 
+**Example photo**:
+A photo the page offers a visitor to try the service with, in place of their own. It may be a positive or a negative. It is never in any training or evaluation set, so no model the visitor's answer comes from has seen it.
+_Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a release with)
+
+**Canonicalization**:
+Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization".
+_Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
+
+**Fixture**:
+A photo the deploy runs through every release to check it, fixed until the deploy's own checks change. An example photo is never a fixture, even though the deploy checks its answer too: the examples are the page's, and they may change on their own.
+_Avoid_: Test photo, example photo
+
 ## Mask quality
 
 **Judge**:

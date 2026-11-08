@@ -39,6 +39,7 @@ run() {  # run <name> <command...>
 
 run leak_check python -m coffeecv.leak_check
 run ticket_check python -m coffeecv.ticket_check
+run lock_check python -m coffeecv.lock_check
 run ruff python -m ruff check --output-format concise
 run coverage_report python -m coffeecv.coverage_report
 run "unittest ($TIER)" python -m unittest discover -s tests

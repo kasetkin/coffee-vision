@@ -26,9 +26,8 @@ from pathlib import Path
 import torch
 from PIL import Image
 
+from coffeecv.canonical_store import load_for_record
 from coffeecv.config import REPO_ROOT, RunConfig
-from coffeecv.dataset import load_rgb_image
-from coffeecv.repo_files import sha256_file
 from coffeecv.seg_dataset import load_seg_dataset, photo_id
 from coffeecv.segment_beans import NAMED_SEGMENTERS, BeanSegmenter, d4_box, mask_sha256, named_params
 
@@ -56,10 +55,7 @@ def predict(entries: list[dict], seg: BeanSegmenter, out_dir, cfg: RunConfig) ->
     rows = []
     t0 = time.perf_counter()
     for n, e in enumerate(entries, 1):
-        path = REPO_ROOT / e["path"]
-        if sha256_file(path) != e["sha256"]:
-            raise ValueError(f"{e['path']}: sha256 differs from the list it came from")
-        mask = seg.predict_mask(load_rgb_image(path))
+        mask = seg.predict_mask(load_for_record(e["path"], e["sha256"]))    # its canonical photo (ML-19 P6)
         Image.fromarray(mask).convert("1").save(out_dir / f"{e['id']}.png", optimize=True)
         box = d4_box(mask) if mask.any() else None
         own = {k: v for k, v in e.items() if k not in ("id", "path", "sha256")}

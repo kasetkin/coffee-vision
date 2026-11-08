@@ -1,0 +1,11 @@
+# ML-19 P3: the 7 photos over 60 MP, live models (dino3b16_segxl0v6_country_aug8_s42 with xl0_v6_s42), 2026-11-03.
+# old: the original as load_rgb_image decodes it (unrotated, no colour management; downscale_answers.json);
+# new: its canonical photo's sRGB (upright, INTER_AREA to <=50 MP, colour-managed), analysis/ml19/p3/seven_infer.json.
+20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil: old predicted, Brazil 0.806, mask 0.1557, [16320, 12240] | new predicted, Brazil 0.877, mask 0.1608, [6123, 8164] | same verdict and top-1
+20261103_150500_Galaxy_Z_Fold8_Ultra_Colombia: old predicted, Colombia 0.931, mask 0.1942, [16320, 12240] | new predicted, Colombia 0.847, mask 0.1958, [6123, 8164] | same verdict and top-1
+20261103_150506_Galaxy_Z_Fold8_Ultra_Colombia: old predicted, Colombia 0.892, mask 0.1678, [16320, 12240] | new predicted, Colombia 0.698, mask 0.1710, [6123, 8164] | same verdict and top-1
+20261103_150511_Galaxy_Z_Fold8_Ultra_Colombia: old predicted, Colombia 0.804, mask 0.1647, [16320, 12240] | new predicted, Colombia 0.861, mask 0.1656, [6123, 8164] | same verdict and top-1
+20261103_150520_Galaxy_Z_Fold8_Ultra_Colombia: old REFUSED (out of distribution), Ethiopia 0.446, mask 0.0009, [16320, 12240] | new REFUSED (out of distribution), Ethiopia 0.339, mask 0.0066, [6123, 8164] | same verdict and top-1
+20261103_150531_Galaxy_Z_Fold8_Ultra_Colombia: old predicted, Colombia 0.863, mask 0.8311, [10584, 7936] | new predicted, Colombia 0.705, mask 0.8253, [6122, 8165] | same verdict and top-1
+20261103_150726_Galaxy_Z_Fold8_Ultra_Colombia: old REFUSED (out of distribution), Brazil 0.373, mask 0.0000, [16320, 12240] | new REFUSED (out of distribution), Brazil 0.285, mask 0.0000, [6123, 8164] | same verdict and top-1
+# 7 of 7 with the same verdict and top-1
