@@ -62,7 +62,10 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
 #   the numeric id) and renaming it would rewrite a DVC-tracked directory,
 #   invalidating the box rig's crop stage and forcing a re-crop -- real cost for
 #   a cosmetic gain. Remove this entry if the directory is ever renamed.
-ACCEPTED_DRIFT = {"009"}
+#   class_013: random_date_raccoon holds `class_013__Brazil_SulDeMinas` and, since ticket ML-16 D10 (2026-11-06),
+#   the owner's `class_013__Brazil_Decaff`: a second coffee of the same country, so the same class (ML-3), kept in
+#   its own folder by the owner's choice. The loader pools a class's folders by id.
+ACCEPTED_DRIFT = {"009", "013"}
 
 # Deliberately outside the pipeline -- flat directories with no class_* children,
 # absent from dvc.yaml's segcrop foreach on purpose. Listed here so check 2 does not

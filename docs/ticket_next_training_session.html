@@ -235,6 +235,19 @@
           (Peru, Ethiopia: light roasts in a grinder) were both answered Guatemala, by the live model too.
           <code>vietnam-robusta</code> left <code>examples.json</code>, the script and the page's files; its original stays
           in <code>dataset/example_photos/</code>, still in no set.</td></tr>
+      <tr><td class="id">D13</td><td>D10's 87 photos join the segmenter dataset (<code>random_date_raccoon</code> is a whole
+        folder, a step D10 missed): 22 land in its test split, at least 5 of them in exp280's classifier test split,
+        which the shipped probe was fitted on. Refit the probe?</td>
+        <td>(a) ship the probe as is, noted here (b) refit and re-measure it (about 3 h)</td>
+        <td>(a), 2026-11-08. The probe serves as fitted; its report (<code>analysis/ml16/ood_eval.txt</code>) was measured
+          before the 87 joined, on photos it was not fitted on. A later <code>ood_eval</code> of this probe on the current
+          dataset includes a few photos it was fitted on; the next refit drops them.</td></tr>
+      <tr><td class="id">D14</td><td>The release (ML-16, ML-19, OPS-16): the example files, the host's upload, the merge</td>
+        <td>&mdash;</td>
+        <td>2026-11-08, as recommended: the four examples committed as canonical JXLs (ML-19 D17, P10's call): the front
+          passes them on as they are, where the q90 Brazil took 413 MB and 23 s to canonicalize under its 500 MB cap; masks
+          within IoU 0.998 of the accepted ones, the same answers. The identical graphs copied on the host by hand, as in
+          ML-13. The branch joins <code>main</code> by a merge commit, never a fast-forward (ADR 0017).</td></tr>
     </tbody>
   </table></div>
 
