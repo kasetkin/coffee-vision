@@ -10,18 +10,19 @@
     blocks a script on any other origin from reading its answer, because the front sends no
     <code>Access-Control-Allow-Origin</code> on it. This ticket adds CORS to <code>/analyze</code> at the front's nginx,
     on every answer including the front's own refusals, and says so in the public contract. Written 2026-11-08;
-    D1&ndash;D5 and D7 decided the same day, D6 open; not planned, not implemented.</p>
+    D1&ndash;D7 decided the same day (<a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>);
+    planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D5 and D7 decided 2026-11-08, D6 open; not planned, not implemented</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D7 decided 2026-11-08; planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (owner)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Front: public API access from browsers</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>tests/test_front_site.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code> ("For agents"), <code>docs/inference_path.html</code>, a front release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, <code>tests/test_front_site.py</code>, <code>webapp/static/llms.txt</code>, <code>webapp/static/openapi.json</code>, <code>webapp/README.md</code> ("For agents"), <code>docs/inference_path.html</code>, <code>docs/logging_plan.html</code>, <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), <code>docs/adr/0035-the-api-is-open-to-pages-on-any-origin.md</code>, a release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">At the next deploy, the front's site adds CORS headers to <code>/analyze</code>'s answers and answers its preflight. The page, the check service, the inference host and the models do not change.</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At the next deploy, the front's site adds CORS headers to <code>/analyze</code>'s answers and answers its preflight, and its access log gains the request's <code>Origin</code>. The page, the check service, the inference host and the models do not change, but the front's site ships only with a full two-host release, which stops photo answers for under 2 minutes (ADR 0026).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
@@ -197,7 +198,9 @@
       <tr><td class="id">D6</td><td>Does "the API is open to pages on any origin" get an ADR?</td>
         <td>(a) yes, if D1 is (a): it binds later tickets (a per-origin limit, a key, analytics) and is hard to take
           back once other sites depend on it (recommended) (b) no, a D-number here is enough</td>
-        <td>Open.</td></tr>
+        <td><b>(a)</b>, 2026-11-08:
+          <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>, "The API is open to pages on any
+          origin".</td></tr>
       <tr><td class="id">D7</td><td>How is the release checked on the domain?</td>
         <td>(a) <code>--verify</code> gains <code>curl</code> checks (a request with an <code>Origin</code> header
           gets <code>Access-Control-Allow-Origin</code> on a 4xx; <code>OPTIONS</code> gets a 204), and the owner
@@ -251,9 +254,15 @@
       is never doubled. D7 (how the release is checked) added and decided. The other side is called a
       <b>cross-origin caller</b> in this ticket and the contract; it does not enter <code>GLOSSARY.md</code>, which
       holds the project's own terms, not the web's. D6 open.</div>
+    <div><div class="when">2026-11-08</div>D6 decided (a):
+      <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a> written. Triage set to
+      <code>ready-for-agent</code>. Planned in <a href="plan_cors_analyze.html">plan_cors_analyze.html</a>, P1&ndash;P4.
+      Not implemented.</div>
   </div>
 
-  <footer>Related: <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+  <footer>Related: <a href="plan_cors_analyze.html">the plan</a>,
+    <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
     <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
     <a href="ticket_front_and_inference_host.html">OPS-15</a>,
     <a href="ticket_webapp_request_queue.html">the request-queue ticket</a>,
