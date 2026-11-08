@@ -5,6 +5,8 @@
 webapp/deploy/coffee-cv-front.nginx.conf.template is what the proxy serves for the domain (ADR 0031): TLS on a local
 port that the proxy's stream map reaches, the page and the agent files from the release, and /analyze through the gate
 (D11), the 40 MB cap (ML-19 D23; 10 MB by OPS-16 D8 before) and the check service (P1) to the inference host; its offline 503 kept apart from busy (D12).
+Every /analyze answer is readable by a cross-origin caller, and its preflight is answered before the gate (OPS-19,
+ADR 0035).
 The visitor's IP is in the stream block's session log alone (webapp/deploy/coffee-cv-stream.conf.template, D20),
 rotated at 30 days. Here the stream server with that snippet, the site, the real check service and a fake inference
 host all run on loopback, the /var/log/nginx paths moved to a scratch directory; the visitor connects from 127.0.0.5,
@@ -46,6 +48,7 @@ DOMAIN = "coffee.test"
 VISITOR = "127.0.0.5"   # the visitor's address; the stream hop to the site comes from 127.0.0.1
 NGINX_LOG_DIR = "/var/log/nginx/"
 STATIC = REPO / "webapp" / "static"
+ELSEWHERE = "https://other-site.example"   # the origin of a page on another site (OPS-19)
 
 
 class Visit(http.client.HTTPSConnection):
@@ -172,6 +175,7 @@ http {{
     def setUp(self):
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
+        FakeInferenceHost.extra_headers = {}
 
     def visit(self, method: str, path: str, body: bytes | None = None, headers: dict | None = None):
         """Opens the request; the caller reads the response."""
@@ -185,6 +189,23 @@ http {{
     def answer(self, body: bytes) -> tuple[int, dict]:
         resp = self.visit("POST", "/analyze", body)
         return resp.status, json.loads(resp.read())
+
+    def assert_cross_origin(self, resp):
+        """A cross-origin caller can read this answer and its X-Request-Id (OPS-19 D1, D4), each header sent once."""
+        self.assertEqual(resp.headers.get_all("Access-Control-Allow-Origin"), ["*"])
+        self.assertEqual(resp.headers.get_all("Access-Control-Expose-Headers"), ["X-Request-Id"])
+
+    def cross_origin(self, body: bytes) -> tuple[int, dict]:
+        """A photo sent by a script on another site's page: its answer, which that script can read."""
+        resp = self.visit("POST", "/analyze", body, {"Origin": ELSEWHERE})
+        self.assert_cross_origin(resp)
+        return resp.status, json.loads(resp.read())
+
+    def test_a_cross_origin_caller_reads_the_streamed_answer(self):   # OPS-19 D1, D4
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
+        self.assertEqual((resp.status, resp.read()), (200, b'{"part": "preview"}\n{"part": "classification"}\n'))
+        self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
+        self.assert_cross_origin(resp)
 
     def test_the_page_and_the_agent_files_are_the_releases(self):
         resp = self.visit("GET", "/")
@@ -211,6 +232,15 @@ http {{
         resp = self.visit("GET", "/examples/no-such-example.jxl")
         resp.read()
         self.assertEqual(resp.status, 404)
+
+    def test_only_analyze_and_the_agent_files_are_open_to_other_origins(self):   # OPS-19 scope, ADR 0035
+        for path, cors in (("/", None), ("/examples/brazil-grinder.webp", None), ("/no-such-file", None),
+                           ("/llms.txt", ["*"]), ("/openapi.json", ["*"]), ("/.well-known/ard.json", ["*"])):
+            with self.subTest(path=path):
+                resp = self.visit("GET", path, headers={"Origin": ELSEWHERE})
+                resp.read()
+                self.assertEqual(resp.headers.get_all("Access-Control-Allow-Origin"), cors)
+                self.assertIsNone(resp.getheader("Access-Control-Expose-Headers"))
 
     def test_a_photo_reaches_the_inference_host_and_streams_back(self):
         forged = {"X-Real-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.9", "Forwarded": "for=203.0.113.9"}
@@ -265,6 +295,82 @@ http {{
             self.assertEqual(resp.status, 200)
         finally:
             self.start_check_service()
+
+    def preflight(self):
+        resp = self.visit("OPTIONS", "/analyze", headers={
+            "Origin": ELSEWHERE, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-trace"})
+        resp.read()
+        return resp
+
+    def test_a_preflight_is_answered_by_the_front(self):   # OPS-19 D2
+        resp = self.preflight()
+        self.assertEqual(resp.status, 204)
+        self.assertEqual({k: resp.headers.get_all(k) for k in ("Access-Control-Allow-Origin", "Access-Control-Allow-Methods",
+                                                                "Access-Control-Allow-Headers", "Access-Control-Max-Age")},
+                         {"Access-Control-Allow-Origin": ["*"], "Access-Control-Allow-Methods": ["POST"],
+                          "Access-Control-Allow-Headers": ["*"], "Access-Control-Max-Age": ["7200"]})
+        self.assertEqual(FakeInferenceHost.seen, [])
+
+    def test_a_preflight_takes_no_gate_and_never_reaches_the_check_service(self):   # OPS-19 D2, R3
+        first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
+        self.assertEqual(self.preflight().status, 204)
+        first.read()
+        self.stop_check_service()
+        try:
+            self.assertEqual(self.preflight().status, 204)
+        finally:
+            self.start_check_service()
+
+    def test_a_cors_header_from_upstream_is_never_sent_twice(self):   # OPS-19 D1: a browser rejects a doubled one
+        FakeInferenceHost.extra_headers = {
+            "Access-Control-Allow-Origin": "https://upstream.example", "Access-Control-Expose-Headers": "X-Upstream",
+            "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Headers": "X-Upstream", "Access-Control-Max-Age": "1"}
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
+        resp.read()
+        self.assertEqual(resp.status, 200)
+        self.assert_cross_origin(resp)
+        self.assertEqual({k for k in resp.headers if k.lower().startswith("access-control-")},
+                         {"Access-Control-Allow-Origin", "Access-Control-Expose-Headers"})
+
+    def test_a_cross_origin_caller_reads_the_check_services_refusals(self):   # OPS-19 D1
+        status, payload = self.cross_origin(form("beans.jpg", b"some text"))
+        self.assertEqual(status, 400)
+        self.assertIn("error", payload)
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 1 - len(JPEG))
+        self.assertEqual(self.cross_origin(form("beans.jpg", photo)),
+                         (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
+        FakeInferenceHost.reply = 502
+        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+        FakeInferenceHost.reply = 503   # the inference host's own busy answer, relayed as it is
+        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": "inference host says 503"}))
+
+    def test_a_cross_origin_caller_reads_the_fronts_own_refusals(self):   # OPS-19 D1
+        photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 2**20)
+        self.assertEqual(self.cross_origin(form("beans.jpg", photo)), (413, check_service.TOO_LARGE))
+        first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
+        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.BUSY))
+        first.read()
+        self.stop_check_service()
+        try:
+            self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+        finally:
+            self.start_check_service()
+
+    def test_the_access_log_names_the_calling_pages_origin(self):   # OPS-19 D3
+        access = self.logs / "coffee-cv-front.access"
+        for headers, last in (({"Origin": ELSEWHERE}, f'"{ELSEWHERE}"'), ({}, '"-"')):
+            with self.subTest(origin=last):
+                before = len(access.read_text().splitlines())
+                resp = self.visit("POST", "/analyze", form("beans.jpg", b"some text"), headers)
+                resp.read()
+                for _ in range(50):   # nginx writes the line once the answer is out
+                    lines = access.read_text().splitlines()
+                    if len(lines) > before:
+                        break
+                    time.sleep(0.05)
+                self.assertIn('"POST /analyze HTTP/1.1"', lines[-1])
+                self.assertEqual(lines[-1].rsplit(" ", 1)[1], last)
 
     def test_the_visitors_ip_is_only_in_the_session_log_rotated_at_30_days(self):
         conn = Visit(self.stream_port, self.tmp / "cert.pem")

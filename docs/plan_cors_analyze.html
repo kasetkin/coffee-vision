@@ -79,7 +79,7 @@
 
   <h2>3. P1 &mdash; The front's site answers cross-origin callers</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08; 20 tests in <code>tests/test_front_site.py</code> pass against a real nginx</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>All in <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, test first in
@@ -231,6 +231,9 @@ console.log(b.status, await b.json());</code></pre>
   <div class="log">
     <div><div class="when">2026-11-08</div>Claude reads ticket OPS-19 at <code>5682d93</code> and writes this plan.
       Seven findings not in the ticket, all folded in; no questions for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-08</div>P1 done, test first: each answer's CORS headers, the preflight and the
+      Origin log field against a real nginx (8 new tests). Two failures the ticket predicted showed up red first: the
+      front's own 413 and 503 had no header, and a preflight got a 501, or a busy 503 while a photo was in flight.</div>
   </div>
 
   <footer>Related: <a href="ticket_cors_analyze.html">OPS-19 ticket</a>,
