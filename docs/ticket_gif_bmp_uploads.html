@@ -1,0 +1,339 @@
+<title>The site accepts GIF and BMP photos again</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-18 · coffee-vision · the front's upload check and the public contract</div>
+  <h1>The front accepts a GIF or a BMP again, canonicalizes it like any other photo, and the page and the contract name both</h1>
+  <p class="lede">Since the OPS-15 cutover (2026-11-02) the front answers a GIF or a BMP with a 400, though the old
+    single host decoded both and canonicalization (ML-19) still can. The refusal is one check in
+    <code>webapp/front/upload_check.py</code>, which lets through only the formats the public contract names. This ticket
+    adds GIF and BMP to the check, the contract and the page; a plain TIFF stays refused. On the way it makes the
+    accepted formats one data file with one recogniser, read by the front, canonicalization and training alike, and
+    lets no other format reach a decoder (D4, D11, D17). Written 2026-11-08; D1&ndash;D20 decided the same day; not
+    planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D20 decided 2026-11-08 (GIF and BMP, not TIFF; the accepted formats in one data file with one recogniser; only they reach a decoder); not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low (owner, 2026-11-08)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Front: accepted upload formats</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/data/accepted_formats.csv</code> (new), <code>coffeecv/canonical.py</code> (the recogniser, the decoders Pillow may use), <code>webapp/front/upload_check.py</code> and <code>check_service.py</code>, <code>coffeecv/photo_io.py</code>, <code>coffeecv/canonicalize_folder.py</code>, <code>webapp/deploy/release_manifest.py</code>, <code>webapp/static/llms.txt</code>, <code>openapi.json</code>, <code>index.html</code>, <code>tests/test_front_upload_check.py</code>, <code>tests/test_canonical.py</code>, a contract test, <code>GLOSSARY.md</code>, <code>docs/inference_path.html</code>, a release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">At this ticket's own deploy (D9), the front lets a GIF or a BMP through to canonicalization, and a HEIF with a <code>hevm</code> or <code>hevs</code> brand, a 400 today, decodes (D18); the page and the contract list GIF and BMP. Both hosts get the new <code>canonical.py</code> and <code>accepted_formats.csv</code>; the inference host still reads canonical photos only, and the models do not change (ADR 0033).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">starts from <code>main</code> once OPS-17 has merged; OPS-17 edits the same <code>accept</code> lists (R2)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-08.</strong> "create new OPS ticket to bring back GIF files support"; then, on D2:
+      "gif and bmp, for now refuse TIFF".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a GIF or a BMP sent to <code>/analyze</code> is refused at the front, before canonicalization, with "not a
+    JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL or camera RAW file". After this ticket the front's check accepts either by
+    its signature, and canonicalization decodes it as it already can; an animated GIF is read as its first frame (D1).
+    The page's picker, its format chips, <code>llms.txt</code> and <code>openapi.json</code> name GIF and BMP (D5). A
+    plain TIFF is still refused (D2). The accepted formats become one data file,
+    <code>coffeecv/data/accepted_formats.csv</code> (D11, D13&ndash;D15), and one recogniser in
+    <code>canonical.py</code> tells a file's format from its first bytes and name (D17), for the front's check (D3) and
+    for canonicalization, which then opens it with that row's decoder and no other (D4). Training's store reads the same
+    file (D10). The work has five parts: the file and the recogniser; GIF and BMP through canonicalization, with tests;
+    the front's check and the old loader on the file; the contract, the page and a test that holds them to the file
+    (D12); a release of its own, verified on the domain (D9).</p>
+
+  <h2>2. Background</h2>
+  <p>Read from the code at <code>89d628a</code>; Pillow's behaviour checked in the front's environment (Pillow 12.3.0).</p>
+  <ul>
+    <li><b>Where GIF and BMP went.</b> OPS-15 P1 (<code>54b1b46</code>, 2026-11-02) added the front's format check,
+      <code>webapp/front/upload_check.py</code>. It accepts only the formats the public contract names, so "GIF, BMP
+      and a plain TIFF are refused here, where the app's Pillow path decoded them" (the commit message; the plan's P1
+      entry, judgement call 1). The review left it so, and the owner closed OPS-15 knowing it (its Activity,
+      2026-11-02). No decision or ADR chose to drop them. The contract never named them.</li>
+    <li><b>Canonicalization already decodes both.</b> <code>coffeecv/canonical.py</code>: <code>_sniff</code> sends
+      anything that is not JPEG, PNG, JPEG XL, HEIF or a RAW extension to Pillow (line 93); that branch takes frame 0
+      (<code>im.seek(0)</code>, line 210) and converts to RGBA when the image has transparency, else RGB (line 211);
+      <code>to_rec2020</code> lays transparent pixels over the fill grey (ML-19 D13, which absorbed ML-17).
+      <code>PHOTO_EXTENSIONS</code> (line 303) lists <code>.gif</code> and <code>.bmp</code>.</li>
+    <li><b>Nothing tests it.</b> <code>tests/test_canonical.py</code> canonicalizes no GIF or BMP, and
+      <code>dataset/</code> has neither. <code>tests/test_front_upload_check.py</code> asserts the opposite of this
+      ticket: <code>test_formats_the_contract_does_not_name</code> (lines 99&ndash;102) checks that GIF and BMP are
+      refused. Its accept test still decodes through <code>photo_io.load_rgb_image</code>, the path from before
+      ML-19.</li>
+    <li><b>Where the contract names formats.</b> <code>webapp/static/llms.txt</code> line 23,
+      <code>webapp/static/openapi.json</code> (the <code>photo</code> part's description), the page's format chips and
+      the inputs' <code>accept</code> lists (<code>webapp/static/index.html</code>; two inputs since OPS-17), the
+      refusal message (<code>_NOT_A_PHOTO</code> in <code>upload_check.py</code>), and
+      <code>docs/inference_path.html</code>, which says GIF and BMP are refused at the front.</li>
+    <li><b>The signatures.</b> A GIF starts with <code>GIF87a</code> or <code>GIF89a</code>. A BMP starts with
+      <code>BM</code>, and Pillow opens any file that does (<code>BmpImagePlugin._accept</code>); two bytes alone would
+      let through many files that are not photos. The BMP info header's size, a 32-bit little-endian number at byte
+      14, is one of a few fixed values (12, 40, 52, 56, 64, 108, 124), so the check can read it too. All of this is
+      inside the 64 bytes the check reads (<code>HEAD_BYTES</code>).</li>
+    <li><b>BMP is uncompressed</b>, about 3 bytes a pixel, so the 40 MB cap lets in a BMP of about 13 megapixels;
+      the 60-megapixel ceiling never binds. A BMP that Pillow writes from RGBA reads back as RGB; how a 32-bit BMP
+      with an alpha mask from another tool decodes has not been tried.</li>
+    <li><b>The front's check is not the last word on decoders.</b> Since ML-19 the front canonicalizes every upload
+      (<code>webapp/front/check_service.py</code>), and an unreadable one is a 400 there (line 204), so what the check
+      adds is keeping other formats away from a decoder on a public endpoint. But <code>canonical.py</code> calls
+      <code>Image.open</code> with no <code>formats=</code> (lines 140 and 209), and Pillow 12.3.0, when a file passes
+      one plugin's signature and then fails its parser, tries its other plugins in turn: 43 in all, TGA, PCX, PSD and
+      EPS among them (<code>Image._open_core</code>). A file starting <code>BM</code> that is not a BMP would reach
+      them. The same holds today for a file that passes the WebP or AVIF signature.</li>
+    <li><b>The dataset holds no GIF, BMP or TIFF</b>: <code>dataset/</code> has JPEG, HEIC, PNG and DNG only
+      (2026-11-08), though <code>PHOTO_EXTENSIONS</code> lists <code>.tif</code> and <code>.tiff</code>. Intake
+      (<code>strip_metadata.PHOTO_EXTENSIONS</code>) admits JPEG, PNG, HEIC/HEIF and RAW, and reports any other file as
+      "not photos, left alone"; <code>canonicalize_folder</code> skips a file outside its list without a word.</li>
+    <li><b>The format knowledge is written several times, and it has drifted.</b> <code>upload_check.py</code> tells
+      HEIF and AVIF by the major or a compatible brand of the <code>ftyp</code> box, ten brands
+      (<code>_HEIF_BRANDS</code>); <code>canonical._sniff</code> by the major brand only, eight
+      (<code>HEIF_BRANDS</code>, no <code>hevm</code>, <code>hevs</code>, <code>avif</code>, <code>avis</code>). A
+      HEIF with major brand <code>hevm</code>, or with <code>heic</code> among its compatible brands only, passes the
+      front and then goes to Pillow's plain path, which cannot open it: a 400. <code>RAW_EXTENSIONS</code> has three
+      copies (<code>photo_io</code>, <code>canonical</code>, <code>upload_check</code>), held equal by one test for
+      two of them.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A GIF or a BMP upload gets a 400 at the front; canonicalization never sees it.</li>
+        <li>The page's picker hides GIF and BMP files, and the page, <code>llms.txt</code> and
+          <code>openapi.json</code> name neither.</li>
+        <li>A test asserts that GIF and BMP are refused.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A GIF or a BMP passes the check, is canonicalized (an animated GIF as its first frame, D1), and is
+          answered like any other photo.</li>
+        <li>The picker offers <code>image/gif</code>, <code>image/bmp</code>, <code>.gif</code> and <code>.bmp</code>;
+          the page's format list, the refusal message, <code>llms.txt</code> and <code>openapi.json</code> name GIF and
+          BMP, and <code>llms.txt</code> says an animated GIF is read as its first frame.</li>
+        <li>Tests hold the front to accepting both and canonicalization to decoding them: a still GIF, one with palette
+          transparency, an animated one, and BMPs of 24 and 32 bits.</li>
+        <li>A plain TIFF is still refused (D2).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Canonical photos.</strong> Canonicalization already decodes GIF and BMP. D4 narrows which decoders
+      Pillow may try, which changes no accepted photo's pixels, so no re-canonicalization of the store and no retrain
+      (ADR 0033).</li>
+    <li><strong>The inference host and the models.</strong> They read canonical photos only.</li>
+    <li><strong>The limits.</strong> 40 MB per upload and 60 megapixels, as for every other format.</li>
+    <li><strong>A plain TIFF</strong> stays refused, for now (D2). Its signature is the one the TIFF-based RAW families
+      share, which the check tells apart by extension; accepting it is a later ticket's question.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A GIF holds at most 256 colours, usually dithered, and the models never
+        saw one.</strong></td>
+        <td><code>dataset/</code> has no GIF. A GIF of beans may get a worse answer or be refused by the OOD guard. The
+          answer is still the model's, so this costs nothing that a refusal does not. To measure it, the plan
+          converts the four example photos (OPS-16) to GIF and compares their verdicts with the originals'. That is a
+          record, not a gate (D6). A 24-bit BMP holds the photo's pixels exactly, so it carries no such risk.</td></tr>
+      <tr><td class="id">R2</td><td><strong>OPS-17 changed the same lines of the page.</strong></td>
+        <td>OPS-17 (<code>6789037</code>, not yet on <code>main</code>) gives the page a second file input with its own
+          <code>accept</code> list. This ticket's branch starts from <code>main</code> after OPS-17 merges and adds GIF
+          and BMP to both lists.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A GIF's transparency or animation, or a BMP's alpha, decodes into something
+        unexpected.</strong></td>
+        <td>The code path is read, not tested (section 2). New tests in <code>tests/test_canonical.py</code>: a palette
+          GIF with a transparent index comes out over the fill grey; an animated GIF comes out as its first frame
+          (D1); a 32-bit BMP with an alpha mask comes out as the test records, alpha over the fill grey or
+          dropped.</td></tr>
+      <tr><td class="id">R4</td><td><strong><code>BM</code> is a weak signature.</strong></td>
+        <td>On its own it would let any file starting "BM" through to canonicalization, and from a failed BMP parse to
+          Pillow's other decoders (section 2). D4 stops the second; the check also reads the info header's size, and a
+          test feeds it a file that starts <code>BM</code> and is not a BMP.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>What does the site do with an animated GIF?</td>
+        <td>(a) classify its first frame, as canonicalization already does ("its main image only", ADR 0033), and say
+          so in <code>llms.txt</code> (recommended: no new code path, and a still photo saved as GIF is one frame anyway)
+          (b) refuse it at the front with its own message, which means counting frames there</td>
+        <td>(a), 2026-11-08: "as recommend". The first frame is classified; <code>llms.txt</code> says so.</td></tr>
+      <tr><td class="id">D2</td><td>GIF alone, or BMP and a plain TIFF too, which OPS-15 dropped at the same
+        time?</td>
+        <td>(a) GIF only, as asked (recommended: the request names GIF, and a TIFF's signature overlaps the TIFF-based
+          RAW families the check tells apart by extension) (b) all three</td>
+        <td>Neither, 2026-11-08: "gif and bmp, for now refuse TIFF". GIF and BMP are accepted; a plain TIFF stays
+          refused.</td></tr>
+      <tr><td class="id">D3</td><td>What is the front's format check for, now that the front canonicalizes?</td>
+        <td>(a) the list of what may reach a decoder: GIF and BMP join it; a plain TIFF stays out (recommended) (b)
+          dropped, canonicalization decides, which would let TIFF in against D2</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D4</td><td>Does canonicalization itself hold to the accepted formats (section 2, Pillow's
+        fall-through)?</td>
+        <td>(a) in this ticket, <code>canonical.py</code>'s <code>Image.open</code> calls pass <code>formats=</code>; no
+          accepted photo's pixels change (recommended) (b) a ticket of its own (c) no, R4's header check is enough</td>
+        <td>(a), 2026-11-08: "all as recommend". Which list the training store uses: D10. Recorded in <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</td></tr>
+      <tr><td class="id">D5</td><td>Does the page show GIF and BMP?</td>
+        <td>(a) chips, <code>accept</code> lists and the contract (recommended) (b) accepted, but no chips</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D6</td><td>R1's GIF check of the example photos: a gate or a record?</td>
+        <td>(a) recorded in the ticket, GIF ships whatever it shows (recommended) (b) a gate until the verdicts
+          match</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D7</td><td>The front test's decode half, which still goes through
+        <code>photo_io.load_rgb_image</code>?</td>
+        <td>(a) moved to <code>canonical.decode</code> for every accepted format (recommended) (b) left, GIF and BMP
+          added to its lists</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D8</td><td>A word for "the formats the public contract names"?</td>
+        <td>(a) <strong>accepted format</strong> in <code>GLOSSARY.md</code>; avoid "supported format", "decodable
+          format" (recommended) (b) none</td>
+        <td>(a), 2026-11-08: "all as recommend". Added to <code>GLOSSARY.md</code> the same day.</td></tr>
+      <tr><td class="id">D9</td><td>Its own release, or one with OPS-17?</td>
+        <td>(a) its own front release, after OPS-17's is live (recommended) (b) one release with both</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D10</td><td>Which formats may the training store's canonicalization open?</td>
+        <td>(a) the accepted formats, as the front: <code>.tif</code> and <code>.tiff</code> leave
+          <code>PHOTO_EXTENSIONS</code> (recommended; the dataset holds none) (b) the store keeps TIFF (c) intake's
+          narrower list</td>
+        <td>(a), 2026-11-08: "as recommend". An accepted format means the same in training and serving (ADR 0033).
+          Intake's own list (<code>strip_metadata.PHOTO_EXTENSIONS</code>, what stripping is checked on) is left
+          as it is.</td></tr>
+      <tr><td class="id">D11</td><td>Where are the accepted formats written down?</td>
+        <td>(a) a list in <code>upload_check.py</code> and one in <code>canonical.py</code>, held equal by a test
+          (recommended) (b) one list in <code>canonical.py</code></td>
+        <td>Neither, 2026-11-08: "make it one list, but not in python script, but as csv or something else". One
+          data file, read by the front's check, canonicalization and the tests. Its place, form and columns: D13&ndash;D15. Recorded in
+          <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</td></tr>
+      <tr><td class="id">D12</td><td>How do the contract's texts keep up with the accepted formats?</td>
+        <td>(a) a fast-tier test: every accepted format named in <code>llms.txt</code> and <code>openapi.json</code>,
+          a chip on the page, its extensions in every <code>accept</code> list, and nothing else named (recommended)
+          (b) by hand</td>
+        <td>(a), 2026-11-08: "as recommend".</td></tr>
+      <tr><td class="id">D13</td><td>The data file's place and form?</td>
+        <td>(a) <code>coffeecv/data/accepted_formats.csv</code>, one row per format, several values in a cell separated by
+          spaces, in both releases' manifests, as the Rec.2020 profile is (recommended) (b) TOML</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D14</td><td>What is data and what stays code?</td>
+        <td>(a) the file names each format: id, chip label, extensions, MIME types, decoder; telling a file by its bytes
+          stays code, one recogniser per id, a test pairing rows and recognisers (recommended) (b) simple signatures in
+          the file as hex, code for the rest</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D15</td><td>How is camera RAW written?</td>
+        <td>(a) a row per RAW extension with a <code>group</code> column, which the page's one RAW chip and
+          <code>llms.txt</code> gather by; <code>RAW_EXTENSIONS</code> read from the file; HEIC/HEIF one row
+          (recommended) (b) one "camera RAW" row</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D16</td><td>A file in <code>dataset/</code> that is not an accepted format?</td>
+        <td>(a) <code>canonicalize_folder</code> reports it, as intake does, and goes on (recommended) (b) the run fails
+          (c) skipped silently</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D17</td><td>One recogniser, or one each for the front and canonicalization?</td>
+        <td>(a) one, in <code>canonical.py</code>: from a file's first 64 bytes and its name, the row id of
+          <code>accepted_formats.csv</code> or none; the front's check and <code>decode</code> both call it, and
+          <code>decode</code> takes its library from the row's decoder; <code>upload_check.py</code> keeps the wording
+          or folds into <code>check_service.py</code> (recommended) (b) two, held equal by a test</td>
+        <td>(a), 2026-11-08: "all as recommend". It follows from D11.</td></tr>
+      <tr><td class="id">D18</td><td>Which HEIF files count as HEIF?</td>
+        <td>(a) the front's rule: major or compatible brand, the longer list; such files decode with
+          <code>pillow-heif</code>; AVIF stays its own row (recommended) (b) canonicalization's: major brand only, the
+          shorter list, the front refusing the rest</td>
+        <td>(a), 2026-11-08: "all as recommend". Every HEIC in the dataset has major brand <code>heic</code>, so no
+          canonical photo changes.</td></tr>
+      <tr><td class="id">D19</td><td><code>photo_io.RAW_EXTENSIONS</code>, the old loader's copy?</td>
+        <td>(a) read from the file (recommended) (b) left</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+      <tr><td class="id">D20</td><td>The refusal message?</td>
+        <td>(a) built from the file's chip labels, RAW gathered as "camera RAW" (recommended) (b) hand-written, D12's
+          test holding it</td>
+        <td>(a), 2026-11-08: "all as recommend".</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>coffeecv/data/accepted_formats.csv</code>: one row per accepted format
+      (a row per RAW extension), with id, chip label, <code>group</code>, extensions, MIME types and decoder (D13&ndash;D15);
+      GIF and BMP in it, no TIFF; in both releases' manifests.</span></li>
+    <li><span class="box"></span><span>One recogniser in <code>canonical.py</code>, one rule per row id, a test pairing
+      rows and rules (D14, D17). GIF by <code>GIF87a</code> or <code>GIF89a</code>; BMP by <code>BM</code> and a known
+      info-header size (R4); HEIF by major or compatible brand, the longer list (D18).</span></li>
+    <li><span class="box"></span><span><code>decode</code> opens a file with its row's decoder only (Pillow with
+      <code>formats=</code> that one format); a file that passes a rule and fails that decoder is
+      <code>Unreadable</code>, never handed to another (D4, a test).</span></li>
+    <li><span class="box"></span><span><code>PHOTO_EXTENSIONS</code>, every <code>RAW_EXTENSIONS</code>
+      (<code>canonical</code>, <code>upload_check</code>, <code>photo_io</code>) and the refusal message come from the
+      file (D10, D19, D20); <code>canonicalize_folder</code> reports a file that is not an accepted format and goes on
+      (D16).</span></li>
+    <li><span class="box"></span><span>The front's check calls the recogniser (D3, D17).
+      <code>tests/test_front_upload_check.py</code>: GIF and BMP accepted; a plain TIFF and a non-BMP file starting
+      <code>BM</code> refused (D2, R4); a HEIF with a <code>hevm</code> major brand and one with <code>heic</code> as a
+      compatible brand only accepted and decoded (D18); every accepted format decoded by <code>canonical.decode</code>,
+      not <code>photo_io</code> (D7).</span></li>
+    <li><span class="box"></span><span><code>tests/test_canonical.py</code>: a still GIF, a GIF with a transparent
+      palette index, an animated GIF, a 24-bit BMP and a 32-bit BMP with an alpha mask canonicalize as D1 and ML-19 D13
+      say (R3).</span></li>
+    <li><span class="box"></span><span><code>llms.txt</code> (with D1's first-frame note), <code>openapi.json</code>,
+      the page's format chips (D5) and every <code>accept</code> list on the page name GIF and BMP;
+      <code>docs/inference_path.html</code> says only a plain TIFF is refused.</span></li>
+    <li><span class="box"></span><span>A fast-tier test holds <code>llms.txt</code>, <code>openapi.json</code>, the
+      page's chips and its <code>accept</code> lists to the file: every accepted format named, nothing else
+      (D12).</span></li>
+    <li><span class="box"></span><span>The four example photos, converted to GIF, run through a local front and
+      inference host; their verdicts are recorded beside the originals' (R1).</span></li>
+    <li><span class="box"></span><span>Live in a release of its own, after OPS-17's (D9), verified on the domain
+      (<code>--verify</code>, per <code>docs/agents/deploy.md</code>): a GIF and a BMP sent with <code>curl -F photo=@...</code> each get a preview
+      and a classification.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A plain TIFF (D2: refused for now).</li>
+    <li>Adding GIF or BMP photos to the dataset, or training on palette images (R1).</li>
+    <li>The page preparing a photo on the device (OPS-12, not merged).</li>
+    <li>Intake's own list, <code>strip_metadata.PHOTO_EXTENSIONS</code> (D10): it records what stripping is checked
+      on.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Ticket written from the owner's request, at <code>89d628a</code>: the refusal
+      traced to OPS-15 P1 (<code>54b1b46</code>, <code>webapp/front/upload_check.py</code>), and canonicalization's GIF
+      path read in <code>coffeecv/canonical.py</code>. D1, D2 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>D1 decided by the owner: (a), an animated GIF's first frame. D2 decided:
+      GIF and BMP, a plain TIFF still refused; the ticket widened to BMP (Pillow 12.3.0's BMP signature and modes
+      checked in the front's environment; R4 added). Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilling round 1: D3&ndash;D9 decided by the owner, all as recommended;
+      Priority Low. Found while preparing it: canonicalization lets Pillow fall through to all 43 of its decoders
+      (section 2), hence D4. <strong>Accepted format</strong> added to <code>GLOSSARY.md</code> (D8). Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilling round 2: D10, D12 as recommended; D11 by the owner, one data file
+      for the accepted formats. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilling round 3: D13&ndash;D16 decided by the owner, all as recommended.
+      Found for round 4: <code>canonical._sniff</code> and <code>upload_check</code> tell HEIF apart differently
+      (major brand only, a shorter list), and <code>RAW_EXTENSIONS</code> has three copies. Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilling round 4: D17&ndash;D20 decided by the owner, all as recommended.
+      Summary, Component, Production impact and Scope brought up to D1&ndash;D20. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilling done: the owner confirmed the shared understanding. D3, D4, D10,
+      D11, D12 and D17 recorded as <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>; Triage set to ready-for-agent. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <code>webapp/front/upload_check.py</code>, <code>coffeecv/canonical.py</code>,
+    <a href="ticket_front_and_inference_host.html">OPS-15</a> (the check that refuses GIF and BMP),
+    <a href="ticket_canonicalization.html">ML-19</a> and <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>
+    (what the front does with an upload), <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a> (only accepted formats reach a decoder), <a href="ticket_choose_existing_photo.html">OPS-17</a> (the same
+    <code>accept</code> lists), <a href="ticket_example_photos.html">OPS-16</a> (the example photos used in R1).</footer>
+</main>
