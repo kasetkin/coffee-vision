@@ -7,7 +7,7 @@
 # - coffeecv.lock_check: a package the three uv locks share is held at one version in all of them (ML-19 D41;
 #   ADR 0033). It reads the working-tree locks, standard library only (no torch), in about 0.2 s.
 # leak_check and ruff_staged take about 0.35 s each to start (no torch); Ruff adds about 85 ms per staged Python
-# file, and leak_check about 0.3 s when an image is staged (exiftool). The hook on 30 staged Python files: 3.4 s
+# file, and leak_check adds about 0.3 s for a staged 12 MP JPEG (exiftool). The hook on 30 staged Python files: 3.4 s
 # before OPS-5, 3.5 s after (leak_check 0.33 s, then 0.35 s; ruff_staged 2.9 s of it). Measured 2026-11-08.
 # Bypass once with `git commit --no-verify`.
 set -uo pipefail

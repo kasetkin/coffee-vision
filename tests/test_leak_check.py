@@ -146,11 +146,11 @@ class StagedRead(unittest.TestCase):
         (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
         (self.root / rel).write_bytes(data)
 
-    def check(self, *extra: str) -> tuple[int, list[str]]:
+    def check(self, patterns: str | None = None) -> tuple[int, list[str]]:
         """main's exit status and its finding lines (the summary and the patterns note left out)."""
         out = io.StringIO()
         with redirect_stdout(out):
-            rc = lc.main(["--staged", "--patterns", self.no_patterns, *extra], root=self.root)
+            rc = lc.main(["--staged", "--patterns", patterns or self.no_patterns], root=self.root)
         lines = [ln for ln in out.getvalue().splitlines() if not ln.startswith(("leak_check:", "note:"))]
         return rc, lines
 
@@ -208,12 +208,8 @@ class StagedRead(unittest.TestCase):
         patterns.write_text("home-town\n")
         self.write("home-town/readme.md", b"fine\n")
         self.git("add", "home-town/readme.md")
-        out = io.StringIO()
-        with redirect_stdout(out):
-            rc = lc.main(["--staged", "--patterns", str(patterns)], root=self.root)
-        self.assertEqual(rc, 1)
-        self.assertIn("home-town/readme.md: private pattern in file path: pattern 'home-town'",
-                      out.getvalue().splitlines())
+        self.assertEqual(self.check(str(patterns)),
+                         (1, ["home-town/readme.md: private pattern in file path: pattern 'home-town'"]))
 
     def test_another_index_through_git_index_file_is_read(self):
         """`git commit -a` and `git commit <path>` hand the hook a temp index in GIT_INDEX_FILE."""
@@ -224,6 +220,18 @@ class StagedRead(unittest.TestCase):
         with mock.patch.dict(os.environ, {"GIT_INDEX_FILE": alt}):
             self.assertEqual(self.check(), (1, [f"notes.md:1: email address: {EMAIL}"]))
         self.assertEqual(self.check(), (0, []))                      # the repo's own index holds nothing
+
+    def test_staged_file_with_skip_worktree_is_read(self):
+        """A sparse checkout's skip-worktree bit leaves the staged blob what is committed: it is checked, not an
+        error that refuses every commit touching the file."""
+        self.write("notes.md", b"fine\n")
+        self.git("add", "notes.md")
+        self.git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--no-verify", "-m", "x")
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        self.git("add", "notes.md")
+        self.git("update-index", "--skip-worktree", "notes.md")
+        self.write("notes.md", b"fine\n")
+        self.assertEqual(self.check(), (1, [f"notes.md:1: email address: {EMAIL}"]))
 
 
 if __name__ == "__main__":

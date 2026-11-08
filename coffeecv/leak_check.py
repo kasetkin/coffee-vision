@@ -104,10 +104,12 @@ def published_files(root: Path = REPO_ROOT, staged: bool = False) -> list[str]:
 def staged_tree(root: Path, files: list[str]) -> Iterator[Path]:
     """A temp directory holding `files` as the index has them, each under its own path (`git checkout-index`,
     which follows GIT_INDEX_FILE). A symlink comes out a symlink and a submodule an empty directory, so scan()
-    skips both as it does on disk. A git failure raises, with git's message on stderr: the check never passes
+    skips both as it does on disk. A skip-worktree entry (sparse checkout) is written too: its staged blob is
+    what is committed. A git failure raises, with git's message on stderr: the check never passes
     on a tree it could not write. The directory is removed on every exit."""
     with tempfile.TemporaryDirectory(prefix="leak_check.") as tmp:
-        subprocess.run(["git", "-C", str(root), "checkout-index", f"--prefix={tmp}/", "-z", "--stdin"],
+        subprocess.run(["git", "-C", str(root), "checkout-index", "--ignore-skip-worktree-bits",
+                        f"--prefix={tmp}/", "-z", "--stdin"],
                        input="".join(f"{p}\0" for p in files).encode(), stdout=subprocess.DEVNULL, check=True)
         yield Path(tmp)
 

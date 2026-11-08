@@ -20,7 +20,7 @@ files are linted with the [tool.ruff] settings on disk: a change to them staged 
 to this commit's check, and the settings being committed may differ. Not fixed (OPS-4 code review, R6).
 
 Cost: about 85 ms per staged file, most of it the start of `python -m ruff`, plus about 0.36 s for this
-module's own start (no torch). Measured 2026-11-08: 2.9 s for 30 staged files.
+module's own start (no torch). Measured 2026-11-08; the hook's header has the whole hook's time.
 
 Exit status is non-zero on any finding, and on any other nonzero Ruff exit (a bad config), which is printed
 with Ruff's message and counted apart as a Ruff error. A Ruff missing from the interpreter fails before any
