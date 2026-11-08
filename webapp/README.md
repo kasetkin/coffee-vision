@@ -252,7 +252,8 @@ On the front (the proxy):
 systemctl status coffee-cv-front
 journalctl -u coffee-cv-front -f       # the check service: one line per request, no IP
 tail -f /var/log/nginx/coffee-cv-front.access    # no IP; nginx's request id, then the app's
-                                                 # ("-" for a request refused at the front)
+                                                 # ("-" for a request refused at the front);
+                                                 # last, the calling page's Origin (OPS-19 D3)
 tail -f /var/log/nginx/coffee-cv-front.sessions  # the visitor's IP, one line per TLS session
                                                  # (the stream block's; kept 30 days, OPS-15 D20)
 ```
@@ -307,7 +308,11 @@ separate endpoint. Three static files in the release describe it, and the page l
   (v0.91, a proposal) listing the two above for agent registries.
 
 nginx serves them with `Access-Control-Allow-Origin: *`, and `robots.txt` allows every path, `/analyze` included,
-since agents that honour it would otherwise refuse to call the API. **A change to what `/analyze` takes or returns
+since agents that honour it would otherwise refuse to call the API. `/analyze` answers every origin too (ADR 0035,
+ticket OPS-19), so a cross-origin caller, a script on another site's page, reads the answer and its errors: the front's
+nginx adds the CORS headers to every answer, its own refusals included, and answers the preflight before the
+one-at-a-time gate. `llms.txt` ("From a web page") gives that site a `fetch` example and asks it to tell its visitors
+where their photo goes. **A change to what `/analyze` takes or returns
 updates `openapi.json` and `llms.txt` in the same change**; `tests/test_agent_files.py` checks the form fields and
 the routes against `app.py`, and that every URL in the three files is one the release serves.
 

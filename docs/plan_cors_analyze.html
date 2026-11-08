@@ -79,7 +79,7 @@
 
   <h2>3. P1 &mdash; The front's site answers cross-origin callers</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08; 20 tests in <code>tests/test_front_site.py</code> pass against a real nginx</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08, <code>adff0b3</code>; 20 tests in <code>tests/test_front_site.py</code> pass against a real nginx</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>All in <code>webapp/deploy/coffee-cv-front.nginx.conf.template</code>, test first in
@@ -124,7 +124,7 @@
 
   <h2>4. P2 &mdash; The contract and the docs</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08; <code>tests/test_agent_files.py</code> passes</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p>The texts that say what P1 does, all calling the other side a cross-origin caller (the ticket's Activity). They
@@ -234,6 +234,11 @@ console.log(b.status, await b.json());</code></pre>
     <div><div class="when">2026-11-08</div>P1 done, test first: each answer's CORS headers, the preflight and the
       Origin log field against a real nginx (8 new tests). Two failures the ticket predicted showed up red first: the
       front's own 413 and 503 had no header, and a preflight got a 501, or a busy 503 while a photo was in flight.</div>
+    <div><div class="when">2026-11-08</div>P2 done: <code>llms.txt</code> gains "From a web page" (the CORS headers, a
+      <code>fetch</code> example reading the stream, and D5's asks of a calling site), and <code>openapi.json</code>, the
+      README, <code>inference_path.html</code> and <code>logging_plan.html</code> say what P1 does. The example was
+      checked by reading only: there is no JavaScript runtime in the dev container, so P4's browser check is its
+      first run.</div>
   </div>
 
   <footer>Related: <a href="ticket_cors_analyze.html">OPS-19 ticket</a>,

@@ -5,7 +5,7 @@
 > was trained on. Free, no key, no account. The photo is never stored.
 
 The service is one HTTP endpoint, `POST /analyze`, behind the web page. It is meant for people with a phone, and is
-open to agents acting for a person: send their photo, report the answer.
+open to agents acting for a person (send their photo, report the answer) and to scripts on other sites' pages.
 
 ## API
 
@@ -45,6 +45,35 @@ Errors before the stream starts, each with `{"error": ...}`: `400` (no photo, or
   analyzed. Wait about 10 s and retry.
 - `{"error": "the classifier is offline"}`: the classifier is down or being updated. Try again in a few minutes; do
   not retry in a loop.
+
+## From a web page
+
+A script on a page of any site may call `POST /analyze` and read the answer: every answer, errors included, carries
+`Access-Control-Allow-Origin: *` and exposes `X-Request-Id`, and a preflight is answered. Send no credentials; the API
+takes none. The answer streams, so read it line by line:
+
+```
+const form = new FormData();
+form.append("photo", file);   // a File, from an <input type="file"> for example
+const response = await fetch("https://coffee.kasetkin.com/analyze", {method: "POST", body: form});
+if (!response.ok) throw new Error(`${response.status}`);   // 400, 413 or 503: see the errors above
+const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+let text = "";
+for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+  text += chunk.value;
+  for (let end; (end = text.indexOf("\n")) >= 0; text = text.slice(end + 1)) {
+    const part = JSON.parse(text.slice(0, end));   // "preview", then "classification" or "error"
+    console.log(part.part, part.verdict);
+  }
+}
+```
+
+A site that calls the API from its page:
+
+- should tell its visitors that their photo is sent to this service, which never stores it;
+- shares the one worker with this page and every other caller: on a busy `503`, wait about 10 s and retry once,
+  never in a loop and never in parallel, as in Limits below;
+- can quote the answer's `X-Request-Id` when it reports a problem.
 
 ## Limits
 
