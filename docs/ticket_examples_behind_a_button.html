@@ -1,0 +1,286 @@
+<title>The example row and the format chips fold behind buttons, so the photo and its answer are not pushed below the fold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-20 · coffee-vision · the web page</div>
+  <h1>The example row and the format chips fold behind buttons, so the photo and its answer are not pushed below the fold</h1>
+  <p class="lede">Two blocks sit between the upload controls and the photo, and both stay in full after a pick: the
+    format chips (OPS-18 D5) and the example row (OPS-16 D10). On a phone they take more than a third of the screen,
+    so the visitor's photo and the answer are pushed below the fold. The owner asks for the example row to fold behind
+    an "Examples" button once a photo is picked, and for the format list to open and close with a button of its own.
+    Written 2026-11-08; every decision (D1&ndash;D12) taken the same day; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Web page: layout above the photo</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code> (<code>.formats-hint</code>, <code>#examples</code>, <code>choose</code>, <code>chooseExample</code>, <code>setBusy</code>), <code>tests/test_example_photos.py</code>, <code>tests/test_accepted_formats_named.py</code>, a release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the check on a phone)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The page only, at the next deploy: whether the format chips and the example row are shown in full. The front, the host, the models, the accepted formats and <code>--verify</code> do not change.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-08.</strong> "I want to hide example photos behind a button "examples" if user
+      already have chosen some photo and we have result. As it is now user result is lower than examples, this is not
+      good. Or you can give me your ideas how we should fix this." With a screenshot of the live page in an iPhone 17
+      viewport (402&times;874): the format chips (three lines) and the row of four examples sit between the controls
+      and the photo, and the photo reaches the bottom of the screen.</p>
+    <p><strong>Added the same day.</strong> "Also I think we need second button: for supported formats. As it is now,
+      supported formats are eating too many space. I think you can add a button that will show and hide full list of
+      supported formats."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the format chips are always shown, and the example row is built once on page load and never hidden
+    again. Every pick therefore puts its photo and answer under both. After this ticket:</p>
+  <ul>
+    <li>The chips fold behind a small "Accepted formats" button, which opens and closes the full list.</li>
+    <li>The example row is shown in full only before the first pick. From the first pick on (a photo chosen, taken, or
+      an example clicked) it folds into an "Examples" button. That button opens the row again.</li>
+    <li>Every pick folds both lists, at the moment of the pick. A refusal for a file the page can't read opens the
+      format list again.</li>
+  </ul>
+  <p>The work is one change to the page and its tests, then a release.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>Order on the page.</strong> In <code>webapp/static/index.html</code> the card holds, top to bottom:
+      the Choose Photo and Take Photo controls, the format chips (<code>div.formats-hint</code>),
+      <code>#examples</code>, the hidden file inputs, <code>#preview-wrap</code>, the outline toggle, "Use full photo
+      instead", the spinner and progress note. <code>#result</code> comes after the card.</li>
+    <li><strong>The chips.</strong> OPS-18 D5 put a chip per accepted format on the page. There are nine, the last
+      being "camera RAW (DNG, CR2, NEF, ARW, &hellip;)". <code>tests/test_accepted_formats_named.py</code> reads the
+      spans of <code>div.formats-hint</code> from the HTML and holds them to
+      <code>coffeecv/data/accepted_formats.csv</code> (ADR 0034). The test parses the HTML without running it, so a
+      folded list is still in the HTML and the test still holds. The button must not be a <code>span</code> inside
+      <code>div.formats-hint</code>, or the test would count it as a chip.</li>
+    <li><strong>The format refusal.</strong> A file that isn't in an accepted format is refused by the front with a
+      400, <code>{"error": "could not read this as an image: &lt;reason&gt;"}</code>
+      (<code>webapp/front/check_service.py</code>, the reason from <code>upload_check.refusal</code>). A photo the
+      inference host can't decode is a 400 starting with the same words, so the page can't tell the two apart
+      without matching the reason text.</li>
+    <li><strong>The example row.</strong> <code>loadExamples()</code> unhides <code>#examples</code> once the list is
+      read, and nothing hides it again. <code>clearPhoto()</code>, which every pick runs, hides only the preview, the
+      overlay and the result. <code>setBusy()</code> disables the example buttons while a photo is in flight (OPS-16, as
+      OPS-7 D4).</li>
+    <li><strong>The decisions this amends.</strong> OPS-16 D10 (2026-11-03) placed the examples "a row under
+      'Choose Photo'" and said nothing about the row after a pick. OPS-18 D5 named the chips and their order, not
+      whether they are always shown; the chips stay as decided, only folded. ADR 0032 (where the example files come
+      from) and ADR 0034 (which formats are accepted) are not touched.</li>
+    <li><strong>How much it moves.</strong> From the screenshot, at 402&nbsp;px wide the chips take about 80&nbsp;px
+      (three lines), and the example row with its title about 290&nbsp;px (four examples on two lines). The preview is
+      capped at 20&nbsp;rem (<code>#preview</code> <code>max-height</code>). One line of small buttons in their place
+      should move the photo up about 330&nbsp;px and put the top of the result on the first screen of that phone. P1's
+      check measures it.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The nine format chips are always shown, on three lines on a phone.</li>
+        <li>The example row is shown on load and stays in full through every pick.</li>
+        <li>On a phone, the photo starts below both and the answer is below the fold.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Under the controls, one line of small buttons: "Accepted formats &#9656;", and "Examples &#9656;" after it
+          once a photo has been picked.</li>
+        <li>Each button opens and closes its own list, its arrow turning &#9656; to &#9662;. Both lists may be open at
+          once, the chips above the row.</li>
+        <li>Before any pick, the example row is shown in full, as now. Every pick folds both lists; "Examples" opens
+          the row again.</li>
+        <li>After a pick, the photo starts right under the line of buttons, on every screen.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The accepted formats and their chips.</strong> The same nine chips, in the same order and with the
+      same labels (OPS-18 D5), are still in the HTML. Only whether they are shown changes.</li>
+    <li><strong>The examples themselves.</strong> The files, <code>examples.json</code>, the captions, the truth line
+      and the live upload on a click (OPS-16 D9, D10, D13) stay as they are.</li>
+    <li><strong>The busy rule.</strong> While a photo is in flight, the example buttons are disabled, as now. The two
+      new buttons stay usable, since opening a list sends nothing.</li>
+    <li><strong>A page whose example list cannot be read.</strong> It shows neither the row nor the "Examples"
+      button (OPS-16 D13).</li>
+    <li><strong>The front, the public contract and <code>--verify</code>.</strong> Nothing outside the page changes;
+      <code>llms.txt</code> and <code>openapi.json</code> keep naming every format.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A visitor who wants a second example doesn't see how to get one.</strong></td>
+        <td>The row is the only place the examples are offered. Mitigation: the "Examples" button appears on the line
+          right above where the row was, at the moment the row folds.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The page jumps under the visitor's eye.</strong></td>
+        <td>If the row folded when the answer arrives, the photo the visitor is looking at would jump up about
+          290&nbsp;px. Mitigation: fold it at the pick, before the preview is shown (D2).</td></tr>
+      <tr><td class="id">R3</td><td><strong>The new buttons crowd the controls on a narrow phone.</strong></td>
+        <td>At 402&nbsp;px, Choose Photo and Take Photo already fill their row. Mitigation: the new buttons go on a
+          line of their own, smaller and lighter than the two upload controls (D3).</td></tr>
+      <tr><td class="id">R4</td><td><strong>A visitor with an unusual file doesn't know it is accepted.</strong></td>
+        <td>With the list folded, a RAW or HEIC owner sees no chip saying their file works. Mitigation: the button
+          says what is behind it, and a file in a format that isn't accepted is refused with a message, as now. D6
+          offers a fuller fix.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The format test counts the button as a chip.</strong></td>
+        <td><code>tests/test_accepted_formats_named.py</code> counts every <code>span</code> inside
+          <code>div.formats-hint</code>. Mitigation: the button is a <code>button</code> outside that div. The test
+          then fails loudly if the chips are changed by mistake.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How is the answer brought above the examples? (amends OPS-16 D10)</td>
+        <td>(a) after a pick, the row folds behind an "Examples" button (b) the row moves below the result for good,
+          so it never sits between the photo and its answer (c) the row stays, and the page scrolls to the answer when
+          it arrives</td>
+        <td>(a), 2026-11-08, as recommended. A first-time visitor still sees the examples without scrolling, and a
+          returning one gets the photo and the answer together. (b) puts the examples below the fold before any pick,
+          which is when they are most useful. (c) leaves the order as it is and moves the page without the visitor
+          asking.</td></tr>
+      <tr><td class="id">D2</td><td>When does the example row fold?</td>
+        <td>(a) at the pick: a photo chosen or taken, or an example clicked (b) when the answer arrives</td>
+        <td>(a), 2026-11-08, as recommended. The preview also sits under the row, so with (b) the photo and the spinner
+          are still pushed down while the visitor waits, and the page jumps when the answer comes in (R2). It also
+          folds on a refusal (too large, unreadable); the button still brings the row back. What a pick is: D10. A
+          pick folds the format list too: D8.</td></tr>
+      <tr><td class="id">D3</td><td>Where are the two buttons, and what do they look like?</td>
+        <td>(a) one line of their own under Choose Photo and Take Photo, smaller and lighter than those two, each
+          opening its list right under the line (b) beside Choose Photo and Take Photo, styled like them</td>
+        <td>(a), 2026-11-08, as recommended. The two upload controls stay the main actions, and nothing wraps on a
+          narrow phone (R3). Their order on the line: D12.</td></tr>
+      <tr><td class="id">D4</td><td>What does an open list do?</td>
+        <td>(a) each button opens and closes its list, its label saying which ("Examples" / "Hide examples") (b) each
+          button opens and closes its list, its label fixed and an arrow turning, &#9656; folded and &#9662; open, the
+          button's expanded state given to screen readers (c) an open list stays open until the next pick, with no way
+          to fold it by hand</td>
+        <td>(b), 2026-11-08, as recommended. The buttons keep their width, so the line doesn't move when a list opens,
+          and the arrow is the usual sign for something that opens. With (c), a visitor who opened a list to look
+          can't close it without picking. Whether both may be open at once: D11.</td></tr>
+      <tr><td class="id">D5</td><td>When is the format list folded?</td>
+        <td>(a) from page load, on every visit (b) like the examples: in full until the first pick, folded after</td>
+        <td>(a), 2026-11-08, as recommended ("d5, d6, d7 all as recommended."). A photo straight from a phone is a JPEG or HEIC, which works without the
+          visitor looking it up. The list matters mostly to someone with an unusual file, who can open it.</td></tr>
+      <tr><td class="id">D6</td><td>Does a refusal for an unaccepted format open the list?</td>
+        <td>(a) yes, on any 400 "could not read this as an image" (b) yes, only on the front's format refusal, which
+          then needs a field of its own in the JSON it sends (c) no: the message alone, as now</td>
+        <td>(a), 2026-11-08, as recommended. It shows the list to the visitor who needs it, at the moment they need it (R4),
+          using only what the page already receives. A photo that is in an accepted format but won't decode also
+          opens the list, which does no harm. (b) changes the front's answers, the public contract of OPS-18, for the
+          same result. The list opens in its usual place, which after a 400 is right above the refusal's message, the
+          preview being hidden; the chips are not copied into the message (2026-11-08), so the test still holds the
+          only copy.</td></tr>
+      <tr><td class="id">D7</td><td>What are the buttons called?</td>
+        <td>(a) "Supported formats" and "Examples" (b) "Formats" and "Examples", shorter (c) "Accepted formats" and
+          "Examples"</td>
+        <td>(c), 2026-11-08, amending (a) of the same day. <code>GLOSSARY.md</code> names these the accepted formats
+          and avoids "supported format", which reads as "a decoder exists"; the page and <code>llms.txt</code> already
+          say any other format is refused. "Formats" alone doesn't say formats of what. Both fit on one line at
+          402&nbsp;px, each with D4's arrow.</td></tr>
+      <tr><td class="id">D8</td><td>Does a pick fold the format list?</td>
+        <td>(a) yes: every pick folds both lists (b) no: the list stays as the visitor or a refusal left it</td>
+        <td>(a), 2026-11-08, as recommended. Otherwise a list opened by hand or by a refusal (D6) puts the next photo
+          under about 80&nbsp;px of chips. A refusal of that pick opens it again (D6).</td></tr>
+      <tr><td class="id">D9</td><td>On which screens do the lists fold?</td>
+        <td>(a) every screen (b) phones and tablets only, by <code>isMobile()</code> (c) below a width, in CSS</td>
+        <td>(a), 2026-11-08, as recommended. One behaviour to build, test and explain; on a wide screen the fold costs
+          nothing, the button being where the row was.</td></tr>
+      <tr><td class="id">D10</td><td>What is a pick?</td>
+        <td>(a) a file chosen or taken, or an example clicked, the row folding at the click, before the example
+          downloads; a cancelled picker and "Use full photo instead" are not picks (b) as (a), with "Use full photo
+          instead" a pick too</td>
+        <td>(a), 2026-11-08, as recommended. A cancelled picker shows nothing new, and "Use full photo instead" keeps
+          the photo, so the lists stay as the visitor left them. Folding at the click puts an example's wait where a
+          visitor's own photo's is.</td></tr>
+      <tr><td class="id">D11</td><td>May both lists be open at once?</td>
+        <td>(a) yes: each button folds only its own list, and open lists stack in today's order, the chips above the
+          row (b) no: opening one folds the other</td>
+        <td>(a), 2026-11-08, as recommended. Each button does one thing; both open is rare, and the next pick folds
+          them (D8).</td></tr>
+      <tr><td class="id">D12</td><td>In which order are the two buttons?</td>
+        <td>(a) "Accepted formats", then "Examples" (b) "Examples", then "Accepted formats"</td>
+        <td>(a), 2026-11-08, as recommended. The buttons are in the order of the lists they open, and the one shown
+          from page load doesn't move sideways when "Examples" appears at the first pick.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>On load, the format chips are folded and an "Accepted formats" button opens
+      and closes them; the nine chips are those of OPS-18 D5.</span></li>
+    <li><span class="box"></span><span>The buttons are on a line of their own under Choose Photo and Take Photo,
+      "Accepted formats" first; each folds and opens only its own list, its arrow and its expanded state saying
+      which, and both lists may be open at once (D3, D4, D11, D12).</span></li>
+    <li><span class="box"></span><span>Before any pick, the example row is shown in full and there is no "Examples"
+      button.</span></li>
+    <li><span class="box"></span><span>After a pick of each kind (Choose Photo, Take Photo, an example), the row is
+      hidden and the "Examples" button is shown. The button opens the row, and picking from the open row folds it
+      again.</span></li>
+    <li><span class="box"></span><span>Every pick folds the format list too, an example's at the click; a cancelled
+      picker and "Use full photo instead" fold neither list (D8, D10). The same on every screen (D9).</span></li>
+    <li><span class="box"></span><span>In headless Chromium at 402&times;874, once an example's answer is in, the top
+      of <code>#result</code> is inside the first screen. The measured positions are recorded in Activity.</span></li>
+    <li><span class="box"></span><span>When <code>examples.json</code> cannot be read, the page shows neither the row
+      nor the "Examples" button.</span></li>
+    <li><span class="box"></span><span>A 400 "could not read this as an image" opens the format list in its usual
+      place, right above the refusal's message (D6).</span></li>
+    <li><span class="box"></span><span>OPS-16 D10 carries an "Amended by OPS-20 D1" note, and OPS-18 D5 an "Amended
+      by OPS-20 D5" note.</span></li>
+    <li><span class="box"></span><span><code>tests/test_example_photos.py</code> covers the "Examples" button, and
+      <code>tests/test_accepted_formats_named.py</code> still passes unchanged. <code>scripts/check.sh</code> passes.
+      A release is live, <code>--verify</code> passes, and the owner checks it on a phone.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Changing the accepted formats, the chips' labels or the public contract (OPS-18, ADR 0034).</li>
+    <li>Changing the examples, their captions or their truth lines (OPS-16).</li>
+    <li>Shrinking the page's header.</li>
+    <li>Recording whether visitors open either list: that is visitor analytics, OPS-3, on hold.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Ticket written from the owner's request and screenshot, at
+      <code>7c88e4c</code>: the layout and the row's life read from <code>webapp/static/index.html</code>, the
+      decision being amended from <a href="ticket_example_photos.html">OPS-16</a> D10. D1&ndash;D4 open, each with a
+      recommendation. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>The owner added a second button, to show and hide the format chips. Folded
+      into this ticket, since it is the same space above the photo. The chips' decision read from
+      <a href="ticket_gif_bmp_uploads.html">OPS-18</a> D5 and their test from
+      <code>tests/test_accepted_formats_named.py</code>. D5&ndash;D7 added, open; D3 and D4 now cover both buttons;
+      R4 and R5 added. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>D5&ndash;D7 decided by the owner, all as recommended: the format list folded
+      from page load, opened by any 400 "could not read this as an image", and the buttons named "Supported formats"
+      and "Examples". D1&ndash;D4 still open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>The open decisions grilled with the owner, against
+      <code>webapp/static/index.html</code> and <code>GLOSSARY.md</code>. D1&ndash;D4 decided as recommended, D4 with
+      a new option (b), a fixed label and a turning arrow. D7 amended to "Accepted formats", the glossary's term. D8
+      (a pick folds both lists), D9 (every screen), D10 (what a pick is), D11 (both lists may be open) and D12 (the
+      buttons' order) added and decided. D6 noted: the list opens above the refusal's message, which sits in
+      <code>#result</code> after the card; the acceptance line said "under" and is corrected. The OPS-18 D5 note
+      added to acceptance. Triage set to <code>ready-for-agent</code>. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <code>webapp/static/index.html</code>, <code>tests/test_example_photos.py</code>,
+    <code>tests/test_accepted_formats_named.py</code>, <a href="ticket_example_photos.html">OPS-16</a> (D9, D10, D13),
+    <a href="ticket_gif_bmp_uploads.html">OPS-18</a> (D5, the chips), <a href="ticket_choose_existing_photo.html">OPS-17</a>
+    (the two upload controls), <a href="adr/0032-example-photos-are-public-and-in-no-dataset.md">ADR 0032</a>,
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</footer>
+</main>
