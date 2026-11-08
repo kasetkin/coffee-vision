@@ -8,11 +8,15 @@ The image test needs exiftool (libimage-exiftool-perl, in the devcontainer).
 """
 from __future__ import annotations
 
+import io
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 from PIL import Image
@@ -120,6 +124,114 @@ class Scan(unittest.TestCase):
         found = lc.scan(self.root)
         self.assertEqual([(f.path, f.kind) for f in found], [("photo.jpg", "private photo metadata")])
         self.assertIn("GPSLatitude", found[0].shown)
+
+
+class StagedRead(unittest.TestCase):
+    """main(["--staged"], root) checks each staged file as it is staged, from the index, not its copy on disk
+    (OPS-5): what the hook runs, on a throwaway git repo."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "repo"
+        self.git("init", "-q", str(self.root), cwd=self.tmp.name)
+        self.no_patterns = str(Path(self.tmp.name) / "no_patterns.txt")   # absent: the owner's patterns stay out
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *args: str, cwd=None, env=None) -> None:
+        subprocess.run(["git", *args], cwd=cwd or self.root, env=env, check=True, capture_output=True)
+
+    def write(self, rel: str, data: bytes) -> None:
+        (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / rel).write_bytes(data)
+
+    def check(self, patterns: str | None = None) -> tuple[int, list[str]]:
+        """main's exit status and its finding lines (the summary and the patterns note left out)."""
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = lc.main(["--staged", "--patterns", patterns or self.no_patterns], root=self.root)
+        lines = [ln for ln in out.getvalue().splitlines() if not ln.startswith(("leak_check:", "note:"))]
+        return rc, lines
+
+    def test_leak_staged_then_removed_on_disk_is_refused(self):
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        self.git("add", "notes.md")
+        self.write("notes.md", b"mail me: nobody\n")
+        self.assertEqual(self.check(), (1, [f"notes.md:1: email address: {EMAIL}"]))
+
+    def test_leak_only_on_disk_does_not_block(self):
+        self.write("notes.md", b"mail me: nobody\n")
+        self.git("add", "notes.md")
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        self.assertEqual(self.check(), (0, []))
+
+    @unittest.skipUnless(HAVE_EXIFTOOL, "needs exiftool")
+    def test_photo_gps_staged_then_stripped_on_disk_is_refused_by_its_staged_path(self):
+        arr = np.random.default_rng(0).integers(0, 255, (32, 48, 3), dtype=np.uint8)
+        photo = self.root / "photos" / "bean.jpg"
+        photo.parent.mkdir()
+        Image.fromarray(arr).save(photo, quality=90)
+        subprocess.run(["exiftool", "-q", "-overwrite_original", "-GPSLatitude=48.1", "-GPSLatitudeRef=N",
+                        str(photo)], check=True)
+        self.git("add", "photos/bean.jpg")
+        Image.fromarray(arr).save(photo, quality=90)                  # the disk copy, with no GPS
+        rc, lines = self.check()
+        self.assertEqual((rc, len(lines)), (1, 1), lines)
+        self.assertTrue(lines[0].startswith("photos/bean.jpg: private photo metadata: "), lines[0])
+        self.assertIn("GPSLatitude", lines[0])
+
+    def test_staged_symlink_is_skipped_by_its_index_mode(self):
+        self.write("notes.md", b"fine\n")
+        (self.root / "link.md").symlink_to("notes.md")
+        self.git("add", "notes.md", "link.md")
+        (self.root / "link.md").unlink()
+        self.write("link.md", f"mail me: {EMAIL}\n".encode())      # on disk a plain file, in the index a link
+        self.assertEqual(self.check(), (0, []))
+
+    def test_staged_submodule_is_skipped_by_its_index_mode(self):
+        self.git("update-index", "--add", "--cacheinfo", f"160000,{'1' * 40},sub")
+        self.write("sub", f"mail me: {EMAIL}\n".encode())          # on disk a plain file, in the index a gitlink
+        self.assertEqual(self.check(), (0, []))
+
+    def test_staged_deletion_is_not_read(self):
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        self.git("add", "notes.md")
+        self.git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--no-verify", "-m", "x")
+        self.git("rm", "-q", "--cached", "notes.md")                 # deleted in the index, still on disk
+        self.write("other.md", b"fine\n")
+        self.git("add", "other.md")
+        self.assertEqual(self.check(), (0, []))
+
+    def test_private_pattern_in_a_staged_path_is_found(self):
+        patterns = Path(self.tmp.name) / "patterns.txt"
+        patterns.write_text("home-town\n")
+        self.write("home-town/readme.md", b"fine\n")
+        self.git("add", "home-town/readme.md")
+        self.assertEqual(self.check(str(patterns)),
+                         (1, ["home-town/readme.md: private pattern in file path: pattern 'home-town'"]))
+
+    def test_another_index_through_git_index_file_is_read(self):
+        """`git commit -a` and `git commit <path>` hand the hook a temp index in GIT_INDEX_FILE."""
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        alt = str(Path(self.tmp.name) / "alt.index")
+        self.git("add", "notes.md", env={**os.environ, "GIT_INDEX_FILE": alt})
+        self.write("notes.md", b"mail me: nobody\n")
+        with mock.patch.dict(os.environ, {"GIT_INDEX_FILE": alt}):
+            self.assertEqual(self.check(), (1, [f"notes.md:1: email address: {EMAIL}"]))
+        self.assertEqual(self.check(), (0, []))                      # the repo's own index holds nothing
+
+    def test_staged_file_with_skip_worktree_is_read(self):
+        """A sparse checkout's skip-worktree bit leaves the staged blob what is committed: it is checked, not an
+        error that refuses every commit touching the file."""
+        self.write("notes.md", b"fine\n")
+        self.git("add", "notes.md")
+        self.git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--no-verify", "-m", "x")
+        self.write("notes.md", f"mail me: {EMAIL}\n".encode())
+        self.git("add", "notes.md")
+        self.git("update-index", "--skip-worktree", "notes.md")
+        self.write("notes.md", b"fine\n")
+        self.assertEqual(self.check(), (1, [f"notes.md:1: email address: {EMAIL}"]))
 
 
 if __name__ == "__main__":

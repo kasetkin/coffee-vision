@@ -10,11 +10,11 @@
   <p class="lede">The pre-commit hook's leak check reads each staged file's working-tree copy. A leak in a staged line
     that is edited away on disk passes the hook and is committed, and the repo's history is not rewritten. OPS-4's
     plan found this (finding 1), and the owner split it into this ticket (OPS-4 D6). OPS-4's
-    <code>coffeecv.ruff_staged</code> already reads staged blobs, so the reader exists. Decisions answered and
-    planned 2026-11-08; not implemented.</p>
+    <code>coffeecv.ruff_staged</code> already reads staged blobs, so the reader exists. Implemented 2026-11-08 on
+    <code>ops5-leak-check-index</code>; closed by the owner 2026-11-08.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions answered and <a href="plan_leak_check_staged_read.html">planned</a> 2026-11-08; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-10-07; planned 2026-11-08; implemented 2026-11-08 on <code>ops5-leak-check-index</code> (<code>e488fab</code>, <code>c850ef3</code>, <code>916107e</code>); not yet merged to <code>main</code></span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
@@ -108,11 +108,10 @@
           <code>image_findings(paths, root)</code> already maps back by <code>relpath</code> to the root it is
           given.</td></tr>
       <tr><td class="id">R2</td><td><strong>The hook gets slower.</strong></td>
-        <td>One <code>git show</code> per staged file adds a process start each, as in <code>ruff_staged</code>; the
-          leak check's own start (about 1.7 s, the torch import through <code>coffeecv.config</code>) dominates for a
-          small commit. Measure before and after on a commit of about 30 files; D1 (b) avoids the per-file cost.
-          Corrected 2026-11-08 (D3): the start is about 0.33 s, no torch is imported, and D1 (c) reads the whole
-          staged set in one process. The measurement stays.</td></tr>
+        <td>D1 (c) reads the whole staged set with one <code>git checkout-index</code>, beside the leak check's own
+          start of about 0.33 s (no torch is imported). Measure before and after on a commit of about 30 files.
+          Corrected 2026-11-08 (D3): this row first gave a 1.7 s start through a torch import and a per-file
+          <code>git show</code>, both out of date.</td></tr>
       <tr><td class="id">R3</td><td><strong>A second index reader drifts from the first.</strong></td>
         <td><code>ruff_staged</code> already reads blobs and filters index modes. A copy in <code>leak_check</code>
           could diverge (a mode skipped in one, not the other); D2 decides where the reader lives.
@@ -176,14 +175,14 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span><code>leak_check --staged</code> reads each staged text file's blob from the index: an email staged and then removed on disk is refused; an email added on disk to a clean staged file is not.</span></li>
-    <li><span class="box"></span><span>A staged image is checked as staged: GPS in the staged blob is refused when the disk copy has none, and the finding names the staged path.</span></li>
-    <li><span class="box"></span><span>Staged symlinks and submodules are skipped by index mode; a staged deletion is not read.</span></li>
-    <li><span class="box"></span><span>The private-pattern check on file paths still runs on every staged path.</span></li>
-    <li><span class="box"></span><span><code>tests/test_leak_check.py</code> covers both directions on a temp repo, each case seen failing before the change, and the D4 cases, including one on another index through <code>GIT_INDEX_FILE</code>.</span></li>
-    <li><span class="box"></span><span><code>leak_check</code>'s docstring, the hook's header comment and <code>ruff_staged</code>'s docstring say the leak check reads the index; no "until OPS-5" is left.</span></li>
-    <li><span class="box"></span><span>No claim that the leak check or <code>ruff_staged</code> imports torch or takes 1.7 s to start is left in the hook, either module or this ticket (D3).</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh</code> passes, and the hook's added time on a 30-file commit is measured and written in its header.</span></li>
+    <li><span class="box done"></span><span><code>leak_check --staged</code> reads each staged text file's blob from the index: an email staged and then removed on disk is refused; an email added on disk to a clean staged file is not. <span class="result"><code>e488fab</code>.</span></span></li>
+    <li><span class="box done"></span><span>A staged image is checked as staged: GPS in the staged blob is refused when the disk copy has none, and the finding names the staged path. <span class="result"><code>e488fab</code>.</span></span></li>
+    <li><span class="box done"></span><span>Staged symlinks and submodules are skipped by index mode; a staged deletion is not read. <span class="result"><code>e488fab</code>; a skip-worktree entry is read, not refused, <code>916107e</code>.</span></span></li>
+    <li><span class="box done"></span><span>The private-pattern check on file paths still runs on every staged path. <span class="result"><code>e488fab</code>.</span></span></li>
+    <li><span class="box done"></span><span><code>tests/test_leak_check.py</code> covers both directions on a temp repo, each case seen failing before the change, and the D4 cases, including one on another index through <code>GIT_INDEX_FILE</code>. <span class="result"><code>e488fab</code>, <code>916107e</code>: <code>StagedRead</code>, 9 tests.</span></span></li>
+    <li><span class="box done"></span><span><code>leak_check</code>'s docstring, the hook's header comment and <code>ruff_staged</code>'s docstring say the leak check reads the index; no "until OPS-5" is left. <span class="result"><code>c850ef3</code>.</span></span></li>
+    <li><span class="box done"></span><span>No claim that the leak check or <code>ruff_staged</code> imports torch or takes 1.7 s to start is left in the hook, either module or this ticket (D3). <span class="result"><code>c850ef3</code>, <code>916107e</code>; the ticket quotes the old figures only where it records their correction (R2, D3).</span></span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh</code> passes, and the hook's added time on a 30-file commit is measured and written in its header. <span class="result"><code>scripts/check.sh --full</code> passes on <code>916107e</code>; on 30 staged Python files the hook took 3.38 s before and 3.52 s after, the leak check 0.33 s and 0.35 s (<code>c850ef3</code>).</span></span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -200,6 +199,8 @@
     <div><div class="when">2026-11-08</div>Grilled with the owner. Rechecked first: since <code>d4068d9</code> the code has changed only by OPS-4's review fix and a VM rename, so the Background holds. Found: (1) <code>python -m coffeecv.leak_check</code> starts in about 0.33 s and imports no torch, so the 1.7 s claims in the hook, <code>ruff_staged</code>, <code>image_findings()</code> and R2 are stale; (2) 30 staged files read in about 80 ms by one <code>git show</code> each, 5 ms by <code>git cat-file --batch</code>; (3) <code>git checkout-index --prefix=</code> writes the staged set into a temp tree in one process, symlinks as symlinks and submodules as empty directories, and follows the temp <code>GIT_INDEX_FILE</code> git hands the hook under <code>commit -a</code> and <code>commit &lt;path&gt;</code>, all tried on throwaway repos. Owner answers: D1 (c), D3 (a), D4 as proposed. R1 and R2 annotated; one acceptance item added and one widened. <code>GLOSSARY.md</code> gets <b>Leak</b>. D2 stays open. Not planned, not implemented.</div>
     <div><div class="when">2026-11-08</div>Owner answers D2, reframed by D1 (c): (a), nothing moves; <code>ruff_staged</code> keeps its own reader and changes only in its docstring. R3 closed. All decisions answered. Not planned, not implemented.</div>
     <div><div class="when">2026-11-08</div>Owner agrees the plan as recommended: <a href="plan_leak_check_staged_read.html">plan</a> written (P1 staged read, test first; P2 comments, timing and a live check; P3 owner stop), branch <code>ops5-leak-check-index</code>, Triage <code>bug, ready-for-agent</code>. Not implemented.</div>
+    <div><div class="when">2026-11-08</div>Implemented on <code>ops5-leak-check-index</code> by the <a href="plan_leak_check_staged_read.html">plan</a>'s P1&ndash;P2: <code>e488fab</code> (the staged read through a <code>checkout-index</code> temp tree, <code>main(argv, root)</code>, the D4 tests, each seen failing first), <code>c850ef3</code> (docstrings, the hook's header, the D3 timing claims, R2) and <code>916107e</code> (review fixes). Found beyond the ticket: <code>checkout-index</code> refuses a staged skip-worktree entry, which would have refused every commit touching one; it now reads its staged blob (<code>--ignore-skip-worktree-bits</code>), with a test. Measured: the hook on 30 staged Python files 3.38 s before, 3.52 s after; the leak check 0.33 s, then 0.35 s; a staged 12 MP JPEG adds about 0.3 s. A live check in this repo refused a staged leak removed on disk. <code>scripts/check.sh --full</code> passes on <code>916107e</code>. Status In progress: the owner reviews, merges by a merge commit (ADR 0017) and closes.</div>
+    <div><div class="when">2026-11-08</div>Closed by the owner. The branch <code>ops5-leak-check-index</code> is not yet merged to <code>main</code>; it joins by a merge commit (ADR 0017).</div>
   </div>
 
   <footer>Related: <a href="plan_leak_check_staged_read.html">plan</a>, <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
