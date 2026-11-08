@@ -29,9 +29,9 @@ from coffeecv import canonical as cn
 DATASET_MAX_PIXELS = 2**28
 
 
-def photos(folder: Path) -> tuple[list[Path], list[Path]]:
-    """(the photos under `folder`, the other files), sorted; hidden files are neither."""
-    files = sorted(p for p in folder.rglob("*") if p.is_file() and not p.name.startswith("."))
+def photos_and_others(folder: Path) -> tuple[list[Path], list[Path]]:
+    """(the files under `folder` in an accepted format, by extension; every other file), each sorted."""
+    files = sorted(p for p in folder.rglob("*") if p.is_file())
     return [p for p in files if cn.is_photo(p)], [p for p in files if not cn.is_photo(p)]
 
 
@@ -64,7 +64,7 @@ def main() -> None:
     source = args.dataset / args.folder
     if not source.is_dir():
         raise SystemExit(f"{source} is not a folder")
-    found, others = photos(source)
+    found, others = photos_and_others(source)
     if others:
         print(f"{len(others)} files not in an accepted format, left alone:\n  "
               + "\n  ".join(p.relative_to(args.dataset).as_posix() for p in others), flush=True)

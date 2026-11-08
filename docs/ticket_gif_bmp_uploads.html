@@ -344,6 +344,20 @@
       0.63); as BMPs, the two over about 13 MP are over the 40 MB cap. Found there: a 50 MP GIF peaked at 617 MB on the
       local front, over the unit's MemoryMax of 600M (swap allowed), since Pillow's path holds the palette image, its
       RGB conversion and the array at once; WebP and AVIF took the same path before. Not released.</div>
+    <div><div class="when">2026-11-08</div>Reviewed (<code>/code-review</code>, Standards and Spec) after
+      <code>87d1082</code>: no hard violation, no requirement wrong. Fixed: <code>canonicalize_folder</code> no longer
+      skips hidden files unreported (D16); the decoder's meaning moved onto the row (<code>is_raw</code>,
+      <code>turns_itself</code>, <code>pillow_plugin</code>); the six TIFF-based RAW rules share one function; a
+      real-data test decodes a real DNG through <code>canonical.decode</code> (D7: the dataset holds no other RAW
+      family, so CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF and SRW are tested by their signatures only). Narrowed on purpose,
+      not in section 4: a JPEG, PNG, JPEG XL or HEIF named with a RAW extension, which canonicalization used to decode by
+      its content, is Unreadable, as the front already refused it (D17); no dataset photo is one.
+      <code>make_pass14.stored_size</code> checked against the old tree: 57 photos, the same sizes; its new JPEG XL
+      branch against a decode of the four examples. The store: 2 photos of each of the 20 canonicalize folders made
+      again, 40 byte-identical, so the 39 stages that depend on <code>canonical.py</code> (canonicalize, segcrop,
+      seg_ml19_predict) were recorded with <code>dvc commit</code>, as ML-19 P4's ten were; no output's hash changed.
+      <code>scripts/check.sh --full</code>: 875 tests pass. Not released: D9's release, after OPS-17's is live, is the
+      owner's.</div>
   </div>
 
   <footer>Related: <code>webapp/front/upload_check.py</code>, <code>coffeecv/canonical.py</code>,

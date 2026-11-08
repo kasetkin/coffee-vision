@@ -77,6 +77,23 @@ class AcceptedFormat:
     mime_types: tuple[str, ...]
     decoder: str         # what decode opens it with: pillow.<FORMAT> is Pillow with that one plugin
 
+    @property
+    def is_raw(self) -> bool:
+        return self.decoder == "rawpy"
+
+    @property
+    def turns_itself(self) -> bool:
+        """Its decoder turns it upright (D28); any other is turned by its EXIF orientation."""
+        return self.decoder in ("rawpy", "pillow_heif", "imagecodecs.jpegxl")
+
+    @property
+    def pillow_plugin(self) -> str:
+        """The one Pillow plugin that may open it, for its pixels or, when imagecodecs decodes it, for the ICC profile
+        and EXIF imagecodecs does not read (D4). KeyError for a format Pillow never opens."""
+        if self.decoder.startswith("pillow."):
+            return self.decoder.removeprefix("pillow.")
+        return {"imagecodecs.jpeg8": "JPEG", "imagecodecs.png": "PNG"}[self.decoder]
+
 
 FORMATS_PATH = Path(__file__).resolve().parent / "data" / "accepted_formats.csv"
 
@@ -89,7 +106,8 @@ def _read_formats(path: Path) -> dict[str, AcceptedFormat]:
 
 
 ACCEPTED_FORMATS = _read_formats(FORMATS_PATH)   # in the file's order, which the page and the texts keep
-RAW_EXTENSIONS = frozenset(e for f in ACCEPTED_FORMATS.values() if f.decoder == "rawpy" for e in f.extensions)
+_RAW_BY_EXTENSION = {e: f.id for f in ACCEPTED_FORMATS.values() if f.is_raw for e in f.extensions}
+RAW_EXTENSIONS = frozenset(_RAW_BY_EXTENSION)
 PHOTO_EXTENSIONS = frozenset(e for f in ACCEPTED_FORMATS.values() for e in f.extensions)
 HEAD_BYTES = 64   # what recognise reads: every rule below, an ftyp box's compatible brands included (a phone's HEIC: 44)
 
@@ -97,7 +115,7 @@ HEAD_BYTES = 64   # what recognise reads: every rule below, an ftyp box's compat
 HEIF_BRANDS = frozenset({b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"hevm", b"hevs", b"mif1", b"msf1"})
 AVIF_BRANDS = frozenset({b"avif", b"avis"})
 JXL_SIGNATURES = (b"\xff\x0a", b"\x00\x00\x00\x0cJXL \r\n\x87\n")   # bare codestream, ISO BMFF container
-TIFF = (b"II*\x00", b"MM\x00*")
+TIFF_SIGNATURES = (b"II*\x00", b"MM\x00*")   # little- and big-endian: most RAW families are TIFF-based
 # A BMP's info header sizes: BITMAPCOREHEADER, BITMAPINFOHEADER, its V2 and V3 extensions, OS/2 2.x, V4, V5 (R4)
 BMP_INFO_SIZES = frozenset({12, 40, 52, 56, 64, 108, 124})
 
@@ -108,6 +126,15 @@ def _ftyp_brands(head: bytes) -> tuple[bytes, set[bytes]]:
         return b"", set()
     end = min(int.from_bytes(head[:4], "big"), len(head))
     return head[8:12], {head[i:i + 4] for i in range(16, end - 3, 4)}
+
+
+def _all_brands(head: bytes) -> set[bytes]:
+    major, compatible = _ftyp_brands(head)
+    return {major, *compatible} - {b""}
+
+
+def _tiff_based(head: bytes) -> bool:
+    return head.startswith(TIFF_SIGNATURES)
 
 
 def _image_brand(head: bytes) -> str | None:
@@ -132,14 +159,13 @@ RULES = {
     "jxl": lambda h: h.startswith(JXL_SIGNATURES),
     "gif": lambda h: h.startswith((b"GIF87a", b"GIF89a")),
     "bmp": lambda h: h[:2] == b"BM" and len(h) >= 18 and int.from_bytes(h[14:18], "little") in BMP_INFO_SIZES,
-    "dng": lambda h: h.startswith(TIFF), "cr2": lambda h: h.startswith(TIFF), "nef": lambda h: h.startswith(TIFF),
-    "arw": lambda h: h.startswith(TIFF), "pef": lambda h: h.startswith(TIFF), "srw": lambda h: h.startswith(TIFF),
+    "dng": _tiff_based, "cr2": _tiff_based, "nef": _tiff_based, "arw": _tiff_based, "pef": _tiff_based,
+    "srw": _tiff_based,
     "orf": lambda h: h.startswith((b"IIRO", b"IIRS", b"MMOR")),
     "rw2": lambda h: h.startswith(b"IIU\x00"),
     "raf": lambda h: h.startswith(b"FUJIFILMCCD-RAW"),
-    "cr3": lambda h: b"crx " in {_ftyp_brands(h)[0], *_ftyp_brands(h)[1]},
+    "cr3": lambda h: b"crx " in _all_brands(h),
 }
-_RAW_BY_EXTENSION = {e: f.id for f in ACCEPTED_FORMATS.values() if f.decoder == "rawpy" for e in f.extensions}
 
 
 def recognise(head: bytes, name: str = "") -> str | None:
@@ -150,7 +176,7 @@ def recognise(head: bytes, name: str = "") -> str | None:
     raw = _RAW_BY_EXTENSION.get(Path(name).suffix.lower())
     if raw is not None:
         return raw if RULES[raw](head) else None
-    return next((i for i, f in ACCEPTED_FORMATS.items() if f.decoder != "rawpy" and RULES[i](head)), None)
+    return next((i for i, f in ACCEPTED_FORMATS.items() if not f.is_raw and RULES[i](head)), None)
 
 
 class Unreadable(OSError):
@@ -177,23 +203,12 @@ class Source:
         self.pixels, self.full, self.profile, self.decoder = pixels, full, profile, decoder
 
 
-# The decoders that turn a photo upright themselves (D28); and Pillow's plugin for the metadata of the two formats
-# imagecodecs decodes, since it reads no ICC profile or EXIF.
-SELF_TURNING = frozenset({"rawpy", "pillow_heif", "imagecodecs.jpegxl"})
-_METADATA_PLUGIN = {"imagecodecs.jpeg8": "JPEG", "imagecodecs.png": "PNG"}
-
-
 def accepted_format(data: bytes, name: str = "") -> AcceptedFormat:
     """The row of the accepted format `data` is in (recognise); Unreadable if none, so nothing else is decoded."""
     fid = recognise(data[:HEAD_BYTES], name)
     if fid is None:
         raise Unreadable("not a photo in an accepted format")
     return ACCEPTED_FORMATS[fid]
-
-
-def pillow_plugin(fmt: AcceptedFormat) -> str:
-    """The one Pillow plugin that may open a file of this format, for its pixels or its metadata (D4)."""
-    return fmt.decoder.removeprefix("pillow.") if fmt.decoder.startswith("pillow.") else _METADATA_PLUGIN[fmt.decoder]
 
 
 def orient(a: np.ndarray, orientation: int) -> np.ndarray:
@@ -258,10 +273,10 @@ def applied_orientation(data: bytes, name: str = "") -> int:
     """The EXIF orientation canonicalization turns this original by (D28): 1 for HEIC, RAW and JPEG XL, whose decoders
     turn them, and for a value outside 1-8."""
     fmt = accepted_format(data, name)
-    if fmt.decoder in SELF_TURNING:
+    if fmt.turns_itself:
         return 1
     try:
-        orientation = _pillow_metadata(data, pillow_plugin(fmt))[1]
+        orientation = _pillow_metadata(data, fmt.pillow_plugin)[1]
     except (OSError, ValueError, SyntaxError, EOFError) as exc:
         raise Unreadable(f"unreadable photo ({type(exc).__name__})") from exc
     return orientation if 1 <= orientation <= 8 else 1
@@ -273,7 +288,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
     over `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded."""
     fmt = accepted_format(data, name)
     try:
-        if fmt.decoder == "rawpy":
+        if fmt.is_raw:
             import rawpy
             try:
                 with rawpy.imread(io.BytesIO(data)) as raw:
@@ -295,7 +310,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             return Source(_cap(rgb), full, usable_profile(profile), f"heif{depth}")
         if fmt.decoder == "imagecodecs.jpegxl":
             return _decode_jxl(data, max_pixels)
-        plugin = pillow_plugin(fmt)
+        plugin = fmt.pillow_plugin
         profile, orientation, mode, size = _pillow_metadata(data, plugin)
         _check_size(*size, max_pixels)
         if mode == "CMYK":

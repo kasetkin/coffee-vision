@@ -66,7 +66,7 @@ def head(data: bytes) -> bytes:
 
 class AcceptsWhatCanonicalizationDecodes(unittest.TestCase):
     def test_every_accepted_format_has_a_sample_here(self):
-        self.assertEqual(set(SAMPLES) | {f.id for f in cn.ACCEPTED_FORMATS.values() if f.group == "camera RAW"},
+        self.assertEqual(set(SAMPLES) | {f.id for f in cn.ACCEPTED_FORMATS.values() if f.is_raw},
                          set(cn.ACCEPTED_FORMATS))
         self.assertEqual(set(RAW_HEADS), cn.RAW_EXTENSIONS)
 
@@ -166,6 +166,16 @@ class AcceptsRealPhotos(unittest.TestCase):
                 continue
             with self.subTest(photo=str(photo.relative_to(REPO))), photo.open("rb") as f:
                 self.assertIsNone(upload_check.refusal(photo.name, f.read(upload_check.HEAD_BYTES)))
+
+    def test_a_real_raw_photo_is_let_through_and_decoded(self):   # D7: the RAW rows' decoder, on the one RAW kind
+        # the dataset holds (DNG); the other RAW families are checked by their signatures only.
+        photo = next((p for p in sorted((REPO / "dataset").rglob("*")) if p.suffix.lower() == ".dng"), None)
+        if photo is None:
+            self.skipTest("no DNG under dataset/ (dvc pull)")
+        data = photo.read_bytes()
+        self.assertIsNone(upload_check.refusal(photo.name, head(data)))
+        src = cn.decode(data, photo.name)
+        self.assertEqual((src.decoder, src.pixels.ndim, src.pixels.shape[2]), ("rawpy16", 3, 3))
 
 
 if __name__ == "__main__":
