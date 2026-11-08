@@ -434,6 +434,16 @@
       600M's reasons stay in ML-19 D26, D38 and <code>analysis/ml19/p8/README.md</code>. The release before it staged on
       the inference host in 88 s: the two graphs byte-identical to the live release's were copied on the host first, into
       a <code>releases/seed-ml16-graphs</code> that the deploy's <code>--copy-dest</code> reads and its prune removes.</div>
+    <div><div class="when">2026-11-08</div>Live: release <code>20261108T0728Z-c6ce09b-dino3b16_segxl0v7r_country_aug8_s42</code>
+      (ML-16, ML-19 and OPS-16 in one, <code>main</code> at <code>c6ce09b</code>, merged <code>--no-ff</code>, ADR 0017).
+      <code>--stage-only</code>: the GPU smoke top-1 Colombia as locally (score diff 0.0045, mask IoU 0.999997), 36 s of
+      photo answers down; <code>--compare</code>: 12 photos, 0 verdict and 0 top-1 changes, p95 largest change 0.0053, 185 s
+      down; the full deploy flipped both hosts and <code>--verify</code> passed on the domain: the startup line's commit
+      and <code>model_sha 6a1d7cf083f8ad49</code>, public <code>/analyze</code> top-1 Colombia, the four examples served as
+      the release's bytes with their answers (Brazil, Ethiopia, Indonesia, the cappuccino refused). The prune removed
+      the seed folder. Server-side: a 12 MP photo 12.1 s (<code>decode_ms</code> 3.7 s, the canonical JXL), the 50 MP grinder
+      example 24.8 s (decode 15.9 s), against ML-13's 8.4 s: ML-19's decode, a follow-up of its own. Left for the
+      owner: try the examples on the live site, and close the tickets.</div>
   </div>
 
   <footer>Related: <a href="ticket_segmenter_xl0v6.html">ML-13</a> (XL0-v6, pass8 to pass10),
