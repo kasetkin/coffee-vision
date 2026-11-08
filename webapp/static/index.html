@@ -241,9 +241,11 @@
       <!-- Ticket OPS-17 D1, D2: the camera in one tap, on phones and tablets only (isMobile, below). -->
       <label id="camera-label" class="file-btn" for="camera-input" hidden>Take Photo</label>
     </div>
+    <!-- The accepted formats (coffeecv/data/accepted_formats.csv, ADR 0034): these chips and both accept lists are held
+         to the file by tests/test_accepted_formats_named.py. -->
     <div class="formats-hint">
-      <span>JPG</span><span>PNG</span><span>WEBP</span><span>HEIC/HEIF</span>
-      <span>AVIF</span><span>JPEG XL/JXL</span><span>RAW (DNG, CR2, NEF, ARW, &hellip;)</span>
+      <span>JPEG</span><span>PNG</span><span>WebP</span><span>HEIC/HEIF</span><span>AVIF</span>
+      <span>JPEG XL</span><span>GIF</span><span>BMP</span><span>camera RAW (DNG, CR2, NEF, ARW, &hellip;)</span>
     </div>
     <!-- Ticket OPS-16 D10, D13: built from /examples/examples.json; stays hidden if the list cannot be read. -->
     <div id="examples" hidden>
@@ -253,9 +255,9 @@
     <!-- Ticket OPS-17 D1: Choose Photo has no capture attribute, so a phone offers the photos it already has; Take
          Photo has it, and opens the rear camera. Both take the same formats. -->
     <input id="photo-input" type="file"
-           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw">
+           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/gif,image/bmp,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.hif,.avif,.jxl,.gif,.bmp,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw">
     <input id="camera-input" type="file"
-           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
+           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/gif,image/bmp,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.hif,.avif,.jxl,.gif,.bmp,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
            capture="environment">
     <div id="preview-wrap">
       <img id="preview" alt="Selected photo preview">

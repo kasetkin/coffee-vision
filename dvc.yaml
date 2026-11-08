@@ -46,6 +46,7 @@ stages:
         - coffeecv/jxl_encode.py
         - coffeecv/jxl_header.py
         - coffeecv/data/rec2020_bt709.icc
+        - coffeecv/data/accepted_formats.csv
       outs:
         - data/canonical/${item}
 

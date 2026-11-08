@@ -191,7 +191,8 @@ class TestTwoReleases(unittest.TestCase):
         # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization and nothing else of it.
         self.assertEqual({p for p in front["git"] if p.startswith("coffeecv/")},
                          {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/jxl_encode.py",
-                          "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc"})
+                          "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
+                          "coffeecv/data/accepted_formats.csv"})
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
@@ -201,7 +202,7 @@ class TestTwoReleases(unittest.TestCase):
         """What check_service imports from coffeecv, followed module by module, is all in the front's release."""
         import ast
         shipped = {p for p in front_manifest()["git"] if p.endswith(".py")}
-        todo, seen = ["webapp/front/check_service.py"], set()
+        todo, seen = ["webapp/front/check_service.py", "webapp/front/upload_check.py"], set()
         while todo:
             path = todo.pop()
             if path in seen:
@@ -214,8 +215,14 @@ class TestTwoReleases(unittest.TestCase):
                     if name.startswith("coffeecv"):
                         mod = name if name != "coffeecv" else "coffeecv." + node.names[0].name
                         todo.append(mod.replace(".", "/") + ".py")
-        self.assertTrue(seen - {"webapp/front/check_service.py"})
+        self.assertTrue(seen - {"webapp/front/check_service.py", "webapp/front/upload_check.py"})
         self.assertEqual(seen - shipped, set())
+
+    def test_both_releases_carry_the_data_canonical_reads(self):   # ML-19 D46; OPS-18 D13
+        for name, release in (("front", front_manifest()), ("inference host", _synthetic(CARD))):
+            for data in ("coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"):
+                with self.subTest(release=name, file=data):
+                    self.assertIn(data, release["git"])
 
     def test_each_release_carries_its_own_site(self):
         self.assertIn("inference.nginx.conf", _synthetic(CARD)["generated"])

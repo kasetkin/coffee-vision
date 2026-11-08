@@ -75,6 +75,17 @@ class Folder(unittest.TestCase):
         self.assertEqual(self.run_tool().returncode, 0)
         self.assertEqual({p: p.read_bytes() for p in self.store.rglob("*.jxl")}, first)   # a re-run, the same bytes
 
+    def test_a_file_in_no_accepted_format_is_reported_and_left_alone(self):   # OPS-18 D16
+        buf = io.BytesIO()
+        Image.new("RGB", (16, 16), (120, 80, 40)).save(buf, "TIFF")
+        (self.dataset / "sess" / "class_001" / "scan.tif").write_bytes(buf.getvalue())
+        r = self.run_tool()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("2 files not in an accepted format, left alone", r.stdout)
+        self.assertIn("sess/class_001/scan.tif", r.stdout)
+        self.assertIn("sess/manifest.csv", r.stdout)
+        self.assertFalse(any(self.store.rglob("scan.tif*")))
+
     def test_an_unreadable_photo_fails_the_run_by_name(self):
         (self.dataset / "sess" / "broken.jpg").write_bytes(b"\xff\xd8\xff\xe0 not really")
         r = self.run_tool()

@@ -46,6 +46,10 @@ _Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a r
 Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization".
 _Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
 
+**Accepted format**:
+A photo format the service promises to read, named on the page and to agents. A photo in any other format is refused unread, even when a decoder for it exists.
+_Avoid_: Supported format, decodable format
+
 **Fixture**:
 A photo the deploy runs through every release to check it, fixed until the deploy's own checks change. An example photo is never a fixture, even though the deploy checks its answer too: the examples are the page's, and they may change on their own.
 _Avoid_: Test photo, example photo

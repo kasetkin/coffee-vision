@@ -3,8 +3,8 @@ nginx, checked, canonicalized, then forwarded to the inference host, whose answe
 
     python webapp/front/check_service.py --listen 127.0.0.1:8100 --inference http://<tailnet address>:12346
 
-It refuses an upload over 40 MB (ML-19 D23; OPS-15 D15 and OPS-16 D8 before) and a file that is not one of the formats
-the service reads (upload_check). Then the photo becomes its
+It refuses an upload over 40 MB (ML-19 D23; OPS-15 D15 and OPS-16 D8 before) and a file in no accepted format
+(upload_check; ADR 0034, OPS-18). Then the photo becomes its
 canonical photo (coffeecv.canonical, ML-19 D12, D35): one already canonical goes on as it is (D17), any other is
 canonicalized here, a photo over the pixel ceiling (D38; a RAW one over its own, D24) is refused with a 413 from its
 header before any pixel is decoded, and one that cannot be read is the 400 the inference host gives. The form goes on
@@ -39,7 +39,7 @@ from urllib.parse import unquote, urlsplit
 from pathlib import Path, PurePath
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # the release's root: coffeecv/
-from upload_check import HEAD_BYTES, RAW_EXTENSIONS, refusal  # noqa: E402
+from upload_check import HEAD_BYTES, refusal  # noqa: E402
 
 from coffeecv import canonical  # noqa: E402
 
@@ -194,7 +194,7 @@ class CheckHandler(BaseHTTPRequestHandler):
         try:
             content_type = self.headers.get("Content-Type", "")
             _, data, _ = _photo(content_type, body)
-            raw = PurePath(filename).suffix.lower() in RAW_EXTENSIONS
+            raw = PurePath(filename).suffix.lower() in canonical.RAW_EXTENSIONS
             try:
                 canon = self.canonicalize(data, filename, RAW_MAX_PIXELS if raw else MAX_PIXELS)
             except canonical.TooLarge:

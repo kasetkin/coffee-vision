@@ -1,0 +1,26 @@
+# The accepted formats (GLOSSARY.md; ADR 0034; ticket OPS-18 D11, D13-D15): the photo formats the service reads,
+# one row each, and the only ones a decoder sees. Read by coffeecv.canonical (the recogniser and decode), the front's
+# check (webapp/front/upload_check.py) and the tests that hold llms.txt, openapi.json and the page to it.
+# label: the name the page's chip, llms.txt, openapi.json and the refusal message use. group: rows the page and the
+# texts gather under one name (camera RAW). extensions, mime_types: space-separated, as the page's accept lists name
+# them. decoder: what canonical.decode opens the file with (pillow.<FORMAT>: Pillow with that one plugin).
+# A new row needs its rule in canonical.RULES, the texts updated and a test that canonicalizes it (ADR 0034).
+id,label,group,extensions,mime_types,decoder
+jpeg,JPEG,,.jpg .jpeg,image/jpeg,imagecodecs.jpeg8
+png,PNG,,.png,image/png,imagecodecs.png
+webp,WebP,,.webp,image/webp,pillow.WEBP
+heif,HEIC/HEIF,,.heic .heif .hif,image/heic image/heif,pillow_heif
+avif,AVIF,,.avif,image/avif,pillow.AVIF
+jxl,JPEG XL,,.jxl,image/jxl,imagecodecs.jpegxl
+gif,GIF,,.gif,image/gif,pillow.GIF
+bmp,BMP,,.bmp,image/bmp,pillow.BMP
+dng,DNG,camera RAW,.dng,image/x-adobe-dng,rawpy
+cr2,CR2,camera RAW,.cr2,image/x-canon-cr2,rawpy
+cr3,CR3,camera RAW,.cr3,image/x-canon-cr3,rawpy
+nef,NEF,camera RAW,.nef,image/x-nikon-nef,rawpy
+arw,ARW,camera RAW,.arw,image/x-sony-arw,rawpy
+raf,RAF,camera RAW,.raf,image/x-fuji-raf,rawpy
+orf,ORF,camera RAW,.orf,image/x-olympus-orf,rawpy
+rw2,RW2,camera RAW,.rw2,image/x-panasonic-rw2,rawpy
+pef,PEF,camera RAW,.pef,,rawpy
+srw,SRW,camera RAW,.srw,,rawpy
