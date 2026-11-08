@@ -238,6 +238,8 @@
   <div class="card">
     <div class="controls">
       <label id="photo-label" class="file-btn" for="photo-input">Choose Photo</label>
+      <!-- Ticket OPS-17 D1, D2: the camera in one tap, on phones and tablets only (isMobile, below). -->
+      <label id="camera-label" class="file-btn" for="camera-input" hidden>Take Photo</label>
     </div>
     <div class="formats-hint">
       <span>JPG</span><span>PNG</span><span>WEBP</span><span>HEIC/HEIF</span>
@@ -248,7 +250,11 @@
       <p class="examples-title">No photo? Try one of ours:</p>
       <div id="example-row"></div>
     </div>
+    <!-- Ticket OPS-17 D1: Choose Photo has no capture attribute, so a phone offers the photos it already has; Take
+         Photo has it, and opens the rear camera. Both take the same formats. -->
     <input id="photo-input" type="file"
+           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw">
+    <input id="camera-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.jxl,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
            capture="environment">
     <div id="preview-wrap">
@@ -282,6 +288,8 @@ const cropOverlay = document.getElementById('crop-overlay');
 const cropNote = document.getElementById('crop-note');
 const cropToggleBtn = document.getElementById('crop-toggle-btn');
 const photoLabel = document.getElementById('photo-label');
+const cameraInput = document.getElementById('camera-input');
+const cameraLabel = document.getElementById('camera-label');
 const spinner = document.getElementById('spinner');
 const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
@@ -440,16 +448,26 @@ function drawBeanRegion(dispW, dispH) {
 
 // Ticket OPS-6 D13: each upload has a token, and an answer for an upload
 // that is no longer the current one is dropped before it touches the page.
-// Choose Photo is disabled while a photo is in flight (OPS-7 D4), so this is a
+// Choose Photo and Take Photo are disabled while a photo is in flight (OPS-7 D4), so this is a
 // guard, not the main defence.
 let currentUpload = 0;
 
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files[0];
-  // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
-  fileInput.value = '';
-  choose(file, null);
-});
+for (const input of [fileInput, cameraInput]) {
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
+    input.value = '';
+    choose(file, null);
+  });
+}
+
+// Ticket OPS-17 D2: Take Photo on every phone and tablet, iOS and Android. iPadOS Safari reports a Mac by default,
+// told apart by its touch points.
+function isMobile() {
+  return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+cameraLabel.hidden = !isMobile();
 
 // A photo to classify: the visitor's own (example null), or an example photo, which takes the same path as one the
 // visitor chose (ticket OPS-16 D9): the same size check, upload, busy retries and "Use full photo instead".
@@ -533,11 +551,13 @@ async function chooseExample(example) {
 loadExamples();
 
 // While a photo is in flight (OPS-7 D3, D4): the circle spins and Choose
-// Photo is disabled, since the single worker keeps running a photo even when
+// Photo and Take Photo are disabled, since the single worker keeps running a photo even when
 // the page gives up on it, so a second pick could only meet a 503.
 function setBusy(busy) {
   fileInput.disabled = busy;
   photoLabel.classList.toggle('disabled', busy);
+  cameraInput.disabled = busy;   // ticket OPS-17, as OPS-7 D4
+  cameraLabel.classList.toggle('disabled', busy);
   for (const button of exampleRow.querySelectorAll('button')) button.disabled = busy;   // ticket OPS-16, as OPS-7 D4
   spinner.style.display = busy ? 'block' : 'none';
   if (!busy) showSending(false);
