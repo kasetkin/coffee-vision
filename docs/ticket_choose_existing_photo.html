@@ -1,0 +1,204 @@
+<title>Choose Photo picks an existing photo on iOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-17 · coffee-vision · the web page</div>
+  <h1>The page's Choose Photo lets a visitor on iOS Safari pick a photo they already have, not only take a new one</h1>
+  <p class="lede">On an iPhone, Safari's Choose Photo opens the camera, with no way to pick a photo from the library or
+    from Files. The cause is one attribute on the page's file input, <code>capture="environment"</code>, there since the
+    page was first written. Written 2026-11-08; D1 and D2 decided: on every phone and tablet the page shows two controls,
+    Choose Photo (an existing photo) and Take Photo (the camera); a desktop keeps one.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; D1&ndash;D8 decided 2026-11-08 (two controls on every mobile browser); built 2026-11-08 on <code>ops17-ios-choose-photo</code>, not released; the owner's check on the phones next</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Web page: the upload control</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code> (the <code>#photo-input</code> file input and its label), the page's tests, a release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the check on an iPhone)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The page only, at the next deploy: what the Choose Photo control opens on phones. The front, the host and the models do not change.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-08.</strong> "web-page button "Choose photo" in Safari browser on iOS should allow
+      to select existing photo. At this moment it is launching camera and no select."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Choose Photo is a <code>&lt;label&gt;</code> for a hidden <code>&lt;input type="file"&gt;</code> that carries
+    <code>capture="environment"</code>. That attribute asks a mobile browser to open the rear camera directly; iOS Safari
+    then offers the camera only. Without it, iOS shows its own menu (photo library, take a photo, choose a file). The
+    owner's answer (D1, D2): on every mobile browser, iOS and Android, phone and tablet, the page shows two controls,
+    Choose Photo without <code>capture</code> and Take Photo with it; a desktop browser shows Choose Photo only.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>The input</b> (<code>webapp/static/index.html</code>, lines 240 and 251&ndash;253 at <code>89d628a</code>):
+      <code>&lt;label id="photo-label" class="file-btn" for="photo-input"&gt;Choose Photo&lt;/label&gt;</code>, and the
+      input with a long <code>accept</code> list (JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL and the RAW types) and
+      <code>capture="environment"</code>.</li>
+    <li><b>Since when.</b> The attribute came with the page itself (<code>4eebb2c</code>, 2026-08-24); no ticket or ADR
+      chose it, and no test reads it. ADR 0001, "camera first", is about photos against sensor hardware, not about this
+      control.</li>
+    <li><b>Android</b>, as the owner sees it (2026-11-08): Choose Photo opens the system's menu with two buttons, one
+      for the camera and one for the gallery, so an existing photo can be chosen there today. Desktop browsers ignore
+      the attribute.</li>
+    <li><b>Other iOS browsers.</b> Chrome and Firefox on iOS run on WebKit, as Safari does, and show the same picker;
+      the page's own browser detection names them <code>CriOS</code> and <code>FxiOS</code>
+      (<code>webapp/app.py</code>). iPadOS Safari reports a desktop Mac user agent by default. Both are D2.</li>
+    <li><b>The page's own JavaScript</b> reads the input's <code>change</code> event (<code>fileInput</code>, line 273)
+      and disables the control while a photo is in flight (OPS-7 D4). Neither depends on where the file came from.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>iOS Safari: Choose Photo opens the camera; a photo already on the phone cannot be sent.</li>
+        <li>Android: the system's menu offers the camera and the gallery (the owner, 2026-11-08).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>iOS Safari: two controls. Choose Photo offers the photo library and Files (and iOS's own camera entry);
+          Take Photo opens the camera in one tap, as Choose Photo does today (D1).</li>
+        <li>Android: the same two controls (D2).</li>
+        <li>Desktop: one control, Choose Photo.</li>
+        <li>A test holds both inputs' attributes and which platforms show Take Photo.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>What is accepted.</strong> The <code>accept</code> list, the front's 40 MB cap and its canonicalization
+      (ML-19) are as they are.</li>
+    <li><strong>The example photos</strong> (OPS-16): their row and click are untouched.</li>
+    <li><strong>Desktop.</strong> One control, Choose Photo, as today (desktop browsers ignored <code>capture</code>
+      anyway).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>No automated test can open iOS Safari's picker.</strong></td>
+        <td>The test can only hold the markup. The owner checks on an iPhone, before and after the deploy.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A library photo may reach the front in another form than a camera
+        photo.</strong></td>
+        <td>iOS may send a library HEIC as it is or convert it to JPEG, depending on the <code>accept</code> list; both
+          are accepted and canonicalized (ML-19). To be read from the check service's log on the owner's test uploads,
+          not assumed.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How does the page offer both an existing photo and the camera?</td>
+        <td>(a) one control, Choose Photo, with no <code>capture</code>: each phone's own menu offers the library, the
+          camera and files (recommended: the smallest change, one button as today) (b) two controls: Choose Photo
+          without <code>capture</code>, and Take Photo with <code>capture="environment"</code>, shown on phones only
+          (a one-tap camera kept, at the cost of a second button)</td>
+        <td>(b), on iOS Safari only, 2026-11-08: "D1 answer (b) but only at mobile version of safari [&hellip;] At
+          Android when I press "choose photo" I see to small buttons from system menu: one is for camera luanching and
+          second one for gallery and photo selection." Choose Photo there loses <code>capture</code>, and a Take Photo
+          control with <code>capture="environment"</code> appears beside it; Android and desktop keep today's one
+          control. Widened by D2 to Android.</td></tr>
+      <tr><td class="id">D2</td><td>Which devices and browsers get D1's two controls?</td>
+        <td>(a) every browser on iPhone and iPad: Safari, Chrome and Firefox there share WebKit's picker, so they share the
+          bug; an iPad told apart from a Mac by its touch points (recommended) (b) Safari on iPhone only, as D1 was
+          asked</td>
+        <td>Wider than either, 2026-11-08: "let's make two buttons (choose photo, take photo) for all mobile versions".
+          Every mobile browser, iOS and Android, phone and tablet (an iPad told apart from a Mac by its touch points),
+          shows both controls; a desktop browser shows Choose Photo only.</td></tr>
+      <tr><td class="id">D3</td><td>How does the page tell a phone or tablet from a desktop?</td>
+        <td>(a) the user agent (Android, iPhone, iPad, iPod, "Mobi"), and a Mac platform with touch points for iPadOS
+          Safari (b) a coarse pointer (CSS <code>pointer: coarse</code>), which also matches touchscreen laptops</td>
+        <td>(a), 2026-11-08, as recommended. An iPhone asking for the desktop site reports a Mac with touch points and
+          gets both controls; a touchscreen Windows laptop and an Android tablet in desktop mode get one, and the
+          tablet's Choose Photo still offers its camera through the system's menu.</td></tr>
+      <tr><td class="id">D4</td><td>The two controls' order and look?</td>
+        <td>(a) Choose Photo first, both the same style and width (b) Take Photo a lighter, secondary style (c) Take
+          Photo first</td>
+        <td>(a), 2026-11-08, as recommended: a photo already taken is the common case, and two equal buttons are the
+          easiest to hit.</td></tr>
+      <tr><td class="id">D5</td><td>Where is it checked before visitors see it?</td>
+        <td>(a) live: deployed, then the owner checks on an iPhone, an Android phone and a desktop, with
+          <code>--rollback</code> at hand (b) a local app reached from the phone first</td>
+        <td>(a), 2026-11-08. The page is the only change; photo answers are down for the deploy's two minutes or
+          so.</td></tr>
+      <tr><td class="id">D6</td><td>What iOS sends from the library, HEIC or a JPEG it converts (R2)?</td>
+        <td>(a) read from the front's check-service log for the owner's test uploads, read-only (b) not looked at</td>
+        <td>(a), 2026-11-08, as recommended; the answer goes into this ticket's Activity.</td></tr>
+      <tr><td class="id">D7</td><td>Does the server learn which control a photo came from?</td>
+        <td>(a) no (b) a form field, logged</td>
+        <td>(a), 2026-11-08, as recommended: that is visitor analytics, OPS-3, on hold.</td></tr>
+      <tr><td class="id">D8</td><td>If the live check fails, is the release rolled back?</td>
+        <td>(a) only if a control breaks, else fixed forward (b) the owner decides each time</td>
+        <td>(b), 2026-11-08: "rollback will be my decision". Claude reports what the check found and does not run
+          <code>--rollback</code> without the owner's word.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>In <code>webapp/static/index.html</code>, on every mobile browser (D2): Choose Photo
+      without <code>capture</code>, and a Take Photo control with <code>capture="environment"</code> that feeds the
+      same path (the preview, the one-at-a-time lock of OPS-7 D4); elsewhere the page as today.</span></li>
+    <li><span class="box done"></span><span>A fast-tier test that holds both controls' attributes and the platform check
+      (D1, D2).</span></li>
+    <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>) (D5).</span></li>
+    <li><span class="box"></span><span>On the live site, the owner on an iPhone and on an Android phone: a library
+      photo chosen with Choose Photo and answered, a new photo taken with Take Photo and answered; one control on a
+      desktop (D5).</span></li>
+    <li><span class="box"></span><span>What iOS sent from the library, read from the front's log and written here
+      (D6).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Picking several photos at once (<code>multiple</code>): the page answers one photo at a time (OPS-7).</li>
+    <li>The page's look beyond this control.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Ticket written from the owner's report, at <code>89d628a</code>: the cause
+      read from <code>webapp/static/index.html</code> (<code>capture="environment"</code>, since <code>4eebb2c</code>).
+      D1 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>D1 decided by the owner: (b), on iOS Safari only; Android's own menu already
+      offers the camera and the gallery. D2 added (other iOS browsers, iPad). Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>D2 decided by the owner: two controls on every mobile browser, Android
+      included, which widens D1. Implementation started on <code>ops17-ios-choose-photo</code>.</div>
+    <div><div class="when">2026-11-08</div>Built. <code>webapp/static/index.html</code>: Choose Photo's input loses
+      <code>capture</code>; a second input, <code>camera-input</code>, with <code>capture="environment"</code> and the
+      same <code>accept</code> list, behind a Take Photo label that is <code>hidden</code> until
+      <code>isMobile()</code> finds a phone or tablet (Android, iPhone, iPad, iPod or "Mobi" in the user agent, or a
+      Mac platform with touch points, which is iPadOS Safari). Both inputs feed the same <code>choose()</code> and both
+      are disabled while a photo is in flight (OPS-7 D4). <code>tests/test_photo_controls.py</code> holds it (6 tests,
+      failing on the page before). No browser runs here, so neither the detection nor the pickers were seen working:
+      that is the owner's check on an iPhone and an Android phone. Not released.</div>
+    <div><div class="when">2026-11-08</div>Grilled with the owner: D3&ndash;D7 decided, all as recommended but D5's
+      (a), the check on the live site. Priority High, triage <code>bug, ready-for-agent</code>.</div>
+    <div><div class="when">2026-11-08</div>D8 from the owner: a rollback is theirs to decide.</div>
+    <div><div class="when">2026-11-08</div>Reviewed against <code>CODING_STANDARDS.md</code> and D1&ndash;D8: no
+      breach and no gap. Checked in the page: the <code>hidden</code> Take Photo label stays hidden (<code>.file-btn</code>
+      sets no <code>display</code>), and both labels are equal width (D4). The test now reads the script's functions
+      through one helper. Kept as is: the accept list, written on both inputs and held equal by the test.
+      <code>scripts/check.sh --full</code> run. Not released.</div>
+  </div>
+
+  <footer>Related: <code>webapp/static/index.html</code>,
+    <a href="ticket_photos_and_answers_optimization.html">OPS-7</a> (one photo at a time, D4),
+    <a href="ticket_example_photos.html">OPS-16</a> (the example row), <a href="ticket_canonicalization.html">ML-19</a>
+    (what the front does with an upload).</footer>
+</main>
