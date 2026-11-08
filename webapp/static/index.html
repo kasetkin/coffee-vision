@@ -75,6 +75,20 @@
   }
   button:disabled, .file-btn.disabled { opacity: 0.5; cursor: not-allowed; }
   input[type=file] { display: none; }
+  /* The line of buttons that open the lists (ticket OPS-20 D3): smaller and lighter than the upload controls, as
+     "Use full photo instead" is, so those stay the main actions and nothing wraps on a narrow phone (R3). */
+  .folds { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.6rem; }
+  button.fold {
+    flex: none;
+    min-width: 0;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
   .formats-hint {
     display: flex;
     flex-wrap: wrap;
@@ -84,6 +98,8 @@
     color: var(--muted);
     font-size: 0.8rem;
   }
+  /* display: flex above wins over the hidden attribute's own display: none, so the folded list needs this (OPS-20). */
+  .formats-hint[hidden] { display: none; }
   .formats-hint span {
     white-space: nowrap;
     padding: 0.1rem 0.5rem;
@@ -241,13 +257,21 @@
       <!-- Ticket OPS-17 D1, D2: the camera in one tap, on phones and tablets only (isMobile, below). -->
       <label id="camera-label" class="file-btn" for="camera-input" hidden>Take Photo</label>
     </div>
+    <!-- Ticket OPS-20 D3, D4, D7, D12: a line of its own under the upload controls, one button per list, each opening
+         and folding only its own; the arrow turns and aria-expanded says which. "Examples" is shown from the first
+         pick. Neither button may sit inside div.formats-hint, whose spans the format test counts as chips (R5). -->
+    <div class="folds">
+      <button id="formats-toggle" class="fold" type="button" aria-expanded="false" aria-controls="formats">Accepted formats <span class="arrow" aria-hidden="true">&#9656;</span></button>
+      <button id="examples-toggle" class="fold" type="button" aria-expanded="false" aria-controls="examples" hidden>Examples <span class="arrow" aria-hidden="true">&#9656;</span></button>
+    </div>
     <!-- The accepted formats (coffeecv/data/accepted_formats.csv, ADR 0034): these chips and both accept lists are held
-         to the file by tests/test_accepted_formats_named.py. -->
-    <div class="formats-hint">
+         to the file by tests/test_accepted_formats_named.py. Folded from load (ticket OPS-20 D5). -->
+    <div id="formats" class="formats-hint" hidden>
       <span>JPEG</span><span>PNG</span><span>WebP</span><span>HEIC/HEIF</span><span>AVIF</span>
       <span>JPEG XL</span><span>GIF</span><span>BMP</span><span>camera RAW (DNG, CR2, NEF, ARW, &hellip;)</span>
     </div>
-    <!-- Ticket OPS-16 D10, D13: built from /examples/examples.json; stays hidden if the list cannot be read. -->
+    <!-- Ticket OPS-16 D10, D13: built from /examples/examples.json; stays hidden if the list cannot be read. Shown in
+         full until the first pick, folded behind "Examples" from then on (ticket OPS-20 D1, D2). -->
     <div id="examples" hidden>
       <p class="examples-title">No photo? Try one of ours:</p>
       <div id="example-row"></div>
@@ -297,6 +321,8 @@ const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
 const examplesEl = document.getElementById('examples');
 const exampleRow = document.getElementById('example-row');
+const formatsToggle = document.getElementById('formats-toggle');
+const examplesToggle = document.getElementById('examples-toggle');
 
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
 // The photo's bean region from the preview part (ticket OPS-6 D7): the decoded
@@ -331,6 +357,9 @@ const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
 // Once the upload has left the browser (D16): the front converts the photo, which then crosses to the classifier
 // (about 40 s for 10 MB).
 const SENDING = 'Sending to the classifier...';
+// How the front and the app start a 400 for a file they cannot read (held to both by tests/test_agent_files.py). Ticket
+// OPS-20 D6: it opens the format list, whether the format is not accepted or the photo would not decode.
+const UNREADABLE_ERROR = 'could not read this as an image';
 
 function hide(...elements) {
   for (const el of elements) el.style.display = 'none';
@@ -459,8 +488,37 @@ for (const input of [fileInput, cameraInput]) {
     const file = input.files[0];
     // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
     input.value = '';
+    if (file) foldLists();   // ticket OPS-20 D10: a file chosen or taken is a pick; a cancelled picker is not
     choose(file, null);
   });
+}
+
+// The two lists above the photo (ticket OPS-20): the format chips, folded from load (D5), and the example row, in full
+// until the first pick (D1). Each button opens and folds only its own list, its arrow and aria-expanded saying which
+// (D4, D11); neither is disabled while a photo is in flight, since opening a list sends nothing.
+let picked = false;
+
+function setOpen(toggle, open) {
+  document.getElementById(toggle.getAttribute('aria-controls')).hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.querySelector('.arrow').textContent = open ? '▾' : '▸';
+}
+for (const toggle of [formatsToggle, examplesToggle]) {
+  toggle.addEventListener('click', () => setOpen(toggle, toggle.getAttribute('aria-expanded') !== 'true'));
+}
+
+// Every pick folds both lists, at the pick (D2, D8), on every screen (D9), and from then on offers "Examples" in the
+// row's place.
+function foldLists() {
+  picked = true;
+  setOpen(formatsToggle, false);
+  setOpen(examplesToggle, false);
+  offerExamples();
+}
+
+// "Examples" only over a row that was built (OPS-16 D13: a list that cannot be read shows neither).
+function offerExamples() {
+  examplesToggle.hidden = exampleRow.childElementCount === 0;
 }
 
 // Ticket OPS-17 D2: Take Photo on every phone and tablet, iOS and Android. iPadOS Safari reports a Mac by default,
@@ -523,14 +581,20 @@ async function loadExamples() {
     caption.textContent = example.caption;
     button.append(img, caption);
     button.addEventListener('click', () => chooseExample(example));
+    // A list that comes in while a photo is in flight: its buttons wait like the rest (OPS-7 D4), since "Examples"
+    // can open the row then (ticket OPS-20).
+    button.disabled = fileInput.disabled;
     exampleRow.append(button);
   }
-  examplesEl.hidden = false;
+  // A list that comes in after the first pick offers its button and leaves the row folded (ticket OPS-20 D1).
+  if (picked) offerExamples();
+  else examplesEl.hidden = false;
 }
 
 // A click (D9): the example's JPEG XL fetched from the front, then uploaded as a chosen file. The browser need not
 // be able to show a JPEG XL: the page shows the server's JPEG thumbnail (D7).
 async function chooseExample(example) {
+  foldLists();    // ticket OPS-20 D10: at the click, before the download, where a visitor's own photo's wait is
   clearPhoto();   // while the example downloads, nothing of the last photo stays to be clicked
   const pick = currentUpload;
   setBusy(true);
@@ -587,6 +651,10 @@ async function analyze(file, skipCrop, example) {
       const data = await res.json().catch(() => ({}));
       if (isStale()) return;
       renderRefused(refusalFor(res.status, data));
+      // Ticket OPS-20 D6: the chips open in their place, right above this refusal, the preview being hidden.
+      if (res.status === 400 && String(data.error || '').startsWith(UNREADABLE_ERROR)) {
+        setOpen(formatsToggle, true);
+      }
       return;
     }
     let previewPart = null, answered = false;

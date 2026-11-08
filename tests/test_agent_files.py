@@ -87,6 +87,15 @@ class AgentFilesAndPageStateTheFrontsAnswers(unittest.TestCase):
         self.assertIsNotNone(m, "index.html has no MAX_UPLOAD_BYTES constant")
         self.assertEqual(int(m[1]) * 2**20, check_service.MAX_UPLOAD_BYTES)
 
+    def test_the_page_knows_the_unreadable_refusal(self):   # ticket OPS-20 D6: it opens the format list
+        m = re.search(r"const UNREADABLE_ERROR = '([^']+)';", INDEX)
+        self.assertIsNotNone(m, "index.html has no UNREADABLE_ERROR constant")
+        front_src = (REPO / "webapp" / "front" / "check_service.py").read_text()
+        for where, src, count in (("the front", front_src, 2), ("the app", APP_SRC, 1)):
+            with self.subTest(where=where):
+                self.assertEqual(src.count(f'f"{m[1]}: {{'), count)
+                self.assertEqual(src.count("could not read this as an image"), count)
+
     def test_the_page_and_the_agent_files_know_offline_from_busy(self):
         offline = check_service.OFFLINE["error"]
         self.assertIn(f"const OFFLINE_ERROR = '{offline}';", INDEX)

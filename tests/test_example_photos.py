@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -91,6 +92,105 @@ class ThePage(unittest.TestCase):
     def test_its_truth_lines_are_d10s(self):
         self.assertIn("const NO_BEANS_TRUTH = 'No coffee beans here: the classifier should refuse it.';", self.INDEX)
         self.assertIn("`This coffee is from ${example.country}.`", self.INDEX)
+
+
+class _Elements(HTMLParser):
+    """The page's elements in document order, as (tag, attrs, own text), and each button's text by id."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements: list[tuple[str, dict]] = []
+        self.text: dict[str, str] = {}
+        self._button: str | None = None
+        self._hidden_depth = 0   # inside an aria-hidden element: its text is not the button's label
+
+    def handle_starttag(self, tag, attrs):
+        a = {k: (v if v is not None else "") for k, v in attrs}
+        self.elements.append((tag, a))
+        if tag in ("br", "img", "input", "meta", "link"):
+            return
+        if tag == "button" and a.get("id"):
+            self._button = a["id"]
+            self.text[self._button] = ""
+        if a.get("aria-hidden") == "true" or self._hidden_depth:
+            self._hidden_depth += 1
+
+    def handle_endtag(self, tag):
+        if self._hidden_depth:
+            self._hidden_depth -= 1
+        if tag == "button":
+            self._button = None
+
+    def handle_data(self, data):
+        if self._button and not self._hidden_depth:
+            self.text[self._button] += data
+
+
+class TheFolds(unittest.TestCase):
+    """The two buttons above the photo (ticket OPS-20), as text: what they do is checked in a browser (the plan's P1
+    checks)."""
+
+    @classmethod
+    def setUpClass(cls):
+        card = _Elements()
+        card.feed(ThePage.INDEX)
+        cls.card = card
+        cls.ids = [a.get("id") for _, a in card.elements]
+        cls.by_id = {a["id"]: (tag, a) for tag, a in card.elements if a.get("id")}
+
+    def by_class(self, name) -> int:
+        """The index of the first element with this class."""
+        return next(i for i, (_, a) in enumerate(self.card.elements) if name in a.get("class", "").split())
+
+    def test_the_buttons_are_a_line_of_their_own_under_the_controls(self):   # D3
+        controls = self.by_class("controls")
+        folds = self.by_class("folds")
+        # Nothing but the controls' two labels between them.
+        between = [t for t, _ in self.card.elements[controls + 1:folds]]
+        self.assertEqual(between, ["label", "label"])
+
+    def test_accepted_formats_first_then_examples(self):   # D7, D12
+        folds = self.by_class("folds")
+        buttons = [a["id"] for t, a in self.card.elements[folds + 1:folds + 6] if t == "button"]
+        self.assertEqual(buttons, ["formats-toggle", "examples-toggle"])
+        self.assertEqual(" ".join(self.card.text["formats-toggle"].split()), "Accepted formats")
+        self.assertEqual(" ".join(self.card.text["examples-toggle"].split()), "Examples")
+
+    def test_each_button_controls_its_own_list_and_starts_folded(self):   # D4, D5
+        for button, panel in (("formats-toggle", "formats"), ("examples-toggle", "examples")):
+            with self.subTest(button=button):
+                tag, a = self.by_id[button]
+                self.assertEqual(a.get("type"), "button")
+                self.assertEqual(a.get("aria-controls"), panel)
+                self.assertEqual(a.get("aria-expanded"), "false")
+                self.assertIn("hidden", self.by_id[panel][1])
+
+    def test_each_arrow_is_hidden_from_screen_readers_and_points_folded(self):   # D4
+        for button in ("formats-toggle", "examples-toggle"):
+            with self.subTest(button=button):
+                i = self.ids.index(button)
+                tag, a = self.card.elements[i + 1]
+                self.assertEqual((tag, a.get("class"), a.get("aria-hidden")), ("span", "arrow", "true"))
+        self.assertEqual(ThePage.INDEX.count('<span class="arrow" aria-hidden="true">&#9656;</span>'), 2)
+
+    def test_examples_is_not_offered_before_a_pick(self):   # D1: the row itself is, in full
+        self.assertIn("hidden", self.by_id["examples-toggle"][1])
+        self.assertNotIn("hidden", self.by_id["formats-toggle"][1])
+
+    def test_the_chips_are_the_formats_list_and_hold_no_button(self):   # D5, R5
+        tag, a = self.by_id["formats"]
+        self.assertEqual(tag, "div")
+        self.assertIn("formats-hint", a.get("class", "").split())
+        inside = self.card.elements[self.ids.index("formats") + 1:self.ids.index("examples")]
+        self.assertEqual({t for t, _ in inside}, {"span"})   # the chips, and nothing a test would count as one
+        # A folded flex box needs its own rule: display: flex wins over the hidden attribute.
+        self.assertIn(".formats-hint[hidden] { display: none; }", ThePage.INDEX)
+
+    def test_the_lists_stack_in_todays_order_under_the_buttons(self):   # D11
+        folds = self.by_class("folds")
+        self.assertLess(folds, self.ids.index("formats"))
+        self.assertLess(self.ids.index("formats"), self.ids.index("examples"))
+        self.assertLess(self.ids.index("examples"), self.ids.index("preview-wrap"))
 
 
 if __name__ == "__main__":
