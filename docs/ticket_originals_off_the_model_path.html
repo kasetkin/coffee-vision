@@ -1,0 +1,57 @@
+<title>Originals off the models' path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-22 · coffee-vision · what both models read</div>
+  <h1>Stub: ML-19's last steps, the original-photo reader retired and serving's checks on canonical photos</h1>
+  <p class="lede">A placeholder, not a ticket yet. ML-19 shipped with a few of its plan's steps not done, none in its
+    acceptance list: the reader of original photos is still on the models' side, the host's boot warm-up still reads
+    an original, and two checks were not run. Moved here so ML-19 can close. To be written and planned; nothing here
+    is decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-11-08; not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/photo_io.py</code> (<code>load_rgb_image</code>), its callers, <code>webapp/app.py</code> (the warm-up), <code>pyproject.toml</code> and <code>webapp/pyproject.toml</code>, <code>tests/test_seg_parity.py</code>, <code>scripts/rehearse_deploy_local.sh</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>From ML-19's plan, 2026-11-08.</strong> The "Not done" lines of its P6 and P9, moved here when ML-16,
+      ML-19 and OPS-16 were wrapped up after their release, so that ML-19 can close.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. What is left of ML-19's plan, each from its P6 or P9:</p>
+  <ul>
+    <li><b><code>load_rgb_image</code> canonical-only, and <code>pillow-jxl-plugin</code> dropped</b> (ML-19 D45,
+      moved from P3 to P9). Files that call it on 2026-11-08: 12 in <code>coffeecv/</code>, 1 in
+      <code>coffeecv_dino/</code>, 2 in <code>webapp/</code>, 7 in <code>tests/</code>, 11 in <code>analysis/</code>.
+      Among them <code>coffeecv_dino/reference.py</code>, which stays on originals by D37, and
+      <code>export_litert</code>'s check, which compares two backends on the same pixels.</li>
+    <li><b>The boot's warm-up on a canonical photo</b> (P9). It reads the original fixture today; its pixels are no
+      answer, but it is the last original the host reads.</li>
+    <li><b>One AVIF decoder</b> (P9). <code>canonicalize_folder</code> imports <code>photo_io</code>, which registers
+      <code>pillow-avif-plugin</code>, while the front decodes AVIF with Pillow's own; the dataset holds no AVIF.</li>
+    <li><b>The stored crop against serving on a real pool photo</b> (P6), beyond <code>tests/test_seg_parity.py</code>'s
+      fixture.</li>
+    <li><b><code>scripts/rehearse_deploy_local.sh</code></b> (P9), which deploys <code>origin/main</code> and so could
+      only rehearse ML-19 once it was merged.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Stub created from ML-19's plan, P6 and P9. Not written, not planned.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D37, D45),
+    <a href="plan_canonicalization.html">its plan</a> (P6, P9),
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</footer>
+</main>

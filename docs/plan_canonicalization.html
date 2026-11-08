@@ -14,7 +14,7 @@
     input for good is P4's store.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (D47&ndash;D49); P1 done, Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-11-03; Q1&ndash;Q6 answered (D47&ndash;D52); P1&ndash;P10 done, live 2026-11-08 (<code>c6ce09b</code>); P6 and P9&rsquo;s last steps moved to <a href="ticket_originals_off_the_model_path.html">ML-22</a></span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_canonicalization.html"><code>ticket_canonicalization.html</code></a> (ML-19)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -247,7 +247,7 @@
 
 <h2>6. P4 &mdash; The canonical store</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the store built and checked; the push waits for the owner (the link)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03: the store built and checked; 2026-11-08: pushed, every object <code>dvc.lock</code> names checked on the remote</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>D18 and D33: one DVC stage per folder a model reads, on this machine (finding 6), the originals untouched.</p>
@@ -317,7 +317,7 @@
 
 <h2>8. P6 &mdash; Training's tools on canonical photos</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: re-cropped and merged; six fallback photos to show the owner before ML-16 trains</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03: re-cropped and merged; 2026-11-04: the fallbacks and new photos reviewed by the owner; the parity check on a real pool photo moved to <a href="ticket_originals_off_the_model_path.html">ML-22</a> (2026-11-08)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
   </div>
   <p>Everything that feeds a model reads canonical photos only (D18). The crops are made with today's segmenter,
@@ -431,7 +431,7 @@
 
 <h2>11. P9 &mdash; Serving on canonical photos</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-03: the front's half (this commit), its ceilings and cap as the owner decided at P8 (D23, D24, D38)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-03 and 2026-11-04: the front and the host on canonical photos, live 2026-11-08 (<code>c6ce09b</code>); <code>load_rgb_image</code> canonical-only, the warm-up, one AVIF decoder and the local rehearsal moved to <a href="ticket_originals_off_the_model_path.html">ML-22</a></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4 (the host byte cap), P8</span></div>
   </div>
   <p>D12, D17, D34, D35: the front canonicalizes, the host refuses anything else, and every tool that sends the host
@@ -483,29 +483,29 @@
 
 <h2>12. P10 &mdash; The release, with ML-16 and OPS-16 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08: live as release <code>20261108T0728Z-c6ce09b</code>, <code>--verify</code> on the domain, one upload of each format (Activity); the owner checked the live site</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7, P9, ML-16 <span class="tag">its segmenter and classifier trained, chosen and converted</span>, OPS-16 P6</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>One release of the three tickets (D15): <code>--compare</code> on the host,
+    <li><span class="box done"></span><span>One release of the three tickets (D15): <code>--compare</code> on the host,
       then the deploy (<code>docs/agents/deploy.md</code>).</span></li>
-    <li><span class="box"></span><span>Checks: <code>--verify</code> on the domain, both hosts, the example photos
+    <li><span class="box done"></span><span>Checks: <code>--verify</code> on the domain, both hosts, the example photos
       included; one real upload of each format through the domain.</span></li>
     <li><span class="box"></span><span>Stop for the owner: the deploy's go, and closing the ticket.</span></li>
   </ol>
 
   <h2>13. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: three machines within 1 level (D30); D25 decided.</span></li>
-    <li><span class="box"></span><span>P2: the lock check green, in the hook and <code>check.sh</code>.</span></li>
-    <li><span class="box"></span><span>P3: D8's tests in the fast tier; the 7 photos' answers.</span></li>
-    <li><span class="box"></span><span>P4: every canonical file present and canonical, pushed and checked on the
+    <li><span class="box done"></span><span>P1: three machines within 1 level (D30); D25 decided.</span></li>
+    <li><span class="box done"></span><span>P2: the lock check green, in the hook and <code>check.sh</code>.</span></li>
+    <li><span class="box done"></span><span>P3: D8's tests in the fast tier; the 7 photos' answers.</span></li>
+    <li><span class="box done"></span><span>P4: every canonical file present and canonical, pushed and checked on the
       remote.</span></li>
-    <li><span class="box"></span><span>P5: pass14 turned back equals pass13; the owner has looked at every turned row.</span></li>
+    <li><span class="box done"></span><span>P5: pass14 turned back equals pass13; the owner has looked at every turned row.</span></li>
     <li><span class="box"></span><span>P6: stored crops equal serving's arrays; fallbacks reviewed.</span></li>
     <li><span class="box done"></span><span>P7: the baseline written and read.</span></li>
-    <li><span class="box"></span><span>P8: D23, D24, D38 decided from measurements.</span></li>
-    <li><span class="box"></span><span>P10: <code>--verify</code> on the domain.</span></li>
+    <li><span class="box done"></span><span>P8: D23, D24, D38 decided from measurements.</span></li>
+    <li><span class="box done"></span><span>P10: <code>--verify</code> on the domain.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -543,6 +543,16 @@
       the seed folder. Server-side: a 12 MP photo 12.1 s (<code>decode_ms</code> 3.7 s, the canonical JXL), the 50 MP grinder
       example 24.8 s (decode 15.9 s), against ML-13's 8.4 s: ML-19's decode, a follow-up of its own. Left for the
       owner: try the examples on the live site, and close the tickets.</div>
+    <div><div class="when">2026-11-08</div>After the release. P4: <code>dvc status --cloud</code> in sync, and each
+      of the 11,757 objects <code>dvc.lock</code> and the <code>.dvc</code> files name (every <code>.dir</code>
+      expanded) tested in the remote's store: all there but the 14 fine-tunes' <code>models/seg/*.json</code>, which
+      are <code>cache: false</code> and in git. P10's uploads through the domain, one at a time: a Pixel JPEG and the
+      same photo canonicalized here (JPEG XL, passed through the front, D17) both Colombia at 0.8233; an iPhone HEIC
+      Ethiopia 0.9319; an RGBA PNG (an internet negative, with transparency, D13) refused as not coffee; a 9.9 MP DNG
+      Guatemala 0.6076; a 41 MB DNG refused by the front's 40 MB cap (413, D23). The owner checked the live site.
+      P6's parity check on a real pool photo and P9's <code>load_rgb_image</code>, warm-up, AVIF and rehearsal steps
+      moved to <a href="ticket_originals_off_the_model_path.html">ML-22</a>; the host's decode time to
+      <a href="ticket_canonical_decode_time.html">ML-21</a>. P1&ndash;P10 done.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19 ticket</a>,

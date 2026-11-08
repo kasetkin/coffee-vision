@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-03; D1&ndash;D52 decided; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1 done; Q4&ndash;Q6 answered (D50&ndash;D52)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 by the owner; written 2026-11-03; D1&ndash;D52 decided; planned 2026-11-03 (<a href="plan_canonicalization.html">P1&ndash;P10</a>); P1&ndash;P10 done; live with ML-16 and OPS-16 as release <code>20261108T0728Z-c6ce09b</code>, 2026-11-08, every acceptance item met, the site checked by the owner; follow-ups ML-21, ML-22</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input, training and serving</span></div>
@@ -410,20 +410,20 @@
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>ADR 0033 written; the glossary's "Canonicalization".</span></li>
-    <li><span class="box"></span><span>An encoder chosen, and the front measured: D23&ndash;D25 decided.</span></li>
-    <li><span class="box"></span><span>The canonicalization function (D4, D5, D7, D13, D16, D20, D21) and its tests
+    <li><span class="box done"></span><span>An encoder chosen, and the front measured: D23&ndash;D25 decided.</span></li>
+    <li><span class="box done"></span><span>The canonicalization function (D4, D5, D7, D13, D16, D20, D21) and its tests
       (D8) in the fast tier.</span></li>
-    <li><span class="box"></span><span>The canonical store: <code>canonicalize@&lt;folder&gt;</code> for every folder
+    <li><span class="box done"></span><span>The canonical store: <code>canonicalize@&lt;folder&gt;</code> for every folder
       a model reads, in DVC, pushed and checked on the remote (D18).</span></li>
-    <li><span class="box"></span><span>pass14: pass13's masks in the canonical geometry, a sample looked at by the
+    <li><span class="box done"></span><span>pass14: pass13's masks in the canonical geometry, a sample looked at by the
       owner; the labelling page on canonical photos (D9, D19).</span></li>
-    <li><span class="box"></span><span><code>segcrop</code> on canonical photos, crops as lossless JPEG XL (D10); the
+    <li><span class="box done"></span><span><code>segcrop</code> on canonical photos, crops as lossless JPEG XL (D10); the
       segmenter's fine-tune and prediction and the OOD tools on canonical photos.</span></li>
-    <li><span class="box"></span><span>The front canonicalizes; the host accepts canonical photos only; the example
+    <li><span class="box done"></span><span>The front canonicalizes; the host accepts canonical photos only; the example
       photos are canonical photos (D12, D17); <code>docs/inference_path.html</code> and ADR 0031 say so.</span></li>
-    <li><span class="box"></span><span>Today's models on canonical test photos, paired against today's numbers
+    <li><span class="box done"></span><span>Today's models on canonical test photos, paired against today's numbers
       (D14).</span></li>
-    <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
+    <li><span class="box done"></span><span>Live with ML-16's release, verified on the domain.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -432,6 +432,13 @@
     <li>Wide-gamut input to the models (D2: sRGB for now).</li>
     <li>HDR gain maps (ML-20).</li>
     <li>Keying records by hash (ML-18).</li>
+    <li>The host's decode time, about 3.7 s of a 12 MP photo's 12.1 s since the release
+      (<a href="ticket_canonical_decode_time.html">ML-21</a>).</li>
+    <li>The plan's last P6 and P9 steps, in no acceptance item: <code>load_rgb_image</code> canonical-only and
+      <code>pillow-jxl-plugin</code> dropped, the warm-up on a canonical photo, one AVIF decoder, the parity check on a
+      real pool photo and the local rehearsal (<a href="ticket_originals_off_the_model_path.html">ML-22</a>).</li>
+    <li>D38's ceiling reviewed against what the check service logs of each upload's memory, once there is traffic to
+      read.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -492,6 +499,17 @@
       (52 segmenter positives, 46 pool), were shown on their canonical photos (<code>coffeecv.review_masks
       --canonical</code>) and all accepted: <code>labels/ml2/review/ml19_pass14.decisions.jsonl</code>.
       pass16 stands as it is for ML-16's segmenter fine-tune.</div>
+    <div><div class="when">2026-11-08</div>Live with ML-16 and OPS-16: release
+      <code>20261108T0728Z-c6ce09b-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passing on the
+      domain (the plan's Activity). The front's unit took ML-19's <code>MemoryMax=600M</code> by the owner's hand first
+      (ML-16's Activity). Server-side a 12 MP photo now takes 12.1 s, 3.7 s of it decoding the canonical photo, against
+      8.4 s before: <a href="ticket_canonical_decode_time.html">ML-21</a>.</div>
+    <div><div class="when">2026-11-08</div>After the release: every object the pipeline names checked on the DVC
+      remote (P4 done); one upload of each format through the domain, JPEG, HEIC, an RGBA PNG, a 9.9 MP DNG and a
+      canonical JPEG XL answered, a 41 MB DNG refused by the 40 MB cap (P10, the plan's Activity). The owner checked
+      the live site. Every acceptance item met. The plan's last P6 and P9 steps moved to
+      <a href="ticket_originals_off_the_model_path.html">ML-22</a>. For the owner to close, with ML-15 and ML-17.</div>
+    <div><div class="when">2026-11-08</div>Closed by the owner, with ML-15 and ML-17. Follow-ups: ML-21 (the host&rsquo;s decode time), ML-22 (the plan&rsquo;s last P6 and P9 steps).</div>
   </div>
 
   <footer>Related: <a href="plan_canonicalization.html">the plan</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
