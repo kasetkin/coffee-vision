@@ -10,12 +10,12 @@
   <p class="lede">The pre-commit hook's leak check reads each staged file's working-tree copy. A leak in a staged line
     that is edited away on disk passes the hook and is committed, and the repo's history is not rewritten. OPS-4's
     plan found this (finding 1), and the owner split it into this ticket (OPS-4 D6). OPS-4's
-    <code>coffeecv.ruff_staged</code> already reads staged blobs, so the reader exists. Written; not planned, not
-    implemented.</p>
+    <code>coffeecv.ruff_staged</code> already reads staged blobs, so the reader exists. Decisions answered and
+    planned 2026-11-08; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; not planned, not implemented</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07; decisions answered and <a href="plan_leak_check_staged_read.html">planned</a> 2026-11-08; not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Tooling: privacy guard</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/leak_check.py</code>, <code>tests/test_leak_check.py</code>, <code>.githooks/pre-commit</code>, <code>coffeecv/ruff_staged.py</code></span></div>
@@ -104,14 +104,20 @@
         <td>exiftool reads files, and <code>image_findings()</code> maps its <code>SourceFile</code> back to a repo path
           and passes the extension to <code>strip_metadata.accepted()</code>. A blob written to a temp file must keep
           its extension, and the finding must name the staged path, not the temp one. A test with a staged GPS photo
-          whose disk copy is stripped covers it.</td></tr>
+          whose disk copy is stripped covers it. Mostly gone by D1 (c): the temp tree keeps each path, and
+          <code>image_findings(paths, root)</code> already maps back by <code>relpath</code> to the root it is
+          given.</td></tr>
       <tr><td class="id">R2</td><td><strong>The hook gets slower.</strong></td>
         <td>One <code>git show</code> per staged file adds a process start each, as in <code>ruff_staged</code>; the
           leak check's own start (about 1.7 s, the torch import through <code>coffeecv.config</code>) dominates for a
-          small commit. Measure before and after on a commit of about 30 files; D1 (b) avoids the per-file cost.</td></tr>
+          small commit. Measure before and after on a commit of about 30 files; D1 (b) avoids the per-file cost.
+          Corrected 2026-11-08 (D3): the start is about 0.33 s, no torch is imported, and D1 (c) reads the whole
+          staged set in one process. The measurement stays.</td></tr>
       <tr><td class="id">R3</td><td><strong>A second index reader drifts from the first.</strong></td>
         <td><code>ruff_staged</code> already reads blobs and filters index modes. A copy in <code>leak_check</code>
-          could diverge (a mode skipped in one, not the other); D2 decides where the reader lives.</td></tr>
+          could diverge (a mode skipped in one, not the other); D2 decides where the reader lives.
+          Closed 2026-11-08 by D1 (c) and D2 (a): only <code>ruff_staged</code> reads blobs, and the leak check skips
+          symlinks and submodules by the same disk checks its full scan uses.</td></tr>
     </tbody>
   </table></div>
 
@@ -121,16 +127,50 @@
     <tbody>
       <tr><td class="id">D1</td><td>How are the staged blobs read?</td>
         <td>(a) One <code>git show :&lt;path&gt;</code> per file, as <code>ruff_staged</code> does (b) one
-          <code>git cat-file --batch</code> process for all staged files</td>
-        <td>Open.</td></tr>
+          <code>git cat-file --batch</code> process for all staged files (c) one <code>git checkout-index
+          --prefix=&lt;tmp&gt;/ -z --stdin</code> fed the staged list, writing the staged set into a temp tree under
+          its own paths, and the existing <code>scan()</code> run on that tree (added 2026-11-08)</td>
+        <td>(c), 2026-11-08. With <code>--staged</code>, <code>leak_check</code> writes the index into a temp
+          tree and scans it; <code>scan()</code> and <code>image_findings()</code> are unchanged, so exiftool sees
+          the staged path and extension. Tried on throwaway repos: the tree holds the staged bytes, not the
+          disk's; a symlink is written as a symlink and a submodule as an empty directory, so <code>scan()</code>'s
+          disk checks skip both; it follows <code>GIT_INDEX_FILE</code>, which is the temp index git hands the hook
+          under <code>commit -a</code> and <code>commit &lt;path&gt;</code>. The repo has no
+          <code>.gitattributes</code> or filters, so the tree holds the raw blobs. Cost is not what decides it:
+          30 files took about 80 ms by (a), 5 ms by (b).</td></tr>
       <tr><td class="id">D2</td><td>Where does the index reader live?</td>
         <td>(a) In <code>leak_check</code> beside <code>published_files</code>, and <code>ruff_staged</code> uses it
           (b) each module keeps its own (c) a third module both import, e.g. <code>coffeecv/git_index.py</code>.
           Context from OPS-4's code review (2026-10-07): <code>ruff_staged.staged_python_files</code> reads index
           modes itself, and <code>ruff_staged</code> already imports <code>leak_check</code>
           (<code>published_files</code>), so a reader left in <code>ruff_staged</code> and imported by
-          <code>leak_check</code> would make a circular import. (a) and (c) avoid it; (b) keeps the drift of R3.</td>
-        <td>Open.</td></tr>
+          <code>leak_check</code> would make a circular import. (a) and (c) avoid it; (b) keeps the drift of R3.
+          Reframed 2026-11-08 by D1 (c): <code>leak_check</code> needs no blob reader or mode filter of its own, so
+          the options became (a) nothing moves (b) <code>ruff_staged</code> lints the temp tree too (c) a
+          <code>coffeecv/git_index.py</code> with <code>published_files</code> and the temp-tree writer.</td>
+        <td>(a) as reframed, 2026-11-08. Nothing moves: <code>ruff_staged</code> keeps its <code>git show</code>
+          per file and its index-mode filter, since Ruff resolves its config and <code>force-exclude</code> from the
+          real repo path, and changes only in its docstring. The one shared function,
+          <code>published_files(root, staged=True)</code>, stays in <code>leak_check</code>; the import goes one way,
+          so there is no cycle. Closes R3.</td></tr>
+      <tr><td class="id">D3</td><td>Are the stale timing claims fixed here?</td>
+        <td>(a) All of them, from the hook-time measurement this ticket already makes (b) only those on lines this
+          ticket touches anyway (c) none, left for later docs work</td>
+        <td>(a), 2026-11-08. <code>coffeecv.config</code> imports torch only inside its functions, and
+          <code>strip_metadata</code> not at all, so <code>python -m coffeecv.leak_check</code> starts in about
+          0.33 s, not 1.7 s (measured 2026-11-08). Corrected: the hook's header ("both import torch through
+          coffeecv.config", 1.7 s each), <code>ruff_staged</code>'s docstring (1.7 s), the comment in
+          <code>image_findings()</code> ("it pulls in torch") and this ticket's R2.</td></tr>
+      <tr><td class="id">D4</td><td>How is the change tested?</td>
+        <td>&mdash;</td>
+        <td>As proposed, 2026-11-08. <code>leak_check.main(argv, root=REPO_ROOT)</code>, as
+          <code>ruff_staged.main</code>. Tests on a temp repo, each seen failing first: an email staged and then
+          removed on disk is refused; an email added on disk only, to a clean staged file, passes; a staged GPS photo
+          whose disk copy is stripped is refused and named by its staged path; a staged symlink, submodule and
+          deletion are skipped; a private pattern in a staged path is still found; and one case with
+          <code>GIT_INDEX_FILE</code> on another index, standing in for <code>commit -a</code> and
+          <code>commit &lt;path&gt;</code>. No test runs the real hook through <code>git commit</code>: its other
+          two checks read <code>REPO_ROOT</code>.</td></tr>
     </tbody>
   </table></div>
 
@@ -140,8 +180,9 @@
     <li><span class="box"></span><span>A staged image is checked as staged: GPS in the staged blob is refused when the disk copy has none, and the finding names the staged path.</span></li>
     <li><span class="box"></span><span>Staged symlinks and submodules are skipped by index mode; a staged deletion is not read.</span></li>
     <li><span class="box"></span><span>The private-pattern check on file paths still runs on every staged path.</span></li>
-    <li><span class="box"></span><span><code>tests/test_leak_check.py</code> covers both directions on a temp repo, each case seen failing before the change.</span></li>
+    <li><span class="box"></span><span><code>tests/test_leak_check.py</code> covers both directions on a temp repo, each case seen failing before the change, and the D4 cases, including one on another index through <code>GIT_INDEX_FILE</code>.</span></li>
     <li><span class="box"></span><span><code>leak_check</code>'s docstring, the hook's header comment and <code>ruff_staged</code>'s docstring say the leak check reads the index; no "until OPS-5" is left.</span></li>
+    <li><span class="box"></span><span>No claim that the leak check or <code>ruff_staged</code> imports torch or takes 1.7 s to start is left in the hook, either module or this ticket (D3).</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh</code> passes, and the hook's added time on a 30-file commit is measured and written in its header.</span></li>
   </ul>
 
@@ -156,9 +197,12 @@
   <div class="log">
     <div><div class="when">2026-10-07</div>Ticket written from <a href="plan_ruff_lint.html">OPS-4's plan</a> (finding 1, Q1) and OPS-4 D6, and from <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>tests/test_leak_check.py</code> and <code>.githooks/pre-commit</code> at <code>d4068d9</code>. Decisions open. Not planned, not implemented.</div>
     <div><div class="when">2026-10-07</div>OPS-4's <code>/code-review</code> of <code>8e54804..69644ea</code> notes that <code>ruff_staged</code> reads index modes itself and that sharing its reader risks a circular import with <code>leak_check</code>; added to D2's options as context, with an option (c), a module both import. D2 stays open for the owner. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Grilled with the owner. Rechecked first: since <code>d4068d9</code> the code has changed only by OPS-4's review fix and a VM rename, so the Background holds. Found: (1) <code>python -m coffeecv.leak_check</code> starts in about 0.33 s and imports no torch, so the 1.7 s claims in the hook, <code>ruff_staged</code>, <code>image_findings()</code> and R2 are stale; (2) 30 staged files read in about 80 ms by one <code>git show</code> each, 5 ms by <code>git cat-file --batch</code>; (3) <code>git checkout-index --prefix=</code> writes the staged set into a temp tree in one process, symlinks as symlinks and submodules as empty directories, and follows the temp <code>GIT_INDEX_FILE</code> git hands the hook under <code>commit -a</code> and <code>commit &lt;path&gt;</code>, all tried on throwaway repos. Owner answers: D1 (c), D3 (a), D4 as proposed. R1 and R2 annotated; one acceptance item added and one widened. <code>GLOSSARY.md</code> gets <b>Leak</b>. D2 stays open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Owner answers D2, reframed by D1 (c): (a), nothing moves; <code>ruff_staged</code> keeps its own reader and changes only in its docstring. R3 closed. All decisions answered. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-08</div>Owner agrees the plan as recommended: <a href="plan_leak_check_staged_read.html">plan</a> written (P1 staged read, test first; P2 comments, timing and a live check; P3 owner stop), branch <code>ops5-leak-check-index</code>, Triage <code>bug, ready-for-agent</code>. Not implemented.</div>
   </div>
 
-  <footer>Related: <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
+  <footer>Related: <a href="plan_leak_check_staged_read.html">plan</a>, <a href="ticket_ruff_lint.html">OPS-4</a> and its <a href="plan_ruff_lint.html">plan</a>,
     <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>coffeecv/strip_metadata.py</code>,
     <code>.githooks/pre-commit</code>, <code>scripts/check.sh</code>.</footer>
 </main>

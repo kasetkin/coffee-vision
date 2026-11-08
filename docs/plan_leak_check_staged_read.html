@@ -1,0 +1,101 @@
+<title>Implementation plan: the leak check reads the index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-5 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the leak check reads the index</h1>
+  <p class="lede">The order of work for <a href="ticket_leak_check_staged_read.html">ticket OPS-5</a>. Two strands:
+    the staged read itself, test first (D1, D4), then the comments and timing claims around it (D3). The read comes
+    first because the docs describe it and the timing is measured on it; the hook's time before the change is
+    measured before any code moves. The first step that changes what the hook refuses is P1's
+    <code>checkout-index</code> read.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08; no questions open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_leak_check_staged_read.html"><code>ticket_leak_check_staged_read.html</code></a> (OPS-5)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-08</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">OPS-4 is Closed; D1&ndash;D4 answered</span></span></div>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 changes the hook's verdict on a file staged in part, and nothing else: <code>scan()</code>, the rules and
+    the full scan stay as they are, so the existing tests must pass unchanged beside the new ones. P2 changes only
+    comments and docstrings, from P1's measurement. Work is on the branch <code>ops5-leak-check-index</code>, joined
+    to <code>main</code> by a merge commit (ADR 0017).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Staged read from the index, test first</td><td>local</td><td>the hook's verdict on a file whose index and disk copies differ; nothing else</td></tr>
+      <tr><td class="id">P2</td><td>Comments, docstrings and timing claims; a live check</td><td>local</td><td>no: comments only</td></tr>
+      <tr><td class="id">P3</td><td>Owner review and close <span class="pill sm open">stop</span></td><td>owner</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None. The grilling of 2026-11-08 answered every decision the ticket had, D1&ndash;D4; a question that turns up
+    while implementing is added here as Q1.</p>
+
+  <h2>3. P1 &mdash; staged read from the index, test first</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>With <code>--staged</code>, <code>leak_check</code> writes the staged set into a temp tree,
+    <code>git diff --cached --name-only -z --diff-filter=ACMR</code> piped into <code>git checkout-index
+    --prefix=&lt;tmp&gt;/ -z --stdin</code> (D1 (c)), and runs the existing <code>scan(tmp, private, files)</code> on
+    it. Findings name the staged path, since <code>scan()</code> and <code>image_findings()</code> work in paths
+    relative to the root they are given. Symlinks and submodules come out as a symlink and an empty directory, which
+    <code>scan()</code> already skips. <code>main</code> takes <code>root=REPO_ROOT</code>, as
+    <code>ruff_staged.main</code> does (D4). <code>ruff_staged</code>'s code does not change (D2).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Before any code change: the hook's time on a commit of 30 staged files, in a throwaway <code>git worktree</code> with one comment line added to each of 30 tracked Python files and staged, <code>time .githooks/pre-commit</code>, median of three runs. Kept for P2.</span></li>
+    <li><span class="box"></span><span>The D4 tests in <code>tests/test_leak_check.py</code>, on a temp repo through <code>lc.main([...,"--staged"], root=...)</code> or the function it calls: an email staged then removed on disk is refused; an email added on disk only, to a clean staged file, passes; a staged GPS photo whose disk copy is stripped is refused and named by its staged path (needs exiftool); a staged symlink, submodule and deletion are skipped; a private pattern in a staged path is found; an email staged in a second index, read through <code>GIT_INDEX_FILE</code>, is refused. Each seen failing before the change, for the reason the test names.</span></li>
+    <li><span class="box"></span><span><code>main(argv, root=REPO_ROOT)</code>; the temp-tree read under <code>--staged</code>, its temp directory removed on every exit; a <code>checkout-index</code> failure stops the check with a non-zero exit, never a pass.</span></li>
+    <li><span class="box"></span><span>Checks: the new tests and the existing <code>tests/test_leak_check.py</code> and <code>tests/test_ruff_staged.py</code> pass; <code>ruff check</code> passes.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; comments, docstrings and timing claims; a live check</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The hook's time on the same 30-file commit after P1, measured as before.</span></li>
+    <li><span class="box"></span><span><code>leak_check</code>'s docstring: <code>--staged</code> checks each staged file as staged, from the index, through a temp tree. <code>ruff_staged</code>'s docstring and <code>.githooks/pre-commit</code>'s header: both checks read the index; no "until OPS-5" left.</span></li>
+    <li><span class="box"></span><span>D3: the hook header's "both import torch through coffeecv.config" and 1.7 s, <code>ruff_staged</code>'s 1.7 s and the comment in <code>image_findings()</code> ("it pulls in torch") replaced by what is measured now; the header gives the before and after times on 30 files, dated.</span></li>
+    <li><span class="box"></span><span>Live check in this repo, nothing committed: stage a line with an assembled email address in a scratch file, remove it on disk, and see <code>python -m coffeecv.leak_check --staged</code> refuse it; then unstage and delete the file.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh</code> passes; <code>ticket_check</code> passes after the ticket's acceptance boxes are ticked with their commits.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; owner review and close <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: review the branch (a <code>/code-review</code> against this plan), merge <code>ops5-leak-check-index</code> into <code>main</code> by a merge commit, and close OPS-5.</span></li>
+  </ol>
+
+  <h2>6. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: each D4 test seen failing first, then passing; the existing leak-check and <code>ruff_staged</code> tests unchanged and passing.</span></li>
+    <li><span class="box"></span><span>P2: the live check refuses a leak staged and removed on disk; no "until OPS-5", torch-import or 1.7 s claim left in the hook, <code>leak_check</code> or <code>ruff_staged</code>.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". <code>ruff_staged</code>'s code, its reader and its config-from-disk limit (D2). A test that runs the real hook through <code>git commit</code> (D4).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-08</div>Claude reads ticket OPS-5 after the owner's grilling (D1&ndash;D4 answered) and the code at <code>7c88e4c</code>, and writes this plan. No findings beyond the ticket's; no questions open. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_leak_check_staged_read.html">OPS-5 ticket</a>, <a href="plan_ruff_lint.html">OPS-4 plan</a>, <code>coffeecv/leak_check.py</code>, <code>coffeecv/ruff_staged.py</code>, <code>tests/test_leak_check.py</code>, <code>.githooks/pre-commit</code>.</footer>
+</main>

@@ -73,3 +73,9 @@ The share of planted defects the judge fails.
 
 **False-fail rate**:
 The share of unmodified base masks the judge fails.
+
+## Publishing
+
+**Leak**:
+Personal data in a file the repo publishes: a public IP address, an email address, a credential, identifying photo metadata, or a match of one of the owner's private patterns. Infrastructure names (SSH aliases, the DVC remote URL, the VM's user and hostname, the live site's domain) are not leaks.
+_Avoid_: Secret (that means a credential only), private data (for a published leak)
