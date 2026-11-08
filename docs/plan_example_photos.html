@@ -12,7 +12,7 @@
     model ML-16 retrains (P6), and the release both tickets ship in (P7). Nothing here changes a model number.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P1&ndash;P5 done 2026-11-03; P6 and P7 wait on ML-16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-11-03; Q1&ndash;Q3 answered (ticket D13&ndash;D18); P1&ndash;P5 done 2026-11-03; P6 done 2026-11-08 on four examples (ML-16 D12); P7 live 2026-11-08 (<code>c6ce09b</code>), the site checked by the owner</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_example_photos.html"><code>ticket_example_photos.html</code></a> (OPS-16)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -297,18 +297,18 @@
 
   <h2>9. P7 &mdash; The release, with ML-16 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-08: live as release <code>20261108T0728Z-c6ce09b</code>, <code>--verify</code> on the domain with the four examples; the owner checked the live site</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2&ndash;P6, ML-16's release</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>ML-16's branch, which carries OPS-16 since 2026-11-03, merged into
+    <li><span class="box done"></span><span>ML-16's branch, which carries OPS-16 since 2026-11-03, merged into
       <code>main</code> and pushed; one deploy of ML-16's
       model (<code>docs/agents/deploy.md</code>; photo answers are down meanwhile, say so first).</span></li>
-    <li><span class="box"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh --verify</code>: the five examples'
+    <li><span class="box done"></span><span><code>DOMAIN=... scripts/deploy_webapp.sh --verify</code>: the five examples'
       checks pass; the page shows the row; a photo between 5 and 10 MB (the Brazil original, 7.02 MB) goes
-      through.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: try the examples on the live site; close the
-      ticket.</span></li>
+      through. (Four examples, ML-16 D12; the cap is ML-19's 40 MB, and a 14 MB DNG went through, 2026-11-08.)</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: try the examples on the live site; close the
+      ticket. (The site checked by the owner, 2026-11-08; the ticket theirs to close.)</span></li>
   </ol>
 
   <h2>10. Verification</h2>
@@ -321,7 +321,7 @@
     <li><span class="box done"></span><span>P4: each example runs end to end on a local app.</span></li>
     <li><span class="box done"></span><span>P5: <code>--verify</code> checks five more answers.</span></li>
     <li><span class="box done"></span><span>P6: each example right on ML-16's model; the owner accepted the masks (four, ML-16 D12).</span></li>
-    <li><span class="box"></span><span>P7: live, verified on the domain.</span></li>
+    <li><span class="box done"></span><span>P7: live, verified on the domain.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -404,6 +404,9 @@
       the release's bytes with their answers (Brazil, Ethiopia, Indonesia, the cappuccino refused). The prune removed
       the seed folder. Server-side: a 12 MP photo 12.1 s (<code>decode_ms</code> 3.7 s, the canonical JXL), the 50 MP grinder
       example 24.8 s (decode 15.9 s), against ML-13's 8.4 s: ML-19's decode, a follow-up of its own. P7 done but its last stop: the owner tries the examples on the live site and closes the ticket.</div>
+    <div><div class="when">2026-11-08</div>The owner checked the live site: "it's live and fine". One upload of each
+      format through the domain (ML-19 P10) passed, a 14 MB DNG among them, over this ticket's old 10 MB cap and under
+      ML-19's 40 MB. P7 done; the ticket is the owner's to close.</div>
   </div>
 
   <footer>Related: <a href="ticket_example_photos.html">OPS-16 ticket</a>,

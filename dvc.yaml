@@ -425,12 +425,15 @@ stages:
   # (ML-19 P5, P6). XL0-v6's recipe unchanged (params.yaml seg_ft, 8 threads); seed 42, xl0_v6_s42's, the live
   # segmenter's: other seeds only if the result calls for them (the owner, 2026-11-04). Judged by the owner against
   # xl0_v6_s42's masks of the same canonical test photos (seg_ml19_predict).
+  # Frozen 2026-11-08 (ML-16, after its release): the record of the fine-tune that made xl0_v7_s42. Since it ran,
+  # seg_finetune gained --init (5ed2d75, D7) and data/canonical the 87 photos of 2026-11-05 and 2026-11-06 (D10).
   seg_ml16_finetune:
     foreach:
       xl0_v7_s42:
         labels: pass16
         seed: 42
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels ${item.labels} --seed ${item.seed} --name ${key} --threads 8
       deps:
         - coffeecv/seg_finetune.py
@@ -458,6 +461,8 @@ stages:
   # labels; seeds other than its 42, run one after another (each run deletes other runs' resume slots). A run that
   # never beats epoch 0, the init's own score, writes the init's decoder again. Seed 2026, the third, dropped by the
   # owner while it loaded (D8, 2026-11-06): xl0_v7r_s123 ships.
+  # Frozen 2026-11-08 (ML-16, after its release): the record of the runs that made xl0_v7r_s123 (live) and
+  # xl0_v7r_s7; data/canonical has gained the 87 photos of 2026-11-05 and 2026-11-06 (D10) since.
   seg_ml16_refine:
     foreach:
       xl0_v7r_s123:
@@ -465,6 +470,7 @@ stages:
       xl0_v7r_s7:
         seed: 7
     do:
+      frozen: true
       cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed ${item.seed} --name ${key}
         --init models/seg/xl0_v7_s42.pt --lr 2e-5 --threads 8
       deps:

@@ -13,7 +13,7 @@
     taken, not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 answered as D13&ndash;D18); plan P1&ndash;P5 built 2026-11-03 (the files, the front, the 10 MB cap, the page, the deploy check), not released; the originals out of every set (ML-16 D3, 2026-11-03); P6 and P7 wait on ML-16's model</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-03; decided; planned (<a href="plan_example_photos.html">plan</a>, Q1&ndash;Q3 answered as D13&ndash;D18); plan P1&ndash;P7 done; the originals out of every set (ML-16 D3, 2026-11-03); live with four examples (ML-16 D12) as release <code>20261108T0728Z-c6ce09b</code>, 2026-11-08, the site checked by the owner; for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: new feature, upload cap</span></div>
@@ -267,8 +267,9 @@
       set (ML-16 D3).</span></li>
     <li><span class="box done"></span><span>Five lossy JPEG XL files and five WebP thumbnails in
       <code>webapp/static/examples/</code>; <code>leak_check</code> passes them.</span></li>
-    <li><span class="box"></span><span>On the model of ML-16's release, each example gets its original's answer, and
-      the owner accepted each bean photo's mask at full resolution.</span></li>
+    <li><span class="box done"></span><span>On the model of ML-16's release, each example gets its original's answer, and
+      the owner accepted each bean photo's mask at full resolution. (Four of the five: Vietnam left the page, ML-16
+      D12.)</span></li>
     <li><span class="box done"></span><span>The front serves the examples (its nginx route, <code>release_manifest.py
       --front</code>).</span></li>
     <li><span class="box done"></span><span>The page's example row, the click, and the truth line after the answer
@@ -279,7 +280,7 @@
     <li><span class="box done"></span><span>The check service's peak memory with a 10 MB upload, measured and written
       here.</span></li>
     <li><span class="box done"></span><span><code>--verify</code> checks the five examples (D11, D14, D17).</span></li>
-    <li><span class="box"></span><span>Live with ML-16's release, verified on the domain.</span></li>
+    <li><span class="box done"></span><span>Live with ML-16's release, verified on the domain.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -335,6 +336,11 @@
     <div><div class="when">2026-11-03</div><a href="ticket_canonicalization.html">ML-19</a> D17: the example photos become canonical photos, made from
       their originals (a Rec.2020 JPEG XL at quality 95 in place of D3's q90 re-encode), which the front passes
       through unchanged. P6 checks them in that form; ML-19 ships in the same release.</div>
+    <div><div class="when">2026-11-08</div>P6 and P7 (the plan's Activity). P6 on ML-16's model: Brazil, Ethiopia and
+      Indonesia right, their masks accepted by the owner, the cappuccino refused; Vietnam left an empty mask and was
+      answered Brazil, and left the page (ML-16 D12). Live as release
+      <code>20261108T0728Z-c6ce09b-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passing on the
+      domain with the four examples. The owner checked the live site. For the owner to close.</div>
   </div>
 
   <footer>Related: <a href="plan_example_photos.html">the plan</a>, <a href="ticket_next_training_session.html">ML-16</a> (the dataset change and the release),
