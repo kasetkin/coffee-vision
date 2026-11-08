@@ -13,7 +13,7 @@
     Written 2026-11-08; every decision (D1&ndash;D12) taken the same day; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-08, the format list added the same day; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1, the page, built 2026-11-08 (<code>9a67e21</code>, <code>bbb4479</code>), merged to <code>main</code> in <code>65dc8c0</code>; live 2026-11-08 in <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-08 on the owner's word; written 2026-11-08; D1&ndash;D12 decided 2026-11-08; planned (<a href="plan_examples_behind_a_button.html">plan</a>); P1 done 2026-11-08 (<code>9a67e21</code>, <code>bbb4479</code>), merged to <code>main</code> in <code>65dc8c0</code>; live 2026-11-08 in release <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner checked it on a phone</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: layout above the photo</span></div>
@@ -242,9 +242,9 @@
       place, right above the refusal's message (D6).</span></li>
     <li><span class="box done"></span><span>OPS-16 D10 carries an "Amended by OPS-20 D1" note, and OPS-18 D5 an "Amended
       by OPS-20 D5" note.</span></li>
-    <li><span class="box"></span><span><code>tests/test_example_photos.py</code> covers the "Examples" button, and
-      <code>tests/test_accepted_formats_named.py</code> still passes unchanged. <code>scripts/check.sh</code> passes. <span class="result">These three done 2026-11-08 (P1); the release
-      waits for P2.</span>
+    <li><span class="box done"></span><span><code>tests/test_example_photos.py</code> covers the "Examples" button, and
+      <code>tests/test_accepted_formats_named.py</code> still passes unchanged. <code>scripts/check.sh</code> passes. <span class="result">Done 2026-11-08: the tests in P1; live in <code>20261108T1703Z-70278a9-dino3b16_segxl0v7r_country_aug8_s42</code>,
+      <code>--verify</code> passed; the owner's phone check passed.</span>
       A release is live, <code>--verify</code> passes, and the owner checks it on a phone.</span></li>
   </ul>
 
@@ -295,6 +295,8 @@
       failure: the page is the release's, <code>/analyze</code> answered both parts with the smoke photo's top-1, the
       four examples got Brazil, Ethiopia, Indonesia and the cappuccino's refusal, and the CORS checks held. What is
       left is the owner's check on a phone.</div>
+    <div><div class="when">2026-11-08</div>The owner checked the live page on a phone: "both new buttons behave as
+      they should". Ticket closed on the owner's word.</div>
   </div>
 
   <footer>Related: <code>webapp/static/index.html</code>, <code>tests/test_example_photos.py</code>,
