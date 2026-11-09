@@ -1,0 +1,142 @@
+<title>A phone's DNG decodes at a fraction of its pixels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-24 · coffee-vision · canonicalization of camera RAW photos</div>
+  <h1>A phone's DNG decodes at a fraction of its pixels</h1>
+  <p class="lede">The owner's phone check of OPS-3 sent a 5.1 MB DNG with Select File on Android, and the check service's
+    new log says the front canonicalized it at 454 &times; 602 pixels. If the file holds a larger image, the front
+    decoded something else, a reduced or preview image, and the model classified that. Written 2026-11-09; not
+    investigated: the file is needed, since the service keeps no photo.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; not investigated, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-info</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: decoding of camera RAW uploads</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">coffeecv/canonical.py (decode, its RAW branch), rawpy and LibRaw, webapp/front/check_service.py, tests/test_canonical.py</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (investigation and fix), Alex (decisions; the DNG file)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-09</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">the investigation needs the owner's DNG file (needs-info)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-09.</strong> &ldquo;Open new ticket for DNG decoding&rdquo;, after Claude read
+      the photo's line in the logs of <a href="ticket_visitor_analytics.html">OPS-3</a>'s phone check.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today a camera RAW upload is developed by rawpy at whatever size LibRaw reports, and nothing checks that the
+    result is the photo's main image. The one phone DNG seen through the live site came out at 0.27 MP. After this
+    ticket we know what LibRaw read from that file and why, and such a file is either decoded at its full size or
+    refused saying why (D1), held by a test. The work: get the file; read its image directories and what LibRaw
+    chose; find the cause; fix or refuse; a test with the file or one like it.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The log line</strong> (the front's <code>/var/log/coffee-cv-front/requests.jsonl</code>, 2026-11-09
+      16:47 UTC, release <code>20261109T1637Z-c37f30e</code>): <code>ext .dng</code>, <code>format dng</code>,
+      <code>bytes 5379377</code>, <code>canonicalized</code> in <code>195 ms</code>, <code>width 454</code>,
+      <code>height 602</code>, <code>bits 16</code>, <code>peak_mb 134</code>, <code>canonical_bytes 86834</code>; then
+      relayed, answered <code>refused_ood</code>. The four other photos of the same check (JPEG and HEIC) each took
+      about 5 s to canonicalize; this one took 0.2 s.</li>
+    <li><strong>The decode</strong> (<code>coffeecv/canonical.py</code>, <code>decode</code>): a RAW file is opened by
+      <code>rawpy.imread</code>, checked against the RAW ceiling (16 MP, ML-19 D24) on <code>raw.sizes</code>, and
+      developed with <code>postprocess(output_bps=16, use_camera_wb=True, output_color=Rec2020, gamma=(1, 1))</code>:
+      no <code>half_size</code>, no thumbnail path. So a small image is what LibRaw itself took from the file.</li>
+    <li><strong>The arithmetic</strong>: a 12 MP Bayer image at 16 bits is about 24 MB uncompressed, and lossless-JPEG
+      DNGs of that size run 10&ndash;15 MB. 5.1 MB suggests a lossy main image (lossy DNG, or DNG 1.7's JPEG XL), or a
+      file that really is small. Two hypotheses: (1) the file's main image uses a compression this LibRaw build does
+      not decode, and LibRaw took a reduced-resolution directory instead; (2) the app that wrote it made a small
+      DNG.</li>
+    <li><strong>What is known to work</strong>: the dataset's six DNGs (<code>dataset/segmenter_positives/</code>, a
+      Pixel 9 Pro) decode at full size; <code>tests/test_front_check_service.py</code> reads one at 3628 &times; 2732.
+      The phone of 2026-11-09 sends Chrome's reduced browser string (&ldquo;Android 10; K&rdquo;), so its model is
+      not in the logs.</li>
+    <li><strong>No copy</strong>: the front never stores a photo (ADR 0033, OPS-3's &ldquo;What does not
+      change&rdquo;), so the file must come from the owner's phone.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A RAW file is developed at the size LibRaw picks, checked only against a ceiling.</li>
+        <li>A file whose main image LibRaw cannot read may be classified from a small one, silently.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The cause of the 454 &times; 602 decode is known and written here.</li>
+        <li>Such a file is decoded at its full size, or refused with a 400 that says why (D1).</li>
+        <li>A test holds it, and the dataset's DNGs decode to the same pixels as before.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>One decode for training and serving.</strong> <code>coffeecv.canonical</code> makes both training's
+      and the front's canonical photos (ADR 0033); a fix changes both, and is held to the dataset's DNGs (R1).</li>
+    <li><strong>The RAW ceiling</strong> (16 MP, ML-19 D24) and the accepted formats (ADR 0034).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A fix changes training's RAW photos too.</strong></td>
+        <td>The same code canonicalizes training's photos. Check that the dataset's six DNGs decode to the same
+          canonical pixels before and after (CODING_STANDARDS.md, &ldquo;A rewrite is checked against the
+          original&rdquo;).</td></tr>
+      <tr><td class="id">R2</td><td><strong>Without the file, the cause stays a guess.</strong></td>
+        <td>The log line cannot say which directory LibRaw read. The owner sends the DNG, or another from the same phone
+          and app; until then this ticket is needs-info.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>A RAW file whose main image cannot be decoded at full size?</td>
+        <td>(a) Decode it fully (another LibRaw option or version) (b) Refuse it with a 400 that says why (c) Accept the
+          small image</td>
+        <td>Open, until the cause is known.</td></tr>
+      <tr><td class="id">D2</td><td>A floor on any photo's decoded pixels?</td>
+        <td>(a) Yes, refuse a photo under N MP (b) No</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The owner's DNG, or one like it, is read: its image directories, their sizes and
+      compression, and the one LibRaw developed, written into this ticket.</span></li>
+    <li><span class="box"></span><span>The cause is known.</span></li>
+    <li><span class="box"></span><span>That file is decoded at its full size or refused saying why (D1), and a test
+      holds it.</span></li>
+    <li><span class="box"></span><span>The dataset's DNGs decode to the same canonical pixels as before (R1).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The other RAW formats, unless the cause is shared.</li>
+    <li>OPS-3's logging, which found this.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-09</div>Ticket written from the check service's log line of OPS-3's phone check
+      (release <code>20261109T1637Z-c37f30e</code>) and a read of <code>coffeecv/canonical.py</code>'s RAW branch.
+      Decisions open. Not investigated: the file is needed.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3</a>, <a href="ticket_canonicalization.html">ML-19</a>,
+    ADR 0033, ADR 0034, <code>coffeecv/canonical.py</code>, <code>tests/test_front_check_service.py</code>.</footer>
+</main>

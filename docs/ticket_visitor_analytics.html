@@ -289,20 +289,20 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>A photo picked on the live site has one timeline: the page's, the front's and
+    <li><span class="box done"></span><span>A photo picked on the live site has one timeline: the page's, the front's and
       <code>yappy</code>'s lines under one request ID, with each of §2's steps that applies to it.</span></li>
     <li><span class="box"></span><span>An example, a "canonical as sent" upload, a busy wait, "Use full photo instead",
       an abandoned photo and a photo refused on the page each show as such.</span></li>
-    <li><span class="box"></span><span>The front's access log has the browser and the referrer; the session log is
+    <li><span class="box done"></span><span>The front's access log has the browser and the referrer; the session log is
       <code>0640</code>.</span></li>
-    <li><span class="box"></span><span>No new line anywhere holds a visitor IP.</span></li>
+    <li><span class="box done"></span><span>No new line anywhere holds a visitor IP.</span></li>
     <li><span class="box"></span><span>A malformed, oversized or other-site timeline is refused; one with an invented
       ID is shown as unverified, not counted.</span></li>
-    <li><span class="box"></span><span>The script prints the counts and each step's median and 90th percentile from
+    <li><span class="box done"></span><span>The script prints the counts and each step's median and 90th percentile from
       both hosts, serves them on a local page, keeps nothing locally and reads no session log.</span></li>
-    <li><span class="box"></span><span><code>--verify</code>'s requests are left out of the counts, and
+    <li><span class="box done"></span><span><code>--verify</code>'s requests are left out of the counts, and
       <code>--verify</code> checks that its timeline was written.</span></li>
-    <li><span class="box"></span><span>The page and <code>llms.txt</code> say what is logged.</span></li>
+    <li><span class="box done"></span><span>The page and <code>llms.txt</code> say what is logged.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -341,6 +341,14 @@
     <div><div class="when">2026-11-09</div>Released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>; <code>--verify</code> passed, the timeline check
       included. Live: the page sends each photo's timeline and says what is logged. The owner's phone check is
       next.</div>
+    <div><div class="when">2026-11-09</div>The owner's phone check, Android Chrome 156: Choose Photo (a JPEG and two
+      HEICs), Select File (a DNG), the camera button, an example and &ldquo;Use full photo instead&rdquo;, each one
+      timeline, joined to the front's and the app's lines; the phone's browser string in the access log; no IP in any
+      new line. Six of the eight acceptance items ticked on the live site. A busy wait, an abandoned photo, a photo
+      refused on the page and forged or other-site timelines were checked locally only (P3&ndash;P6's tests, P4's
+      headless Chromium), so those two items stay open for the owner's call. Two findings: the script's crossing
+      stopped at the front's socket buffers, fixed (<code>4070129</code>: 5.6 s sent, 8.5 s received at yappy); and
+      the DNG decoded at 454 &times; 602, now <a href="ticket_raw_decoded_small.html">ML-24</a>.</div>
   </div>
 
   <footer>Related: <a href="plan_visitor_analytics.html">plan</a>, <code>docs/logging_plan.html</code>, <a
