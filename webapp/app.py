@@ -192,7 +192,8 @@ class _JsonFormatter(logging.Formatter):
     """
 
     _FIELDS = (
-        "request_id", "endpoint", "status", "latency_ms", "preview_ms", "outcome", "parts_sent", "model", "build",
+        "request_id", "endpoint", "status", "latency_ms", "preview_ms", "preview_build_ms", "outcome", "parts_sent",
+        "model", "build",
         "verdict",
         "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
         "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
@@ -308,7 +309,7 @@ def _write_request_line(status: int) -> None:
         "model": CHECKPOINT.name,
         "build": BUILD,
     }
-    for field in ("preview_ms", "outcome", "parts_sent",
+    for field in ("preview_ms", "preview_build_ms", "outcome", "parts_sent",
                   "verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
                   "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
@@ -488,7 +489,9 @@ def analyze():
     decode_ms = round((time.monotonic() - t0) * 1000)
     g.decoded_h, g.decoded_w = photo.shape[:2]
     seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter, decode_ms=decode_ms)
+    t0 = time.monotonic()
     preview = _preview_part(seg)
+    g.preview_build_ms = round((time.monotonic() - t0) * 1000)   # OPS-3 D6 step 12: the thumbnail, mask and box
     g.stream_logs_itself = True
     return Response(stream_with_context(_analyze_stream(seg, preview)), mimetype="application/x-ndjson",
                     # Both nginx servers stream it only if asked to; ours passes the header on (OPS-7 D11).

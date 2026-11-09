@@ -14,7 +14,7 @@
 # and `systemctl reload nginx` (D9); installs uv and the uv-managed Python 3.12 the deploy pins; creates the release
 # directory; and installs the check service's unit (enabled, not started: there is no release yet), conf.d's include
 # of the release's site, the stream block's session log for the domain (/etc/nginx/coffee-cv-stream.conf, D20), and
-# the logrotate rules. It touches no other site and not nginx.conf (D8): the include is a glob that matches nothing
+# the logrotate rules, and makes the session logs readable by root and adm only (OPS-3 D18). It touches no other site and not nginx.conf (D8): the include is a glob that matches nothing
 # until the first deploy, the session log takes effect only once the owner includes it in `stream {}` (plan P6), and
 # `nginx -t` must pass before it ends. Safe to run again.
 set -euo pipefail
@@ -51,7 +51,8 @@ PUBKEY=$(cat "$DEPLOY_PUBKEY" 2>/dev/null || echo "<the deploy key>")
 
 UNIT=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
          RELEASE_DIR="$FRONT_APP_ROOT/current" < "$REPO/webapp/deploy/coffee-cv-front.service.template")
-LOGROTATE=$(python3 "$REPO/webapp/deploy/render_template.py" < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
+LOGROTATE=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
+              < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
 STREAM=$(python3 "$REPO/webapp/deploy/render_template.py" DOMAIN="$DOMAIN" < "$REPO/webapp/deploy/coffee-cv-stream.conf.template")
 # The same line scripts/deploy_webapp.sh's site_include gives, which its preflight checks.
 INCLUDE="include $FRONT_APP_ROOT/current/front.nginx*.conf;"
@@ -138,6 +139,13 @@ echo "== 7. logrotate"
 printf '%s\n' "$LOGROTATE" > /etc/logrotate.d/coffee-cv-front
 logrotate -d /etc/logrotate.d/coffee-cv-front >/dev/null 2>&1 && echo "   /etc/logrotate.d/coffee-cv-front (checked)" \
   || { echo "ERROR: logrotate rejects /etc/logrotate.d/coffee-cv-front"; exit 1; }
+# OPS-3 D18: the session logs, the only files with the visitor's IP, are root's and adm's to read; logrotate's
+# `create` keeps each new one so, and this sets the ones already there.
+for f in /var/log/nginx/coffee-cv-front.sessions*; do
+  [[ -e "$f" ]] || continue
+  chown www-data:adm "$f"; chmod 0640 "$f"
+done
+echo "   the session logs: 0640 www-data:adm"
 echo "Done."
 EOF
 )

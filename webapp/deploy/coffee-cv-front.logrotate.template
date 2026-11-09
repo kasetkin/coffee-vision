@@ -1,9 +1,12 @@
-# Rendered to /etc/logrotate.d/coffee-cv-front on the front (the proxy). Retention is a full year for the access log
-# -- see docs/logging_plan.html section 06 -- and 30 days for coffee-cv-front.sessions, the stream block's log and the
-# one file with the visitor's IP (ticket OPS-15 D20). The check service writes only to the journal, with no IP.
+# Rendered with $FRONT_SERVICE_USER to /etc/logrotate.d/coffee-cv-front on the front (the proxy) by
+# webapp/deploy/setup_front.sh. Retention is a full year for the access log and the check service's log -- see
+# docs/logging_plan.html section 06 -- and 30 days for coffee-cv-front.sessions, the stream block's log and the one file
+# with the visitor's IP (ticket OPS-15 D20), which only root and the adm group may read (ticket OPS-3 D18).
 #
-# nginx holds both files open for as long as it runs, so each needs the standard nginx reload-on-rotate: USR1 tells
-# the master process to reopen its log files without dropping connections, the proxy's other sites' included.
+# nginx holds its two files open for as long as it runs, so each needs the standard nginx reload-on-rotate: USR1 tells
+# the master process to reopen its log files without dropping connections, the proxy's other sites' included. The
+# check service's file needs nothing: its WatchedFileHandler sees the file moved and starts a new one at its next line
+# (ticket OPS-3 D9), as the app's on the inference host does.
 
 /var/log/nginx/coffee-cv-front.access {
     daily
@@ -24,7 +27,18 @@
     delaycompress
     missingok
     notifempty
+    create 0640 www-data adm
     postrotate
         [ -f /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
     endscript
+}
+
+/var/log/coffee-cv-front/requests.jsonl {
+    daily
+    rotate 365
+    compress
+    delaycompress
+    missingok
+    notifempty
+    su $FRONT_SERVICE_USER $FRONT_SERVICE_USER
 }

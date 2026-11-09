@@ -14,6 +14,7 @@ so its address is told apart from the stream hop's 127.0.0.1. Without nginx and 
 """
 from __future__ import annotations
 
+import getpass
 import http.client
 import json
 import re
@@ -26,7 +27,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest import mock
+import uuid
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -40,7 +41,8 @@ import check_service  # noqa: E402
 from render_template import render  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
-from tests.test_front_check_service import BOUNDARY, JPEG, RID, FakeInferenceHost, form, free_port  # noqa: E402
+from tests.test_front_check_service import (BOUNDARY, JPEG, RID, FakeInferenceHost, form, free_port,  # noqa: E402
+                                            log_line)
 
 NGINX = shutil.which("nginx") or next((p for p in ("/usr/sbin/nginx",) if Path(p).exists()), None)
 STREAM_MODULE = Path("/usr/lib/nginx/modules/ngx_stream_module.so")
@@ -80,6 +82,26 @@ class SiteAgreesWithTheCheckService(unittest.TestCase):
         body = re.search(r"location @too_large \{.*?return 413 '([^']*)';", self.SITE, re.S)[1]
         self.assertEqual(json.loads(body), check_service.TOO_LARGE)
 
+    def test_systemd_makes_the_check_services_log_directory_and_logrotate_rotates_its_file(self):   # OPS-3 P2, R3
+        unit = (DEPLOY / "coffee-cv-front.service.template").read_text()
+        [logs] = re.findall(r"^LogsDirectory=(\S+)$", unit, re.M)
+        self.assertEqual(f"/var/log/{logs}", check_service.DEFAULT_LOG_DIR)
+        self.assertEqual(logrotate_days().get(f"{check_service.DEFAULT_LOG_DIR}/{check_service.LOG_FILE}"), 365)
+
+    @unittest.skipUnless(shutil.which("logrotate") or Path("/usr/sbin/logrotate").exists(), "no logrotate here")
+    def test_logrotate_accepts_the_rendered_rules(self):   # as setup_front.sh checks them on the proxy
+        with tempfile.TemporaryDirectory() as tmp:
+            rules = Path(tmp) / "coffee-cv-front"
+            rules.write_text(rendered_logrotate(getpass.getuser()))
+            run = subprocess.run([shutil.which("logrotate") or "/usr/sbin/logrotate", "-d", "-s", f"{tmp}/state",
+                                  str(rules)], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertNotIn("error", run.stderr.lower())
+
+    def test_the_session_log_is_created_readable_by_adm_only(self):   # OPS-3 D18
+        block = re.search(r"^/var/log/nginx/coffee-cv-front\.sessions \{(.*?)^\}", rendered_logrotate("u"), re.M | re.S)[1]
+        self.assertRegex(block, r"(?m)^\s*create 0640 www-data adm$")
+
 
 @real_data   # several seconds: nginx, the check service and the fake answers' one-second gaps
 class FrontSite(unittest.TestCase):
@@ -87,11 +109,11 @@ class FrontSite(unittest.TestCase):
     def setUpClass(cls):
         if NGINX is None or not STREAM_MODULE.exists():
             raise unittest.SkipTest("no nginx with its stream module on this machine")
-        # The service's one line per request, to stderr under systemd, kept out of the test output.
-        cls.enterClassContext(mock.patch.object(check_service.CheckHandler, "log_line"))
         cls.tmp = Path(tempfile.mkdtemp(prefix="front-site-"))
         cls.logs = cls.tmp / "log"
         cls.logs.mkdir()
+        cls.service_logs = cls.tmp / "coffee-cv-front"   # the check service's, /var/log/coffee-cv-front on the proxy
+        cls.service_logs.mkdir()
         subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj",
                         f"/CN={DOMAIN}", "-addext", f"subjectAltName=DNS:{DOMAIN}", "-keyout", cls.tmp / "key.pem",
                         "-out", cls.tmp / "cert.pem"], check=True, capture_output=True)
@@ -154,7 +176,7 @@ http {{
     @classmethod
     def start_check_service(cls):
         cls.check = check_service.make_server(("127.0.0.1", cls.check_port),
-                                              f"http://127.0.0.1:{cls.inference.server_address[1]}")
+                                              f"http://127.0.0.1:{cls.inference.server_address[1]}", cls.service_logs)
         threading.Thread(target=cls.check.serve_forever, daemon=True).start()
 
     @classmethod
@@ -358,16 +380,17 @@ http {{
         finally:
             self.start_check_service()
 
-    def access_line(self, rid: str) -> list[str]:
-        """The access log's line for request `rid`, split at spaces, once nginx has written it."""
+    def access_line(self, rid: str | None = None, request: str | None = None) -> list[str]:
+        """The access log's line for request `rid`, or for the request line `request`, in its fields, once nginx has
+        written it."""
         for _ in range(50):   # nginx writes the line once the answer is out
-            lines = [ln.split(" ") for ln in (self.logs / "coffee-cv-front.access").read_text().splitlines()]
-            found = [ln for ln in lines if ln[1] == rid]
+            lines = [access_fields(ln) for ln in (self.logs / "coffee-cv-front.access").read_text().splitlines()]
+            found = [ln for ln in lines if ln[1] == rid or ln[4] == f'"{request}"']
             if found:
                 [line] = found
                 return line
             time.sleep(0.05)
-        self.fail(f"no access line for {rid}")
+        self.fail(f"no access line for {rid or request}")
 
     def test_one_request_id_on_every_hop(self):   # OPS-3 D8
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"X-Request-Id": RID})
@@ -401,19 +424,36 @@ http {{
                 self.assert_cross_origin(resp)
 
     def test_the_access_log_names_the_calling_pages_origin(self):   # OPS-19 D3
-        access = self.logs / "coffee-cv-front.access"
-        for headers, last in (({"Origin": ELSEWHERE}, f'"{ELSEWHERE}"'), ({}, '"-"')):
-            with self.subTest(origin=last):
-                before = len(access.read_text().splitlines())
+        for headers, origin in (({"Origin": ELSEWHERE}, f'"{ELSEWHERE}"'), ({}, '"-"')):
+            with self.subTest(origin=origin):
                 resp = self.visit("POST", "/analyze", form("beans.jpg", b"some text"), headers)
                 resp.read()
-                for _ in range(50):   # nginx writes the line once the answer is out
-                    lines = access.read_text().splitlines()
-                    if len(lines) > before:
-                        break
-                    time.sleep(0.05)
-                self.assertIn('"POST /analyze HTTP/1.1"', lines[-1])
-                self.assertEqual(lines[-1].rsplit(" ", 1)[1], last)
+                line = self.access_line(resp.getheader("X-Request-Id"))
+                self.assertEqual(line[4], '"POST /analyze HTTP/1.1"')
+                self.assertEqual(line[7], origin)
+
+    def test_the_access_log_ends_with_the_browser_the_referrer_and_the_probe_marker(self):   # OPS-3 D5, D14
+        browser = 'Mozilla/5.0 (Linux; Android 14) "quoted" Chrome/130'
+        for headers, last in (({"User-Agent": browser, "Referer": "https://search.example/?q=coffee",
+                                "X-Coffee-CV-Probe": "verify"},
+                               ['"Mozilla/5.0 (Linux; Android 14) \\x22quoted\\x22 Chrome/130"',
+                                '"https://search.example/?q=coffee"', '"verify"']),
+                              ({}, ['"-"', '"-"', '"-"'])):
+            with self.subTest(last=last[2]):
+                path = f"/?visit={uuid.uuid4().hex}"
+                resp = self.visit("GET", path, headers=headers)
+                resp.read()
+                line = self.access_line(request=f"GET {path} HTTP/1.1")
+                self.assertEqual(len(line), 11, line)
+                self.assertEqual(line[8:], last)
+
+    def test_the_check_services_line_joins_the_access_line(self):   # OPS-3 D8, D9
+        resp = self.visit("POST", "/analyze", form("beans.jpg", b"some text"), {"X-Coffee-CV-Probe": "verify"})
+        resp.read()
+        rid = resp.getheader("X-Request-Id")
+        line = log_line(self.service_logs, rid)
+        self.assertEqual((line["status"], line["outcome"], line["probe"]), (400, "not_an_image", "verify"))
+        self.assertEqual(self.access_line(rid)[10], '"verify"')
 
     def test_the_visitors_ip_is_only_in_the_session_log_rotated_at_30_days(self):
         conn = Visit(self.stream_port, self.tmp / "cert.pem")
@@ -429,6 +469,8 @@ http {{
         rotate = logrotate_days()
         with_ip = {p.name for p in self.logs.iterdir() if VISITOR in p.read_text()}
         self.assertEqual(with_ip, {"coffee-cv-front.sessions"})
+        self.assertEqual([p.name for p in self.service_logs.iterdir()], [check_service.LOG_FILE])
+        self.assertNotIn(VISITOR, (self.service_logs / check_service.LOG_FILE).read_text())
         self.assertEqual(rotate.get(NGINX_LOG_DIR + "coffee-cv-front.sessions"), 30)
         for p in self.logs.iterdir():
             with self.subTest(log=p.name):
@@ -438,11 +480,21 @@ http {{
                       "a request line that cannot be joined to the app's log")
 
 
+def access_fields(line: str) -> list[str]:
+    """An access line's fields: a quoted one whole, quotes kept (nginx writes a quote inside one as \\x22)."""
+    return re.findall(r'"[^"]*"|\S+', line)
+
+
+def rendered_logrotate(user: str) -> str:
+    """The front's logrotate rules as setup_front.sh renders them."""
+    return render((DEPLOY / "coffee-cv-front.logrotate.template").read_text(), {"FRONT_SERVICE_USER": user})
+
+
 def logrotate_days() -> dict[str, int]:
     """Each file the front's logrotate rules name, with the number of daily rotations it is kept."""
     days = {}
-    for paths, block in re.findall(r"^([^#\s][^{]*)\{(.*?)^\}", (DEPLOY / "coffee-cv-front.logrotate.template")
-                                   .read_text(), flags=re.M | re.S):
+    for paths, block in re.findall(r"^([^#\s][^{]*)\{(.*?)^\}", rendered_logrotate("coffee-cv-front"),
+                                   flags=re.M | re.S):
         assert re.search(r"^\s*daily$", block, flags=re.M), paths
         for path in paths.split():
             days[path] = int(re.search(r"^\s*rotate (\d+)$", block, flags=re.M)[1])

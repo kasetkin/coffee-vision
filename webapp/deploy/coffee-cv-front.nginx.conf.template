@@ -8,12 +8,14 @@
 # keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included,
 # which this site sends on as X-Request-Id and every hop keeps (ticket OPS-3 D8), so it joins a line to the check
 # service's and the inference host's lines and to the page's timeline; and $upstream_http_x_request_id, the one the
-# answer came back with: the same, or "-" for the front's own refusals. Last, the Origin the browser sends with a
-# POST (ticket OPS-19 D3, ADR
-# 0035): the live site's for the page's own uploads, another site's for a cross-origin caller, "null" for a sandboxed
-# or file:// page, "-" for curl or an agent. A site's address, not a visitor's, and the only way to tell other sites'
-# traffic from the page's.
-log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent "$http_origin"';
+# answer came back with: the same, or "-" for the front's own refusals. Then the Origin the browser sends with a
+# POST (ticket OPS-19 D3, ADR 0035): the live site's for the page's own uploads, another site's for a cross-origin
+# caller, "null" for a sandboxed or file:// page, "-" for curl or an agent. A site's address, not a visitor's, and the
+# only way to tell other sites' traffic from the page's. Last, so that a reader of the older fields still parses a line (ticket OPS-3
+# D5, D14): the browser and the referrer, which tell a crawler from a visit and where visits come from, and the
+# X-Coffee-CV-Probe marker of the deploy's own checks, "verify", which the reading script leaves out. nginx writes a
+# quote inside a field as \x22, so each quoted field stays one.
+log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent "$http_origin" "$http_user_agent" "$http_referer" "$http_x_coffee_cv_probe"';
 
 # One photo at a time for everyone (D11): the inference host has one worker, and over its 2.1 Mbit/s link a second
 # upload must never start crossing. Keyed on the server_name below, a fixed value, not per IP (NAT shares addresses);

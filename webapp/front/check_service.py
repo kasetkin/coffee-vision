@@ -17,16 +17,22 @@ On http.server (D19): the front's nginx gates one request at a time (D11), so a 
 than one at work, and canonicalizing (up to about 21 s and 460 MB at 60 MP, analysis/ml19/p8/README.md) happens
 inside the same one-at-a-time gate as the crossing. Since ML-19 the service is no longer standard-library only: it
 imports the release's coffeecv.canonical, with training's decoders, colour management and encoder at training's
-versions (coffeecv.lock_check). It logs one line per request to stderr, for the journal, with no
-client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20). A photo canonicalized
-here adds its extension, size, decoded depth, time and the process's peak and swapped memory while it was at work
-(ML-19 D38: the ceiling and MemoryMax are reviewed from these lines).
+versions (coffeecv.lock_check).
+
+It logs one JSON line per request to a file of its own (OPS-3 D9, requests.jsonl in systemd's LogsDirectory), with
+no client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20). The line is what
+this service alone knows of the photo's timeline (OPS-3 D6): the visitor's original, its name, extension, detected
+format and size (D10); canonicalized or sent canonical, and for one canonicalized here its size, decoded depth, time
+and the process's peak and swapped memory while it was at work (ML-19 D38: the ceiling and MemoryMax are reviewed
+from these lines); the crossing to the inference host, and the answer's headers, preview and end as they passed.
+Only its start-up line goes to stderr, for the journal.
 """
 from __future__ import annotations
 
 import argparse
 import http.client
 import json
+import logging
 import math
 import os
 import re
@@ -35,7 +41,9 @@ import threading
 import time
 import uuid
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from logging.handlers import WatchedFileHandler
 from urllib.parse import unquote, urlsplit
 
 from pathlib import Path, PurePath
@@ -85,6 +93,17 @@ NOT_RELAYED = NOT_FORWARDED - {"host", "content-length", "x-request-id"} | {"ser
 # request and carried on every hop, so the front's, this service's and the inference host's lines and the page's
 # timeline join on it.
 REQUEST_ID = re.compile(r"[0-9a-f]{32}")
+# The log (OPS-3 D9): one JSON line per request in LOG_FILE, in the directory systemd makes for the unit
+# (LogsDirectory=coffee-cv-front) and names in $LOGS_DIRECTORY, rotated at 365 days
+# (webapp/deploy/coffee-cv-front.logrotate.template). DEFAULT_LOG_DIR is the same directory, for a run outside systemd.
+DEFAULT_LOG_DIR = "/var/log/coffee-cv-front"
+LOG_FILE = "requests.jsonl"
+FILENAME_CAP = 200   # the visitor's filename, kept (D10), up to this many characters
+EXT_CAP = 16
+ERROR_CAP = 300
+# The deploy's own requests (OPS-3 D14): --verify sends this header and value, the log keeps it, the script leaves
+# such requests out of the counts. A visitor who sends it hides only their own requests.
+PROBE_HEADER, PROBE = "X-Coffee-CV-Probe", "verify"
 
 
 def request_id(sent: str | None) -> str:
@@ -155,57 +174,96 @@ def process_memory_mb() -> tuple[int, int]:
         return 0, 0
 
 
+class JsonLines:
+    """The service's log (OPS-3 D9): one JSON object per line, appended to a file that logrotate moves aside and the
+    next line starts again (WatchedFileHandler, as the app's request log). json.dumps escapes every control and
+    non-ASCII character, so a line is one line whatever a visitor sent. Opened at once: a log directory that cannot be
+    written stops the service at its start, not at its first photo."""
+
+    def __init__(self, path: Path):
+        self.handler = WatchedFileHandler(path)
+        self.handler.setFormatter(logging.Formatter("%(message)s"))
+
+    def write(self, record: dict) -> None:
+        self.handler.handle(logging.makeLogRecord({"msg": json.dumps(record)}))
+
+
+def ms_since(t: float) -> int:
+    return round((time.monotonic() - t) * 1000)
+
+
 class CheckHandler(BaseHTTPRequestHandler):
     inference: tuple[str, int]   # set by make_server
     crossing: threading.Lock     # set by make_server: held while a photo crosses and its answer comes back
+    log: JsonLines               # set by make_server
     server_version = "coffee-cv-front"
     sys_version = ""
 
     def do_POST(self):  # noqa: N802
-        t0, self.photo_note = time.monotonic(), ""
+        """Answers, then writes the request's one line: what this service alone knows of it (OPS-3 P2), and never the
+        client's address, which is the front's nginx's 127.0.0.1 anyway (D20)."""
+        t0 = time.monotonic()
         self.request_id = request_id(self.headers.get("X-Request-Id"))
-        outcome = self.analyze() if urlsplit(self.path).path == "/analyze" else self.json(404, {"error": "not found"})
-        self.log_line(f"{self.command} {urlsplit(self.path).path} {outcome} {round((time.monotonic() - t0) * 1000)}ms"
-                      + (f"; {self.photo_note}" if self.photo_note else ""))
+        path = urlsplit(self.path).path
+        self.record = {"ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"), "kind": "request",
+                       "request_id": self.request_id, "method": "POST", "endpoint": path}
+        if self.headers.get(PROBE_HEADER) == PROBE:   # the deploy's own check (OPS-3 D14); any other value is not kept
+            self.record["probe"] = PROBE
+        outcome = "error"   # what the line says if this handler itself fails
+        try:
+            outcome = self.analyze() if path == "/analyze" else self.json(404, {"error": "not found"}, "not_found")
+        finally:
+            self.record.update(outcome=outcome, total_ms=ms_since(t0))
+            self.log.write(self.record)
 
     def do_GET(self):  # noqa: N802
         self.request_id = request_id(self.headers.get("X-Request-Id"))
-        self.json(405 if urlsplit(self.path).path == "/analyze" else 404, {"error": "use POST /analyze"})
+        self.record = {}
+        self.json(405 if urlsplit(self.path).path == "/analyze" else 404, {"error": "use POST /analyze"}, "")
 
     def analyze(self) -> str:
         if "Content-Length" not in self.headers:
             self.close_connection = True
-            return self.json(411, {"error": "a Content-Length is required"})
+            return self.json(411, {"error": "a Content-Length is required"}, "bad_length")
         try:
             length = int(self.headers["Content-Length"])
             if length < 0:
                 raise ValueError
         except ValueError:
             self.close_connection = True
-            return self.json(400, {"error": "a bad Content-Length"})
+            return self.json(400, {"error": "a bad Content-Length"}, "bad_length")
         if length > MAX_UPLOAD_BYTES + FORM_ALLOWANCE:
             # Read and dropped, not left unread: a sender cut off mid-body sees a reset, not the 413. The front's nginx
             # caps the body at the same size first, so this is a backstop.
             left = length
             while left > 0 and (chunk := self.rfile.read(min(65536, left))):
                 left -= len(chunk)
-            return self.json(413, TOO_LARGE)
+            return self.json(413, TOO_LARGE, "too_large")
+        t = time.monotonic()
         body = self.rfile.read(length)
+        self.record["read_ms"] = ms_since(t)
+        t = time.monotonic()
         part = photo_part(self.headers.get("Content-Type", ""), body)
         if part is None:
-            return self.json(400, {"error": "no photo uploaded"})   # the app's wording (webapp/app.py, analyze)
+            return self.json(400, {"error": "no photo uploaded"}, "no_photo")   # the app's wording (webapp/app.py)
         filename, head, size = part
+        # The visitor's original, as sent (OPS-3 D10): its name, kept whole up to a cap, its format by its content.
+        self.record.update(filename=filename[:FILENAME_CAP], ext=PurePath(filename).suffix.lower()[:EXT_CAP], bytes=size)
+        if (fmt := canonical.recognise(head, filename)) is not None:
+            self.record["format"] = fmt
         if size > MAX_UPLOAD_BYTES:
+            self.record["check_ms"] = ms_since(t)
             # Rounded up, as the page rounds it: a photo just over the cap never reads as exactly the cap.
             return self.json(413, {"error": f"this photo is {math.ceil(size / 2**20 * 10) / 10:.1f} MB; the limit is "
-                                            f"{MAX_UPLOAD_BYTES // 2**20} MB"})
+                                            f"{MAX_UPLOAD_BYTES // 2**20} MB"}, "too_large")
         reason = refusal(filename, head)
+        self.record["check_ms"] = ms_since(t)
         if reason is not None:
-            return self.json(400, {"error": f"could not read this as an image: {reason}"})
+            return self.json(400, {"error": f"could not read this as an image: {reason}"}, "not_an_image")
         # One photo is canonicalized and crosses at a time (D11). The front's nginx gates first, but it frees its gate
         # when a visitor leaves, and the crossing that visitor started goes on here until the inference host answers.
         if not self.crossing.acquire(blocking=False):
-            return self.json(503, BUSY, "busy (a photo is still crossing)")
+            return self.json(503, BUSY, "busy")
         try:
             content_type = self.headers.get("Content-Type", "")
             _, data, _ = _photo(content_type, body)
@@ -215,13 +273,14 @@ class CheckHandler(BaseHTTPRequestHandler):
             except canonical.TooLarge:
                 limit = (RAW_MAX_PIXELS if raw else MAX_PIXELS) / 1e6
                 return self.json(413, {"error": f"this photo has too many pixels; the limit is {limit:.0f} MP"
-                                                + (" for a camera RAW file" if raw else "")}, "413 (pixels)")
+                                                + (" for a camera RAW file" if raw else "")}, "too_many_pixels")
             except canonical.Unreadable as exc:
-                return self.json(400, {"error": f"could not read this as an image: {exc}"})
+                return self.json(400, {"error": f"could not read this as an image: {exc}"}, "unreadable")
             except Exception as exc:   # noqa: BLE001 -- any other failure is an answer, not a dropped connection
-                return self.json(500, {"error": "could not process this photo"},
-                                 f"500 canonicalization failed ({type(exc).__name__}: {exc})")
+                self.record["error"] = f"{type(exc).__name__}: {exc}"[:ERROR_CAP]
+                return self.json(500, {"error": "could not process this photo"}, "failed")
             del data
+            self.record["canonical_bytes"] = len(canon)
             # The visitor's name, kept to a safe alphabet: it goes into the forwarded part's header.
             name = f"{re.sub(r'[^A-Za-z0-9._-]', '_', PurePath(filename).stem)[:100] or 'photo'}.jxl"
             return self.forward(with_photo(content_type, body, name, canon))
@@ -229,9 +288,9 @@ class CheckHandler(BaseHTTPRequestHandler):
             self.crossing.release()
 
     def canonicalize(self, data: bytes, filename: str, max_pixels: int) -> bytes:
-        """canonical.canonicalize, noting in photo_note what was decoded and the memory it took (ML-19 D38)."""
+        """canonical.canonicalize, noting in the log line what was decoded and the memory it took (ML-19 D38)."""
         if canonical.is_canonical(data):   # D17: goes on as it is
-            self.photo_note = "canonical as sent"
+            self.record["canonical"] = "as_sent"
             return data
         t0, measured = time.monotonic(), reset_peak_memory()
         source = canonical.decode(data, filename, max_pixels)
@@ -239,12 +298,16 @@ class CheckHandler(BaseHTTPRequestHandler):
         canon = canonical.encode(source)
         del source
         peak_mb, swap_mb = process_memory_mb()
-        self.photo_note = (f"{PurePath(filename).suffix.lower() or '(no extension)'} {w}x{h} "
-                           f"{bits}-bit, canonicalized in {time.monotonic() - t0:.1f} s, "
-                           f"peak {peak_mb} MB{'' if measured else ' (since the start)'}, swap {swap_mb} MB")
+        self.record.update(canonical="canonicalized", canonicalize_ms=ms_since(t0), width=w, height=h, bits=bits,
+                           peak_mb=peak_mb, swap_mb=swap_mb)
+        if not measured:
+            self.record["peak_since_start"] = True
         return canon
 
     def forward(self, body: bytes) -> str:
+        """Sends the photo on and relays the answer. The log line's crossing_ms is the connection and the whole upload;
+        its to_*_ms count from the upload's last byte (OPS-3 D6, steps 9-16)."""
+        t = time.monotonic()
         conn = http.client.HTTPConnection(*self.inference, timeout=UPLOAD_TIMEOUT_S)
         try:
             conn.putrequest("POST", self.path, skip_accept_encoding=True)
@@ -254,20 +317,26 @@ class CheckHandler(BaseHTTPRequestHandler):
             conn.putheader("X-Request-Id", self.request_id)
             conn.putheader("Content-Length", str(len(body)))
             conn.endheaders(body)
+            sent = time.monotonic()
+            self.record["crossing_ms"] = ms_since(t)
             conn.sock.settimeout(ANSWER_TIMEOUT_S)   # the photo has crossed: from here, each read of the answer
             resp = conn.getresponse()
+            self.record["to_headers_ms"] = ms_since(sent)
         except (OSError, http.client.HTTPException) as exc:   # refused, unreachable, timed out, not HTTP
             conn.close()
-            return self.json(503, OFFLINE, f"offline ({type(exc).__name__})")
+            self.record["error"] = type(exc).__name__
+            return self.json(503, OFFLINE, "offline")
         try:
-            return self.relay(resp)
+            return self.relay(resp, sent)
         finally:
             conn.close()
 
-    def relay(self, resp: http.client.HTTPResponse) -> str:
+    def relay(self, resp: http.client.HTTPResponse, sent: float) -> str:
         if resp.status in APP_DOWN:
-            return self.json(503, OFFLINE, f"offline ({resp.status} from the inference host)")
+            self.record["upstream_status"] = resp.status
+            return self.json(503, OFFLINE, "offline")
         self.send_response(resp.status)
+        self.record["status"] = resp.status
         for k, v in resp.getheaders():
             if k.lower() not in NOT_RELAYED:
                 self.send_header(k, v)
@@ -276,65 +345,75 @@ class CheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         # The answer as it arrives (ADR 0023): read1 returns what is there, so the preview goes out before the
         # classification exists. Without a Content-Length, the end of the answer is this connection's close.
-        sent = 0
+        sent_bytes, outcome = 0, "relayed"
+        # A streamed answer's first line is its preview (ADR 0023): when its end has gone out, step 13's front half.
+        preview_pending = resp.getheader("Content-Type", "").startswith("application/x-ndjson")
         try:
             while chunk := resp.read1(65536):
                 self.wfile.write(chunk)
                 self.wfile.flush()
-                sent += len(chunk)
+                sent_bytes += len(chunk)
+                if preview_pending and b"\n" in chunk:
+                    self.record["to_preview_ms"], preview_pending = ms_since(sent), False
         except (OSError, http.client.HTTPException) as exc:
             # Either side gone mid-answer (IncompleteRead: the inference host's): the visitor's answer ends where it
             # was cut, as when the app fails mid-answer, and the page says so.
-            return f"{resp.status} cut after {sent} bytes ({type(exc).__name__})"
-        return f"{resp.status} relayed {sent} bytes"
+            self.record["error"], outcome = type(exc).__name__, "cut"
+        self.record.update(to_end_ms=ms_since(sent), relayed_bytes=sent_bytes)
+        return outcome
 
-    def json(self, status: int, payload: dict, outcome: str | None = None) -> str:
+    def json(self, status: int, payload: dict, outcome: str) -> str:
+        """Sends a JSON answer of this service's own; returns `outcome`, the log line's word for it."""
         data = json.dumps(payload).encode()
         self.send_response(status)
+        self.record["status"] = status
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("X-Request-Id", self.request_id)
         self.end_headers()
         self.wfile.write(data)
-        return outcome or str(status)
+        return outcome
 
     def log_message(self, *args):
         pass   # do_POST logs its own line, without the client address http.server would print
 
-    def log_line(self, line: str) -> None:
-        sys.stderr.write(line + "\n")
 
-
-def make_server(listen: tuple[str, int], inference_url: str) -> ThreadingHTTPServer:
+def make_server(listen: tuple[str, int], inference_url: str, log_dir: Path) -> ThreadingHTTPServer:
     url = urlsplit(inference_url)
     if url.scheme != "http" or not url.hostname or url.path not in ("", "/"):
         raise SystemExit(f"--inference wants http://<host>:<port>, got {inference_url!r}")
     handler = type("Handler", (CheckHandler,), {"inference": (url.hostname, url.port or 80),
-                                                "crossing": threading.Lock()})
+                                                "crossing": threading.Lock(), "log": JsonLines(log_dir / LOG_FILE)})
     server = ThreadingHTTPServer(listen, handler)
     server.daemon_threads = True
     return server
 
 
-def options(argv: list[str], env: Mapping[str, str]) -> tuple[tuple[str, int], str]:
-    """(host, port) to serve on and the inference host's URL: the flags, else front.env's variables, which the
-    release's unit loads (webapp/deploy/coffee-cv-front.service.template)."""
+def options(argv: list[str], env: Mapping[str, str]) -> tuple[tuple[str, int], str, Path]:
+    """(host, port) to serve on, the inference host's URL and the log's directory: the flags, else front.env's
+    variables, which the release's unit loads (webapp/deploy/coffee-cv-front.service.template), and for the log
+    systemd's $LOGS_DIRECTORY."""
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--listen", default=env.get("COFFEE_CV_FRONT_LISTEN"),
                     help="host:port to serve on, loopback behind the front's nginx (default: $COFFEE_CV_FRONT_LISTEN)")
     ap.add_argument("--inference", default=env.get("COFFEE_CV_INFERENCE_URL"),
                     help="the inference host's site, http://<tailnet address>:<port> (default: $COFFEE_CV_INFERENCE_URL)")
+    ap.add_argument("--log-dir", default=env.get("LOGS_DIRECTORY"),
+                    help=f"where {LOG_FILE} is written (default: $LOGS_DIRECTORY, which systemd sets from the unit's "
+                         f"LogsDirectory=, else {DEFAULT_LOG_DIR})")
     args = ap.parse_args(argv)
     if not args.listen or not args.inference:
         ap.error("--listen and --inference, or COFFEE_CV_FRONT_LISTEN and COFFEE_CV_INFERENCE_URL, are required")
     host, _, port = args.listen.rpartition(":")
-    return (host.strip("[]"), int(port)), args.inference
+    return (host.strip("[]"), int(port)), args.inference, Path(args.log_dir or DEFAULT_LOG_DIR)
 
 
 def main() -> None:
-    listen, inference = options(sys.argv[1:], os.environ)
-    server = make_server(listen, inference)
-    sys.stderr.write(f"check service on {listen[0]}:{listen[1]}, forwarding to {inference}\n")
+    listen, inference, log_dir = options(sys.argv[1:], os.environ)
+    server = make_server(listen, inference, log_dir)
+    # The journal's one line: each request's goes to the log file.
+    sys.stderr.write(f"check service on {listen[0]}:{listen[1]}, forwarding to {inference}, "
+                     f"logging to {log_dir / LOG_FILE}\n")
     server.serve_forever()
 
 

@@ -182,6 +182,8 @@ class TestAnalyze(unittest.TestCase):
                       "decoded_w", "decoded_h", "upload_bytes"):
             self.assertIn(field, line)
         self.assertLessEqual(line["preview_ms"], line["latency_ms"])
+        # OPS-3 D6 step 12: the preview's own build, inside preview_ms, after the decode and the segmentation.
+        self.assertLessEqual(line["decode_ms"] + line["crop_detect_ms"] + line["preview_build_ms"], line["preview_ms"])
         self.assertIs(line["skip_crop"], False)
         # Ticket OPS-7 D19.
         self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 2))
