@@ -10,10 +10,11 @@
   <p class="lede">Count visits and follow each photo from the visitor's pick to the answer on screen, from logs alone:
     no tracker, no analytics service, no visitor IP in anything new. Begun in 2026-08 as a self-hosted Umami, on hold
     until 2026-11-09, when the owner resumed it and dropped Umami for logs (D1, D2). Decided in a grilling on
-    2026-11-09 (D3&ndash;D24) and planned (<a href="plan_visitor_analytics.html">plan</a>); not implemented.</p>
+    2026-11-09 (D3&ndash;D24) and planned (<a href="plan_visitor_analytics.html">plan</a>); implemented and released 2026-11-09, closed by the
+    owner the same day.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D24 decided; planned; P1&ndash;P8 implemented 2026-11-09 on branch <code>ops3-timelines</code> (<code>f76a0d3</code>&ndash;<code>0fc034a</code>), merged and released 2026-11-09 in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D24 decided; planned; P1&ndash;P8 implemented 2026-11-09 on branch <code>ops3-timelines</code> (<code>f76a0d3</code>&ndash;<code>0fc034a</code>), merged and released 2026-11-09 in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check done 2026-11-09, the crossing fixed (<code>4070129</code>); closed by the owner 2026-11-09, two acceptance items checked locally only; the plan's P11 left open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure: logging across the page and both hosts</span></div>
@@ -349,6 +350,10 @@
       headless Chromium), so those two items stay open for the owner's call. Two findings: the script's crossing
       stopped at the front's socket buffers, fixed (<code>4070129</code>: 5.6 s sent, 8.5 s received at yappy); and
       the DNG decoded at 454 &times; 602, now <a href="ticket_raw_decoded_small.html">ML-24</a>.</div>
+    <div><div class="when">2026-11-09</div>Closed by the owner. The two acceptance items left unticked (a busy wait, an
+      abandoned photo and a photo refused on the page; forged and other-site timelines) stand as checked locally only.
+      The <a href="plan_visitor_analytics.html">plan</a>'s P11, the local page's interactivity, stays open, waiting on
+      the owner's look at the page (D22).</div>
   </div>
 
   <footer>Related: <a href="plan_visitor_analytics.html">plan</a>, <code>docs/logging_plan.html</code>, <a
