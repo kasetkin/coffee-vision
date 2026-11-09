@@ -145,7 +145,7 @@ listens in plain HTTP on its tailnet address, port 12346 (`INFERENCE_PORT`), onl
 `nginx -t` and nginx's reload); the site is `https://<DOMAIN>/`. Day-to-day notes: `docs/agents/deploy.md`.
 
 ```
-webapp/deploy/setup_front.sh                                # once per front, run by the owner as root (ROOT_HOST)
+DOMAIN=... webapp/deploy/setup_front.sh > setup_front_root.sh  # the front's root setup: the owner runs it there by hand
 scripts/deploy_webapp.sh --bootstrap                        # once per inference host: coffee-cv user, /opt/coffee-cv, uv, Python, log dir, logrotate
 DOMAIN=... TLS_CERT=... TLS_KEY=... scripts/deploy_webapp.sh <sha> <model>   # e.g. <sha> dino3b16_segxl0v3_country_aug8_s123
 scripts/deploy_webapp.sh --stage-only <sha> <model>         # everything up to the flip, then stop
