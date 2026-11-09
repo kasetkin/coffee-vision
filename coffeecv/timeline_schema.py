@@ -85,8 +85,9 @@ def parse(body: bytes, examples: frozenset[str] | set[str]) -> dict:
     return check(data, examples)
 
 
-def check(data: object, examples: frozenset[str] | set[str]) -> dict:
-    """`data` if it is a timeline the schema knows; else Invalid."""
+def check(data: object, examples: frozenset[str] | set[str] | None) -> dict:
+    """`data` if it is a timeline the schema knows; else Invalid. `examples` None takes any example name: for a line
+    the check service has already held to the release's list (the reading script)."""
     if not isinstance(data, dict):
         raise Invalid("not an object")
     if set(data) - _KEYS:
@@ -102,7 +103,8 @@ def check(data: object, examples: frozenset[str] | set[str]) -> dict:
         _id(data["rerun_of"], "rerun_of")
     if (data["control"] == "example") != ("example" in data):
         raise Invalid("example is given with, and only with, the example control")
-    if "example" in data and (not isinstance(data["example"], str) or data["example"] not in examples):
+    if "example" in data and (not isinstance(data["example"], str)
+                              or examples is not None and data["example"] not in examples):
         raise Invalid("example is not in examples.json")
     if "probe" in data and data["probe"] != PROBE:
         raise Invalid("probe is not the deploy's")
