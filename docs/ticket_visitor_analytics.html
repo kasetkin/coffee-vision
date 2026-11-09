@@ -5,92 +5,171 @@
 
 
 <main>
-  <div class="eyebrow">Ticket OPS-3 · coffee-vision · webapp and VM</div>
-  <h1>Visitor analytics for the live site with a self-hosted Umami</h1>
-  <p class="lede">Count visits to the live site with Umami, self-hosted on the VM, without client IPs and without
-    third parties. A design was written and reviewed on 2026-08-31 and put on hold by the owner, who wanted
-    analytics decided separately from operational logging. This ticket keeps that design and its two known blockers
-    so it can resume; nothing is planned or implemented, and it waits for the owner to ask.</p>
+  <div class="eyebrow">Ticket OPS-3 · coffee-vision · webapp, the front and the inference host</div>
+  <h1>Each photo's timeline, and the site's visits, from the logs</h1>
+  <p class="lede">Count visits and follow each photo from the visitor's pick to the answer on screen, from logs alone:
+    no tracker, no analytics service, no visitor IP in anything new. Begun in 2026-08 as a self-hosted Umami, on hold
+    until 2026-11-09, when the owner resumed it and dropped Umami for logs (D1, D2). Decided in a grilling on
+    2026-11-09 (D3&ndash;D21) and planned (<a href="plan_visitor_analytics.html">plan</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; on hold until the owner asks; not planned, not implemented</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D21 decided; planned; not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
-    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: a new service</span></div>
-    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/deploy/</code> (nginx template), the VM (Node.js, PostgreSQL, Umami)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: logging across the page and both hosts</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code>, <code>webapp/front/check_service.py</code>, <code>webapp/app.py</code>, <code>webapp/deploy/</code> (both nginx sites, the front's unit and logrotate, <code>setup_front.sh</code>), <code>scripts/deploy_webapp.sh</code> (<code>--verify</code>), a new script in <code>coffeecv/</code></span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-10-07</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">When implemented: a tracking script on the live page and a new service on the VM</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">on hold by the owner's choice (D1)</span></span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">One release (D19): the page sends one timeline per photo and says what is logged; the front logs each request's browser and referrer, and the check service its own line to a file; one request ID across both hosts. Before it, a one-time setup on the proxy by the owner (the front's unit, its log directory, logrotate).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
   <div class="callout info">
+    <p><strong>Owner request, 2026-11-09.</strong> "For now I think that logs are enough and we should just add more
+      logs and drop Umami for now." Per photo: "file type, file size, what control sent it, was it example or not.
+      Also I want timings from all events": the upload to the proxy, canonicalization, the crossing to
+      <code>yappy</code>, the preview, segmentation, the mask, classification, and the whole, "from the moment when
+      user select image up to the moment when he receives the final answer". Read with "one script that collects data
+      from both hosts, analyzes them and prints numbers or shows them using a local web page".</p>
     <p><strong>Owner request, 2026-08-31.</strong> After the server logging shipped: visitor analytics with Umami, as
       its own decision, not bundled with the logging rollout. Put on hold the same day, after a full plan and review.</p>
   </div>
 
   <h2>1. Summary</h2>
-  <p>Today the site has no analytics or tracking script at all; the only record of use is the structured server log
-    (<code>docs/logging_plan.html</code>, no client IPs). After this ticket, Umami counts page views, served from the
-    same VM under the site's own domain, with its dashboard reachable only through an SSH tunnel. The work is an
-    install on the VM, nginx routes, the tracker in the page, and retention.</p>
+  <p>Today the logs count requests on each host, but nothing ties one photo's lines together across the page, the front
+    and <code>yappy</code>, the page measures nothing, and a photo the page refuses never reaches a server. After this
+    ticket every photo has a <b>timeline</b> (GLOSSARY.md): the page's own times and choices, sent once per photo,
+    joined by one request ID to the front's and <code>yappy</code>'s lines, which say what they alone know. One script
+    reads both hosts and prints the counts and each step's times, or shows them on a local page. The work splits into
+    the shared request ID, the hosts' new fields, the page's timeline and its endpoint, <code>--verify</code>, the
+    script, and a line on the page saying what is logged.</p>
 
   <h2>2. Background</h2>
   <ul>
-    <li><b>Logging shipped on 2026-08-31</b> (<code>3f08b4b</code>, <code>1e6f42e</code>, <code>7c73fab</code>,
-      <code>2b5e718</code>): JSON request logs joined to nginx's access log by <code>request_id</code>, one-year
-      rotation, no client IP. The app log stays the record of each classification; analytics adds no per-classify
-      events.</li>
-    <li><b>The 2026-08-31 design</b> was a Claude Code plan file, not a repo file, and is lost. What it settled:
-      native install, no Docker (<code>.out-of-scope/containerised-serving.md</code>), Node.js through pnpm; Umami pinned
-      at v3.3.1; path-based routing under <code>/stats/</code>, not a subdomain; nginx exposes exactly
-      <code>/stats/script.js</code> and <code>/stats/api/send</code> as exact-match locations and nothing else;
-      90-day retention by a cron SQL job (Umami v3 has no retention setting); deploy files templated
-      (<code>CODING_STANDARDS.md</code>).</li>
-    <li><b>The design predates OPS-1.</b> The site now runs from immutable releases under its own user
-      (<a href="adr/0008-webapp-serves-immutable-releases.md">ADR 0008</a>), so where Umami lives and how its nginx
-      routes are deployed must be re-checked against <code>scripts/deploy_webapp.sh</code> and
-      <code>webapp/deploy/</code>.</li>
+    <li><b>The 2026-08-31 design</b> (a Claude Code plan file, lost; recorded here 2026-10-07): Umami v3.3.1 installed
+      natively with pnpm on the VM, under <code>/stats/</code>, with exactly <code>/stats/script.js</code> and
+      <code>/stats/api/send</code> public and the dashboard over an SSH tunnel, 90 days kept by a cron SQL job. Its
+      review found two blockers: the beacon's path baked in at build time (R1 then), and
+      <code>CREATE DATABASE umami OWNER umami</code> needed on PostgreSQL 15 and later (R2 then). Re-read 2026-11-09:
+      the first is wrong, since the tracker sends to its own script's directory unless told otherwise
+      (<code>src/tracker/index.ts</code>); the second stands. Umami is now v3.4.1 (2026-10-23, a security fix).</li>
+    <li><b>Why not Umami now</b> (D2, <code>.out-of-scope/visitor-analytics-service.md</code>). ADR 0031 puts analytics
+      at the front, the proxy: 958 MB of memory, 262 MB available and 547 MB of swap in use on 2026-11-09, with the
+      check service allowed 600 MB for a 60 MP photo (ML-19 D38), no Node.js, 2.9 GB of disk free. And the front's
+      site sees every visitor as <code>127.0.0.1</code>: the proxy's <code>stream {}</code> block reads the SNI and
+      opens its own connection to the site, so the visitor's address is known only there, per TLS session
+      (OPS-15 D20). Umami's visitor is a hash of the IP and the browser, so every visitor with the same browser
+      would be one visitor for a month.</li>
+    <li><b>What is logged today.</b> The front's access log (365 days): time, nginx's <code>$request_id</code>, the
+      app's ID, status, request, time, bytes, <code>Origin</code> (OPS-19 D3); no browser, no referrer. The check
+      service: one text line per request to the journal, with no request ID; for a photo it canonicalizes, its
+      extension, size in pixels, depth, time and memory; for one "canonical as sent", nothing about the photo. The
+      app on <code>yappy</code> (365 days): <code>decode_ms</code>, <code>crop_detect_ms</code> (segmentation),
+      <code>inference_ms</code>, <code>preview_ms</code> (since the app's start, decode and segmentation included),
+      <code>latency_ms</code>, under an 8-hex ID it makes itself. Since ML-19 <code>yappy</code> sees only the
+      canonical <code>.jxl</code>, so its <code>upload_format</code> and <code>upload_bytes</code> are the canonical
+      photo's, not the visitor's original. The session log, the only file with the visitor's IP (30 days), is
+      world-readable (<code>-rw-r--r--</code>) on the proxy.</li>
+    <li><b>The preview carries the mask.</b> <code>yappy</code> decodes, segments, then sends the first part: the
+      thumbnail, the mask and the box together (ADR 0023, OPS-7 D3); classification follows as the second part.
+      "Preview received" and "mask received" are one moment.</li>
+    <li><b>Two tickets left questions here.</b> OPS-17 D7 (which control a photo came from) and OPS-20's out of
+      scope (whether visitors open either list). This ticket answers the first (D6); the second stays out (D11).</li>
   </ul>
+
+  <h3>The timeline's steps (D6)</h3>
+  <p>Durations are taken on one clock each, the browser's or a host's; the network legs are what the page saw minus
+    what the hosts did.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Step</th><th>Measured by</th></tr></thead>
+    <tbody>
+      <tr><td class="id">1</td><td>The visitor taps a control until a file is chosen (in the picker)</td><td>page</td></tr>
+      <tr><td class="id">2</td><td>An example only: its JPEG XL downloaded</td><td>page</td></tr>
+      <tr><td class="id">3</td><td>The page's size check; a photo over 40 MB stops here</td><td>page</td></tr>
+      <tr><td class="id">4</td><td>The connection set up (DNS, TCP, TLS)</td><td>page (Resource Timing)</td></tr>
+      <tr><td class="id">5</td><td>The upload, browser to proxy</td><td>page (start, sent); the front's nginx</td></tr>
+      <tr><td class="id">6</td><td>Busy: the front's 503, the page's wait and retry, each attempt</td><td>page; the front's nginx</td></tr>
+      <tr><td class="id">7</td><td>The front's checks: size and format</td><td>check service</td></tr>
+      <tr><td class="id">8</td><td>Canonicalization, or "canonical as sent"; the original's filename, format and size</td><td>check service</td></tr>
+      <tr><td class="id">9</td><td>The crossing, proxy to <code>yappy</code></td><td>check service</td></tr>
+      <tr><td class="id">10</td><td>The canonical photo decoded</td><td>app</td></tr>
+      <tr><td class="id">11</td><td>Segmentation</td><td>app</td></tr>
+      <tr><td class="id">12</td><td>The preview built: thumbnail, mask PNG, box</td><td>app</td></tr>
+      <tr><td class="id">13</td><td>The preview, <code>yappy</code> to proxy to browser</td><td>check service (first chunk); page</td></tr>
+      <tr><td class="id">14</td><td>The preview and the mask drawn</td><td>page</td></tr>
+      <tr><td class="id">15</td><td>Classification</td><td>app</td></tr>
+      <tr><td class="id">16</td><td>The answer back and shown</td><td>check service (last chunk); page</td></tr>
+      <tr><td class="id">17</td><td>Totals: the pick to the answer on screen; each host's start to end</td><td>page; each host</td></tr>
+      <tr><td class="id">18</td><td>"Use full photo instead": a second run, linked to the first</td><td>page; app</td></tr>
+      <tr><td class="id">19</td><td>Abandoned: another photo picked, or the page left, before the answer</td><td>page; app (<code>client_gone</code>)</td></tr>
+    </tbody>
+  </table></div>
 
   <h2>3. Before and after</h2>
   <div class="compare">
     <div>
       <h3>Now</h3>
       <ul>
-        <li>No analytics; visits are visible only in the server log.</li>
+        <li>Page loads in the front's log, with no browser or referrer, so crawlers count as visits.</li>
+        <li>Each host logs under its own ID; the check service's line has none, and goes to the journal.</li>
+        <li>The page measures nothing; a photo it refuses, a busy wait or an abandoned photo leaves no trace.</li>
+        <li>The visitor's original format and size are not logged for an example or a canonical upload.</li>
+        <li>Reading any of it is a hand-made <code>grep</code> on each host.</li>
       </ul>
     </div>
     <div>
       <h3>After</h3>
       <ul>
-        <li>Umami counts page views under <code>/stats/</code>; dashboard over an SSH tunnel only; 90 days kept.</li>
+        <li>The front's log adds the browser and the referrer (D5).</li>
+        <li>One request ID, made by the front's nginx, on every host's line and in the page's timeline (D8).</li>
+        <li>The page sends one timeline per photo, its own steps only (D7); the check service writes it, and its own
+          line per request, to a file of its own, 365 days, no IP (D9).</li>
+        <li>One script prints the counts and each step's median and 90th percentile, or serves them on a local page
+          (D13).</li>
+        <li>The page says what is logged (D15).</li>
       </ul>
     </div>
   </div>
 
   <h2>4. What does not change</h2>
   <ul>
-    <li><strong>The server log.</strong> It stays the one record of classifications and keeps no client IP.</li>
-    <li><strong>The release layout.</strong> Umami is a separate service; the webapp's releases do not carry it.</li>
+    <li><strong>No visitor IP in anything new.</strong> The session log stays the only file with it, 30 days
+      (OPS-15 D20); the script never reads it (D13). Transparent proxying, which would carry the IP to the front's
+      site, is not part of this ticket (D21).</li>
+    <li><strong>The photo is never stored.</strong> Its name, format and size are logged (D10), not its pixels.</li>
+    <li><strong>The API's contract.</strong> <code>/analyze</code>'s request and answer stay as they are (ADR 0023,
+      ADR 0035); a caller that sends no timeline loses nothing.</li>
+    <li><strong>The answer's shape.</strong> The preview still carries the mask, after segmentation; a preview made at
+      the front was considered and left for now (D12).</li>
+    <li><strong>No identifier on the visitor's device.</strong> No cookie, no stored ID, so no unique-visitor count
+      and no consent banner.</li>
   </ul>
 
   <h2>5. Risks</h2>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
-      <tr><td class="id">R1</td><td><strong>Every page-view beacon 404s silently.</strong></td>
-        <td>Umami's tracker bakes its collection endpoint in at build time (<code>COLLECT_API_ENDPOINT</code> /
-          <code>COLLECT_API_HOST</code>), defaulting to <code>/api/send</code>, not a path next to the script. Under
-          <code>/stats/</code> routing, build with <code>COLLECT_API_ENDPOINT=/stats/api/send</code>, or the beacon
-          falls through to the page's <code>try_files</code>. Found in the 2026-08-31 review.</td></tr>
-      <tr><td class="id">R2</td><td><strong>The first migration fails on PostgreSQL 16.</strong></td>
-        <td>Since PostgreSQL 15 a non-owner role cannot create in the <code>public</code> schema, so
-          <code>prisma migrate deploy</code> fails with "permission denied for schema public". Create the database as
-          <code>CREATE DATABASE umami OWNER umami;</code>. Found in the 2026-08-31 review.</td></tr>
-      <tr><td class="id">R3</td><td><strong>A default admin login on the dashboard.</strong></td>
-        <td>Umami installs with a documented default login; change it at install, before the tunnel is first used.</td></tr>
+      <tr><td class="id">R1</td><td><strong>Junk or forged timelines skew the numbers or fill the proxy's disk.</strong></td>
+        <td>Anyone can POST to <code>/timeline</code>, and the front cannot limit per visitor (it sees
+          <code>127.0.0.1</code>). The five layers of D17: the page reports only what the hosts cannot see; a strict
+          schema; nginx's body limit, <code>Origin</code> rule and one global rate; a timeline counted only when its
+          ID is a real request's; everything shown treated as text. 2.9 GB free on the proxy (2026-11-09).</td></tr>
+      <tr><td class="id">R2</td><td><strong>A filename kept for a year names a person.</strong></td>
+        <td>Accepted by the owner (D10): usually not sensitive, useful for debugging. The page says so (D15).</td></tr>
+      <tr><td class="id">R3</td><td><strong>The check service cannot write its file.</strong></td>
+        <td>Its unit runs with <code>ProtectSystem=strict</code>, is installed by root, and the deploy refuses a
+          release whose rendered unit differs from the installed one. The owner installs the new unit and log
+          directory before the release (plan).</td></tr>
+      <tr><td class="id">R4</td><td><strong>Timelines go missing.</strong></td>
+        <td>A beacon can be lost when a phone kills the page. The hosts' lines are complete without it; the script
+          counts photos with no timeline, so a loss shows as a number, not as silence.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The app's new request ID breaks what reads the old one.</strong></td>
+        <td>8 hex characters today, nginx's 32 after. Read by <code>webapp/app.py</code>, its test and both nginx
+          templates only (2026-11-09); the app keeps making its own ID when none, or a malformed one, comes in.</td></tr>
+      <tr><td class="id">R6</td><td><strong>Crawlers counted as visitors.</strong></td>
+        <td>Filtered by the browser string (D5), which a crawler can fake; timelines come only from pages that ran
+          the script, so photo counts are mostly people.</td></tr>
     </tbody>
   </table></div>
 
@@ -100,25 +179,125 @@
     <tbody>
       <tr><td class="id">D1</td><td>When does this resume?</td>
         <td>(a) When the owner asks (b) Now</td>
-        <td>(a), 2026-08-31: on hold; no tracking script or analytics dependency until the owner asks.</td></tr>
+        <td>(a), 2026-08-31: on hold; no tracking script or analytics dependency until the owner asks. Revised to (b),
+          2026-11-09: the owner resumed it.</td></tr>
       <tr><td class="id">D2</td><td>Does the 2026-08-31 design stand after OPS-1?</td>
         <td>(a) Keep it, re-checked against the release layout (b) Redesign</td>
-        <td>Open.</td></tr>
+        <td>(b), 2026-11-09: logs, not Umami: "logs are enough". No tracker, no Node.js, no new service on the
+          proxy.</td></tr>
+      <tr><td class="id">D3</td><td>The ticket?</td>
+        <td>(a) Rewritten in place (b) Closed, a new one opened</td>
+        <td>(a), 2026-11-09, as recommended: OPS-17 and OPS-20 already point here.</td></tr>
+      <tr><td class="id">D4</td><td>Umami recorded as a closed idea?</td>
+        <td>(a) Yes, deferred, in <code>.out-of-scope/</code> (b) No</td>
+        <td>(a), 2026-11-09, as recommended: <code>.out-of-scope/visitor-analytics-service.md</code>, with what blocks
+          it and what would reopen it.</td></tr>
+      <tr><td class="id">D5</td><td>New fields in the front's access log (365 days)?</td>
+        <td>(a) The browser and the referrer (b) Both, in the 30-day session log only (c) The browser only</td>
+        <td>(a), 2026-11-09, as recommended: <code>$http_user_agent</code> and <code>$http_referer</code>.</td></tr>
+      <tr><td class="id">D6</td><td>What must the logs answer?</td>
+        <td>(a) Page loads and referrers (b) (a) and each photo's choices and times</td>
+        <td>(b), 2026-11-09: per photo the original's format, size and filename (D10), the control that sent it,
+          example or not, and the 19 steps of §2's table, the owner's list with Claude's additions (1&ndash;4, 6, 7,
+          14, 17&ndash;19).</td></tr>
+      <tr><td class="id">D7</td><td>How does the page report its side?</td>
+        <td>(a) One timeline per photo, posted to the check service (b) Form fields on <code>/analyze</code> and a
+          timeline (c) A GET that nginx logs</td>
+        <td>(a), 2026-11-09, as recommended: <code>POST /timeline</code> by <code>sendBeacon</code>, once the answer
+          is in, the photo fails, or the page is left (<code>pagehide</code>). It carries what the browser alone
+          knows: the control, the example, its own times, busy attempts, the outcome. <code>/analyze</code> is
+          unchanged, and <code>/timeline</code> does not take its one-at-a-time gate.</td></tr>
+      <tr><td class="id">D8</td><td>The request ID?</td>
+        <td>(a) One, made by the front's nginx, on every hop (b) Each host's own</td>
+        <td>(a), 2026-11-09, as recommended: <code>$request_id</code>, sent on to the check service and
+          <code>yappy</code>, whose app takes it in place of its own; every answer, the front's refusals included,
+          carries it in <code>X-Request-Id</code>, which the page reads.</td></tr>
+      <tr><td class="id">D9</td><td>Where do the new records live?</td>
+        <td>(a) JSON lines in a file on the front, 365 days, no IP (b) The journal</td>
+        <td>(a), 2026-11-09, as recommended: the check service's line per request and the timelines.</td></tr>
+      <tr><td class="id">D10</td><td>The visitor's filename?</td>
+        <td>(a) The extension and detected format only (b) The whole name too</td>
+        <td>(b), 2026-11-09, the owner: "usually it's not sensitive and can be useful for debugging" (R2).</td></tr>
+      <tr><td class="id">D11</td><td>Visitors opening the format or example list (OPS-20)?</td>
+        <td>(a) Not now (b) A second, per-visit report</td>
+        <td>(a), 2026-11-09, as recommended.</td></tr>
+      <tr><td class="id">D12</td><td>A preview made at the front, sent before the crossing?</td>
+        <td>(a) A ticket now (b) Not now</td>
+        <td>(b), 2026-11-09, the owner. Considered: it would revisit OPS-7 D3 and R5 and amend ADR 0023's parts;
+          this ticket's timings are its baseline if it comes back.</td></tr>
+      <tr><td class="id">D13</td><td>How are the numbers read?</td>
+        <td>(a) One script for both hosts, printing and serving a local page (b) Something on the hosts</td>
+        <td>(a), 2026-11-09: over SSH as the deploy users, into memory, nothing kept locally, the session log never
+          read; per day page loads without crawlers, referrers, photos by control, example, format and size; each
+          step's median and 90th percentile, split by control and by canonicalized or not; failures by kind; other
+          sites' calls by <code>Origin</code>. <code>serve</code> shows them on a local page like
+          <code>seg_review</code>'s; how interactive it is, the owner decides later (plan Q1).</td></tr>
+      <tr><td class="id">D14</td><td>The owner's own checks in the counts?</td>
+        <td>(a) Marked and left out (b) Counted</td>
+        <td>(a), 2026-11-09, as recommended: <code>--verify</code>'s requests carry a marker the script leaves out, and
+          <code>--verify</code> sends one timeline and checks it was written.</td></tr>
+      <tr><td class="id">D15</td><td>Does the page say what is logged?</td>
+        <td>(a) One line on the page and in <code>llms.txt</code> (b) No</td>
+        <td>(a), 2026-11-09, written as the last phase, since the list may change on the way: "We log the file's
+          name, type and size and how long each step took, not the photo", or as it ends up.</td></tr>
+      <tr><td class="id">D16</td><td>Its name?</td>
+        <td></td>
+        <td>2026-11-09, as recommended: a <b>timeline</b> (GLOSSARY.md), <code>POST /timeline</code>; "report" is a
+          results report's.</td></tr>
+      <tr><td class="id">D17</td><td>Protection against junk and forged timelines?</td>
+        <td>The five layers below</td>
+        <td>2026-11-09, as recommended. (1) The page sends only what the hosts cannot see; the format, size, name and
+          every host time come from the hosts. (2) The check service takes known keys only, with fixed sets of values
+          for the control and the outcome, an example named in <code>examples.json</code>, whole milliseconds from 0
+          to 10 minutes, an ID in nginx's form, a body of a few KB; anything else is a 400, and a line is written by
+          <code>json.dumps</code>. (3) The front's nginx gives <code>/timeline</code> its own body limit, refuses
+          another site's <code>Origin</code>, and holds one global rate. (4) The script counts a timeline only when
+          its ID is a real request's and only the first per ID; the rest are shown as unverified or suspicious, and a
+          photo refused on the page (no ID) as unverifiable. (5) Names, browsers and referrers are shown as text,
+          never as HTML, and printed without control characters.</td></tr>
+      <tr><td class="id">D18</td><td>The session log's permissions?</td>
+        <td>(a) <code>0640</code>, <code>www-data:adm</code> (b) As they are</td>
+        <td>(a), 2026-11-09, as recommended, by the logrotate rules and once by hand.</td></tr>
+      <tr><td class="id">D19</td><td>One release or two?</td>
+        <td>(a) One, with the page's line (b) The hosts' logging first</td>
+        <td>(a), 2026-11-09, as recommended: nothing new is logged before the page says so.</td></tr>
+      <tr><td class="id">D20</td><td>Where do the counts start?</td>
+        <td>(a) At this ticket's release (b) Earlier, half-joined</td>
+        <td>(a), 2026-11-09, as recommended: older lines have no browser and no shared ID.</td></tr>
+      <tr><td class="id">D21</td><td>Transparent proxying, so the front's site sees the visitor's IP?</td>
+        <td>(a) Not in this ticket (b) Its first phase</td>
+        <td>(a), 2026-11-09. Never worked through in OPS-15 D20, which listed it: <code>proxy_bind $remote_addr
+          transparent</code> in the stream block, with policy routing for the replies, on a proxy shared with seven
+          other services. A ticket of its own if per-visitor limits are ever wanted.</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>A page view on the live site appears in the dashboard, and <code>/stats/api/send</code> returns success (R1).</span></li>
-    <li><span class="box"></span><span>Only <code>/stats/script.js</code> and <code>/stats/api/send</code> are reachable from outside; the dashboard only through the tunnel.</span></li>
-    <li><span class="box"></span><span>Rows older than 90 days are deleted by the retention job.</span></li>
-    <li><span class="box"></span><span>No client IP is stored by the site's own logs.</span></li>
+    <li><span class="box"></span><span>A photo picked on the live site has one timeline: the page's, the front's and
+      <code>yappy</code>'s lines under one request ID, with each of §2's steps that applies to it.</span></li>
+    <li><span class="box"></span><span>An example, a "canonical as sent" upload, a busy wait, "Use full photo instead",
+      an abandoned photo and a photo refused on the page each show as such.</span></li>
+    <li><span class="box"></span><span>The front's access log has the browser and the referrer; the session log is
+      <code>0640</code>.</span></li>
+    <li><span class="box"></span><span>No new line anywhere holds a visitor IP.</span></li>
+    <li><span class="box"></span><span>A malformed, oversized or other-site timeline is refused; one with an invented
+      ID is shown as unverified, not counted.</span></li>
+    <li><span class="box"></span><span>The script prints the counts and each step's median and 90th percentile from
+      both hosts, serves them on a local page, keeps nothing locally and reads no session log.</span></li>
+    <li><span class="box"></span><span><code>--verify</code>'s requests are left out of the counts, and
+      <code>--verify</code> checks that its timeline was written.</span></li>
+    <li><span class="box"></span><span>The page and <code>llms.txt</code> say what is logged.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
-    <li>Per-classification analytics events (the server log covers them).</li>
-    <li>Docker (<code>.out-of-scope/containerised-serving.md</code>) and third-party analytics.</li>
+    <li>Umami or any analytics service, and third-party analytics (D2; <code>.out-of-scope/visitor-analytics-service.md</code>,
+      <code>.out-of-scope/containerised-serving.md</code>).</li>
+    <li>Unique visitors, and any identifier stored on the visitor's device.</li>
+    <li>Visitors opening the format or example list (D11).</li>
+    <li>A preview made at the front (D12).</li>
+    <li>Transparent proxying and per-visitor limits (D21).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -130,7 +309,18 @@
       href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>). The front today is the proxy, with about 200 MB
       of memory available, so the host is open again, while the structure stands. OPS-15 D13 also logs full client IPs
       for 30 days, which changes this ticket's "without client IPs" background. Still on hold.</div>
+    <div><div class="when">2026-11-09</div>The owner resumes it (D1). Grilled in eight rounds against what changed
+      since 2026-11-02: the proxy's memory and the <code>127.0.0.1</code> visitor read from the proxy, Umami's source
+      read for v3.4.1. The owner drops Umami for logs (D2); D3&ndash;D21 decided; the glossary's "Timeline";
+      <code>.out-of-scope/visitor-analytics-service.md</code>. Rewritten in place, and the <a
+      href="plan_visitor_analytics.html">plan</a> written. Not implemented.</div>
   </div>
 
-  <footer>Related: <code>docs/logging_plan.html</code>, <a href="ticket_webapp_release_isolation.html">OPS-1</a>, <a href="ticket_memory_to_repo.html">OPS-2</a>, <code>webapp/deploy/</code>.</footer>
+  <footer>Related: <a href="plan_visitor_analytics.html">plan</a>, <code>docs/logging_plan.html</code>, <a
+    href="ticket_front_and_inference_host.html">OPS-15</a>, <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>,
+    <a href="ticket_choose_existing_photo.html">OPS-17</a>, <a href="ticket_cors_analyze.html">OPS-19</a>, <a
+    href="ticket_examples_behind_a_button.html">OPS-20</a>, <a href="ticket_canonicalization.html">ML-19</a>, <a
+    href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>, <a
+    href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>, <a
+    href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>, <code>webapp/deploy/</code>.</footer>
 </main>

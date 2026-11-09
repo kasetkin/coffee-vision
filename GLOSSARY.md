@@ -54,6 +54,10 @@ _Avoid_: Supported format, decodable format
 A photo the deploy runs through every release to check it, fixed until the deploy's own checks change. An example photo is never a fixture, even though the deploy checks its answer too: the examples are the page's, and they may change on their own.
 _Avoid_: Test photo, example photo
 
+**Timeline**:
+The record of one photo's way from the visitor's pick to the answer on screen: each step's time and outcome, as the page and both hosts saw it, joined by one request ID. A photo has one timeline even when it waited for the classifier or was refused before it left the page.
+_Avoid_: Report (a results report is an experiment's), analytics event, trace
+
 ## Mask quality
 
 **Judge**:

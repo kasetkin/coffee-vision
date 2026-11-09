@@ -9,4 +9,4 @@ Deployment stays one script plus config templates (`scripts/deploy_webapp.sh`, `
 ## Prior requests
 
 - [OPS-1](../docs/ticket_webapp_release_isolation.html), `docs/ops1_release_isolation_plan.html` §10: "moving serving to another machine or into a container".
-- The Umami analytics design (2026-08-31): native install with pnpm, no Docker.
+- The Umami analytics design (2026-08-31): native install with pnpm, no Docker. Deferred since 2026-11-09 (`visitor-analytics-service.md`).

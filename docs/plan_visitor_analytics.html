@@ -1,0 +1,409 @@
+<title>Implementation plan: each photo's timeline, from the logs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-3 · coffee-vision · implementation</div>
+  <h1>Implementation plan: each photo's timeline, from the logs</h1>
+  <p class="lede">The order of work for <a href="ticket_visitor_analytics.html">ticket OPS-3</a>. Three strands, all
+    local until the release: the hosts' side (one request ID, then their new fields), the page's side (the
+    <code>/timeline</code> endpoint, then the page's timeline), and reading it (<code>--verify</code>, then the script).
+    The request ID comes first, because every other phase joins on it. The visitor notice is the last code phase (D15).
+    Then the owner's one-time setup on the proxy and one release (D19). Nothing reaches the live site before P10.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_visitor_analytics.html"><code>ticket_visitor_analytics.html</code></a> (OPS-3)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-09</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 and Q3 block P3 only; Q1 blocks P11 only</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>0929907</code>, not from the ticket alone. Nine things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>The check service's line has no request ID and goes to the journal.</b> For a photo sent already
+        canonical it says nothing about the photo. Folded into P1 (the ID) and P2 (the file and the fields).</li>
+      <li><b>The check service cannot write a file today.</b> Its unit has <code>ProtectSystem=strict</code> and is
+        installed by root through <code>setup_front.sh</code>, and the deploy refuses a release whose rendered unit
+        differs from the installed one. P2 adds <code>LogsDirectory=coffee-cv-front</code>, so systemd creates
+        <code>/var/log/coffee-cv-front</code> for the service user, and the owner installs the new unit before the
+        release (P9, R3).</li>
+      <li><b>The front's own refusals never reach the check service.</b> These are a body over the cap (413), busy
+        (503) and offline (502/504 mapped to 503), answered from <code>@too_large</code>, <code>@busy</code> and
+        <code>@offline</code>. Their ID is in the access log only. The page still needs it for its timeline, so each
+        named location adds <code>X-Request-Id: $request_id</code>. Folded into P1.</li>
+      <li><b>The app's ID is 8 hex characters; nginx's is 32.</b> It is read only by <code>webapp/app.py</code>,
+        <code>tests/test_webapp_analyze.py</code> and both nginx templates. The app takes an incoming ID only in
+        nginx's form, and otherwise makes its own, as it does today for the smoke test and direct calls. Folded into
+        P1.</li>
+      <li><b><code>yappy</code>'s nginx must pass the ID on.</b> It logs <code>$upstream_http_x_request_id</code>
+        and keeps doing so. It forwards the incoming <code>X-Request-Id</code> to the app unchanged. Folded into
+        P1.</li>
+      <li><b><code>preview_ms</code> folds in the decode and segmentation.</b> It counts from the app's start to the
+        preview going out. Step 12 needs its own <code>preview_build_ms</code>, from the end of segmentation to the
+        part written. Folded into P2.</li>
+      <li><b>Only <code>--verify</code> crosses the domain.</b> The smoke test runs on <code>yappy</code> itself, on
+        its own port and into its own log directory, so it never reaches the front's logs. <code>--verify</code>'s
+        requests carry a header, <code>X-Coffee-CV-Probe: verify</code>. The front's access log and the check
+        service log it, and the script leaves those requests out. A visitor who sends it only hides their own
+        requests. Folded into P2 and P5.</li>
+      <li><b>The session log is world-readable.</b> Its files are <code>-rw-r--r-- www-data root</code> (read
+        2026-11-09). The logrotate rule gains <code>create 0640 www-data adm</code>, and the existing files are
+        changed once by hand (D18). Folded into P2 and P9.</li>
+      <li><b>No browser in the devcontainer.</b> As for OPS-20, the page is checked in headless Chromium with
+        Playwright, from a script outside the repo. Folded into P4.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 first: every line and every timeline joins on its ID. P2 and P3 are the front's and <code>yappy</code>'s side.
+    P4 needs P3's endpoint. P5 needs P2's marker and P3's endpoint. P6 reads what P1&ndash;P5 write, tested on the
+    local rehearsal's logs. P7 brings the docs up to date. P8, the notice, is written last so that it names what was
+    actually built (D15). P9 must come before P10, because the deploy refuses a release whose unit differs from the
+    installed one. P11 waits for real data and Q1.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes the live site?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>One request ID across the front, the check service, <code>yappy</code>'s nginx and
+        the app</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>The hosts' new fields: the check service's JSON lines file, the app's
+        <code>preview_build_ms</code>, the access log's browser, referrer and marker; unit and logrotate</td>
+        <td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td><code>POST /timeline</code>: the check service's schema, the front's nginx
+        limits</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>The page's timeline, sent by <code>sendBeacon</code>; the headless Chromium
+        check</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P5</td><td><code>--verify</code>: the marker, and its timeline checked as written; the local
+        rehearsal</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>The script: read both hosts, join, print; <code>serve</code> a first local
+        page</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P7</td><td>The docs: <code>logging_plan.html</code>, ADR 0023's note, README,
+        <code>deploy.md</code></td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P8</td><td>The page's and <code>llms.txt</code>'s line on what is logged (D15)</td>
+        <td>local</td><td>no</td></tr>
+      <tr><td class="id">P9</td><td>The owner's one-time setup on the proxy <span class="pill sm open">stop</span></td>
+        <td>proxy, owner</td><td>no: the installed unit names a log directory the live release does not use</td></tr>
+      <tr><td class="id">P10</td><td>The release, <code>--verify</code>, the owner's phone check, the first numbers
+        <span class="pill sm open">stop</span></td><td>both hosts, owner</td><td>yes: a full deploy, photo answers down
+        for under 2 minutes (ADR 0026)</td></tr>
+      <tr><td class="id">P11</td><td>The local page's interactivity, as Q1 decides</td><td>local</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>How interactive is <code>serve</code>'s page? D13 left this for later. P6 builds a
+        first page: the per-day counts, each step's distribution, and one photo's timeline opened from a list.</td>
+        <td><span class="pill sm open">Open</span> Decide after P10, once real timelines exist to look at.</td>
+        <td>P11</td></tr>
+      <tr><td class="id">Q2</td><td>How much may <code>/timeline</code> write? The front cannot limit per visitor, and
+        the proxy has 2.9 GB free. A real timeline is under 2 KB, and photos go one at a time, so real traffic is a
+        few a minute.</td>
+        <td><span class="pill sm open">Open</span> A body limit of 4 KB, a global 12 a minute with bursts of 20, and a
+          daily cap of 20 MB written. Past the cap, timelines are dropped and counted in the check service's next
+          line, so the most a flood can add is 20 MB a day, about 2 MB once compressed.</td><td>P3</td></tr>
+      <tr><td class="id">Q3</td><td>The <code>Origin</code> rule (D17's layer 3). Browsers send <code>Origin</code> on
+        any cross-site POST. On a same-site <code>sendBeacon</code> they may leave it out.</td>
+        <td><span class="pill sm open">Open</span> Refuse a timeline whose <code>Origin</code> is another site's, and
+          accept one with none. That stops other sites' pages just as well, and <code>curl</code> can fake either.
+          Refusing a missing <code>Origin</code> risks losing real timelines from some browsers.</td><td>P3</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; One request ID</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>The front's nginx makes the ID (<code>$request_id</code>, 32 hex characters) and every hop keeps it (D8). Work on a
+    branch, <code>ops3-timelines</code>, merged to <code>main</code> by a merge commit (ADR 0017).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The front's site: <code>proxy_set_header X-Request-Id $request_id</code> on
+      <code>/analyze</code>. <code>add_header X-Request-Id $request_id always</code> in <code>@too_large</code>,
+      <code>@busy</code> and <code>@offline</code>. A visitor's own <code>X-Request-Id</code> is replaced, never passed
+      on.</span></li>
+    <li><span class="box"></span><span>The check service: read the ID from the incoming header, keep it in its log
+      line (P2), forward it to <code>yappy</code>, and send it on its own JSON answers (400, 413, 503, 500), which
+      today carry none.</span></li>
+    <li><span class="box"></span><span><code>yappy</code>'s site: pass the incoming <code>X-Request-Id</code> to the
+      app unchanged.</span></li>
+    <li><span class="box"></span><span>The app: take the incoming ID when it has nginx's form (32 lowercase hex
+      characters), else make its own as today. <code>X-Request-Id</code> on the answer is still the ID it
+      used.</span></li>
+    <li><span class="box"></span><span>Checks: <code>tests/test_front_site.py</code> (a real nginx) shows one ID in the
+      front's access line, the check service's answer and the fake inference host's request, and on each of the
+      front's refusals. <code>tests/test_front_check_service.py</code> and <code>tests/test_webapp_analyze.py</code>
+      cover a malformed or missing incoming ID. The full suite is green.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The hosts' new fields</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>What the hosts alone can see (D6, D9, D10): the check service's line becomes JSON in a file of its own, and the
+    app and the front's access log gain the fields §2 of the ticket names.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The check service writes one JSON line per request to
+      <code>/var/log/coffee-cv-front/requests.jsonl</code>, with no IP. The line has the ID, the time, the endpoint,
+      the outcome, the probe marker, and these fields:
+      <ul>
+        <li>the original's filename (capped at 200 characters), extension, detected format and bytes;</li>
+        <li>whether the photo was canonicalized or "canonical as sent", and if canonicalized the time, pixels, depth,
+          peak and swap, as the text line has today;</li>
+        <li>the canonical photo's bytes;</li>
+        <li>the crossing's milliseconds, from connect to the last byte sent;</li>
+        <li>the time to <code>yappy</code>'s headers, to the first chunk (the preview) and to the last chunk;</li>
+        <li>the bytes relayed and the total time.</li>
+      </ul>
+      The journal keeps the start-up line only.</span></li>
+    <li><span class="box"></span><span>The app: <code>preview_build_ms</code> in its request line (step 12). That is
+      logging only: what <code>/analyze</code> runs does not change, so <code>docs/inference_path.html</code> is
+      not touched.</span></li>
+    <li><span class="box"></span><span>The front's access log adds three fields at the end of its line, so existing
+      readers still parse it: <code>"$http_user_agent"</code>, <code>"$http_referer"</code> (D5) and
+      <code>$http_x_coffee_cv_probe</code>.</span></li>
+    <li><span class="box"></span><span>The unit template: <code>LogsDirectory=coffee-cv-front</code>, and the comment
+      saying it writes no file is corrected. The logrotate template: the new file, 365 days, with
+      <code>copytruncate</code> or a reopen as the check service needs; the session log gains <code>create 0640
+      www-data adm</code> (D18). <code>setup_front.sh</code> installs both, idempotently, for P9.</span></li>
+    <li><span class="box"></span><span>Checks: <code>test_front_check_service.py</code> covers each field: canonical
+      as sent, canonicalized, refused, offline, cut mid-answer. A test checks that no line holds an address.
+      <code>test_front_site.py</code> checks the access log's new fields, with the visitor's
+      <code>127.0.0.5</code> in none of them. <code>logrotate -d</code> accepts the rendered rules. The full suite is
+      green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; <code>POST /timeline</code></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q2, Q3</span></div>
+  </div>
+  <p>The endpoint the page sends its timeline to (D7, D16), with D17's layers 2 and 3. The schema is one module,
+    used by the check service to accept and by the script (P6) to read.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The schema, written once as data:
+      <ul>
+        <li>the request ID, or none for a photo refused on the page;</li>
+        <li>the ID of the run this one re-runs ("Use full photo instead");</li>
+        <li>the control (Choose Photo, Take Photo, Select File, the camera button, an example) and the example's
+          name, checked against <code>examples.json</code>;</li>
+        <li>the outcome (answered, refused on the page, refused by the front, busy given up, offline, cut,
+          abandoned);</li>
+        <li>each busy attempt's ID and wait;</li>
+        <li>the page's times for steps 1&ndash;6, 13, 14, 16 and 17, in whole milliseconds from 0 to 600 000;</li>
+        <li>the probe marker.</li>
+      </ul>
+      Unknown keys or values are refused with a 400.</span></li>
+    <li><span class="box"></span><span>The check service: <code>POST /timeline</code> reads at most the body limit,
+      checks it against the schema, writes it to the same file as a line of kind <code>timeline</code> with
+      <code>json.dumps</code>, and answers 204. Past the daily cap it drops the timeline and counts it (Q2).</span></li>
+    <li><span class="box"></span><span>The front's site: <code>location = /timeline</code> with its own
+      <code>client_max_body_size</code>, no <code>limit_conn</code>, a global <code>limit_req</code> keyed on
+      <code>$server_name</code> (Q2), and a 403 for another site's <code>Origin</code> (Q3). It sends no CORS
+      headers. It is logged in the access log like any request.</span></li>
+    <li><span class="box"></span><span>Checks: tests for each refusal: an unknown key, a value outside its set, a
+      negative or huge time, a malformed ID, an oversized body, another site's <code>Origin</code>, a burst past the
+      rate, and the daily cap. A test checks that a field with a newline or control character is written as one JSON
+      line. <code>/analyze</code>'s gate is never taken by <code>/timeline</code>. The full suite is
+      green.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; The page's timeline</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
+  </div>
+  <p>The page measures its steps on <code>performance.now()</code> and sends one timeline per photo (D7). The photo's
+    path through <code>choose()</code>, <code>analyze()</code>, <code>postAnalyze()</code> and <code>send()</code>
+    stays the same; the timeline is gathered beside it.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The page marks the times at:
+      <ul>
+        <li>the control's tap, and the file arriving;</li>
+        <li>an example's download;</li>
+        <li>the size check;</li>
+        <li>each attempt's start, upload sent, headers and busy wait;</li>
+        <li>the preview part arriving and being drawn;</li>
+        <li>the classification arriving and being shown.</li>
+      </ul>
+      The connection setup is read from the XHR's Resource Timing entry when the browser gives one.</span></li>
+    <li><span class="box"></span><span>It sends the timeline once, when the answer is shown or an error or refusal is
+      shown, and on <code>pagehide</code> or a new pick for a photo still in flight (abandoned). A photo refused for
+      size on the page sends one with no ID. "Use full photo instead" sends its own, naming the first run's ID.</span></li>
+    <li><span class="box"></span><span>A failed or refused beacon is ignored: the page never waits on it, retries it or
+      shows it.</span></li>
+    <li><span class="box"></span><span>Checks: tests in the style of <code>tests/test_example_photos.py</code>'s
+      <code>ThePage</code>: the page's controls, outcomes and fields match P3's schema. In headless Chromium, against
+      the local front with the fake inference host: one timeline each for an own photo, an example, an oversized
+      photo, a busy retry, "Use full photo instead" and a photo abandoned for another, each accepted by P3 and
+      joined to the check service's line. The full suite is green.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; <code>--verify</code> and the rehearsal</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Every request <code>--verify</code> sends through the domain carries
+      <code>X-Coffee-CV-Probe: verify</code> (D14).</span></li>
+    <li><span class="box"></span><span><code>--verify</code> posts one timeline with the marker and its own run's ID,
+      then reads the check service's file on the front as the deploy user and finds it. It fails if the timeline was
+      refused or not written.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/rehearse_deploy_local.sh</code> runs a deploy and
+      <code>--verify</code> locally, both hosts included. A test with a fake front covers the new check's pass and
+      fail.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; The script</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
+  </div>
+  <p>One module, <code>coffeecv/timelines.py</code>, in the shape of <code>seg_review</code>, with two subcommands:
+    <code>summary</code>, which prints, and <code>serve</code>, which serves a page on <code>127.0.0.1</code> (D13).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Reading:
+      <ul>
+        <li>over SSH as the deploy users, read the front's access log, the check service's file and
+          <code>yappy</code>'s app log and access log, rotated and compressed files included, from a given date, and
+          never from before the release (D20);</li>
+        <li>never read the session log;</li>
+        <li>hold everything in memory and write nothing locally.</li>
+      </ul></span></li>
+    <li><span class="box"></span><span>Joining (D17's layer 4): by request ID; the first timeline per ID counts and
+      the others are flagged; a timeline with an ID no host knows is unverified; one with none is unverifiable. The
+      probe marker's lines are left out.</span></li>
+    <li><span class="box"></span><span><code>summary</code> prints, for a chosen period:
+      <ul>
+        <li>per day: page loads without crawlers, referrers, photos by control, by example and by format and
+          size;</li>
+        <li>each step's median and 90th percentile, split by control and by canonicalized or not;</li>
+        <li>failures by kind;</li>
+        <li>other sites' calls by <code>Origin</code>;</li>
+        <li>the unverified, suspicious and dropped timelines.</li>
+      </ul>
+      Every string a visitor sent is printed without control characters (layer 5).</span></li>
+    <li><span class="box"></span><span><code>serve</code> shows the same numbers, each step's distribution, and a
+      list of photos whose timeline opens step by step. Every string a visitor sent goes into the page as text, never
+      as HTML (layer 5).</span></li>
+    <li><span class="box"></span><span>Checks: tests on recorded log lines from P1&ndash;P5's tests and the
+      rehearsal, including forged, duplicate and malicious ones. The script refuses a path to the session log. The
+      full suite is green.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; The docs</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>docs/logging_plan.html</code>: the check service's file, the new fields,
+      the timeline, the one request ID, and their retention.</span></li>
+    <li><span class="box"></span><span>ADR 0023: a dated note that the request ID now comes from the front (D8). ADR
+      0031: the front's analytics are logs (OPS-3 D2).</span></li>
+    <li><span class="box"></span><span><code>webapp/README.md</code> and <code>docs/agents/deploy.md</code>: where the
+      logs are, how to read them with the script, and <code>--verify</code>'s marker and timeline check.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; What the page says is logged</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P7</span></div>
+  </div>
+  <p>Written last, from what P1&ndash;P7 actually log (D15).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>One line on the page and one in <code>llms.txt</code>, starting from "We log
+      the file's name, type and size and how long each step took, not the photo", checked against the fields as
+      built.</span></li>
+    <li><span class="box"></span><span>Checks: <code>tests/test_agent_files.py</code> holds the page's and
+      <code>llms.txt</code>'s line to each other. The headless Chromium check shows the line at the phone size of
+      OPS-20. The full suite is green.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; The owner's setup on the proxy <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Claude: the exact commands for the owner, or a wizard if they are more than a
+      few: re-run <code>setup_front.sh</code> from the merged commit, which installs the new unit and logrotate rules,
+      then <code>chmod 0640</code> and <code>chgrp adm</code> on the existing session logs.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: run them as root on the proxy. Claude then checks, as the
+      deploy user, that the unit matches the release's and that the session logs are <code>0640</code>.</span></li>
+  </ol>
+
+  <h2>12. P10 &mdash; The release <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P9</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Merge <code>ops3-timelines</code> to <code>main</code>. Push when the owner
+      asks.</span></li>
+    <li><span class="box"></span><span>Stop for the owner's go. Then the full two-host deploy of the live model;
+      photo answers are down for under 2 minutes (ADR 0026). Then <code>DOMAIN=... --verify</code>, with its new
+      timeline check.</span></li>
+    <li><span class="box"></span><span>Stop for the owner's phone check: a photo from each control, an example, and
+      "Use full photo instead". Then <code>summary</code> shows each one as its own timeline with every step that
+      applies, and the access log shows the phone's browser string.</span></li>
+    <li><span class="box"></span><span>The ticket's acceptance ticked, and the Activity of both files updated. The owner
+      closes the ticket.</span></li>
+  </ol>
+
+  <h2>13. P11 &mdash; The local page's interactivity</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P10, Q1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>As Q1 decides, once real timelines exist. This phase is local and needs no
+      release.</span></li>
+  </ol>
+
+  <h2>14. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: one ID in every hop's line and in every answer, the front's refusals
+      included.</span></li>
+    <li><span class="box"></span><span>P2: every field in the ticket's §2 table that a host measures is in a host's
+      line; no address in any new line.</span></li>
+    <li><span class="box"></span><span>P3: each of D17's refusals is tested, and a written line is always one JSON
+      object.</span></li>
+    <li><span class="box"></span><span>P4: each kind of photo sends exactly one timeline, accepted and joined, in
+      headless Chromium.</span></li>
+    <li><span class="box"></span><span>P5, P10: <code>--verify</code> finds its timeline, locally and on the
+      domain.</span></li>
+    <li><span class="box"></span><span>P6: the script's joins and refusals are tested on forged lines, and it never
+      reads the session log.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope".</li>
+    <li>Changing what <code>/analyze</code> runs, or its answer's parts.</li>
+    <li>The session log's contents and retention, beyond its permissions.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-09</div>Claude reads ticket OPS-3 at <code>0929907</code>, after the owner's
+      grilling, and writes this plan. Nine findings not in the ticket; Q1&ndash;Q3 open for the owner. Not
+      implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3 ticket</a>, <a
+    href="plan_front_and_inference_host.html">OPS-15 plan</a>, <a href="plan_examples_behind_a_button.html">OPS-20
+    plan</a>, <code>docs/logging_plan.html</code>, <code>webapp/front/check_service.py</code>, <code>webapp/app.py</code>,
+    <code>webapp/deploy/</code>, <code>coffeecv/seg_review.py</code>.</footer>
+</main>
