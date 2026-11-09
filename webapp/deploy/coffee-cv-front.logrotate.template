@@ -1,7 +1,7 @@
-# Rendered with $FRONT_SERVICE_USER to /etc/logrotate.d/coffee-cv-front on the front (the proxy) by
-# webapp/deploy/setup_front.sh. Retention is a full year for the access log and the check service's log -- see
+# Rendered with $FRONT_SERVICE_USER, $NGINX_USER and $LOG_GROUP to /etc/logrotate.d/coffee-cv-front on the front
+# (the proxy) by webapp/deploy/setup_front.sh. Retention is a full year for the access log and the check service's log -- see
 # docs/logging_plan.html section 06 -- and 30 days for coffee-cv-front.sessions, the stream block's log and the one file
-# with the visitor's IP (ticket OPS-15 D20), which only root and the adm group may read (ticket OPS-3 D18).
+# with the visitor's IP (ticket OPS-15 D20), which only root and the log group may read (ticket OPS-3 D18).
 #
 # nginx holds its two files open for as long as it runs, so each needs the standard nginx reload-on-rotate: USR1 tells
 # the master process to reopen its log files without dropping connections, the proxy's other sites' included. The
@@ -27,7 +27,7 @@
     delaycompress
     missingok
     notifempty
-    create 0640 www-data adm
+    create 0640 $NGINX_USER $LOG_GROUP
     postrotate
         [ -f /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
     endscript

@@ -7,7 +7,8 @@
 # never uses it (D9). --print writes the script it would run there, and runs nothing. Environment (defaults in
 # brackets): DOMAIN [required: the public site's host name]  ROOT_HOST [webproxy]  FRONT_APP_ROOT [/opt/coffee-cv]
 #   DEPLOY_USER [coffee-deploy]  FRONT_SERVICE_USER [coffee-cv-front]  FRONT_PORT [the deploy's: the front site's port]
-#   DEPLOY_PUBKEY [the public half of ROOT_HOST's IdentityFile]
+#   DEPLOY_PUBKEY [the public half of ROOT_HOST's IdentityFile]  NGINX_USER [www-data: nginx's worker user]
+#   LOG_GROUP [adm: the group that may read the session log, OPS-3 D18]
 #
 # On the proxy it creates the deploy user (DEPLOY_PUBKEY may log in as it) and the check service's user; lets the
 # deploy user run, through sudo, only what the deploy runs there: stop, start and restart coffee-cv-front, `nginx -t`
@@ -24,6 +25,8 @@ ROOT_HOST=${ROOT_HOST:-webproxy}
 FRONT_APP_ROOT=${FRONT_APP_ROOT:-/opt/coffee-cv}
 DEPLOY_USER=${DEPLOY_USER:-coffee-deploy}
 FRONT_SERVICE_USER=${FRONT_SERVICE_USER:-coffee-cv-front}
+NGINX_USER=${NGINX_USER:-www-data}
+LOG_GROUP=${LOG_GROUP:-adm}
 PRINT=""
 case "${1:-}" in
   --print) PRINT=1 ;;
@@ -52,7 +55,7 @@ PUBKEY=$(cat "$DEPLOY_PUBKEY" 2>/dev/null || echo "<the deploy key>")
 UNIT=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
          RELEASE_DIR="$FRONT_APP_ROOT/current" < "$REPO/webapp/deploy/coffee-cv-front.service.template")
 LOGROTATE=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
-              < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
+              NGINX_USER="$NGINX_USER" LOG_GROUP="$LOG_GROUP" < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
 STREAM=$(python3 "$REPO/webapp/deploy/render_template.py" DOMAIN="$DOMAIN" < "$REPO/webapp/deploy/coffee-cv-stream.conf.template")
 # The same line scripts/deploy_webapp.sh's site_include gives, which its preflight checks.
 INCLUDE="include $FRONT_APP_ROOT/current/front.nginx*.conf;"
@@ -63,6 +66,8 @@ set -euo pipefail
 FRONT_APP_ROOT=$(printf '%q' "$FRONT_APP_ROOT")
 DEPLOY_USER=$(printf '%q' "$DEPLOY_USER")
 FRONT_SERVICE_USER=$(printf '%q' "$FRONT_SERVICE_USER")
+NGINX_USER=$(printf '%q' "$NGINX_USER")
+LOG_GROUP=$(printf '%q' "$LOG_GROUP")
 UV_VERSION=$(printf '%q' "$UV_VERSION")
 UV_SHA256=$(printf '%q' "$UV_SHA256")
 PY_VERSION=$(printf '%q' "$PY_VERSION")
@@ -143,9 +148,9 @@ logrotate -d /etc/logrotate.d/coffee-cv-front >/dev/null 2>&1 && echo "   /etc/l
 # `create` keeps each new one so, and this sets the ones already there.
 for f in /var/log/nginx/coffee-cv-front.sessions*; do
   [[ -e "$f" ]] || continue
-  chown www-data:adm "$f"; chmod 0640 "$f"
+  chown "$NGINX_USER:$LOG_GROUP" "$f"; chmod 0640 "$f"
 done
-echo "   the session logs: 0640 www-data:adm"
+echo "   the session logs: 0640 $NGINX_USER:$LOG_GROUP"
 echo "Done."
 EOF
 )

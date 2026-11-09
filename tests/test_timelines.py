@@ -109,6 +109,8 @@ class OnePhotoJoined(unittest.TestCase):
         self.assertEqual(self.step("13a"), 2600 - 2400)                        # the front's wait, less the app's
         self.assertEqual(self.step("13b"), 15000 - (20 + 1 + 2000 + 9000 + 2600))   # the page's, less the front's
         self.assertEqual(self.step("16"), 21000 - 15000)
+        self.assertEqual(self.step("16f"), 8000 - 2600)                        # the front's own, preview to end
+        self.assertEqual(self.step("16s"), 5)
 
     def test_split_by_control_and_by_canonicalized(self):
         self.assertEqual(self.step("8", "choose_photo"), 2000)
@@ -172,6 +174,20 @@ class WhatCounts(unittest.TestCase):
                                         timeline_line(t)]), DOMAIN)
         self.assertEqual([p.request_id for p in report.photos], [last])
         self.assertEqual(next(r for r in report.steps if r["step"] == "6")["all"]["median"], 3000)
+
+    def test_a_photo_the_fronts_nginx_refused_is_counted_with_its_timeline(self):   # busy at the gate, offline
+        first, last, offline = rid(), rid(), rid()
+        busy = timeline(last, outcome="busy", attempts=[{"request_id": first, "status": 503, "wait_ms": 3000},
+                                                        {"request_id": last, "status": 503}])
+        report = tl.build(logs(front_access=[access(first, "POST /analyze HTTP/1.1", 503, upstream="-"),
+                                             access(last, "POST /analyze HTTP/1.1", 503, upstream="-"),
+                                             access(offline, "POST /analyze HTTP/1.1", 503, upstream="-")],
+                               service=[timeline_line(busy), timeline_line(timeline(offline, outcome="offline"))]),
+                          DOMAIN)
+        self.assertEqual(sorted(p.outcome for p in report.photos), ["busy", "offline"])
+        self.assertEqual(report.failures["page"], {"busy": 1, "offline": 1})
+        self.assertEqual(report.days[DAY]["by_control"], {"choose_photo": 2})
+        self.assertEqual(sorted(p.service.get("outcome") for p in report.photos), ["refused at the front's nginx"] * 2)
 
     def test_a_photo_no_page_reported_is_counted_without_a_timeline(self):   # R4: an agent, or a lost beacon
         report = tl.build(logs(service=[service(rid())]), DOMAIN)

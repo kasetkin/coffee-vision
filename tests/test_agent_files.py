@@ -129,7 +129,8 @@ class ThePageAndTheAgentFilesSayWhatIsLogged(unittest.TestCase):
                              ("size", "bytes=size" in service),
                              ("how it was picked", "const TIMELINE_CONTROLS" in INDEX),
                              ("how long each step took", "navigator.sendBeacon('/timeline'" in INDEX),
-                             ("the browser's name", '"$http_user_agent"' in front_site)):
+                             ("the browser's name", '"$http_user_agent"' in front_site),
+                             ("the page that linked here", '"$http_referer"' in front_site)):
             with self.subTest(words):
                 self.assertIn(words, line)
                 self.assertTrue(built, f"the page says it logs {words}, and nothing does")

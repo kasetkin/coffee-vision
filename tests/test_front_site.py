@@ -539,7 +539,8 @@ def access_fields(line: str) -> list[str]:
 
 def rendered_logrotate(user: str) -> str:
     """The front's logrotate rules as setup_front.sh renders them."""
-    return render((DEPLOY / "coffee-cv-front.logrotate.template").read_text(), {"FRONT_SERVICE_USER": user})
+    return render((DEPLOY / "coffee-cv-front.logrotate.template").read_text(),
+                  {"FRONT_SERVICE_USER": user, "NGINX_USER": "www-data", "LOG_GROUP": "adm"})
 
 
 def logrotate_days() -> dict[str, int]:

@@ -224,8 +224,11 @@ STEPS: tuple[tuple[str, str, object], ...] = (
                                                             _service_preview_at(p.service))),
     ("14", "preview drawn (page)", lambda p: p.timeline and p.timeline.get("preview_drawn_ms")),
     ("15", "classification (app)", lambda p: p.app.get("inference_ms")),
-    ("16", "preview to answer, then shown (page)", lambda p: _diff(p.timeline and p.timeline.get("to_answer_ms"),
-                                                                   p.timeline and p.timeline.get("to_preview_ms"))),
+    ("16", "preview to answer (page)", lambda p: _diff(p.timeline and p.timeline.get("to_answer_ms"),
+                                                       p.timeline and p.timeline.get("to_preview_ms"))),
+    ("16f", "preview to answer's end (check service)", lambda p: _diff(p.service.get("to_end_ms"),
+                                                                       p.service.get("to_preview_ms"))),
+    ("16s", "answer shown (page)", lambda p: p.timeline and p.timeline.get("answer_shown_ms")),
     ("17", "total: pick to answer on screen (page)", lambda p: p.timeline and p.timeline.get("total_ms")),
     ("17f", "total at the front (check service)", lambda p: p.service.get("total_ms")),
     ("17n", "total at yappy's nginx", lambda p: p.inference_ms),
@@ -311,6 +314,14 @@ def build(logs: dict[str, list[str]], domain: str, since: str | None = None, unt
                 report.probes += 1
             continue
         report.photos.append(Photo(rid, _day(s["ts"]), s, counted.get(rid), app.get(rid, {}), nginx_ms.get(rid)))
+    # And every photo whose timeline counted but which the front's nginx answered itself, so the check service never
+    # logged it: busy at the gate, offline with the check service stopped, over the body cap. The access line stands in.
+    by_id = {a["id"]: a for a in access}
+    for rid, t in counted.items():
+        if rid not in requests and rid in by_id:
+            a = by_id[rid]
+            stub = {"ts": a["ts"], "status": a["status"], "outcome": "refused at the front's nginx"}
+            report.photos.append(Photo(rid, a["day"], stub, t))
 
     # Per day: page loads by people, external referrers, photos by control, example, format and size.
     days: dict[str, dict] = defaultdict(lambda: {"page_loads": 0, "crawler_loads": 0, "referrers": Counter(),

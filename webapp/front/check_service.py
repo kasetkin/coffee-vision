@@ -92,7 +92,7 @@ NOT_RELAYED = NOT_FORWARDED - {"host", "content-length", "x-request-id"} | {"ser
 # The request ID (OPS-3 D8): nginx's $request_id, 32 lowercase hex characters, made by the front's nginx for every
 # request and carried on every hop, so the front's, this service's and the inference host's lines and the page's
 # timeline join on it.
-REQUEST_ID = re.compile(r"[0-9a-f]{32}")
+REQUEST_ID = timeline_schema.REQUEST_ID
 # The log (OPS-3 D9): one JSON line per request in LOG_FILE, in the directory systemd makes for the unit
 # (LogsDirectory=coffee-cv-front) and names in $LOGS_DIRECTORY, rotated at 365 days
 # (webapp/deploy/coffee-cv-front.logrotate.template). DEFAULT_LOG_DIR is the same directory, for a run outside systemd.
@@ -261,8 +261,9 @@ class CheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         self.request_id = request_id(self.headers.get("X-Request-Id"))
         self.record = {}
-        self.json(405 if urlsplit(self.path).path in ("/analyze", "/timeline") else 404, {"error": "use POST /analyze"},
-                  "")
+        path = urlsplit(self.path).path
+        self.json(405 if path in ("/analyze", "/timeline") else 404,
+                  {"error": f"use POST {path if path == '/timeline' else '/analyze'}"}, "")
 
     def timeline(self) -> None:
         """POST /timeline (OPS-3 D7, D16): a photo's timeline from the page, written as a line of kind "timeline" when
