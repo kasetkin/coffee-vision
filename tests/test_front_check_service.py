@@ -14,11 +14,14 @@ from __future__ import annotations
 import http.client
 import io
 import json
+import shutil
 import socket
 import sys
+import tempfile
 import threading
 import time
 import unittest
+import uuid
 from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -31,8 +34,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import check_service  # noqa: E402
 
-from coffeecv import canonical  # noqa: E402
+from coffeecv import canonical, timeline_schema  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
+from tests.test_timeline_schema import timeline  # noqa: E402
 
 def _jpeg() -> bytes:
     """A real photo, small: the service decodes and canonicalizes what it forwards. Bytes after its end marker (the
@@ -46,6 +50,7 @@ def _jpeg() -> bytes:
 JPEG = _jpeg()
 RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
+RID = "0123456789abcdef0123456789abcdef"   # a request ID as the front's nginx makes it ($request_id, OPS-3 D8)
 
 
 def forwarded_photo(body: bytes) -> tuple[str, bytes]:
@@ -80,6 +85,8 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
     reply = "stream"
     release = threading.Event()   # set: answer at once; cleared: hold the answer until it is set
     extra_headers: dict[str, str] = {}   # sent with every status or stream answer as well (tests/test_front_site.py)
+    # The app answers under the ID it was sent (OPS-3 D8); off, an answer with none, as yappy's nginx's own busy 503.
+    echo_id = True
 
     def do_POST(self):  # noqa: N802
         body = self.rfile.read(int(self.headers["Content-Length"]))
@@ -99,7 +106,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
             self.send_response(FakeInferenceHost.reply)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
-            self.send_header("X-Request-Id", "abcd1234")
+            self.send_id()
             self.send_extra_headers()
             self.end_headers()
             self.wfile.write(payload)
@@ -107,13 +114,17 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("X-Accel-Buffering", "no")
-        self.send_header("X-Request-Id", "abcd1234")
+        self.send_id()
         self.send_extra_headers()
         self.end_headers()
         self.wfile.write(b'{"part": "preview"}\n')
         self.wfile.flush()
         time.sleep(1.0)
         self.wfile.write(b'{"part": "classification"}\n')
+
+    def send_id(self):
+        if FakeInferenceHost.echo_id and "X-Request-Id" in self.headers:
+            self.send_header("X-Request-Id", self.headers["X-Request-Id"])
 
     def send_extra_headers(self):
         for k, v in FakeInferenceHost.extra_headers.items():
@@ -126,18 +137,35 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
 FakeInferenceHost.release.set()   # answering at once unless a test holds it (tests/test_front_site.py uses it too)
 
 
+def log_lines(log_dir: Path) -> list[dict]:
+    """The check service's log, one JSON object per line (OPS-3 P2)."""
+    path = log_dir / check_service.LOG_FILE
+    return [json.loads(ln) for ln in path.read_text().splitlines()] if path.exists() else []
+
+
+def log_line(log_dir: Path, rid: str) -> dict:
+    """The check service's one line for request `rid`, once written: it is written after the answer has gone out."""
+    for _ in range(100):
+        found = [ln for ln in log_lines(log_dir) if ln.get("request_id") == rid]
+        if found:
+            [line] = found
+            return line
+        time.sleep(0.02)
+    raise AssertionError(f"no log line for {rid}")
+
+
 class CheckService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # The service's one line per request, to stderr under systemd, kept out of the test output.
-        cls.enterClassContext(mock.patch.object(check_service.CheckHandler, "log_line"))
+        cls.log_dir = Path(tempfile.mkdtemp(prefix="check-service-log-"))
+        cls.addClassCleanup(shutil.rmtree, cls.log_dir, ignore_errors=True)
         cls.inference = ThreadingHTTPServer(("127.0.0.1", 0), FakeInferenceHost)
         threading.Thread(target=cls.inference.serve_forever, daemon=True).start()
         cls.service = cls.serve(f"http://127.0.0.1:{cls.inference.server_address[1]}")
 
     @classmethod
     def serve(cls, inference_url: str):
-        server = check_service.make_server(("127.0.0.1", 0), inference_url)
+        server = check_service.make_server(("127.0.0.1", 0), inference_url, cls.log_dir)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         cls.addClassCleanup(server.server_close)
         cls.addClassCleanup(server.shutdown)
@@ -152,13 +180,16 @@ class CheckService(unittest.TestCase):
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
         FakeInferenceHost.release.set()
+        FakeInferenceHost.echo_id = True
 
     def post(self, body: bytes, server=None, headers: dict | None = None, path: str = "/analyze"):
-        """Opens the request; the caller reads the response. Returns (connection, response)."""
+        """Opens the request, with a fresh request ID unless `headers` names one; the caller reads the response.
+        Returns (connection, response)."""
         server = server or self.service
         conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=30)
         conn.request("POST", path, body=body, headers={
-            "Content-Type": f"multipart/form-data; boundary={BOUNDARY}", **(headers or {})})
+            "Content-Type": f"multipart/form-data; boundary={BOUNDARY}", "X-Request-Id": uuid.uuid4().hex,
+            **(headers or {})})
         self.addCleanup(conn.close)
         return conn, conn.getresponse()
 
@@ -175,8 +206,8 @@ class CheckService(unittest.TestCase):
         self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
         self.assertEqual(resp.getheader("Content-Type"), "application/x-ndjson")
         self.assertEqual(resp.getheader("X-Accel-Buffering"), "no", "the front's nginx would buffer the answer")
-        self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
+        self.assertEqual(resp.getheader("X-Request-Id"), seen["headers"]["X-Request-Id"])
         self.assertEqual(seen["path"], "/analyze")
         name, photo = forwarded_photo(seen["body"])
         self.assertEqual(name, "beans.jxl")
@@ -297,7 +328,7 @@ class CheckService(unittest.TestCase):
                 _, resp = self.post(form("beans.jpg", JPEG))
                 self.assertEqual((resp.status, json.loads(resp.read())),
                                  (status, {"error": f"inference host says {status}"}))
-                self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
+                self.assertEqual(resp.getheader("X-Request-Id"), FakeInferenceHost.seen[-1]["headers"]["X-Request-Id"])
                 self.assertEqual(len(resp.msg.get_all("Server")), 1, "the inference host's Server header relayed too")
 
     def test_only_post_analyze_is_served(self):
@@ -309,28 +340,131 @@ class CheckService(unittest.TestCase):
         self.assertEqual(FakeInferenceHost.seen, [])
 
 
+    def line(self, resp) -> dict:
+        """The service's log line for the request `resp` answered."""
+        return log_line(self.log_dir, resp.getheader("X-Request-Id"))
+
     def test_a_cut_answer_ends_the_visitors_answer_where_it_was_cut(self):
         FakeInferenceHost.reply = "cut"
-        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
-            _, resp = self.post(form("beans.jpg", JPEG))
-            self.assertEqual(resp.status, 200)
-            self.assertEqual(resp.read(), b'{"part": "preview"}\n')
-            time.sleep(0.2)
-        self.assertIn("cut after", log.call_args[0][0])
+        _, resp = self.post(form("beans.jpg", JPEG))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(resp.read(), b'{"part": "preview"}\n')
+        line = self.line(resp)
+        self.assertEqual((line["status"], line["outcome"], line["relayed_bytes"]), (200, "cut", 20))
+        self.assertEqual(line["error"], "IncompleteRead")
 
-    def test_the_log_line_says_what_was_canonicalized_and_its_peak_memory(self):   # ML-19 D38: for the ceiling's review
-        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
-            _, resp = self.post(form("beans.jpg", JPEG))
-            resp.read()
-            time.sleep(0.2)
-        line = log.call_args[0][0]
-        self.assertRegex(line, r"^POST /analyze 200 relayed \d+ bytes \d+ms; \.jpg 64x48 8-bit, canonicalized in "
-                               r"\d+\.\d s, peak \d+ MB, swap \d+ MB$")
-        with mock.patch.object(check_service.CheckHandler, "log_line") as log:
-            _, resp = self.post(form("beans.jxl", check_service.canonical.canonicalize(JPEG, "beans.jpg")))
-            resp.read()
-            time.sleep(0.2)
-        self.assertTrue(log.call_args[0][0].endswith("ms; canonical as sent"), log.call_args[0][0])
+    @real_data   # about 1 s: the fake answer's parts are a second apart
+    def test_the_log_line_of_a_canonicalized_photo(self):   # OPS-3 P2, D6, D10; ML-19 D38 for the ceiling's review
+        _, resp = self.post(form("IMG 0001.jpg", JPEG))
+        answer = resp.read()
+        line = self.line(resp)
+        rid = resp.getheader("X-Request-Id")
+        timings = {k: line.pop(k) for k in ("read_ms", "check_ms", "canonicalize_ms", "crossing_ms", "to_headers_ms",
+                                            "to_preview_ms", "to_end_ms", "total_ms", "peak_mb", "swap_mb")}
+        self.assertRegex(line.pop("ts"), r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}\+00:00$")
+        self.assertEqual(line, {
+            "kind": "request", "request_id": rid, "method": "POST", "endpoint": "/analyze", "status": 200,
+            "outcome": "relayed", "filename": "IMG 0001.jpg", "ext": ".jpg", "format": "jpeg", "bytes": len(JPEG),
+            "canonical": "canonicalized", "width": 64, "height": 48, "bits": 8,
+            "canonical_bytes": len(canonical.canonicalize(JPEG, "beans.jpg")), "relayed_bytes": len(answer)})
+        for k, v in timings.items():
+            self.assertIsInstance(v, int, k)
+            self.assertGreaterEqual(v, 0, k)
+        self.assertGreaterEqual(timings["to_end_ms"] - timings["to_preview_ms"], 900, "the parts are a second apart")
+        self.assertLessEqual(timings["to_headers_ms"], timings["to_preview_ms"])
+        self.assertGreaterEqual(timings["total_ms"], timings["to_end_ms"] + timings["crossing_ms"])
+
+    def test_the_log_line_of_a_photo_sent_canonical(self):   # ML-19 D17: nothing decoded, the original's own fields
+        canon = canonical.canonicalize(JPEG, "beans.jpg")
+        _, resp = self.post(form("beans.jxl", canon))
+        resp.read()
+        line = self.line(resp)
+        self.assertEqual({k: line.get(k) for k in ("filename", "ext", "format", "bytes", "canonical", "canonical_bytes",
+                                                   "canonicalize_ms", "width")},
+                         {"filename": "beans.jxl", "ext": ".jxl", "format": "jxl", "bytes": len(canon),
+                          "canonical": "as_sent", "canonical_bytes": len(canon), "canonicalize_ms": None,
+                          "width": None})
+
+    def test_each_refusal_is_logged_by_kind(self):   # OPS-3 P2, D13's failures by kind
+        def cases():
+            yield "not_an_image", form("notes.txt", b"some text"), 400
+            yield "unreadable", form("beans.jpg", JPEG[:200]), 400
+            yield "no_photo", form(None, b""), 400
+            yield "too_large", form("beans.jpg", JPEG + b"\x00" * check_service.MAX_UPLOAD_BYTES), 413
+            with mock.patch.object(check_service, "MAX_PIXELS", 48 * 64 - 1):
+                yield "too_many_pixels", form("beans.jpg", JPEG), 413
+            with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
+                yield "failed", form("beans.jpg", JPEG), 500
+            FakeInferenceHost.reply = 502
+            yield "offline", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply = 400
+            yield "relayed", form("beans.jpg", JPEG), 400
+            FakeInferenceHost.reply = "stream"
+            gate = self.service.RequestHandlerClass.crossing
+            gate.acquire()
+            try:
+                yield "busy", form("beans.jpg", JPEG), 503
+            finally:
+                gate.release()
+        for outcome, body, status in cases():
+            with self.subTest(outcome):
+                _, resp = self.post(body)
+                resp.read()
+                line = self.line(resp)
+                self.assertEqual((line["status"], line["outcome"]), (status, outcome))
+        self.assertEqual(self.line(resp).get("format"), "jpeg")
+        line = log_line(self.log_dir, next(ln["request_id"] for ln in reversed(log_lines(self.log_dir))
+                                           if ln["outcome"] == "not_an_image"))
+        self.assertEqual((line["filename"], line["ext"], line["bytes"], line.get("format")), ("notes.txt", ".txt", 9, None))
+        line = log_line(self.log_dir, next(ln["request_id"] for ln in reversed(log_lines(self.log_dir))
+                                           if ln["outcome"] == "offline"))
+        self.assertEqual(line["upstream_status"], 502)
+
+    def test_an_unreachable_inference_host_is_logged_with_its_error(self):
+        service = self.serve(f"http://127.0.0.1:{free_port()}")   # nothing listens there
+        _, resp = self.post(form("beans.jpg", JPEG), server=service)
+        resp.read()
+        line = self.line(resp)
+        self.assertEqual((line["outcome"], line["error"]), ("offline", "ConnectionRefusedError"))
+
+    def test_the_probe_marker_is_logged_and_nothing_else_a_visitor_puts_there(self):   # OPS-3 D14
+        for sent, logged in (("verify", "verify"), ("anything", None), (None, None)):
+            with self.subTest(sent=sent):
+                _, resp = self.post(form("beans.jpg", b"some text"),
+                                    headers={} if sent is None else {"X-Coffee-CV-Probe": sent})
+                resp.read()
+                self.assertEqual(self.line(resp).get("probe"), logged)
+
+    def test_a_filename_is_capped_and_always_one_line(self):   # OPS-3 D10, D17's layer 2
+        for encoded, kept in ((b"a%0Ab%0D%0A%22c%00.jpg", 'a\nb\r\n"c\x00.jpg'), (b"x" * 300 + b".jpg", "x" * 200)):
+            with self.subTest(kept=kept[:12]):
+                body = form("beans.jpg", b"some text").replace(b'filename="beans.jpg"', b"filename*=utf-8''" + encoded)
+                _, resp = self.post(body)
+                resp.read()
+                self.assertEqual(self.line(resp)["filename"], kept)
+        for raw in (self.log_dir / check_service.LOG_FILE).read_bytes().splitlines():
+            json.loads(raw)
+
+    def test_no_line_holds_an_address_and_nothing_goes_to_stderr(self):   # OPS-3 D9: no IP; the journal keeps start-up
+        with mock.patch("sys.stderr") as stderr:
+            for body in (form("beans.jpg", JPEG), form("beans.jpg", b"some text")):
+                _, resp = self.post(body)
+                resp.read()
+                self.line(resp)
+        stderr.write.assert_not_called()
+        self.assertNotIn("127.0.0.", (self.log_dir / check_service.LOG_FILE).read_text())
+
+    def test_a_rotated_log_is_reopened(self):   # logrotate moves the file; the next line starts a new one
+        path = self.log_dir / check_service.LOG_FILE
+        _, resp = self.post(form("beans.jpg", b"some text"))
+        resp.read()
+        self.line(resp)
+        path.rename(path.with_suffix(".jsonl.1"))
+        self.addCleanup(lambda: path.with_suffix(".jsonl.1").unlink(missing_ok=True))
+        _, resp = self.post(form("beans.jpg", b"some text"))
+        resp.read()
+        rid = self.line(resp)["request_id"]
+        self.assertEqual([ln["request_id"] for ln in log_lines(self.log_dir)], [rid])
 
     def test_an_answer_that_is_not_http_is_offline(self):
         FakeInferenceHost.reply = "garbage"
@@ -406,11 +540,156 @@ class CheckService(unittest.TestCase):
         self.assertEqual((status, payload), (503, {"error": "the classifier is busy with another photo"}))
         self.assertEqual(len(FakeInferenceHost.seen), 1)
 
+    def test_the_fronts_request_id_crosses_and_comes_back(self):   # OPS-3 D8
+        _, resp = self.post(form("beans.jpg", JPEG), headers={"X-Request-Id": RID})
+        resp.read()
+        self.assertEqual(resp.getheader("X-Request-Id"), RID)
+        [seen] = FakeInferenceHost.seen
+        self.assertEqual(seen["headers"]["X-Request-Id"], RID)
+
+    def test_a_missing_or_malformed_request_id_is_replaced_by_one_in_nginxs_form(self):   # OPS-3 P1
+        for sent in (None, "", "abcd1234", RID.upper(), RID + "0", "g" * 32, f"{RID}, {RID}"):
+            with self.subTest(sent=sent):
+                FakeInferenceHost.seen.clear()
+                _, resp = self.post(form("beans.jpg", JPEG), headers={} if sent is None else {"X-Request-Id": sent})
+                resp.read()
+                [seen] = FakeInferenceHost.seen
+                made = seen["headers"]["X-Request-Id"]
+                self.assertRegex(made, r"^[0-9a-f]{32}$")
+                self.assertNotEqual(made, sent)
+                self.assertEqual(resp.getheader("X-Request-Id"), made)
+
+    def test_every_answer_of_its_own_carries_the_request_id(self):   # OPS-3 P1: the page needs it for its timeline
+        def refusals():
+            yield "not an image", form("beans.jpg", b"some text"), 400
+            yield "no photo", form(None, b""), 400
+            yield "over the cap", form("beans.jpg", JPEG + b"\x00" * check_service.MAX_UPLOAD_BYTES), 413
+            with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
+                yield "failed", form("beans.jpg", JPEG), 500
+            FakeInferenceHost.reply = 502
+            yield "offline", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply, FakeInferenceHost.echo_id = 503, False
+            yield "the inference host's busy, with no id", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply, FakeInferenceHost.echo_id = "stream", True
+            gate = self.service.RequestHandlerClass.crossing
+            gate.acquire()
+            try:
+                yield "busy", form("beans.jpg", JPEG), 503
+            finally:
+                gate.release()
+        for name, body, status in refusals():
+            with self.subTest(name):
+                _, resp = self.post(body, headers={"X-Request-Id": RID})
+                resp.read()
+                self.assertEqual((resp.status, resp.getheader("X-Request-Id")), (status, RID))
+
     def test_a_browsers_form_in_any_case_and_an_encoded_filename(self):
         body = form("beans.jpg", JPEG).replace(b'filename="beans.jpg"', b"filename*=utf-8''caf%C3%A9.jpg")
         _, resp = self.post(body, headers={"Content-Type": f"Multipart/Form-Data; boundary={BOUNDARY}"})
         resp.read()
         self.assertEqual(resp.status, 200)
+
+
+class Timelines(unittest.TestCase):
+    """POST /timeline (OPS-3 P3, D7, D17's layer 2, D23): checked against the schema, written as one line of its own
+    kind, never behind the photo's gate, and no more than the daily cap."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.log_dir = Path(tempfile.mkdtemp(prefix="check-service-log-"))
+        cls.addClassCleanup(shutil.rmtree, cls.log_dir, ignore_errors=True)
+        cls.service = cls.serve()
+
+    @classmethod
+    def serve(cls):
+        server = check_service.make_server(("127.0.0.1", 0), "http://127.0.0.1:9", cls.log_dir)   # never reached
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        cls.addClassCleanup(server.server_close)
+        cls.addClassCleanup(server.shutdown)
+        return server
+
+    def send(self, body, server=None, headers: dict | None = None, method: str = "POST"):
+        """The answer to a timeline (an object, sent as JSON, or bytes as they are), already read."""
+        body = json.dumps(body).encode() if isinstance(body, dict) else body
+        conn = http.client.HTTPConnection("127.0.0.1", (server or self.service).server_address[1], timeout=10)
+        self.addCleanup(conn.close)
+        conn.request(method, "/timeline", body=body, headers={
+            "Content-Type": "text/plain;charset=UTF-8", "X-Request-Id": uuid.uuid4().hex, **(headers or {})})
+        resp = conn.getresponse()
+        resp.read()
+        return resp
+
+    def line(self, resp) -> dict:
+        return log_line(self.log_dir, resp.getheader("X-Request-Id"))
+
+    def test_a_timeline_is_written_as_one_line_of_its_own_kind(self):
+        sent = timeline(probe="verify")
+        resp = self.send(sent, headers={"X-Coffee-CV-Probe": "verify"})
+        self.assertEqual(resp.status, 204)
+        line = self.line(resp)
+        self.assertRegex(line.pop("ts"), r"^\d{4}-\d\d-\d\dT")
+        self.assertEqual(line, {"kind": "timeline", "request_id": resp.getheader("X-Request-Id"), "probe": "verify",
+                                "timeline": sent})
+
+    def test_an_example_named_in_the_releases_list(self):
+        resp = self.send(timeline(control="example", example="ethiopia-green", pick_ms=None, download_ms=300))
+        self.assertEqual(resp.status, 204)
+        self.assertEqual(self.line(resp)["timeline"]["example"], "ethiopia-green")
+
+    def test_each_refusal_is_a_400_and_a_line_that_repeats_nothing_sent(self):
+        for name, body in (("unknown key", timeline(**{"ua": "Mozilla\n<b>"})),
+                           ("outside its set", timeline(control="Mozilla\n<b>")),
+                           ("negative time", timeline(total_ms=-1)), ("huge time", timeline(total_ms=10**9)),
+                           ("malformed id", timeline(request_id="Mozilla")),
+                           ("unknown example", timeline(control="example", example="Mozilla\n<b>")),
+                           ("not json", b"Mozilla\n<b>"), ("empty", b"")):
+            with self.subTest(name):
+                resp = self.send(body)
+                self.assertEqual(resp.status, 400)
+                line = self.line(resp)
+                self.assertEqual((line["kind"], line["endpoint"], line["status"], line["outcome"]),
+                                 ("request", "/timeline", 400, "refused"))
+                self.assertNotIn("Mozilla", json.dumps(line))
+        for raw in (self.log_dir / check_service.LOG_FILE).read_bytes().splitlines():
+            json.loads(raw)
+
+    def test_an_oversized_body_is_a_413(self):
+        body = json.dumps(timeline()).encode() + b" " * timeline_schema.MAX_BODY
+        resp = self.send(body)
+        self.assertEqual(resp.status, 413)
+        self.assertEqual(self.line(resp)["outcome"], "too_large")
+
+    def test_a_timeline_never_takes_the_photos_gate(self):
+        gate = self.service.RequestHandlerClass.crossing
+        gate.acquire()
+        try:
+            self.assertEqual(self.send(timeline()).status, 204)
+        finally:
+            gate.release()
+
+    def test_a_get_is_refused(self):
+        self.assertEqual(self.send(b"", method="GET").status, 405)
+
+    def test_past_the_daily_cap_timelines_are_dropped_and_counted_in_the_next_request_line(self):   # D23
+        service = self.serve()
+        one = len(json.dumps({"ts": "2026-11-09T00:00:00.000+00:00", "kind": "timeline", "request_id": "0" * 32,
+                              "timeline": timeline()})) + 1
+        with mock.patch.object(check_service, "TIMELINE_DAILY_BYTES", one + 10), \
+                mock.patch.object(check_service, "utc_day", return_value="2026-11-09"):
+            self.assertEqual(self.send(timeline(), server=service).status, 204)
+            self.assertEqual(self.send(timeline(), server=service).status, 503)
+            self.assertEqual(self.send(b"{", server=service).status, 400)   # its refusal line is not written either
+            conn = http.client.HTTPConnection("127.0.0.1", service.server_address[1], timeout=10)
+            self.addCleanup(conn.close)
+            conn.request("POST", "/analyze", body=form("beans.jpg", b"some text"),
+                         headers={"Content-Type": f"multipart/form-data; boundary={BOUNDARY}"})
+            resp = conn.getresponse()
+            resp.read()
+            self.assertEqual(log_line(self.log_dir, resp.getheader("X-Request-Id"))["timelines_dropped"], 2)
+            self.assertEqual(self.send(timeline(), server=service).status, 503)
+        with mock.patch.object(check_service, "TIMELINE_DAILY_BYTES", one + 10), \
+                mock.patch.object(check_service, "utc_day", return_value="2026-11-10"):
+            self.assertEqual(self.send(timeline(), server=service).status, 204, "a new day starts a new cap")
 
 
 class Options(unittest.TestCase):
@@ -419,11 +698,13 @@ class Options(unittest.TestCase):
     ENV = {"COFFEE_CV_FRONT_LISTEN": "127.0.0.1:8100", "COFFEE_CV_INFERENCE_URL": "http://inference.test:12346"}
 
     def test_from_the_environment(self):
-        self.assertEqual(check_service.options([], self.ENV), (("127.0.0.1", 8100), "http://inference.test:12346"))
+        self.assertEqual(check_service.options([], self.ENV),
+                         (("127.0.0.1", 8100), "http://inference.test:12346", Path("/var/log/coffee-cv-front")))
+        self.assertEqual(check_service.options([], {**self.ENV, "LOGS_DIRECTORY": "/tmp/x"})[2], Path("/tmp/x"))
 
     def test_a_flag_wins(self):
-        self.assertEqual(check_service.options(["--listen", "127.0.0.1:9"], self.ENV),
-                         (("127.0.0.1", 9), "http://inference.test:12346"))
+        self.assertEqual(check_service.options(["--listen", "127.0.0.1:9", "--log-dir", "/tmp/y"], self.ENV),
+                         (("127.0.0.1", 9), "http://inference.test:12346", Path("/tmp/y")))
 
     def test_an_ipv6_address(self):
         self.assertEqual(check_service.options(["--listen", "[::1]:8100"], self.ENV)[0], ("::1", 8100))

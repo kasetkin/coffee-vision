@@ -30,6 +30,9 @@ LIST = "webapp/static/examples/examples.json"
 TIMEOUT_S = 190   # the front's nginx waits this long for an answer (proxy_read_timeout, OPS-16 D8)
 BUSY_RETRY_S = 3  # as verify's smoke photo
 OFFLINE = b"the classifier is offline"   # check_service.py's OFFLINE; every other 503 is busy, as the page reads it
+# Every request says it is the deploy's (ticket OPS-3 D14): the logs keep the marker, and the reading script
+# (coffeecv/timelines.py) leaves these requests out of the counts.
+HEADERS = {"User-Agent": "coffee-cv-verify", "X-Coffee-CV-Probe": "verify"}
 
 
 def expected(example: dict) -> str:
@@ -74,7 +77,7 @@ def _post(url: str, filename: str, photo: bytes) -> tuple[int, bytes]:
     def send() -> tuple[int, bytes]:
         return _request(urllib.request.Request(
             f"{url}/analyze", data=body, method="POST",
-            headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "coffee-cv-verify"}))
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}", **HEADERS}))
 
     status, answer = send()
     if status == 503 and OFFLINE not in answer:   # busy is retried once; offline is not, it lasts minutes (OPS-15 D12)
@@ -107,7 +110,7 @@ def check(url: str, commit: str, repo: Path, say: Callable[[str], None]) -> int:
 
     for example in json.loads(listing)["examples"]:
         name, path = example["name"], f"examples/{example['name']}.jxl"
-        status, served = _request(urllib.request.Request(f"{url}/{path}", headers={"User-Agent": "coffee-cv-verify"}))
+        status, served = _request(urllib.request.Request(f"{url}/{path}", headers=HEADERS))
         if not result(f"example {name} served", f"HTTP {status}", "HTTP 200"):
             continue
         release = _git_show(repo, commit, f"webapp/static/{path}") or b""

@@ -1,34 +1,35 @@
 #!/usr/bin/env bash
 # Prepare the front (the proxy) for scripts/deploy_webapp.sh, once, as root (ticket OPS-15 plan P5, ADR 0031).
 #
-#   webapp/deploy/setup_front.sh [--print]
+#   DOMAIN=<the site> webapp/deploy/setup_front.sh > setup_front_root.sh
 #
-# Runs here, from a checkout, and drives the proxy as root through ROOT_HOST, the owner's own SSH alias: the deploy
-# never uses it (D9). --print writes the script it would run there, and runs nothing. Environment (defaults in
-# brackets): DOMAIN [required: the public site's host name]  ROOT_HOST [webproxy]  FRONT_APP_ROOT [/opt/coffee-cv]
+# Runs here, from a checkout, and writes the script that prepares the proxy; it runs nothing and connects to nothing.
+# There is no root SSH access to the proxy: the owner copies the script there and runs it as root by hand
+# (`bash setup_front_root.sh`), from the commit to be deployed. The deploy itself never has root there (D9).
+# Environment (defaults in brackets): DOMAIN [required: the public site's host name]  FRONT_APP_ROOT [/opt/coffee-cv]
 #   DEPLOY_USER [coffee-deploy]  FRONT_SERVICE_USER [coffee-cv-front]  FRONT_PORT [the deploy's: the front site's port]
-#   DEPLOY_PUBKEY [the public half of ROOT_HOST's IdentityFile]
+#   DEPLOY_PUBKEY [unset: a public key file the deploy user may log in with; unset leaves its keys as they are]
+#   NGINX_USER [www-data: nginx's worker user]  LOG_GROUP [adm: the group that may read the session log, OPS-3 D18]
 #
 # On the proxy it creates the deploy user (DEPLOY_PUBKEY may log in as it) and the check service's user; lets the
 # deploy user run, through sudo, only what the deploy runs there: stop, start and restart coffee-cv-front, `nginx -t`
 # and `systemctl reload nginx` (D9); installs uv and the uv-managed Python 3.12 the deploy pins; creates the release
 # directory; and installs the check service's unit (enabled, not started: there is no release yet), conf.d's include
 # of the release's site, the stream block's session log for the domain (/etc/nginx/coffee-cv-stream.conf, D20), and
-# the logrotate rules. It touches no other site and not nginx.conf (D8): the include is a glob that matches nothing
+# the logrotate rules, and makes the session logs readable by root and adm only (OPS-3 D18). It touches no other site and not nginx.conf (D8): the include is a glob that matches nothing
 # until the first deploy, the session log takes effect only once the owner includes it in `stream {}` (plan P6), and
 # `nginx -t` must pass before it ends. Safe to run again.
 set -euo pipefail
 
 REPO=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-ROOT_HOST=${ROOT_HOST:-webproxy}
 FRONT_APP_ROOT=${FRONT_APP_ROOT:-/opt/coffee-cv}
 DEPLOY_USER=${DEPLOY_USER:-coffee-deploy}
 FRONT_SERVICE_USER=${FRONT_SERVICE_USER:-coffee-cv-front}
-PRINT=""
+NGINX_USER=${NGINX_USER:-www-data}
+LOG_GROUP=${LOG_GROUP:-adm}
 case "${1:-}" in
-  --print) PRINT=1 ;;
-  "") ;;
-  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  --print|"") ;;   # --print: what it was called with when it could also run the script itself (until OPS-3 P9)
+  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
 DOMAIN=${DOMAIN:-}
 [[ -n "$DOMAIN" ]] || { echo "DOMAIN is not set (the public site's host name, for the stream block's session log)" >&2; exit 1; }
@@ -42,16 +43,18 @@ FRONT_PORT=${FRONT_PORT:-$(sed -n 's/^FRONT_PORT=\${FRONT_PORT:-\(.*\)}$/\1/p' "
 [[ -n "$UV_VERSION" && -n "$UV_SHA256" && -n "$PY_VERSION" && -n "$FRONT_PORT" ]] \
   || { echo "could not read uv, Python and the front's port from $DEPLOY" >&2; exit 1; }
 
-if [[ -z "${DEPLOY_PUBKEY:-}" ]]; then
-  key=$(ssh -G "$ROOT_HOST" 2>/dev/null | awk '$1 == "identityfile" { print $2; exit }')
-  DEPLOY_PUBKEY="${key/#\~/$HOME}.pub"
+# Empty unless DEPLOY_PUBKEY names a key: the script then leaves the deploy user's keys as they are (a re-run, where
+# the deploy user already logs in).
+PUBKEY=""
+if [[ -n "${DEPLOY_PUBKEY:-}" ]]; then
+  [[ -f "$DEPLOY_PUBKEY" ]] || { echo "no public key at $DEPLOY_PUBKEY" >&2; exit 1; }
+  PUBKEY=$(cat "$DEPLOY_PUBKEY")
 fi
-[[ -n "$PRINT" || -f "$DEPLOY_PUBKEY" ]] || { echo "no public key at $DEPLOY_PUBKEY: set DEPLOY_PUBKEY" >&2; exit 1; }
-PUBKEY=$(cat "$DEPLOY_PUBKEY" 2>/dev/null || echo "<the deploy key>")
 
 UNIT=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
          RELEASE_DIR="$FRONT_APP_ROOT/current" < "$REPO/webapp/deploy/coffee-cv-front.service.template")
-LOGROTATE=$(python3 "$REPO/webapp/deploy/render_template.py" < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
+LOGROTATE=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
+              NGINX_USER="$NGINX_USER" LOG_GROUP="$LOG_GROUP" < "$REPO/webapp/deploy/coffee-cv-front.logrotate.template")
 STREAM=$(python3 "$REPO/webapp/deploy/render_template.py" DOMAIN="$DOMAIN" < "$REPO/webapp/deploy/coffee-cv-stream.conf.template")
 # The same line scripts/deploy_webapp.sh's site_include gives, which its preflight checks.
 INCLUDE="include $FRONT_APP_ROOT/current/front.nginx*.conf;"
@@ -62,6 +65,8 @@ set -euo pipefail
 FRONT_APP_ROOT=$(printf '%q' "$FRONT_APP_ROOT")
 DEPLOY_USER=$(printf '%q' "$DEPLOY_USER")
 FRONT_SERVICE_USER=$(printf '%q' "$FRONT_SERVICE_USER")
+NGINX_USER=$(printf '%q' "$NGINX_USER")
+LOG_GROUP=$(printf '%q' "$LOG_GROUP")
 UV_VERSION=$(printf '%q' "$UV_VERSION")
 UV_SHA256=$(printf '%q' "$UV_SHA256")
 PY_VERSION=$(printf '%q' "$PY_VERSION")
@@ -85,9 +90,14 @@ id "$DEPLOY_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$D
 home=$(getent passwd "$DEPLOY_USER" | cut -d: -f6)
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$home/.ssh"
 touch "$home/.ssh/authorized_keys"
-grep -qxF "$PUBKEY" "$home/.ssh/authorized_keys" || printf '%s\n' "$PUBKEY" >> "$home/.ssh/authorized_keys"
+if [[ -n "$PUBKEY" ]]; then
+  grep -qxF "$PUBKEY" "$home/.ssh/authorized_keys" || printf '%s\n' "$PUBKEY" >> "$home/.ssh/authorized_keys"
+  keys="its key installed"
+else
+  keys="no key given: its authorized_keys left as they are"
+fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$home/.ssh/authorized_keys"; chmod 0600 "$home/.ssh/authorized_keys"
-echo "   $FRONT_SERVICE_USER (the check service), $DEPLOY_USER (the deploy; its key installed)"
+echo "   $FRONT_SERVICE_USER (the check service), $DEPLOY_USER (the deploy; $keys)"
 
 echo "== 2. sudo: only what the deploy runs here (D9)"
 systemctl_bin=$(command -v systemctl); nginx_bin=$(command -v nginx)
@@ -138,26 +148,31 @@ echo "== 7. logrotate"
 printf '%s\n' "$LOGROTATE" > /etc/logrotate.d/coffee-cv-front
 logrotate -d /etc/logrotate.d/coffee-cv-front >/dev/null 2>&1 && echo "   /etc/logrotate.d/coffee-cv-front (checked)" \
   || { echo "ERROR: logrotate rejects /etc/logrotate.d/coffee-cv-front"; exit 1; }
+# OPS-3 D18: the session logs, the only files with the visitor's IP, are root's and adm's to read; logrotate's
+# `create` keeps each new one so, and this sets the ones already there.
+for f in /var/log/nginx/coffee-cv-front.sessions*; do
+  [[ -e "$f" ]] || continue
+  chown "$NGINX_USER:$LOG_GROUP" "$f"; chmod 0640 "$f"
+done
+echo "   the session logs: 0640 $NGINX_USER:$LOG_GROUP"
 echo "Done."
 EOF
 )
 
-if [[ -n "$PRINT" ]]; then printf '%s\n' "$remote"; exit 0; fi
-echo "Setting up the front on $ROOT_HOST, as root"
-ssh -o BatchMode=yes "$ROOT_HOST" bash -s <<<"$remote"
-host=$(ssh -G "$ROOT_HOST" | awk '$1 == "hostname" { print $2 }')
-cat <<EOF
+printf '%s\n' "$remote"
+# To stderr, so that `> setup_front_root.sh` keeps the script alone.
+cat >&2 <<EOF
+Wrote the script that prepares the front: copy it to the proxy and run it there as root, bash setup_front_root.sh.
 
-Next (plan P5): add the deploy's alias to ~/.ssh/config, beside $ROOT_HOST's:
+For a fresh front only, then (OPS-15 plan P5): an SSH alias for the deploy user in ~/.ssh/config,
 
     Host webproxy-deploy
-        HostName $host
+        HostName <the proxy's address>
         User $DEPLOY_USER
-        IdentityFile ${DEPLOY_PUBKEY%.pub}
+        IdentityFile <the private half of DEPLOY_PUBKEY>
 
-then check it: ssh webproxy-deploy 'sudo -n nginx -t'.
-
-At the cutover (plan P6), two edits to the stream block in /etc/nginx/nginx.conf, by hand, then nginx -t and a reload:
+checked with ssh webproxy-deploy 'sudo -n nginx -t'; and at the cutover (OPS-15 plan P6), two edits to the stream
+block in /etc/nginx/nginx.conf, by hand as root, then nginx -t and a reload:
 
     upstream server-coffee { server 127.0.0.1:$FRONT_PORT; }   # was yappy's port: now the front's site
     include /etc/nginx/coffee-cv-stream.conf;           # inside stream {}: the session log (D20)

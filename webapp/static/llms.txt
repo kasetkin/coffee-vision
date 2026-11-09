@@ -2,7 +2,8 @@
 
 > Send one photo of whole coffee beans, green or roasted, and get back the country the coffee was most likely grown
 > in, with a score for every country the model knows, or a refusal when the photo does not look like the beans it
-> was trained on. Free, no key, no account. The photo is never stored.
+> was trained on. Free, no key, no account. The photo is never stored. We log each photo's file name, type and size,
+> how it was picked, how long each step took, the browser's name and the page that linked here, not the photo.
 
 The service is one HTTP endpoint, `POST /analyze`, behind the web page. It is meant for people with a phone, and is
 open to agents acting for a person (send their photo, report the answer) and to cross-origin callers, scripts on

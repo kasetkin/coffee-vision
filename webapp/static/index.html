@@ -278,6 +278,8 @@
   tr:first-child td { font-weight: 700; color: var(--fg); }
   .bar-track { background: var(--border); border-radius: 3px; height: 6px; margin-top: 4px; overflow: hidden; }
   .bar-fill { background: var(--accent); height: 100%; }
+  /* What is logged (ticket OPS-3 D15): small, under the answer, on every screen. */
+  #logged-note { margin: 1.5rem 0 0; font-size: 0.8rem; color: var(--muted); text-align: center; }
 </style>
 </head>
 <body>
@@ -347,6 +349,9 @@
   </div>
 
   <div id="result"></div>
+  <!-- Ticket OPS-3 D15: what the logs hold, as built (docs/logging_plan.html §03-G); llms.txt says the same, and
+       tests/test_agent_files.py holds the two to each other and to the code. -->
+  <p id="logged-note">We log each photo's file name, type and size, how it was picked, how long each step took, the browser's name and the page that linked here, not the photo.</p>
 </main>
 
 <script>
@@ -421,6 +426,114 @@ function hide(...elements) {
   for (const el of elements) el.style.display = 'none';
 }
 
+// Each photo's timeline (ticket OPS-3 D6, D7): what the browser alone knows of the photo, sent once, by beacon, to
+// POST /timeline when its outcome is on screen, or when it is abandoned for another photo or the page is left. The
+// hosts log the rest under the same request ID: the photo's name, format and size and every host's time. The names
+// are coffeecv/timeline_schema.py's (held equal by tests/test_timeline_schema.py), which says what each time measures;
+// all are on performance.now(). A beacon that fails is dropped: the page never waits on it, retries it or shows it.
+const TIMELINE_VERSION = 1;
+const TIMELINE_CONTROLS = ['choose_photo', 'select_file', 'camera', 'example'];
+const TIMELINE_OUTCOMES = ['answered', 'failed', 'refused_on_page', 'refused', 'busy', 'offline', 'unreachable', 'cut',
+                           'abandoned', 'download_failed'];
+const TIMELINE_TIMES = ['pick_ms', 'download_ms', 'size_check_ms', 'to_preview_ms', 'preview_drawn_ms', 'to_answer_ms',
+                        'answer_shown_ms', 'total_ms'];
+const TIMELINE_ATTEMPT_TIMES = ['connect_ms', 'upload_ms', 'headers_ms', 'wait_ms'];
+const TIMELINE_MAX_MS = 600000;
+const REQUEST_ID = /^[0-9a-f]{32}$/;   // the front's (OPS-3 D8); anything else is not sent
+// Which control an input is (OPS-17 D7): Choose Photo is one control on every platform, the camera button another.
+const CONTROL_OF_INPUT = new Map([[fileInput, 'choose_photo'], [androidPhotoInput, 'choose_photo'],
+                                  [selectFileInput, 'select_file'], [cameraInput, 'camera'],
+                                  [androidCameraInput, 'camera']]);
+
+let tapAt = null;   // when a photo control was last tapped: step 1 runs from here to the file arriving
+for (const label of pickLabels) label.addEventListener('click', () => { tapAt = performance.now(); });
+
+// The photo in flight's timeline until it is sent (run), and the last one started (lastRun), which "Use full photo
+// instead" names.
+let run = null, lastRun = null;
+
+function startRun(control, example, t0, rerunOf) {
+  endRun('abandoned');
+  run = lastRun = {t0, control, example: example ? example.name : null, rerunOf: rerunOf || null, times: {},
+                   attempts: [], sentAt: null, requestId: null, ended: false};
+  return run;
+}
+
+function mark(r, name, since) {
+  r.times[name] = performance.now() - since;
+}
+
+// Whole milliseconds in the schema's range, or null for a time that was never taken.
+function wholeMs(value) {
+  return Number.isFinite(value) ? Math.min(TIMELINE_MAX_MS, Math.max(0, Math.round(value))) : null;
+}
+
+// From one moment to another, or null when either was never reached.
+function span(from, to) {
+  return from === null || to === null ? null : to - from;
+}
+
+// Step 4: the connection's setup for one attempt, from its Resource Timing entry when the browser gives one; zero on a
+// connection already open.
+function connectMs(attempt) {
+  let best = null;
+  for (const e of performance.getEntriesByType('resource')) {
+    if (e.initiatorType !== 'xmlhttprequest' || !e.name.endsWith('/analyze')) continue;
+    const gap = Math.abs(e.startTime - attempt.start);
+    if (gap < 100 && (!best || gap < Math.abs(best.startTime - attempt.start))) best = e;
+  }
+  return best && best.domainLookupStart > 0 ? best.connectEnd - best.domainLookupStart : null;
+}
+
+// Timelines ended but not yet sent: each waits for its uploads' requests to end, since only then does the browser
+// give their Resource Timing (step 4), at most TIMELINE_HOLD_MS; leaving the page sends them at once.
+const TIMELINE_HOLD_MS = 2000;
+const unsent = new Set();
+
+function endRun(outcome, r = run) {
+  if (!r || r.ended) return;
+  r.ended = true;
+  if (run === r) run = null;
+  r.times.total_ms = performance.now() - r.t0;
+  const last = r.attempts[r.attempts.length - 1];
+  r.requestId = last ? last.requestId : null;
+  const body = {v: TIMELINE_VERSION, request_id: r.requestId, control: r.control, outcome};
+  if (r.example) body.example = r.example;
+  if (r.rerunOf) body.rerun_of = r.rerunOf;
+  for (const name of TIMELINE_TIMES) {
+    const ms = wholeMs(r.times[name]);
+    if (ms !== null) body[name] = ms;
+  }
+  let sent = false;
+  const sendNow = () => {
+    if (sent) return;
+    sent = true;
+    unsent.delete(sendNow);
+    body.attempts = r.attempts.map(a => {
+      const out = {request_id: a.requestId, status: a.status};
+      const times = {connect_ms: connectMs(a), upload_ms: span(a.start, a.sentAt), headers_ms: span(a.sentAt, a.headersAt),
+                     wait_ms: a.waitMs};
+      for (const name of TIMELINE_ATTEMPT_TIMES) {
+        const ms = wholeMs(times[name]);
+        if (ms !== null) out[name] = ms;
+      }
+      return out;
+    });
+    try {
+      navigator.sendBeacon('/timeline', JSON.stringify(body));
+    } catch (err) {
+      // dropped (D7)
+    }
+  };
+  unsent.add(sendNow);
+  Promise.race([Promise.all(r.attempts.map(a => a.done)),
+                new Promise(resolve => setTimeout(resolve, TIMELINE_HOLD_MS))]).then(sendNow);
+}
+window.addEventListener('pagehide', () => {
+  endRun('abandoned');
+  for (const sendNow of [...unsent]) sendNow();
+});
+
 // "Use full photo instead" (ticket OPS-7 D1, D14): shown after a
 // classification of a cropped photo; it classifies the whole photo, with one
 // more upload, and does not come back. Going back to the cropped answer means
@@ -433,7 +546,9 @@ cropToggleBtn.addEventListener('click', () => {
   lastMask = null;
   renderOverlay();
   hide(cropToggleBtn, cropNote);
-  analyze(lastFile, true, lastExample);
+  const first = lastRun;
+  const r = startRun(first.control, lastExample, performance.now(), first.requestId);
+  analyze(lastFile, true, lastExample, r);
 });
 
 // The overlay is positioned in *displayed* pixels, but #preview uses
@@ -544,8 +659,13 @@ for (const input of pickInputs) {
     const file = input.files[0];
     // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
     input.value = '';
-    if (file) foldLists();   // ticket OPS-20 D10: a file chosen or taken is a pick; a cancelled picker is not
-    choose(file, null);
+    if (file) {
+      foldLists();   // ticket OPS-20 D10: a file chosen or taken is a pick; a cancelled picker is not
+      const r = startRun(CONTROL_OF_INPUT.get(input), null, tapAt === null ? performance.now() : tapAt);
+      if (tapAt !== null) mark(r, 'pick_ms', tapAt);
+    }
+    tapAt = null;
+    choose(file, null, run);
   });
 }
 
@@ -601,19 +721,23 @@ if (isAndroid()) {
 
 // A photo to classify: the visitor's own (example null), or an example photo, which takes the same path as one the
 // visitor chose (ticket OPS-16 D9): the same size check, upload, busy retries and "Use full photo instead".
-function choose(file, example) {
+function choose(file, example, r) {
   clearPhoto();
   if (!file) return;
   lastFile = file;
   lastExample = example;
-  if (file.size > MAX_UPLOAD_BYTES) {
+  const t = performance.now();
+  const tooLarge = file.size > MAX_UPLOAD_BYTES;
+  mark(r, 'size_check_ms', t);
+  if (tooLarge) {
     // Rounded up, so a photo just over the limit never reads as exactly the limit.
     const mb = Math.ceil(file.size / 2 ** 20 * 10) / 10;
     renderRefused(`This photo is ${mb.toFixed(1)} MB; the limit is ${MAX_UPLOAD_BYTES / 2 ** 20} MB.`);
     lastFile = lastExample = null;
+    endRun('refused_on_page', r);
     return;
   }
-  analyze(file, false, example);
+  analyze(file, false, example, r);
 }
 
 // The photo on the page, and what was shown for it, gone: a new pick starts clean, and an answer still coming for
@@ -664,6 +788,7 @@ async function loadExamples() {
 // A click (D9): the example's JPEG XL fetched from the front, then uploaded as a chosen file. The browser need not
 // be able to show a JPEG XL: the page shows the server's JPEG thumbnail (D7).
 async function chooseExample(example) {
+  const r = startRun('example', example, performance.now());
   foldLists();    // ticket OPS-20 D10: at the click, before the download, where a visitor's own photo's wait is
   clearPhoto();   // while the example downloads, nothing of the last photo stays to be clicked
   const pick = currentUpload;
@@ -677,11 +802,13 @@ async function chooseExample(example) {
     if (pick === currentUpload) {
       setBusy(false);
       renderRefused(UNREACHABLE);
+      endRun('download_failed', r);
     }
     return;
   }
   if (pick !== currentUpload) return;
-  choose(file, example);
+  mark(r, 'download_ms', r.t0);
+  choose(file, example, r);
 }
 
 loadExamples();
@@ -705,12 +832,14 @@ function showSending(on) {
 // One upload to POST /analyze (ticket OPS-7, ADR 0023); its answer streams
 // back as one JSON object per line: the preview part, then the classification
 // part, or an error part (D8). For an example photo, the classification is followed by its truth (OPS-16 D10).
-async function analyze(file, skipCrop, example) {
+// `r` is the photo's timeline (OPS-3), marked as the photo goes and ended with its outcome; an answer that has gone
+// stale leaves it alone, since the pick that made it stale ended it as abandoned.
+async function analyze(file, skipCrop, example, r) {
   const upload = ++currentUpload;
   const isStale = () => upload !== currentUpload;
   setBusy(true);
   try {
-    const res = await postAnalyze(file, skipCrop, isStale);
+    const res = await postAnalyze(file, skipCrop, isStale, r);
     if (isStale()) return;
     if (!res.ok) {
       // Before the stream: a JSON error from the front (busy, offline, too
@@ -723,17 +852,22 @@ async function analyze(file, skipCrop, example) {
       if (res.status === 400 && String(data.error || '').startsWith(UNREADABLE_ERROR)) {
         setOpen(formatsToggle, true);
       }
+      endRun(refusalOutcome(res.status, data), r);
       return;
     }
     let previewPart = null, answered = false;
     for await (const part of res.parts()) {
       if (isStale()) return;
       showSending(false);
+      const arrived = performance.now();
       if (part.part === 'preview') {
+        mark(r, 'to_preview_ms', r.sentAt);
         previewPart = part;
         await showPreview(part, isStale);
         if (isStale()) return;
+        mark(r, 'preview_drawn_ms', arrived);
       } else if (part.part === 'classification') {
+        mark(r, 'to_answer_ms', r.sentAt);
         answered = true;
         render(part);
         if (example) renderTruth(example);
@@ -741,16 +875,27 @@ async function analyze(file, skipCrop, example) {
         if (!skipCrop && previewPart && previewPart.cropped && !previewPart.seg_fallback) {
           cropToggleBtn.style.display = 'block';
         }
+        mark(r, 'answer_shown_ms', arrived);
+        endRun('answered', r);
       } else if (part.part === 'error') {
         answered = true;
         renderRefused(part.message);
+        endRun('failed', r);
       }
     }
     // R4: a stream cut before its second part (a dropped connection, the
     // worker killed at 30 s) is not left waiting.
-    if (!answered && !isStale()) renderRefused(UNREACHABLE);
+    if (!answered && !isStale()) {
+      renderRefused(UNREACHABLE);
+      endRun('cut', r);
+    }
   } catch (err) {
-    if (!isStale()) renderRefused(UNREACHABLE);
+    if (!isStale()) {
+      renderRefused(UNREACHABLE);
+      const last = r.attempts[r.attempts.length - 1];
+      if (last && last.status) endRun('cut', r);   // the answer had begun
+      else endRun('unreachable', r);
+    }
   } finally {
     if (!isStale()) setBusy(false);
   }
@@ -763,19 +908,39 @@ function refusalFor(status, data) {
   return data.error || 'Something went wrong -- try a different photo.';
 }
 
+// The same refusal, as the timeline's outcome.
+function refusalOutcome(status, data) {
+  if (status === 503) return data.error === OFFLINE_ERROR ? 'offline' : 'busy';
+  return 'refused';
+}
+
 // The upload, sent again after each of BUSY_RETRY_S's waits while nginx
 // answers busy (plan Q1); the last answer, whatever it is, goes back. An
 // offline 503 goes back at once (ticket OPS-15 D12).
-async function postAnalyze(file, skipCrop, isStale) {
+// Each attempt goes into the photo's timeline `r` (steps 4-6): its start, when its upload left, when its status came
+// with the front's request ID, and the busy wait after it.
+async function postAnalyze(file, skipCrop, isStale, r) {
   for (let attempt = 0; ; attempt++) {
     const form = new FormData();
     form.append('photo', file);
     if (skipCrop) form.append('skip_crop', '1');
-    const res = await send(form, () => { if (!isStale()) showSending(true); });
+    const a = {start: performance.now(), sentAt: null, headersAt: null, status: 0, requestId: null, waitMs: null};
+    a.done = new Promise(resolve => { a.end = resolve; });
+    r.attempts.push(a);
+    const res = await send(form, () => {
+      a.sentAt = r.sentAt = performance.now();
+      if (!isStale()) showSending(true);
+    }, (status, id) => {
+      a.headersAt = performance.now();
+      a.status = status;
+      a.requestId = REQUEST_ID.test(id || '') ? id : null;
+    }, () => a.end());
     if (res.status !== 503 || attempt >= BUSY_RETRY_S.length || isStale()) return res;
     if ((await res.json().catch(() => ({}))).error === OFFLINE_ERROR) return res;
     showSending(false);
+    const waited = performance.now();
     await new Promise(resolve => setTimeout(resolve, BUSY_RETRY_S[attempt] * 1000));
+    a.waitMs = performance.now() - waited;
     if (isStale()) return res;
   }
 }
@@ -787,15 +952,22 @@ async function postAnalyze(file, skipCrop, isStale) {
 // the whole body; parts() yields the answer's lines as they complete
 // (ADR 0023), from responseText, which grows as each line arrives. A network
 // failure rejects before the status, and makes parts() throw after it, as
-// fetch and its body's stream did.
-function send(form, onSent) {
+// fetch and its body's stream did. onHeaders(status, X-Request-Id) runs once, when the status is in, and onEnd when
+// the request has ended, however it ended.
+function send(form, onSent, onHeaders, onEnd) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    let ended = false, failed = false, wake = null;
+    let ended = false, failed = false, wake = null, headed = false;
+    const headers = () => {
+      if (headed || !xhr.status) return;
+      headed = true;
+      onHeaders(xhr.status, xhr.getResponseHeader('X-Request-Id'));
+    };
     const changed = () => {
       if (wake) { const w = wake; wake = null; w(); }
     };
     const done = new Promise(r => xhr.addEventListener('loadend', r));
+    done.then(onEnd);
     const answer = {
       get status() { return xhr.status; },
       get ok() { return xhr.status >= 200 && xhr.status < 300; },
@@ -823,10 +995,13 @@ function send(form, onSent) {
     };
     xhr.upload.addEventListener('load', onSent);
     xhr.addEventListener('readystatechange', () => {
-      if (xhr.readyState >= XMLHttpRequest.HEADERS_RECEIVED && xhr.status) resolve(answer);
+      if (xhr.readyState >= XMLHttpRequest.HEADERS_RECEIVED && xhr.status) {
+        headers();
+        resolve(answer);
+      }
     });
     xhr.addEventListener('progress', changed);
-    xhr.addEventListener('load', () => { ended = true; resolve(answer); changed(); });
+    xhr.addEventListener('load', () => { ended = true; headers(); resolve(answer); changed(); });
     for (const type of ['error', 'abort', 'timeout']) {
       xhr.addEventListener(type, () => {
         ended = failed = true;

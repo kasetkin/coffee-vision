@@ -111,10 +111,14 @@ stop() {
   rm -f "$ST/$1.pid"
 }
 start() {
-  local u=$1 f wd envf envs exe
+  local u=$1 f wd envf envs exe logs
   f=$(unitfile "$u") || { echo "stub systemctl: no unit $u" >&2; exit 5; }
   wd=$(sed -n 's/^WorkingDirectory=//p' "$f"); envf=$(sed -n 's/^EnvironmentFile=//p' "$f")
   envs=$(sed -n 's/^Environment=//p' "$f"); exe=$(sed -n 's/^ExecStart=//p' "$f")
+  # LogsDirectory= (the check service's, OPS-3 P2): made under $LOG_ROOT's parent and named in $LOGS_DIRECTORY, as
+  # systemd makes /var/log/<name> and names it.
+  logs=$(sed -n 's/^LogsDirectory=//p' "$f")
+  if [[ -n $logs ]]; then mkdir -p "$(dirname "$LOG_ROOT")/$logs"; envs="$envs LOGS_DIRECTORY=$(dirname "$LOG_ROOT")/$logs"; fi
   od -An -N8 -tx8 /dev/urandom | tr -d ' ' > "$ST/$u.inv"
   echo "=== invocation $(cat "$ST/$u.inv")" >> "$ST/$u.log"
   # COFFEE_CV_LITERT_ON_CPU: a GPU release's graphs on this machine's CPU (ML-7 P10); the GPU runs only on the host.
@@ -181,6 +185,8 @@ export INFERENCE_ADDR=127.0.0.1 INFERENCE_PORT=18002
 FA="$R/opt-front/coffee-cv"
 export FRONT_HOST=local FRONT_APP_ROOT="$FA" FRONT_SYSTEM_ROOT="$R/sys-front" FRONT_USER="$(id -un)"
 export FRONT_SERVICE_USER="$(id -un)" CHECK_PORT=18003 FRONT_PORT=18004 TLS_CERT="$R/tls/cert.pem" TLS_KEY="$R/tls/key.pem"
+# The check service's log (ticket OPS-3), where the systemctl stub makes its LogsDirectory=.
+export FRONT_LOG_DIR="$R/log/coffee-cv-front"
 # The rehearsal tests the deploy machinery on a scratch clone without the data, not the code: skip the
 # deploy's full test suite (scripts/check.sh --full).
 export DEPLOY_SKIP_CHECK=1

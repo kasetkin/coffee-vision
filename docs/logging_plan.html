@@ -270,9 +270,10 @@
     <tbody>
       <tr><td>client IP, per request</td><td class="why">would tie an IP to each photo's verdict and timing &mdash; more than any question here needs</td><td><span class="pill exclude">exclude</span></td></tr>
       <tr><td>client IP, per TLS session</td><td class="why">blocks a specific abusive source mid-incident; the session's time places it beside the front's request lines, without a join key (OPS-15 D20)</td><td><span class="pill minimize">collect, 30 days</span></td></tr>
-      <tr><td>raw User-Agent string</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
+      <tr><td>raw User-Agent string, the app</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
+      <tr><td>raw User-Agent string, the front's access log</td><td class="why">tells a crawler from a visit, so page loads count people; with no IP, no cookie and no ID beside it, it names a browser, not a visitor (<a href="ticket_visitor_analytics.html">OPS-3</a> D5, the owner, 2026-11-09)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
       <tr><td>coarse UA category (OS + browser family)</td><td class="why">HEIC/AVIF decode failures cluster by browser family &mdash; this is the actual useful signal</td><td><span class="pill collect">collect</span></td></tr>
-      <tr><td>Referer header</td><td class="why">single-page app, one entry point &mdash; adds nothing</td><td><span class="pill exclude">exclude</span></td></tr>
+      <tr><td>Referer header</td><td class="why">where visits come from: a site's address, not a visitor's; the reading script shows other sites' by host only (OPS-3 D5; excluded before it, as adding nothing to a single-page app)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
       <tr><td>Origin header, per request</td><td class="why">a site's address, not a visitor's: the page's own uploads log the live site, another site's page its own, <code>curl</code> or an agent &ldquo;-&rdquo;; the only way to tell other sites' traffic from the page's, now that <code>/analyze</code> answers every origin (OPS-19 D3, <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
     </tbody>
   </table></div>
@@ -284,7 +285,7 @@
     30 days. That block is the only place the address is known: it passes no PROXY protocol header, since
     its other targets do not speak it, so the front's nginx sees every visitor as <code>127.0.0.1</code>.
     No request line carries an IP: not the front's <code>coffee-cv-front.access</code>, not the check
-    service's journal line, not the inference host's <code>coffee-cv.access</code> or
+    service's <code>requests.jsonl</code>, not the inference host's <code>coffee-cv.access</code> or
     <code>app.jsonl</code> (the front clears <code>X-Real-IP</code>, <code>X-Forwarded-For</code> and
     <code>Forwarded</code>, so a forged one never reaches it). Before OPS-15 no IP was logged at all;
     the service is still capped at one concurrent request by <code>limit_conn</code>, now at the front.
@@ -321,14 +322,31 @@
     </tbody>
   </table></div>
 
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">G &middot; The photo's timeline (OPS-3, <a href="ticket_visitor_analytics.html">ticket</a>)</h3>
+  <p class="section-note">
+    Each photo, from the visitor's pick to the answer on screen, from logs alone (OPS-3 D2, D6): no tracker, no
+    analytics service, no cookie, no IP. Three sources, joined by the one request ID (&sect;05), each saying what it
+    alone knows; read by <code>python -m coffeecv.timelines</code> (<code>webapp/README.md</code>, &ldquo;Reading the
+    logs&rdquo;).
+  </p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Why</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>the check service's line per request (<code>/var/log/coffee-cv-front/requests.jsonl</code>)</td><td class="why">the outcome by kind; the original's extension, detected format and bytes; canonicalized or sent canonical, and the canonicalization's size, depth, time and memory (ML-19 D38); the crossing; the answer's headers, preview and end as they passed; the deploy's marker (D9, D14)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
+      <tr><td>the visitor's original filename</td><td class="why">debugging a format or a device's quirk; capped at 200 characters, at the front only (the inference host still gets a safe <code>&lt;stem&gt;.jxl</code>). The owner's call (D10, R2): &ldquo;usually it's not sensitive and can be useful for debugging&rdquo;; the page says it is logged (D15)</td><td><span class="pill minimize">collect, 365 days</span></td></tr>
+      <tr><td>the page's timeline (<code>POST /timeline</code>, written to the same file)</td><td class="why">what only the browser knows: the control, the example, its own times, each upload attempt and its busy wait, the outcome, a re-run's first ID; known keys and fixed values only, no free text (<code>coffeecv/timeline_schema.py</code>, D7, D17)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
+      <tr><td>the app's <code>preview_build_ms</code></td><td class="why">the preview's own build (step 12), apart from the decode and segmentation inside <code>preview_ms</code></td><td><span class="pill collect">collect</span></td></tr>
+    </tbody>
+  </table></div>
+
   <h2><span class="n">04</span>Never logged, full stop</h2>
   <div class="callout refuse">
     <b>Hard excludes, regardless of how useful they'd seem:</b>
     <ul style="margin:10px 0 0; padding-left:20px; line-height:1.7;">
       <li>Image bytes, thumbnails, or anything derived from pixel content</li>
-      <li>The client's original filename, in any form (already true &mdash; the tempfile suffix is fixed/generic, never derived from <code>upload.filename</code>)</li>
+      <li>The client's original filename beside anything that names the visitor; since OPS-3 (D10, the owner) it is in the front's check service log, capped, with no IP, cookie or ID beside it (&sect;03-G); the inference host never sees it</li>
       <li>EXIF metadata, including GPS tags &mdash; moot today since nothing reads EXIF, stated here so it stays true if that ever changes</li>
-      <li>Full raw User-Agent string beyond the short-lived window needed to derive the coarse category</li>
+      <li>Full raw User-Agent string anywhere but the front's access log (OPS-3 D5, &sect;03-C): the app keeps the coarse category only</li>
       <li>Any cookie, session token, or device fingerprint &mdash; none exist today; logging is not a reason to add one</li>
       <li>Client IP address beside any request, in any form, at any layer: only the front's per-session log holds it (&sect;03-C)</li>
     </ul>
@@ -336,13 +354,20 @@
 
   <h2><span class="n">05</span>Tying one request together, without tying two together</h2>
   <p class="section-note">
-    A <code>request_id</code> (8 hex chars, generated per request) gets attached to the nginx line and
-    every app-side log line for that one HTTP call &mdash; the join key that makes an incident traceable
-    end to end. It is discarded the moment the request finishes serving its purpose as a join key: it is
-    never written anywhere alongside a second request's ID, so it cannot be used to reconstruct "this
-    visitor made these three requests." Only ever surfaced back to the client on error responses
-    ("quote this code if you report a bug") &mdash; genuinely useful for support, and not personal data
-    since it identifies a request, not a person.
+    A <code>request_id</code> gets attached to every log line for one HTTP call &mdash; the join key that
+    makes an incident traceable end to end. Since OPS-3 (D8) it is made by the front's nginx
+    (<code>$request_id</code>, 32 hex characters) and every hop keeps it: the front's access line, the check
+    service's line, the inference host's nginx and app lines, and the page's timeline; every answer, the
+    front's own refusals included, carries it in <code>X-Request-Id</code>. A direct call to the app (the
+    deploy's smoke test) gets one of the app's own, 8 hex characters, as before OPS-3. It identifies a
+    request, not a person.
+  </p>
+  <p class="section-note">
+    One thing ties requests together, and only within one photo: its timeline names the IDs of that
+    photo's upload attempts (busy retries) and, for &ldquo;Use full photo instead&rdquo;, the first run's
+    ID. Nothing ties two photos together: no cookie, no stored ID, no IP beside a request line, so
+    &ldquo;this visitor sent these two photos&rdquo; cannot be reconstructed (OPS-3 &ldquo;What does not
+    change&rdquo;).
   </p>
 
   <h2><span class="n">06</span>Retention <span class="pill collect">shipped &middot; 7c73fab</span></h2>
@@ -356,8 +381,9 @@
     <tbody>
       <tr><td>App structured log</td><td class="why">categories A, B, D, E as one JSON line per request</td><td class="why">365 days</td><td class="why">dedicated file + logrotate, daily, compressed &mdash; not <code>journald</code> at this duration: a year of this would compete with the system journal's own retention budget for everything else on the box</td></tr>
       <tr><td>nginx access log, the inference host (<code>coffee-cv.access</code>)</td><td class="why">UA category, status, path, request_id &mdash; no client IP (see &sect;03-C)</td><td class="why">365 days</td><td class="why">logrotate, rotate daily, compress, keep 365</td></tr>
-      <tr><td>nginx access log, the front (<code>coffee-cv-front.access</code>)</td><td class="why">status, path, time, bytes; nginx's own <code>$request_id</code>, then the app's (&ldquo;-&rdquo; for a request refused at the front); last, the request's <code>Origin</code> (OPS-19 D3) &mdash; no client IP</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365</td></tr>
-      <tr><td>session log, the front (<code>coffee-cv-front.sessions</code>)</td><td class="why">the visitor's IP per TLS session, its end time, length and bytes (&sect;03-C)</td><td class="why">30 days</td><td class="why">logrotate on the proxy, daily, compress, keep 30</td></tr>
+      <tr><td>nginx access log, the front (<code>coffee-cv-front.access</code>)</td><td class="why">status, path, time, bytes; the request ID (&sect;05), then the one the answer came back with (&ldquo;-&rdquo; for a request refused at the front); the request's <code>Origin</code> (OPS-19 D3); since OPS-3, the browser, the referrer and the deploy's marker (D5, D14) &mdash; no client IP</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365</td></tr>
+      <tr><td>the check service's log, the front (<code>/var/log/coffee-cv-front/requests.jsonl</code>)</td><td class="why">one JSON line per request and each page's timeline (&sect;03-G) &mdash; no client IP; <code>/timeline</code> writes at most 20 MB a day (OPS-3 D23)</td><td class="why">365 days</td><td class="why">logrotate on the proxy, daily, compress, keep 365; the unit's <code>LogsDirectory=</code> makes the directory</td></tr>
+      <tr><td>session log, the front (<code>coffee-cv-front.sessions</code>)</td><td class="why">the visitor's IP per TLS session, its end time, length and bytes (&sect;03-C); readable by root and <code>adm</code> only, <code>0640 www-data:adm</code> (OPS-3 D18)</td><td class="why">30 days</td><td class="why">logrotate on the proxy, daily, compress, keep 30, <code>create 0640</code></td></tr>
       <tr><td>Aggregated daily/hourly rollups (F)</td><td class="why">counts and percentiles only &mdash; no per-request rows</td><td class="why">indefinite</td><td class="why">not personal data once aggregated &mdash; no individual request is recoverable from it</td></tr>
     </tbody>
   </table></div>
@@ -409,6 +435,6 @@
   </ul>
 
   <footer>
-    webapp/app.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-front.nginx.conf.template &middot; webapp/deploy/coffee-cv-stream.conf.template &middot; webapp/deploy/coffee-cv-web.service.template &middot; webapp/README.md
+    webapp/app.py &middot; webapp/front/check_service.py &middot; coffeecv/timeline_schema.py &middot; coffeecv/timelines.py &middot; webapp/deploy/coffee-cv.nginx.conf.template &middot; webapp/deploy/coffee-cv-front.nginx.conf.template &middot; webapp/deploy/coffee-cv-stream.conf.template &middot; webapp/deploy/coffee-cv-web.service.template &middot; webapp/README.md
   </footer>
 </main>

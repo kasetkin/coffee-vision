@@ -5,18 +5,33 @@
 
 # No client IP here, nor anywhere in this site: it sees every visitor as the stream hop's 127.0.0.1. The visitor's IP is
 # in the stream block's session log (coffee-cv-stream.conf.template, ticket OPS-15 D20), rotated at 30 days; this file
-# keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included, and
-# $upstream_http_x_request_id, the app's, relayed by the check service, which joins a line to the inference host's
-# logs and is "-" for what never reached the app. Last, the Origin the browser sends with a POST (ticket OPS-19 D3, ADR
-# 0035): the live site's for the page's own uploads, another site's for a cross-origin caller, "null" for a sandboxed
-# or file:// page, "-" for curl or an agent. A site's address, not a visitor's, and the only way to tell other sites'
-# traffic from the page's.
-log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent "$http_origin"';
+# keeps 365 (docs/logging_plan.html section 06). Two ids: nginx's own $request_id, a refusal at the front included,
+# which this site sends on as X-Request-Id and every hop keeps (ticket OPS-3 D8), so it joins a line to the check
+# service's and the inference host's lines and to the page's timeline; and $upstream_http_x_request_id, the one the
+# answer came back with: the same, or "-" for the front's own refusals. Then the Origin the browser sends with a
+# POST (ticket OPS-19 D3, ADR 0035): the live site's for the page's own uploads, another site's for a cross-origin
+# caller, "null" for a sandboxed or file:// page, "-" for curl or an agent. A site's address, not a visitor's, and the
+# only way to tell other sites' traffic from the page's. Last, so that a reader of the older fields still parses a line (ticket OPS-3
+# D5, D14): the browser and the referrer, which tell a crawler from a visit and where visits come from, and the
+# X-Coffee-CV-Probe marker of the deploy's own checks, "verify", which the reading script leaves out. nginx writes a
+# quote inside a field as \x22, so each quoted field stays one.
+log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_request_id $status "$request" ${request_time}s $body_bytes_sent "$http_origin" "$http_user_agent" "$http_referer" "$http_x_coffee_cv_probe"';
 
 # One photo at a time for everyone (D11): the inference host has one worker, and over its 2.1 Mbit/s link a second
 # upload must never start crossing. Keyed on the server_name below, a fixed value, not per IP (NAT shares addresses);
 # nginx does not count a request whose key is empty. The inference host keeps its own as a backstop.
 limit_conn_zone $server_name zone=coffee_cv_front_inflight:1m;
+
+# POST /timeline, the page's timeline of each photo (ticket OPS-3 D7, D17's layer 3). The front cannot limit per
+# visitor (it sees 127.0.0.1), so one global rate, keyed like the gate above: 12 a minute with bursts of 20 (D23), a
+# few times what one photo at a time can send. Another site's page may not send one (D24): an Origin that is neither
+# the site's own nor absent (a same-site beacon may send none, and curl can fake either) is refused.
+limit_req_zone $server_name zone=coffee_cv_front_timeline:1m rate=12r/m;
+map $http_origin $coffee_cv_front_foreign_origin {
+    ""                  0;
+    "https://$DOMAIN"   0;
+    default             1;
+}
 
 server {
     # TLS on a loopback port: the proxy's stream block reads the SNI on 443 and hands this domain's sessions here, as it
@@ -91,6 +106,8 @@ server {
         client_max_body_size 41024k;
         proxy_pass http://127.0.0.1:$CHECK_PORT;
         proxy_set_header Host $host;
+        # The request ID every hop keeps (OPS-3 D8), made here; a visitor's own X-Request-Id is replaced, never sent on.
+        proxy_set_header X-Request-Id $request_id;
         # No visitor IP reaches the inference host (D20): this nginx knows none, and one the visitor sends is dropped.
         proxy_set_header X-Real-IP "";
         proxy_set_header X-Forwarded-For "";
@@ -128,12 +145,31 @@ server {
         error_page 502 504 = @offline;
     }
 
+    location = /timeline {
+        if ($coffee_cv_front_foreign_origin) {
+            return 403;
+        }
+        limit_req zone=coffee_cv_front_timeline burst=20 nodelay;
+        limit_req_status 429;
+        # D23: a real timeline is under 2 KB; coffeecv/timeline_schema.py's MAX_BODY, which the check service holds too.
+        client_max_body_size 4k;
+        proxy_pass http://127.0.0.1:$CHECK_PORT;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-For "";
+        proxy_set_header Forwarded "";
+        # No CORS headers: only the site's own page sends a timeline. Not the photo's gate: limit_conn is /analyze's.
+    }
+
     # The front's refusals in their own locations: they inherit none of /analyze's add_header, so each sends the same
-    # two CORS headers itself (OPS-19 D1, D4), or a cross-origin caller cannot read the error the contract promises.
+    # two CORS headers itself (OPS-19 D1, D4), or a cross-origin caller cannot read the error the contract promises,
+    # and the request ID, which the page's timeline names (OPS-3 P1): an internal redirect keeps $request_id.
     location @too_large {
         default_type application/json;
         add_header Access-Control-Allow-Origin "*" always;
         add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id $request_id always;
         return 413 '{"error": "this photo is over the 40 MB limit"}';
     }
 
@@ -141,6 +177,7 @@ server {
         default_type application/json;
         add_header Access-Control-Allow-Origin "*" always;
         add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id $request_id always;
         return 503 '{"error": "the classifier is busy with another photo"}';
     }
 
@@ -148,6 +185,7 @@ server {
         default_type application/json;
         add_header Access-Control-Allow-Origin "*" always;
         add_header Access-Control-Expose-Headers "X-Request-Id" always;
+        add_header X-Request-Id $request_id always;
         return 503 '{"error": "the classifier is offline"}';
     }
 }

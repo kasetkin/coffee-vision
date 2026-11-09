@@ -182,6 +182,8 @@ class TestAnalyze(unittest.TestCase):
                       "decoded_w", "decoded_h", "upload_bytes"):
             self.assertIn(field, line)
         self.assertLessEqual(line["preview_ms"], line["latency_ms"])
+        # OPS-3 D6 step 12: the preview's own build, inside preview_ms, after the decode and the segmentation.
+        self.assertLessEqual(line["decode_ms"] + line["crop_detect_ms"] + line["preview_build_ms"], line["preview_ms"])
         self.assertIs(line["skip_crop"], False)
         # Ticket OPS-7 D19.
         self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 2))
@@ -252,6 +254,19 @@ class TestAnalyze(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertTrue(r.get_json()["error"].startswith("could not read this as an image"), r.get_json())
         self.assertEqual(len(self._log_lines(r, "decode failure")), 1)
+
+    def test_the_fronts_request_id_is_the_one_it_answers_and_logs_under(self):   # OPS-3 D8
+        rid = "0123456789abcdef0123456789abcdef"
+        r = self.client.post("/analyze", data={}, content_type="multipart/form-data", headers={"X-Request-Id": rid})
+        self.assertEqual(r.headers["X-Request-Id"], rid)
+        self.assertEqual(len(self._log_lines(r)), 1)
+        for sent in ("abcd1234", rid.upper(), rid + "0", "g" * 32, ""):   # a direct call's, or malformed: its own
+            with self.subTest(sent=sent):
+                r = self.client.post("/analyze", data={}, content_type="multipart/form-data",
+                                     headers={"X-Request-Id": sent})
+                self.assertRegex(r.headers["X-Request-Id"], r"^[0-9a-f]{8}$")
+                self.assertNotEqual(r.headers["X-Request-Id"], sent)
+                self.assertEqual(len(self._log_lines(r)), 1)
 
     def test_no_file_is_a_400(self):
         r = self.client.post("/analyze", data={}, content_type="multipart/form-data")

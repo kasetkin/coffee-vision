@@ -107,6 +107,35 @@ class AgentFilesAndPageStateTheFrontsAnswers(unittest.TestCase):
                          {"$ref": "#/components/schemas/Error"})
 
 
+class ThePageAndTheAgentFilesSayWhatIsLogged(unittest.TestCase):
+    """Ticket OPS-3 D15: one line on the page and the same in llms.txt, naming what the logs hold as built."""
+
+    def page_line(self) -> str:
+        found = re.search(r'<p id="logged-note"[^>]*>(.*?)</p>', INDEX, re.S)
+        self.assertIsNotNone(found, "the page has no #logged-note")
+        return " ".join(found[1].split())
+
+    def test_the_page_and_llms_txt_say_the_same(self):
+        prose = " ".join(line.removeprefix(">").strip() for line in LLMS.splitlines())
+        self.assertIn(self.page_line(), prose)
+
+    def test_it_names_what_is_logged_as_built(self):
+        line = self.page_line()
+        self.assertTrue(line.startswith("We log ") and line.endswith(", not the photo."), line)
+        front_site = (REPO / "webapp/deploy/coffee-cv-front.nginx.conf.template").read_text()
+        service = (REPO / "webapp/front/check_service.py").read_text()
+        for words, built in (("file name", "filename=filename[:FILENAME_CAP]" in service),
+                             ("type", 'self.record["format"] = fmt' in service),
+                             ("size", "bytes=size" in service),
+                             ("how it was picked", "const TIMELINE_CONTROLS" in INDEX),
+                             ("how long each step took", "navigator.sendBeacon('/timeline'" in INDEX),
+                             ("the browser's name", '"$http_user_agent"' in front_site),
+                             ("the page that linked here", '"$http_referer"' in front_site)):
+            with self.subTest(words):
+                self.assertIn(words, line)
+                self.assertTrue(built, f"the page says it logs {words}, and nothing does")
+
+
 class AgentFilesAreWellFormed(unittest.TestCase):
     def test_llms_txt_is_ascii_markdown_with_an_h1_and_links(self):
         # nginx serves .txt as text/plain with no charset, so a non-ASCII byte could be misread.
