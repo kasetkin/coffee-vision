@@ -10,10 +10,10 @@
   <p class="lede">Count visits and follow each photo from the visitor's pick to the answer on screen, from logs alone:
     no tracker, no analytics service, no visitor IP in anything new. Begun in 2026-08 as a self-hosted Umami, on hold
     until 2026-11-09, when the owner resumed it and dropped Umami for logs (D1, D2). Decided in a grilling on
-    2026-11-09 (D3&ndash;D21) and planned (<a href="plan_visitor_analytics.html">plan</a>); not implemented.</p>
+    2026-11-09 (D3&ndash;D24) and planned (<a href="plan_visitor_analytics.html">plan</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D21 decided; planned; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D24 decided; planned; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure: logging across the page and both hosts</span></div>
@@ -269,6 +269,21 @@
         <td>(a), 2026-11-09. Never worked through in OPS-15 D20, which listed it: <code>proxy_bind $remote_addr
           transparent</code> in the stream block, with policy routing for the replies, on a proxy shared with seven
           other services. A ticket of its own if per-visitor limits are ever wanted.</td></tr>
+      <tr><td class="id">D22</td><td>How interactive is <code>serve</code>'s page? (<a
+        href="plan_visitor_analytics.html">plan</a> Q1)</td>
+        <td>(a) Decided now (b) A first page as Claude sees fit, more later</td>
+        <td>(b), 2026-11-09, the owner: "implement something as you see fit, I will decide later". The plan's P6
+          page; the owner decides on more after the release (plan P11).</td></tr>
+      <tr><td class="id">D23</td><td>How much may <code>/timeline</code> write? (<a
+        href="plan_visitor_analytics.html">plan</a> Q2)</td>
+        <td>Limits sized to a few real timelines a minute and 2.9 GB free on the proxy</td>
+        <td>2026-11-09, as recommended: a 4 KB body, a global 12 a minute with bursts of 20, and 20 MB written a
+          day, past which timelines are dropped and counted.</td></tr>
+      <tr><td class="id">D24</td><td>The <code>Origin</code> rule on <code>/timeline</code>? (<a
+        href="plan_visitor_analytics.html">plan</a> Q3)</td>
+        <td>(a) Refuse another site's, accept none (b) Require the site's own</td>
+        <td>(a), 2026-11-09, as recommended: a same-site <code>sendBeacon</code> may send none, and <code>curl</code>
+          can fake either.</td></tr>
     </tbody>
   </table></div>
 
@@ -314,6 +329,8 @@
       read for v3.4.1. The owner drops Umami for logs (D2); D3&ndash;D21 decided; the glossary's "Timeline";
       <code>.out-of-scope/visitor-analytics-service.md</code>. Rewritten in place, and the <a
       href="plan_visitor_analytics.html">plan</a> written. Not implemented.</div>
+    <div><div class="when">2026-11-09</div>The owner answers the plan's Q1&ndash;Q3: D22&ndash;D24. Not
+      implemented.</div>
   </div>
 
   <footer>Related: <a href="plan_visitor_analytics.html">plan</a>, <code>docs/logging_plan.html</code>, <a

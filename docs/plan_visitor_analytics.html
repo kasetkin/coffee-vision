@@ -13,12 +13,12 @@
     Then the owner's one-time setup on the proxy and one release (D19). Nothing reaches the live site before P10.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 answered 2026-11-09 (OPS-3 D22&ndash;D24); not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_visitor_analytics.html"><code>ticket_visitor_analytics.html</code></a> (OPS-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-09</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2 and Q3 block P3 only; Q1 blocks P11 only</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
 
   <div class="callout info">
@@ -102,17 +102,18 @@
     <tbody>
       <tr><td class="id">Q1</td><td>How interactive is <code>serve</code>'s page? D13 left this for later. P6 builds a
         first page: the per-day counts, each step's distribution, and one photo's timeline opened from a list.</td>
-        <td><span class="pill sm open">Open</span> Decide after P10, once real timelines exist to look at.</td>
+        <td><span class="pill sm ok">Answered</span> 2026-11-09, the owner: "implement something as you see fit, I will
+          decide later". P6 builds the first page as described; the owner decides on more after P10 (D22).</td>
         <td>P11</td></tr>
       <tr><td class="id">Q2</td><td>How much may <code>/timeline</code> write? The front cannot limit per visitor, and
         the proxy has 2.9 GB free. A real timeline is under 2 KB, and photos go one at a time, so real traffic is a
         few a minute.</td>
-        <td><span class="pill sm open">Open</span> A body limit of 4 KB, a global 12 a minute with bursts of 20, and a
+        <td><span class="pill sm ok">Answered</span> 2026-11-09, as recommended (D23). A body limit of 4 KB, a global 12 a minute with bursts of 20, and a
           daily cap of 20 MB written. Past the cap, timelines are dropped and counted in the check service's next
           line, so the most a flood can add is 20 MB a day, about 2 MB once compressed.</td><td>P3</td></tr>
       <tr><td class="id">Q3</td><td>The <code>Origin</code> rule (D17's layer 3). Browsers send <code>Origin</code> on
         any cross-site POST. On a same-site <code>sendBeacon</code> they may leave it out.</td>
-        <td><span class="pill sm open">Open</span> Refuse a timeline whose <code>Origin</code> is another site's, and
+        <td><span class="pill sm ok">Answered</span> 2026-11-09, as recommended (D24). Refuse a timeline whose <code>Origin</code> is another site's, and
           accept one with none. That stops other sites' pages just as well, and <code>curl</code> can fake either.
           Refusing a missing <code>Origin</code> risks losing real timelines from some browsers.</td><td>P3</td></tr>
     </tbody>
@@ -185,7 +186,7 @@
   <h2>5. P3 &mdash; <code>POST /timeline</code></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q2, Q3</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <p>The endpoint the page sends its timeline to (D7, D16), with D17's layers 2 and 3. The schema is one module,
     used by the check service to accept and by the script (P6) to read.</p>
@@ -364,11 +365,11 @@
   <h2>13. P11 &mdash; The local page's interactivity</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P10, Q1</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P10, and the owner's look at the first page (D22)</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>As Q1 decides, once real timelines exist. This phase is local and needs no
-      release.</span></li>
+    <li><span class="box"></span><span>What the owner asks for after looking at P6's page on real timelines (D22).
+      This phase is local and needs no release.</span></li>
   </ol>
 
   <h2>14. Verification</h2>
@@ -400,6 +401,8 @@
     <div><div class="when">2026-11-09</div>Claude reads ticket OPS-3 at <code>0929907</code>, after the owner's
       grilling, and writes this plan. Nine findings not in the ticket; Q1&ndash;Q3 open for the owner. Not
       implemented.</div>
+    <div><div class="when">2026-11-09</div>The owner answers Q1&ndash;Q3: P6's page as Claude sees fit, more decided
+      later; Q2 and Q3 as recommended. Recorded as OPS-3 D22&ndash;D24. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3 ticket</a>, <a
