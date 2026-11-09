@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import re
 import resource
 import subprocess
 import time
@@ -272,9 +273,16 @@ def _log_decode_failure(exc: Exception) -> None:
     })
 
 
+# The front's request ID (ticket OPS-3 D8): nginx's $request_id, made by the front's nginx and kept on every hop, so
+# this line joins the front's and the page's timeline. Taken only in that form; a direct call (the deploy's smoke
+# test, an agent on the tailnet) or a malformed ID gets one of the app's own, 8 hex characters as before.
+FRONT_REQUEST_ID = re.compile(r"[0-9a-f]{32}")
+
+
 @app.before_request
 def _start_request():
-    g.request_id = uuid.uuid4().hex[:8]
+    sent = request.headers.get("X-Request-Id", "")
+    g.request_id = sent if FRONT_REQUEST_ID.fullmatch(sent) else uuid.uuid4().hex[:8]
     g.t0 = time.monotonic()
 
 

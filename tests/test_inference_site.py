@@ -148,6 +148,12 @@ class InferenceSite(unittest.TestCase):
         [seen] = FakeApp.seen
         self.assertEqual((seen["path"], seen["bytes"]), ("/analyze", 1000))
 
+    def test_the_fronts_request_id_reaches_the_app_unchanged(self):   # OPS-3 D8
+        rid = "0123456789abcdef0123456789abcdef"
+        self.fetch("POST", "/analyze", b"x", {"X-Request-Id": rid})
+        [seen] = FakeApp.seen
+        self.assertEqual(seen["headers"]["X-Request-Id"], rid)
+
     def test_a_second_request_while_one_is_in_flight_is_refused_busy(self):
         FakeApp.hold.clear()
 

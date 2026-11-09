@@ -10,7 +10,8 @@ canonicalized here, a photo over the pixel ceiling (D38; a RAW one over its own,
 header before any pixel is decoded, and one that cannot be read is the 400 the inference host gives. The form goes on
 with the canonical photo in place of the visitor's (named <stem>.jxl), every other field and header as sent; the
 original is never stored or forwarded (D21). An inference host that cannot be reached, or whose app is down behind its
-nginx, is a 503 "the classifier is offline" (D12), apart from its busy 503, which is relayed as it is.
+nginx, is a 503 "the classifier is offline" (D12), apart from its busy 503, which is relayed as it is. Every request
+keeps the ID the front's nginx made for it (OPS-3 D8): forwarded to the inference host, and on every answer.
 
 On http.server (D19): the front's nginx gates one request at a time (D11), so a thread per request never means more
 than one at work, and canonicalizing (up to about 21 s and 460 MB at 60 MP, analysis/ml19/p8/README.md) happens
@@ -32,6 +33,7 @@ import re
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
@@ -73,11 +75,22 @@ APP_DOWN = {502, 504}
 # Not forwarded to the inference host: the hop-by-hop headers (RFC 9110 §7.6.1) and the two this request sets again
 # for its own hop, Host and Content-Length. Everything else the visitor's browser sent goes on (the app logs a coarse
 # User-Agent). No visitor IP is among them: the front's nginx knows none and drops a forged one (D20).
+# X-Request-Id is set again too: exactly one, in nginx's form (request_id).
 NOT_FORWARDED = {"connection", "keep-alive", "proxy-connection", "transfer-encoding", "te", "trailer", "upgrade",
-                 "proxy-authorization", "proxy-authenticate", "host", "content-length"}
+                 "proxy-authorization", "proxy-authenticate", "host", "content-length", "x-request-id"}
 # Not relayed from the inference host's answer: its hop-by-hop headers, and Server and Date, which send_response
-# writes. Its Content-Length is relayed, since the body goes on as it came.
-NOT_RELAYED = NOT_FORWARDED - {"host", "content-length"} | {"server", "date"}
+# writes. Its Content-Length is relayed, since the body goes on as it came, and so is its X-Request-Id.
+NOT_RELAYED = NOT_FORWARDED - {"host", "content-length", "x-request-id"} | {"server", "date"}
+# The request ID (OPS-3 D8): nginx's $request_id, 32 lowercase hex characters, made by the front's nginx for every
+# request and carried on every hop, so the front's, this service's and the inference host's lines and the page's
+# timeline join on it.
+REQUEST_ID = re.compile(r"[0-9a-f]{32}")
+
+
+def request_id(sent: str | None) -> str:
+    """The ID the front's nginx sent, or, when there is none or it is not in nginx's form (a direct call), one made
+    here in the same form."""
+    return sent if sent is not None and REQUEST_ID.fullmatch(sent) else uuid.uuid4().hex
 
 
 def photo_part(content_type: str, body: bytes) -> tuple[str, bytes, int] | None:
@@ -150,11 +163,13 @@ class CheckHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         t0, self.photo_note = time.monotonic(), ""
+        self.request_id = request_id(self.headers.get("X-Request-Id"))
         outcome = self.analyze() if urlsplit(self.path).path == "/analyze" else self.json(404, {"error": "not found"})
         self.log_line(f"{self.command} {urlsplit(self.path).path} {outcome} {round((time.monotonic() - t0) * 1000)}ms"
                       + (f"; {self.photo_note}" if self.photo_note else ""))
 
     def do_GET(self):  # noqa: N802
+        self.request_id = request_id(self.headers.get("X-Request-Id"))
         self.json(405 if urlsplit(self.path).path == "/analyze" else 404, {"error": "use POST /analyze"})
 
     def analyze(self) -> str:
@@ -236,6 +251,7 @@ class CheckHandler(BaseHTTPRequestHandler):
             for k, v in self.headers.items():   # items(), not a dict: a header sent twice goes on twice
                 if k.lower() not in NOT_FORWARDED:
                     conn.putheader(k, v)
+            conn.putheader("X-Request-Id", self.request_id)
             conn.putheader("Content-Length", str(len(body)))
             conn.endheaders(body)
             conn.sock.settimeout(ANSWER_TIMEOUT_S)   # the photo has crossed: from here, each read of the answer
@@ -255,6 +271,8 @@ class CheckHandler(BaseHTTPRequestHandler):
         for k, v in resp.getheaders():
             if k.lower() not in NOT_RELAYED:
                 self.send_header(k, v)
+        if resp.getheader("X-Request-Id") is None:   # an answer of the inference host's nginx, not of its app
+            self.send_header("X-Request-Id", self.request_id)
         self.end_headers()
         # The answer as it arrives (ADR 0023): read1 returns what is there, so the preview goes out before the
         # classification exists. Without a Content-Length, the end of the answer is this connection's close.
@@ -275,6 +293,7 @@ class CheckHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Request-Id", self.request_id)
         self.end_headers()
         self.wfile.write(data)
         return outcome or str(status)

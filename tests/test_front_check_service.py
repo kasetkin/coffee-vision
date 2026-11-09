@@ -46,6 +46,7 @@ def _jpeg() -> bytes:
 JPEG = _jpeg()
 RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
+RID = "0123456789abcdef0123456789abcdef"   # a request ID as the front's nginx makes it ($request_id, OPS-3 D8)
 
 
 def forwarded_photo(body: bytes) -> tuple[str, bytes]:
@@ -80,6 +81,8 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
     reply = "stream"
     release = threading.Event()   # set: answer at once; cleared: hold the answer until it is set
     extra_headers: dict[str, str] = {}   # sent with every status or stream answer as well (tests/test_front_site.py)
+    # The app answers under the ID it was sent (OPS-3 D8); off, an answer with none, as yappy's nginx's own busy 503.
+    echo_id = True
 
     def do_POST(self):  # noqa: N802
         body = self.rfile.read(int(self.headers["Content-Length"]))
@@ -99,7 +102,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
             self.send_response(FakeInferenceHost.reply)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))
-            self.send_header("X-Request-Id", "abcd1234")
+            self.send_id()
             self.send_extra_headers()
             self.end_headers()
             self.wfile.write(payload)
@@ -107,13 +110,17 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("X-Accel-Buffering", "no")
-        self.send_header("X-Request-Id", "abcd1234")
+        self.send_id()
         self.send_extra_headers()
         self.end_headers()
         self.wfile.write(b'{"part": "preview"}\n')
         self.wfile.flush()
         time.sleep(1.0)
         self.wfile.write(b'{"part": "classification"}\n')
+
+    def send_id(self):
+        if FakeInferenceHost.echo_id and "X-Request-Id" in self.headers:
+            self.send_header("X-Request-Id", self.headers["X-Request-Id"])
 
     def send_extra_headers(self):
         for k, v in FakeInferenceHost.extra_headers.items():
@@ -152,6 +159,7 @@ class CheckService(unittest.TestCase):
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
         FakeInferenceHost.release.set()
+        FakeInferenceHost.echo_id = True
 
     def post(self, body: bytes, server=None, headers: dict | None = None, path: str = "/analyze"):
         """Opens the request; the caller reads the response. Returns (connection, response)."""
@@ -175,8 +183,8 @@ class CheckService(unittest.TestCase):
         self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
         self.assertEqual(resp.getheader("Content-Type"), "application/x-ndjson")
         self.assertEqual(resp.getheader("X-Accel-Buffering"), "no", "the front's nginx would buffer the answer")
-        self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
+        self.assertEqual(resp.getheader("X-Request-Id"), seen["headers"]["X-Request-Id"])
         self.assertEqual(seen["path"], "/analyze")
         name, photo = forwarded_photo(seen["body"])
         self.assertEqual(name, "beans.jxl")
@@ -297,7 +305,7 @@ class CheckService(unittest.TestCase):
                 _, resp = self.post(form("beans.jpg", JPEG))
                 self.assertEqual((resp.status, json.loads(resp.read())),
                                  (status, {"error": f"inference host says {status}"}))
-                self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
+                self.assertEqual(resp.getheader("X-Request-Id"), FakeInferenceHost.seen[-1]["headers"]["X-Request-Id"])
                 self.assertEqual(len(resp.msg.get_all("Server")), 1, "the inference host's Server header relayed too")
 
     def test_only_post_analyze_is_served(self):
@@ -405,6 +413,49 @@ class CheckService(unittest.TestCase):
         first.join(10)
         self.assertEqual((status, payload), (503, {"error": "the classifier is busy with another photo"}))
         self.assertEqual(len(FakeInferenceHost.seen), 1)
+
+    def test_the_fronts_request_id_crosses_and_comes_back(self):   # OPS-3 D8
+        _, resp = self.post(form("beans.jpg", JPEG), headers={"X-Request-Id": RID})
+        resp.read()
+        self.assertEqual(resp.getheader("X-Request-Id"), RID)
+        [seen] = FakeInferenceHost.seen
+        self.assertEqual(seen["headers"]["X-Request-Id"], RID)
+
+    def test_a_missing_or_malformed_request_id_is_replaced_by_one_in_nginxs_form(self):   # OPS-3 P1
+        for sent in (None, "", "abcd1234", RID.upper(), RID + "0", "g" * 32, f"{RID}, {RID}"):
+            with self.subTest(sent=sent):
+                FakeInferenceHost.seen.clear()
+                _, resp = self.post(form("beans.jpg", JPEG), headers={} if sent is None else {"X-Request-Id": sent})
+                resp.read()
+                [seen] = FakeInferenceHost.seen
+                made = seen["headers"]["X-Request-Id"]
+                self.assertRegex(made, r"^[0-9a-f]{32}$")
+                self.assertNotEqual(made, sent)
+                self.assertEqual(resp.getheader("X-Request-Id"), made)
+
+    def test_every_answer_of_its_own_carries_the_request_id(self):   # OPS-3 P1: the page needs it for its timeline
+        def refusals():
+            yield "not an image", form("beans.jpg", b"some text"), 400
+            yield "no photo", form(None, b""), 400
+            yield "over the cap", form("beans.jpg", JPEG + b"\x00" * check_service.MAX_UPLOAD_BYTES), 413
+            with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
+                yield "failed", form("beans.jpg", JPEG), 500
+            FakeInferenceHost.reply = 502
+            yield "offline", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply, FakeInferenceHost.echo_id = 503, False
+            yield "the inference host's busy, with no id", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply, FakeInferenceHost.echo_id = "stream", True
+            gate = self.service.RequestHandlerClass.crossing
+            gate.acquire()
+            try:
+                yield "busy", form("beans.jpg", JPEG), 503
+            finally:
+                gate.release()
+        for name, body, status in refusals():
+            with self.subTest(name):
+                _, resp = self.post(body, headers={"X-Request-Id": RID})
+                resp.read()
+                self.assertEqual((resp.status, resp.getheader("X-Request-Id")), (status, RID))
 
     def test_a_browsers_form_in_any_case_and_an_encoded_filename(self):
         body = form("beans.jpg", JPEG).replace(b'filename="beans.jpg"', b"filename*=utf-8''caf%C3%A9.jpg")

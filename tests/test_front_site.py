@@ -40,7 +40,7 @@ import check_service  # noqa: E402
 from render_template import render  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
-from tests.test_front_check_service import BOUNDARY, JPEG, FakeInferenceHost, form, free_port  # noqa: E402
+from tests.test_front_check_service import BOUNDARY, JPEG, RID, FakeInferenceHost, form, free_port  # noqa: E402
 
 NGINX = shutil.which("nginx") or next((p for p in ("/usr/sbin/nginx",) if Path(p).exists()), None)
 STREAM_MODULE = Path("/usr/lib/nginx/modules/ngx_stream_module.so")
@@ -176,6 +176,7 @@ http {{
         FakeInferenceHost.seen.clear()
         FakeInferenceHost.reply = "stream"
         FakeInferenceHost.extra_headers = {}
+        FakeInferenceHost.echo_id = True
 
     def visit(self, method: str, path: str, body: bytes | None = None, headers: dict | None = None):
         """Opens the request; the caller reads the response."""
@@ -204,7 +205,7 @@ http {{
     def test_a_cross_origin_caller_reads_the_streamed_answer(self):   # OPS-19 D1, D4
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
         self.assertEqual((resp.status, resp.read()), (200, b'{"part": "preview"}\n{"part": "classification"}\n'))
-        self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
+        self.assertRegex(resp.getheader("X-Request-Id"), r"^[0-9a-f]{32}$")
         self.assert_cross_origin(resp)
 
     def test_the_page_and_the_agent_files_are_the_releases(self):
@@ -252,8 +253,8 @@ http {{
         self.assertEqual(resp.status, 200)
         self.assertEqual((first, second), (b'{"part": "preview"}\n', b'{"part": "classification"}\n'))
         self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
-        self.assertEqual(resp.getheader("X-Request-Id"), "abcd1234")
         [seen] = FakeInferenceHost.seen
+        self.assertEqual(resp.getheader("X-Request-Id"), seen["headers"]["X-Request-Id"])
         self.assertEqual(set(forged) & set(seen["headers"]), set(), "a visitor's own IP header went through (D20)")
 
     def test_a_photo_over_the_cap_is_refused_at_the_front(self):   # ML-19 D23
@@ -357,6 +358,48 @@ http {{
         finally:
             self.start_check_service()
 
+    def access_line(self, rid: str) -> list[str]:
+        """The access log's line for request `rid`, split at spaces, once nginx has written it."""
+        for _ in range(50):   # nginx writes the line once the answer is out
+            lines = [ln.split(" ") for ln in (self.logs / "coffee-cv-front.access").read_text().splitlines()]
+            found = [ln for ln in lines if ln[1] == rid]
+            if found:
+                [line] = found
+                return line
+            time.sleep(0.05)
+        self.fail(f"no access line for {rid}")
+
+    def test_one_request_id_on_every_hop(self):   # OPS-3 D8
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"X-Request-Id": RID})
+        resp.read()
+        rid = resp.getheader("X-Request-Id")
+        self.assertRegex(rid, r"^[0-9a-f]{32}$")
+        self.assertNotEqual(rid, RID, "a visitor's own X-Request-Id went on")
+        [seen] = FakeInferenceHost.seen
+        self.assertEqual(seen["headers"]["X-Request-Id"], rid)
+        self.assertEqual(self.access_line(rid)[1:3], [rid, rid])   # $request_id, then the one the answer carried
+
+    def test_the_fronts_own_refusals_carry_the_request_id(self):   # OPS-3 P1: the page needs it for its timeline
+        def refusals():
+            yield "over the body cap", JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 2**20), 413
+            first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
+            yield "busy", JPEG, 503
+            first.read()
+            self.stop_check_service()
+            try:
+                yield "offline", JPEG, 503
+            finally:
+                self.start_check_service()
+        for name, photo, status in refusals():
+            with self.subTest(name):
+                resp = self.visit("POST", "/analyze", form("beans.jpg", photo), {"Origin": ELSEWHERE})
+                resp.read()
+                rid = resp.getheader("X-Request-Id")
+                self.assertEqual(resp.status, status)
+                self.assertEqual(resp.headers.get_all("X-Request-Id"), [rid])
+                self.assertEqual(self.access_line(rid)[1:3], [rid, "-"])
+                self.assert_cross_origin(resp)
+
     def test_the_access_log_names_the_calling_pages_origin(self):   # OPS-19 D3
         access = self.logs / "coffee-cv-front.access"
         for headers, last in (({"Origin": ELSEWHERE}, f'"{ELSEWHERE}"'), ({}, '"-"')):
@@ -390,7 +433,8 @@ http {{
         for p in self.logs.iterdir():
             with self.subTest(log=p.name):
                 self.assertIn(NGINX_LOG_DIR + p.name, rotate, "a log nothing rotates")
-        self.assertIn("abcd1234", (self.logs / "coffee-cv-front.access").read_text(),
+        self.assertIn(FakeInferenceHost.seen[-1]["headers"]["X-Request-Id"],
+                      (self.logs / "coffee-cv-front.access").read_text(),
                       "a request line that cannot be joined to the app's log")
 
 

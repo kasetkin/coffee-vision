@@ -5,12 +5,10 @@
 # is the host's tailnet address, read on the host by the deploy, so none enters git.
 
 # Deliberately no client IP in this format, nor anywhere on this host: the visitor's IP stops at the proxy's stream
-# block (ticket OPS-15 D20). This file keeps 365 days (docs/logging_plan.html section 06). $request_id is
-# nginx's own per-connection id and is NOT what joins a line here to the
-# app's own log: webapp/app.py generates its own id and returns it as an
-# X-Request-Id response header, captured below via $upstream_http_x_request_id,
-# so the app stays the one source of truth for the id and nginx never needs
-# to originate or track one of its own.
+# block (ticket OPS-15 D20). This file keeps 365 days (docs/logging_plan.html section 06). This host's own
+# $request_id is NOT what joins a line here to the app's log: the front's nginx makes the request ID and every hop
+# keeps it (ticket OPS-3 D8), and webapp/app.py answers under it, or under one of its own for a direct call, as an
+# X-Request-Id response header, captured below via $upstream_http_x_request_id.
 # $upstream_bytes_received ends the line (ticket OPS-7 D19): /analyze's 200 goes out with its first part, so a
 # worker killed mid-answer still logs a 200 here, with fewer bytes than a whole answer.
 log_format coffee_cv_minimal '$time_iso8601 $upstream_http_x_request_id $status "$request" ${request_time}s $upstream_bytes_received';
@@ -54,6 +52,8 @@ server {
         proxy_read_timeout 30s;
         proxy_pass http://127.0.0.1:$PORT;
         proxy_set_header Host $host;
+        # The front's request ID, to the app unchanged (OPS-3 D8); nginx would pass it anyway, stated because it matters.
+        proxy_set_header X-Request-Id $http_x_request_id;
         # The app streams the answer, preview first, with X-Accel-Buffering: no, which turns off this nginx's
         # buffering. nginx hides X-Accel-* from the client by default; passing it on turns off the front's too
         # (ticket OPS-7 D11).
