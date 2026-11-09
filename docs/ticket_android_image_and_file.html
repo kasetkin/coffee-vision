@@ -11,11 +11,11 @@
     chooser, Camera or Files, in Chrome and in Firefox. The owner tested candidate inputs on an Android phone
     (2026-11-08) and chose controls that each do one thing: Choose Image opens the photo picker, Select File a file browser,
     and a square camera button, an icon with no text, the camera (D1, revised 2026-11-09). Desktop does not change;
-    iPhone's Take Photo becomes the same camera button (D8). Written 2026-11-08; D1, D2, D8, D9 decided,
-    D3&ndash;D7 and D10 open; not implemented.</p>
+    iPhone's Take Photo becomes the same camera button (D8). Choose Image is labelled Choose Photo, one name on
+    every platform (D10). Written 2026-11-08; D1, D2, D8&ndash;D10 decided, D3&ndash;D7 open; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2, D8, D9 decided (D1 revised 2026-11-09), D3&ndash;D7 and D10 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2, D8&ndash;D10 decided (D1 revised 2026-11-09), D3&ndash;D7 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -194,7 +194,10 @@
       <tr><td class="id">D10</td><td>Android's first control: "Choose Image", as the owner named it on 2026-11-08, or
         "Choose Photo", as on iOS and desktop (the owner's words on 2026-11-09)?</td>
         <td>(a) Choose Image (b) Choose Photo, one name on every platform</td>
-        <td>Open.</td></tr>
+        <td>(b), 2026-11-09: the owner asked for one name on every platform and left the choice to Claude, who chose
+          Choose Photo: the live label on iOS and desktop, and the page's word elsewhere ("No photo? Try one of
+          ours", "Use full photo instead"). "Choose Image" in this ticket's earlier text and in the test's names (A1,
+          A2) is the same control.</td></tr>
     </tbody>
   </table></div>
 
@@ -246,6 +249,8 @@
     <div><div class="when">2026-11-09</div>D8 decided: the same camera button on iOS, not yet tested there (R5). D9
       decided: the camera button last. D10 (Choose Image or Choose Photo on Android) added. Not planned, not
       implemented.</div>
+    <div><div class="when">2026-11-09</div>D10 decided: one name on every platform, chosen by Claude on the owner's
+      word: Choose Photo. Not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
