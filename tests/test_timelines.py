@@ -106,7 +106,10 @@ class OnePhotoJoined(unittest.TestCase):
                 self.assertEqual(self.step(key), want)
 
     def test_the_network_legs_are_one_sides_time_less_the_others(self):
-        self.assertEqual(self.step("13a"), 2600 - 2400)                        # the front's wait, less the app's
+        yappy_received = 9100 - 5400                                           # yappy's nginx, less the app
+        self.assertEqual(self.step("9y"), yappy_received)
+        # The front, from its connect to the preview going out, less yappy, from its first byte to the preview out.
+        self.assertEqual(self.step("13a"), (9000 + 2600) - (yappy_received + 2400))
         self.assertEqual(self.step("13b"), 15000 - (20 + 1 + 2000 + 9000 + 2600))   # the page's, less the front's
         self.assertEqual(self.step("16"), 21000 - 15000)
         self.assertEqual(self.step("16f"), 8000 - 2600)                        # the front's own, preview to end
