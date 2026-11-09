@@ -103,11 +103,12 @@ class TheTextsNameTheAcceptedFormats(unittest.TestCase):
             "photo-input": mime_types + extensions,
             "camera-input": mime_types + extensions,
             # Android (OPS-21): Choose Photo's MIME types alone, since an extension in the list keeps Chrome from its
-            # photo picker (D3); Select File's names no format, since an image type brings back the camera (D4); the
-            # camera's is any image, the one list the test saw open the camera directly, and a camera writes JPEG or
-            # HEIC (D1).
+            # photo picker (D3); Select File's names no format, since an image type brings back the camera (D4), and is
+            # an extension Android does not know, since Firefox greyed out every photo under application/octet-stream
+            # (D11); the camera's is any image, the one list the test saw open the camera directly, and a camera writes
+            # JPEG or HEIC (D1).
             "android-photo-input": mime_types,
-            "select-file-input": ["application/octet-stream"],
+            "select-file-input": [".coffeecv"],
             "android-camera-input": ["image/*"],
         }
         accept = page().accept

@@ -323,11 +323,13 @@
            capture="environment">
     <!-- Ticket OPS-21, Android only (D2, D6): what Chrome and Firefox open follows from the accept list. Choose Photo
          has the MIME types alone, since an extension keeps Chrome from its photo picker (D3); Select File names no
-         image type, so neither browser offers the camera (D4); the camera has any image and capture, the one list Chrome
-         opened the camera with directly (D1). Firefox opens its Camera / Files chooser for it (Bug 1911552). -->
+         image type, so neither browser offers the camera (D4), and is one made-up extension no MIME table knows, which
+         Chrome opens unfiltered as application/octet-stream and Firefox as */*: under application/octet-stream itself
+         Firefox's Files greyed out every photo (D11); the camera has any image and capture, the one list Chrome opened
+         the camera with directly (D1). Firefox opens its Camera / Files chooser for it (Bug 1911552). -->
     <input id="android-photo-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/gif,image/bmp,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2">
-    <input id="select-file-input" type="file" accept="application/octet-stream">
+    <input id="select-file-input" type="file" accept=".coffeecv">
     <input id="android-camera-input" type="file" accept="image/*" capture="environment">
     <div id="preview-wrap">
       <img id="preview" alt="Selected photo preview">

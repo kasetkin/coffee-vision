@@ -14,6 +14,7 @@ owner checks that on the devices (D7).
 """
 from __future__ import annotations
 
+import mimetypes
 import re
 import unittest
 from html.parser import HTMLParser
@@ -131,6 +132,14 @@ class AndroidControls(unittest.TestCase):   # OPS-21
         for id_ in ("android-photo-input", "select-file-input"):
             with self.subTest(input=id_):
                 self.assertNotIn("capture", element(id_)[1])
+
+    def test_select_file_is_one_extension_no_mime_table_knows(self):   # D11, R6
+        # Chrome turns an extension Android's MimeTypeMap does not know into application/octet-stream, which it opens
+        # unfiltered; Firefox turns it into */*. application/octet-stream itself reached Firefox's Files as a filter,
+        # and every photo was greyed out (the owner's check, 2026-11-09). Python's table stands in for Android's.
+        accept = element("select-file-input")[1]["accept"]
+        self.assertRegex(accept, r"^\.[a-z0-9]+$")
+        self.assertIsNone(mimetypes.guess_type("x" + accept, strict=False)[0])
 
     def test_androids_camera_opens_the_rear_camera(self):   # D1: the test's C1; its list is held with the others
         self.assertEqual(element("android-camera-input")[1].get("capture"), "environment")
