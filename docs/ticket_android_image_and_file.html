@@ -368,6 +368,13 @@
       <code>20261109T0649Z-c8be7e8</code>). <code>--verify</code> passed, every check ok; the domain's page carries
       <code>accept=".coffeecv"</code> on Select File. The owner's check open: a JPEG and a DNG through Select File in
       Firefox and in Chrome, and a photo answered from each control.</div>
+    <div><div class="when">2026-11-09</div>The owner's check on <code>81fb283</code>: D11's fallback works. Firefox's
+      Select File picks a DNG file; Chrome's opens its Files-only chooser, then the file dialog, and picks a JPEG. Choose
+      Photo opens the photo picker in Chrome; in Firefox its chooser's Files now opens the photo picker, not a general file
+      browser. Choose Photo's input is the same in both releases (<code>git diff c8be7e8 81fb283</code> changes only
+      Select File's), so that comes from Android, not the page: inferred, unverified, Android handing a request for
+      image types alone to its photo picker; most likely it was so in the first release too and was not looked at then.
+      Not reported: a JPEG through Firefox's Select File, and a photo answered from each control.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
