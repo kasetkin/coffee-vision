@@ -12,11 +12,11 @@
     (2026-11-08) and chose controls that each do one thing: Choose Image opens the photo picker, Select File a file browser,
     and a square camera button, an icon with no text, the camera (D1, revised 2026-11-09). Desktop does not change;
     iPhone's Take Photo becomes the same camera button (D8). Choose Image is labelled Choose Photo, one name on
-    every platform (D10). Written 2026-11-08; D1, D2, D8&ndash;D10 decided, D3&ndash;D7 open; not implemented.</p>
+    every platform (D10). Written 2026-11-08; D1&ndash;D10 decided 2026-11-09; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2, D8&ndash;D10 decided (D1 revised 2026-11-09), D3&ndash;D7 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
-    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1&ndash;D10 decided (D1 revised 2026-11-09); not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
     <div class="field"><span class="k">Component</span><span class="v"><code>webapp/static/index.html</code> (the file inputs, their labels, <code>isMobile()</code>), <code>tests/test_photo_controls.py</code>, <code>tests/test_accepted_formats_named.py</code>, ADR 0034, a release</span></div>
@@ -164,25 +164,26 @@
       <tr><td class="id">D3</td><td>Choose Image's <code>accept</code> list?</td>
         <td>(a) the accepted formats' MIME types, without extensions (A2), so the picker is limited to formats the
           service reads (recommended) (b) <code>image/*</code> (A1)</td>
-        <td>Open.</td></tr>
+        <td>(a), 2026-11-09, as recommended: the accepted formats' MIME types, without extensions.</td></tr>
       <tr><td class="id">D4</td><td>Select File's <code>accept</code> list?</td>
         <td>(a) <code>application/octet-stream</code> (B1, tested) (b) another type that is not an image</td>
-        <td>Open; (a) recommended, the one tested.</td></tr>
+        <td>(a), 2026-11-09, as recommended: <code>application/octet-stream</code>.</td></tr>
       <tr><td class="id">D5</td><td>ADR 0034 says the page's <code>accept</code> lists name every accepted format and
         nothing else; D3, D4 and the camera button's <code>image/*</code> depart from it on Android. How?</td>
         <td>(a) amend the ADR's consequences: on Android, Choose Image's list is the file's MIME types alone, Select
           File's names no format, and the camera's is <code>image/*</code> (a camera writes JPEG or HEIC); the test
           holds all three (recommended) (b) a new ADR that supersedes it</td>
-        <td>Open.</td></tr>
+        <td>(a), 2026-11-09, as recommended: ADR 0034's consequences amended in this ticket's change.</td></tr>
       <tr><td class="id">D6</td><td>How does the page tell Android?</td>
         <td>(a) <code>Android</code> in the user agent; a tablet asking for the desktop site reports Linux and gets the
           desktop control (recommended) (b) a client hint (<code>navigator.userAgentData</code>), which Firefox does
           not have</td>
-        <td>Open.</td></tr>
+        <td>(a), 2026-11-09, as recommended: <code>Android</code> in the user agent.</td></tr>
       <tr><td class="id">D7</td><td>Where is it checked, and is a failed check rolled back?</td>
         <td>(a) live, as OPS-17 D5: the owner on an Android phone (Chrome and Firefox), an iPhone and a desktop;
           a rollback is the owner's to decide, as OPS-17 D8 (b) a local app reached from the phone first</td>
-        <td>Open.</td></tr>
+        <td>(a), 2026-11-09, as recommended: checked live on an Android phone (Chrome and Firefox), an iPhone and a
+          desktop; a rollback is the owner's to decide.</td></tr>
       <tr><td class="id">D8</td><td>Does iOS's Take Photo become the same camera button?</td>
         <td>(a) yes: one look on every phone and tablet, and iOS's Take Photo already opens the camera directly
           (recommended) (b) no, iOS keeps the words, as D2 has it</td>
@@ -251,6 +252,8 @@
       implemented.</div>
     <div><div class="when">2026-11-09</div>D10 decided: one name on every platform, chosen by Claude on the owner's
       word: Choose Photo. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-09</div>D3&ndash;D7 decided by the owner, all as recommended. Every decision
+      made; Triage ready-for-agent. Not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
