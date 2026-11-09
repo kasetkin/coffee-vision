@@ -15,7 +15,7 @@
     Written 2026-11-08; D1&ndash;D15 decided 2026-11-09; live 2026-11-09.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-09 on the owner's word; implemented in 533e0a7, released in <code>20261109T0649Z-c8be7e8</code>, <code>--verify</code> passed; the owner's check (D7) not reported, left unticked</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-09 on the owner's word; implemented in 533e0a7, released in <code>20261109T0649Z-c8be7e8</code>, <code>--verify</code> passed; the owner's check (D7) reported 2026-11-09 in part (Activity), left unticked</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -341,6 +341,14 @@
     <div><div class="when">2026-11-09</div>Closed by the owner. The owner's check (D7: Android in Chrome and Firefox,
       Select File with a JPEG and a RAW file, an iPhone, a desktop, the words at 360&nbsp;px) not reported here and left
       unticked; if Firefox greys out photos in Select File, D11's fallback is a new release.</div>
+    <div><div class="when">2026-11-09</div>The owner's check (D7), reported on the live release: on an Android phone,
+      Chrome's Choose Photo opens the photo picker and Firefox's the Camera / Files chooser, as the test found; Select
+      File offers Files only in both. On an iPhone the camera button opens the camera (D8, R5 answered). The desktop as
+      before, one control, and it works. At 360&nbsp;px, in Firefox's responsive design mode with a Firefox for Android
+      user agent (a desktop's fonts, not a phone's), the row's words fit one line each (D12; the screenshot shown in
+      the session, not committed). Not reported, so the box stays unticked: the camera button on Android (Chrome's
+      camera directly, Firefox's chooser), a JPEG and a RAW file picked through Select File in each browser (D11, R6),
+      and a photo answered from each control.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
