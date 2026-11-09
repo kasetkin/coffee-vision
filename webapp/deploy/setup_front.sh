@@ -50,7 +50,9 @@ if [[ -z "${DEPLOY_PUBKEY:-}" ]]; then
   DEPLOY_PUBKEY="${key/#\~/$HOME}.pub"
 fi
 [[ -n "$PRINT" || -f "$DEPLOY_PUBKEY" ]] || { echo "no public key at $DEPLOY_PUBKEY: set DEPLOY_PUBKEY" >&2; exit 1; }
-PUBKEY=$(cat "$DEPLOY_PUBKEY" 2>/dev/null || echo "<the deploy key>")
+# Empty only with --print and no key here: the printed script then leaves the deploy user's keys as they are (a
+# re-run, run by hand on the proxy, where the deploy user already logs in).
+PUBKEY=$(cat "$DEPLOY_PUBKEY" 2>/dev/null || true)
 
 UNIT=$(python3 "$REPO/webapp/deploy/render_template.py" FRONT_SERVICE_USER="$FRONT_SERVICE_USER" \
          RELEASE_DIR="$FRONT_APP_ROOT/current" < "$REPO/webapp/deploy/coffee-cv-front.service.template")
@@ -91,9 +93,14 @@ id "$DEPLOY_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$D
 home=$(getent passwd "$DEPLOY_USER" | cut -d: -f6)
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$home/.ssh"
 touch "$home/.ssh/authorized_keys"
-grep -qxF "$PUBKEY" "$home/.ssh/authorized_keys" || printf '%s\n' "$PUBKEY" >> "$home/.ssh/authorized_keys"
+if [[ -n "$PUBKEY" ]]; then
+  grep -qxF "$PUBKEY" "$home/.ssh/authorized_keys" || printf '%s\n' "$PUBKEY" >> "$home/.ssh/authorized_keys"
+  keys="its key installed"
+else
+  keys="no key given: its authorized_keys left as they are"
+fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$home/.ssh/authorized_keys"; chmod 0600 "$home/.ssh/authorized_keys"
-echo "   $FRONT_SERVICE_USER (the check service), $DEPLOY_USER (the deploy; its key installed)"
+echo "   $FRONT_SERVICE_USER (the check service), $DEPLOY_USER (the deploy; $keys)"
 
 echo "== 2. sudo: only what the deploy runs here (D9)"
 systemctl_bin=$(command -v systemctl); nginx_bin=$(command -v nginx)
