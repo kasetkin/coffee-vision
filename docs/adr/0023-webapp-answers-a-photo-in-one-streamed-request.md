@@ -6,6 +6,7 @@ A photo is uploaded once, to one endpoint, and the answer streams back in parts:
 
 - Every pick costs a full classification in one request (about 9–11 s on `yappy`'s GPU), even when the visitor would have stopped at the mask. The single worker is busy for that whole time.
 - Streaming needs buffering turned off on every proxy along the way. The app sends `X-Accel-Buffering: no` and our nginx passes that header on to the nginx in front of it.
+- *Noted 2026-11-09, [OPS-3](../ticket_visitor_analytics.html) D8:* the request ID that joins one request's log lines is made by the front's nginx and kept on every hop; the app answers and logs under it, in place of one of its own, and the page's timeline of the photo names it. The request and its parts are unchanged, and the server still holds nothing between requests: the page sends its timeline itself, once the answer is in.
 - A feature that changes the photo's crop before classifying it, such as editing the box (`TODO(crop editing)` in `webapp/static/index.html`), has to be a second upload carrying the edit, not a follow-up on a held photo.
 
 Source: [OPS-7](../ticket_photos_and_answers_optimization.html) D2, D15.

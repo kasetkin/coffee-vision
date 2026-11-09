@@ -183,7 +183,9 @@ ADR 0020) -> **render** the unit from the commit (installed only if changed) -> 
 **verify** (the front's `current` is the inference host's; the check service's `GET /analyze` -> 405; backend
 `GET /` -> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
 release's `index.html`; public `/analyze` answers both parts with the top-1 expected, and the time each part
-arrived is reported, not checked (OPS-7 D11); on failure it reverts both hosts, or stops the
+arrived is reported, not checked (OPS-7 D11); that photo's timeline, sent to `/timeline` through the domain, is
+written to the check service's log (OPS-3 D14); every request it sends through the domain carries
+`X-Coffee-CV-Probe: verify`, which the reading script leaves out; on failure it reverts both hosts, or stops the
 service if there is nothing to roll back to) -> **prune** to `current` + `previous`, on the host and in this machine's staging directory (`$DEPLOY_SCRATCH`, default `~/.cache/coffee-cv-deploy`).
 
 A reload does not rebind a changed listen address: `docs/agents/deploy.md` has the case, and the rollback to the
@@ -237,7 +239,8 @@ readlink /opt/coffee-cv/current /opt/coffee-cv/previous   # which releases
 journalctl -u coffee-cv-web -f         # startup: commit, model_sha, OOD guard
 tail -f /var/log/coffee-cv/app.jsonl   # per-request logs: verdicts, timing, errors
                                         # (never image bytes or filenames --
-                                        # see docs/logging_plan.html)
+                                        # see docs/logging_plan.html), under
+                                        # the front's request id (OPS-3 D8)
 tail -f /var/log/nginx/coffee-cv.access  # nginx side of the same requests --
                                         # no client IP, joined to the line
                                         # above by request id; its last field,
@@ -250,13 +253,36 @@ On the front (the proxy):
 
 ```
 systemctl status coffee-cv-front
-journalctl -u coffee-cv-front -f       # the check service: one line per request, no IP
-tail -f /var/log/nginx/coffee-cv-front.access    # no IP; nginx's request id, then the app's
-                                                 # ("-" for a request refused at the front);
-                                                 # last, the calling page's Origin (OPS-19 D3)
-tail -f /var/log/nginx/coffee-cv-front.sessions  # the visitor's IP, one line per TLS session
-                                                 # (the stream block's; kept 30 days, OPS-15 D20)
+journalctl -u coffee-cv-front -f       # the check service's start-up line
+tail -f /var/log/coffee-cv-front/requests.jsonl  # the check service: one JSON line per request and
+                                                 # each page's timeline (OPS-3), no IP
+tail -f /var/log/nginx/coffee-cv-front.access    # no IP; the request id, then the one the answer
+                                                 # came back with ("-" for a refusal at the front);
+                                                 # the calling page's Origin (OPS-19 D3); the browser,
+                                                 # the referrer and the deploy's marker (OPS-3 D5, D14)
+sudo tail -f /var/log/nginx/coffee-cv-front.sessions  # the visitor's IP, one line per TLS session (the
+                                                 # stream block's; 30 days, OPS-15 D20; 0640, OPS-3 D18)
 ```
+
+### Reading the logs
+
+`coffeecv/timelines.py` (ticket OPS-3 D13) reads the four logs above, the front's two and the inference host's two,
+rotated files included, over SSH as the deploy users, into memory; it writes nothing locally and never reads the
+session log. It joins them by request ID into each photo's timeline: the page's own times and choices, sent once per
+photo to `POST /timeline`, and the hosts' lines (`docs/logging_plan.html` §03-G).
+
+```
+DOMAIN=<the site> python -m coffeecv.timelines summary [--since YYYY-MM-DD] [--until YYYY-MM-DD]
+DOMAIN=<the site> python -m coffeecv.timelines serve    # then open http://localhost:8766
+```
+
+`summary` prints per day the page loads by people and by crawlers, the referrers, the photos by control, example,
+format and size; each step's median and 90th percentile, split by control and by canonicalized or not; failures by
+kind; other sites' calls by Origin; and the timelines not counted (D17): suspicious (a second for one ID), unverified
+(an ID no host knows), unverifiable (no ID: a photo refused on the page, or abandoned before its answer began) and
+dropped past the daily cap. `serve` shows the same on a local page, with a list of photos whose rows open step by
+step. `--front` and `--inference` name the SSH aliases (`webproxy-deploy`, `webappremote`), and `--from-dir` reads a
+local copy instead. The deploy's own requests are left out.
 
 A streamed `/analyze` answer has its status before it is done, so its `app.jsonl` line also says how it ended
 (ticket OPS-7 D19): `outcome` is `complete`, `error` (an error part) or `client_gone` (the client left before the
