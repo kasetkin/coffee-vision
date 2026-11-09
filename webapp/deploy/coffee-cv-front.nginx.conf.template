@@ -22,6 +22,17 @@ log_format coffee_cv_front_minimal '$time_iso8601 $request_id $upstream_http_x_r
 # nginx does not count a request whose key is empty. The inference host keeps its own as a backstop.
 limit_conn_zone $server_name zone=coffee_cv_front_inflight:1m;
 
+# POST /timeline, the page's timeline of each photo (ticket OPS-3 D7, D17's layer 3). The front cannot limit per
+# visitor (it sees 127.0.0.1), so one global rate, keyed like the gate above: 12 a minute with bursts of 20 (D23), a
+# few times what one photo at a time can send. Another site's page may not send one (D24): an Origin that is neither
+# the site's own nor absent (a same-site beacon may send none, and curl can fake either) is refused.
+limit_req_zone $server_name zone=coffee_cv_front_timeline:1m rate=12r/m;
+map $http_origin $coffee_cv_front_foreign_origin {
+    ""                  0;
+    "https://$DOMAIN"   0;
+    default             1;
+}
+
 server {
     # TLS on a loopback port: the proxy's stream block reads the SNI on 443 and hands this domain's sessions here, as it
     # does for the proxy's other local sites, with no PROXY protocol header (D20).
@@ -132,6 +143,23 @@ server {
         # itself when the inference host is (D12). Its own 503s are relayed as they are: error_page acts only on this
         # nginx's own errors, since proxy_intercept_errors is off.
         error_page 502 504 = @offline;
+    }
+
+    location = /timeline {
+        if ($coffee_cv_front_foreign_origin) {
+            return 403;
+        }
+        limit_req zone=coffee_cv_front_timeline burst=20 nodelay;
+        limit_req_status 429;
+        # D23: a real timeline is under 2 KB; coffeecv/timeline_schema.py's MAX_BODY, which the check service holds too.
+        client_max_body_size 4k;
+        proxy_pass http://127.0.0.1:$CHECK_PORT;
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-For "";
+        proxy_set_header Forwarded "";
+        # No CORS headers: only the site's own page sends a timeline. Not the photo's gate: limit_conn is /analyze's.
     }
 
     # The front's refusals in their own locations: they inherit none of /analyze's add_header, so each sends the same

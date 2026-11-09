@@ -188,11 +188,12 @@ class TestTwoReleases(unittest.TestCase):
         front = front_manifest()
         self.assertTrue({"webapp/front/check_service.py", "webapp/front/upload_check.py", "webapp/front/pyproject.toml",
                          "webapp/front/uv.lock"} <= set(front["git"]))
-        # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization and nothing else of it.
+        # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization, and since OPS-3 P3 the
+        # timeline's schema, and nothing else of it.
         self.assertEqual({p for p in front["git"] if p.startswith("coffeecv/")},
                          {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/jxl_encode.py",
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
-                          "coffeecv/data/accepted_formats.csv"})
+                          "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py"})
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
@@ -213,8 +214,9 @@ class TestTwoReleases(unittest.TestCase):
                     [a.name for a in node.names] if isinstance(node, ast.Import) else []
                 for name in names:
                     if name.startswith("coffeecv"):
-                        mod = name if name != "coffeecv" else "coffeecv." + node.names[0].name
-                        todo.append(mod.replace(".", "/") + ".py")
+                        # `from coffeecv import a, b` imports every module it names, not the first only
+                        mods = [name] if name != "coffeecv" else [f"coffeecv.{a.name}" for a in node.names]
+                        todo += [mod.replace(".", "/") + ".py" for mod in mods]
         self.assertTrue(seen - {"webapp/front/check_service.py", "webapp/front/upload_check.py"})
         self.assertEqual(seen - shipped, set())
 

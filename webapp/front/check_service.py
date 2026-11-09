@@ -51,7 +51,7 @@ from pathlib import Path, PurePath
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # the release's root: coffeecv/
 from upload_check import HEAD_BYTES, refusal  # noqa: E402
 
-from coffeecv import canonical  # noqa: E402
+from coffeecv import canonical, timeline_schema  # noqa: E402
 
 # ML-19 D23: the photo's own size, as the page measures it. Since the front canonicalizes, the photo that crosses the
 # tunnel is the canonical one (at most about 14 MB at 60 MP, analysis/ml19/p4_sizes.md) and memory is held by the
@@ -103,7 +103,13 @@ EXT_CAP = 16
 ERROR_CAP = 300
 # The deploy's own requests (OPS-3 D14): --verify sends this header and value, the log keeps it, the script leaves
 # such requests out of the counts. A visitor who sends it hides only their own requests.
-PROBE_HEADER, PROBE = "X-Coffee-CV-Probe", "verify"
+PROBE_HEADER, PROBE = "X-Coffee-CV-Probe", timeline_schema.PROBE
+# POST /timeline (OPS-3 D7): the page's timeline of a photo, checked against coffeecv/timeline_schema.py, whose example
+# names come from the release's list. D23: past this many bytes of /timeline's lines in a UTC day, the rest of the
+# day's are dropped and counted in the next request line: a flood adds at most this much a day (about 2 MB once
+# compressed), and a real day is a few hundred KB. The count starts again when the service restarts.
+EXAMPLES_LIST = Path(__file__).resolve().parents[1] / "static" / "examples" / "examples.json"
+TIMELINE_DAILY_BYTES = 20 * 2**20
 
 
 def request_id(sent: str | None) -> str:
@@ -185,17 +191,49 @@ class JsonLines:
         self.handler.setFormatter(logging.Formatter("%(message)s"))
 
     def write(self, record: dict) -> None:
-        self.handler.handle(logging.makeLogRecord({"msg": json.dumps(record)}))
+        self.write_line(json.dumps(record))
+
+    def write_line(self, line: str) -> None:
+        self.handler.handle(logging.makeLogRecord({"msg": line}))
 
 
 def ms_since(t: float) -> int:
     return round((time.monotonic() - t) * 1000)
 
 
+def utc_day() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+class DailyBudget:
+    """What /timeline may write in a UTC day (D23), and how many lines it dropped past that, since last asked."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.day, self.written, self.dropped = "", 0, 0
+
+    def take(self, size: int) -> bool:
+        with self.lock:
+            if (day := utc_day()) != self.day:
+                self.day, self.written = day, 0
+            if self.written + size > TIMELINE_DAILY_BYTES:
+                self.dropped += 1
+                return False
+            self.written += size
+            return True
+
+    def take_dropped(self) -> int:
+        with self.lock:
+            dropped, self.dropped = self.dropped, 0
+            return dropped
+
+
 class CheckHandler(BaseHTTPRequestHandler):
     inference: tuple[str, int]   # set by make_server
     crossing: threading.Lock     # set by make_server: held while a photo crosses and its answer comes back
     log: JsonLines               # set by make_server
+    examples: frozenset[str]     # set by make_server: the release's example names
+    budget: DailyBudget          # set by make_server
     server_version = "coffee-cv-front"
     sys_version = ""
 
@@ -209,17 +247,62 @@ class CheckHandler(BaseHTTPRequestHandler):
                        "request_id": self.request_id, "method": "POST", "endpoint": path}
         if self.headers.get(PROBE_HEADER) == PROBE:   # the deploy's own check (OPS-3 D14); any other value is not kept
             self.record["probe"] = PROBE
+        if path == "/timeline":
+            return self.timeline()
         outcome = "error"   # what the line says if this handler itself fails
         try:
             outcome = self.analyze() if path == "/analyze" else self.json(404, {"error": "not found"}, "not_found")
         finally:
             self.record.update(outcome=outcome, total_ms=ms_since(t0))
+            if dropped := self.budget.take_dropped():
+                self.record["timelines_dropped"] = dropped
             self.log.write(self.record)
 
     def do_GET(self):  # noqa: N802
         self.request_id = request_id(self.headers.get("X-Request-Id"))
         self.record = {}
-        self.json(405 if urlsplit(self.path).path == "/analyze" else 404, {"error": "use POST /analyze"}, "")
+        self.json(405 if urlsplit(self.path).path in ("/analyze", "/timeline") else 404, {"error": "use POST /analyze"},
+                  "")
+
+    def timeline(self) -> None:
+        """POST /timeline (OPS-3 D7, D16): a photo's timeline from the page, written as a line of kind "timeline" when
+        coffeecv/timeline_schema.py accepts it, else refused with a 400 and a request line saying which key, never what
+        was sent (D17's layer 2). The front's nginx caps the body, the rate and the Origin first (layer 3); the daily
+        cap is here (D23). It never takes the photo's gate: a timeline is a few hundred bytes, written at once."""
+        status, outcome, reason = 204, "written", None
+        try:
+            length = int(self.headers.get("Content-Length", ""))
+            if length < 0:
+                raise ValueError
+        except ValueError:
+            status, outcome = 411, "bad_length"
+        else:
+            if length > timeline_schema.MAX_BODY:
+                status, outcome = 413, "too_large"   # unread: the connection is closed after the answer
+            else:
+                try:
+                    sent = timeline_schema.parse(self.rfile.read(length), self.examples)
+                except timeline_schema.Invalid as exc:
+                    status, outcome, reason = 400, "refused", str(exc)
+        if status == 204:
+            line = json.dumps({"ts": self.record["ts"], "kind": "timeline", "request_id": self.request_id,
+                               **({"probe": PROBE} if "probe" in self.record else {}), "timeline": sent})
+        else:
+            self.close_connection = True
+            line = json.dumps({**self.record, "status": status, "outcome": outcome,
+                               **({"reason": reason} if reason else {})})
+        if self.budget.take(len(line) + 1):
+            self.log.write_line(line)
+        elif status == 204:
+            status = 503
+        if status == 204:
+            self.send_response(204)
+            self.send_header("X-Request-Id", self.request_id)
+            self.end_headers()
+        else:
+            error = {411: "a Content-Length is required", 413: "this timeline is too large",
+                     503: "no more timelines today"}.get(status, f"not a timeline: {reason}")
+            self.json(status, {"error": error}, outcome)
 
     def analyze(self) -> str:
         if "Content-Length" not in self.headers:
@@ -383,7 +466,9 @@ def make_server(listen: tuple[str, int], inference_url: str, log_dir: Path) -> T
     if url.scheme != "http" or not url.hostname or url.path not in ("", "/"):
         raise SystemExit(f"--inference wants http://<host>:<port>, got {inference_url!r}")
     handler = type("Handler", (CheckHandler,), {"inference": (url.hostname, url.port or 80),
-                                                "crossing": threading.Lock(), "log": JsonLines(log_dir / LOG_FILE)})
+                                                "crossing": threading.Lock(), "log": JsonLines(log_dir / LOG_FILE),
+                                                "examples": timeline_schema.example_names(EXAMPLES_LIST),
+                                                "budget": DailyBudget()})
     server = ThreadingHTTPServer(listen, handler)
     server.daemon_threads = True
     return server

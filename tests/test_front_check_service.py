@@ -34,8 +34,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "front"))
 import check_service  # noqa: E402
 
-from coffeecv import canonical  # noqa: E402
+from coffeecv import canonical, timeline_schema  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
+from tests.test_timeline_schema import timeline  # noqa: E402
 
 def _jpeg() -> bytes:
     """A real photo, small: the service decodes and canonicalizes what it forwards. Bytes after its end marker (the
@@ -587,6 +588,108 @@ class CheckService(unittest.TestCase):
         _, resp = self.post(body, headers={"Content-Type": f"Multipart/Form-Data; boundary={BOUNDARY}"})
         resp.read()
         self.assertEqual(resp.status, 200)
+
+
+class Timelines(unittest.TestCase):
+    """POST /timeline (OPS-3 P3, D7, D17's layer 2, D23): checked against the schema, written as one line of its own
+    kind, never behind the photo's gate, and no more than the daily cap."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.log_dir = Path(tempfile.mkdtemp(prefix="check-service-log-"))
+        cls.addClassCleanup(shutil.rmtree, cls.log_dir, ignore_errors=True)
+        cls.service = cls.serve()
+
+    @classmethod
+    def serve(cls):
+        server = check_service.make_server(("127.0.0.1", 0), "http://127.0.0.1:9", cls.log_dir)   # never reached
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        cls.addClassCleanup(server.server_close)
+        cls.addClassCleanup(server.shutdown)
+        return server
+
+    def send(self, body, server=None, headers: dict | None = None, method: str = "POST"):
+        """The answer to a timeline (an object, sent as JSON, or bytes as they are), already read."""
+        body = json.dumps(body).encode() if isinstance(body, dict) else body
+        conn = http.client.HTTPConnection("127.0.0.1", (server or self.service).server_address[1], timeout=10)
+        self.addCleanup(conn.close)
+        conn.request(method, "/timeline", body=body, headers={
+            "Content-Type": "text/plain;charset=UTF-8", "X-Request-Id": uuid.uuid4().hex, **(headers or {})})
+        resp = conn.getresponse()
+        resp.read()
+        return resp
+
+    def line(self, resp) -> dict:
+        return log_line(self.log_dir, resp.getheader("X-Request-Id"))
+
+    def test_a_timeline_is_written_as_one_line_of_its_own_kind(self):
+        sent = timeline(probe="verify")
+        resp = self.send(sent, headers={"X-Coffee-CV-Probe": "verify"})
+        self.assertEqual(resp.status, 204)
+        line = self.line(resp)
+        self.assertRegex(line.pop("ts"), r"^\d{4}-\d\d-\d\dT")
+        self.assertEqual(line, {"kind": "timeline", "request_id": resp.getheader("X-Request-Id"), "probe": "verify",
+                                "timeline": sent})
+
+    def test_an_example_named_in_the_releases_list(self):
+        resp = self.send(timeline(control="example", example="ethiopia-green", pick_ms=None, download_ms=300))
+        self.assertEqual(resp.status, 204)
+        self.assertEqual(self.line(resp)["timeline"]["example"], "ethiopia-green")
+
+    def test_each_refusal_is_a_400_and_a_line_that_repeats_nothing_sent(self):
+        for name, body in (("unknown key", timeline(**{"ua": "Mozilla\n<b>"})),
+                           ("outside its set", timeline(control="Mozilla\n<b>")),
+                           ("negative time", timeline(total_ms=-1)), ("huge time", timeline(total_ms=10**9)),
+                           ("malformed id", timeline(request_id="Mozilla")),
+                           ("unknown example", timeline(control="example", example="Mozilla\n<b>")),
+                           ("not json", b"Mozilla\n<b>"), ("empty", b"")):
+            with self.subTest(name):
+                resp = self.send(body)
+                self.assertEqual(resp.status, 400)
+                line = self.line(resp)
+                self.assertEqual((line["kind"], line["endpoint"], line["status"], line["outcome"]),
+                                 ("request", "/timeline", 400, "refused"))
+                self.assertNotIn("Mozilla", json.dumps(line))
+        for raw in (self.log_dir / check_service.LOG_FILE).read_bytes().splitlines():
+            json.loads(raw)
+
+    def test_an_oversized_body_is_a_413(self):
+        body = json.dumps(timeline()).encode() + b" " * timeline_schema.MAX_BODY
+        resp = self.send(body)
+        self.assertEqual(resp.status, 413)
+        self.assertEqual(self.line(resp)["outcome"], "too_large")
+
+    def test_a_timeline_never_takes_the_photos_gate(self):
+        gate = self.service.RequestHandlerClass.crossing
+        gate.acquire()
+        try:
+            self.assertEqual(self.send(timeline()).status, 204)
+        finally:
+            gate.release()
+
+    def test_a_get_is_refused(self):
+        self.assertEqual(self.send(b"", method="GET").status, 405)
+
+    def test_past_the_daily_cap_timelines_are_dropped_and_counted_in_the_next_request_line(self):   # D23
+        service = self.serve()
+        one = len(json.dumps({"ts": "2026-11-09T00:00:00.000+00:00", "kind": "timeline", "request_id": "0" * 32,
+                              "timeline": timeline()})) + 1
+        with mock.patch.object(check_service, "TIMELINE_DAILY_BYTES", one + 10), \
+                mock.patch.object(check_service, "utc_day", return_value="2026-11-09"):
+            self.assertEqual(self.send(timeline(), server=service).status, 204)
+            self.assertEqual(self.send(timeline(), server=service).status, 503)
+            self.assertEqual(self.send(b"{", server=service).status, 400)   # its refusal line is not written either
+            conn = http.client.HTTPConnection("127.0.0.1", service.server_address[1], timeout=10)
+            self.addCleanup(conn.close)
+            conn.request("POST", "/analyze", body=form("beans.jpg", b"some text"),
+                         headers={"Content-Type": f"multipart/form-data; boundary={BOUNDARY}"})
+            resp = conn.getresponse()
+            resp.read()
+            self.assertEqual(log_line(self.log_dir, resp.getheader("X-Request-Id"))["timelines_dropped"], 2)
+            self.assertEqual(self.send(timeline(), server=service).status, 503)
+        with mock.patch.object(check_service, "TIMELINE_DAILY_BYTES", one + 10), \
+                mock.patch.object(check_service, "utc_day", return_value="2026-11-10"):
+            self.assertEqual(self.send(timeline(), server=service).status, 204, "a new day starts a new cap")
 
 
 class Options(unittest.TestCase):

@@ -41,8 +41,10 @@ import check_service  # noqa: E402
 from render_template import render  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
+from tests.test_timeline_schema import timeline  # noqa: E402
 from tests.test_front_check_service import (BOUNDARY, JPEG, RID, FakeInferenceHost, form, free_port,  # noqa: E402
                                             log_line)
+from tests.test_front_check_service import log_lines as check_service_lines  # noqa: E402
 
 NGINX = shutil.which("nginx") or next((p for p in ("/usr/sbin/nginx",) if Path(p).exists()), None)
 STREAM_MODULE = Path("/usr/lib/nginx/modules/ngx_stream_module.so")
@@ -103,8 +105,9 @@ class SiteAgreesWithTheCheckService(unittest.TestCase):
         self.assertRegex(block, r"(?m)^\s*create 0640 www-data adm$")
 
 
-@real_data   # several seconds: nginx, the check service and the fake answers' one-second gaps
-class FrontSite(unittest.TestCase):
+class FrontRig(unittest.TestCase):
+    """The stream server, the site, the check service and a fake inference host on loopback; no tests of its own."""
+
     @classmethod
     def setUpClass(cls):
         if NGINX is None or not STREAM_MODULE.exists():
@@ -224,6 +227,10 @@ http {{
         self.assert_cross_origin(resp)
         return resp.status, json.loads(resp.read())
 
+
+
+@real_data   # several seconds: nginx, the check service and the fake answers' one-second gaps
+class FrontSite(FrontRig):
     def test_a_cross_origin_caller_reads_the_streamed_answer(self):   # OPS-19 D1, D4
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
         self.assertEqual((resp.status, resp.read()), (200, b'{"part": "preview"}\n{"part": "classification"}\n'))
@@ -423,6 +430,35 @@ http {{
                 self.assertEqual(self.access_line(rid)[1:3], [rid, "-"])
                 self.assert_cross_origin(resp)
 
+    def send_timeline(self, origin: str | None, body: bytes | None = None):
+        headers = {"Content-Type": "text/plain;charset=UTF-8", **({"Origin": origin} if origin else {})}
+        resp = self.visit("POST", "/timeline", json.dumps(timeline()).encode() if body is None else body, headers)
+        resp.read()
+        return resp
+
+    def test_a_timeline_from_the_page_reaches_the_check_service(self):   # OPS-3 D7, D24
+        for origin in (f"https://{DOMAIN}", None):
+            with self.subTest(origin=origin):
+                resp = self.send_timeline(origin)
+                rid = resp.getheader("X-Request-Id")
+                self.assertEqual(resp.status, 204)
+                self.assertEqual(log_line(self.service_logs, rid)["timeline"], timeline())
+                self.assertEqual(self.access_line(rid)[3:5], ["204", '"POST /timeline HTTP/1.1"'])
+                self.assertIsNone(resp.getheader("Access-Control-Allow-Origin"))
+
+    def test_another_sites_timeline_is_refused_by_the_front(self):   # OPS-3 D17's layer 3, D24
+        lines = len(check_service_lines(self.service_logs))
+        for origin in (ELSEWHERE, "null", f"http://{DOMAIN}", f"https://{DOMAIN}.evil.example"):
+            with self.subTest(origin=origin):
+                self.assertEqual(self.send_timeline(origin).status, 403)
+        self.assertEqual(self.send_timeline(None, b"x" * 5000).status, 413)
+        self.assertEqual(len(check_service_lines(self.service_logs)), lines, "a refused timeline reached the service")
+
+    def test_a_timeline_never_waits_on_a_photo_in_flight(self):   # not /analyze's gate
+        first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
+        self.assertEqual(self.send_timeline(None).status, 204)
+        first.read()
+
     def test_the_access_log_names_the_calling_pages_origin(self):   # OPS-19 D3
         for headers, origin in (({"Origin": ELSEWHERE}, f'"{ELSEWHERE}"'), ({}, '"-"')):
             with self.subTest(origin=origin):
@@ -478,6 +514,22 @@ http {{
         self.assertIn(FakeInferenceHost.seen[-1]["headers"]["X-Request-Id"],
                       (self.logs / "coffee-cv-front.access").read_text(),
                       "a request line that cannot be joined to the app's log")
+
+
+@real_data   # a second: its own nginx, since a burst uses up the rate for any test after it
+class TimelineRate(FrontRig):
+    def test_past_one_burst_timelines_are_refused_and_photos_are_not(self):   # OPS-3 D23
+        statuses = []
+        for _ in range(26):
+            resp = self.visit("POST", "/timeline", json.dumps(timeline()).encode(), {"Content-Type": "text/plain"})
+            resp.read()
+            statuses.append(resp.status)
+        self.assertEqual(set(statuses), {204, 429})
+        self.assertIn(statuses.count(204), (21, 22))   # the burst, the first, and one more if 5 s went by
+        self.assertEqual(statuses, sorted(statuses, key=lambda s: s == 429))
+        resp = self.visit("POST", "/analyze", form("beans.jpg", b"some text"))
+        resp.read()
+        self.assertEqual(resp.status, 400)
 
 
 def access_fields(line: str) -> list[str]:
