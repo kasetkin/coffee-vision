@@ -13,7 +13,7 @@
     Then the owner's one-time setup on the proxy and one release (D19). Nothing reaches the live site before P10.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 answered 2026-11-09 (OPS-3 D22&ndash;D24); P1&ndash;P9 done 2026-11-09 on branch <code>ops3-timelines</code>, not merged; P10 waits for the owner's go</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 answered 2026-11-09 (OPS-3 D22&ndash;D24); P1&ndash;P9 done 2026-11-09; released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; P10's phone check open</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_visitor_analytics.html"><code>ticket_visitor_analytics.html</code></a> (OPS-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -346,13 +346,13 @@
 
   <h2>12. P10 &mdash; The release <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-09: merged (<code>8272377</code>), pushed, released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check open</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P9</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Merge <code>ops3-timelines</code> to <code>main</code>. Push when the owner
+    <li><span class="box done"></span><span>Merge <code>ops3-timelines</code> to <code>main</code>. Push when the owner
       asks.</span></li>
-    <li><span class="box"></span><span>Stop for the owner's go. Then the full two-host deploy of the live model;
+    <li><span class="box done"></span><span>Stop for the owner's go. Then the full two-host deploy of the live model;
       photo answers are down for under 2 minutes (ADR 0026). Then <code>DOMAIN=... --verify</code>, with its new
       timeline check.</span></li>
     <li><span class="box"></span><span>Stop for the owner's phone check: a photo from each control, an example, and
@@ -423,6 +423,13 @@
       readable by the deploy user; the access log is; <code>/var/log/coffee-cv-front</code> appears at the check
       service's next start, the release's. The live release, from before OPS-3, now cannot be redeployed: its unit
       differs. P10 is next.</div>
+    <div><div class="when">2026-11-09</div>P10. On the owner's go: <code>ops3-timelines</code> merged to <code>main</code>
+      (<code>8272377</code>); the first push was held by the pre-push tier, a test reading the check service's log
+      half written, fixed (<code>c37f30e</code>), then pushed. Released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code> with the live model; the full suite
+      passed; every <code>--verify</code> check passed, its new ones included: <code>public POST /timeline: 204</code>
+      and the front's log holding verify's timeline. The check service made <code>/var/log/coffee-cv-front</code> at
+      its start. <code>coffeecv/timelines.py summary</code> read all four logs over SSH as the deploy users, joined
+      the app's line by the front's ID, and left verify's seven requests out. The owner's phone check is next.</div>
   </div>
 
   <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3 ticket</a>, <a
