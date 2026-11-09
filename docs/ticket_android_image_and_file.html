@@ -12,10 +12,10 @@
     (2026-11-08) and chose controls that each do one thing: Choose Photo opens the photo picker, Select File a file browser,
     and a square camera button, an icon with no text, the camera (D1, revised 2026-11-09). Desktop does not change;
     iPhone's Take Photo becomes the same camera button (D8). Choose Photo keeps its name on every platform (D10).
-    Written 2026-11-08; D1&ndash;D15 decided 2026-11-09; not implemented.</p>
+    Written 2026-11-08; D1&ndash;D15 decided 2026-11-09; implemented 2026-11-09, not released.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1&ndash;D15 decided (D1 revised 2026-11-09); not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-09: implemented on main (the page, ADR 0034, the tests), not released; the release and the owner's check (D7) open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -257,13 +257,15 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The live release's page put back, its checksum the release's, both services
       started, <code>--verify</code> passed (Activity, 2026-11-08), before this ticket's release.</span></li>
-    <li><span class="box"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Photo with
+    <li><span class="box done"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Photo with
       D3's list and no <code>capture</code>, Select File with D4's, and the square camera button (D1, D9) with
       <code>image/*</code> and <code>capture="environment"</code>, named "Take Photo" for a screen reader (D13); each feeds
       <code>choose()</code> and waits while a photo is in flight. On iOS, and on any other phone or tablet (D15), the
       same camera button in place of Take Photo's words, its input unchanged (D8); desktop as today. Every input and
-      its list written in the page's HTML (D14). The Android row on one line at 320, 360 and 412 px wide (D12).</span></li>
-    <li><span class="box"></span><span>ADR 0034 as D5 decides, and the tests: the Android lists, the platform check,
+      its list written in the page's HTML (D14). The Android row on one line at 320, 360 and 412 px wide (D12).
+      Checked in headless Chromium with DejaVu Sans only: the words take two lines inside their buttons at 360 px,
+      Roboto's fit there estimated, not measured (Activity, 2026-11-09).</span></li>
+    <li><span class="box done"></span><span>ADR 0034 as D5 decides, and the tests: the Android lists, the platform check,
       and the iOS and desktop lists unchanged.</span></li>
     <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>).</span></li>
     <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Photo opens the photo picker,
@@ -313,6 +315,19 @@
       photos there (R6), and Firefox's <code>capture</code> path for images is broken since Firefox 128; the findings
       copied into Background, no outside notes linked, nothing reported to Mozilla (owner, 2026-11-09). Choose Photo
       written for Choose Image outside the decisions and the history. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-09</div>Implemented by Claude, no plan (one change): five inputs in the page's HTML
+      (<code>photo-input</code> and <code>camera-input</code> as OPS-17 left them; <code>android-photo-input</code>,
+      <code>select-file-input</code>, <code>android-camera-input</code> with D3's, D4's and D1's lists), a hidden Select
+      File label, the camera label a square with an inline SVG, "Take Photo" visually hidden and as its title; on Android
+      in the user agent the script points Choose Photo and the camera at Android's inputs, shows Select File and keeps
+      the row on one line. ADR 0034's consequences amended (D5); <code>tests/test_photo_controls.py</code> and
+      <code>tests/test_accepted_formats_named.py</code> hold the five lists, the labels, the platform check and the busy
+      path. Checked in headless Chromium with Android, iPhone and desktop user agents: each gets its controls and its
+      labels' inputs. The Android row stays on one line at 320, 360 and 412&nbsp;px; with DejaVu Sans Bold, the only
+      font here and wider than Android's Roboto, the two text buttons' words take two lines at 360 and 320&nbsp;px and
+      one at 412, the square keeping one line's height. Estimated from the same widths, Roboto fits one line at
+      360&nbsp;px with about 13&nbsp;px to spare: not measured. Screenshots sent to the owner, not committed. Not
+      released.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),

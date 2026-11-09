@@ -75,6 +75,39 @@
   }
   button:disabled, .file-btn.disabled { opacity: 0.5; cursor: not-allowed; }
   input[type=file] { display: none; }
+  /* Beside the camera button, the text buttons' line set, so its square matches their height (ticket OPS-21 D1); a
+     desktop, with no camera button, keeps its line as before (D2). */
+  .controls.with-camera .file-btn { line-height: 1.25rem; }
+  /* The camera button (ticket OPS-21 D1, D12, D13): a square as tall as a text button with one line, 1.25rem of line
+     and 0.75rem of padding each side; it keeps that height when a text button's words take two lines. */
+  .file-btn.camera-btn {
+    flex: none;
+    min-width: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* display: flex above wins over the hidden attribute's own display: none, as for the format chips (OPS-20). */
+  .file-btn.camera-btn[hidden] { display: none; }
+  .camera-btn svg { width: 1.4rem; height: 1.4rem; }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* Android's three controls on one line at any width (ticket OPS-21 D12, R7): each text button as wide as its words
+     with less side padding, the two sharing what the square leaves; under about 360 px their words may take two
+     lines. */
+  .controls.android { flex-wrap: nowrap; gap: 0.5rem; }
+  .controls.android .file-btn:not(.camera-btn) { flex: 1 1 auto; min-width: 0; padding: 0.75rem 0.5rem; }
   /* The line of buttons that open the lists (ticket OPS-20 D3): smaller and lighter than the upload controls, as
      "Use full photo instead" is, so those stay the main actions and nothing wraps on a narrow phone (R3). */
   .folds { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.6rem; }
@@ -252,10 +285,15 @@
   <h1>Coffee Bean Origin Classifier</h1>
 
   <div class="card">
-    <div class="controls">
+    <!-- Ticket OPS-21 D14: each label names the input for iOS, desktop and any other phone; on Android the script
+         points Choose Photo and the camera at Android's inputs and shows Select File (isAndroid, below). -->
+    <div id="controls" class="controls">
       <label id="photo-label" class="file-btn" for="photo-input">Choose Photo</label>
-      <!-- Ticket OPS-17 D1, D2: the camera in one tap, on phones and tablets only (isMobile, below). -->
-      <label id="camera-label" class="file-btn" for="camera-input" hidden>Take Photo</label>
+      <label id="select-file-label" class="file-btn" for="select-file-input" hidden>Select File</label>
+      <!-- Ticket OPS-17 D1, D2: the camera in one tap, on phones and tablets only (isMobile, below). OPS-21 D1, D8, D9,
+           D13: a square, last, with a camera icon and no visible words; "Take Photo" is read aloud and is its tooltip
+           (a screen reader ignores aria-label on a label). -->
+      <label id="camera-label" class="file-btn camera-btn" for="camera-input" title="Take Photo" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg><span class="visually-hidden">Take Photo</span></label>
     </div>
     <!-- Ticket OPS-20 D3, D4, D7, D12: a line of its own under the upload controls, one button per list, each opening
          and folding only its own; the arrow turns and aria-expanded says which. "Examples" is shown from the first
@@ -264,7 +302,7 @@
       <button id="formats-toggle" class="fold" type="button" aria-expanded="false" aria-controls="formats">Accepted formats <span class="arrow" aria-hidden="true">&#9656;</span></button>
       <button id="examples-toggle" class="fold" type="button" aria-expanded="false" aria-controls="examples" hidden>Examples <span class="arrow" aria-hidden="true">&#9656;</span></button>
     </div>
-    <!-- The accepted formats (coffeecv/data/accepted_formats.csv, ADR 0034): these chips and both accept lists are held
+    <!-- The accepted formats (coffeecv/data/accepted_formats.csv, ADR 0034): these chips and every accept list are held
          to the file by tests/test_accepted_formats_named.py. Folded from load (ticket OPS-20 D5). -->
     <div id="formats" class="formats-hint" hidden>
       <span>JPEG</span><span>PNG</span><span>WebP</span><span>HEIC/HEIF</span><span>AVIF</span>
@@ -283,6 +321,14 @@
     <input id="camera-input" type="file"
            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/gif,image/bmp,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2,.jpg,.jpeg,.png,.webp,.heic,.heif,.hif,.avif,.jxl,.gif,.bmp,.dng,.cr2,.cr3,.nef,.arw,.raf,.orf,.rw2,.pef,.srw"
            capture="environment">
+    <!-- Ticket OPS-21, Android only (D2, D6): what Chrome and Firefox open follows from the accept list. Choose Photo
+         has the MIME types alone, since an extension keeps Chrome from its photo picker (D3); Select File names no
+         image type, so neither browser offers the camera (D4); the camera has any image and capture, the one list Chrome
+         opened the camera with directly (D1). Firefox opens its Camera / Files chooser for it (Bug 1911552). -->
+    <input id="android-photo-input" type="file"
+           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/jxl,image/gif,image/bmp,image/x-adobe-dng,image/x-canon-cr2,image/x-canon-cr3,image/x-nikon-nef,image/x-sony-arw,image/x-fuji-raf,image/x-olympus-orf,image/x-panasonic-rw2">
+    <input id="select-file-input" type="file" accept="application/octet-stream">
+    <input id="android-camera-input" type="file" accept="image/*" capture="environment">
     <div id="preview-wrap">
       <img id="preview" alt="Selected photo preview">
       <div id="image-clip">
@@ -316,6 +362,14 @@ const cropToggleBtn = document.getElementById('crop-toggle-btn');
 const photoLabel = document.getElementById('photo-label');
 const cameraInput = document.getElementById('camera-input');
 const cameraLabel = document.getElementById('camera-label');
+const controls = document.getElementById('controls');
+const androidPhotoInput = document.getElementById('android-photo-input');
+const selectFileInput = document.getElementById('select-file-input');
+const selectFileLabel = document.getElementById('select-file-label');
+const androidCameraInput = document.getElementById('android-camera-input');
+// Every input a visitor picks a photo with, and every control that opens one (OPS-17, OPS-21 D14).
+const pickInputs = [fileInput, cameraInput, androidPhotoInput, selectFileInput, androidCameraInput];
+const pickLabels = [photoLabel, selectFileLabel, cameraLabel];
 const spinner = document.getElementById('spinner');
 const progressNote = document.getElementById('progress-note');
 const resultEl = document.getElementById('result');
@@ -479,11 +533,11 @@ function drawBeanRegion(dispW, dispH) {
 
 // Ticket OPS-6 D13: each upload has a token, and an answer for an upload
 // that is no longer the current one is dropped before it touches the page.
-// Choose Photo and Take Photo are disabled while a photo is in flight (OPS-7 D4), so this is a
+// Every photo control is disabled while a photo is in flight (OPS-7 D4), so this is a
 // guard, not the main defence.
 let currentUpload = 0;
 
-for (const input of [fileInput, cameraInput]) {
+for (const input of pickInputs) {
   input.addEventListener('change', () => {
     const file = input.files[0];
     // Emptied once read, so picking the same photo again -- what "busy" and "offline" ask for -- is a change too.
@@ -521,13 +575,27 @@ function offerExamples() {
   examplesToggle.hidden = exampleRow.childElementCount === 0;
 }
 
-// Ticket OPS-17 D2: Take Photo on every phone and tablet, iOS and Android. iPadOS Safari reports a Mac by default,
-// told apart by its touch points.
+// Ticket OPS-17 D2, OPS-21 D8: the camera button on every phone and tablet, iOS and Android. iPadOS Safari reports a
+// Mac by default, told apart by its touch points.
 function isMobile() {
   return /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 cameraLabel.hidden = !isMobile();
+controls.classList.toggle('with-camera', isMobile());
+
+// Ticket OPS-21 D6: Android in the user agent; a tablet asking for the desktop site reports Linux and gets the desktop
+// control. Any other phone or tablet keeps iOS's controls (D15).
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent);
+}
+// D1, D14: Choose Photo opens the photo picker, Select File a file browser, the camera button the camera.
+if (isAndroid()) {
+  photoLabel.htmlFor = 'android-photo-input';
+  cameraLabel.htmlFor = 'android-camera-input';
+  selectFileLabel.hidden = false;
+  controls.classList.add('android');
+}
 
 // A photo to classify: the visitor's own (example null), or an example photo, which takes the same path as one the
 // visitor chose (ticket OPS-16 D9): the same size check, upload, busy retries and "Use full photo instead".
@@ -616,14 +684,12 @@ async function chooseExample(example) {
 
 loadExamples();
 
-// While a photo is in flight (OPS-7 D3, D4): the circle spins and Choose
-// Photo and Take Photo are disabled, since the single worker keeps running a photo even when
+// While a photo is in flight (OPS-7 D3, D4): the circle spins and every photo control is disabled
+// (tickets OPS-17, OPS-21), since the single worker keeps running a photo even when
 // the page gives up on it, so a second pick could only meet a 503.
 function setBusy(busy) {
-  fileInput.disabled = busy;
-  photoLabel.classList.toggle('disabled', busy);
-  cameraInput.disabled = busy;   // ticket OPS-17, as OPS-7 D4
-  cameraLabel.classList.toggle('disabled', busy);
+  for (const input of pickInputs) input.disabled = busy;
+  for (const label of pickLabels) label.classList.toggle('disabled', busy);
   for (const button of exampleRow.querySelectorAll('button')) button.disabled = busy;   // ticket OPS-16, as OPS-7 D4
   spinner.style.display = busy ? 'block' : 'none';
   if (!busy) showSending(false);

@@ -145,9 +145,10 @@ class TheFolds(unittest.TestCase):
     def test_the_buttons_are_a_line_of_their_own_under_the_controls(self):   # D3
         controls = self.by_class("controls")
         folds = self.by_class("folds")
-        # Nothing but the controls' two labels between them.
-        between = [t for t, _ in self.card.elements[controls + 1:folds]]
-        self.assertEqual(between, ["label", "label"])
+        # Nothing but the controls' labels between them (OPS-21: three, the camera's holding its icon and its name).
+        between = [(t, a.get("id")) for t, a in self.card.elements[controls + 1:folds]]
+        self.assertEqual(between, [("label", "photo-label"), ("label", "select-file-label"), ("label", "camera-label"),
+                                   ("svg", None), ("path", None), ("circle", None), ("span", None)])
 
     def test_accepted_formats_first_then_examples(self):   # D7, D12
         folds = self.by_class("folds")

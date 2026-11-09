@@ -5,7 +5,8 @@ unittest.
 
 coffeecv/data/accepted_formats.csv is the one list of the formats the service reads. llms.txt, openapi.json, the page's
 format chips and its file inputs' accept lists are written by hand; this holds each to the file, in its order, a
-group's rows (camera RAW) gathered under the group's name as upload_check.named_formats gathers them.
+group's rows (camera RAW) gathered under the group's name as upload_check.named_formats gathers them. On Android two of
+the page's lists name no row, by design (ticket OPS-21 D5, ADR 0034's amendment): Select File's and the camera's.
 """
 from __future__ import annotations
 
@@ -94,14 +95,26 @@ class TheTextsNameTheAcceptedFormats(unittest.TestCase):
                 self.assertLessEqual(set(named), set(labels))
                 self.assertEqual(m.group(2) is None, named == labels)   # an ellipsis when some are left out
 
-    def test_every_accept_list_is_the_files(self):   # every MIME type, then every extension, in the file's order
-        want = [m for f in cn.ACCEPTED_FORMATS.values() for m in f.mime_types] + \
-            [e for f in cn.ACCEPTED_FORMATS.values() for e in f.extensions]
+    def test_every_accept_list_is_the_files(self):   # ADR 0034, amended by ticket OPS-21 D5
+        mime_types = [m for f in cn.ACCEPTED_FORMATS.values() for m in f.mime_types]
+        extensions = [e for f in cn.ACCEPTED_FORMATS.values() for e in f.extensions]
+        want = {
+            # iOS, desktop, any other phone: every MIME type, then every extension, in the file's order.
+            "photo-input": mime_types + extensions,
+            "camera-input": mime_types + extensions,
+            # Android (OPS-21): Choose Photo's MIME types alone, since an extension in the list keeps Chrome from its
+            # photo picker (D3); Select File's names no format, since an image type brings back the camera (D4); the
+            # camera's is any image, the one list the test saw open the camera directly, and a camera writes JPEG or
+            # HEIC (D1).
+            "android-photo-input": mime_types,
+            "select-file-input": ["application/octet-stream"],
+            "android-camera-input": ["image/*"],
+        }
         accept = page().accept
-        self.assertEqual(set(accept), {"photo-input", "camera-input"})
+        self.assertEqual(set(accept), set(want))
         for input_id, value in accept.items():
             with self.subTest(input=input_id):
-                self.assertEqual(value.split(","), want)
+                self.assertEqual(value.split(","), want[input_id])
 
     def test_nothing_else_is_named(self):
         texts = {"llms.txt": LLMS, "openapi.json": PHOTO_PART, "the page's chips": " ".join(page().chips),

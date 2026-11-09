@@ -8,6 +8,8 @@ A photo is read only if it is in an accepted format (GLOSSARY.md, "Accepted form
 
 We chose to refuse formats that a decoder could read (a plain TIFF, and anything else Pillow knows) over letting canonicalization decide, because the front is a public endpoint and Pillow 12.3.0, when a file fails the parser its signature picked, tries its other 42 plugins in turn. We chose one data file and one recogniser over a list in each module held equal by a test, because the lists that existed had already drifted: OPS-15 dropped GIF and BMP without deciding to, and the front and canonicalization told HEIF apart by different brand rules.
 
+Amended 2026-11-09 by [OPS-21](../ticket_android_image_and_file.html) D5: on Android the page's three inputs depart from "every accepted format and nothing else", because what Chrome and Firefox open follows from the `accept` list. Choose Photo's list is the file's MIME types alone: an extension in it keeps Chrome from its photo picker. Select File's is `application/octet-stream`, naming no format: an image type in it brings the camera back. The camera button's is `image/*`, since a camera writes JPEG or HEIC and that list is the one that opened the camera directly. The front's check still refuses a file with no row, whatever list it was picked through, and `tests/test_accepted_formats_named.py` holds all five of the page's lists, the Android three included.
+
 ## Consequences
 
 - A new format, TIFF included, is a new row and its recogniser rule, the contract's texts updated in the same change, and a test that canonicalizes it. Nothing reads a format that has no row.
