@@ -9,6 +9,7 @@ form, an example named in examples.json. These tests hold each refusal, and the 
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -143,6 +144,37 @@ class ExampleList(unittest.TestCase):
 
     def test_a_list_that_cannot_be_read_names_no_example(self):
         self.assertEqual(ts.example_names(REPO / "no-such-examples.json"), frozenset())
+
+
+class ThePage(unittest.TestCase):
+    """The page's side (P4), as text: it sends the schema's names, by beacon, once per photo. What runs is checked in a
+    browser (the plan's P4 checks)."""
+
+    SCRIPT = (REPO / "webapp" / "static" / "index.html").read_text().split("<script>", 1)[1]
+
+    def test_the_pages_sets_are_the_schemas(self):
+        for name, values in (("TIMELINE_CONTROLS", ts.CONTROLS), ("TIMELINE_OUTCOMES", ts.OUTCOMES),
+                             ("TIMELINE_TIMES", ts.TIMES), ("TIMELINE_ATTEMPT_TIMES", ts.ATTEMPT_TIMES)):
+            with self.subTest(name):
+                found = re.search(rf"const {name} = \[([^\]]*)\]", self.SCRIPT)
+                self.assertIsNotNone(found, f"the page has no {name}")
+                self.assertEqual(tuple(re.findall(r"'([a-z_]+)'", found[1])), values)
+
+    def test_every_outcome_the_page_ends_a_photo_with_is_the_schemas(self):
+        """Each endRun('...') of the page, and each outcome its refusalOutcome() returns."""
+        ended = set(re.findall(r"endRun\('([a-z_]+)'", self.SCRIPT))
+        refusals = re.search(r"function refusalOutcome\(.*?\n\}", self.SCRIPT, re.S)
+        self.assertIsNotNone(refusals, "the page has no refusalOutcome()")
+        ended |= set(re.findall(r"'([a-z_]+)'", refusals[0]))
+        self.assertEqual(ended, set(ts.OUTCOMES))
+
+    def test_the_limits_are_the_schemas(self):
+        self.assertIn(f"const TIMELINE_MAX_MS = {ts.MAX_MS};", self.SCRIPT)
+        self.assertIn(f"const TIMELINE_VERSION = {ts.VERSION};", self.SCRIPT)
+
+    def test_it_is_sent_by_beacon_and_on_pagehide(self):
+        self.assertIn("navigator.sendBeacon('/timeline'", self.SCRIPT)
+        self.assertIn("addEventListener('pagehide'", self.SCRIPT)
 
 
 if __name__ == "__main__":
