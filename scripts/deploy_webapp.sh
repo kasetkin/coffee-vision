@@ -17,6 +17,7 @@
 #   FRONT_HOST [webproxy-deploy: the front]  FRONT_USER [its SSH user]  FRONT_APP_ROOT [/opt/coffee-cv]
 #   FRONT_SERVICE_USER [coffee-cv-front]  FRONT_PORT [12347: the front site's loopback TLS port, the stream map's]
 #   CHECK_PORT [8100: the check service's]  TLS_CERT, TLS_KEY [required to deploy: the front's certificate files]
+#   FRONT_LOG_DIR [/var/log/coffee-cv-front: the check service's log, which verify reads for its timeline]
 #   DEPLOY_SKIP_CHECK [unset; 1 skips check.sh]
 #
 # One release ID, two trees (webapp/deploy/release_manifest.py): the inference host's (the app, the model, its nginx
@@ -61,6 +62,7 @@ FRONT_SERVICE_USER=${FRONT_SERVICE_USER:-coffee-cv-front}
 FRONT_SYSTEM_ROOT=${FRONT_SYSTEM_ROOT:-}   # as SYSTEM_ROOT below, for the front
 FRONT_PORT=${FRONT_PORT:-12347}
 CHECK_PORT=${CHECK_PORT:-8100}
+FRONT_LOG_DIR=${FRONT_LOG_DIR:-/var/log/coffee-cv-front}   # the unit's LogsDirectory= (ticket OPS-3 D9)
 TLS_CERT=${TLS_CERT:-}
 TLS_KEY=${TLS_KEY:-}
 FRONT_MIN_FREE_MB=${FRONT_MIN_FREE_MB:-200}   # a front release is a few hundred KB and its venv; the proxy is full
@@ -747,6 +749,9 @@ revert_both() {
 # The Origin of every check through the domain that plays a cross-origin caller (ticket OPS-19 D7): its lines in the
 # front's access log, which records the Origin (D3), are plainly the deploy's own.
 VERIFY_ORIGIN=https://verify.invalid
+# Every request verify sends through the domain carries this (ticket OPS-3 D14): the front's access log and the check
+# service's log keep it, and the reading script (coffeecv/timelines.py) leaves these requests out of the counts.
+PROBE=(-H "X-Coffee-CV-Probe: verify")
 
 header_values() {   # header_values <name> <curl -D file>: the last answer's values of that header joined by ", ", or -
   awk -v n="$(tr '[:upper:]' '[:lower:]' <<<"$1")" '
@@ -763,7 +768,7 @@ header_values() {   # header_values <name> <curl -D file>: the last answer's val
 verify_cors() {   # verify_cors <the check service's state, systemctl is-enabled: only "enabled" posts the refusal>
   local hdr code
   hdr=$(mktemp)
-  code=$(curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -X OPTIONS -H "Origin: $VERIFY_ORIGIN" \
+  code=$(curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -X OPTIONS -H "Origin: $VERIFY_ORIGIN" "${PROBE[@]}" \
               -H "Access-Control-Request-Method: POST" "$PUBLIC_URL/analyze")
   check "public OPTIONS /analyze (a preflight)" "$code" 204
   check "    its Access-Control-Allow-Origin" "$(header_values Access-Control-Allow-Origin "$hdr")" "*"
@@ -772,7 +777,7 @@ verify_cors() {   # verify_cors <the check service's state, systemctl is-enabled
   check "    its Access-Control-Max-Age" "$(header_values Access-Control-Max-Age "$hdr")" 7200
   if [[ "$1" == enabled ]]; then
     code=$(printf 'not a photo\n' | curl -s -o /dev/null -D "$hdr" -w '%{http_code}' -H "Origin: $VERIFY_ORIGIN" \
-                -F "photo=@-;filename=beans.jpg" "$PUBLIC_URL/analyze")
+                "${PROBE[@]}" -F "photo=@-;filename=beans.jpg" "$PUBLIC_URL/analyze")
     check "public POST /analyze of a text file, cross-origin" "$code" 400
     check "    its Access-Control-Allow-Origin" "$(header_values Access-Control-Allow-Origin "$hdr")" "*"
   else
@@ -811,6 +816,7 @@ verify() {   # returns non-zero on a failed check
     cur=$(readlink -f "$APP_ROOT/current")
     echo "CURRENT=$(basename "$cur")"
     echo "INDEX_SHA=$(sha256sum < "$cur/webapp/static/index.html" | cut -c1-64)"
+    echo "TIMELINES=$([[ -f "$cur/coffeecv/timeline_schema.py" ]] && echo 1)"   # a release from OPS-3 on
     echo "ENABLED=$(systemctl is-enabled coffee-cv-front 2>/dev/null || true)"
     if [[ "$(systemctl is-enabled coffee-cv-front 2>/dev/null || true)" == enabled ]]; then
       for _ in $(seq 1 40); do
@@ -847,7 +853,7 @@ verify() {   # returns non-zero on a failed check
   else
     local body code
     body=$(mktemp)
-    code=$(curl -s -o "$body" -w '%{http_code}' "$PUBLIC_URL/")
+    code=$(curl -s -o "$body" -w '%{http_code}' "${PROBE[@]}" "$PUBLIC_URL/")
     check "public GET /" "$code" 200
     check "public page = the release's index.html" "$(sha256sum < "$body" | cut -c1-64)" "$(kv INDEX_SHA "$front")"
     local photo want times hdr
@@ -858,7 +864,7 @@ verify() {   # returns non-zero on a failed check
     # the two are equal). Reported, not checked (D11). curl's own timers cannot say it: its start of transfer is
     # the upload's.
     post_analyze() {
-      times=$(curl -sN -D "$hdr" -H "Origin: $VERIFY_ORIGIN" -F "photo=@$photo" "$PUBLIC_URL/analyze" | tee "$body" \
+      times=$(curl -sN -D "$hdr" -H "Origin: $VERIFY_ORIGIN" "${PROBE[@]}" -F "photo=@$photo" "$PUBLIC_URL/analyze" | tee "$body" \
               | "$LOCAL_PY" -c 'import sys, time; t0 = time.monotonic(); [print(f"{time.monotonic() - t0:.2f}", flush=True) for _ in sys.stdin.buffer]' \
               | paste -sd' ')
       code=$(awk '/^HTTP/ {c = $2} END {print c}' "$hdr")   # the last status line: a 100 Continue comes first
@@ -866,8 +872,9 @@ verify() {   # returns non-zero on a failed check
     post_analyze
     if [[ "$code" == 503 ]]; then sleep 3; post_analyze; fi
     # Sent as a cross-origin caller (OPS-19 D7): the answer, the offline 503 included, is readable from its page.
-    local allow_origin expose
+    local allow_origin expose rid
     allow_origin=$(header_values Access-Control-Allow-Origin "$hdr"); expose=$(header_values Access-Control-Expose-Headers "$hdr")
+    rid=$(header_values X-Request-Id "$hdr")
     rm -f "$hdr"
     if [[ "$enabled" == enabled ]]; then
       check "public POST /analyze" "$code" 200
@@ -877,6 +884,24 @@ verify() {   # returns non-zero on a failed check
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
+      # Its timeline (ticket OPS-3 D14): sent through the domain as the page sends one, then found in the check
+      # service's log on the front, read as the deploy user. A release from before OPS-3 takes none.
+      if [[ "$(kv TIMELINES "$front")" == 1 ]]; then
+        local posted posted_rc=0 tid
+        posted=$("$LOCAL_PY" "$DEPLOY_DIR/timeline_check.py" post --url "$PUBLIC_URL" --request-id "$rid") || posted_rc=$?
+        while IFS= read -r line; do [[ -n "$line" && "$line" != TIMELINE_ID=* ]] && note "$line"; done <<<"$posted"
+        tid=$(kv TIMELINE_ID "$posted")
+        if (( posted_rc == 0 )) && [[ -n "$tid" ]]; then
+          posted=$(fe 'grep -hF "$TID" "$FRONT_LOG_DIR/requests.jsonl" "$FRONT_LOG_DIR/requests.jsonl.1" 2>/dev/null || true' \
+                     TID="$tid" FRONT_LOG_DIR="$FRONT_LOG_DIR" \
+                   | "$LOCAL_PY" "$DEPLOY_DIR/timeline_check.py" found --timeline-id "$tid" --request-id "$rid") \
+            || posted_rc=$?
+          while IFS= read -r line; do [[ -n "$line" ]] && note "$line"; done <<<"$posted"
+        fi
+        (( posted_rc == 0 )) || fails=$((fails + 1))
+      else
+        note "the front's release takes no timelines (from before OPS-3): its check skipped"
+      fi
       # The page's example photos (ticket OPS-16 D14, D17): each fetched through the domain, held to the release
       # commit's file, posted, and its answer held to its country or a refusal; one after another, about 1.5 min. A
       # wrong one fails verify, which rolls a full deploy back. Not fixtures (D16): nothing here reaches the VM. The

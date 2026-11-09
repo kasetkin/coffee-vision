@@ -185,6 +185,8 @@ export INFERENCE_ADDR=127.0.0.1 INFERENCE_PORT=18002
 FA="$R/opt-front/coffee-cv"
 export FRONT_HOST=local FRONT_APP_ROOT="$FA" FRONT_SYSTEM_ROOT="$R/sys-front" FRONT_USER="$(id -un)"
 export FRONT_SERVICE_USER="$(id -un)" CHECK_PORT=18003 FRONT_PORT=18004 TLS_CERT="$R/tls/cert.pem" TLS_KEY="$R/tls/key.pem"
+# The check service's log (ticket OPS-3), where the systemctl stub makes its LogsDirectory=.
+export FRONT_LOG_DIR="$R/log/coffee-cv-front"
 # The rehearsal tests the deploy machinery on a scratch clone without the data, not the code: skip the
 # deploy's full test suite (scripts/check.sh --full).
 export DEPLOY_SKIP_CHECK=1

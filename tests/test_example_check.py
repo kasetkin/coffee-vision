@@ -48,8 +48,10 @@ class FakeFront(BaseHTTPRequestHandler):
     answers: dict[str, str] = {}    # example name -> its /analyze body
     busy_first = 0                  # this many busy 503s before answering
     posted: list[str] = []
+    probes: list[str | None] = []   # each request's X-Coffee-CV-Probe
 
     def do_GET(self):  # noqa: N802
+        FakeFront.probes.append(self.headers.get("X-Coffee-CV-Probe"))
         path = self.path.lstrip("/")
         try:
             data = FakeFront.served.get(path) or git("show", f"{FakeFront.commit}:webapp/static/{path}")
@@ -62,6 +64,7 @@ class FakeFront(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):  # noqa: N802
+        FakeFront.probes.append(self.headers.get("X-Coffee-CV-Probe"))
         body = self.rfile.read(int(self.headers["Content-Length"]))
         name = body.split(b'filename="', 1)[1].split(b".jxl", 1)[0].decode()
         FakeFront.posted.append(name)
@@ -99,6 +102,7 @@ class ExampleCheck(unittest.TestCase):
         FakeFront.answers = {e["name"]: predicted(e["country"]) if e["country"] else REFUSED for e in self.examples}
         FakeFront.busy_first = 0
         FakeFront.posted = []
+        FakeFront.probes = []
         self.enterContext(mock.patch.object(example_check.time, "sleep"))
 
     def run_check(self, commit: str | None = None) -> tuple[int, list[str]]:
@@ -114,6 +118,12 @@ class ExampleCheck(unittest.TestCase):
         self.assertEqual(sum(line.startswith("ok    ") for line in lines), 3 * len(self.examples), lines)
         self.assertIn("ok    example brazil-grinder: Brazil", lines)
         self.assertIn("ok    example cappuccino: refused_ood", lines)
+
+    def test_every_request_is_marked_as_the_deploys(self):   # OPS-3 D14: the reading script leaves them out
+        FakeFront.busy_first = 1
+        self.run_check()
+        self.assertEqual(len(FakeFront.probes), 2 * len(self.examples) + 1)
+        self.assertEqual(set(FakeFront.probes), {"verify"})
 
     def test_a_wrong_country_fails(self):
         FakeFront.answers["brazil-grinder"] = predicted("Colombia")
