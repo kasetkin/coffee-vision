@@ -1,19 +1,20 @@
-<title>OPS-21: Choose Image and Select File on Android</title>
+<title>OPS-21: Choose Image, Select File and a camera button on Android</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="tickets.css">
 
 <main>
   <div class="eyebrow">Ticket OPS-21 · coffee-vision · the web page</div>
-  <h1>On Android the page's two controls are Choose Image (the photo picker) and Select File (a file browser)</h1>
+  <h1>On Android the page's controls are Choose Image (the photo picker), Select File (a file browser) and a camera
+    button</h1>
   <p class="lede">Since OPS-17 an Android phone shows Choose Photo and Take Photo, and both open the same system
     chooser, Camera or Files, in Chrome and in Firefox. The owner tested candidate inputs on an Android phone
-    (2026-11-08) and chose two controls that each do one thing: Choose Image opens the photo picker, Select File a file
-    browser; no Take Photo. iOS and desktop do not change. Written 2026-11-08; D1, D2 decided, D3&ndash;D7 open; not
-    implemented.</p>
+    (2026-11-08) and chose controls that each do one thing: Choose Image opens the photo picker, Select File a file browser,
+    and a square camera button, an icon with no text, the camera (D1, revised 2026-11-09). Desktop does not change.
+    Written 2026-11-08; D1, D2 decided, D3&ndash;D9 open; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2 decided, D3&ndash;D7 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1, D2 decided (D1 revised 2026-11-09), D3&ndash;D9 open; not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -33,6 +34,9 @@
       maybe with it's own camera. And "select file" should open file browser." After the test: "let's keep 2 buttons
       and for now do not keep "live camera" as necessary element. If OS image picker gives it -- that's good. If not
       -- user will take photo himself."</p>
+    <p><strong>Revised, 2026-11-09.</strong> "Change my previous answer: for mobile version we can keep "camera" button,
+      but use an icon, not text. I propose we place square button with camera icon for this, same height as "select
+      file" and "choose photo" buttons."</p>
   </div>
 
   <h2>1. Summary</h2>
@@ -40,10 +44,13 @@
     browser opens follows from the input's <code>accept</code> list. The page's list carries file extensions
     (<code>.dng</code>, <code>.cr3</code>, <code>.hif</code>, &hellip;) beside its MIME types; in Chrome that defeats
     both <code>capture</code> and the photo picker, so both of OPS-17's controls open the same Camera / Files chooser.
-    After this ticket an Android browser shows two controls: <strong>Choose Image</strong>, whose list is the accepted
-    MIME types alone (Chrome opens the photo picker), and <strong>Select File</strong>, whose list names no image type
-    (Chrome and Firefox offer Files only). Take Photo is not shown on Android (D1). iOS keeps Choose Photo and Take
-    Photo; a desktop keeps Choose Photo.</p>
+    After this ticket an Android browser shows three controls: <strong>Choose Image</strong>, whose list is the
+    accepted MIME types alone (Chrome opens the photo picker), <strong>Select File</strong>, whose list names no image
+    type (Chrome and Firefox offer Files only), and a square <strong>camera button</strong>, a camera icon with no
+    text at the other two's height, whose input is <code>image/*</code> with <code>capture="environment"</code>
+    (Chrome opens the camera directly; Firefox, which ignores <code>capture</code>, its Camera / Files chooser)
+    (D1). iOS keeps Choose Photo and Take Photo, its Take Photo an icon too if D8 says so; a desktop keeps Choose
+    Photo.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -93,10 +100,10 @@
     <div>
       <h3>After</h3>
       <ul>
-        <li>Android: Choose Image and Select File. Chrome: the photo picker, and Files. Firefox: the Camera / Files
-          chooser, and Files. No control opens the camera in Chrome: a visitor takes the photo first (D1).</li>
-        <li>iOS and desktop: as now.</li>
-        <li>A test holds both Android inputs' lists and the platform check.</li>
+        <li>Android: Choose Image, Select File and the camera button. Chrome: the photo picker, Files, and the
+          camera directly. Firefox: the Camera / Files chooser, Files, and the chooser again (D1).</li>
+        <li>iOS: as now, Take Photo an icon if D8 says so. Desktop: as now.</li>
+        <li>A test holds the Android inputs' lists, the camera button's accessible name and the platform check.</li>
       </ul>
     </div>
   </div>
@@ -116,9 +123,10 @@
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
-      <tr><td class="id">R1</td><td><strong>No camera on the page in Chrome on Android.</strong></td>
-        <td>The test: Chrome's photo picker has no camera, and Select File offers none. Accepted by the owner (D1): a
-          visitor takes the photo with the camera app first.</td></tr>
+      <tr><td class="id">R1</td><td><strong>A button with no words</strong> may not read as the camera to every
+        visitor, nor to a screen reader.</td>
+        <td>A plain camera glyph, and the button's accessible name and tooltip "Take Photo". Chrome's photo picker has
+          no camera of its own (the test), so this button is Chrome's only camera on the page.</td></tr>
       <tr><td class="id">R2</td><td><strong>The photo picker may not show every accepted format</strong> (a RAW file, a
         photo outside the gallery).</td>
         <td>Not checked. Select File reaches any file the phone holds.</td></tr>
@@ -139,7 +147,11 @@
         <td>(a) Choose Image and Select File (b) the same and Take Photo (C1, the camera directly in Chrome)</td>
         <td>(a), 2026-11-08: "let's keep 2 buttons and for now do not keep "live camera" as necessary element. If OS
           image picker gives it -- that's good. If not -- user will take photo himself." Changes OPS-17 D1, D2 for
-          Android.</td></tr>
+          Android. <strong>Revised 2026-11-09 to (b), the camera as an icon:</strong> "for mobile version we can keep
+          "camera" button, but use an icon, not text. I propose we place square button with camera icon for this,
+          same height as "select file" and "choose photo" buttons." The camera button's input is C1's
+          (<code>image/*</code>, <code>capture="environment"</code>), the only one the test saw open the camera
+          directly.</td></tr>
       <tr><td class="id">D2</td><td>Which platforms change?</td>
         <td>(a) Android only (b) every mobile platform</td>
         <td>(a), 2026-11-08: "for Android only now". iOS keeps Choose Photo and Take Photo, a desktop Choose
@@ -152,9 +164,10 @@
         <td>(a) <code>application/octet-stream</code> (B1, tested) (b) another type that is not an image</td>
         <td>Open; (a) recommended, the one tested.</td></tr>
       <tr><td class="id">D5</td><td>ADR 0034 says the page's <code>accept</code> lists name every accepted format and
-        nothing else; D3 and D4 depart from it on Android. How?</td>
-        <td>(a) amend the ADR's consequences: on Android, Choose Image's list is the file's MIME types alone and Select
-          File's names no format; the test holds both (recommended) (b) a new ADR that supersedes it</td>
+        nothing else; D3, D4 and the camera button's <code>image/*</code> depart from it on Android. How?</td>
+        <td>(a) amend the ADR's consequences: on Android, Choose Image's list is the file's MIME types alone, Select
+          File's names no format, and the camera's is <code>image/*</code> (a camera writes JPEG or HEIC); the test
+          holds all three (recommended) (b) a new ADR that supersedes it</td>
         <td>Open.</td></tr>
       <tr><td class="id">D6</td><td>How does the page tell Android?</td>
         <td>(a) <code>Android</code> in the user agent; a tablet asking for the desktop site reports Linux and gets the
@@ -165,6 +178,13 @@
         <td>(a) live, as OPS-17 D5: the owner on an Android phone (Chrome and Firefox), an iPhone and a desktop;
           a rollback is the owner's to decide, as OPS-17 D8 (b) a local app reached from the phone first</td>
         <td>Open.</td></tr>
+      <tr><td class="id">D8</td><td>Does iOS's Take Photo become the same camera button?</td>
+        <td>(a) yes: one look on every phone and tablet, and iOS's Take Photo already opens the camera directly
+          (recommended) (b) no, iOS keeps the words, as D2 has it</td>
+        <td>Open. "for mobile version" (2026-11-09) may mean every mobile platform.</td></tr>
+      <tr><td class="id">D9</td><td>Where does the camera button sit?</td>
+        <td>(a) last, after the text buttons, which take the row's remaining width (recommended) (b) first</td>
+        <td>Open.</td></tr>
     </tbody>
   </table></div>
 
@@ -173,19 +193,19 @@
     <li><span class="box done"></span><span>The live release's page put back, its checksum the release's, both services
       started, <code>--verify</code> passed (Activity, 2026-11-08), before this ticket's release.</span></li>
     <li><span class="box"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Image with
-      D3's list and no <code>capture</code>, Select File with D4's, no Take Photo; both feed <code>choose()</code> and
-      wait while a photo is in flight. iOS and desktop as today.</span></li>
+      D3's list and no <code>capture</code>, Select File with D4's, and the square camera button (D1, D9) with
+      <code>image/*</code> and <code>capture="environment"</code>, named "Take Photo" for a screen reader; each feeds
+      <code>choose()</code> and waits while a photo is in flight. iOS as D8 decides; desktop as today.</span></li>
     <li><span class="box"></span><span>ADR 0034 as D5 decides, and the tests: the Android lists, the platform check,
       and the iOS and desktop lists unchanged.</span></li>
     <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>).</span></li>
-    <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Image opens the photo picker
-      and Select File Files only, in Firefox as the test found, a photo answered from each; the iPhone and the desktop
-      as before.</span></li>
+    <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Image opens the photo picker,
+      Select File Files only and the camera button the camera, in Firefox as the test found, a photo answered from
+      each; the iPhone as D8 decides, the desktop as before.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
-    <li>A camera control on Android (D1); it can come back as C1 if the owner wants it.</li>
     <li>Changing iOS's controls (D2).</li>
     <li>Firefox's ignoring <code>capture</code>: a browser's behaviour, not the page's.</li>
   </ul>
@@ -209,6 +229,9 @@
       from the deploy user's home (sha256 <code>3139bc69&hellip;</code> checked before and after), <code>coffee-cv-front</code>
       and <code>coffee-cv-web</code> started; the domain serves the release's page, and <code>--verify</code> passed on
       release <code>20261108T1703Z-70278a9</code>, every check ok.</div>
+    <div><div class="when">2026-11-09</div>D1 revised by the owner: a square camera button, an icon at the text
+      buttons' height, beside Choose Image and Select File. D8 (iOS) and D9 (its place) added. Not planned, not
+      implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
