@@ -278,6 +278,8 @@
   tr:first-child td { font-weight: 700; color: var(--fg); }
   .bar-track { background: var(--border); border-radius: 3px; height: 6px; margin-top: 4px; overflow: hidden; }
   .bar-fill { background: var(--accent); height: 100%; }
+  /* What is logged (ticket OPS-3 D15): small, under the answer, on every screen. */
+  #logged-note { margin: 1.5rem 0 0; font-size: 0.8rem; color: var(--muted); text-align: center; }
 </style>
 </head>
 <body>
@@ -347,6 +349,9 @@
   </div>
 
   <div id="result"></div>
+  <!-- Ticket OPS-3 D15: what the logs hold, as built (docs/logging_plan.html §03-G); llms.txt says the same, and
+       tests/test_agent_files.py holds the two to each other and to the code. -->
+  <p id="logged-note">We log each photo's file name, type and size, how it was picked, how long each step took and the browser's name, not the photo.</p>
 </main>
 
 <script>
