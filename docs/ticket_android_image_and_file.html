@@ -1,21 +1,21 @@
-<title>OPS-21: Choose Image, Select File and a camera button on Android</title>
+<title>OPS-21: Choose Photo, Select File and a camera button on Android</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="tickets.css">
 
 <main>
   <div class="eyebrow">Ticket OPS-21 · coffee-vision · the web page</div>
-  <h1>On Android the page's controls are Choose Image (the photo picker), Select File (a file browser) and a camera
+  <h1>On Android the page's controls are Choose Photo (the photo picker), Select File (a file browser) and a camera
     button</h1>
   <p class="lede">Since OPS-17 an Android phone shows Choose Photo and Take Photo, and both open the same system
     chooser, Camera or Files, in Chrome and in Firefox. The owner tested candidate inputs on an Android phone
-    (2026-11-08) and chose controls that each do one thing: Choose Image opens the photo picker, Select File a file browser,
+    (2026-11-08) and chose controls that each do one thing: Choose Photo opens the photo picker, Select File a file browser,
     and a square camera button, an icon with no text, the camera (D1, revised 2026-11-09). Desktop does not change;
-    iPhone's Take Photo becomes the same camera button (D8). Choose Image is labelled Choose Photo, one name on
-    every platform (D10). Written 2026-11-08; D1&ndash;D10 decided 2026-11-09; not implemented.</p>
+    iPhone's Take Photo becomes the same camera button (D8). Choose Photo keeps its name on every platform (D10).
+    Written 2026-11-08; D1&ndash;D15 decided 2026-11-09; not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1&ndash;D10 decided (D1 revised 2026-11-09); not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-08 from the owner's test on an Android phone; D1&ndash;D15 decided (D1 revised 2026-11-09); not planned, not implemented. The live site, down for the test, put back the same day, <code>--verify</code> passed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -45,11 +45,12 @@
     browser opens follows from the input's <code>accept</code> list. The page's list carries file extensions
     (<code>.dng</code>, <code>.cr3</code>, <code>.hif</code>, &hellip;) beside its MIME types; in Chrome that defeats
     both <code>capture</code> and the photo picker, so both of OPS-17's controls open the same Camera / Files chooser.
-    After this ticket an Android browser shows three controls: <strong>Choose Image</strong>, whose list is the
+    After this ticket an Android browser shows three controls: <strong>Choose Photo</strong>, whose list is the
     accepted MIME types alone (Chrome opens the photo picker), <strong>Select File</strong>, whose list names no image
     type (Chrome and Firefox offer Files only), and a square <strong>camera button</strong>, a camera icon with no
     text at the other two's height, whose input is <code>image/*</code> with <code>capture="environment"</code>
-    (Chrome opens the camera directly; Firefox, which ignores <code>capture</code>, its Camera / Files chooser)
+    (Chrome opens the camera directly; Firefox, whose <code>capture</code> path for images is broken since Firefox
+    128, its Camera / Files chooser)
     (D1), placed last (D9). iOS keeps Choose Photo, and its Take Photo becomes the same camera button (D8); a
     desktop keeps Choose Photo.</p>
 
@@ -71,7 +72,23 @@
       <code>feature/prompts/file/FilePicker.kt</code> and <code>MimeType.kt</code> (mozilla-firefox/firefox main): the
       chooser offers the camera when any entry starts with <code>image/</code> and the camera permission is granted; the
       photo picker is only a fallback when permissions are denied. The test (below) found <code>capture</code> has no
-      effect.</li>
+      effect. The cause, read from source (2026-11-09, Firefox 159.0.1; not tested): GeckoView turns
+      <code>capture</code> on (<code>dom.capture.enabled</code>, Bug 1553603, Firefox 70) and passes
+      <code>environment</code> on as <code>FacingMode.BACK_CAMERA</code>, but since Bug 1864350 (Firefox 128)
+      <code>MimeType.Image</code> builds its camera intent in <code>buildCaptureIntent</code>, while
+      <code>FilePicker.buildIntentList</code>'s direct-camera branch still calls <code>buildIntent</code>, which returns
+      <code>null</code> for images; so it falls through to the chooser. Bug 1911552 ("support of the property
+      capture") is open, with no cause found.</li>
+    <li><strong>Select File's list</strong> (read from source, 2026-11-09; not tested): Chrome treats
+      <code>application/octet-stream</code> as generic and opens Files with no filter, so any file can be picked
+      (<code>SelectFileDialog.showExternalPicker</code>: "If some of the extensions are generic, just let user select
+      all files"). Firefox's <code>MimeType.Wildcard.buildIntent</code> puts it on the Files intent as
+      <code>EXTRA_MIME_TYPES</code>, and Android's file browser (AOSP DocumentsUI,
+      <code>picker/Config.isDocumentEnabled</code> through <code>MimeTypes.mimeMatches</code>) greys out a file whose
+      type does not match, so a JPEG, HEIC or RAW photo may not be pickable there. An extension Android does
+      not know comes out unfiltered in both: Chrome makes it <code>application/octet-stream</code>, Firefox
+      <code>*/*</code>. <code>.bin</code> is not such an extension: Android maps it to
+      <code>application/octet-stream</code>.</li>
     <li><strong>The owner's test, 2026-11-08</strong>, on an Android phone, a throwaway page served at the domain in
       place of the live page (Activity), each input hidden behind a label as on the live page:
       <div class="table-wrap"><table>
@@ -101,7 +118,7 @@
     <div>
       <h3>After</h3>
       <ul>
-        <li>Android: Choose Image, Select File and the camera button. Chrome: the photo picker, Files, and the
+        <li>Android: Choose Photo, Select File and the camera button. Chrome: the photo picker, Files, and the
           camera directly. Firefox: the Camera / Files chooser, Files, and the chooser again (D1).</li>
         <li>iOS: Choose Photo as now, and the same camera button in place of the words Take Photo (D8). Desktop: as
           now.</li>
@@ -127,7 +144,7 @@
     <tbody>
       <tr><td class="id">R1</td><td><strong>A button with no words</strong> may not read as the camera to every
         visitor, nor to a screen reader.</td>
-        <td>A plain camera glyph, and the button's accessible name and tooltip "Take Photo". Chrome's photo picker has
+        <td>An inline SVG camera, and "Take Photo" as text read aloud but not shown, and as the tooltip (D13). Chrome's photo picker has
           no camera of its own (the test), so this button is Chrome's only camera on the page.</td></tr>
       <tr><td class="id">R5</td><td><strong>The camera button on iOS is not tested.</strong></td>
         <td>Only its look changes on iOS: its input stays OPS-17's, which opens the camera there. The owner checks it on
@@ -138,6 +155,12 @@
       <tr><td class="id">R3</td><td><strong>Select File shows every file, not only photos.</strong></td>
         <td>Its list names no image type, or the camera comes back (Background). A wrong file gets the front's refusal,
           which names the accepted formats.</td></tr>
+      <tr><td class="id">R6</td><td><strong>Firefox's Select File may grey out every photo</strong> (Background).</td>
+        <td>Read from source, not tested. The owner's check picks a JPEG and a RAW file through Select File in both
+          browsers; if Firefox greys them, D11's fallback list.</td></tr>
+      <tr><td class="id">R7</td><td><strong>Three controls do not fit a narrow phone</strong>: at 360 px the card
+        leaves about 286 px, and today's buttons (<code>min-width: 8rem</code>, a wrapping row) need about 323.</td>
+        <td>D12: the Android row never wraps. Screenshots at 320, 360 and 412 px wide.</td></tr>
       <tr><td class="id">R4</td><td><strong>Browsers change this behaviour</strong>; it is read from source and one test
         on one phone, not from a specification.</td>
         <td>The test after the release (D7) repeats it on Chrome and Firefox.</td></tr>
@@ -199,6 +222,34 @@
           Choose Photo: the live label on iOS and desktop, and the page's word elsewhere ("No photo? Try one of
           ours", "Use full photo instead"). "Choose Image" in this ticket's earlier text and in the test's names (A1,
           A2) is the same control.</td></tr>
+      <tr><td class="id">D11</td><td>Firefox may grey out every photo in Select File (Background, R6). What
+        now?</td>
+        <td>(a) keep D4; the owner's check picks a JPEG and a RAW file through Select File in both browsers; if Firefox
+          greys them, Select File's list becomes one extension Android does not know (recommended) (b) that list now,
+          untested (c) a test on the phone before implementing</td>
+        <td>(a), 2026-11-09, as recommended. The fallback is a second release.</td></tr>
+      <tr><td class="id">D12</td><td>Three controls on a narrow phone (R7)?</td>
+        <td>(a) the Android row never wraps: each text button as wide as its words, less side padding, the square at
+          one text line's height; under about 360 px the words may break onto two lines inside their button
+          (recommended) (b) let it wrap (c) smaller text on phones</td>
+        <td>(a), 2026-11-09, as recommended. The iOS row (Choose Photo and the square) fits at any width.</td></tr>
+      <tr><td class="id">D13</td><td>The camera icon, and its name for a screen reader?</td>
+        <td>(a) an inline SVG in the button's text colour, hidden from screen readers; "Take Photo" as text read aloud
+          but not shown, inside the label (a screen reader ignores <code>aria-label</code> on a
+          <code>&lt;label&gt;</code>), and <code>title="Take Photo"</code> (recommended) (b) the 📷 emoji</td>
+        <td>(a), 2026-11-09, as recommended.</td></tr>
+      <tr><td class="id">D14</td><td>D1, D3 and D8 give Android and iOS different lists for Choose Photo and the
+        camera. How is the page built?</td>
+        <td>(a) every input written in the HTML with its own list (five); on Android the script points Choose Photo's
+          and the camera button's labels at the Android inputs and shows Select File (recommended) (b) three inputs,
+          the script rewriting <code>accept</code> on Android</td>
+        <td>(a), 2026-11-09, as recommended: <code>test_accepted_formats_named</code> reads the lists from the HTML, so
+          ADR 0034's test still reaches every one.</td></tr>
+      <tr><td class="id">D15</td><td>A phone or tablet that is neither Android nor iOS (<code>Mobi</code> in its user
+        agent)?</td>
+        <td>(a) as iOS: Choose Photo and the camera button, OPS-17's lists (recommended) (b) as Android</td>
+        <td>(a), 2026-11-09, as recommended: only <code>Android</code> in the user agent (D6) gets three
+          controls.</td></tr>
     </tbody>
   </table></div>
 
@@ -206,23 +257,25 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The live release's page put back, its checksum the release's, both services
       started, <code>--verify</code> passed (Activity, 2026-11-08), before this ticket's release.</span></li>
-    <li><span class="box"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Image with
+    <li><span class="box"></span><span>In <code>webapp/static/index.html</code>, on Android (D2, D6): Choose Photo with
       D3's list and no <code>capture</code>, Select File with D4's, and the square camera button (D1, D9) with
-      <code>image/*</code> and <code>capture="environment"</code>, named "Take Photo" for a screen reader; each feeds
-      <code>choose()</code> and waits while a photo is in flight. On iOS the same camera button in place of Take Photo's
-      words, its input unchanged (D8); desktop as today.</span></li>
+      <code>image/*</code> and <code>capture="environment"</code>, named "Take Photo" for a screen reader (D13); each feeds
+      <code>choose()</code> and waits while a photo is in flight. On iOS, and on any other phone or tablet (D15), the
+      same camera button in place of Take Photo's words, its input unchanged (D8); desktop as today. Every input and
+      its list written in the page's HTML (D14). The Android row on one line at 320, 360 and 412 px wide (D12).</span></li>
     <li><span class="box"></span><span>ADR 0034 as D5 decides, and the tests: the Android lists, the platform check,
       and the iOS and desktop lists unchanged.</span></li>
     <li><span class="box"></span><span>Live, verified on the domain (<code>--verify</code>).</span></li>
-    <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Image opens the photo picker,
+    <li><span class="box"></span><span>The owner's check (D7): on Android in Chrome, Choose Photo opens the photo picker,
       Select File Files only and the camera button the camera, in Firefox as the test found, a photo answered from
-      each; on an iPhone the camera button opens the camera (D8, R5); the desktop as before.</span></li>
+      each, and a JPEG and a RAW file picked through Select File in both browsers (D11); on an iPhone the camera button opens the camera (D8, R5); the desktop as before.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
   <ul>
     <li>Changing iOS's controls (D2).</li>
-    <li>Firefox's ignoring <code>capture</code>: a browser's behaviour, not the page's.</li>
+    <li>Firefox's broken <code>capture</code> path for images (Background, Bug 1911552): a browser's defect, not the
+      page's. A fix there opens the camera directly from the same input.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -254,6 +307,12 @@
       word: Choose Photo. Not planned, not implemented.</div>
     <div><div class="when">2026-11-09</div>D3&ndash;D7 decided by the owner, all as recommended. Every decision
       made; Triage ready-for-agent. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-09</div>D11&ndash;D15 decided by the owner, all as recommended, in a grilling
+      session: Select File's check and fallback, the row on a narrow phone, the icon and its name, every input in the
+      HTML, other phones as iOS. Read from source the same day: Chrome opens Select File unfiltered, Firefox may grey out
+      photos there (R6), and Firefox's <code>capture</code> path for images is broken since Firefox 128; the findings
+      copied into Background, no outside notes linked, nothing reported to Mozilla (owner, 2026-11-09). Choose Photo
+      written for Choose Image outside the decisions and the history. Not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
