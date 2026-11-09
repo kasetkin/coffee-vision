@@ -197,13 +197,30 @@ def _diff(a, b):
     return None if a is None or b is None else a - b
 
 
+def _yappy_received(p: "Photo") -> int | None:
+    """The crossing as yappy saw it: its nginx's time, from the request's first byte to the answer's end, less the
+    app's, which starts once that nginx has the whole upload and ends with the answer."""
+    return _diff(p.inference_ms, p.app.get("latency_ms"))
+
+
+def _preview_trip(p: "Photo") -> int | None:
+    """The preview's way back to the front, and the upload's first byte's way out: the front's time from its connect to
+    the preview going on, less yappy's from that first byte to the preview leaving the app. One round trip, roughly."""
+    s = p.service
+    front = None if None in (s.get("crossing_ms"), s.get("to_preview_ms")) else s["crossing_ms"] + s["to_preview_ms"]
+    yappy = _yappy_received(p)
+    return _diff(front, None if yappy is None or p.app.get("preview_ms") is None else yappy + p.app["preview_ms"])
+
+
 def _last_attempt(t: dict) -> dict:
     return t["attempts"][-1] if t and t.get("attempts") else {}
 
 
 # The ticket's §2 steps, each from the line that measured it (D6). A network leg (~) is what one side saw minus what
-# the other did, on two clocks: approximate, and kept negative when it comes out so, since dropping those would bias
-# its median up. The page's "upload sent" is the browser's upload load event, which Chromium fires on a tick of about
+# the other did, each on its own clock: approximate, and kept negative when it comes out so, since dropping those would
+# bias its median up. The crossing has two: what the front's socket took (9, until its buffers hold the last byte), and
+# what yappy received (9y); the rest of the first is still on the wire (OPS-3's phone check, 2026-11-09: 5.6 s sent,
+# 9.3 s received). The page's "upload sent" is the browser's upload load event, which Chromium fires on a tick of about
 # 100 ms (OPS-3 P4: every upload_ms in the local check was 57-102 ms), so a short leg can read up to that much low.
 STEPS: tuple[tuple[str, str, object], ...] = (
     ("1", "pick: tap to file (page)", lambda p: p.timeline and p.timeline.get("pick_ms")),
@@ -215,11 +232,12 @@ STEPS: tuple[tuple[str, str, object], ...] = (
         if p.timeline else None),
     ("7", "front's checks (check service)", lambda p: p.service.get("check_ms")),
     ("8", "canonicalization (check service)", lambda p: p.service.get("canonicalize_ms")),
-    ("9", "crossing, proxy to yappy (check service)", lambda p: p.service.get("crossing_ms")),
+    ("9", "crossing, sent (check service)", lambda p: p.service.get("crossing_ms")),
+    ("9y", "crossing, received at yappy (~)", _yappy_received),
     ("10", "decode (app)", lambda p: p.app.get("decode_ms")),
     ("11", "segmentation (app)", lambda p: p.app.get("crop_detect_ms")),
     ("12", "preview built (app)", lambda p: p.app.get("preview_build_ms")),
-    ("13a", "preview, yappy to proxy (~)", lambda p: _diff(p.service.get("to_preview_ms"), p.app.get("preview_ms"))),
+    ("13a", "preview, yappy to proxy, a round trip (~)", _preview_trip),
     ("13b", "preview, proxy to browser (~)", lambda p: _diff(p.timeline and p.timeline.get("to_preview_ms"),
                                                             _service_preview_at(p.service))),
     ("14", "preview drawn (page)", lambda p: p.timeline and p.timeline.get("preview_drawn_ms")),
