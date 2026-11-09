@@ -15,7 +15,7 @@
     Written 2026-11-08; D1&ndash;D15 decided 2026-11-09; implemented 2026-11-09, not released.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-09: implemented on main (the page, ADR 0034, the tests), not released; the release and the owner's check (D7) open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-09: implemented in 533e0a7 (the page, ADR 0034, the tests), not released; the release and the owner's check (D7) open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: the upload controls</span></div>
@@ -328,6 +328,11 @@
       one at 412, the square keeping one line's height. Estimated from the same widths, Roboto fits one line at
       360&nbsp;px with about 13&nbsp;px to spare: not measured. Screenshots sent to the owner, not committed. Not
       released.</div>
+    <div><div class="when">2026-11-09</div>Committed in 533e0a7, after a two-axis review (standards, spec). Its fixes:
+      ADR 0034's change written as a dated amendment, the camera's line height kept off the desktop row (D2), the
+      360&nbsp;px caveat on the page's acceptance line, and OPS-20's test of what sits between the controls and the
+      fold buttons widened to the three labels. The full suite passed bar that test before the fix (913 tests), the fast
+      tier after it. Not released.</div>
   </div>
 
   <footer>Related: <a href="ticket_choose_existing_photo.html">OPS-17</a> (the two controls this changes on Android),
