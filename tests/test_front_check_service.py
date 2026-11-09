@@ -138,9 +138,10 @@ FakeInferenceHost.release.set()   # answering at once unless a test holds it (te
 
 
 def log_lines(log_dir: Path) -> list[dict]:
-    """The check service's log, one JSON object per line (OPS-3 P2)."""
+    """The check service's log, one JSON object per line (OPS-3 P2): the whole lines only, since the service may be
+    writing the next one as this reads."""
     path = log_dir / check_service.LOG_FILE
-    return [json.loads(ln) for ln in path.read_text().splitlines()] if path.exists() else []
+    return [json.loads(ln) for ln in path.read_text().split("\n")[:-1]] if path.exists() else []
 
 
 def log_line(log_dir: Path, rid: str) -> dict:
