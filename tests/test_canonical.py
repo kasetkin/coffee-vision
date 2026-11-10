@@ -20,6 +20,7 @@ import os
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 import imagecodecs as ic
 import numpy as np
@@ -258,6 +259,156 @@ class Cap(unittest.TestCase):
             with self.subTest(size=(w, h)):
                 src = cn.decode(ic.png_encode(np.full((h, w, 3), 90, np.uint8)), "big.png")
                 self.assertEqual(src.pixels.shape[1::-1], want)
+
+
+class FrontCap(unittest.TestCase):
+    """OPS-22 D1: the front's photo, at or under 18,000,000 pixels kept; over, at most 15,000,000 at the same shape.
+    The store's thresholds (Cap, above) do not move."""
+
+    def test_the_two_thresholds(self):
+        front = cn.FRONT_SETTINGS
+        for size in ((6_000, 3_000), (4_000, 3_000), (3_000, 6_000)):   # exactly 18 MP; a 12 MP phone photo
+            with self.subTest(size=size):
+                self.assertEqual(cn.capped_size(*size, front), size)
+        for w, h in ((5_443, 3_307), (3_307, 5_443), (8_160, 6_144), (10_000, 6_000), (6_001, 3_000)):
+            with self.subTest(size=(w, h)):
+                nw, nh = cn.capped_size(w, h, front)
+                self.assertLessEqual(nw * nh, 15_000_000)
+                self.assertGreater((nw + 1) * (nh + 1), 15_000_000)       # the largest such size
+                self.assertLess(abs(nw / w - nh / h), 1 / min(nw, nh) + 1e-9)
+        self.assertEqual(5_443 * 3_307, 18_000_001)
+        self.assertEqual(cn.capped_size(8_160, 6_144), (8_160, 6_144))   # the store's default keeps 50 MP
+
+    @real_data
+    def test_a_photo_just_over_the_threshold_is_downscaled_and_one_at_it_is_not(self):
+        for (w, h), want in (((6_000, 3_000), (6_000, 3_000)), ((5_443, 3_307), cn.capped_size(5_443, 3_307,
+                                                                                               cn.FRONT_SETTINGS))):
+            with self.subTest(size=(w, h)):
+                data = ic.png_encode(np.full((h, w, 3), 90, np.uint8))
+                src = cn.decode(data, "big.png", settings=cn.FRONT_SETTINGS)
+                self.assertEqual(src.pixels.shape[1::-1], want)
+                self.assertEqual(cn.decode(data, "big.png").pixels.shape[1::-1], (w, h))   # the store keeps it
+
+
+class Settings(unittest.TestCase):
+    """OPS-22 D1, R4: the store's settings are the module's constants and every function's default, so the store and
+    training read what they read before; the front's are D1's, passed by the front alone."""
+
+    def test_the_stores_are_the_modules_constants(self):
+        s = cn.STORE_SETTINGS
+        self.assertEqual((s.colour, s.effort, s.quality, s.keep_max_pixels, s.cap_pixels),
+                         ("float", cn.EFFORT, cn.QUALITY, cn.KEEP_MAX_PIXELS, cn.CAP_PIXELS))
+        self.assertEqual((s.colour, s.effort, s.quality, s.keep_max_pixels, s.cap_pixels),
+                         ("float", 7, 95, 60_000_000, 50_000_000))   # ML-19 D7, D27, D31, D50
+
+    def test_the_stores_are_every_functions_default(self):
+        import inspect
+        for f in (cn.capped_size, cn.decode, cn.encode, cn.to_rec2020):
+            with self.subTest(f.__name__):
+                self.assertIs(inspect.signature(f).parameters["settings"].default, cn.STORE_SETTINGS)
+
+    def test_the_fronts_are_d1s(self):
+        f = cn.FRONT_SETTINGS
+        self.assertEqual((f.colour, f.effort, f.quality, f.keep_max_pixels, f.cap_pixels),
+                         ("integer", 3, 90, 18_000_000, 15_000_000))
+
+    def test_each_names_itself(self):   # the front's log line (OPS-22 §7)
+        self.assertEqual(cn.FRONT_SETTINGS.label, "front: integer e3 q90 18/15 MP")
+        self.assertEqual(cn.STORE_SETTINGS.label, "store: float e7 q95 60/50 MP")
+
+    def test_the_encoder_is_given_the_settings_effort_and_quality(self):
+        src = cn.decode(png(patches(SRGB_PATCHES)))
+        for settings, level, effort in ((cn.STORE_SETTINGS, 95, 7), (cn.FRONT_SETTINGS, 90, 3)):
+            with self.subTest(settings.name), mock.patch.object(cn, "encode_rec2020", return_value=b"") as enc:
+                cn.encode(src, settings=settings)
+                self.assertEqual((enc.call_args.kwargs["level"], enc.call_args.kwargs["effort"]), (level, effort))
+
+    def test_the_fronts_photo_declares_d7_and_nothing_else(self):   # the inference host cannot tell them apart
+        data = jpeg(patches(SRGB_PATCHES), orientation=6)
+        front = cn.encode(cn.decode(data, settings=cn.FRONT_SETTINGS), settings=cn.FRONT_SETTINGS)
+        store = cn.canonicalize(data)
+        self.assertNotEqual(front, store)
+        self.assertEqual(cn.canonical_problems(front), [])
+        self.assertEqual(read_header(front).colour, read_header(store).colour)
+        self.assertEqual(cn.load_canonical(front).shape, cn.load_canonical(store).shape)
+
+    def test_the_hosts_check_keeps_the_stores_limit(self):   # a 50 MP canonical photo is still canonical
+        h = read_header(cn.canonicalize(png(patches(SRGB_PATCHES))))
+        self.assertEqual(cn.header_problems(replace(h, width=8_160, height=6_144)), [])
+        self.assertTrue(cn.header_problems(replace(h, width=10_001, height=6_000)))
+
+
+def through_srgb(rec: np.ndarray) -> np.ndarray:
+    """A Rec.2020 uint16 conversion read back as the inference host reads a canonical photo, as ints."""
+    return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
+                            outdtype=np.uint8).astype(int)
+
+
+class IntegerColour(unittest.TestCase):
+    """OPS-22 D4: the front's colour path, LittleCMS's optimized transform from the source's own integers, within one
+    8-bit level of the store's float path after the read-back, before any encode; a source with transparency on the
+    float path itself."""
+
+    def check(self, pixels: np.ndarray, full: float, profile: bytes | None):
+        fl = cn.to_rec2020(pixels, full, profile)
+        it = cn.to_rec2020(pixels, full, profile, settings=cn.FRONT_SETTINGS)
+        self.assertEqual((it.dtype, it.shape), (np.uint16, fl.shape))
+        self.assertLessEqual(int(np.abs(through_srgb(it) - through_srgb(fl)).max()), 1)
+        return fl, it
+
+    def test_sources_without_transparency(self):
+        rng = np.random.default_rng(5)
+        rgb8 = rng.integers(0, 256, (300, 260, 3), dtype=np.uint8)   # strips of 256 rows and a short last one
+        rgb16 = rng.integers(0, 65536, (64, 96, 3), dtype=np.uint16)
+        heif10 = (rng.integers(0, 1024, (64, 96, 3), dtype=np.uint16) << 6)   # pillow-heif's 10 bits, top-aligned
+        cases = {
+            "8-bit sRGB": (rgb8, 255.0, None),
+            "8-bit Display P3": (rgb8, 255.0, DISPLAY_P3),
+            "16-bit sRGB": (rgb16, 65535.0, None),
+            "10-bit HEIC": (heif10, float(1023 << 6), DISPLAY_P3),
+            "16-bit linear Rec.2020 (RAW)": (rgb16, 65535.0, cn.LINEAR_REC2020),
+            "8-bit grey, 2-D": (rgb8[..., 0], 255.0, None),
+            "8-bit grey, one channel": (rgb8[..., :1], 255.0, None),
+            "a turned view": (cn.orient(rgb8, 6), 255.0, None),
+            "the patches": (patches(SRGB_PATCHES), 255.0, None),
+        }
+        for what, (pixels, full, profile) in cases.items():
+            with self.subTest(what):
+                fl, it = self.check(pixels, full, profile)
+        self.assertFalse(np.array_equal(*self.check(rgb8, 255.0, None)), "the integer path is the float path")
+
+    def test_white_and_black_read_back_as_white_and_black(self):
+        """8-bit white comes out at 65521 of 65535 (LittleCMS's optimized 8-bit input), 10-bit white at 65535: both
+        read back as 255."""
+        for pixels, full in ((np.full((8, 8, 3), 255, np.uint8), 255.0), (np.full((8, 8, 3), 1023 << 6, np.uint16),
+                                                                             float(1023 << 6))):
+            with self.subTest(full=full):
+                it = cn.to_rec2020(pixels, full, None, settings=cn.FRONT_SETTINGS)
+                self.assertGreaterEqual(int(it.min()), 65535 - 16)
+                self.assertEqual(int(through_srgb(it).min()), 255)
+        it = cn.to_rec2020(np.zeros((8, 8, 3), np.uint8), 255.0, None, settings=cn.FRONT_SETTINGS)
+        self.assertEqual(int(it.max()), 0)
+
+    def test_a_source_with_transparency_keeps_the_float_path(self):   # D4 (a): laid over the fill grey (ML-19 D13)
+        rng = np.random.default_rng(6)
+        for pixels in (rng.integers(0, 256, (40, 50, 4), dtype=np.uint8),
+                       rng.integers(0, 256, (40, 50, 2), dtype=np.uint8)):
+            with self.subTest(channels=pixels.shape[2]):
+                np.testing.assert_array_equal(cn.to_rec2020(pixels, 255.0, None, settings=cn.FRONT_SETTINGS),
+                                              cn.to_rec2020(pixels, 255.0, None))
+
+    def test_the_encode_uses_it(self):
+        src = cn.decode(png(patches(SRGB_PATCHES)))
+        rects = []
+        real = cn.to_rec2020
+
+        def spy(*args, **kw):
+            rects.append(kw.get("settings"))
+            return real(*args, **kw)
+        with mock.patch.object(cn, "to_rec2020", spy):
+            cn.encode(src, settings=cn.FRONT_SETTINGS)
+        self.assertTrue(rects)
+        self.assertEqual(set(rects), {cn.FRONT_SETTINGS})
 
 
 class IsCanonical(unittest.TestCase):

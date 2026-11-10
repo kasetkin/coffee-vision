@@ -20,6 +20,12 @@ The canonical photo (D1-D7, D13, D16, D20, D21, D27, D28, D36, D50):
 Read back for the models: decoded at 16 bits, LittleCMS without its lossy optimization to 8-bit sRGB, clipped; on
 every CPU the process may use (ML-21), with the same pixels as on one.
 
+Those are the store's settings (STORE_SETTINGS), every function's default: the store and training use nothing else.
+The front makes its own, cheaper canonical photo (FRONT_SETTINGS, OPS-22 D1, ADR 0036): kept up to 18,000,000 pixels
+and over that area-averaged to at most 15,000,000; LittleCMS's optimized integer transform from the source's own
+samples (a source with transparency keeps the float path, D4); quality 90, effort 3. Everything else, the format the
+inference host checks included, is the same, and canonicalize() and its pass-through stay the store's.
+
 No torch: the front imports this module (D35). Every library that decodes, converts or encodes a photo is held at one
 version across the three locks (coffeecv.lock_check), and a version change is a re-canonicalization. libjxl's
 output depends on the CPU (D51): canonical photos are made only on the store's machine and on the front.
@@ -66,6 +72,35 @@ EFFORT = 7                               # D50
 THREADS = 2                              # the front's two vCPU; libjxl's output does not depend on it (P1)
 FILL_SRGB = (124, 116, 104)              # D13: coffeecv.segment_beans.SegmentConfig.fill_rgb
 STRIP_ROWS = 256                         # rows converted at a time (D38)
+
+
+@dataclass(frozen=True)
+class Settings:
+    """How a canonical photo is made from a decoded original (OPS-22 D1): the colour path, the encoder's effort and
+    quality, and the size thresholds (at or under `keep_max_pixels` kept; over, area-averaged to at most
+    `cap_pixels`)."""
+    name: str
+    colour: str            # "float": LittleCMS on float32 (D31); "integer": its optimized transform on the source's own
+    #                        samples (OPS-22 D4)
+    effort: int
+    quality: int
+    keep_max_pixels: int
+    cap_pixels: int
+
+    def __post_init__(self):
+        if self.colour not in ("float", "integer"):
+            raise ValueError(f"colour is float or integer, not {self.colour!r}")
+
+    @property
+    def label(self) -> str:
+        """What the front's log line names it by: "front: integer e3 q90 18/15 MP"."""
+        return (f"{self.name}: {self.colour} e{self.effort} q{self.quality} "
+                f"{self.keep_max_pixels / 1e6:g}/{self.cap_pixels / 1e6:g} MP")
+
+
+# The store's and training's (ADR 0033), every function's default; the front's own (OPS-22 D1, ADR 0036).
+STORE_SETTINGS = Settings("store", "float", EFFORT, QUALITY, KEEP_MAX_PIXELS, CAP_PIXELS)
+FRONT_SETTINGS = Settings("front", "integer", 3, 90, 18_000_000, 15_000_000)
 
 
 # ----- the accepted formats (ADR 0034; ticket OPS-18 D11, D13-D18) -----
@@ -222,25 +257,27 @@ def orient(a: np.ndarray, orientation: int) -> np.ndarray:
     return views[orientation]() if orientation in views else a
 
 
-def capped_size(width: int, height: int) -> tuple[int, int]:
-    """D27: the size a photo is stored at. Over 60,000,000 pixels, the largest size of the same shape (each side
-    scaled by one factor, rounded down) of at most 50,000,000; otherwise its own."""
-    if width * height <= KEEP_MAX_PIXELS:
+def capped_size(width: int, height: int, settings: Settings = STORE_SETTINGS) -> tuple[int, int]:
+    """D27: the size a photo is stored at. Over `settings.keep_max_pixels` (the store's 60,000,000), the largest size
+    of the same shape (each side scaled by one factor, rounded down) of at most `settings.cap_pixels` (50,000,000);
+    otherwise its own."""
+    if width * height <= settings.keep_max_pixels:
         return width, height
-    s = (CAP_PIXELS / (width * height)) ** 0.5
+    s = (settings.cap_pixels / (width * height)) ** 0.5
     w, h = max(1, int(width * s)), max(1, int(height * s))
-    while w * h > CAP_PIXELS:
+    while w * h > settings.cap_pixels:
         w, h = w - 1, h - 1
     return w, h
 
 
-def _cap(a: np.ndarray) -> np.ndarray:
-    """D27, D43: over 60 MP, area-averaged at the capped size, before turning (the pixel count does not depend on it)."""
+def _cap(a: np.ndarray, settings: Settings) -> np.ndarray:
+    """D27, D43: over the threshold, area-averaged at the capped size, before turning (the pixel count does not depend
+    on it)."""
     h, w = a.shape[:2]
-    nw, nh = capped_size(w, h)
+    nw, nh = capped_size(w, h, settings)
     if (nw, nh) == (w, h):
         return a
-    import cv2   # only for the few photos over 60 MP: it costs the front 15 MB to import
+    import cv2   # only for a photo over the threshold: it costs the front 15 MB to import
     return cv2.resize(a, (nw, nh), interpolation=cv2.INTER_AREA)
 
 
@@ -285,10 +322,10 @@ def applied_orientation(data: bytes, name: str = "") -> int:
     return orientation if 1 <= orientation <= 8 else 1
 
 
-def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source:
-    """An original's main image at its decoder's depth, capped and upright (D20, D27, D28, D36), opened with its accepted
-    format's decoder and no other (ADR 0034): a file in none, or one its decoder cannot read, is Unreadable. A photo
-    over `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded."""
+def decode(data: bytes, name: str = "", max_pixels: int | None = None, settings: Settings = STORE_SETTINGS) -> Source:
+    """An original's main image at its decoder's depth, capped by `settings` and upright (D20, D27, D28, D36), opened
+    with its accepted format's decoder and no other (ADR 0034): a file in none, or one its decoder cannot read, is
+    Unreadable. A photo over `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded."""
     fmt = accepted_format(data, name)
     try:
         if fmt.is_raw:
@@ -300,7 +337,7 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
                                           gamma=(1, 1))
             except rawpy.LibRawError as exc:   # not an OSError; LibRaw's message is a bytes repr
                 raise Unreadable(f"unreadable RAW file ({type(exc).__name__})") from exc
-            return Source(_cap(rgb), 65535.0, LINEAR_REC2020, "rawpy16")
+            return Source(_cap(rgb, settings), 65535.0, LINEAR_REC2020, "rawpy16")
         if fmt.decoder == "pillow_heif":
             import pillow_heif
             heif = pillow_heif.open_heif(io.BytesIO(data), convert_hdr_to_8bit=False)
@@ -310,9 +347,9 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             del heif
             # pillow-heif shifts a 10- or 12-bit sample into the top of 16 bits: 10-bit white is 1023 << 6
             full = float((2**depth - 1) << (16 - depth)) if rgb.dtype == np.uint16 else 255.0
-            return Source(_cap(rgb), full, usable_profile(profile), f"heif{depth}")
+            return Source(_cap(rgb, settings), full, usable_profile(profile), f"heif{depth}")
         if fmt.decoder == "imagecodecs.jpegxl":
-            return _decode_jxl(data, max_pixels)
+            return _decode_jxl(data, max_pixels, settings)
         plugin = fmt.pillow_plugin
         profile, orientation, mode, size = _pillow_metadata(data, plugin)
         _check_size(*size, max_pixels)
@@ -326,14 +363,15 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None) -> Source
             with Image.open(io.BytesIO(data), formats=(plugin,)) as im:
                 im.seek(0)                       # an animated GIF's first frame (OPS-18 D1)
                 rgb = np.asarray(im.convert("RGBA" if im.has_transparency_data else "RGB"))
-        return Source(orient(_cap(rgb), orientation), float(np.iinfo(rgb.dtype).max), usable_profile(profile), fmt.id)
+        return Source(orient(_cap(rgb, settings), orientation), float(np.iinfo(rgb.dtype).max), usable_profile(profile),
+                      fmt.id)
     except Unreadable:
         raise
     except (OSError, ValueError, RuntimeError, SyntaxError, EOFError) as exc:
         raise Unreadable(f"unreadable photo ({type(exc).__name__})") from exc
 
 
-def _decode_jxl(data: bytes, max_pixels: int | None) -> Source:
+def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Source:
     """A visitor's JPEG XL that is not canonical: decodable if its colour encoding is sRGB or D7's, as an enumeration.
     (imagecodecs gives no ICC profile for any other.)"""
     header = read_header(data)
@@ -350,20 +388,25 @@ def _decode_jxl(data: bytes, max_pixels: int | None) -> Source:
     rgb = ic.jpegxl_decode(data)                 # imagecodecs applies the file's orientation
     if rgb.dtype == np.float32:
         raise Unreadable("a floating-point JPEG XL")
-    return Source(_cap(rgb), float(np.iinfo(rgb.dtype).max), profile, f"jxl{rgb.dtype.itemsize * 8}")
+    return Source(_cap(rgb, settings), float(np.iinfo(rgb.dtype).max), profile, f"jxl{rgb.dtype.itemsize * 8}")
 
 
 # ----- the colour conversion and the encode -----
 
-def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: int = STRIP_ROWS) -> np.ndarray:
-    """Source values to Rec.2020 uint16 (D31): LittleCMS on float32, relative colorimetric, clipped to [0, 1],
-    rounded; transparent pixels over the fill (D13). `pixels` may be a turned view, grey (2-D, or 1-2 channels) or
-    RGB(A); each strip is copied out of it once and every later step works in place."""
+def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: int = STRIP_ROWS,
+               settings: Settings = STORE_SETTINGS) -> np.ndarray:
+    """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): LittleCMS on float32,
+    clipped to [0, 1], rounded; transparent pixels over the fill (D13). `pixels` may be a turned view, grey (2-D, or 1-2
+    channels) or RGB(A); each strip is copied out of it once and every later step works in place. With
+    settings.colour "integer" (the front's, OPS-22 D4), a source without transparency goes the integer path instead
+    (_to_rec2020_integer); one with transparency stays on this one."""
     h, w = pixels.shape[:2]
-    out = np.empty((h, w, 3), np.uint16)
     channels = 1 if pixels.ndim == 2 else pixels.shape[2]
-    colour = 1 if channels <= 2 else 3           # grey is spread over R, G and B by broadcasting
     alpha_at = {2: 1, 4: 3}.get(channels)
+    if settings.colour == "integer" and alpha_at is None:
+        return _to_rec2020_integer(pixels, full, profile)
+    out = np.empty((h, w, 3), np.uint16)
+    colour = 1 if channels <= 2 else 3           # grey is spread over R, G and B by broadcasting
     source_profile = profile or SRGB
     fill = None
     if alpha_at is not None:
@@ -391,12 +434,28 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
     return out
 
 
-def encode(source: Source, *, effort: int = EFFORT, numthreads: int = THREADS) -> bytes:
-    """A decoded original as its canonical JPEG XL, each rectangle libjxl asks for converted when it asks (D52)."""
+def _to_rec2020_integer(pixels: np.ndarray, full: float, profile: bytes | None) -> np.ndarray:
+    """OPS-22 D4: the front's colour path for a source without transparency. LittleCMS's default (optimized) transform,
+    relative colorimetric, from the source's own 8- or 16-bit samples, grey spread over R, G and B, straight into
+    Rec.2020 uint16: about 8x less time than the float path, within one 8-bit level of it once read back
+    (tests/test_canonical.py, IntegerColour). One call for the whole rectangle libjxl asks for (at most 2048 x 2048)."""
+    a = pixels if pixels.ndim == 3 else pixels[..., None]
+    if a.shape[2] == 1:
+        a = np.broadcast_to(a, a.shape[:2] + (3,))
+    top = np.iinfo(a.dtype).max
+    if full != top:   # pillow-heif's 10- and 12-bit samples sit in the top of 16 bits: scaled so `full` is the top
+        f = int(full)
+        a = np.minimum((a.astype(np.uint32) * top + f // 2) // f, top).astype(a.dtype)
+    return ic.cms_transform(np.ascontiguousarray(a), profile or SRGB, REC2020, intent=RELATIVE, outdtype=np.uint16)
+
+
+def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: int = THREADS) -> bytes:
+    """A decoded original as its canonical JPEG XL, each rectangle libjxl asks for converted when it asks (D52), with
+    `settings`' colour path, quality and effort."""
     h, w = source.pixels.shape[:2]
     return encode_rec2020(h, w, lambda y, x, ys, xs: to_rec2020(source.pixels[y:y + ys, x:x + xs], source.full,
-                                                                source.profile),
-                          level=QUALITY, effort=effort, numthreads=numthreads)
+                                                                source.profile, settings=settings),
+                          level=settings.quality, effort=settings.effort, numthreads=numthreads)
 
 
 def canonicalize(data: bytes, name: str = "", max_pixels: int | None = None) -> bytes:
@@ -510,7 +569,8 @@ def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None)
     return out
 
 
-__all__ = ["CAP_PIXELS", "KEEP_MAX_PIXELS", "NotCanonical", "TooLarge", "Unreadable", "applied_orientation",
+__all__ = ["CAP_PIXELS", "FRONT_SETTINGS", "KEEP_MAX_PIXELS", "NotCanonical", "STORE_SETTINGS", "Settings",
+           "TooLarge", "Unreadable", "applied_orientation",
            "canonical_path",
            "canonical_problems", "canonicalize", "canonicalize_file", "capped_size", "decode", "encode",
            "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "to_rec2020"]
