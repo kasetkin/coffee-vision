@@ -12,7 +12,7 @@
     the owner starts (P4). P1 changes no number; P2 is the first to change one, and only on the front.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; Q1&ndash;Q2 answered 2026-11-10 (OPS-22 D6, D7); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; Q1&ndash;Q2 answered 2026-11-10 (OPS-22 D6, D7); P1&ndash;P3 done 2026-11-10; P4 waits for the owner</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_fast_canonicalization.html"><code>ticket_front_fast_canonicalization.html</code></a> (OPS-22)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -86,7 +86,7 @@
 
   <h2>3. P1 &mdash; the settings in the shared module, the store's unchanged</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-10, started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-10, <code>16f73ef</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One frozen dataclass, <code>canonical.Settings</code>: the colour path (<code>float</code> or
@@ -114,7 +114,7 @@
 
   <h2>4. P2 &mdash; the front's settings, every upload re-encoded</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-10, started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-10, <code>72f4971</code>; D4 in <code>analysis/ops22/</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <p><code>check_service.py</code> decodes and encodes with <code>canonical.FRONT</code>, and drops its
@@ -143,7 +143,7 @@
 
   <h2>5. P3 &mdash; the deploy's checks on the front's path; the ADR and the docs</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-10, started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-10, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>; the front-side byte comparison not done (no access)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2 <span class="tag">Q1, Q2 answered</span></span></div>
   </div>
   <ol class="tasks">
@@ -209,7 +209,16 @@
     <div><div class="when">2026-11-10</div>Claude reads ticket OPS-22 at <code>20f2d44</code> and writes this plan.
       Five findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
     <div><div class="when">2026-11-10</div>The owner answers Q1 and Q2: both as recommended (OPS-22 D6, D7). Nothing
-      blocks P1. Not implemented.</div>
+      blocks P1. Not implemented.</div>    <div><div class="when">2026-11-10</div>Claude implements P1&ndash;P3. Departures from the plan: the settings are
+      <code>STORE_SETTINGS</code> and <code>FRONT_SETTINGS</code>, since <code>canonical.STORE</code> is already the
+      store's path; the front's whole step is one function, <code>canonical.canonicalize_with</code>, which the check
+      service and the deploy's checks (D6, D7) both call, after the review; the smoke photo is answered on both photos
+      and the examples on the front's in one run of the staged app (<code>release_probe.py smoke --more</code>);
+      <code>scripts/make_example_photos.py</code>'s docstring corrected (the front no longer passes an example on), its
+      code untouched; <code>CODING_STANDARDS.md</code>'s parity rule names ADR 0036 beside ADR 0019. Not done: the
+      front-side byte comparison of the smoke photo (finding 5), since this session was refused a read on the
+      production front; the peak under <code>MemoryMax=600M</code>, which this machine cannot impose. The examples'
+      four answers and D4 are in the ticket's Activity. P4 waits for the owner.</div>
   </div>
 
   <footer>Related: <a href="ticket_front_fast_canonicalization.html">OPS-22 ticket</a>,

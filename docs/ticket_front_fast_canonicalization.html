@@ -9,11 +9,12 @@
   <p class="lede">The owner's decision (D1): the front's check service canonicalizes visitors' photos faster and smaller,
     and the canonical store, training and both models stay as they are. A 50 MP photo now waits about 20 s on the
     front and 18 s crossing to <code>yappy</code>; measured here, the new settings take about 3 s and make a 1&ndash;3 MB
-    file. This departs from ADR 0033 and the coding standards' train/inference parity, on purpose (R1). Written; every
-    decision taken; not planned, not implemented.</p>
+    file. This departs from ADR 0033 and the coding standards' train/inference parity, on purpose (R1). Every
+    decision taken; P1&ndash;P3 implemented on <code>ops22-front-fast-canonicalization</code>; not released (P4 waits
+    for the owner).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; P1&ndash;P3 done 2026-11-10 (<code>16f73ef</code>, <code>72f4971</code>, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>); not released</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -138,7 +139,9 @@
         room.</strong> Its canonical JPEG XL decodes at 16 bits, whole: 300 MB of pixels.</td>
         <td>Measured here on 2 CPUs, 2026-11-10: 3.45 s, 1.06 MB, peak RSS 467 MB, under the unit's
           <code>MemoryMax=600M</code>. The released front's <code>peak_mb</code> for the example is read and recorded
-          (§7). A second lossy generation (q95, then q90) is accepted by D3: a visitor's JPEG is one too.</td></tr>
+          (§7). A second lossy generation (q95, then q90) is accepted by D3: a visitor's JPEG is one too. P2,
+          2026-11-10, through the code as committed: 3.79 s, 1.06 MB, peak 468 MB (<code>VmHWM</code>; this machine
+          cannot hold a process to <code>MemoryMax</code>), <a href="../analysis/ops22/README.md">analysis/ops22</a>.</td></tr>
       <tr><td class="id">R4</td><td><strong>A change to the shared module changes the store.</strong> The front imports
         <code>coffeecv.canonical</code>, which built the store.</td>
         <td>The front's settings are parameters passed by <code>check_service.py</code>; the module's defaults stay
@@ -242,6 +245,21 @@
       the deploy). Not implemented.</div>
     <div><div class="when">2026-11-10</div>The owner answers the plan's Q1 and Q2 as recommended: D6, D7. Not
       implemented.</div>
+    <div><div class="when">2026-11-10</div>Claude implements P1&ndash;P3 (<code>16f73ef</code>, <code>72f4971</code>,
+      <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>). <code>canonical.STORE_SETTINGS</code> (every
+      function's default) and <code>FRONT_SETTINGS</code>; ten originals canonicalized with the defaults are
+      byte-identical to <code>data/canonical/</code>, and the golden file holds. The check service canonicalizes every
+      upload with the front's settings and logs <code>canonical_settings</code>.
+      <b>D4 measured</b> (<a href="../analysis/ops22/README.md">analysis/ops22/README.md</a>, 2 CPUs): an 8-bit JPEG
+      2.1 s at 12 MP and 3.1 s at 50 MP (1.95 and 1.14 MB), an 8-bit HEIC 2.7 s, a 10-bit HEIC 3.0 s, a 9.9 MP DNG
+      4.2 s, a 16-bit PNG 2.8 s, a PNG with transparency 4.9 s (the float path, identical to it), the grinder example
+      3.8 s at 468 MB. Against the float path at the same effort and quality, after the encode: a mean of 0.03&ndash;0.10
+      levels, 99% of samples within 1&ndash;2, the largest 10&ndash;30 at edges; before the encode every source within
+      one level. <b>D7, run here</b> through the deploy's own step: on the front's photos the staged app answers
+      brazil-grinder Brazil, ethiopia-green Ethiopia, indonesia-roasted Indonesia, cappuccino refused_ood, each its
+      example's answer; the smoke photo Colombia, as on the store's photo. Not done: the smoke photo's front bytes
+      compared on the front itself (the plan's finding 5), which this session was not allowed to reach; for the
+      integer colour path it is unchecked, and P4's <code>--verify</code> is its first check. <code>scripts/rehearse_deploy_local.sh</code> passed at <code>ea10f5d</code> (both deploys, the refusals, <code>--compare</code>, both rollbacks; the public checks skipped there, as always).</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),

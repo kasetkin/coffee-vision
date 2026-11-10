@@ -14,7 +14,11 @@
 # Since OPS-15 P4 the deploy builds a front release too, from the commit's front templates and its check service's
 # unit, so REHEARSE_PREV_REF must also be from OPS-15 P4 on.
 #
-# Last passed 2026-11-02 (OPS-15 P4, two hosts), with REHEARSE_MODEL=dino3b16_segxl0v6_country_aug8_s42 and
+# Last passed 2026-11-10 (OPS-22 P3: the front's expected answer and the examples answered in the build), with
+# REHEARSE_MODEL=dino3b16_segxl0v7r_country_aug8_s42 and REHEARSE_PREV_REF=origin/main~1, from a scratch clone whose main
+# was branch ops22-front-fast-canonicalization (deploy 1) plus an empty commit (deploy 2), with the source's ignored
+# files under models/ and models_pretrained/ linked in for --compare; the public checks skipped, as always here.
+# Before that, passed 2026-11-02 (OPS-15 P4, two hosts), with REHEARSE_MODEL=dino3b16_segxl0v6_country_aug8_s42 and
 # REHEARSE_PREV_REF=origin/main~1, from a scratch clone whose main was branch ops15-impl plus P4 (deploy 1) and an empty
 # commit (deploy 2), since the branch is not on main until the cutover: an nginx -t failure on each host after the flip
 # put both hosts back on deploy 1 with both services running, the live service stopped only once both were staged;
