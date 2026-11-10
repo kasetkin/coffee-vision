@@ -629,6 +629,31 @@ class CheckService(unittest.TestCase):
         self.assertEqual(resp.status, 200)
 
 
+class FrontEnvironment(unittest.TestCase):
+    """The front's own environment (webapp/front/pyproject.toml) has every library coffeecv.canonical imports, the ones
+    it imports only inside a function too. OPS-22's first release failed every photo over 18 MP with a 500: the front
+    downscales those since OPS-22, through cv2, which the front had left out while it refused everything cv2 was for."""
+
+    DISTRIBUTIONS = {"cv2": "opencv-python-headless", "PIL": "pillow", "pillow_heif": "pillow-heif", "rawpy": "rawpy",
+                     "imagecodecs": "imagecodecs", "numpy": "numpy"}
+
+    def test_every_library_canonicalization_imports_is_the_fronts(self):
+        import ast
+        import tomllib
+        tree = ast.parse((REPO / "coffeecv" / "canonical.py").read_text())
+        imported = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names} | \
+            {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module and not n.level}
+        third_party = imported - set(sys.stdlib_module_names) - {"coffeecv", "__future__"}
+        self.assertIn("cv2", third_party)
+        unknown = third_party - set(self.DISTRIBUTIONS)
+        self.assertEqual(unknown, set(), "name the distribution of each new import above")
+        front = tomllib.loads((REPO / "webapp" / "front" / "pyproject.toml").read_text())
+        have = {d.split("==")[0].split(">")[0].strip().lower() for d in front["project"]["dependencies"]}
+        for module in sorted(third_party):
+            with self.subTest(module):
+                self.assertIn(self.DISTRIBUTIONS[module], have)
+
+
 class Timelines(unittest.TestCase):
     """POST /timeline (OPS-3 P3, D7, D17's layer 2, D23): checked against the schema, written as one line of its own
     kind, never behind the photo's gate, and no more than the daily cap."""

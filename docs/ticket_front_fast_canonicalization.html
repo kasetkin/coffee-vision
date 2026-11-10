@@ -259,7 +259,16 @@
       brazil-grinder Brazil, ethiopia-green Ethiopia, indonesia-roasted Indonesia, cappuccino refused_ood, each its
       example's answer; the smoke photo Colombia, as on the store's photo. Not done: the smoke photo's front bytes
       compared on the front itself (the plan's finding 5), which this session was not allowed to reach; for the
-      integer colour path it is unchecked, and P4's <code>--verify</code> is its first check. <code>scripts/rehearse_deploy_local.sh</code> passed at <code>ea10f5d</code> (both deploys, the refusals, <code>--compare</code>, both rollbacks; the public checks skipped there, as always).</div>
+      integer colour path it is unchecked, and P4's <code>--verify</code> is its first check. <code>scripts/rehearse_deploy_local.sh</code> passed at <code>ea10f5d</code> (both deploys, the refusals, <code>--compare</code>, both rollbacks; the public checks skipped there, as always).</div>    <div><div class="when">2026-11-10</div>Merged into <code>main</code> (<code>e09ef86</code>) and deployed at the
+      owner's request as <code>20261110T1049Z-e09ef86</code>: the build's checks passed (D6: Colombia; D7: the four
+      examples their own), the smoke passed, photo answers were down 53 s; <b><code>--verify</code> failed</b> and both
+      hosts went back to <code>9c1edda</code>, which verified. brazil-grinder (50 MP) and indonesia-roasted (19.2 MP) got
+      HTTP 500, the public smoke photo (12 MP) Colombia: the front's environment had no OpenCV
+      (<code>webapp/front/pyproject.toml</code> left it out while the front refused every photo over 60 MP), and since
+      OPS-22 every photo over 18 MP is downscaled with it. Every check here ran in training's environment, which has it.
+      Fixed: <code>opencv-python-headless==5.0.0.93</code> in the front's lock, training's version; a test holds the
+      front's dependencies to every import in <code>coffeecv/canonical.py</code>. Checked in the front's own environment
+      built from its lock: the two examples canonicalize, the grinder at 477 MB peak.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
