@@ -13,7 +13,11 @@ OUT_DIR/front/<basename>.jxl is the smoke photo as the front makes it: --verify 
 so its expected answer there is the staged app's on this one (OPS-22 D6). With --examples-from, OUT_DIR/front/examples/
 <name>.jxl is each of that commit's examples (webapp/static/examples/) as the front re-encodes it, which the deploy
 answers with the staged app before anything is stopped (OPS-22 D7). Neither is in fixtures.canonical.txt: they never
-reach the inference host's fixtures. libjxl gives the front's bytes on this machine too (OPS-22 plan, finding 5).
+reach the inference host's fixtures. A commit without the example list (before OPS-16) has none to write.
+
+Both are made by this checkout's coffeecv, as the store's fixtures are (the deploy runs from the release's commit).
+That this machine makes the front's bytes is ML-19 P1's finding for libjxl at efforts 3-7; for the front's integer
+colour path it is unchecked here (OPS-22 plan, finding 5), and --verify's public top-1 is the first check of it.
 """
 from __future__ import annotations
 
@@ -39,14 +43,14 @@ EXAMPLES = "webapp/static/examples"
 
 
 def as_the_front_sends(data: bytes, name: str) -> bytes:
-    """What the front's check service makes of an upload (OPS-22 D1, D3): decoded and encoded with its settings,
-    whatever it is, an already canonical photo too."""
-    settings = canonical.FRONT_SETTINGS
-    return canonical.encode(canonical.decode(data, name, settings=settings), settings=settings)
+    """What the front's check service makes of an upload (OPS-22 D1, D3): its own call, with its settings, whatever
+    the photo is, an already canonical one too."""
+    return canonical.canonicalize_with(data, name, canonical.FRONT_SETTINGS).canonical
 
 
-def _git_show(commit: str, path: str) -> bytes:
-    return subprocess.run(["git", "show", f"{commit}:{path}"], cwd=REPO, capture_output=True, check=True).stdout
+def _git_show(commit: str, path: str) -> bytes | None:
+    r = subprocess.run(["git", "show", f"{commit}:{path}"], cwd=REPO, capture_output=True)
+    return r.stdout if r.returncode == 0 else None
 
 
 def write(fixtures: Path, out: Path, examples_from: str | None = None) -> int:
@@ -74,7 +78,10 @@ def write(fixtures: Path, out: Path, examples_from: str | None = None) -> int:
         examples.mkdir(exist_ok=True)
         for old in examples.glob("*.jxl"):   # never a stale one from another commit's list
             old.unlink()
-        for example in json.loads(_git_show(examples_from, f"{EXAMPLES}/examples.json"))["examples"]:
+        listing = _git_show(examples_from, f"{EXAMPLES}/examples.json")
+        if subprocess.run(["git", "cat-file", "-e", f"{examples_from}^{{commit}}"], cwd=REPO).returncode != 0:
+            raise SystemExit(f"canonical_fixtures: {examples_from} is not a commit here")
+        for example in json.loads(listing)["examples"] if listing is not None else []:
             name = f"{example['name']}.jxl"
             (examples / name).write_bytes(as_the_front_sends(_git_show(examples_from, f"{EXAMPLES}/{name}"), name))
     return len(lines)

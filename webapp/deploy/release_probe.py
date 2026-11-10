@@ -73,8 +73,12 @@ def _import_release_app():
     return app
 
 
+def _probe_text(payload: dict) -> str:
+    return "PROBE " + json.dumps(payload, default=_jsonable, sort_keys=True)
+
+
 def _emit(payload: dict) -> None:
-    print("PROBE " + json.dumps(payload, default=_jsonable, sort_keys=True), flush=True)
+    print(_probe_text(payload), flush=True)
 
 
 def _analyze(app, photo: Path) -> dict:
@@ -95,8 +99,7 @@ def smoke(photo: Path, more: list[Path] = (), more_dir: Path | None = None) -> N
     if more:
         more_dir.mkdir(parents=True, exist_ok=True)
     for p in more:
-        (more_dir / f"{p.name}.probe").write_text(
-            "PROBE " + json.dumps(_analyze(app, p), default=_jsonable, sort_keys=True) + "\n")
+        (more_dir / f"{p.name}.probe").write_text(_probe_text(_analyze(app, p)) + "\n")
 
 
 def classify(photos: list[Path]) -> None:

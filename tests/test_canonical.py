@@ -332,6 +332,21 @@ class Settings(unittest.TestCase):
         self.assertEqual(read_header(front).colour, read_header(store).colour)
         self.assertEqual(cn.load_canonical(front).shape, cn.load_canonical(store).shape)
 
+    def test_canonicalize_with_re_encodes_a_canonical_photo_and_says_what_it_decoded(self):   # OPS-22 D3
+        data = jpeg(patches(SRGB_PATCHES), orientation=6)
+        made = cn.canonicalize_with(data, "p.jpg", cn.FRONT_SETTINGS)
+        self.assertEqual(made.canonical, cn.encode(cn.decode(data, settings=cn.FRONT_SETTINGS),
+                                                   settings=cn.FRONT_SETTINGS))
+        self.assertEqual((made.width, made.height, made.bits), (PATCH, PATCH * len(SRGB_PATCHES), 8))   # turned
+        store = cn.canonicalize(data)
+        again = cn.canonicalize_with(store, "p.jxl", cn.FRONT_SETTINGS)
+        self.assertNotEqual(again.canonical, store)                    # no pass-through, unlike canonicalize
+        self.assertTrue(cn.is_canonical(again.canonical))
+        self.assertEqual(again.bits, 16)
+        self.assertEqual(cn.canonicalize_with(data).canonical, store)   # the store's settings by default
+        with self.assertRaises(cn.TooLarge):
+            cn.canonicalize_with(data, settings=cn.FRONT_SETTINGS, max_pixels=100)
+
     def test_the_hosts_check_keeps_the_stores_limit(self):   # a 50 MP canonical photo is still canonical
         h = read_header(cn.canonicalize(png(patches(SRGB_PATCHES))))
         self.assertEqual(cn.header_problems(replace(h, width=8_160, height=6_144)), [])

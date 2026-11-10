@@ -458,6 +458,25 @@ def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: i
                           level=settings.quality, effort=settings.effort, numthreads=numthreads)
 
 
+@dataclass(frozen=True)
+class Made:
+    """A canonical photo and what it was made from: the decoded size and depth (the front's log line, ML-19 D38)."""
+    canonical: bytes
+    width: int
+    height: int
+    bits: int
+
+
+def canonicalize_with(data: bytes, name: str = "", settings: Settings = STORE_SETTINGS,
+                      max_pixels: int | None = None) -> Made:
+    """An original's canonical photo made with `settings`, with no pass-through: an already canonical photo is
+    re-encoded too. The front's one path (OPS-22 D1, D3), and what the deploy's checks of it call, so they make the
+    bytes the front sends. Raises Unreadable, or TooLarge over `max_pixels`."""
+    source = decode(data, name, max_pixels, settings=settings)
+    (h, w), bits = source.pixels.shape[:2], source.pixels.dtype.itemsize * 8
+    return Made(encode(source, settings=settings), w, h, bits)
+
+
 def canonicalize(data: bytes, name: str = "", max_pixels: int | None = None) -> bytes:
     """An original photo's bytes to its canonical photo's. `name` is the file's name, if known: a RAW photo is told
     by its extension. A canonical photo comes back as it is (D17). Raises Unreadable, or TooLarge over
@@ -573,5 +592,5 @@ def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None)
 __all__ = ["CAP_PIXELS", "FRONT_SETTINGS", "KEEP_MAX_PIXELS", "NotCanonical", "STORE_SETTINGS", "Settings",
            "TooLarge", "Unreadable", "applied_orientation",
            "canonical_path",
-           "canonical_problems", "canonicalize", "canonicalize_file", "capped_size", "decode", "encode",
+           "canonical_problems", "canonicalize", "canonicalize_file", "canonicalize_with", "Made", "capped_size", "decode", "encode",
            "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "to_rec2020"]

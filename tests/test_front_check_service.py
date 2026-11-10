@@ -53,8 +53,7 @@ JPEG = _jpeg()
 
 def front(data: bytes, name: str = "") -> bytes:
     """What the front makes of an upload (OPS-22 D1, D3): decoded and encoded with its own settings, whatever it is."""
-    return canonical.encode(canonical.decode(data, name, settings=canonical.FRONT_SETTINGS),
-                            settings=canonical.FRONT_SETTINGS)
+    return canonical.canonicalize_with(data, name, canonical.FRONT_SETTINGS).canonical
 RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
 RID = "0123456789abcdef0123456789abcdef"   # a request ID as the front's nginx makes it ($request_id, OPS-3 D8)

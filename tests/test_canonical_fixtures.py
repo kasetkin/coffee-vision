@@ -27,8 +27,7 @@ from tests._tiers import real_data  # noqa: E402
 
 
 def front(data: bytes, name: str) -> bytes:
-    return canonical.encode(canonical.decode(data, name, settings=canonical.FRONT_SETTINGS),
-                            settings=canonical.FRONT_SETTINGS)
+    return canonical.canonicalize_with(data, name, canonical.FRONT_SETTINGS).canonical
 
 
 def jpeg(seed: int) -> bytes:
@@ -68,6 +67,16 @@ class CanonicalFixtures(unittest.TestCase):
         (self.dir / "one.jpg").write_bytes(jpeg(9))
         with self.assertRaises(SystemExit):
             canonical_fixtures.write(self.fixtures, self.out)
+
+    def test_a_commit_without_the_example_list_has_none_and_an_unknown_one_stops_it(self):
+        added = subprocess.run(["git", "log", "-1", "--format=%H", "--diff-filter=A", "--",
+                                "webapp/static/examples/examples.json"], cwd=REPO, capture_output=True, text=True,
+                               check=True).stdout.strip()
+        canonical_fixtures.write(self.fixtures, self.out, examples_from=f"{added}^")
+        made = self.out / canonical_fixtures.FRONT_DIR / canonical_fixtures.EXAMPLES_DIR
+        self.assertEqual(list(made.iterdir()), [])
+        with self.assertRaises(SystemExit):
+            canonical_fixtures.write(self.fixtures, self.out, examples_from="0" * 40)
 
     @real_data   # about 6 s: the 50 MP grinder example re-encoded among them
     def test_each_example_as_the_front_sends_it(self):

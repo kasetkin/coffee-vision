@@ -382,17 +382,14 @@ class CheckHandler(BaseHTTPRequestHandler):
         re-encoded, not passed on), noting in the log line the settings, what was decoded and the memory it took
         (ML-19 D38)."""
         t0, measured = time.monotonic(), reset_peak_memory()
-        source = canonical.decode(data, filename, max_pixels, settings=SETTINGS)
-        (h, w), bits = source.pixels.shape[:2], source.pixels.dtype.itemsize * 8
-        canon = canonical.encode(source, settings=SETTINGS)
-        del source
+        made = canonical.canonicalize_with(data, filename, SETTINGS, max_pixels)
         peak_mb, swap_mb = process_memory_mb()
         self.record.update(canonical="canonicalized", canonical_settings=SETTINGS.label,
-                           canonicalize_ms=ms_since(t0), width=w, height=h, bits=bits, peak_mb=peak_mb,
-                           swap_mb=swap_mb)
+                           canonicalize_ms=ms_since(t0), width=made.width, height=made.height, bits=made.bits,
+                           peak_mb=peak_mb, swap_mb=swap_mb)
         if not measured:
             self.record["peak_since_start"] = True
-        return canon
+        return made.canonical
 
     def forward(self, body: bytes) -> str:
         """Sends the photo on and relays the answer. The log line's crossing_ms is the connection and the whole upload;
