@@ -10,11 +10,11 @@
     and the canonical store, training and both models stay as they are. A 50 MP photo now waits about 20 s on the
     front and 18 s crossing to <code>yappy</code>; measured here, the new settings take about 3 s and make a 1&ndash;3 MB
     file. This departs from ADR 0033 and the coding standards' train/inference parity, on purpose (R1). Every
-    decision taken; P1&ndash;P3 implemented on <code>ops22-front-fast-canonicalization</code>; not released (P4 waits
-    for the owner).</p>
+    decision taken; live since 2026-11-10 (<code>20261110T1117Z-42ba447</code>); the live numbers (§7) not yet
+    read.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; P1&ndash;P3 done 2026-11-10 (<code>16f73ef</code>, <code>72f4971</code>, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>); not released</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; P1&ndash;P3 done 2026-11-10 (<code>16f73ef</code>, <code>72f4971</code>, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>); released 2026-11-10 in <code>20261110T1117Z-42ba447</code>, <code>--verify</code> passed (the first release, <code>e09ef86</code>, rolled back: no OpenCV on the front, fixed in <code>72a6e1a</code>); the live numbers not yet read</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -269,6 +269,13 @@
       Fixed: <code>opencv-python-headless==5.0.0.93</code> in the front's lock, training's version; a test holds the
       front's dependencies to every import in <code>coffeecv/canonical.py</code>. Checked in the front's own environment
       built from its lock: the two examples canonicalize, the grinder at 477 MB peak.</div>
+    <div><div class="when">2026-11-10</div>Released in <code>20261110T1117Z-42ba447</code> (main <code>42ba447</code>),
+      the live model unchanged; photo answers down 52 s. <code>--verify</code> passed on both hosts: the public smoke
+      photo Colombia, as expected on the front's photo (D6), its answer 16.3 s from the upload's start (24.6 s on
+      <code>9c1edda</code> in the rolled-back verify, one sample each); every example its own through the domain,
+      brazil-grinder and indonesia-roasted included. Not yet done (P4): the front's <code>canonicalize_ms</code>,
+      <code>canonical_bytes</code>, <code>crossing_ms</code> and <code>peak_mb</code>, and yappy's
+      <code>decode_ms</code>, from the live logs; this session was not allowed to read the production hosts.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
