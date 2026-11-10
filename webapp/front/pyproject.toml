@@ -1,8 +1,10 @@
 # The front's check service (ticket OPS-15 P1, ADR 0031), on the uv-managed Python 3.12 every environment here uses
 # (ADR 0007), not the proxy's own 3.11. Built with `uv sync --locked --project webapp/front`. Standard library only
 # until ticket ML-19 P9 (ADR 0033): it now canonicalizes each upload with coffeecv.canonical, so it has the photo
-# stack that module imports, at training's versions exactly (coffeecv.lock_check holds the three locks equal). No
-# OpenCV: it is imported only to downscale a photo over 60 MP, and the front refuses those (D38).
+# stack that module imports, at training's versions exactly (coffeecv.lock_check holds the three locks equal). OpenCV
+# since OPS-22: the front downscales every photo over 18 MP (canonical.FRONT_SETTINGS) with cv2.INTER_AREA, as the
+# store does over 60 MP. Before, it had none, since it refused every photo cv2 was for (ML-19 D38); OPS-22's first
+# release failed photos over 18 MP for that (tests/test_front_check_service.py, FrontEnvironment).
 #
 # Re-lock after any edit here (locally, with the uv version pinned below):
 #     uv lock --project webapp/front
@@ -13,6 +15,7 @@ requires-python = "==3.12.*"
 dependencies = [
   "imagecodecs==2026.10.10",
   "numpy==2.5.3",
+  "opencv-python-headless==5.0.0.93",
   "pillow==12.3.0",
   "pillow-heif==1.8.0",
   "rawpy==0.27.1",
