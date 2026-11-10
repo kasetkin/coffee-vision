@@ -159,7 +159,7 @@
           that is now 50/60 MP goes to 15/18 MP. Do not re-train models or change canonical images in DVC, change only
           proxy code. This is my decision." Read as: kept at full size up to 18,000,000 pixels; over that,
           area-averaged to at most 15,000,000. Departs from ADR 0033 and ML-19 D7, D27, D31, D50 for the front only
-          (R1).</td></tr>
+          (R1). Recorded in <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>.</td></tr>
       <tr><td class="id">D2</td><td>The front's refusal ceiling (ML-19 D38: 60 MP; a RAW file 16 MP, D24)?</td>
         <td>(a) As it is: over 60 MP refused, 18&ndash;60 MP downscaled (b) Raised, since the front keeps at most 15 MP;
           its decode of the original at full size still bounds the memory</td>
@@ -246,6 +246,7 @@
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
     <a href="ticket_canonical_decode_time.html">ML-21</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
     <a href="../CODING_STANDARDS.md">CODING_STANDARDS.md</a> ("Train/inference parity"),
     <a href="https://raw.githubusercontent.com/libjxl/libjxl/v0.12.0/doc/encode_effort.md">libjxl 0.12.0 encode_effort.md</a>.</footer>
 </main>
