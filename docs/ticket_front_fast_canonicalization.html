@@ -1,0 +1,236 @@
+<title>The front's faster canonicalization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-22 · coffee-vision · the front's canonicalization</div>
+  <h1>The front canonicalizes with 8-bit colour, effort 3, quality 90 and a 15/18 MP cap, the models and the store unchanged</h1>
+  <p class="lede">The owner's decision (D1): the front's check service canonicalizes visitors' photos faster and smaller,
+    and the canonical store, training and both models stay as they are. A 50 MP photo now waits about 20 s on the
+    front and 18 s crossing to <code>yappy</code>; measured here, the new settings take about 3 s and make a 1&ndash;3 MB
+    file. This departs from ADR 0033 and the coding standards' train/inference parity, on purpose (R1). Written; every
+    decision taken; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/front/check_service.py</code>; <code>coffeecv/canonical.py</code> and <code>coffeecv/jxl_encode.py</code> (new parameters only, their defaults, training's, unchanged); the front's release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-10</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">Every photo the front receives, an already canonical one included (D3): a smaller canonical photo, at most 18 MP, cheaper to make, carry and decode; the models read it unretrained</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-10.</strong> "Create ops ticket to switch from current proxy settings to 8-bit
+      color + effort 3 + q90 + max image size in MP that is now 50/60 MP goes to 15/18 MP. Do not re-train models or
+      change canonical images in DVC, change only proxy code. This is my decision."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the front makes the same canonical photo the canonical store holds (ADR 0033): float LittleCMS into
+    Rec.2020, libjxl effort 7, quality 95, kept at full size up to 60 MP and over that area-averaged to 50 MP. After,
+    the front makes its own, cheaper one: LittleCMS's optimized integer transform, effort 3, quality 90, kept up to
+    18 MP and over that area-averaged to at most 15 MP. Everything else about the canonical photo stays: Rec.2020, D7's
+    header, upright, no metadata, the same check at the inference host. The front no longer passes an already
+    canonical upload on as it is (ML-19 D17): it re-encodes every photo, the page's examples included (D3). The store,
+    its stages, training, both models
+    and the inference host's code do not change. The work: the front's settings as parameters of the shared module
+    with training's as their defaults, the front passing its own; an ADR recording the departure; a release, checked by
+    <code>--verify</code>'s examples alone (D5).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>The front's time is the work itself.</b> Its log (<code>/var/log/coffee-cv-front/requests.jsonl</code>,
+      2026-11-09 to 2026-11-10) shows 0.34&ndash;0.44 s per megapixel for every photo: 12 MP 4.3&ndash;5.4 s, the nine
+      50 MP photos 17.4&ndash;20.8 s; swap from 0 to 104 MB made no difference to the rate. Request
+      <code>cfe99dda</code> (a 50 MP Pixel 9 Pro JPEG, 2026-11-10): canonicalization 19.6 s, crossing 17.8 s for its
+      5.36 MB, <code>yappy</code>'s decode 5.8 s, 66 s from selection to answer.</li>
+    <li><b>Where the front's time goes</b> (ML-21's measurements, a 12 MP photo on this machine): libjxl at effort 7
+      3.3 s, the float colour conversion 2.55 s, serially. Encode time does not depend on quality: at effort 3, 2.04 s
+      at q95, 2.02 s at q90, 1.94 s at q85. Quality changes the size: q90's files are 28&ndash;36% smaller.</li>
+    <li><b>What effort 3 leaves out</b> (libjxl 0.12.0's <code>encode_effort.md</code> and encoder source): the
+      variable block-size search (8&times;8 DCT only), the adaptive quantization field, chroma from luma, Gaborish and the
+      per-block edge-preserving filter strength. Patches and splines, effort 7's own additions, are already skipped
+      in our chunked (streaming) encode.</li>
+    <li><b>The 8-bit colour path:</b> LittleCMS with its default optimization, from the source's integers to
+      Rec.2020 uint16: 0.29 s against 2.4 s for a 12 MP photo, within 31/65535 of the float path before the
+      encode.</li>
+    <li><b>The proposed pipeline, measured</b> 2026-11-10 on this machine (Ryzen 5 5600U) held to 2 CPUs by
+      <code>taskset</code>, as the front's 2 vCPU; the front ran ML-19's pipeline in about 0.73&times; this machine's time:
+      <div class="table-wrap"><table>
+        <thead><tr><th>Photo</th><th>Now, on the front</th><th>After, here</th><th>Canonical size</th><th>Crossing at ~2.4 Mbit/s</th></tr></thead>
+        <tbody>
+          <tr><td>12.5 MP Pixel JPEG, kept</td><td>4.3&ndash;5.4 s</td><td>2.05 s</td><td>2.41 &rarr; 1.72 MB</td><td>~8.0 &rarr; ~5.7 s</td></tr>
+          <tr><td>50 MP Pixel JPEG (the grinder example's original) &rarr; 3360&times;4463</td><td>17.4&ndash;20.8 s</td><td>2.99 s</td><td>about 5.4 &rarr; 1.07 MB</td><td>~17.8 &rarr; ~3.6 s</td></tr>
+          <tr><td>50 MP Galaxy Z Fold6 JPEG &rarr; 3354&times;4472</td><td></td><td>3.83 s</td><td>14.4 &rarr; 3.11 MB</td><td>~48 &rarr; ~10 s</td></tr>
+        </tbody>
+      </table></div></li>
+    <li><b>Fidelity</b>, against the photo taken straight to 8-bit sRGB without JPEG XL, at full size (ML-21's
+      measurements): mean error 0.64 &rarr; 1.02 levels (12 MP) and 0.77 &rarr; 1.63 (50 MP) at effort 3 q90 against
+      the live settings; pixels more than 2 levels off 2.5% &rarr; 7.5% and 3.1% &rarr; 22%; the error in fine detail
+      (luma minus its 3&times;3 mean, relative to its energy) 0.025 &rarr; 0.057 and 0.028 &rarr; 0.193. Effort 3 at
+      q95 alone stays at the live error (0.65, 0.79). The 15 MP cap removes, besides, about 70% of a 50 MP photo's
+      pixels.</li>
+    <li><b>What the models were trained on:</b> canonical photos at q95, effort 7, float colour, up to 60 MP: the
+      segmenter dataset's 50 MP Pixel photos (36 in pass13 alone, ML-19 D27) and every 12&ndash;17 MP photo at full
+      size.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The front makes the store's canonical photo (ADR 0033): float LittleCMS, effort 7, q95 (ML-19 D7, D31, D50).</li>
+        <li>Kept at full size up to 60 MP; over 60 MP area-averaged to 50 MP (ML-19 D27).</li>
+        <li>An already canonical upload, as each of the page's examples is, passes the front as it is (ML-19 D17).</li>
+        <li>A 50 MP photo: about 20 s on the front, 18 s crossing, 5.7 s decoding on <code>yappy</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The front makes its own canonical photo: LittleCMS optimized integer transform, effort 3, q90.</li>
+        <li>Kept at full size up to 18 MP; over 18 MP area-averaged (OpenCV <code>INTER_AREA</code>, as now) to at most 15 MP.</li>
+        <li>Every upload re-encoded, an already canonical one included: a picked example goes the visitor's way (D3).</li>
+        <li>A 50 MP photo: about 3 s here (less on the front), about 4 s crossing, a 15 MP decode on <code>yappy</code> (about 1.7 s by ML-21's rate).</li>
+        <li>The store, training and the inference host as they are; the inference host cannot tell the two apart (D7's header is the same).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The canonical store and training.</strong> <code>data/canonical/</code>, its DVC stages, the crops,
+      both models: D1. <code>canonical.py</code>'s defaults stay training's, and the golden-file test (ML-19 D8) holds
+      them.</li>
+    <li><strong>The canonical photo's format.</strong> Rec.2020, D7's encoding as an enumeration, 16-bit lossy JPEG XL,
+      upright, no metadata: the inference host's <code>is_canonical</code> accepts both, and its code does not
+      change.</li>
+    <li><strong>The inference host's decode</strong> (ML-21): the same 16-bit decode and <code>NOOPTIMIZE</code>
+      conversion to 8-bit sRGB.</li>
+    <li><strong>The upload cap</strong> (40 MB, ML-19 D23), unless D2 says otherwise.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The models serve photos unlike the ones they were trained and evaluated
+        on, so the reported metrics stop describing the live site.</strong></td>
+        <td>Departs from ADR 0033 ("training and serving read the same canonical photo, so a change to canonicalization
+          ... needs a re-canonicalization and a retrain") and from <code>CODING_STANDARDS.md</code>'s train/inference
+          parity ("an accurate method offline with a cheap one live is rejected, because it inflates every reported
+          metric"). Accepted by the owner in D1, and unmeasured by D5: no check of the models' answers beyond
+          <code>--verify</code>'s examples. Mitigation: an ADR amending ADR 0033, and <code>docs/status.md</code>
+          saying the live input differs from training's and that no metric was measured on it.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Less bean texture</strong>: q90 and the 15 MP cap both remove fine detail,
+        which the classifier's patches read.</td>
+        <td>§2's fidelity numbers: detail error 2&ndash;7&times; at q90; a 50 MP photo keeps about 30% of its pixels.
+          The classifier samples patches by the measured bean pitch, so a downscaled photo gives patches from fewer
+          pixels, as a 12 MP photo's already are. Not measured (D5); the live site's answers are the only evidence.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Re-encoding the 50 MP grinder example fits the front's memory with little
+        room.</strong> Its canonical JPEG XL decodes at 16 bits, whole: 300 MB of pixels.</td>
+        <td>Measured here on 2 CPUs, 2026-11-10: 3.45 s, 1.06 MB, peak RSS 467 MB, under the unit's
+          <code>MemoryMax=600M</code>. The released front's <code>peak_mb</code> for the example is read and recorded
+          (§7). A second lossy generation (q95, then q90) is accepted by D3: a visitor's JPEG is one too.</td></tr>
+      <tr><td class="id">R4</td><td><strong>A change to the shared module changes the store.</strong> The front imports
+        <code>coffeecv.canonical</code>, which built the store.</td>
+        <td>The front's settings are parameters passed by <code>check_service.py</code>; the module's defaults stay
+          training's; the golden-file test and the store's own tests run unchanged.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The 8-bit colour path is measured only on 8-bit sources.</strong></td>
+        <td>HEIC (10-bit), RAW (16-bit), 16-bit PNG and photos with transparency take other branches today. D4.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The front's canonicalization: which settings, and does training follow?</td>
+        <td>(a) The front alone: 8-bit colour, effort 3, q90, a 15/18 MP cap; no retrain, the store unchanged (b) The
+          same change in the store and a retrain (ADR 0033)</td>
+        <td>(a), 2026-11-10: "switch from current proxy settings to 8-bit color + effort 3 + q90 + max image size in MP
+          that is now 50/60 MP goes to 15/18 MP. Do not re-train models or change canonical images in DVC, change only
+          proxy code. This is my decision." Read as: kept at full size up to 18,000,000 pixels; over that,
+          area-averaged to at most 15,000,000. Departs from ADR 0033 and ML-19 D7, D27, D31, D50 for the front only
+          (R1).</td></tr>
+      <tr><td class="id">D2</td><td>The front's refusal ceiling (ML-19 D38: 60 MP; a RAW file 16 MP, D24)?</td>
+        <td>(a) As it is: over 60 MP refused, 18&ndash;60 MP downscaled (b) Raised, since the front keeps at most 15 MP;
+          its decode of the original at full size still bounds the memory</td>
+        <td>(a), 2026-11-10, as recommended: over 60 MP (a RAW file over 16 MP) refused as now; 18&ndash;60 MP
+          downscaled.</td></tr>
+      <tr><td class="id">D3</td><td>A photo that reaches the front already canonical (the page's examples, ML-19 D17)?</td>
+        <td>(a) Passed on as it is: the grinder example stays 50 MP at q95 (b) Re-canonicalized by the front when it is
+          over 18 MP (c) The example files re-made with the front's settings (d) The example files as they are, and
+          every upload re-encoded by the front, a canonical one included</td>
+        <td>(d), 2026-11-10: "when user clicks on the example he downloads high-quality example to his device, then upload it
+          back using main path, the front re-encode it using new settings and then process as any other photo." The
+          page already uploads a picked example as a chosen file (<code>webapp/static/index.html</code>, OPS-16 D9);
+          the front drops ML-19 D17's pass-through. The inference host still refuses a photo that is not canonical
+          (ML-19 D12).</td></tr>
+      <tr><td class="id">D4</td><td>Sources that are not 8-bit RGB: HEIC at 10 bits, RAW at 16, 16-bit PNG, and photos
+        with transparency?</td>
+        <td>(a) The optimized integer transform for every source without transparency, at its own depth; transparency
+          kept on today's float path, which lays it over the fill grey (b) The optimized transform for 8-bit sources
+          only; every other on today's float path</td>
+        <td>(a), 2026-11-10, as recommended: each source measured against the float path as §2 was.</td></tr>
+      <tr><td class="id">D5</td><td>What is checked about the models' answers before the release?</td>
+        <td>(a) The test fold's photos (or a set the owner names) through both front settings and the live model, here:
+          top-1 agreement and accuracy, reported; the owner decides on the numbers (b) The same with a bar the release
+          must meet (c) Nothing beyond <code>--verify</code>'s examples</td>
+        <td>(c), 2026-11-10: "do not check beyond examples".</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>An ADR amending ADR 0033: the front's canonical photo differs from the store's,
+      by D1; ADR 0033 links it. <code>GLOSSARY.md</code>'s "Canonicalization" names both.</span></li>
+    <li><span class="box"></span><span><code>canonical.py</code> and <code>jxl_encode.py</code> take the colour path,
+      effort, quality and the two thresholds as parameters, training's as defaults; <code>check_service.py</code>
+      passes D1's. ML-19 D8's tests and the golden file pass unchanged.</span></li>
+    <li><span class="box"></span><span>Tests: a photo over 18 MP is stored at most 15 MP and one at 18 MP is kept; the
+      front's settings give D7's header; an already canonical upload is re-encoded, not passed on (D3), and its log
+      line says <code>canonicalized</code>; each D4 source decodes within one 8-bit level of the float path's
+      conversion before the encode.</span></li>
+    <li><span class="box"></span><span>The check service's log line names the settings it canonicalized with, so the
+      timelines tell the releases apart.</span></li>
+    <li><span class="box"></span><span>Released, <code>--verify</code> passed; the front's <code>canonicalize_ms</code>,
+      <code>canonical_bytes</code> and <code>crossing_ms</code>, and <code>yappy</code>'s <code>decode_ms</code>, read
+      from the live logs for 12 MP and 50 MP photos, and the grinder example's <code>peak_mb</code> (R3), recorded
+      here.</span></li>
+    <li><span class="box"></span><span><code>docs/status.md</code> and <code>docs/inference_path.html</code> say the
+      live input differs from training's, and how.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Measuring the models' answers on the front's photos beyond <code>--verify</code>'s examples (D5).</li>
+    <li>Re-canonicalizing the store and retraining with these settings (D1). A later ticket may, to bring training and
+      serving back together.</li>
+    <li>The inference host's code; the front's hardware.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-10</div>Ticket written from the owner's decision (D1), the front's log of
+      2026-11-09 to 2026-11-10, ML-21's measurements and the proposed pipeline measured here (§2). D2&ndash;D5 open.
+      Not planned, not implemented.</div>
+    <div><div class="when">2026-11-10</div>The owner answered: D2 (a), D4 (a), D5 (c); D3 "keep photos as they are,
+      that will emulate real path", asked to confirm which option. R1 and R2 updated for D5.</div>
+    <div><div class="when">2026-11-10</div>D3 decided by the owner: (d), every upload re-encoded at the front, the
+      examples unchanged and uploaded as now. The grinder example's re-encode measured here (R3). Every decision
+      taken; ready to plan.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
+    <a href="ticket_canonical_decode_time.html">ML-21</a>, <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="../CODING_STANDARDS.md">CODING_STANDARDS.md</a> ("Train/inference parity"),
+    <a href="https://raw.githubusercontent.com/libjxl/libjxl/v0.12.0/doc/encode_effort.md">libjxl 0.12.0 encode_effort.md</a>.</footer>
+</main>
