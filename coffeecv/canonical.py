@@ -17,7 +17,8 @@ The canonical photo (D1-D7, D13, D16, D20, D21, D27, D28, D36, D50):
   Rec.2020 (D65, BT.709 transfer; the profile libjxl itself generates, coffeecv/data/rec2020_bt709.icc), clipped;
 - stored as lossy JPEG XL, quality 95, effort 7, 16 bits, with D7's encoding as an enumeration and nothing else: no
   EXIF, no XMP, no ICC, no orientation, no alpha, bare codestream.
-Read back for the models: decoded at 16 bits, LittleCMS without its lossy optimization to 8-bit sRGB, clipped.
+Read back for the models: decoded at 16 bits, LittleCMS without its lossy optimization to 8-bit sRGB, clipped; on
+every CPU the process may use (ML-21), with the same pixels as on one.
 
 No torch: the front imports this module (D35). Every library that decodes, converts or encodes a photo is held at one
 version across the three locks (coffeecv.lock_check), and a version change is a re-canonicalization. libjxl's
@@ -28,6 +29,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -467,21 +470,43 @@ def is_canonical(data: bytes) -> bool:
     return not canonical_problems(data)
 
 
-def load_canonical(data: bytes, strip: int = 128) -> np.ndarray:
+def usable_cpus() -> int:
+    """The CPUs this process may run on: its affinity, which taskset and systemd's CPUAffinity= narrow."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:   # not Linux
+        return os.cpu_count() or 1
+
+
+def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
     """A canonical photo's 8-bit sRGB, H x W x 3 uint8 (D7): decoded at 16 bits, LittleCMS without its lossy
     optimization (the same as float32's output, P1), relative colorimetric, clipped and rounded. Anything else is
-    refused with NotCanonical; a canonical header over a broken codestream raises Unreadable."""
+    refused with NotCanonical; a canonical header over a broken codestream raises Unreadable.
+
+    ML-21: libjxl decodes on `numthreads` threads and the strips are converted on as many (None: every CPU this
+    process may use). Neither libjxl's decode nor a strip's conversion depends on the thread count, so the pixels
+    do not either; imagecodecs releases the GIL in both."""
     problems = canonical_problems(data)
     if problems:
         raise NotCanonical("not a canonical photo: " + "; ".join(problems))
+    threads = numthreads or usable_cpus()
     try:
-        rec = ic.jpegxl_decode(data)
+        rec = ic.jpegxl_decode(data, numthreads=threads)
     except (ic.JpegxlError, ValueError, RuntimeError) as exc:   # a canonical header over a broken codestream
         raise Unreadable(f"unreadable canonical photo ({type(exc).__name__})") from exc
     out = np.empty(rec.shape, np.uint8)
-    for y in range(0, rec.shape[0], strip):
+
+    def convert(y: int) -> None:
         ic.cms_transform(rec[y:y + strip], REC2020, SRGB, intent=RELATIVE, flags=NOOPTIMIZE, outdtype=np.uint8,
                          out=out[y:y + strip])
+
+    rows = range(0, rec.shape[0], strip)
+    if threads == 1:
+        for y in rows:
+            convert(y)
+    else:
+        with ThreadPoolExecutor(threads) as pool:   # per call: no threads left over across gunicorn's fork
+            list(pool.map(convert, rows))
     return out
 
 

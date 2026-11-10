@@ -290,8 +290,18 @@ class IsCanonical(unittest.TestCase):
                     cn.load_canonical(data)
 
     def test_a_canonical_header_over_a_broken_codestream_is_unreadable(self):
-        with self.assertRaises(cn.Unreadable):
-            cn.load_canonical(self.canon[:len(self.canon) // 2])
+        for threads in (1, 4):
+            with self.subTest(threads=threads), self.assertRaises(cn.Unreadable):
+                cn.load_canonical(self.canon[:len(self.canon) // 2], numthreads=threads)
+
+    def test_the_thread_count_does_not_change_the_pixels(self):   # ML-21
+        # Several of libjxl's 256-pixel groups, and strips with a short last one (700 = 5 x 128 + 60).
+        a = (np.random.default_rng(4).random((700, 600, 3)) * 255).astype(np.uint8)
+        canon = cn.canonicalize(png(a))
+        one = cn.load_canonical(canon, numthreads=1)
+        for threads in (2, 3, 4, None):
+            with self.subTest(threads=threads):
+                np.testing.assert_array_equal(cn.load_canonical(canon, numthreads=threads), one)
 
     def test_orientation_size_preview_and_animation(self):
         h = read_header(self.canon)

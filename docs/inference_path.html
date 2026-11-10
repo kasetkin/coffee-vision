@@ -288,7 +288,7 @@
     <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-11-08 (ML-16: xl0_v7r_s123; ML-19: canonical photos)</span>
+    <span>as of 2026-11-10 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded)</span>
   </div>
 
   <div class="callout">
@@ -305,7 +305,8 @@
     60 MP or 16 MP for RAW, is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest
-    to 8-bit sRGB, so every pixel the model sees is the canonical photo training reads. Until ML-19 the front forwarded
+    to 8-bit sRGB, so every pixel the model sees is the canonical photo training reads. The decode and its colour
+    conversion run on every CPU the host gives the app, with the same pixels as on one (ticket ML-21). Until ML-19 the front forwarded
     the visitor's bytes unchanged and the host decoded them.
     The two streamed parts come back the same way, unbuffered at each hop. A photo the front refuses never crosses
     the inference host's slow link; while the app is down, the front answers <code>503</code>, "the classifier is

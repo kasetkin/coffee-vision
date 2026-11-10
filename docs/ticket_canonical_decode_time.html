@@ -8,10 +8,11 @@
   <h1>Stub: the inference host decodes a canonical photo in less of a visitor's wait</h1>
   <p class="lede">A placeholder, not a ticket yet. Since ML-19's release the host decodes every photo from canonical
     JPEG XL, and a visitor's photo takes about 12 s on the server against 8.4 s before. The decode is most of the
-    difference. ML-19 named it "a follow-up of its own". To be measured and written; nothing here is decided.</p>
+    difference. ML-19 named it "a follow-up of its own". Measured 2026-11-10: most of it is the colour conversion on one
+    thread, and both steps were single-threaded; D1 threads them, with the same pixels.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-11-08; not measured, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">stub written 2026-11-08; measured here 2026-11-10; D1 decided 2026-11-10; the threaded decode written, not committed, not released, not measured on <code>yappy</code></span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -29,8 +30,10 @@
   </div>
 
   <h2>1. Summary</h2>
-  <p>Stub. The question is where the host's <code>decode_ms</code> goes and how much of it can go, without changing
-    the 8-bit sRGB the models read (ML-19 D7, D8). Nothing is proposed yet.</p>
+  <p>The question is where the host's <code>decode_ms</code> goes and how much of it can go, without changing
+    the 8-bit sRGB the models read (ML-19 D7, D8). Most of it is LittleCMS's <code>NOOPTIMIZE</code> conversion, and
+    neither it nor libjxl's decode used more than one thread. D1: both run on every CPU the app may use, which gives
+    the same pixels as one thread; the canonical photo, its effort and the front are unchanged.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -45,10 +48,44 @@
       <code>--compare</code>; the host is the Intel N100, where libjxl's encoder already differs (ML-19 D51).</li>
   </ul>
 
+  <h2>3. Measurements</h2>
+  <p>On the development machine (Ryzen 5 5600U), 2026-11-10, a 12 MP Pixel photo's canonical file
+    (<code>data/canonical/segmenter_positives/PXL_20261018_041127921.jpg.jxl</code>), best of three; scripts kept
+    outside the repo. <code>imagecodecs.jpegxl_decode</code> without <code>numthreads</code> runs on one thread
+    (imagecodecs 2026.10.10, <code>_default_threads</code>).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Step</th><th>1 thread</th><th>2 threads</th><th>4 threads</th><th>Pixels</th></tr></thead>
+    <tbody>
+      <tr><td><code>jpegxl_decode</code> to 16 bits</td><td>0.51 s</td><td>0.30 s</td><td>0.25 s</td><td>identical</td></tr>
+      <tr><td>LittleCMS <code>NOOPTIMIZE</code>, 128-row strips</td><td>2.33 s</td><td>1.21 s</td><td>0.62 s</td><td>identical</td></tr>
+      <tr><td>LittleCMS optimized (rejected, ML-19 P1)</td><td>0.55 s</td><td></td><td></td><td>up to 16 levels off</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>load_canonical</code> with D1, the process held to 4 CPUs by <code>taskset</code> as on the N100: the 12 MP
+    photo 2.48 s &rarr; 1.03 s, a 49 MP one (6048 &times; 8032) 10.6 s &rarr; 4.2 s; on 2 CPUs 1.90 s and 7.8 s. Every
+    output identical to one thread's. Not yet measured on <code>yappy</code>: the live 12 MP <code>decode_ms</code>
+    is 3.7&ndash;5.4 s there.</p>
+
+  <h2>4. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How is the host's decode made faster?</td>
+        <td>(a) Thread the decode and the strips' conversion, the same pixels (b) Also lower the front's effort or
+          change its colour path, which changes the canonical photo (ADR 0033: a re-canonicalization and a retrain)</td>
+        <td>(a), 2026-11-10: "apply multi-threading fix without effort changing". <code>load_canonical</code> takes
+          <code>numthreads</code>, by default every CPU the process may use; the effort stays 7 (ML-19 D50).</td></tr>
+    </tbody>
+  </table></div>
+
   <h2>Activity</h2>
   <div class="log">
     <div><div class="when">2026-11-08</div>Stub created from ML-19's release measurements. Not measured, not
       written.</div>
+    <div><div class="when">2026-11-10</div>Measured on the development machine (&sect;3); D1 decided by the owner.
+      <code>load_canonical</code> threaded, with a test that the thread count leaves the pixels unchanged
+      (<code>tests/test_canonical.py</code>); <code>docs/inference_path.html</code> updated. Not committed, not
+      released; <code>yappy</code>'s <code>decode_ms</code> to be read after the next release.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D8, D51),
