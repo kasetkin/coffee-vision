@@ -12,7 +12,7 @@
     thread, and both steps were single-threaded; D1 threads them, with the same pixels.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">stub written 2026-11-08; measured here 2026-11-10; D1 decided 2026-11-10; the threaded decode written, not committed, not released, not measured on <code>yappy</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">stub written 2026-11-08; measured here 2026-11-10; D1 decided 2026-11-10; the threaded decode in <code>9c1edda</code>, live as release <code>20261110T0607Z-9c1edda</code> 2026-11-10, <code>--verify</code> passed; <code>yappy</code> measured (&sect;3); the owner closes</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -63,8 +63,18 @@
   </table></div>
   <p><code>load_canonical</code> with D1, the process held to 4 CPUs by <code>taskset</code> as on the N100: the 12 MP
     photo 2.48 s &rarr; 1.03 s, a 49 MP one (6048 &times; 8032) 10.6 s &rarr; 4.2 s; on 2 CPUs 1.90 s and 7.8 s. Every
-    output identical to one thread's. Not yet measured on <code>yappy</code>: the live 12 MP <code>decode_ms</code>
-    is 3.7&ndash;5.4 s there.</p>
+    output identical to one thread's.</p>
+  <p>On <code>yappy</code> (Intel N100, 4 CPUs), the app's <code>decode_ms</code> and <code>latency_ms</code>
+    before (release <code>20261109T1637Z-c37f30e</code>, 2026-11-09) and after (<code>20261110T0607Z-9c1edda</code>,
+    <code>--verify</code>'s and the examples' requests, 2026-11-10):</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Photo</th><th>Before: decode / latency</th><th>After: decode / latency</th></tr></thead>
+    <tbody>
+      <tr><td>12 MP (3000&ndash;3072 &times; 4000&ndash;4080)</td><td>3.75&ndash;4.05 s / 10.3&ndash;13.2 s</td><td>1.39&ndash;1.49 s / 9.7&ndash;10.0 s</td></tr>
+      <tr><td>19 MP (5056 &times; 3792)</td><td>5.97 s / 15.3 s</td><td>2.27 s / 11.6 s</td></tr>
+      <tr><td>50 MP (6144 &times; 8160, the grinder example)</td><td>15.5&ndash;16.1 s / 24.6&ndash;28.9 s</td><td>5.75 s / 14.6 s</td></tr>
+    </tbody>
+  </table></div>
 
   <h2>4. Decisions</h2>
   <div class="table-wrap"><table>
@@ -86,6 +96,11 @@
       <code>load_canonical</code> threaded, with a test that the thread count leaves the pixels unchanged
       (<code>tests/test_canonical.py</code>); <code>docs/inference_path.html</code> updated. Not committed, not
       released; <code>yappy</code>'s <code>decode_ms</code> to be read after the next release.</div>
+    <div><div class="when">2026-11-10</div>Committed as <code>9c1edda</code> and released as
+      <code>20261110T0607Z-9c1edda-dino3b16_segxl0v7r_country_aug8_s42</code> (the same model; the release also carried
+      OPS-3's and ML-24's local-tool and docs commits since <code>c37f30e</code>); <code>--verify</code> passed on both
+      hosts. <code>yappy</code>'s decode about 2.7&times; faster at every size (&sect;3); <code>docs/status.md</code>
+      updated.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D8, D51),
