@@ -37,9 +37,11 @@ def rid() -> str:
 
 
 def access(request_id: str, request: str, status: int = 200, origin: str = "-", browser: str = PHONE,
-           referrer: str = "-", probe: str = "-", day: str = DAY, upstream: str | None = None) -> str:
-    """A front access line, as its log_format writes one (webapp/deploy/coffee-cv-front.nginx.conf.template)."""
-    return (f'{day}T12:00:00+00:00 {request_id} {upstream or request_id} {status} "{request}" 0.500s 1234 "{origin}" '
+           referrer: str = "-", probe: str = "-", day: str = DAY, upstream: str | None = None,
+           seconds: float = 21.0) -> str:
+    """A front access line, as its log_format writes one (webapp/deploy/coffee-cv-front.nginx.conf.template). Its
+    21 s is service()'s 19 s plus a 2 s upload received (D28)."""
+    return (f'{day}T12:00:00+00:00 {request_id} {upstream or request_id} {status} "{request}" {seconds:.3f}s 1234 "{origin}" '
             f'"{browser}" "{referrer}" "{probe}"')
 
 
@@ -99,7 +101,7 @@ class OnePhotoJoined(unittest.TestCase):
 
     def test_each_step_from_the_line_that_measured_it(self):
         self.assertEqual(len(self.report.photos), 1)
-        for key, want in (("1", 4000), ("4", 120), ("5", 3000), ("7", 1), ("8", 2000), ("9", 9000), ("10", 300),
+        for key, want in (("17s", 40000 - 4000), ("1", 4000), ("4", 120), ("5", 21000 - 19000), ("7", 1), ("8", 2000), ("9", 9000), ("10", 300),
                           ("11", 1900), ("12", 60), ("15", 2900), ("17", 40000), ("17f", 19000), ("17n", 9100),
                           ("17a", 5400)):
             with self.subTest(step=key):
@@ -110,10 +112,19 @@ class OnePhotoJoined(unittest.TestCase):
         self.assertEqual(self.step("9y"), yappy_received)
         # The front, from its connect to the preview going out, less yappy, from its first byte to the preview out.
         self.assertEqual(self.step("13a"), (9000 + 2600) - (yappy_received + 2400))
-        self.assertEqual(self.step("13b"), 15000 - (20 + 1 + 2000 + 9000 + 2600))   # the page's, less the front's
+        # The page's preview, from the attempt's start, less the front's, from the same start: the connection, the
+        # upload received at the front, then its read, checks, canonicalization, crossing and wait (D28).
+        self.assertEqual(self.step("13b"), (3000 + 15000) - (120 + 2000 + 20 + 1 + 2000 + 9000 + 2600))
         self.assertEqual(self.step("16"), 21000 - 15000)
         self.assertEqual(self.step("16f"), 8000 - 2600)                        # the front's own, preview to end
         self.assertEqual(self.step("16s"), 5)
+
+    def test_an_example_is_selected_at_its_click(self):   # D27: no picker, so the total
+        r = rid()
+        report = tl.build(logs(front_access=[access(r, "POST /analyze HTTP/1.1")],
+                               service=[service(r), timeline_line(timeline(r, control="example", example="x",
+                                                                           pick_ms=None, download_ms=900))]), DOMAIN)
+        self.assertEqual(next(row for row in report.steps if row["step"] == "17s")["all"]["median"], 40000)
 
     def test_split_by_control_and_by_canonicalized(self):
         self.assertEqual(self.step("8", "choose_photo"), 2000)
@@ -131,6 +142,168 @@ class OnePhotoJoined(unittest.TestCase):
         self.assertEqual((view["request_id"], view["filename"], view["control"], view["verdict"]),
                          (self.id, "IMG_0001.HEIC", "choose_photo", "predicted"))
         self.assertEqual([s["step"] for s in view["steps"]], [key for key, _, _ in tl.STEPS])
+
+
+class TheWaterfall(unittest.TestCase):
+    """P11 (D25, D28): each measured step's start and length on the page's clock, from the tap. The front's nginx starts
+    when the attempt's connection is up, yappy's nginx when the front's crossing starts, the app when yappy has the
+    whole upload."""
+
+    def bars(self, *lines_by_source) -> dict[tuple[str, str], dict]:
+        report = tl.build(logs(**dict(lines_by_source)), DOMAIN)
+        [photo] = report.photos
+        return {(b["step"], b["label"]): b for b in tl.waterfall(photo)}
+
+    def one(self, bars: dict, step: str) -> dict:
+        [bar] = [b for (key, _), b in bars.items() if key == step]
+        return bar
+
+    def setUp(self):
+        self.id = rid()
+        self.bars_ = self.bars(("front_access", [access(self.id, "POST /analyze HTTP/1.1")]),
+                               ("service", [service(self.id), timeline_line(timeline(self.id))]),
+                               ("app", [app(self.id)]), ("inference_access", [yappy(self.id)]))
+
+    def test_the_page_from_the_tap(self):
+        b = self.bars_
+        sent = 40000 - 21000 - 5      # the browser's "upload sent": the total, less the answer's wait and drawing
+        start = sent - 3000           # the attempt's start
+        self.assertEqual((self.one(b, "1")["start"], self.one(b, "1")["ms"]), (0, 4000))
+        self.assertEqual((self.one(b, "4")["start"], self.one(b, "4")["ms"]), (start, 120))
+        self.assertEqual((self.one(b, "5")["start"], self.one(b, "5")["ms"]), (start + 120, 2000))   # at the front
+        self.assertEqual(self.one(b, "14")["start"], sent + 15000)
+        self.assertEqual((self.one(b, "16s")["start"], self.one(b, "16s")["ms"]), (sent + 21000, 5))
+        self.assertEqual((self.one(b, "17")["start"], self.one(b, "17")["ms"]), (0, 40000))
+        self.assertEqual({self.one(b, k)["lane"] for k in ("1", "14", "17")}, {"page"})
+
+    def test_the_front_from_the_upload_received_and_yappy_from_the_crossing(self):
+        b = self.bars_
+        sent = 40000 - 21000 - 5
+        front = sent - 3000 + 120 + 2000               # the attempt's start, the connection, the upload at the front
+        crossing = front + 20 + 1 + 2000               # the front's read, checks and canonicalization
+        self.assertEqual(self.one(b, "17f")["start"], front)
+        self.assertEqual(self.one(b, "7")["start"], front + 20)
+        self.assertEqual((self.one(b, "9")["start"], self.one(b, "9")["ms"]), (crossing, 9000))
+        self.assertEqual((self.one(b, "17n")["start"], self.one(b, "17n")["ms"]), (crossing, 9100))
+        app_start = crossing + 9100 - 5400
+        self.assertEqual((self.one(b, "17a")["start"], self.one(b, "17a")["ms"]), (app_start, 5400))
+        # The app's steps end at its preview going out, classification after it.
+        self.assertEqual(self.one(b, "12")["start"] + 60, app_start + 2400)
+        self.assertEqual(self.one(b, "11")["start"] + 1900, self.one(b, "12")["start"])
+        self.assertEqual(self.one(b, "15")["start"], app_start + 2400)
+        # The network legs join one side's end to the other's start.
+        preview_left_front = crossing + 9000 + 2600
+        self.assertEqual((self.one(b, "13a")["start"], self.one(b, "13a")["ms"]),
+                         (app_start + 2400, preview_left_front - (app_start + 2400)))
+        self.assertEqual((self.one(b, "13b")["start"], self.one(b, "13b")["ms"]),
+                         (preview_left_front, sent + 15000 - preview_left_front))
+        self.assertEqual({self.one(b, k)["lane"] for k in ("9y", "13a", "13b")}, {"network-approx"})
+        self.assertEqual({self.one(b, k)["lane"] for k in ("4", "5", "9")}, {"network"})   # the wire, measured
+        self.assertEqual({self.one(b, k)["lane"] for k in ("10", "15", "17n")}, {"yappy"})
+
+    def test_selected_to_answer_starts_where_the_pick_ends(self):   # D27
+        b = self.bars_
+        self.assertEqual((self.one(b, "17s")["start"], self.one(b, "17s")["ms"]), (4000, 36000))
+
+    def test_a_busy_retry_draws_each_attempt_in_turn(self):
+        first, last = rid(), rid()
+        t = timeline(last, attempts=[{"request_id": first, "status": 503, "upload_ms": 1000, "headers_ms": 200,
+                                      "wait_ms": 3000},
+                                     {"request_id": last, "status": 200, "upload_ms": 2000}],
+                     total_ms=None, to_answer_ms=None)
+        b = self.bars(("front_access", [access(first, "POST /analyze HTTP/1.1", 503), access(last, "POST /analyze HTTP/1.1")]),
+                      ("service", [service(first, status=503, outcome="busy"), service(last), timeline_line(t)]))
+        pick = 4000
+        self.assertEqual(b[("5", "upload, the browser's event, attempt 1 of 2")]["start"], pick)
+        self.assertEqual(b[("6", "busy waits (page), attempt 1 of 2")]["start"], pick + 1000 + 200)
+        # No total: the last attempt follows the first's wait; its upload is the front's, 2 s.
+        last_upload = b[("5", "upload, received at the front, attempt 2 of 2")]
+        self.assertEqual((last_upload["start"], last_upload["ms"]), (pick + 1000 + 200 + 3000, 2000))
+
+    def test_a_late_upload_event_moves_nothing(self):   # D28
+        # The owner's photo 6be4c9a3 (2026-11-09, Android Chrome, Choose Photo, a 2.5 MB JPEG), its lines' own numbers:
+        # the browser's "upload sent" came 2 ms before the answer's status, which the front sent 18.1 s after its start;
+        # the front's nginx took 26.052 s, its check service 24.240 s, so the upload reached the front in 1.8 s.
+        r = rid()
+        t = timeline(r, pick_ms=7005, size_check_ms=0, to_preview_ms=728, preview_drawn_ms=79, to_answer_ms=6108,
+                     answer_shown_ms=3, total_ms=33955,
+                     attempts=[{"request_id": r, "status": 200, "connect_ms": 502, "upload_ms": 20836, "headers_ms": 2}])
+        app_line = json.dumps({"ts": f"{DAY}T12:00:20.000+00:00", "msg": "request", "request_id": r, "latency_ms": 11948,
+                               "preview_ms": 5807, "decode_ms": 3790, "crop_detect_ms": 1823, "preview_build_ms": 177,
+                               "inference_ms": 5885})
+        b = self.bars(("front_access", [access(r, "POST /analyze HTTP/1.1", seconds=26.052)]),
+                      ("service", [service(r, read_ms=1, check_ms=1, canonicalize_ms=4532, crossing_ms=4968,
+                                           to_headers_ms=8598, to_preview_ms=8952, to_end_ms=14735, total_ms=24240),
+                                   timeline_line(t)]),
+                      ("app", [app_line]), ("inference_access", [f'{DAY}T12:00:20+00:00 {r} 200 "POST /analyze" 19.209s 1']))
+        end = lambda k: self.one(b, k)["start"] + self.one(b, k)["ms"]   # noqa: E731
+        sent_by_browser = 33955 - 6108 - 3                     # 27844: the page's own clock, from its total
+        start = sent_by_browser - 20836                        # 7008: the attempt's start, 3 ms after the pick
+        front = start + 502 + (26052 - 24240)                  # the connection, then the upload at the front
+        self.assertEqual(self.one(b, "17f")["start"], front)
+        upload = self.one(b, "5")
+        self.assertEqual((upload["start"], upload["ms"], end("5"), upload["lane"]), (start + 502, 1812, front, "network"))
+        # Every host's bar ends by the page's last moment, and the network legs are not negative.
+        self.assertLessEqual(end("17n"), 33955)
+        self.assertLessEqual(end("17a"), end("17n"))
+        self.assertGreaterEqual(self.one(b, "13a")["ms"], 0)
+        self.assertGreaterEqual(self.one(b, "13b")["ms"], 0)
+        self.assertEqual(end("13b"), self.one(b, "14")["start"])   # the preview reaches the page as it starts drawing
+        self.assertEqual(end("13a"), self.one(b, "13b")["start"])
+        self.assertLessEqual(end("17f"), end("16s"))                # the front's last byte, before the answer shows
+        self.assertEqual(self.one(b, "13b")["ms"], 796)
+        report = tl.build(logs(front_access=[access(r, "POST /analyze HTTP/1.1", seconds=26.052)],
+                               service=[service(r, total_ms=24240), timeline_line(t)]), DOMAIN)
+        self.assertEqual(tl.as_json(report)["photos"][0]["upload_event_ms"], 20836)   # kept, shown as the browser's
+
+    def test_an_early_upload_event_moves_nothing_either(self):   # D28
+        # The owner's photo 12a0792b: 2.2 MB "sent" in 102 ms, into the browser's own buffers; the front took 1.1 s.
+        r = rid()
+        report = tl.build(logs(front_access=[access(r, "POST /analyze HTTP/1.1", seconds=24.313)],
+                               service=[service(r, total_ms=23182),
+                                        timeline_line(timeline(r, attempts=[{"request_id": r, "status": 200,
+                                                                             "upload_ms": 102}]))]), DOMAIN)
+        self.assertEqual(next(row for row in report.steps if row["step"] == "5")["all"]["median"], 24313 - 23182)
+
+    def test_a_photo_without_a_timeline_starts_at_the_front(self):
+        photo = rid()
+        b = self.bars(("service", [service(photo)]))
+        self.assertEqual(self.one(b, "17f")["start"], 0)
+        self.assertNotIn("page", {bar["lane"] for bar in b.values()})
+
+    def test_it_is_in_the_photos_view(self):
+        report = tl.build(logs(service=[service(self.id), timeline_line(timeline(self.id))],
+                               front_access=[access(self.id, "POST /analyze HTTP/1.1")]), DOMAIN)
+        view = tl.as_json(report)["photos"][0]
+        self.assertEqual(view["waterfall"], tl.waterfall(report.photos[0]))
+        self.assertEqual(view["waterfall"], sorted(view["waterfall"], key=lambda bar: bar["start"]))
+
+
+class ThePageFiltersInTheBrowser(unittest.TestCase):
+    """P11 (D25): the page gets everything since the release, each count with its day, and recounts in the browser."""
+
+    def test_counts_not_of_a_photo_carry_their_day(self):
+        other, later = rid(), rid()
+        report = tl.build(logs(
+            front_access=[access(other, "POST /analyze HTTP/1.1", origin="https://other.example"),
+                          access(later, "POST /analyze HTTP/1.1", origin="https://other.example", day="2026-11-11")],
+            service=[service(other, status=503, outcome="busy"), service(later, day="2026-11-11", status=413,
+                                                                         outcome="too_large"),
+                     timeline_line(timeline(None, outcome="refused_on_page"), day="2026-11-11")]), DOMAIN)
+        data = tl.as_json(report)
+        self.assertEqual(data["origins_by_day"], {DAY: {"https://other.example": 1},
+                                                  "2026-11-11": {"https://other.example": 1}})
+        self.assertEqual(data["front_failures_by_day"], {DAY: {"busy": 1}, "2026-11-11": {"too_large": 1}})
+        self.assertEqual([(e["day"], e["outcome"]) for e in data["flagged"]["unverifiable"]],
+                         [("2026-11-11", "refused_on_page")])
+
+    def test_serve_takes_no_period(self):
+        with mock.patch.object(tl, "serve") as served, redirect_stdout(StringIO()):
+            tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN])
+        report = served.call_args[0][0]
+        self.assertEqual(len(report.photos), 6)
+        with self.assertRaises(SystemExit), redirect_stdout(StringIO()), mock.patch("sys.stderr", StringIO()):
+            tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN, "--since", "2026-11-10"])
 
 
 class WhatCounts(unittest.TestCase):
@@ -228,6 +401,11 @@ class WhatCounts(unittest.TestCase):
                           since="2026-11-11", until="2026-11-30")
         self.assertEqual(list(report.days), ["2026-11-12"])
 
+    def test_percentiles_by_nearest_rank(self):   # the page's stat() is the same; P11's browser check holds them equal
+        self.assertEqual(tl._stat(list(range(1, 101))), {"n": 100, "median": 50, "p90": 90, "p95": 95, "p99": 99})
+        self.assertEqual(tl._stat([5, 1, 3]), {"n": 3, "median": 3, "p90": 5, "p95": 5, "p99": 5})
+        self.assertIsNone(tl._stat([]))
+
     def test_dropped_timelines_are_summed(self):
         report = tl.build(logs(service=[service(rid(), timelines_dropped=40), service(rid(), timelines_dropped=2)]),
                           DOMAIN)
@@ -280,6 +458,59 @@ class WhatAVisitorSentIsText(unittest.TestCase):
         resp = conn.getresponse()
         resp.read()
         self.assertEqual(resp.status, 404)
+
+
+class ReloadFromThePage(unittest.TestCase):
+    """P11 (D26): the page's "Reload logs" reads the hosts again; only the page can ask, on a loopback name only."""
+
+    def setUp(self):
+        self.reads = [tl.build(logs(service=[service(rid())]), DOMAIN),
+                      tl.build(logs(service=[service(rid()), service(rid())]), DOMAIN)]
+        self.fail = False
+
+        def reload():
+            if self.fail:
+                raise OSError("ssh: connect to host webproxy-deploy port 22: \x1b[31mrefused")
+            return self.reads[1]
+        server = tl.make_server(self.reads[0], "127.0.0.1", 0, reload=reload)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.port = server.server_address[1]
+
+    def ask(self, method: str, path: str, headers: dict | None = None) -> tuple[int, bytes]:
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        self.addCleanup(conn.close)
+        conn.request(method, path, headers=headers or {})
+        resp = conn.getresponse()
+        return resp.status, resp.read()
+
+    def photos(self) -> int:
+        return len(json.loads(self.ask("GET", "/report.json")[1])["photos"])
+
+    def test_a_reload_swaps_the_data_in(self):
+        self.assertEqual(self.photos(), 1)
+        status, body = self.ask("POST", "/reload", {tl.RELOAD_HEADER: "1"})
+        self.assertEqual((status, json.loads(body)), (200, {"photos": 2}))
+        self.assertEqual(self.photos(), 2)
+        self.assertIn("read_at", json.loads(self.ask("GET", "/report.json")[1]))
+
+    def test_only_the_page_can_ask(self):   # another site's form or fetch cannot add the header without a preflight
+        self.assertEqual(self.ask("POST", "/reload")[0], 403)
+        self.assertEqual(self.photos(), 1)
+
+    def test_only_on_a_loopback_name(self):   # a site that points its own name at this machine reads nothing
+        self.assertEqual(self.ask("GET", "/report.json", {"Host": "evil.example:8766"})[0], 421)
+        self.assertEqual(self.ask("POST", "/reload", {"Host": "evil.example", tl.RELOAD_HEADER: "1"})[0], 421)
+        self.assertEqual(self.ask("GET", "/", {"Host": f"localhost:{self.port}"})[0], 200)
+
+    def test_a_failed_read_keeps_the_data_and_says_why(self):
+        self.fail = True
+        status, body = self.ask("POST", "/reload", {tl.RELOAD_HEADER: "1"})
+        self.assertEqual(status, 502)
+        self.assertIn("refused", json.loads(body)["error"])
+        self.assertNotIn("\x1b", json.loads(body)["error"])
+        self.assertEqual(self.photos(), 1)
 
 
 class Reading(unittest.TestCase):

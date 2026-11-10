@@ -273,15 +273,19 @@ photo to `POST /timeline`, and the hosts' lines (`docs/logging_plan.html` §03-G
 
 ```
 DOMAIN=<the site> python -m coffeecv.timelines summary [--since YYYY-MM-DD] [--until YYYY-MM-DD]
-DOMAIN=<the site> python -m coffeecv.timelines serve    # then open http://localhost:8766
+DOMAIN=<the site> python -m coffeecv.timelines serve    # everything since the release; then open http://localhost:8766
 ```
 
-`summary` prints per day the page loads by people and by crawlers, the referrers, the photos by control, example,
+The headline time is step 17s, from the photo selected to the answer on screen (D27: the page's total less the
+pick, the visitor's time in the picker). `summary` prints per day the page loads by people and by crawlers, the referrers, the photos by control, example,
 format and size; each step's median and 90th percentile, split by control and by canonicalized or not; failures by
 kind; other sites' calls by Origin; and the timelines not counted (D17): suspicious (a second for one ID), unverified
 (an ID no host knows), unverifiable (no ID: a photo refused on the page, or abandoned before its answer began) and
-dropped past the daily cap. `serve` shows the same on a local page, with a list of photos whose rows open step by
-step. `--front` and `--inference` name the SSH aliases (`webproxy-deploy`, `webappremote`), and `--from-dir` reads a
+dropped past the daily cap. `serve` reads everything since the release once and shows the same on a local page
+(D25), recounted in the browser for the period picked on it and for filters on the photos (control, upload or
+example, format, outcome, canonicalized or not); its photo list sorts by time or by any step, and a photo's row opens
+its waterfall, each step's bar on one time axis from the tap, coloured by the page, the front, yappy and the network
+legs between them. Its "Reload logs" button reads the hosts' logs again without restarting it (D26). `--front` and `--inference` name the SSH aliases (`webproxy-deploy`, `webappremote`), and `--from-dir` reads a
 local copy instead. The deploy's own requests are left out.
 
 A streamed `/analyze` answer has its status before it is done, so its `app.jsonl` line also says how it ended

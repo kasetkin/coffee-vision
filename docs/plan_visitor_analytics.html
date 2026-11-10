@@ -13,7 +13,7 @@
     Then the owner's one-time setup on the proxy and one release (D19). Nothing reaches the live site before P10.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 answered 2026-11-09 (OPS-3 D22&ndash;D24); P1&ndash;P9 done 2026-11-09; released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; P10 done 2026-11-09, the ticket closed by the owner; P11 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">written 2026-11-09; Q1&ndash;Q3 answered 2026-11-09 (OPS-3 D22&ndash;D24); P1&ndash;P9 done 2026-11-09; released in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; P10 done 2026-11-09; the ticket closed by the owner, then reopened for P11 (D25); P11 done 2026-11-09; the ticket closed by the owner 2026-11-10</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_visitor_analytics.html"><code>ticket_visitor_analytics.html</code></a> (OPS-3)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -364,12 +364,29 @@
 
   <h2>13. P11 &mdash; The local page's interactivity</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P10, and the owner's look at the first page (D22)</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-09: the owner's four asks (D25), then D26&ndash;D28 on the live logs; committed with the ticket's closing 2026-11-10</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">None (P10 done; the owner's ask is D25)</span></div>
   </div>
+  <p>What the owner asks for after the first page (D22, D25). Local: <code>serve</code> only, no release.
+    <code>serve</code> reads everything since the release once and sends it whole; the page does the rest.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>What the owner asks for after looking at P6's page on real timelines (D22).
-      This phase is local and needs no release.</span></li>
+    <li><span class="box done"></span><span>The data: each photo's view carries what the page filters and counts on, and a
+      waterfall (each measured step's start and length on the page's clock, by host); the per-day page loads,
+      referrers and <code>Origin</code>s, the front's failures and the uncounted timelines each carry their day.
+      <code>serve</code> takes no period; <code>summary</code> keeps <code>--since</code> and
+      <code>--until</code>.</span></li>
+    <li><span class="box done"></span><span>The period on the page: a first and a last day, everything else recounted for
+      them.</span></li>
+    <li><span class="box done"></span><span>Filters on the photos: control, upload or example (and which example), format,
+      outcome, canonicalized or not. The step table, the failures and the photo list follow them; the page loads,
+      referrers and <code>Origin</code>s follow the period only, since a page load is no photo's.</span></li>
+    <li><span class="box done"></span><span>Sorting the photo list by time, by total or by any step's length.</span></li>
+    <li><span class="box done"></span><span>A waterfall of one photo: a row per step, its bar on one time axis from the tap,
+      coloured by the page, the front, <code>yappy</code> or the network legs between them (approximate, two
+      clocks).</span></li>
+    <li><span class="box done"></span><span>Checks: the page's medians and 90th percentiles equal <code>summary</code>'s for
+      the same period, and the waterfall's offsets are tested on recorded lines; the page in headless Chromium on the
+      recorded rig, every visitor string still text. The full suite green.</span></li>
   </ol>
 
   <h2>14. Verification</h2>
@@ -437,6 +454,41 @@
       The DNG decoded at 454 &times; 602 is <a href="ticket_raw_decoded_small.html">ML-24</a>.</div>
     <div><div class="when">2026-11-09</div>P10 done: the owner closes OPS-3, its two unticked acceptance items standing
       as checked locally only. P11 stays open, for the owner's look at the page (D22).</div>
+    <div><div class="when">2026-11-09</div>P11. The owner reopens the ticket and asks for filters, sorting, the period on
+      the page and a waterfall, all in the browser (D25). <code>serve</code> now reads everything and takes no period;
+      the report carries each photo's waterfall and, by day, the other sites' calls and the front's failures. The page
+      recounts every table for its period and filters, with Python's rounding, so its medians and 90th percentiles are
+      <code>summary</code>'s. The waterfall ties the hosts' clocks to the page's at two points: the front starts when
+      the page's upload was sent (the total less the answer's wait and drawing, for a photo answered), and yappy's
+      nginx when the front's crossing starts; the app's decode, segmentation and preview build end as its preview goes
+      out. Checked in headless Chromium 156 on the recorded rig with 40 synthetic photos over three days: the step table
+      equals <code>summary</code>'s for everything and for a period, a control's filter gives that control's column,
+      sorting by step 17 both ways, examples only, the waterfall, a filename of <code>&lt;img onerror&gt;</code> shown
+      as text, no page error. Not released: <code>serve</code> runs locally.</div>
+    <div><div class="when">2026-11-09</div>P11, after the owner's look on the live logs ("ugly"): the page redone for
+      reading. Headline cards (photos, page loads, pick to answer, failures); the steps grouped by where they run, in
+      seconds, each with a median and 90th-percentile bar, every bar on one labelled scale (the owner: bars scaled per
+      group could not be compared), with p90, p95 and p99 columns (the owner's ask; nearest rank, as in <code>_stat</code>), and round ticks on both axes (a step of 1, 2, 2.5 or 5 times a power of ten, the gridlines on them), a Local/UTC toggle for the clock times shown (local by default; days, the period and the per-day
+      counts stay UTC, the logs' days), and a "Reload logs" button (D26: <code>POST /reload</code> reads the hosts
+      again and swaps the data in, the page keeps its choices; the page's header and a loopback Host required), and the waterfall's anchor fixed: the owner saw photo
+      <code>6be4c9a3</code>'s front and yappy run to 52 s on a 34 s total. Its browser fired "upload sent" 2 ms
+      before the answer's status (<code>upload_ms</code> 20836), which the front had sent 18.1 s after its start; five
+      of the eleven live photos do this. The front now starts no later than its status, or its preview, could reach
+      the page; the upload is drawn to the front's start, with a note. Every live photo checked: no negative leg, each
+      leg meeting the next, the hosts ending with the page's total (one 127 ms past it: the front logs its end when
+      yappy closes). Steps 5 and 13b in the step table still took the browser's event as it came (D28 below). Colours by what the time is spent on, not by who measured it (the owner: the upload is network, yet was the
+      page's colour): the wire grey, solid where one side measured it (2, 4, 5, 9), striped between two clocks (9y,
+      13a, 13b, and an upload drawn to the front's start), the headline time from the photo selected (D27, step
+      17s: the total less the pick), and the upload measured at the front (D28): the browser's "upload sent" fired
+      early (into its own buffers) or about 20 s late (with the answer's status) on 8 of 17 live photos, so step 5 is
+      now the front's nginx time less the check service's, and the front is tied to the page's clock at the attempt's
+      start plus its connection. That replaces the late-event correction above; on all 18 live photos every leg is
+      positive and meets the next, the split by control or canonicalized now a "compare by"
+      choice; a step's row sorts the photos by it; the waterfall opens under its photo's row, on a gridded axis; the
+      controls' names, short IDs and outcome badges in the list; quick periods (all, last 7 days, last day). The same
+      headless Chromium checks pass, the parity with <code>summary</code> included.</div>
+    <div><div class="when">2026-11-10</div>P11 committed, with the ticket closed by the owner. The full check tier
+      passes.</div>
   </div>
 
   <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3 ticket</a>, <a

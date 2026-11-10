@@ -10,11 +10,11 @@
   <p class="lede">Count visits and follow each photo from the visitor's pick to the answer on screen, from logs alone:
     no tracker, no analytics service, no visitor IP in anything new. Begun in 2026-08 as a self-hosted Umami, on hold
     until 2026-11-09, when the owner resumed it and dropped Umami for logs (D1, D2). Decided in a grilling on
-    2026-11-09 (D3&ndash;D24) and planned (<a href="plan_visitor_analytics.html">plan</a>); implemented and released 2026-11-09, closed by the
-    owner the same day.</p>
+    2026-11-09 (D3&ndash;D24) and planned (<a href="plan_visitor_analytics.html">plan</a>); implemented and released 2026-11-09; closed by the
+    owner the same day, reopened for the plan's P11, done and closed again 2026-11-10.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D24 decided; planned; P1&ndash;P8 implemented 2026-11-09 on branch <code>ops3-timelines</code> (<code>f76a0d3</code>&ndash;<code>0fc034a</code>), merged and released 2026-11-09 in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check done 2026-11-09, the crossing fixed (<code>4070129</code>); closed by the owner 2026-11-09, two acceptance items checked locally only; the plan's P11 left open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-10-07 from the 2026-08-31 design; rewritten 2026-11-09 for logs, D1&ndash;D24 decided; planned; P1&ndash;P8 implemented 2026-11-09 on branch <code>ops3-timelines</code> (<code>f76a0d3</code>&ndash;<code>0fc034a</code>), merged and released 2026-11-09 in <code>20261109T1637Z-c37f30e-dino3b16_segxl0v7r_country_aug8_s42</code>, <code>--verify</code> passed; the owner's phone check done 2026-11-09, the crossing fixed (<code>4070129</code>); closed by the owner 2026-11-09, two acceptance items checked locally only; reopened by the owner 2026-11-09 for the plan's P11 (D25), done 2026-11-09 (D25&ndash;D28), committed with the closing; closed by the owner 2026-11-10</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Infrastructure: logging across the page and both hosts</span></div>
@@ -285,6 +285,40 @@
         <td>(a) Refuse another site's, accept none (b) Require the site's own</td>
         <td>(a), 2026-11-09, as recommended: a same-site <code>sendBeacon</code> may send none, and <code>curl</code>
           can fake either.</td></tr>
+      <tr><td class="id">D25</td><td>What does <code>serve</code>'s page add after the owner's look (D22, <a
+        href="plan_visitor_analytics.html">plan</a> P11)?</td>
+        <td>(1) Filters on the photos and the numbers (2) Sorting the photos by total or by any step (3) The period
+          picked on the page (4) A waterfall of one photo's timeline</td>
+        <td>All four, 2026-11-09, the owner: "we can read all data and filter it inside browser". <code>serve</code>
+          reads everything since the release once; the page filters by period, control, upload or example, format and
+          outcome, and recounts every number from what it holds. No request goes back to the hosts while the page is
+          open.</td></tr>
+      <tr><td class="id">D26</td><td>Can the page read the hosts' logs again while it is open (<a
+        href="plan_visitor_analytics.html">plan</a> P11)?</td>
+        <td>(a) No, restart <code>serve</code> (D25) (b) A "Reload logs" button</td>
+        <td>(b), 2026-11-09, the owner: "add button 'reload logs from servers', so I can update data from the browser";
+          D25's "no request goes back to the hosts while the page is open" now holds between reloads. <code>POST
+          /reload</code> reads all four logs again over SSH and swaps the data in; the page keeps its choices. Only the
+          page can ask (a header another site's page cannot send without a preflight), and every request must name a
+          loopback host, so a site pointing its own name at this machine reads nothing.</td></tr>
+      <tr><td class="id">D27</td><td>What is the headline time?</td>
+        <td>(a) The tap to the answer on screen (step 17) (b) The photo selected to the answer on screen</td>
+        <td>(b), 2026-11-09, the owner: "from the moment the user decided what image he wants to analyze to answer. It
+          should tell us more about software performance." Step 17s, the page's total less the pick (step 1, the tap
+          until the file arrived); an example or a re-run, with no pick, from its click. The headline card, the first
+          of the totals and the photo list's time. The pick also holds the phone handing the file to the browser,
+          which no event parts from the visitor's choosing, so that leaves the headline too; step 1 keeps it.</td></tr>
+      <tr><td class="id">D28</td><td>What measures the upload (step 5), and ties the front's clock to the page's?</td>
+        <td>(a) The browser's "upload sent" event (b) A ping to the front before the upload, to set the clocks (c) The
+          front's own time for it, and the attempt's start for the clocks</td>
+        <td>(c), 2026-11-09, the owner: "no ping then. Proceed as recommended." On the live photos the browser's event
+          fired early (2.2 MB "sent" in 102 ms, into its own buffers) or late (6 of 15, about 20 s late, with the
+          answer's status), so step 5 read up to 21 s and 13b down to &minus;18.5 s. Step 5 is now the upload as the
+          front received it, its nginx's time less the check service's, on one clock (0.9&ndash;4.9 s). The front's
+          nginx starts, on the page's clock, as the last attempt's connection is up; 13b counts from there, and its
+          one error is the first byte's way out, about half a round trip (175 ms&ndash;2.0 s on all 17 photos). A
+          ping would set the clocks no closer, and cost a release and, before the upload, a round trip. The browser's
+          event is kept in the photo's view, not in the steps.</td></tr>
     </tbody>
   </table></div>
 
@@ -354,6 +388,21 @@
       abandoned photo and a photo refused on the page; forged and other-site timelines) stand as checked locally only.
       The <a href="plan_visitor_analytics.html">plan</a>'s P11, the local page's interactivity, stays open, waiting on
       the owner's look at the page (D22).</div>
+    <div><div class="when">2026-11-09</div>Reopened by the owner, to implement the
+      <a href="plan_visitor_analytics.html">plan</a>'s P11: filters, sorting, the period on the page and a waterfall,
+      all in the browser (D25).</div>
+    <div><div class="when">2026-11-09</div>P11 done: <code>serve</code>'s page picks its period, filters the photos,
+      sorts them by time or any step, and draws each one's waterfall, all in the browser from one read; its numbers
+      checked against <code>summary</code>'s in headless Chromium (the <a href="plan_visitor_analytics.html">plan</a>'s
+      Activity). Local, so nothing to release. The closing is the owner's.</div>
+    <div><div class="when">2026-11-09</div>The owner, on the live logs: the page redone for reading, p95 and p99, round
+      axis ticks, local or UTC times, a "Reload logs" button (D26), the headline time from the photo selected
+      (D27), and the upload measured at the front (D28). The
+      <a href="plan_visitor_analytics.html">plan</a>'s Activity.</div>
+    <div><div class="when">2026-11-10</div>Closed by the owner, with P11 (D25&ndash;D28) committed. Left over, not
+      taken up: <code>--inference</code>'s default reads <code>$HOST</code>, which zsh sets to the machine's own name, so
+      <code>serve</code> needs <code>--front</code> and <code>--inference</code> given; and why Chrome's upload event fires
+      early or late (D28 no longer reads it).</div>
   </div>
 
   <footer>Related: <a href="plan_visitor_analytics.html">plan</a>, <code>docs/logging_plan.html</code>, <a
