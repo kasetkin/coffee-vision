@@ -1,0 +1,218 @@
+<title>Implementation plan: the front's faster canonicalization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-22 · coffee-vision · implementation</div>
+  <h1>Implementation plan: the front's faster canonicalization</h1>
+  <p class="lede">The order of work for <a href="ticket_front_fast_canonicalization.html">ticket OPS-22</a>. Three
+    strands: the shared module learns a second set of settings without changing the store's (P1), the front uses them
+    and re-encodes every upload (P2), and the deploy's checks and the docs follow the new path (P3), before a release
+    the owner starts (P4). P1 changes no number; P2 is the first to change one, and only on the front.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; Q1&ndash;Q2 answered 2026-11-10 (OPS-22 D6, D7); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_front_fast_canonicalization.html"><code>ticket_front_fast_canonicalization.html</code></a> (OPS-22)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-10</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>20f2d44</code>, not from the ticket alone. Five things the ticket does not
+      cover turned up. They are folded in below, and the two that need a decision are Q1&ndash;Q2 (§2).</p>
+    <ol>
+      <li><b><code>--verify</code>'s public <code>/analyze</code> expects the store's answer.</b> It posts the smoke
+        photo's original through the domain and compares its top-1 with the answer the staged app gave locally on
+        <code>canonical_fixtures</code>' canonical photo, made with the store's settings
+        (<code>scripts/deploy_webapp.sh</code>, <code>canonical_fixtures</code> and the public check). After P2 the
+        domain's photo is the front's, so the two can differ. Q1; P3.</li>
+      <li><b>A changed example answer rolls the release back, after the site went down.</b>
+        <code>example_check.py</code> fails a release whose example gets another country (OPS-16 D14), and a full
+        deploy's failed verify reverts it, after the smoke and the flip have stopped photo answers. Under D5 the
+        examples are the only check of the answers, so their answers on the front's photos are worth knowing before the
+        deploy. Q2; P3.</li>
+      <li><b>The pass-through lives in two places.</b> <code>canonical.canonicalize</code> returns a canonical photo as
+        it is, and so does <code>check_service.canonicalize</code> (<code>is_canonical</code>, logged
+        <code>as_sent</code>). The store's tools, the fixtures and <code>make_example_photos.py</code> rely on the first;
+        D3 removes only the second. P1, P2.</li>
+      <li><b>A canonical upload is re-encoded from 16 bits.</b> <code>decode</code> reads a canonical JPEG XL through
+        <code>_decode_jxl</code> whole, at 16 bits, as Rec.2020; the integer path then converts Rec.2020 to Rec.2020.
+        That is OPS-22 R3's 467 MB for the grinder example. P2 measures it under the front's <code>MemoryMax=600M</code>
+        if this machine can hold a process to it, and P4 reads it on the front.</li>
+      <li><b>libjxl's bytes on the front.</b> ML-19 P1 found the front's files byte-identical to this machine's at
+        efforts 3&ndash;7 (both AMD; <code>analysis/ml19/p1/README.md</code>), so expected answers computed here on the
+        front's settings (Q1, Q2) describe the front's photos; P3 checks it once on the smoke photo.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 adds the settings to the shared module with the store's as defaults: the store's tests, the golden file and a
+    byte comparison against <code>data/canonical/</code> prove it changes nothing. P2 is the first to change a number:
+    the front's photos, in tests only. P3 makes the deploy check the front's path and writes the docs. P4 releases it,
+    when the owner asks, since a deploy stops photo answers.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The settings in <code>canonical.py</code> and <code>jxl_encode.py</code>, the store's as defaults; the integer colour path</td><td>local</td><td>no: the store's bytes, byte-identical</td></tr>
+      <tr><td class="id">P2</td><td>The front passes D1's settings and re-encodes every upload (D3); D4's sources measured</td><td>local</td><td>yes: the front's photos, in tests</td></tr>
+      <tr><td class="id">P3</td><td>The deploy's expected answers on the front's path (Q1, Q2); the ADR, the glossary and the docs</td><td>local</td><td>no: checks and docs</td></tr>
+      <tr><td class="id">P4</td><td>Merge, push, release, verify; the live numbers recorded <span class="pill sm open">stop</span></td><td>both hosts, the owner</td><td>yes: the live site</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>Which answer does <code>--verify</code>'s public <code>/analyze</code> expect
+        (finding 1)? (a) The staged app's, locally, on the smoke photo canonicalized with the front's settings: the
+        path a visitor's photo takes (b) As now, on the store's canonical photo: may fail a good release if the top-1
+        differs.</td>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-10: "as recommended" (OPS-22 D6). The check then
+          tests the path that is live; the host's own smoke keeps the store's photo.</td><td>P3</td></tr>
+      <tr><td class="id">Q2</td><td>The four examples' answers on the front's settings, before the deploy (finding 2)?
+        (a) Computed locally in P3, by the staged app on each example re-encoded as the front will; a changed answer
+        stops for the owner before anything is deployed (b) Not computed: <code>--verify</code> finds out on the live
+        site, and a change rolls the release back.</td>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-10: "as recommended" (OPS-22 D7). It checks the
+          examples alone, as D5 says, before the site goes down.</td><td>P3</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; the settings in the shared module, the store's unchanged</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>One frozen dataclass, <code>canonical.Settings</code>: the colour path (<code>float</code> or
+    <code>integer</code>), effort, quality, and the two thresholds (kept up to, capped to). <code>STORE</code> holds
+    today's values (float, 7, 95, 60,000,000, 50,000,000) and is every function's default; <code>FRONT</code> holds D1's
+    (integer, 3, 90, 18,000,000, 15,000,000). The module's constants stay as the store's, so
+    <code>header_problems</code>' 60 MP limit, which the inference host applies, does not move.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>capped_size</code>, <code>_cap</code> and <code>decode</code> take the
+      thresholds from a <code>Settings</code> (D1: over 18 MP to at most 15 MP for the front); <code>encode</code> takes
+      the colour path, effort and quality; <code>canonicalize</code> and its pass-through stay the store's
+      (finding 3).</span></li>
+    <li><span class="box"></span><span>The integer colour path (D4): for a source without transparency, LittleCMS's
+      default (optimized) transform from the source's own integers, grey spread to RGB, its profile or sRGB, into
+      Rec.2020 uint16, relative colorimetric, one call per rectangle libjxl asks for. A source with transparency keeps
+      <code>to_rec2020</code>'s float path, which lays it over the fill grey (ML-19 D13).</span></li>
+    <li><span class="box"></span><span>Tests: <code>STORE</code> is the module's defaults; <code>capped_size</code>
+      under both settings (18,000,000 kept, 18,000,001 capped to at most 15,000,000, the shape kept); the integer path
+      within one 8-bit level of the float path's conversion, before the encode, for 8-bit, 16-bit, grey and
+      tagged-P3 sources.</span></li>
+    <li><span class="box"></span><span>Checks: ML-19 D8's tests and the golden file pass unchanged; ten originals from
+      <code>dataset/</code>, a HEIC, a DNG and a 50 MP photo among them, canonicalized with the defaults are
+      byte-identical to their files in <code>data/canonical/</code> ("a rewrite is checked against the original").</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; the front's settings, every upload re-encoded</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p><code>check_service.py</code> decodes and encodes with <code>canonical.FRONT</code>, and drops its
+    <code>is_canonical</code> pass-through (D3): a canonical upload, a picked example included, goes the same way as a
+    JPEG. D2's ceilings (60 MP, a RAW file 16 MP) stay as they are.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>check_service.canonicalize</code>: <code>decode(..., settings=FRONT)</code>
+      and <code>encode(..., settings=FRONT)</code>; no <code>as_sent</code>. Its log line gains
+      <code>canonical_settings</code> (<code>"front: integer e3 q90 18/15 MP"</code>, from <code>FRONT</code>), so the
+      timelines tell releases apart; <code>coffeecv/timelines.py</code> keeps reading <code>as_sent</code> in older
+      lines.</span></li>
+    <li><span class="box"></span><span>Tests in <code>tests/test_front_check_service.py</code>:
+      <code>test_a_canonical_photo_crosses_as_it_is</code> becomes "a canonical upload is re-encoded with the front's
+      settings"; the log line of a canonicalized photo carries <code>canonical_settings</code>; a photo over 18 MP crosses
+      at most 15 MP; what crosses passes <code>is_canonical</code>.</span></li>
+    <li><span class="box"></span><span>D4's measurement, recorded in the ticket: for one each of an 8-bit JPEG, a
+      10-bit HEIC, a DNG, a 16-bit PNG, a PNG with transparency and the grinder example's JPEG XL, the front's time on
+      2 CPUs, the size, and the decoded 8-bit sRGB against the float path at the same effort and quality (mean, 99th
+      percentile, the largest difference). The grinder example's peak memory under <code>MemoryMax=600M</code>, if
+      this machine can hold a process to it (finding 4).</span></li>
+    <li><span class="box"></span><span>The check service's docstring and comments: ML-19 D17's pass-through gone at
+      the front (OPS-22 D3), D1's settings.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh</code> green; the front's tests run the real
+      service (its existing harness), not a helper.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; the deploy's checks on the front's path; the ADR and the docs</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2 <span class="tag">Q1, Q2 answered</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>By Q1 (a): <code>canonical_fixtures</code> also writes the smoke photo
+      canonicalized with <code>FRONT</code>; the deploy computes the public check's expected answer from it with the
+      staged app, beside the smoke's own (which stays on the store's photo). <code>scripts/rehearse_deploy_local.sh</code>
+      run, since the deploy script changes.</span></li>
+    <li><span class="box"></span><span>By Q2 (a): a step that runs the staged app, locally, on each example re-encoded
+      with <code>FRONT</code> and compares its answer with <code>examples.json</code>; a changed answer stops the deploy
+      before anything on either host is stopped. Run once here, its four answers recorded in the ticket.</span></li>
+    <li><span class="box"></span><span>The smoke photo canonicalized with <code>FRONT</code> here and on the front (the
+      release venv, as the deploy user), byte-compared (finding 5).</span></li>
+    <li><span class="box"></span><span>ADR 0036: the front's canonical photo differs from the store's (D1, D3), the
+      models unretrained, no metric measured on it (D5); amends ADR 0033, which links it. <code>GLOSSARY.md</code>'s
+      "Canonicalization" names the store's and the front's settings.</span></li>
+    <li><span class="box"></span><span><code>docs/inference_path.html</code> (the front's step and the scope line),
+      <code>docs/status.md</code> ("Serving": the live input differs from training's, unmeasured),
+      <code>webapp/README.md</code> where it describes the front's canonicalization.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh --full</code> green; <code>ticket_check</code>
+      clean.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; release, verify, the live numbers <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3; the owner's go-ahead to merge, push and deploy</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge <code>ops22-front-fast-canonicalization</code>
+      into <code>main</code>, push, and deploy (photo answers are down for about 2 minutes; the model unchanged, no
+      upload of weights).</span></li>
+    <li><span class="box"></span><span>Full deploy with the live model; <code>--verify</code> passed on both hosts,
+      the examples' answers included.</span></li>
+    <li><span class="box"></span><span>From the live logs, recorded in the ticket: the front's
+      <code>canonicalize_ms</code>, <code>canonical_bytes</code>, <code>crossing_ms</code> and <code>peak_mb</code>, and
+      <code>yappy</code>'s <code>decode_ms</code>, for a 12 MP photo, a 50 MP photo and the grinder example (R3),
+      against the numbers in the ticket's §2.</span></li>
+    <li><span class="box"></span><span>The ticket's acceptance items ticked; the owner closes it.</span></li>
+  </ol>
+
+  <h2>7. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the golden file and ML-19 D8's tests unchanged; ten originals byte-identical
+      to the store.</span></li>
+    <li><span class="box"></span><span>P2: a canonical upload re-encoded; a photo over 18 MP at most 15 MP; D4's sources
+      within one level of the float path before the encode.</span></li>
+    <li><span class="box"></span><span>P3: the public check and the examples' answers computed on the front's photos;
+      the smoke photo byte-identical here and on the front.</span></li>
+    <li><span class="box"></span><span>P4: <code>--verify</code> passed; the live numbers recorded.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope": the store, training, both models, the inference host's code, a
+      measurement of the answers beyond the examples (D5).</li>
+    <li>The example files, <code>scripts/make_example_photos.py</code> and the page's example code (D3).</li>
+    <li><code>canonical.canonicalize</code>'s pass-through, which the store's tools keep (finding 3).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-10</div>Claude reads ticket OPS-22 at <code>20f2d44</code> and writes this plan.
+      Five findings not in the ticket; Q1&ndash;Q2 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-10</div>The owner answers Q1 and Q2: both as recommended (OPS-22 D6, D7). Nothing
+      blocks P1. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_front_fast_canonicalization.html">OPS-22 ticket</a>,
+    <a href="plan_canonicalization.html">ML-19's plan</a>, <code>webapp/front/check_service.py</code>,
+    <code>coffeecv/canonical.py</code>, <code>scripts/deploy_webapp.sh</code>.</footer>
+</main>

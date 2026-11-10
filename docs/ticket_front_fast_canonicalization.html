@@ -13,7 +13,7 @@
     decision taken; not planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -185,6 +185,16 @@
           top-1 agreement and accuracy, reported; the owner decides on the numbers (b) The same with a bar the release
           must meet (c) Nothing beyond <code>--verify</code>'s examples</td>
         <td>(c), 2026-11-10: "do not check beyond examples".</td></tr>
+      <tr><td class="id">D6</td><td>Which answer does <code>--verify</code>'s public <code>/analyze</code> expect (the
+        plan's Q1)?</td>
+        <td>(a) The staged app's, locally, on the smoke photo canonicalized with the front's settings (b) As now, on the
+          store's canonical photo</td>
+        <td>(a), 2026-11-10, as recommended. The host's own smoke keeps the store's photo.</td></tr>
+      <tr><td class="id">D7</td><td>The examples' answers on the front's settings, before the deploy (the plan's
+        Q2)?</td>
+        <td>(a) Computed locally before anything is deployed; a changed answer stops for the owner (b) Left to
+          <code>--verify</code> on the live site, which rolls back on a change</td>
+        <td>(a), 2026-11-10, as recommended: within D5, the examples alone, checked before the site goes down.</td></tr>
     </tbody>
   </table></div>
 
@@ -227,6 +237,11 @@
     <div><div class="when">2026-11-10</div>D3 decided by the owner: (d), every upload re-encoded at the front, the
       examples unchanged and uploaded as now. The grinder example's re-encode measured here (R3). Every decision
       taken; ready to plan.</div>
+    <div><div class="when">2026-11-10</div>Planned: <a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>,
+      with Q1&ndash;Q2 for the owner (what <code>--verify</code>'s public check expects; the examples' answers before
+      the deploy). Not implemented.</div>
+    <div><div class="when">2026-11-10</div>The owner answers the plan's Q1 and Q2 as recommended: D6, D7. Not
+      implemented.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
