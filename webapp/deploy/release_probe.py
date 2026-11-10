@@ -3,6 +3,9 @@
 Run from inside a release directory (its cwd), with whichever interpreter is under test:
 
     python -B release_probe.py smoke PHOTO          # /analyze's two parts via Flask's test client (ticket OPS-7)
+    python -B release_probe.py smoke PHOTO --more-dir DIR --more PHOTO...
+                                                    # and more photos through the same app, each answer written to
+                                                    # DIR/<name>.probe (OPS-22 D6, D7: the front's photos)
     python -B release_probe.py classify --list fixtures.txt --role compare --dir PHOTOS_DIR
                                                     # classify_one's full entry per photo, for --compare
     python -B release_probe.py classify PHOTO...    # the same, on photos named directly
@@ -74,14 +77,26 @@ def _emit(payload: dict) -> None:
     print("PROBE " + json.dumps(payload, default=_jsonable, sort_keys=True), flush=True)
 
 
-def smoke(photo: Path) -> None:
-    app = _import_release_app()
+def _analyze(app, photo: Path) -> dict:
+    """`photo` through the app's /analyze, as the smoke's PROBE payload."""
     r = app.app.test_client().post("/analyze", data={"photo": (io.BytesIO(photo.read_bytes()), photo.name)},
                                    content_type="multipart/form-data")
     body = r.get_data(as_text=True)
     parts = [json.loads(line) for line in body.splitlines()] if r.mimetype == "application/x-ndjson" else []
-    _emit({"build": app.BUILD, "python": sys.version.split()[0],
-           "analyze": {"status": r.status_code, "content_type": r.mimetype, "parts": parts}})
+    return {"build": app.BUILD, "python": sys.version.split()[0],
+            "analyze": {"status": r.status_code, "content_type": r.mimetype, "parts": parts}}
+
+
+def smoke(photo: Path, more: list[Path] = (), more_dir: Path | None = None) -> None:
+    """The smoke photo's answer as a PROBE line on stdout; then each of `more` through the same app, its PROBE line in
+    more_dir/<name>.probe (OPS-22: the smoke photo and the examples as the front sends them, one model load)."""
+    app = _import_release_app()
+    _emit(_analyze(app, photo))
+    if more:
+        more_dir.mkdir(parents=True, exist_ok=True)
+    for p in more:
+        (more_dir / f"{p.name}.probe").write_text(
+            "PROBE " + json.dumps(_analyze(app, p), default=_jsonable, sort_keys=True) + "\n")
 
 
 def classify(photos: list[Path]) -> None:
@@ -367,7 +382,10 @@ def compare_classify(a_file: Path, b_file: Path, tol: float, d7: bool = False) -
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("smoke").add_argument("photo", type=Path)
+    p = sub.add_parser("smoke")
+    p.add_argument("photo", type=Path)
+    p.add_argument("--more", type=Path, nargs="+", default=[], help="more photos, through the same app")
+    p.add_argument("--more-dir", type=Path, help="where each --more photo's answer goes, as <name>.probe")
     p = sub.add_parser("classify")
     p.add_argument("photos", type=Path, nargs="*")
     p.add_argument("--list", type=Path, help="a fixtures.txt to take the photos from")
@@ -389,7 +407,9 @@ def main() -> None:
         os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
         sys.dont_write_bytecode = True
     if args.cmd == "smoke":
-        smoke(args.photo)
+        if args.more and args.more_dir is None:
+            ap.error("smoke --more needs --more-dir")
+        smoke(args.photo, args.more, args.more_dir)
     elif args.cmd == "classify":
         if bool(args.list) == bool(args.photos):
             ap.error("classify takes either --list (with --dir) or photo paths")

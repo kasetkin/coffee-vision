@@ -59,6 +59,50 @@ def _preview(mask: np.ndarray | None, box=BOX, thumbnail: str | None = None) -> 
             "mask": None if mask is None else _png_b64(mask), "seg_fallback": mask is None}
 
 
+class TestSmokeMore(unittest.TestCase):
+    """smoke --more (OPS-22 D6, D7): more photos through the same loaded app, each answer a PROBE file of its own, in
+    the smoke's own shape; the smoke photo's PROBE line on stdout as before."""
+
+    def test_each_photo_is_answered_once_by_one_app(self):
+        import release_probe
+        from unittest import mock
+
+        posted = []
+
+        class Client:
+            def post(self, path, data, content_type):
+                data_file, name = data["photo"]
+                posted.append((path, name, data_file.read()))
+                body = json.dumps({"part": "classification", "name": name}) + "\n"
+                return mock.Mock(status_code=200, mimetype="application/x-ndjson",
+                                 get_data=lambda as_text: body)
+
+        app = mock.Mock(BUILD=BUILD)
+        app.app.test_client.return_value = Client()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            photos = []
+            for name in ("smoke.jpg.jxl", "smoke.jpg.front.jxl", "brazil-grinder.jxl"):
+                (tmp / name).write_bytes(name.encode())
+                photos.append(tmp / name)
+            out_dir = tmp / "answers"
+            out = io.StringIO()
+            with mock.patch.object(release_probe, "_import_release_app", return_value=app) as imported, \
+                    contextlib.redirect_stdout(out):
+                release_probe.smoke(photos[0], more=photos[1:], more_dir=out_dir)
+            imported.assert_called_once()
+            self.assertEqual([(p, n) for p, n, _ in posted], [("/analyze", "smoke.jpg.jxl"),
+                                                               ("/analyze", "smoke.jpg.front.jxl"),
+                                                               ("/analyze", "brazil-grinder.jxl")])
+            smoke = release_probe._probe_line(out.getvalue())
+            self.assertEqual(smoke["analyze"]["parts"], [{"part": "classification", "name": "smoke.jpg.jxl"}])
+            self.assertEqual(sorted(p.name for p in out_dir.iterdir()),
+                             ["brazil-grinder.jxl.probe", "smoke.jpg.front.jxl.probe"])
+            front = release_probe._probe_line((out_dir / "smoke.jpg.front.jxl.probe").read_text())
+            self.assertEqual(set(front), set(smoke))   # the same shape, so verify reads either alike
+            self.assertEqual(front["analyze"]["parts"], [{"part": "classification", "name": "smoke.jpg.front.jxl"}])
+
+
 class TestCompareSmoke(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
