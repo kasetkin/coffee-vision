@@ -5,25 +5,29 @@ nginx, checked, canonicalized, then forwarded to the inference host, whose answe
 
 It refuses an upload over 40 MB (ML-19 D23; OPS-15 D15 and OPS-16 D8 before) and a file in no accepted format
 (upload_check; ADR 0034, OPS-18). Then the photo becomes its
-canonical photo (coffeecv.canonical, ML-19 D12, D35): one already canonical goes on as it is (D17), any other is
-canonicalized here, a photo over the pixel ceiling (D38; a RAW one over its own, D24) is refused with a 413 from its
-header before any pixel is decoded, and one that cannot be read is the 400 the inference host gives. The form goes on
+canonical photo (coffeecv.canonical, ML-19 D12, D35), made with the front's own settings (canonical.FRONT_SETTINGS,
+OPS-22 D1, ADR 0036: kept up to 18 MP, over that area-averaged to at most 15 MP; the integer colour path; quality 90,
+effort 3), not the store's. Every upload is canonicalized here, an already canonical one (each of the page's examples)
+included: ML-19 D17's pass-through is gone (OPS-22 D3). A photo over the pixel ceiling (D38; a RAW one over its own,
+D24) is refused with a 413 from its header before any pixel is decoded, and one that cannot be read is the 400 the
+inference host gives. The form goes on
 with the canonical photo in place of the visitor's (named <stem>.jxl), every other field and header as sent; the
 original is never stored or forwarded (D21). An inference host that cannot be reached, or whose app is down behind its
 nginx, is a 503 "the classifier is offline" (D12), apart from its busy 503, which is relayed as it is. Every request
 keeps the ID the front's nginx made for it (OPS-3 D8): forwarded to the inference host, and on every answer.
 
 On http.server (D19): the front's nginx gates one request at a time (D11), so a thread per request never means more
-than one at work, and canonicalizing (up to about 21 s and 460 MB at 60 MP, analysis/ml19/p8/README.md) happens
-inside the same one-at-a-time gate as the crossing. Since ML-19 the service is no longer standard-library only: it
+than one at work, and canonicalizing (with the store's settings, up to about 21 s and 460 MB at 60 MP,
+analysis/ml19/p8/README.md; with the front's, about 3 s for a 50 MP photo, OPS-22 §2) happens inside the same
+one-at-a-time gate as the crossing. Since ML-19 the service is no longer standard-library only: it
 imports the release's coffeecv.canonical, with training's decoders, colour management and encoder at training's
 versions (coffeecv.lock_check).
 
 It logs one JSON line per request to a file of its own (OPS-3 D9, requests.jsonl in systemd's LogsDirectory), with
 no client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20). The line is what
 this service alone knows of the photo's timeline (OPS-3 D6): the visitor's original, its name, extension, detected
-format and size (D10); canonicalized or sent canonical, and for one canonicalized here its size, decoded depth, time
-and the process's peak and swapped memory while it was at work (ML-19 D38: the ceiling and MemoryMax are reviewed
+format and size (D10); the settings it was canonicalized with (OPS-22: "as_sent" in a line from before that, for a
+photo sent canonical), its size, decoded depth, time and the process's peak and swapped memory while it was at work (ML-19 D38: the ceiling and MemoryMax are reviewed
 from these lines); the crossing to the inference host, and the answer's headers, preview and end as they passed.
 Only its start-up line goes to stderr, for the journal.
 """
@@ -74,6 +78,8 @@ UPLOAD_TIMEOUT_S = 120
 MAX_PIXELS = 60_000_000
 RAW_MAX_PIXELS = 16_000_000
 ANSWER_TIMEOUT_S = 60
+# OPS-22 D1: the front's own canonical photo, cheaper than the store's; the inference host reads both (ADR 0036).
+SETTINGS = canonical.FRONT_SETTINGS
 OFFLINE = {"error": "the classifier is offline"}
 BUSY = {"error": "the classifier is busy with another photo"}   # the front's nginx gate says the same (D11)
 TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"}   # and so does its 413
@@ -372,18 +378,18 @@ class CheckHandler(BaseHTTPRequestHandler):
             self.crossing.release()
 
     def canonicalize(self, data: bytes, filename: str, max_pixels: int) -> bytes:
-        """canonical.canonicalize, noting in the log line what was decoded and the memory it took (ML-19 D38)."""
-        if canonical.is_canonical(data):   # D17: goes on as it is
-            self.record["canonical"] = "as_sent"
-            return data
+        """The photo decoded and encoded with the front's settings (OPS-22 D1), an already canonical one too (D3: it is
+        re-encoded, not passed on), noting in the log line the settings, what was decoded and the memory it took
+        (ML-19 D38)."""
         t0, measured = time.monotonic(), reset_peak_memory()
-        source = canonical.decode(data, filename, max_pixels)
+        source = canonical.decode(data, filename, max_pixels, settings=SETTINGS)
         (h, w), bits = source.pixels.shape[:2], source.pixels.dtype.itemsize * 8
-        canon = canonical.encode(source)
+        canon = canonical.encode(source, settings=SETTINGS)
         del source
         peak_mb, swap_mb = process_memory_mb()
-        self.record.update(canonical="canonicalized", canonicalize_ms=ms_since(t0), width=w, height=h, bits=bits,
-                           peak_mb=peak_mb, swap_mb=swap_mb)
+        self.record.update(canonical="canonicalized", canonical_settings=SETTINGS.label,
+                           canonicalize_ms=ms_since(t0), width=w, height=h, bits=bits, peak_mb=peak_mb,
+                           swap_mb=swap_mb)
         if not measured:
             self.record["peak_since_start"] = True
         return canon

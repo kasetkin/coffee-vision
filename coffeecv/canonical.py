@@ -525,7 +525,8 @@ def canonical_problems(data: bytes) -> list[str]:
 
 
 def is_canonical(data: bytes) -> bool:
-    """D35: the one check behind D17's pass-through at the front and D12's refusal at the host."""
+    """D35: the one check behind canonicalize()'s pass-through (D17; the front's own until OPS-22 D3) and D12's
+    refusal at the host."""
     return not canonical_problems(data)
 
 
