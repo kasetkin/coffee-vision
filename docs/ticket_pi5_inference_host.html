@@ -1,0 +1,238 @@
+<title>Raspberry Pi 5 as the inference host</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-23 · coffee-vision · inference host</div>
+  <h1>Measure the Raspberry Pi 5 as a replacement inference host, on its CPU and its GPU</h1>
+  <p class="lede">The owner asked whether the Home Assistant Raspberry Pi 5 could take over model inference from
+    <code>yappy</code>, running the models in Docker. Both paths were measured on 2026-11-10 with ML-7's photo replay and
+    its D7 check against PyTorch. Every fp32 path passes D7, but the CPU needs about 29 s of model time for a photo
+    and the GPU about 104 s, where <code>yappy</code>'s GPU needs about 8 s. Measured; nothing is planned or deployed.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; measurements done 2026-11-10 (CPU and GPU, D7 run on both); D1 and D2 open</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: inference host evaluation</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>analysis/pi5/</code> (scripts and result records), <code>analysis/ml7_gpu/</code> (the replay, graph timing and D7 check it reuses)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (measurements), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-10</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-10.</strong> Connect to the Home Assistant Raspberry Pi 5 (HA OS, ssh alias
+      <code>webapphaos</code>) and see whether the project's models can run there on the CPU inside a Docker image, to
+      replace <code>yappy</code> for inference. Then: compare the Pi with <code>yappy</code>'s Intel N100; then try the
+      Pi's GPU through Mesa, Vulkan and LiteRT in fp32, with the latest Mesa, building it overnight if needed. Then:
+      record the CPU and GPU results as a ticket.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The Pi 5 cannot replace <code>yappy</code> without making answers several times slower. Its CPU, on LiteRT with
+    XNNPACK in fp32, needs about 29 s of model time per photo as served today, and passes D7. fp16 on its CPU is
+    3.3&times; faster but fails D7. Its GPU (V3D 7.1) runs the converted models through LiteRT's WebGPU accelerator only
+    with a Vulkan layer that hides two of V3DV's gaps from Dawn, and only with Mesa 26.2. It then passes D7 but needs
+    about 104 s per photo, 3.6&times; slower than the Pi's own CPU. <code>yappy</code>'s GPU needs about 8&ndash;9 s
+    (<a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The host.</strong> Raspberry Pi 5, 8 GB, 4 Cortex-A76 cores with hardware fp16 (<code>fphp</code>,
+      <code>asimdhp</code>), HA OS 18.5, Docker 29.8.2 reached through the Advanced SSH &amp; Web Terminal app (protection
+      mode off, user <code>hassio</code> with sudo). About 6.3 GB of memory was available beside Home Assistant's
+      containers, which kept running throughout. No fan; the CPU reached 84 &deg;C under sustained load, with the
+      reported clock at 2.4 GHz throughout (firmware throttle flags not read: no <code>vcgencmd</code> in the app).</li>
+    <li><strong>The instrument.</strong> ML-7's photo replay (<code>analysis/ml7_gpu/p4_replay.py</code>: 13 photos, the
+      segmenter's encoder and decoder twice per photo, then DINOv3 on the photo's 40 patches; the first photo, cold,
+      left out), its per-graph timing (<code>p4_graph.py</code>) and its D7 check (<code>parity.py</code>, through
+      <code>analysis/pi5/parity_now.py</code>, which fits it to today's <code>BeanSegmenter</code>), on ML-7's inputs and
+      PyTorch references (<code>analysis/ml7_gpu/artifacts/</code>, checkpoint
+      <code>allrigs_dino3b16_segxl0v3_country_s42</code>). The CPU runs use ML-7 P2's <code>.tflite</code> files, the
+      ones behind ADR 0019's <code>yappy</code> numbers; the fp16 DINOv3 and the GPU runs use the release's files
+      (<code>models/allrigs_dino3b16_segxl0v3_country_s42.litert/</code>), which carry
+      <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>'s forms.</li>
+    <li><strong>The containers.</strong> <code>python:3.12-slim</code> on arm64: <code>ai-edge-litert==2.3.0</code> (the
+      aarch64 wheel ships <code>libLiteRt.so</code> and <code>libLiteRtWebGpuAccelerator.so</code>);
+      <code>torch==2.14.0+cpu</code> from PyTorch's CPU index (PyPI's aarch64 wheel pulls in the CUDA stack); for the
+      GPU, trixie with Mesa 25.0.7, 26.1.6 from trixie-backports, and 26.2.6 from sid.</li>
+    <li><strong>A served photo</strong> runs the encoder and decoder once (one streamed request,
+      <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>) and DINOv3 on 40 patches at batch 8.
+      The replay runs the segmenter twice, as serving did at ML-7, so the per-photo serving estimates below are summed
+      from the per-graph times.</li>
+  </ul>
+
+  <h3>The CPU</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Graph, warm, per call</th><th>Pi 5, LiteRT fp32</th><th>Pi 5, PyTorch</th><th><code>yappy</code> CPU, LiteRT</th><th><code>yappy</code> CPU, PyTorch</th></tr></thead>
+    <tbody>
+      <tr><td>Encoder</td><td>4.17 s</td><td>7.56 s</td><td>6.91 s</td><td>6.49 s</td></tr>
+      <tr><td>Decoder</td><td>0.12 s</td><td>0.25 s</td><td>0.10 s</td><td>0.10 s</td></tr>
+      <tr><td>DINOv3, batch 8</td><td>4.93 s</td><td>3.86 s</td><td>6.72 s</td><td>4.39 s</td></tr>
+      <tr><td>DINOv3, batch 40</td><td>31.6 s</td><td>22.0 s</td><td>33.5 s</td><td>21.9 s</td></tr>
+      <tr><td><strong>A served photo, estimated</strong> (encoder + decoder + 5 &times; batch 8)</td><td><strong>28.9 s</strong></td><td>27.1 s</td><td>34.6 s</td><td>28.5 s</td></tr>
+    </tbody>
+  </table></div>
+  <p>Two warm-ups and eight timed calls per graph on the Pi (<code>analysis/pi5/results/graph_*.json</code>); the
+    <code>yappy</code> columns are ML-7 P4 round 1. One serving runtime holds both models (ADR 0019), so LiteRT's
+    segmenter and PyTorch's DINOv3 (23.6 s together) is not an option.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Photo replay on the Pi's CPU</th><th>Per photo, median</th><th>D7 against PyTorch</th></tr></thead>
+    <tbody>
+      <tr><td>LiteRT fp32, DINOv3 batch 40, 2 passes</td><td>44.6 s (43.8 s in pass 2; 9 photos of pass 1 slowed by a
+        copy over ssh, 41 &rarr; 50 s)</td><td>Pass: least cosine 1.0000000, least mask IoU 0.999998, largest
+        probability change 3.5e-07, no answer changed. <code>yappy</code>'s CPU cell, checked the same way, has the same margins.</td></tr>
+      <tr><td>LiteRT, every graph forced to fp16 (XNNPACK flag 4), P2's files</td><td>13.3 s</td><td>Fail: NaN or Inf
+        in all 26 photos.</td></tr>
+      <tr><td>LiteRT, segmenter fp32 and the release's DINOv3 forced to fp16, batch 8</td><td>39.7 s</td><td>Fail:
+        least cosine 0.809, 11 of 13 answers changed. The same DINOv3 file in fp32 gives least cosine 0.9999998 against
+        the references (checked on x86), so the loss is XNNPACK's fp16 arithmetic on the A76, which ADR 0022's forms do
+        not keep in range as they do on <code>yappy</code>'s GPU.</td></tr>
+      <tr><td>PyTorch, batch 40 (2 photos only)</td><td>37.7 s</td><td>The reference itself.</td></tr>
+      <tr><td><em><code>yappy</code>: CPU LiteRT / CPU PyTorch / GPU (production)</em></td><td><em>47.8 / 36.0 / 9.2 s</em></td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p>The fp32 replay's peak RSS was 2.6 GB and its <code>MemAvailable</code> drop 1.3 GB.</p>
+
+  <h3>The GPU</h3>
+  <ul>
+    <li><strong>The device.</strong> <code>/dev/dri/renderD128</code> is <code>v3d</code> (V3D 7.1). Mesa's V3DV
+      reports Vulkan 1.3. Debian bookworm's Mesa 22.3 predates the Pi 5's GPU (Mesa 23.3), so the image is trixie. The
+      container also sees llvmpipe; <code>VK_ICD_FILENAMES</code> pins Broadcom's driver. Mesa 26 opens the display node
+      as well, so the container needs all of <code>/dev/dri</code>.</li>
+    <li><strong>Dawn refuses V3DV.</strong> LiteRT's WebGPU accelerator (Dawn) rejects the adapter with
+      <code>Vulkan shaderUniform*ArrayDynamicIndexing required</code>: V3DV reports all four
+      <code>shader*ArrayDynamicIndexing</code> features false. With those reported, Dawn then rejects WebGPU core's
+      limits: 4096 against 8192 for 1D, 2D and cube textures, viewports and framebuffers, 4 fragment outputs against 8,
+      and the inter-stage variables. All of these concern rendering, not compute. No environment variable changes this;
+      the <code>V3D_WEBGPU_OVERRIDE</code> found online appears in neither Mesa's driver nor LiteRT's library. The same
+      rejection is reported for another Dawn application on the Pi 5, unresolved
+      (<a href="https://github.com/TwilitRealm/dusklight/issues/2592">dusklight #2592</a>).</li>
+    <li><strong>The workaround.</strong> <code>analysis/pi5/pishim.c</code>, a Vulkan layer enabled only inside the test
+      container (<code>VK_INSTANCE_LAYERS=VK_LAYER_PI_webgpu_shim</code>), reports the four features (WGSL has no
+      descriptor arrays, so compute shaders cannot use them) and strips them from <code>vkCreateDevice</code>; with
+      <code>PISHIM_LIMITS=1</code> it reports the render limits at core's values. Dawn then selects
+      <code>V3D 7.1 &hellip; backend=Vulkan</code> and LiteRT places every operation of the release's graphs on the
+      GPU. With <code>PISHIM_DUMP</code> it saves each SPIR-V module Dawn creates.</li>
+    <li><strong>Mesa 25.0.7 (trixie) never compiles the decoder.</strong> Its 42nd module (36 KB of SPIR-V; a softmax
+      with a 32 &times; 4 local array of <code>vec2</code> and many <code>exp</code> calls) stayed in Mesa's generic NIR
+      optimisation loop (<code>nir_opt_algebraic</code>, <code>nir_opt_cse</code> under <code>v3d_optimize_nir</code>,
+      read with Debian's debug symbols) for more than 20 minutes. <code>V3D_DEBUG=opt_compile_time,noloopunroll</code>
+      did not help.</li>
+    <li><strong>Mesa 26.1.6 (trixie-backports) compiles every graph in about 4 minutes, but the encoder returns NaN or
+      Inf on all 5 calls.</strong></li>
+    <li><strong>Mesa 26.2.6 (sid) is correct.</strong></li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Graph, fp32, warm, per call</th><th>Pi 5 GPU, Mesa 26.2.6</th><th>Pi 5 CPU, LiteRT</th></tr></thead>
+    <tbody>
+      <tr><td>Encoder</td><td>16.8 s</td><td>4.17 s</td></tr>
+      <tr><td>Decoder</td><td>0.63 s</td><td>0.12 s</td></tr>
+      <tr><td>DINOv3, batch 8</td><td>17.5 s</td><td>4.93 s</td></tr>
+      <tr><td><strong>A served photo, estimated</strong></td><td><strong>~104 s</strong></td><td><strong>28.9 s</strong></td></tr>
+      <tr><td>Photo replay, batch 8, 1 pass</td><td>123.4 s; D7 pass: least cosine 1.0000000, least mask IoU 0.999996,
+        largest probability change 4.8e-07, no answer changed</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p>CPU time over wall time was 0.00&ndash;0.03 during the GPU's calls. The replay record's <code>gpu_proof</code> is
+    false only because <code>cellrun.gpu_proof</code> reads Intel's i915 counters; the V3D's own counter
+    (<code>gpu_stats</code>, queue <code>csd</code>) counted the compute jobs. The one published measurement found, of
+    llama.cpp's Vulkan backend on the same driver, puts the V3D at 25&times; slower than the Pi's CPU
+    (<a href="https://github.com/karolfurtak/jarvis-pi5-vulkan-embeddings">jarvis-pi5-vulkan-embeddings</a>).</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>yappy</code> serves both models on its GPU, about 8&ndash;9 s per photo.</li>
+        <li>Whether the Pi 5 could serve was unknown.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The Pi 5 is measured: about 29 s per photo on its CPU in fp32 and about 104 s on its GPU, both passing D7;
+          fp16 on its CPU fails D7.</li>
+        <li>The scripts, the Vulkan layer and the result records are in <code>analysis/pi5/</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Serving.</strong> <code>yappy</code> keeps serving; no release, deploy or code path changes.</li>
+    <li><strong>Containerised serving stays closed</strong>
+      (<a href="../.out-of-scope/containerised-serving.md">.out-of-scope/containerised-serving.md</a>). The Pi could
+      only serve from a container on HA OS, so serving there would reopen that decision; nothing here proposes it.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The Pi's numbers are measured beside Home Assistant, without a fan.</strong></td>
+        <td>Other containers kept running and the CPU reached 84 &deg;C. The fp32 replay's photos varied by about 1 s
+          once the copy stopped; the conclusion holds with a large margin either way.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The GPU result depends on a layer that misreports the device.</strong></td>
+        <td>It reports features and limits V3DV lacks. D7 passed on all 13 photos, but a kernel that used a reported
+          texture size beyond 4096 would fail on the device. Kept to a benchmark container; not a serving path.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Does the Pi 5 replace <code>yappy</code> as the inference host?</td>
+        <td>(a) No: <code>yappy</code> keeps serving, and this ticket closes as a measurement. (b) Yes, on the Pi's
+          CPU at about 29 s per photo, which reopens containerised serving and needs an aarch64 lock and a Pi deploy
+          path.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Is another host measured in the Pi's place?</td>
+        <td>(a) No. (b) An x86_64 mini PC with a larger iGPU, measured the same way (ADR 0019's replay and
+          <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>'s D7), in a ticket of its own:
+          discussed 2026-11-10 were an AMD Ryzen 7 7840HS or 8845HS (Radeon 780M), a Ryzen 6000 with a Radeon 680M, and an Intel
+          Core Ultra 5 125H, each with two memory channels and at least 16 GB.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The models run on the Pi 5 in Docker, on its CPU (LiteRT and PyTorch) and
+      its GPU (LiteRT on Vulkan), timed with ML-7's instrument.</span></li>
+    <li><span class="box done"></span><span>Each path's outputs held to D7 against PyTorch on ML-7's 13 photos.</span></li>
+    <li><span class="box done"></span><span>The scripts and result records committed in <code>analysis/pi5/</code>.</span></li>
+    <li><span class="box"></span><span>D1 and D2 decided by the owner.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li><strong>An NPU on the Pi.</strong> LiteRT's NPU support covers Google Tensor, MediaTek, Qualcomm, Samsung and
+      Intel (OpenVINO) only; the Pi's Hailo and Coral accelerators need their own compilers and int8 or int4 models.</li>
+    <li><strong>int8 models</strong>, and fewer than 40 patches per photo: both are model changes that would need their
+      own D7 work.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-10</div>Ticket written from the day's measurements on the Pi 5 (results in
+      <code>analysis/pi5/results/</code>). CPU and GPU measured, D7 run on both. D1 and D2 open. Not planned, not
+      implemented. The Pi's working files (<code>/share/coffee-bench</code>) and images (<code>coffee-bench:*</code>)
+      are still on it, and the SSH app's protection mode is still off.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_inference_runtime.html">ML-7</a>,
+    <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>,
+    <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>,
+    <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <code>analysis/ml7_gpu/</code>, <code>analysis/pi5/</code>,
+    <a href="https://github.com/TwilitRealm/dusklight/issues/2592">dusklight #2592</a>,
+    <a href="https://github.com/karolfurtak/jarvis-pi5-vulkan-embeddings">jarvis-pi5-vulkan-embeddings</a>.</footer>
+</main>

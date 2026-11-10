@@ -1,0 +1,61 @@
+{
+  "timing": {
+    "create_s": 4.562,
+    "first_call_s": 4.979,
+    "cold_s": 9.541,
+    "warm": {
+      "n": 8,
+      "median": 4.933817992998229,
+      "p90": 4.98786725399259
+    }
+  },
+  "calls_s": [
+    4.979,
+    4.922,
+    4.775,
+    4.923,
+    4.821,
+    4.988,
+    4.947,
+    5.023,
+    4.945,
+    4.92,
+    4.901
+  ],
+  "warmup": 2,
+  "timed": 8,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5742.6171875,
+  "mem_available_drop_mb": 364.6,
+  "cpu_over_wall": 3.85,
+  "peak_rss_mb": 1264,
+  "counters": {
+    "samples": 384,
+    "wall_ms": 39466.9,
+    "cpu_mhz_median": 2400.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 5378
+  },
+  "loaded": {
+    "libs": [
+      "/usr/local/lib/python3.12/site-packages/ai_edge_litert/libLiteRtWebGpuAccelerator.so"
+    ],
+    "render_nodes": []
+  },
+  "gpu_sampler": null,
+  "cell": "litert_cpu",
+  "graph": "dino_b8",
+  "runtime": "litert",
+  "device": "cpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "dino_b8.tflite",
+  "batch": 8,
+  "fully_accelerated": false,
+  "threads": 4,
+  "calls_per_photo": 5
+}
