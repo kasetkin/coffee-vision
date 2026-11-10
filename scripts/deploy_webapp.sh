@@ -317,18 +317,34 @@ build() {   # sets SHA, ID, STAGE, MANIFEST
     || die "the staged tree does not match the manifest"
 
   check_fixtures
-  canonical_fixtures
+  canonical_fixtures --examples-from "$SHA"
   note "expected smoke answers: the staged tree's own webapp.app, locally"
-  local logs; logs=$(mktemp -d)
+  local logs smoke_name answers="$SCRATCH/$ID.front-answers" more=() f
+  logs=$(mktemp -d); smoke_name="$(basename "$(fixtures smoke)").jxl"
+  # OPS-22 D6, D7: through the same app, the smoke photo and each example as the front sends them (its own settings).
+  more=("$CANON_FIX/front/$smoke_name")
+  for f in "$CANON_FIX"/front/examples/*.jxl; do [[ -e "$f" ]] && more+=("$f"); done   # none before OPS-16
+  rm -rf "$answers"
   # The models on this machine's CPU (COFFEE_CV_LITERT_ON_CPU): the release's accelerator is the host's (ML-7 P10).
   (cd "$STAGE" && COFFEE_CV_CHECKPOINT="models/$model.pt" COFFEE_CV_LOG_DIR="$logs" PYTHONDONTWRITEBYTECODE=1 \
       COFFEE_CV_LITERT_ON_CPU=1 COFFEE_CV_WARMUP_PHOTO="$REPO/$(fixtures smoke)" \
-      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$CANON_FIX/$(basename "$(fixtures smoke)").jxl" \
-      2>"$logs/stderr") \
+      "$LOCAL_PY" -B "$DEPLOY_DIR/release_probe.py" smoke "$CANON_FIX/$smoke_name" \
+      --more-dir "$answers" --more "${more[@]}" 2>"$logs/stderr") \
       > "$SCRATCH/$ID.expected.json" || { tail -20 "$logs/stderr"; die "the staged tree failed locally"; }
   rm -rf "$logs"
   jq -r '"   /analyze \(.analyze.parts[1].verdict // .analyze.parts[1].part), top-1 \(.analyze.parts[1].ranked[0].id // "-"), model_sha \(.build.model_sha)"' \
     < <(sed -n 's/^PROBE //p' "$SCRATCH/$ID.expected.json")
+  # D6: --verify's public /analyze posts the original, which the front canonicalizes with its settings: its expected
+  # answer is the staged app's on that photo. The smoke's own stays on the store's photo.
+  cp "$answers/$smoke_name.probe" "$SCRATCH/$ID.expected.front.json"
+  jq -r '"   as the front sends it: /analyze \(.analyze.parts[1].verdict // .analyze.parts[1].part), top-1 \(.analyze.parts[1].ranked[0].id // "-") (the public check expects it, OPS-22 D6)"' \
+    < <(sed -n 's/^PROBE //p' "$SCRATCH/$ID.expected.front.json")
+  # D7: each example's answer on the front's photo, held to examples.json, before anything on either host is stopped.
+  local examples examples_rc=0 line
+  examples=$("$LOCAL_PY" "$DEPLOY_DIR/example_check.py" --answers "$answers" --commit "$SHA" --repo "$REPO") \
+    || examples_rc=$?
+  while IFS= read -r line; do [[ -n "$line" ]] && note "$line"; done <<<"$examples"
+  (( examples_rc == 0 )) || die "an example's answer on the front's photo is not its country (OPS-22 D7): the owner decides before a deploy"
   build_front
 }
 
@@ -362,7 +378,8 @@ check_fixtures() {
 }
 
 canonical_fixtures() {   # ML-19 D34: every fixture canonicalized here, the store's machine (D51), into $CANON_FIX
-  "$LOCAL_PY" "$DEPLOY_DIR/canonical_fixtures.py" "$FIXTURES" "$CANON_FIX" >/dev/null \
+  # (and OPS-22: the smoke photo, with --examples-from <sha> each example too, as the front sends them, in front/)
+  "$LOCAL_PY" "$DEPLOY_DIR/canonical_fixtures.py" "$FIXTURES" "$CANON_FIX" "$@" >/dev/null \
     || die "the fixtures could not be canonicalized"
 }
 
@@ -381,6 +398,7 @@ stage() {
   expect=$(jq -r '(.dvc + .pinned) | to_entries[] | "\(.key) \(.value)"' <<<"$MANIFEST")
   send_fixtures
   to_vm -a --chmod=F644 "$SCRATCH/$ID.expected.json" "$FIX/expected/$ID.json"
+  to_vm -a --chmod=F644 "$SCRATCH/$ID.expected.front.json" "$FIX/expected/$ID.front.json"   # OPS-22 D6
   if [[ -n "$REUSE" ]]; then
     vm 'R="$APP_ROOT/releases/$ID"
       while read -r path digest; do
@@ -810,6 +828,9 @@ verify() {   # returns non-zero on a failed check
     if [[ -f "$APP_ROOT/fixtures/expected/$(basename "$cur").json" ]]; then
       echo "EXPECTED=$(sed -n "s/^PROBE //p" "$APP_ROOT/fixtures/expected/$(basename "$cur").json")"
     fi
+    if [[ -f "$APP_ROOT/fixtures/expected/$(basename "$cur").front.json" ]]; then   # a release from OPS-22 on
+      echo "EXPECTED_FRONT=$(sed -n "s/^PROBE //p" "$APP_ROOT/fixtures/expected/$(basename "$cur").front.json")"
+    fi
   ' PORT="$PORT") || { note "could not read the VM's state"; return 1; }
   local front
   front=$(fe '
@@ -825,8 +846,11 @@ verify() {   # returns non-zero on a failed check
       done
       echo "GET_ANALYZE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$CHECK_PORT/analyze")"
     fi' CHECK_PORT="$CHECK_PORT") || { note "could not read the front's state"; return 1; }
-  local current enabled expected
+  local current enabled expected public_expected
   current=$(kv CURRENT "$out"); enabled=$(kv ENABLED "$out"); expected=$(kv EXPECTED "$out")
+  # OPS-22 D6: the domain's photo is the front's, so its answer is held to the staged app's on the front's photo;
+  # a release from before OPS-22 has only the store's.
+  public_expected=$(kv EXPECTED_FRONT "$out"); public_expected=${public_expected:-$expected}
   note "current = $current; coffee-cv-web is ${enabled:-not installed}; coffee-cv-front is $(kv ENABLED "$front" | grep . || echo "not installed")"
   check() { if [[ "$2" == "$3" ]]; then note "ok    $1: $2"; else note "FAIL  $1: got '$2', want '$3'"; fails=$((fails + 1)); fi; }
   # One release on two hosts (ADR 0031): the page and the backend it calls are the same commit's.
@@ -881,7 +905,7 @@ verify() {   # returns non-zero on a failed check
       check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
       check "    its Access-Control-Expose-Headers" "$expose" X-Request-Id
       check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "preview, classification"
-      want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$expected" 2>/dev/null)
+      want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$public_expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
       # Its timeline (ticket OPS-3 D14): sent through the domain as the page sends one, then found in the check
@@ -944,8 +968,9 @@ prune() {
       rm -rf "$d" && echo "   removed $(basename "$d")"
     done
     # Expected answers belong to a release; drop any whose release is gone (however it went).
-    for f in fixtures/expected/*.json; do
-      [[ -d "releases/$(basename "$f" .json)" ]] || { rm -f "$f"; echo "   removed $f"; }
+    for f in fixtures/expected/*.json; do   # <id>.json, and from OPS-22 <id>.front.json
+      id=$(basename "$f" .json); id=${id%.front}
+      [[ -d "releases/$id" ]] || { rm -f "$f"; echo "   removed $f"; }
     done
     capped "$CAP_CPU" "$APP_ROOT" -E UV_CACHE_DIR="$APP_ROOT/uv-cache" "$UV_BIN" cache prune --quiet
     echo "   $(du -sh "$APP_ROOT" | cut -f1) in $APP_ROOT"

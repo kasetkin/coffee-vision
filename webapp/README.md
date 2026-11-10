@@ -22,7 +22,10 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
 
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
 serves the domain; it has no ML code (`front/`), and since ticket ML-19 (ADR 0033) it canonicalizes each photo with
-`coffeecv/canonical.py` and forwards the canonical photo in its place. The inference host has the GPU and a slow link
+`coffeecv/canonical.py` and forwards the canonical photo in its place. Since OPS-22 (ADR 0036) it does so with its own,
+cheaper settings (`canonical.FRONT_SETTINGS`: integer colour, effort 3, quality 90, over 18 MP to at most 15 MP), not
+the store's that training read, and re-encodes every upload, a picked example included; its log line names them
+(`canonical_settings`). The inference host has the GPU and a slow link
 (2.1 Mbit/s in): the front refuses a photo over 40 MB (ML-19 D23), in a format the app cannot read, or over its
 pixel ceiling (60 MP, D38; RAW 16 MP, D24), before it is converted, and only the canonical photo crosses; the host refuses anything that is not a canonical
 photo. While the app is down (a deploy,

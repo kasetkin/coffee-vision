@@ -195,6 +195,75 @@ class ExampleCheck(unittest.TestCase):
         self.assertEqual(lines, [f"skipped: the release's commit has no {LIST}"])
 
 
+def probe(answer: str, status: int = 200) -> str:
+    """A release_probe.py PROBE line of an /analyze answer, as `smoke --more` writes one per photo."""
+    parts = [json.loads(line) for line in answer.splitlines()]
+    return "PROBE " + json.dumps({"build": {}, "analyze": {"status": status, "content_type": "application/x-ndjson",
+                                                           "parts": parts}}) + "\n"
+
+
+class LocalAnswers(unittest.TestCase):
+    """OPS-22 D7: before a deploy, the staged app's answers here on each example as the front will send it (re-encoded
+    with its settings), held to examples.json, so a changed answer stops the deploy before either host is stopped."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.commit = git("log", "-1", "--format=%H", "--", LIST).decode().strip()
+        if not cls.commit:
+            raise unittest.SkipTest(f"{LIST} is not committed yet")
+        cls.examples = json.loads(git("show", f"{cls.commit}:{LIST}"))["examples"]
+
+    def setUp(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+        for e in self.examples:
+            self.write(e["name"], predicted(e["country"]) if e["country"] else REFUSED)
+
+    def write(self, name: str, answer: str, status: int = 200) -> None:
+        (self.dir / f"{name}.jxl.probe").write_text(probe(answer, status))
+
+    def run_check(self) -> tuple[int, list[str]]:
+        lines: list[str] = []
+        return example_check.check_local(self.commit, REPO, self.dir, lines.append), lines
+
+    def test_every_example_right_passes_and_says_so(self):
+        code, lines = self.run_check()
+        self.assertEqual(code, 0, lines)
+        self.assertEqual(len(lines), len(self.examples))
+        for e in self.examples:
+            self.assertIn(f"ok    example {e['name']} on the front's photo, here: {example_check.expected(e)}", lines)
+
+    def test_a_changed_answer_fails(self):
+        bean = next(e for e in self.examples if e["country"])
+        negative = next(e for e in self.examples if e["country"] is None)
+        self.write(bean["name"], predicted("Peru" if bean["country"] != "Peru" else "Kenya"))
+        self.write(negative["name"], predicted("Brazil"))
+        code, lines = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertEqual(sum(line.startswith("FAIL") for line in lines), 2, lines)
+        self.assertIn(f"FAIL  example {negative['name']} on the front's photo, here: got 'Brazil', want 'refused_ood'",
+                      lines)
+
+    def test_an_answer_that_is_not_200_or_missing_fails(self):
+        first, second = self.examples[0]["name"], self.examples[1]["name"]
+        self.write(first, part(part="error", message="boom"), status=400)
+        (self.dir / f"{second}.jxl.probe").unlink()
+        code, lines = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertTrue(any(line.startswith(f"FAIL  example {first} on the front's photo, here: got 'HTTP 400'")
+                            for line in lines), lines)
+        self.assertTrue(any(line.startswith(f"FAIL  example {second} on the front's photo, here: got 'no answer'")
+                            for line in lines), lines)
+
+    def test_a_commit_without_the_list_has_nothing_to_check(self):
+        before = git("log", "-1", "--format=%H", "--diff-filter=A", "--", LIST).decode().strip()
+        lines: list[str] = []
+        self.assertEqual(example_check.check_local(f"{before}^", REPO, self.dir, lines.append), 0)
+        self.assertEqual(lines, [f"skipped: the release's commit has no {LIST}"])
+
+
 class Outcome(unittest.TestCase):
     """What an /analyze answer comes to: a refusal's verdict, else the top-1 country."""
 

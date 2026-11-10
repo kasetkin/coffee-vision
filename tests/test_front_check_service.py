@@ -4,7 +4,8 @@
 
 webapp/front/check_service.py takes POST /analyze from the front's nginx, refuses what must not cross the tunnel
 (over 40 MB, ML-19 D23; not an image, D2), canonicalizes the photo (ticket ML-19 P9: a canonical one goes on as
-it is, one over the pixel ceiling is a 413, one that cannot be read a 400), forwards the form with the canonical photo
+it is, one over the pixel ceiling is a 413, one that cannot be read a 400; since OPS-22, with the front's own settings
+and every upload, a canonical one included), forwards the form with the canonical photo
 in place of the visitor's to the inference host, and streams its answer back (ADR 0023); an inference host it cannot
 reach is "the classifier is offline", apart from busy (D12). The service runs in this process on a loopback port, as
 under systemd; the inference host is a stdlib server here.
@@ -48,6 +49,11 @@ def _jpeg() -> bytes:
 
 
 JPEG = _jpeg()
+
+
+def front(data: bytes, name: str = "") -> bytes:
+    """What the front makes of an upload (OPS-22 D1, D3): decoded and encoded with its own settings, whatever it is."""
+    return canonical.canonicalize_with(data, name, canonical.FRONT_SETTINGS).canonical
 RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
 RID = "0123456789abcdef0123456789abcdef"   # a request ID as the front's nginx makes it ($request_id, OPS-3 D8)
@@ -213,7 +219,7 @@ class CheckService(unittest.TestCase):
         name, photo = forwarded_photo(seen["body"])
         self.assertEqual(name, "beans.jxl")
         self.assertTrue(canonical.is_canonical(photo))
-        self.assertEqual(photo, canonical.canonicalize(JPEG, "beans.jpg"))   # the visitor's photo never crosses
+        self.assertEqual(photo, front(JPEG, "beans.jpg"))   # the visitor's photo never crosses
         self.assertIn(b'name="skip_crop"\r\n\r\n1\r\n', seen["body"])     # every other field as sent
         self.assertEqual(seen["headers"]["Content-Type"], f"multipart/form-data; boundary={BOUNDARY}")
         self.assertEqual(seen["headers"]["Accept-Language"], "pt-BR")
@@ -229,12 +235,44 @@ class CheckService(unittest.TestCase):
         self.assertEqual(name, "a_b__X-Evil__1.jxl")
         self.assertTrue(canonical.is_canonical(photo))
 
-    def test_a_canonical_photo_crosses_as_it_is(self):   # ML-19 D17
-        canon = canonical.canonicalize(JPEG, "beans.jpg")
+    def test_a_canonical_upload_is_re_encoded_with_the_fronts_settings(self):   # OPS-22 D3: ML-19 D17's pass-through gone
+        canon = canonical.canonicalize(JPEG, "beans.jpg")   # the store's, as each of the page's examples is
+        self.assertTrue(canonical.is_canonical(canon))
         _, resp = self.post(form("beans.jxl", canon))
         resp.read()
         self.assertEqual(resp.status, 200)
-        self.assertEqual(forwarded_photo(FakeInferenceHost.seen[0]["body"]), ("beans.jxl", canon))
+        name, photo = forwarded_photo(FakeInferenceHost.seen[0]["body"])
+        self.assertEqual(name, "beans.jxl")
+        self.assertNotEqual(photo, canon)
+        self.assertEqual(photo, front(canon, "beans.jxl"))
+        self.assertTrue(canonical.is_canonical(photo))
+        line = self.line(resp)
+        self.assertEqual({k: line.get(k) for k in ("format", "canonical", "canonical_settings", "bits")},
+                         {"format": "jxl", "canonical": "canonicalized",
+                          "canonical_settings": "front: integer e3 q90 18/15 MP", "bits": 16})
+        self.assertIsInstance(line["canonicalize_ms"], int)
+
+    @real_data   # about 3 s: an 18 MP photo and one just over, canonicalized
+    def test_a_photo_over_18_mp_crosses_at_most_15_mp_and_one_at_18_mp_as_it_is(self):   # OPS-22 D1
+        from coffeecv.jxl_header import read_header
+        for (w, h), kept in (((6_000, 3_000), True), ((5_443, 3_307), False)):
+            with self.subTest(size=(w, h)):
+                FakeInferenceHost.seen.clear()
+                data = imagecodecs.png_encode(np.full((h, w, 3), 90, np.uint8))
+                _, resp = self.post(form("big.png", data))
+                resp.read()
+                self.assertEqual(resp.status, 200)
+                photo = forwarded_photo(FakeInferenceHost.seen[0]["body"])[1]
+                self.assertTrue(canonical.is_canonical(photo))
+                header = read_header(photo)
+                got = (header.width, header.height)
+                if kept:
+                    self.assertEqual(got, (w, h))
+                else:
+                    self.assertLessEqual(got[0] * got[1], 15_000_000)
+                    self.assertEqual(got, canonical.capped_size(w, h, canonical.FRONT_SETTINGS))
+                line = self.line(resp)
+                self.assertEqual((line["width"], line["height"]), got)
 
     def test_a_photo_over_the_pixel_ceiling_never_crosses(self):   # ML-19 D38, D24
         for name, attr in (("beans.jpg", "MAX_PIXELS"), ("beans.dng", "RAW_MAX_PIXELS")):
@@ -366,8 +404,8 @@ class CheckService(unittest.TestCase):
         self.assertEqual(line, {
             "kind": "request", "request_id": rid, "method": "POST", "endpoint": "/analyze", "status": 200,
             "outcome": "relayed", "filename": "IMG 0001.jpg", "ext": ".jpg", "format": "jpeg", "bytes": len(JPEG),
-            "canonical": "canonicalized", "width": 64, "height": 48, "bits": 8,
-            "canonical_bytes": len(canonical.canonicalize(JPEG, "beans.jpg")), "relayed_bytes": len(answer)})
+            "canonical": "canonicalized", "canonical_settings": "front: integer e3 q90 18/15 MP", "width": 64,
+            "height": 48, "bits": 8, "canonical_bytes": len(front(JPEG, "beans.jpg")), "relayed_bytes": len(answer)})
         for k, v in timings.items():
             self.assertIsInstance(v, int, k)
             self.assertGreaterEqual(v, 0, k)
@@ -375,16 +413,15 @@ class CheckService(unittest.TestCase):
         self.assertLessEqual(timings["to_headers_ms"], timings["to_preview_ms"])
         self.assertGreaterEqual(timings["total_ms"], timings["to_end_ms"] + timings["crossing_ms"])
 
-    def test_the_log_line_of_a_photo_sent_canonical(self):   # ML-19 D17: nothing decoded, the original's own fields
+    def test_the_log_line_of_a_photo_sent_canonical(self):   # OPS-22 D3: re-encoded, so no as_sent any more
         canon = canonical.canonicalize(JPEG, "beans.jpg")
         _, resp = self.post(form("beans.jxl", canon))
         resp.read()
         line = self.line(resp)
         self.assertEqual({k: line.get(k) for k in ("filename", "ext", "format", "bytes", "canonical", "canonical_bytes",
-                                                   "canonicalize_ms", "width")},
+                                                   "width")},
                          {"filename": "beans.jxl", "ext": ".jxl", "format": "jxl", "bytes": len(canon),
-                          "canonical": "as_sent", "canonical_bytes": len(canon), "canonicalize_ms": None,
-                          "width": None})
+                          "canonical": "canonicalized", "canonical_bytes": len(front(canon, "beans.jxl")), "width": 64})
 
     def test_each_refusal_is_logged_by_kind(self):   # OPS-3 P2, D13's failures by kind
         def cases():
@@ -481,7 +518,7 @@ class CheckService(unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 5)
         self.assertEqual(len(FakeInferenceHost.seen), 1, "the photo never crossed")
 
-    @real_data   # about 3 s: canonicalizing a 3 MP photo of noise
+    @real_data   # about 3 s: canonicalizing a 3 MP photo of noise, twice
     def test_an_upload_that_stalls_is_offline_after_the_uploads_timeout(self):
         """An inference host that takes the connection and never reads: the whole upload gets UPLOAD_TIMEOUT_S."""
         stalled = socket.create_server(("127.0.0.1", 0))
@@ -490,7 +527,8 @@ class CheckService(unittest.TestCase):
         threading.Thread(target=lambda: held.append(stalled.accept()[0]), daemon=True).start()
         self.addCleanup(lambda: [s.close() for s in held])
         service = self.serve(f"http://127.0.0.1:{stalled.getsockname()[1]}")
-        # More than loopback's buffers hold, as forwarded: a canonical photo of noise (4.6 MB), which goes on as it is.
+        # More than loopback's buffers hold, as forwarded: a canonical photo of noise (4.8 MB), which the front
+        # re-encodes to 3.8 MB (OPS-22 D3).
         noise = np.random.default_rng(1).integers(0, 255, (1500, 2000, 3), dtype=np.uint8)
         photo = canonical.canonicalize(imagecodecs.png_encode(noise))
         with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=0.3, ANSWER_TIMEOUT_S=30):

@@ -288,7 +288,7 @@
     <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-11-10 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded)</span>
+    <span>as of 2026-11-10 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo)</span>
   </div>
 
   <div class="callout">
@@ -302,10 +302,17 @@
     plain TIFF is refused there, though Pillow would open it), then canonicalizes the photo, opening it with its
     format's decoder and no other (ticket ML-19, ADR 0033:
     <code>coffeecv/canonical.py</code>, the code that built training's canonical store; a photo over its pixel ceiling,
-    60 MP or 16 MP for RAW, is a 413, read from its header) and forwards the form with the canonical photo in place of the visitor's over the
+    60 MP or 16 MP for RAW, is a 413, read from its header). Since OPS-22 (ADR 0036) it canonicalizes with the front's
+    own settings, <code>canonical.FRONT_SETTINGS</code>, not the store's: LittleCMS's optimized integer transform,
+    effort 3, quality 90, and a photo over 18 MP area-averaged to at most 15 MP; and every upload, an already canonical
+    one (a picked example) included, where until then a canonical upload went on as it was (ML-19 D17). It forwards the
+    form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest
-    to 8-bit sRGB, so every pixel the model sees is the canonical photo training reads. The decode and its colour
+    to 8-bit sRGB, so every pixel the model sees comes from a canonical photo. <b>It is not the one training reads</b>:
+    the store's (float colour, effort 7, quality 95, kept up to 60 MP) carries more fine detail than the front's, the
+    models were not retrained on the front's, and no metric was measured on it beyond the deploy's examples (OPS-22 D5,
+    R1, R2). The inference host cannot tell the two apart: the same format and header. The decode and its colour
     conversion run on every CPU the host gives the app, with the same pixels as on one (ticket ML-21). Until ML-19 the front forwarded
     the visitor's bytes unchanged and the host decoded them.
     The two streamed parts come back the same way, unbuffered at each hop. A photo the front refuses never crosses

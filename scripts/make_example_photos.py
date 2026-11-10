@@ -4,8 +4,8 @@ sha256, as its canonical photo (coffeecv.canonical), and given a small WebP thum
     python -I scripts/make_example_photos.py [--dataset DIR] [--out DIR]
 
 An original is looked for at its dataset path and in dataset/example_photos/, where ML-16 D3 moves it. Since ML-19 the
-JPEG XL is the canonical photo, so the front passes a picked example on as it is (D17), and pillow-jxl-plugin is no
-longer used (D45). Until ML-19 it was a q90 8-bit encode by pillow-jxl-plugin. Each file is checked: canonical, and
+JPEG XL is the store's canonical photo, which the front re-encodes with its own settings like any upload (OPS-22 D3;
+until then it passed a picked example on as it is, D17), and pillow-jxl-plugin is no longer used (D45). Until ML-19 it was a q90 8-bit encode by pillow-jxl-plugin. Each file is checked: canonical, and
 decoding to the original's upright size, capped as canonicalization caps.
 """
 from __future__ import annotations
