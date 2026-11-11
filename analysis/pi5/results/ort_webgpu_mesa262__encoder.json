@@ -1,0 +1,72 @@
+{
+  "timing": {
+    "create_s": 2.594,
+    "first_call_s": 105.792,
+    "cold_s": 108.385,
+    "warm": {
+      "n": 3,
+      "median": 105.661801114009,
+      "p90": 105.67337924199819
+    }
+  },
+  "calls_s": [
+    105.792,
+    105.438,
+    105.673,
+    105.66,
+    105.662
+  ],
+  "warmup": 1,
+  "timed": 3,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5701.58203125,
+  "mem_available_drop_mb": 2869.6,
+  "cpu_over_wall": 0.01,
+  "peak_rss_mb": 925,
+  "counters": {
+    "samples": 3152,
+    "wall_ms": 316997.5,
+    "cpu_mhz_median": 1500.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 2832
+  },
+  "loaded": {
+    "libs": [
+      "/usr/lib/aarch64-linux-gnu/libvulkan.so.1.4.363",
+      "/usr/local/lib/python3.12/site-packages/onnxruntime_ep_webgpu/libonnxruntime_providers_webgpu.so"
+    ],
+    "render_nodes": [
+      "/dev/dri/card0",
+      "/dev/dri/card1",
+      "/dev/dri/renderD128"
+    ]
+  },
+  "gpu_sampler": null,
+  "gpu_proof": {
+    "ok": false,
+    "why_not": [
+      "no vulkan library (libvulkan_intel.so) loaded",
+      "no i915 counters, or the GPU clock never left 0"
+    ],
+    "gpu_busy_frac": null,
+    "path": "vulkan"
+  },
+  "cell": "webgpu",
+  "graph": "encoder",
+  "runtime": "ort",
+  "device": "webgpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "encoder.onnx",
+  "batch": 1,
+  "providers": [
+    "WebGpuExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "threads": 4,
+  "calls_per_photo": 1
+}

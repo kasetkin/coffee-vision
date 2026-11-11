@@ -1,0 +1,198 @@
+{
+  "release_f4.npz": {
+    "photos": [
+      {
+        "photo": "PXL_20260825_193325070.jpg",
+        "least_cosine": 0.8130067508880002,
+        "mask_iou": null,
+        "readout_max_abs": 5.29771089553833,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.996265172958374,
+        "guard": "linear_probe",
+        "guard_score_change": 1.862983221179326e-06,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_130838005.jpg",
+        "least_cosine": 0.8270660960502748,
+        "mask_iou": null,
+        "readout_max_abs": 5.331671714782715,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.996483564376831,
+        "guard": "linear_probe",
+        "guard_score_change": 9.19934888036734e-06,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_201618.JPG",
+        "least_cosine": 0.8222649985363468,
+        "mask_iou": null,
+        "readout_max_abs": 5.261956214904785,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9782451391220093,
+        "guard": "linear_probe",
+        "guard_score_change": 1.5030328025622252e-07,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6258D.HEIC",
+        "least_cosine": 0.8163738254949334,
+        "mask_iou": null,
+        "readout_max_abs": 5.310461044311523,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9973418712615967,
+        "guard": "linear_probe",
+        "guard_score_change": 1.1350529996875074e-07,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260825_195610599.jpg",
+        "least_cosine": 0.8158176084554072,
+        "mask_iou": null,
+        "readout_max_abs": 5.279618263244629,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9893919825553894,
+        "guard": "linear_probe",
+        "guard_score_change": 1.772258235777372e-05,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260807_072408172.jpg",
+        "least_cosine": 0.8243150374255638,
+        "mask_iou": null,
+        "readout_max_abs": 5.364902496337891,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.048031747341156006,
+        "guard": "linear_probe",
+        "guard_score_change": 1.0948227553407973e-05,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_135958599.jpg",
+        "least_cosine": 0.823356797496475,
+        "mask_iou": null,
+        "readout_max_abs": 5.3319926261901855,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.8855346441268921,
+        "guard": "linear_probe",
+        "guard_score_change": 4.0023133429003814e-05,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6291D.HEIC",
+        "least_cosine": 0.8220434780298626,
+        "mask_iou": null,
+        "readout_max_abs": 5.3139214515686035,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.980374276638031,
+        "guard": "linear_probe",
+        "guard_score_change": 2.422952335934133e-07,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_202937.JPG",
+        "least_cosine": 0.8199956147067705,
+        "mask_iou": null,
+        "readout_max_abs": 5.328972816467285,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9338995814323425,
+        "guard": "linear_probe",
+        "guard_score_change": 0.003510066234328987,
+        "guard_distance_from_threshold": -0.4999999998787717,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260827_185019541.jpg",
+        "least_cosine": 0.8265951267644922,
+        "mask_iou": null,
+        "readout_max_abs": 5.351555824279785,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0009675793698988855,
+        "guard": "linear_probe",
+        "guard_score_change": 1.7574758222154286e-07,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260830_200129.JPG",
+        "least_cosine": 0.8088735284348959,
+        "mask_iou": null,
+        "readout_max_abs": 5.188662052154541,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.8699405789375305,
+        "guard": "linear_probe",
+        "guard_score_change": 0.027008858507265737,
+        "guard_distance_from_threshold": -0.4999999984939764,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260924_123010061.jpg",
+        "least_cosine": 0.8180176179012333,
+        "mask_iou": null,
+        "readout_max_abs": 5.318748474121094,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9955859780311584,
+        "guard": "linear_probe",
+        "guard_score_change": 9.360787049096088e-08,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260924_150009.JPG",
+        "least_cosine": 0.817958266823829,
+        "mask_iou": null,
+        "readout_max_abs": 5.403588771820068,
+        "nan_or_inf": false,
+        "top1_same": false,
+        "prob_max_change": 0.9958093762397766,
+        "guard": "linear_probe",
+        "guard_score_change": 1.222575594799511e-07,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      }
+    ],
+    "gate": {
+      "pass": false,
+      "least_cosine": 0.8088735284348959,
+      "least_mask_iou": null,
+      "all_finite": true,
+      "changed_answer": [
+        "PXL_20260825_193325070.jpg",
+        "PXL_20260809_130838005.jpg",
+        "PIC_20260809_201618.JPG",
+        "IMG_6258D.HEIC",
+        "PXL_20260825_195610599.jpg",
+        "PXL_20260809_135958599.jpg",
+        "IMG_6291D.HEIC",
+        "PIC_20260809_202937.JPG",
+        "PIC_20260830_200129.JPG",
+        "PXL_20260924_123010061.jpg",
+        "PIC_20260924_150009.JPG"
+      ],
+      "bars": {
+        "cosine": 0.99999,
+        "mask_iou": 0.999
+      }
+    }
+  }
+}

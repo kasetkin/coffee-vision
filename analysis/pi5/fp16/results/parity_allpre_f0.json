@@ -1,0 +1,186 @@
+{
+  "allpre_f0.npz": {
+    "photos": [
+      {
+        "photo": "PXL_20260825_193325070.jpg",
+        "least_cosine": 0.999999999983875,
+        "mask_iou": null,
+        "readout_max_abs": 1.519918441772461e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 2.9569491744041443e-08,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_130838005.jpg",
+        "least_cosine": 0.9999999999918813,
+        "mask_iou": null,
+        "readout_max_abs": 1.1801719665527344e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.0617077350616455e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_201618.JPG",
+        "least_cosine": 0.9999999999924889,
+        "mask_iou": null,
+        "readout_max_abs": 1.3053417205810547e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.7881393432617188e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6258D.HEIC",
+        "least_cosine": 0.9999999999953387,
+        "mask_iou": null,
+        "readout_max_abs": 1.0788440704345703e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.4319084584712982e-08,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260825_195610599.jpg",
+        "least_cosine": 0.9999999999909149,
+        "mask_iou": null,
+        "readout_max_abs": 1.1801719665527344e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.2014061212539673e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260807_072408172.jpg",
+        "least_cosine": 0.9999999999929391,
+        "mask_iou": null,
+        "readout_max_abs": 1.4781951904296875e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 4.76837158203125e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_135958599.jpg",
+        "least_cosine": 0.9999999999951374,
+        "mask_iou": null,
+        "readout_max_abs": 1.0728836059570312e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 2.384185791015625e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6291D.HEIC",
+        "least_cosine": 0.9999999999928083,
+        "mask_iou": null,
+        "readout_max_abs": 1.3589859008789062e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.1362135410308838e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_202937.JPG",
+        "least_cosine": 0.9999999999927148,
+        "mask_iou": null,
+        "readout_max_abs": 1.1205673217773438e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.7881393432617188e-07,
+        "guard": "linear_probe",
+        "guard_score_change": 1.651311446635218e-15,
+        "guard_distance_from_threshold": -0.4999999998787717,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260827_185019541.jpg",
+        "least_cosine": 0.9999999999941606,
+        "mask_iou": null,
+        "readout_max_abs": 1.2099742889404297e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 2.939486876130104e-09,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260830_200129.JPG",
+        "least_cosine": 0.9999999999905641,
+        "mask_iou": null,
+        "readout_max_abs": 1.0445713996887207e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 4.172325134277344e-07,
+        "guard": "linear_probe",
+        "guard_score_change": -2.2363452145159926e-14,
+        "guard_distance_from_threshold": -0.4999999984939764,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260924_123010061.jpg",
+        "least_cosine": 0.9999999999828894,
+        "mask_iou": null,
+        "readout_max_abs": 1.5616416931152344e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 2.3283064365386963e-08,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260924_150009.JPG",
+        "least_cosine": 0.9999999999891225,
+        "mask_iou": null,
+        "readout_max_abs": 1.2025237083435059e-05,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 1.1990778148174286e-08,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      }
+    ],
+    "gate": {
+      "pass": true,
+      "least_cosine": 0.9999999999828894,
+      "least_mask_iou": null,
+      "all_finite": true,
+      "changed_answer": [],
+      "bars": {
+        "cosine": 0.99999,
+        "mask_iou": 0.999
+      }
+    }
+  }
+}

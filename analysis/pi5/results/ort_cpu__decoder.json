@@ -1,0 +1,61 @@
+{
+  "timing": {
+    "create_s": 0.172,
+    "first_call_s": 0.114,
+    "cold_s": 0.286,
+    "warm": {
+      "n": 8,
+      "median": 0.10101560850307578,
+      "p90": 0.10162728799332399
+    }
+  },
+  "calls_s": [
+    0.114,
+    0.11,
+    0.114,
+    0.104,
+    0.101,
+    0.101,
+    0.1,
+    0.101,
+    0.101,
+    0.101,
+    0.102
+  ],
+  "warmup": 2,
+  "timed": 8,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5807.9375,
+  "mem_available_drop_mb": 33.9,
+  "cpu_over_wall": 3.94,
+  "peak_rss_mb": 650,
+  "counters": {
+    "samples": 8,
+    "wall_ms": 812.5,
+    "cpu_mhz_median": 2400.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 5774
+  },
+  "loaded": {
+    "libs": [],
+    "render_nodes": []
+  },
+  "gpu_sampler": null,
+  "cell": "ort_cpu",
+  "graph": "decoder",
+  "runtime": "ort",
+  "device": "cpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "decoder.onnx",
+  "batch": 1,
+  "providers": [
+    "CPUExecutionProvider"
+  ],
+  "threads": 4,
+  "calls_per_photo": 1
+}
