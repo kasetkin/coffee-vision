@@ -1,5 +1,5 @@
 001;Ethiopia,Sidamo;
-002;Kenya,Nyeri;AA
+002;Kenya,Nyeri,Gatomboya;AA
 003;Colombia,Huila;PinkBourbon
 004;CostaRica,Tarrazu;LaPastora
 005;Guatemala,Acatenango;TataNahual
@@ -13,3 +13,6 @@
 013;Brazil,SulDeMinas;
 014;Colombia,Antioquia;Excelso
 015;Indonesia;
+016;Ethiopia,Guji,SukeQuto;Daannisa
+017;Peru,Amazonas;Monteverde
+018;CostaRica;

@@ -101,6 +101,16 @@ columns held.
   new to the crops (both were D18 fallbacks) and moved them here, renamed, before any model trained on them.
   109 s apart, so one group under the 120 s rule; split with seed 20261104: holdout.
 
+  On 2026-11-10 the owner renamed 467 of the 481 photos to `YYYYMMDD_HHMMSS_<phone>_ood_negative.jpg`
+  (bytes unchanged; `labels/photo_renames.csv`, applied by `coffeecv.rename_photos`). The manifest's `filename`
+  follows; `source_title` keeps the name each photo arrived under. Eleven more the same day, shot 2026-11-09:
+  10 Pixel 9 Pro and 1 Sony G8441, with their private tags (EXIF GPS, C2PA, Sony's maker note, the HDR+ XMP, EXIF
+  thumbnails) stripped by `coffeecv.strip_metadata`. Same rules as the 443, with seed 20261110: 10 dev (two
+  groups), 1 holdout.
+
+  Three more on 2026-11-11, shot that day: 2 Pixel 9 Pro and 1 Sony G8441, stripped the same way. Three groups,
+  seed 20261111: 2 dev, 1 holdout (ticket ML-25).
+
   **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
   2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
   `split` column (ML-5 D16) and splits all 479 photos 60/15/25 itself, so about 120 holdout

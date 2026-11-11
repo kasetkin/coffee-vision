@@ -150,6 +150,21 @@ class TestMergeCarriesMasks(unittest.TestCase):
                               "c__cropped.jxl"])
             self.assertEqual((out / "c__beanmask.png").read_bytes(), b"pngc")
 
+    def test_a_session_with_two_folders_of_one_class_counts_both(self):
+        """random_date_raccoon holds class_013__Brazil_SulDeMinas and class_013__Brazil_Decaff (ACCEPTED_DRIFT):
+        the session's count is both folders', less its exclusions; until 2026-11-10 the second folder's count
+        replaced the first's in the manifest (the images were all merged)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for folder, stems in (("class_013__A", ["a", "b", "c"]), ("class_013__B", ["d", "e"])):
+                d = root / "s1" / folder
+                d.mkdir(parents=True)
+                for s in stems:
+                    (d / f"{s}__cropped.jxl").write_bytes(b"jxl" + s.encode())
+            manifest = merge_rig("pool", ["s1"], root, {("s1", "class_013__A", "a.jpg")})
+            self.assertEqual(manifest["images"], 4)
+            self.assertEqual(manifest["per_class_counts"], {"013": {"s1": 4}})
+
     def test_excluded_photos_leave_the_pool_with_their_masks(self):
         """Ticket ML-3 P5: a declined crop stays in its session and leaves the pool; a row naming one of the
         merge's sessions but no crop there stops the merge before anything is written."""
@@ -180,15 +195,15 @@ class TestMergeCarriesMasks(unittest.TestCase):
         segmenter dataset did not hold; then ML-19 P6's 10 declines of the photos new to the crops of canonical
         photos and the fallbacks, 2026-11-04, and 1 of the owner's 10 new Brazil photos; then ML-16's, on the re-crop with
         xl0_v7r_s123: 11 of the 87 photos added to random_date_raccoon on 2026-11-06 and the 6 fallbacks it made in
-        2026-10-21__new_green, 2026-11-07). The decisions hold for their photos across re-crops: XL0-v4's changed
-        nearly every mask."""
+        2026-10-21__new_green, 2026-11-07; then ML-25's 3 declines of the 175 photos new to the crops on 2026-11-10 and
+        2026-11-11, and the fallback of its third batch's 17). The decisions hold for their photos across re-crops: XL0-v4's changed nearly every mask."""
         import importlib.util
         spec = importlib.util.spec_from_file_location("mask_review", REPO_ROOT / "analysis/ml3/mask_review.py")
         mask_review = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mask_review)
         want = {(r["session"], r["class_folder"], r["file"]) for r in mask_review.exclusions()}
         self.assertEqual(read_exclusions(mask_review.POOL_EXCLUDE), want)
-        self.assertEqual(len(want), 31)
+        self.assertEqual(len(want), 35)
 
 
 class TestSegPoolsWiring(unittest.TestCase):

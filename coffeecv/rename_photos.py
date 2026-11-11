@@ -50,8 +50,8 @@ def batch_of(path: str) -> str:
 
 
 def replacements(rows: list[dict]) -> tuple[list[tuple[re.Pattern, str]], dict[str, str]]:
-    """([(pattern of an old string, its new string)], {old mask stem: new}) for `rows`. The stems are also
-    every old id, so a record still holding one as a substring was missed."""
+    """([(pattern of an old string, its new string)], {old mask stem: new}) for `rows`. The patterns also
+    find what a rewrite missed (`survivors`)."""
     subs, stems = [], {}
     for r in rows:
         old, new = r["old_path"], r["new_path"]
@@ -73,6 +73,13 @@ def rewrite(text: str, subs: list[tuple[re.Pattern, str]]) -> tuple[str, int]:
     return text, n
 
 
+def survivors(text: str, subs: list[tuple[re.Pattern, str]]) -> list[str]:
+    """The old strings `text` still holds, on the token boundaries `rewrite` matches them on. A plain substring
+    test would also find an old name inside a new one that extends it (20230628_150943 inside
+    20230628_150943_GM1910_ood_negative, 2026-11-10)."""
+    return [rx.pattern for rx, _ in subs if rx.search(text)]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="change nothing; fail if a record names an old path")
@@ -84,14 +91,13 @@ def main(argv: list[str] | None = None) -> int:
         print("refusing to rename:\n  " + "\n  ".join(problems))
         return 1
     subs, stems = replacements(rows)
-    olds = [r["old_path"] for r in rows] + list(stems)
     stale, todo = 0, []
     for rel in RECORDS:
         path = REPO_ROOT / rel
         text, n = rewrite(path.read_bytes().decode(), subs)
         stale += n
         print(f"  {rel:<40} {n:>4} {'old' if args.check else 'renamed'}")
-        problems += [f"{rel}: {a} survives the rewrite" for a in olds if a in text]
+        problems += [f"{rel}: {a} survives the rewrite" for a in survivors(text, subs)]
         todo += [(path, text)] if n else []
     if problems and not args.check:
         print("refusing to rename:\n  " + "\n  ".join(problems))

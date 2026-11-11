@@ -1,0 +1,148 @@
+<title>The canonical store and the crops process only new photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-26 · coffee-vision · pipeline: the canonical store and the crops</div>
+  <h1><code>canonicalize@&lt;folder&gt;</code>, <code>segcrop@&lt;session&gt;</code> and <code>seg_ml19_predict</code> process only the photos new since their last run</h1>
+  <p class="lede">Each intake re-ran every photo of the folder it touched: 17 new photos in
+    <code>random_date_raccoon</code> took about 45 minutes, to confirm 394 outputs unchanged. The owner asked for the
+    scripts to process only new photos. Written and implemented 2026-11-11; the first incremental run is ML-25's third
+    batch.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-11 by the owner; written and implemented 2026-11-11 (4886552: canonicalize and segcrop; 23775ae: seg_ml19_predict, D2), each recorded with <code>dvc commit</code>; first used on ML-25's third batch: 3 minutes, not about 45; merged into main with ML-25's branch</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: stage run time</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/incremental.py</code> (new), <code>coffeecv/canonicalize_folder.py</code>, <code>coffeecv/segcrop_session.py</code>, <code>coffeecv/seg_predict.py</code>, <code>dvc.yaml</code> (the three stages' outs <code>persist: true</code>), <code>dvc.lock</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-11</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-11.</strong> "can we fix scripts so it will process only new photos???" Then:
+      "we already should have sha256 hashes for each previous photo, so new photos should be easy to detect", and "okay,
+      fix scripts, commit them, stop runnning process and run new version".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>A stage run reads its own entry in <code>dvc.lock</code>. When only its photo folder changed since, it processes
+    the photos that are new or changed, keeps the outputs of the others that are on disk as recorded, and deletes the
+    outputs of photos that are gone. Anything else, or <code>--full</code>, rebuilds the folder from nothing.
+    <a href="adr/0037-folder-stages-process-only-new-photos.md">ADR 0037</a>.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>Why every photo ran.</strong> DVC deletes a stage's outputs before it runs, and the scripts processed
+      every photo of the folder. The outputs that existed came back byte-identical each time (ML-19 D49).</li>
+    <li><strong>What dvc.lock holds.</strong> For each stage: the command, every input's md5 (a folder's as the md5 of
+      its listing, the listing itself in the cache for data folders), the params' values and every output's md5. That
+      is the record of the last run; the scripts read it, and run no DVC.</li>
+    <li><strong>A photo's outputs depend on that photo alone</strong>, given the code, the model and the params, so
+      keeping them gives the bytes a full run gives.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A run processes every photo of the folder.</li>
+        <li>17 new photos in <code>random_date_raccoon</code>: about 45 minutes.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A run processes the new and changed photos; a change to the code, model, params or stage rebuilds in full.</li>
+        <li>17 new photos: a few minutes, mostly hashing the folder and loading the segmenter.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The outputs.</strong> The same bytes as a full rebuild; tests hold it on made-up folders.</li>
+    <li><strong>When a stage runs.</strong> DVC decides that, as before.</li>
+    <li><strong><code>merge_segpool</code> and <code>seg_dataset</code>.</strong> Not touched: both take under a
+      minute.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Something that shapes an output but is not a dep of the stage changes,
+          and old outputs stay.</strong></td>
+        <td>Every dep, param and the command are compared, as dvc.yaml names them. A module the code imports but the
+          stage does not name was never caught by DVC either; it goes into the deps (ADR 0037). <code>--full</code>
+          rebuilds from nothing.</td></tr>
+      <tr><td class="id">R2</td><td><strong>An output on disk differs from the record (an interrupted run).</strong></td>
+        <td>A kept output is compared with its recorded md5; one that differs or is missing is made again, and a file
+          no current photo makes is deleted. Tested.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D2</td><td>The test masks' stage, <code>seg_ml19_predict</code>, too?</td>
+        <td>(a) yes (b) leave it</td>
+        <td>(a), 2026-11-11: "make prediction script also incremental". It keeps a photo's mask by the photo's row in its
+          recorded <code>index.csv</code>; its deps gain the canonicalize stages' code. ADR 0037 amended.</td></tr>
+      <tr><td class="id">D1</td><td>Process only new photos in the two folder stages?</td>
+        <td>(a) yes, from dvc.lock (b) a record file of the stage's own (c) leave the full re-runs</td>
+        <td>(a), 2026-11-11: "fix scripts, commit them, stop runnning process and run new version", after "we already
+          should have sha256 hashes for each previous photo". <a href="adr/0037-folder-stages-process-only-new-photos.md">ADR
+          0037</a>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span><code>coffeecv/incremental.py</code>, tested on a made-up repository (15
+      tests), and the real dvc.yaml's 41 stages resolve to their dvc.lock entries.</span></li>
+    <li><span class="box done"></span><span>Both scripts incremental, with <code>--full</code>; tests that an
+      incremental run equals a full rebuild, that a changed dep rebuilds in full, and that an output not as recorded is
+      made again.</span></li>
+    <li><span class="box done"></span><span>The code change recorded for the 41 stages with <code>dvc commit</code>:
+      only the two scripts' md5 moved in <code>dvc.lock</code>.</span></li>
+    <li><span class="box done"></span><span>The first real incremental run: ML-25's third batch, 17 photos, 2026-11-11:
+      the three stages in 3 minutes (canonicalize 56 s, segcrop 83 s, merge_segpool 33 s), 394 photos kept, every
+      output that existed unchanged.</span></li>
+    <li><span class="box done"></span><span><code>seg_ml19_predict</code> incremental (D2), tested with a stand-in
+      segmenter; recorded with <code>dvc commit</code>; a run with nothing new: 4 s, 434 kept, the output as
+      recorded.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The frozen <code>seg_*_predict</code> stages, which never run again.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-11</div>Ticket written and implemented from the owner's request, during ML-25's third
+      batch, whose full run was stopped for it. The canonical folder it had half rebuilt was checked out again from the
+      cache. The 41 stages' code change recorded with <code>dvc commit</code>, with the third batch's 17 photos set
+      aside meanwhile so the photo folder matched dvc.lock.</div>
+    <div><div class="when">2026-11-11</div>First run, ML-25's third batch: <code>canonicalize@random_date_raccoon</code>
+      17 photos done and 394 kept in 56 s (about 17 minutes before), <code>segcrop@random_date_raccoon</code> 17 cropped
+      and 394 kept in 83 s (about 25 minutes); no output that existed changed.</div>
+    <div><div class="when">2026-11-11</div>D2: <code>seg_predict</code> incremental. Its stage's deps gain
+      <code>canonicalize_folder.py</code>, <code>jxl_encode.py</code>, <code>jxl_header.py</code>, the Rec.2020 profile
+      and <code>accepted_formats.csv</code>, and its output is <code>persist: true</code>; recorded with
+      <code>dvc commit</code> (its photo inputs unchanged since its run: only the script's md5 moved and the five deps
+      joined). The stage's command run by hand: 0 predicted, 434 kept, in 4 s; DVC still up to date.</div>
+    <div><div class="when">2026-11-11</div>Closed by the owner; merged into main with branch
+      <code>ml25-intake-2026-11-10</code>.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>, <a href="ticket_canonicalization.html">ML-19</a>
+    (the canonical store, D49), <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>.</footer>
+</main>

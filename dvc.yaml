@@ -33,6 +33,8 @@ stages:
       - 2026-09-24__pixel
       - 2026-09-24__sony
       - random_date_raccoon
+      - massimo
+      - tasty_coffee
       - 2026-10-21__new_green
       - segmenter_positives
       - ood_negatives
@@ -48,7 +50,9 @@ stages:
         - coffeecv/data/rec2020_bt709.icc
         - coffeecv/data/accepted_formats.csv
       outs:
-        - data/canonical/${item}
+        # Ticket ML-26: kept between runs; the stage canonicalizes only new and changed photos (coffeecv.incremental).
+        - data/canonical/${item}:
+            persist: true
 
   # Ticket ML-2 P3 (plan §2.4, §6): the segmenter's crops, the training half of the "segment" crop_method
   # (infer.segment_bean_region is the serving half; both run segment_beans.segment_and_crop). Per raw photo:
@@ -82,6 +86,8 @@ stages:
       - 2026-09-24__pixel
       - 2026-09-24__sony
       - random_date_raccoon
+      - massimo
+      - tasty_coffee
       # 2026-10-21: green Indonesia (class_015, a new coffee) and green Peru (class_011), Pixel 9 Pro.
       - 2026-10-21__new_green
     do:
@@ -108,7 +114,9 @@ stages:
             - seg_keep_frac
             - seg_min_area_frac
       outs:
-        - data/segcropped/${item}
+        # Ticket ML-26: kept between runs; the stage crops only new and changed photos (coffeecv.incremental).
+        - data/segcropped/${item}:
+            persist: true
 
   # The capture dir training reads (dataset.CAPTURES), ticket ML-8 (D2, D8; docs/adr/0024): one pool of every
   # session's crops, with no camera or rig. Photos are split per class across it (ML-1 D1(b)) and the patch budget is
@@ -117,7 +125,7 @@ stages:
   # ML-8 four stages, merge_segcam_{pixel,sony,oneplus,iphone}, merged one pool per camera model
   # (data/segcropped/cam_*, in git history and the DVC cache); until ML-3 P2b the tray heuristic's merge_cam_*.
   merge_segpool:
-    cmd: python -m coffeecv.merge_rig --root data/segcropped --name pool --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-09__sony_cam 2026-08-25__iphone 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon 2026-10-21__new_green --exclude labels/ml3/pool_exclude.csv
+    cmd: python -m coffeecv.merge_rig --root data/segcropped --name pool --sessions 2026-08-07__box_pictures_all_classes 2026-08-09__pixel_cam 2026-08-09__sony_cam 2026-08-25__iphone 2026-08-25__oneplus 2026-08-27__oneplus_flash 2026-08-30__oneplus 2026-08-30__pixel 2026-08-30__sony 2026-09-11__oneplus 2026-09-11__pixel 2026-09-11__sony 2026-09-24__oneplus 2026-09-24__pixel 2026-09-24__sony random_date_raccoon massimo tasty_coffee 2026-10-21__new_green --exclude labels/ml3/pool_exclude.csv
     deps:
       - data/segcropped/2026-08-07__box_pictures_all_classes
       - data/segcropped/2026-08-09__pixel_cam
@@ -135,6 +143,8 @@ stages:
       - data/segcropped/2026-09-24__pixel
       - data/segcropped/2026-09-24__sony
       - data/segcropped/random_date_raccoon
+      - data/segcropped/massimo
+      - data/segcropped/tasty_coffee
       - data/segcropped/2026-10-21__new_green
       - labels/ml3/pool_exclude.csv
       - coffeecv/merge_rig.py
@@ -526,14 +536,11 @@ stages:
       outs:
         - data/seg_masks_xl0v6/${key}
 
-  # Ticket ML-19 P7 (D14, D48): today's segmenter's masks of the canonical test split, stored for ML-16's blind paired
-  # session against its new segmenter: the baseline that separates the input's change from the training's.
-  # xl0_v7r_s123 (ML-16 D8), the segmenter this release ships: its masks of the same photos, for the tiny-mask
-  # threshold and the owner's look.
+  # Ticket ML-19 P7 (D14, D48): the segmenter's masks of the canonical test split. xl0_v7r_s123 (ML-16 D8), the
+  # segmenter the release ships: for the tiny-mask threshold and the owner's look. xl0_v6_s42's, the baseline for
+  # ML-16's blind paired session, dropped by the owner 2026-11-11 (ML-25 D7); its last masks are in dvc.lock at 727ac3b.
   seg_ml19_predict:
     foreach:
-      xl0_v6_s42:
-        model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
       xl0_v7r_s123:
         model: ${seg_ft.weights}:models/seg/xl0_v7r_s123.pt
     do:
@@ -544,6 +551,13 @@ stages:
         - coffeecv/sam_loader.py
         - coffeecv/canonical.py
         - coffeecv/canonical_store.py
+        # Ticket ML-26: what a canonical photo's bytes depend on besides its original (the canonicalize stages' deps),
+        # so that a photo's mask may be kept by its original's sha256 (coffeecv.incremental).
+        - coffeecv/canonicalize_folder.py
+        - coffeecv/jxl_encode.py
+        - coffeecv/jxl_header.py
+        - coffeecv/data/rec2020_bt709.icc
+        - coffeecv/data/accepted_formats.csv
         - third_party/efficientvit/efficientvit
         - labels/ml5/seg_dataset.yaml
         - data/canonical
@@ -554,7 +568,9 @@ stages:
             - seg_prompt
             - seg_mask_select
       outs:
-        - data/seg_masks_ml19/${key}
+        # Ticket ML-26: kept between runs; the stage predicts only photos new to the split or changed.
+        - data/seg_masks_ml19/${key}:
+            persist: true
 
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the

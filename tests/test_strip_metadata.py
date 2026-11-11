@@ -57,6 +57,15 @@ def write_fixture(path: Path) -> Path:
     return path
 
 
+def write_gif(path: Path) -> Path:
+    """A small GIF as GIMP exports one (a palette, its comment) with private XMP."""
+    im = Image.fromarray(np.random.default_rng(0).integers(0, 255, (64, 96, 3), dtype=np.uint8)).quantize(255)
+    im.save(path, comment=b"Created with GIMP")
+    subprocess.run(["exiftool", "-q", "-overwrite_original", "-XMP:GPSLatitude=48.1", "-XMP:GPSLongitude=11.5",
+                    "-XMP-dc:Creator=Someone", str(path)], check=True)
+    return path
+
+
 def manifest_rows(path: Path) -> list[dict]:
     return list(csv.DictReader(line for line in path.read_text().splitlines() if not line.startswith("#")))
 
@@ -198,6 +207,43 @@ class TestStrip(unittest.TestCase):
         path = write_fixture(self.tmp / "a.jpg")
         self.check_fails_untouched(path, "kept field lost: ICC_Profile:ICC_Profile",
                                    DELETE_ARGS=sm.DELETE_ARGS + ["-icc_profile:all="])
+
+    def test_gif(self):
+        """2026-11-11, the owner kept a GIF in the dataset: a GIF has no EXIF; its private metadata is XMP, which goes,
+        and its comment stays. The photo is found in a folder like any other."""
+        path = write_gif(self.tmp / "a.gif")
+        pixels = sm.pixel_digest(path)
+        manifest = self.tmp / "manifest.csv"
+        self.assertEqual(sm.main([str(self.tmp), "--manifest", str(manifest)]), 0)
+        after = sm.read_tags(path)
+        self.assertEqual([k for k in after if sm.is_denied(k)], [])
+        self.assertEqual(sm.pixel_digest(path), pixels)
+        self.assertIn("Created with GIMP", after.values())
+        [row] = manifest_rows(manifest)
+        self.assertEqual(row["path"].rsplit("/", 1)[-1], "a.gif")
+        self.assertIn("XMP:XMP-exif:GPSLatitude", row["removed"].split())
+        self.assertIn("XMP:XMP-dc:Creator", row["removed"].split())
+
+    def test_every_frame_of_a_gif_counts(self):
+        """A GIF may hold several frames; a change in any of them is a pixel difference."""
+        rng = np.random.default_rng(0)
+        frames = [Image.fromarray(rng.integers(0, 255, (16, 16, 3), dtype=np.uint8)).quantize(64) for _ in range(2)]
+        frames[0].save(self.tmp / "a.gif", save_all=True, append_images=frames[1:])
+        frames[1].putpixel((3, 3), (frames[1].getpixel((3, 3)) + 1) % 64)
+        frames[0].save(self.tmp / "b.gif", save_all=True, append_images=frames[1:])
+        self.assertNotEqual(sm.pixel_digest(self.tmp / "a.gif"), sm.pixel_digest(self.tmp / "b.gif"))
+
+    def test_a_jpegs_gain_map_is_no_frame(self):
+        """2026-11-11: Pillow read a Pixel 9 Pro's Ultra HDR JPEG as one frame, and as a two-frame MPO once exiftool had
+        rewritten its metadata: frames counted that way differ for the same pixels. A JPEG's digest is its primary
+        image's; the gain map is compared as bytes, an MPF tag."""
+        rng = np.random.default_rng(0)
+        primary = Image.fromarray(rng.integers(0, 255, (32, 48, 3), dtype=np.uint8))
+        gain = Image.fromarray(rng.integers(0, 255, (8, 12, 3), dtype=np.uint8))
+        primary.save(self.tmp / "a.jpg", quality=90)
+        primary.save(self.tmp / "b.jpg", format="MPO", save_all=True, append_images=[gain], quality=90)
+        self.assertEqual(Image.open(self.tmp / "b.jpg").n_frames, 2)
+        self.assertEqual(sm.pixel_digest(self.tmp / "a.jpg"), sm.pixel_digest(self.tmp / "b.jpg"))
 
     def test_dry_run_changes_nothing(self):
         path = write_fixture(self.tmp / "a.jpg")
@@ -375,12 +421,13 @@ class TestMemoryCeiling(unittest.TestCase):
 
     def test_estimate_per_format(self):
         """Measured on 2026-10-30 (ML-14 P3), peak memory above the imports: 10 bytes per pixel for a JPEG,
-        12 for an RGBA PNG, 11 for a HEIC, 13 for a DNG. The estimate must not be below any of them."""
+        12 for an RGBA PNG, 11 for a HEIC, 13 for a DNG; 2026-11-11, 10.0 for a GIF (the owner's 12.5 MP one). The
+        estimate must not be below any of them."""
         pixels = 64 * 96
         im = Image.fromarray(np.zeros((64, 96, 4), np.uint8))
         im.save(self.tmp / "a.png")
         for path, at_least in [(write_fixture(self.tmp / "a.jpg"), 10), (self.tmp / "a.png", 12),
-                               (write_fixture(self.tmp / "a.heic"), 11)]:
+                               (write_fixture(self.tmp / "a.heic"), 11), (write_gif(self.tmp / "a.gif"), 10)]:
             self.assertGreaterEqual(sm.estimate_decode_bytes(path), at_least * pixels, path.name)
             self.assertLess(sm.estimate_decode_bytes(path), 16 * pixels, path.name)
 

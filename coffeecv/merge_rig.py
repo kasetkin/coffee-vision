@@ -96,7 +96,8 @@ def merge_rig(name: str, sessions: list[str], root: Path = SEGCROPPED_ROOT,
         counts: dict[str, int] = {}
         for session, class_dir in contributors:
             photos = sorted(class_dir.glob(f"*{CROP_SUFFIX}"))
-            counts[session] = len(photos)
+            # A session can hold two folders of one class (ACCEPTED_DRIFT): add, never replace.
+            counts[session] = counts.get(session, 0) + len(photos)
             for photo in photos:
                 if (session, class_dir.name, photo.name) in left_out:
                     counts[session] -= 1

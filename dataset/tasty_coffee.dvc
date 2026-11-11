@@ -1,0 +1,6 @@
+outs:
+- md5: 9b336420c211ecd2eaf0156602112232.dir
+  size: 709330000
+  nfiles: 57
+  hash: md5
+  path: tasty_coffee
