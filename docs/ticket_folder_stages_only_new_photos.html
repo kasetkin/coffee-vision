@@ -12,7 +12,7 @@
     batch.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; implemented and committed the same day (4886552), the test masks' stage too (D2); the code change recorded for the 41 stages with <code>dvc commit</code>; first used on ML-25's third batch: 3 minutes, not about 45</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-11 by the owner; written and implemented 2026-11-11 (4886552: canonicalize and segcrop; 23775ae: seg_ml19_predict, D2), each recorded with <code>dvc commit</code>; first used on ML-25's third batch: 3 minutes, not about 45; merged into main with ML-25's branch</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: stage run time</span></div>
@@ -139,6 +139,8 @@
       and <code>accepted_formats.csv</code>, and its output is <code>persist: true</code>; recorded with
       <code>dvc commit</code> (its photo inputs unchanged since its run: only the script's md5 moved and the five deps
       joined). The stage's command run by hand: 0 predicted, 434 kept, in 4 s; DVC still up to date.</div>
+    <div><div class="when">2026-11-11</div>Closed by the owner; merged into main with branch
+      <code>ml25-intake-2026-11-10</code>.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>, <a href="ticket_canonicalization.html">ML-19</a>
