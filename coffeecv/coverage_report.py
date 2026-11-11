@@ -65,7 +65,10 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
 #   class_013: random_date_raccoon holds `class_013__Brazil_SulDeMinas` and, since ticket ML-16 D10 (2026-11-06),
 #   the owner's `class_013__Brazil_Decaff`: a second coffee of the same country, so the same class (ML-3), kept in
 #   its own folder by the owner's choice. The loader pools a class's folders by id.
-ACCEPTED_DRIFT = {"009", "013"}
+#   class_008: the 08-07 to 08-27 sessions say `class_008__Ethiopia_Kochere`, tasty_coffee (2026-11-10) says
+#   `class_008__Ethiopia_Yirgacheffe`, kept as it is by the owner's choice; classes.txt names both
+#   (`008;Ethiopia,Yirgacheffe,Kochere;`).
+ACCEPTED_DRIFT = {"008", "009", "013"}
 
 # Deliberately outside the pipeline -- flat directories with no class_* children,
 # absent from dvc.yaml's segcrop foreach on purpose. Listed here so check 2 does not

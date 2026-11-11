@@ -1,0 +1,190 @@
+<title>The owner's photos of 2026-11-10 in the dataset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-25 · coffee-vision · new photos, classes 016 and 017, the segmenter dataset</div>
+  <h1>The owner's photos of 2026-11-10 stripped, in the pool and in the segmenter dataset, with two new classes and two new whole folders</h1>
+  <p class="lede">On 2026-11-10 the owner added 177 photos to the dataset, renamed the 467 photos of
+    <code>user_realworld</code>, restructured the new folders into two new sessions, <code>massimo</code> and
+    <code>tasty_coffee</code>, and added classes 016 and 017. This ticket records the intake: the strip, the
+    renames, the pipeline re-run, the segmenter dataset and the owner's decisions on it, a GIF among them, which
+    amends ADR 0034. Written 2026-11-11; the intake is done and committed; the owner's review of the new crops is
+    open.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object); the owner's crop review open</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>dataset/</code> (<code>random_date_raccoon</code>, <code>massimo</code>, <code>tasty_coffee</code>, <code>ood_negatives/user_realworld</code>: their <code>.dvc</code>, manifest and README), <code>dataset/classes.txt</code>, <code>labels/ml3/strip_manifest.csv</code>, <code>labels/photo_renames.csv</code>, <code>labels/ml5/seg_dataset.yaml</code>, <code>data/ml5_labels/pass3</code>, <code>dvc.yaml</code> (<code>canonicalize</code>, <code>segcrop</code>, <code>merge_segpool</code>), <code>params.yaml</code> (<code>seg_dataset.whole_folders</code>), <code>coffeecv/strip_metadata.py</code>, <code>coffeecv/rename_photos.py</code>, <code>coffeecv/merge_rig.py</code>, <code>coffeecv/coverage_report.py</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the crop review)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-11</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-10.</strong> "i've added new files to the dataset, strip them from private data
+      and so on, as usual". Then: "massimo and tasty_coffee folders should be treated as raccoon_coffee, so place them
+      into whole_folders. Keep class_008__Ethiopia_Yirgacheffe as it is now." On 2026-11-11: "create new branch and
+      then create new ticket and commit it to the new branch".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>177 new photos arrived: 166 bean photos and 11 OOD negatives. 176 had private metadata and were stripped; the
+    177th, a GIF, had none. 31 of the bean photos were JPGs whose DNG (30) or GIF (1) twin of the same shot is also in
+    the data; the owner took them out (D2, D4). The other 146 are in the data: 76 in <code>random_date_raccoon</code>,
+    57 in <code>tasty_coffee</code>, 2 in <code>massimo</code>, and 11 negatives in <code>user_realworld</code>.</p>
+  <p>All 146 are in the segmenter dataset, which grew from 1,504 to 1,650 photos with no entry removed or changed: the
+    pool from 567 to 702, the negatives from 615 to 626. The classifier's pool grew from 1,493 to 1,628 crops. The
+    owner's 467 renames went through every record that names a photo (D1).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The new folders.</strong> <code>tasty_coffee</code> holds <code>class_001__Ethiopia_Sidamo</code> (53)
+      and <code>class_008__Ethiopia_Yirgacheffe</code> (4); <code>massimo</code> holds <code>class_016__Ethiopia</code>
+      and <code>class_017__Peru</code>, one photo each. <code>random_date_raccoon</code>'s new photos are in
+      <code>class_013__Brazil_Decaff</code> (36), <code>class_014__Colombia_Excelso</code> (36) and
+      <code>class_013__Brazil_SulDeMinas</code> (4).</li>
+    <li><strong>Classes 016 and 017.</strong> The owner's two new <code>classes.txt</code> lines had a <code>;</code>
+      too many, and the loader refused the file; written in D15's format,
+      <code>016;Ethiopia,Guji,SukeQuto;Daannisa</code> and <code>017;Peru,Amazonas;Monteverde</code> (D5). The class is
+      the country, so neither is a new class to the classifier.</li>
+    <li><strong>Twins.</strong> A JPG and a DNG of one shot share a file name but for the suffix, and so share a crop
+      name: the second crop overwrote the first, and 11 photos had no crop of their own. <code>find_duplicates</code>
+      scored 20 such pairs above its threshold and 10 below it; it never compared the GIF with its JPG, as GIF was not
+      an intake format (D6).</li>
+    <li><strong>The canonical store.</strong> Every <code>canonicalize</code> and <code>segcrop</code> stage was stale
+      on <code>coffeecv/canonical.py</code> since OPS-22 changed it; all were re-run, and every output that existed
+      came back byte-identical (ADR 0033).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Segmenter dataset: 1,504 photos; pool 567, negatives 615.</li>
+        <li><code>whole_folders</code>: <code>random_date_raccoon</code>.</li>
+        <li>Intake strips JPEG, PNG, HEIF and RAW photos; a GIF in <code>dataset/</code> is left unchecked and out
+          of the segmenter dataset, though canonicalization reads it.</li>
+        <li><code>user_realworld</code>: 481 photos, under their names on arrival.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Segmenter dataset: 1,650 photos; pool 702, negatives 626.</li>
+        <li><code>whole_folders</code>: <code>random_date_raccoon</code>, <code>massimo</code>,
+          <code>tasty_coffee</code>.</li>
+        <li>Intake strips GIFs too: their XMP, every frame compared (D6, ADR 0034 amended).</li>
+        <li><code>user_realworld</code>: 492 photos, named <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_ood_negative</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Every existing entry of the segmenter dataset.</strong> The build is append-only (ML-5 D11): the 146
+      photos are added, nothing listed moves split.</li>
+    <li><strong>The canonical store and the crops of the photos already in it.</strong> Byte-identical after the
+      re-run; the 467 renamed negatives' canonical photos and stored masks are the same bytes under the new names.</li>
+    <li><strong><code>class_008</code>'s two folder names.</strong> The 2026-08 sessions say
+      <code>class_008__Ethiopia_Kochere</code>, <code>tasty_coffee</code> says
+      <code>class_008__Ethiopia_Yirgacheffe</code>; kept as they are (D3), listed in
+      <code>coverage_report.ACCEPTED_DRIFT</code>.</li>
+    <li><strong>The models and the live site.</strong> Nothing is retrained or released.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A new crop the owner would decline trains the classifier.</strong></td>
+        <td>None of the 146 is a D18 fallback; three crops looked at are clean. The owner's review (135 pool crops,
+          <code>outputs/intake_2026-11-10/review/items.csv</code>) is open; a declined crop goes to
+          <code>labels/ml3/pool_exclude.csv</code>.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Two photos of one session still share a stem.</strong></td>
+        <td>None does in the three sessions after D2 and D4. segcrop does not refuse such a pair; a guard was offered,
+          not decided.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The 467 renamed <code>user_realworld</code> photos: record the renames?</td>
+        <td>(a) record them and update the manifests (b) leave the old names in the records</td>
+        <td>(a), 2026-11-10: "Yes, record renames and update manifests." In <code>labels/photo_renames.csv</code>,
+          applied to the segmenter dataset, pass3's labels and masks; the manifest's <code>source_title</code> keeps
+          each photo's name on arrival.</td></tr>
+      <tr><td class="id">D2</td><td>The 20 JPGs <code>find_duplicates</code> found as copies of a DNG of the same
+          shot?</td>
+        <td>(a) out of the dataset (b) keep both</td>
+        <td>(a), 2026-11-10: moved to <code>dataset/duplicate_jpg</code>, which the owner then removed.</td></tr>
+      <tr><td class="id">D3</td><td><code>massimo</code> and <code>tasty_coffee</code> in the segmenter dataset?</td>
+        <td>(a) in full, like <code>random_date_raccoon</code> (b) drawn from, like the 2026-08 sessions</td>
+        <td>(a), 2026-11-10: "should be treated as raccoon_coffee, so place them into whole_folders. Keep
+          class_008__Ethiopia_Yirgacheffe as it is now."</td></tr>
+      <tr><td class="id">D4</td><td>The 10 JPG and DNG pairs, and the JPG with a GIF, of one stem the duplicate check
+          did not flag?</td>
+        <td>(a) the JPGs out, like D2 (b) keep both, renamed</td>
+        <td>(a), 2026-11-11: moved to <code>tmp/</code>, which the owner emptied.</td></tr>
+      <tr><td class="id">D5</td><td>Class 016's line: <code>016;Ethiopia,Guji,SukeQuto;Daannisa</code>?</td>
+        <td>(a) as written (b) Daanisa, the roasters' spelling</td>
+        <td>(a), 2026-11-11: "keep it Daannisa". Guji the zone, Suke Quto the area of its washing station, Daannisa
+          the farmers' group and kebele, checked against roasters' pages.</td></tr>
+      <tr><td class="id">D6</td><td>The GIF, a 255-colour GIMP export of the SulDeMinas photo whose JPG went in
+          D4?</td>
+        <td>(a) keep the GIF; intake strips GIFs (b) restore the JPG, the GIF out</td>
+        <td>(a), 2026-11-11: "keep GIF for diversity and remove JPG". <code>strip_metadata.PHOTO_EXTENSIONS</code> takes
+          <code>.gif</code>: its XMP goes, its comment stays, every frame is compared; <code>seg_dataset</code> and
+          <code>find_duplicates</code> read that list. Amends
+          <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>Every new photo stripped and in <code>labels/ml3/strip_manifest.csv</code>
+      (177 rows), the 467 renamed photos under their new paths.</span></li>
+    <li><span class="box done"></span><span>The new photos, the renamed negatives and pass3 in DVC, pushed and checked
+      on the remote object by object.</span></li>
+    <li><span class="box done"></span><span><code>canonicalize</code>, <code>segcrop</code> and
+      <code>merge_segpool</code> run for the three sessions and <code>ood_negatives</code>; the outputs that existed
+      byte-identical.</span></li>
+    <li><span class="box done"></span><span>The segmenter dataset built: 146 added, none changed; both
+      <code>seg_ml19_predict</code> stages re-run (36 new masks each, 119 renamed, the same bytes).</span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes.</span></li>
+    <li><span class="box"></span><span>The owner's review of the 135 new pool crops.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Labels for the new photos and a retrain: the next training session, not planned.</li>
+    <li>A segcrop guard against two photos of one stem (R2).</li>
+    <li>The 74 abandoned <code>.tmp</code> files on the DVC remote (about 0.3 GB, from 2026-10-26, 2026-11-04 and
+      2026-11-10): the owner's to delete.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-10</div>The owner's 177 photos stripped (176 with private metadata), duplicates
+      checked, the 467 renames recorded and applied (<code>rename_photos</code>' check now matches an old name on its
+      token boundaries only: a new name that extends the old one is no survivor). D1&ndash;D3. Every
+      <code>canonicalize</code> and <code>segcrop</code> stage re-run; <code>merge_rig</code> fixed: a session with two
+      folders of one class (class 013) had one folder's count replaced by the other's.</div>
+    <div><div class="when">2026-11-11</div>D4&ndash;D6. The 11 JPGs out, the two sessions re-run; GIF intake in
+      <code>strip_metadata</code>, test first; the segmenter dataset built (1,650 photos) and both
+      <code>seg_ml19_predict</code> stages re-run; everything pushed and checked; the full check passes. Ticket written
+      and committed on branch <code>ml25-intake-2026-11-10</code>. The crop review open.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (the intake before this one),
+    <a href="ticket_segmenter_dataset.html">ML-5</a> (the segmenter dataset, D11 append-only),
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
+    <code>dataset/ood_negatives/README.md</code>.</footer>
+</main>

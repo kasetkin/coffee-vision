@@ -17,9 +17,9 @@ tree is never written through). The checks, all of which must pass:
 
   - pixels: the decoded image is equal before and after -- `photo_io.load_rgb_image` (rawpy for a RAW
     file; up to photo_io's DATASET_MAX_PIXELS, 537 MP, as training decodes), and Pillow's own decode in the
-    file's mode, so a PNG's alpha counts too; for HEIC every top-level image and every auxiliary image
-    (Apple's gain map, depth), and an auxiliary image pillow-heif cannot decode (10-bit, ML-6 D10) by its
-    stored bytes: coded data, properties and tiles; for RAW the sensor data as well;
+    file's mode, so a PNG's alpha counts too, and every frame of a GIF; for HEIC every top-level image and
+    every auxiliary image (Apple's gain map, depth), and an auxiliary image pillow-heif cannot decode (10-bit,
+    ML-6 D10) by its stored bytes: coded data, properties and tiles; for RAW the sensor data as well;
   - every other tag survives byte for byte: binary tags (an MPF gain map, the ICC profile) are compared
     as bytes, and the kept fields D13 names -- Orientation, ICC profile, Make, Model, DateTimeOriginal,
     the exposure tags -- must be present after if they were before. load_rgb_image ignores Orientation
@@ -87,7 +87,7 @@ from coffeecv.repo_files import sha256_file
 # imports this module gets it too; photo_io, not coffeecv.dataset, so no process here imports torch (ML-14 D8).
 Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS
 
-PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", ".heif"} | RAW_EXTENSIONS
+PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".heic", ".heif"} | RAW_EXTENSIONS   # .gif: ML-25 D6
 HEIF_EXTENSIONS = {".heic", ".heif"}
 
 # What exiftool is asked to delete. The audit below, not this list, is the guarantee: a deny-listed tag
@@ -137,9 +137,10 @@ MANIFEST_FIELDS = ["path", "sha256_before", "sha256_after", "pixel_sha256", "rem
 GB = 10**9
 # pixel_digest's peak memory above the imports, per pixel, measured 2026-10-30 (ticket ML-14 P3; each photo in its
 # own process, 12-200 MP, the same at every size): a JPEG 10.0 (RGB or grey), an RGBA PNG 12.0, a HEIC 11.0 (per
-# pixel of its top-level images, Apple's auxiliary images included), a DNG 13.0 (per pixel of rawpy's output size).
+# pixel of its top-level images, Apple's auxiliary images included), a DNG 13.0 (per pixel of rawpy's output size);
+# a GIF 10.0, measured 2026-11-11 on the owner's 12.5 MP one (ML-25).
 # Rounded up. The stripped copy is decoded after the photo, never beside it.
-DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".heic": 12, ".heif": 12,
+DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".gif": 11, ".heic": 12, ".heif": 12,
                           **dict.fromkeys(RAW_EXTENSIONS, 14)}
 MAX_DEFAULT_JOBS = 10                       # the owner's, 2026-10-30 (ML-14 D15)
 
@@ -330,7 +331,9 @@ def pixel_digest(path: Path) -> str:
                     _digest(h, aux)
     else:
         with Image.open(path) as im:                # the file's own mode: a PNG's alpha counts
-            _digest(h, np.asarray(im))
+            for i in range(getattr(im, "n_frames", 1)):   # every frame of a GIF
+                im.seek(i)
+                _digest(h, np.asarray(im))
     return h.hexdigest()
 
 

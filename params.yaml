@@ -256,6 +256,8 @@ seg_dataset:
   # photos of new phones the segmenter must learn; the draw matches the segmenter positives with the other folders.
   whole_folders:
     - random_date_raccoon
+    - massimo
+    - tasty_coffee
 
 # Ticket ML-5 P6/P10 (D22): in the blind paired review of XL0-v1 and XL0-v2 test masks, which model's mask is on
 # the left is drawn per photo from this seed (coffeecv/seg_review.py paired). 2210 is no other seed here.

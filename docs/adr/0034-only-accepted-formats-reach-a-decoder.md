@@ -10,10 +10,12 @@ We chose to refuse formats that a decoder could read (a plain TIFF, and anything
 
 Amended 2026-11-09 by [OPS-21](../ticket_android_image_and_file.html) D5: on Android the page's three inputs depart from "every accepted format and nothing else", because what Chrome and Firefox open follows from the `accept` list. Choose Photo's list is the file's MIME types alone: an extension in it keeps Chrome from its photo picker. Select File's names no format, since an image type in it brings the camera back: it is one made-up extension, `.coffeecv`, that no MIME table knows, so both browsers open Files unfiltered (D11; under `application/octet-stream` Firefox's Files greyed out every photo). The camera button's is `image/*`, since a camera writes JPEG or HEIC and that list is the one that opened the camera directly. The front's check still refuses a file with no row, whatever list it was picked through, and `tests/test_accepted_formats_named.py` holds all five of the page's lists, the Android three included.
 
+Amended 2026-11-11 by [ML-25](../ticket_intake_2026_11_10.html) D6: dataset intake takes GIF. The owner kept a GIF in the dataset for diversity; canonicalization already read it, but intake's list did not name it, so its metadata went unchecked and the segmenter dataset left it out. `strip_metadata` now strips a GIF's XMP, keeps its comment and compares every frame; intake's list is still narrower than the accepted formats.
+
 ## Consequences
 
 - A new format, TIFF included, is a new row and its recogniser rule, the contract's texts updated in the same change, and a test that canonicalizes it. Nothing reads a format that has no row.
 - The file ships in both releases' manifests, since both hosts import `canonical.py`, which reads it.
-- Dataset intake keeps its own, narrower list (`strip_metadata.PHOTO_EXTENSIONS`): what metadata stripping is checked on. `canonicalize_folder` reports a file in `dataset/` with no row and goes on.
+- Dataset intake keeps its own, narrower list (`strip_metadata.PHOTO_EXTENSIONS`): what metadata stripping is checked on. GIF joined it on 2026-11-11 (ML-25 D6). `canonicalize_folder` reports a file in `dataset/` with no row and goes on.
 
-Source: [OPS-18](../ticket_gif_bmp_uploads.html) D3, D4, D10, D11, D12, D17.
+Source: [OPS-18](../ticket_gif_bmp_uploads.html) D3, D4, D10, D11, D12, D17; [ML-25](../ticket_intake_2026_11_10.html) D6.

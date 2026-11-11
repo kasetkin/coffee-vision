@@ -34,6 +34,8 @@ D15 = """\
 # other than 010's Java whose farm region is unknown (owner, 2026-10-21).
 CLASSES_TXT = D15 + """\
 015;Indonesia;
+016;Ethiopia,Guji,SukeQuto;Daannisa
+017;Peru,Amazonas;Monteverde
 """
 # An old-format frozen list, word for word: allrigs_cam_s123's (the same bytes as allrigs_dino3b16_s123's), from
 # the 10-class models retired on 2026-10-06. Archived experiments' configs still name lists in this format.

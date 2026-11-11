@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import unittest
 
-from coffeecv.rename_photos import batch_of, replacements, rewrite
+from coffeecv.rename_photos import batch_of, replacements, rewrite, survivors
+from coffeecv.seg_dataset import photo_id
 
 OLD = "dataset/ood_negatives/2026-09__user_realworld/real_world_negatives/real_world_negatives_001.jpg"
 NEW = "dataset/ood_negatives/user_realworld/20260910_195601.jpg"
@@ -47,6 +48,21 @@ class TestRename(unittest.TestCase):
     def test_a_longer_name_is_not_touched(self):
         text = f"- path: {OLD10}\n  batch: 2026-09__user_realworld_extra\n"
         self.assertEqual(rewrite(text, self.subs), (text, 0))
+
+    def test_an_old_string_survives_only_on_token_boundaries(self):
+        self.assertEqual(survivors(f"- path: {OLD10}\n", self.subs), [])
+        self.assertEqual(len(survivors(f"- path: {OLD}\n", self.subs)), 1)
+
+    def test_a_new_name_that_extends_the_old_one_is_no_survivor(self):
+        # 2026-11-10: the owner renamed 20230628_150943.jpg to 20230628_150943_GM1910_ood_negative.jpg
+        old = "dataset/ood_negatives/user_realworld/20230628_150943.jpg"
+        new = "dataset/ood_negatives/user_realworld/20230628_150943_GM1910_ood_negative.jpg"
+        subs, _ = replacements([{"old_path": old, "new_path": new, "sha256": "a" * 64}])
+        old_id, new_id = "ood_negatives__user_realworld__20230628_150943", photo_id(new)
+        out, n = rewrite(f"{old_id},{old},h,negative,,data/ml5_labels/pass3/neg/{old_id}.png,m\r\n", subs)
+        self.assertEqual(n, 3)
+        self.assertEqual(out, f"{new_id},{new},h,negative,,data/ml5_labels/pass3/neg/{new_id}.png,m\r\n")
+        self.assertEqual(survivors(out, subs), [])
 
 
 if __name__ == "__main__":

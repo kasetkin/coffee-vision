@@ -150,6 +150,21 @@ class TestMergeCarriesMasks(unittest.TestCase):
                               "c__cropped.jxl"])
             self.assertEqual((out / "c__beanmask.png").read_bytes(), b"pngc")
 
+    def test_a_session_with_two_folders_of_one_class_counts_both(self):
+        """random_date_raccoon holds class_013__Brazil_SulDeMinas and class_013__Brazil_Decaff (ACCEPTED_DRIFT):
+        the session's count is both folders', less its exclusions; until 2026-11-10 the second folder's count
+        replaced the first's in the manifest (the images were all merged)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for folder, stems in (("class_013__A", ["a", "b", "c"]), ("class_013__B", ["d", "e"])):
+                d = root / "s1" / folder
+                d.mkdir(parents=True)
+                for s in stems:
+                    (d / f"{s}__cropped.jxl").write_bytes(b"jxl" + s.encode())
+            manifest = merge_rig("pool", ["s1"], root, {("s1", "class_013__A", "a.jpg")})
+            self.assertEqual(manifest["images"], 4)
+            self.assertEqual(manifest["per_class_counts"], {"013": {"s1": 4}})
+
     def test_excluded_photos_leave_the_pool_with_their_masks(self):
         """Ticket ML-3 P5: a declined crop stays in its session and leaves the pool; a row naming one of the
         merge's sessions but no crop there stops the merge before anything is written."""
