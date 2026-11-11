@@ -14,7 +14,7 @@
     open. <em>Since then</em> (2026-11-11) a second batch: 43 photos, class 018 among them.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object; 727ac3b); the second batch of 2026-11-11 the same way; the owner's crop review open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object; 727ac3b); the second batch of 2026-11-11 the same way (242dab6); the owner's crop review done 2026-11-11: 172 accepted, 3 declined and out of the pool</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -172,8 +172,9 @@
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes.</span></li>
     <li><span class="box done"></span><span>The second batch the same way: 43 photos stripped and in the manifest,
       the segmenter dataset 1,693 photos (43 added, none changed).</span></li>
-    <li><span class="box"></span><span>The owner's review of the 135 new pool crops, and of the second batch's 40
-      (<code>outputs/intake_2026-11-11/review/items.csv</code>).</span></li>
+    <li><span class="box done"></span><span>The owner's review of the 135 new pool crops, and of the second batch's 40
+      (<code>labels/ml2/review/ml25_new_crops_2026-11-10.decisions.jsonl</code>, <code>..._2026-11-11</code>): 172
+      accepted; the 3 declined in <code>labels/ml3/pool_exclude.csv</code>.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -202,6 +203,12 @@
       bag, an Indonesia cup): two photos. 3 negatives split with seed 20261111: 2 dev, 1 holdout. The pipeline,
       the segmenter dataset (43 added). <code>seg_ml19_predict@xl0_v6_s42</code>'s rerun could not be recorded (a
       DVC push held the lock); the owner then dropped it (D7), and <code>@xl0_v7r_s123</code> was re-run.</div>
+    <div><div class="when">2026-11-11</div>The owner's crop review: of the first batch's 135, 132 accepted and 3
+      declined (a Brazil decaff DNG, a Colombia OnePlus JPG, a Sidamo DNG of <code>tasty_coffee</code>), no reason
+      given; of the second batch's 40, all accepted. The 3 into <code>labels/ml3/pool_exclude.csv</code>, "mask
+      declined", as ML-16 D10's, written by <code>analysis/ml3/mask_review.py exclude</code>, which now reads both
+      reviews; <code>merge_segpool</code> re-run: the pool 1,665 crops, 34 excluded. They stay in the
+      segmenter dataset, which the pool exclusions do not touch.</div>
   </div>
 
   <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (the intake before this one),
