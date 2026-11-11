@@ -926,9 +926,9 @@ stages:
       size: 25282
     - path: data/canonical/random_date_raccoon
       hash: md5
-      md5: 444ced697dfed2337e826a857c782d26.dir
-      size: 993958674
-      nfiles: 394
+      md5: 51cfa3398a54a1a90218671255c85f46.dir
+      size: 1026518263
+      nfiles: 411
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -957,9 +957,9 @@ stages:
     outs:
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 1a020252a3505b258b78ca6d8e85dce6.dir
-      size: 2042146005
-      nfiles: 792
+      md5: 3bfd1ac91dfe895bc38891e2a084777e.dir
+      size: 2162041121
+      nfiles: 825
   seg_ml6_finetune@xl0_v3:
     cmd: python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name 
       xl0_v3 --threads 8
@@ -1277,9 +1277,9 @@ stages:
       nfiles: 7
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 1a020252a3505b258b78ca6d8e85dce6.dir
-      size: 2042146005
-      nfiles: 792
+      md5: 3bfd1ac91dfe895bc38891e2a084777e.dir
+      size: 2162041121
+      nfiles: 825
     - path: data/segcropped/tasty_coffee
       hash: md5
       md5: e5bbbbbc6c5b4b3e7d2efc78a7e612e7.dir
@@ -1287,14 +1287,14 @@ stages:
       nfiles: 117
     - path: labels/ml3/pool_exclude.csv
       hash: md5
-      md5: ef30e2df9c892e41eca974221a457493
-      size: 3548
+      md5: 14ea60eb9602ed3327e02547d3172dd9
+      size: 3679
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: b9ab3ccc0f7381b07554b26b5af1c837.dir
-      size: 11233771093
-      nfiles: 3331
+      md5: 867c760e56bb882134062cd705a70995.dir
+      size: 11333372853
+      nfiles: 3363
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v3_country_aug8_s123.pt --profile gpu_split && 
@@ -3417,15 +3417,15 @@ stages:
       size: 8567
     - path: dataset/random_date_raccoon
       hash: md5
-      md5: 760714d176b73ba2af20156c1171fd0d.dir
-      size: 1825684331
-      nfiles: 394
+      md5: f935e2d64269ea20d5af3d0e770e9eae.dir
+      size: 1973806627
+      nfiles: 411
     outs:
     - path: data/canonical/random_date_raccoon
       hash: md5
-      md5: 444ced697dfed2337e826a857c782d26.dir
-      size: 993958674
-      nfiles: 394
+      md5: 51cfa3398a54a1a90218671255c85f46.dir
+      size: 1026518263
+      nfiles: 411
   canonicalize@ood_negatives:
     cmd: python -m coffeecv.canonicalize_folder ood_negatives --jobs 4
     deps:
@@ -4594,13 +4594,13 @@ stages:
       size: 25282
     - path: data/canonical
       hash: md5
-      md5: 338498366e52f948d5ef3cb1989dfd89.dir
-      size: 6326833918
-      nfiles: 2651
+      md5: 3c2a25146859c97c338e235e0812862e.dir
+      size: 6359393507
+      nfiles: 2668
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: ddf05d6d1dc549a4410ccaf745d9e0c0
-      size: 528029
+      md5: 86aac2f948ff66527c49a81dd27fe578
+      size: 534338
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -4621,9 +4621,9 @@ stages:
     outs:
     - path: data/seg_masks_ml19/xl0_v7r_s123
       hash: md5
-      md5: cb2dc1c373ddf7e343e1df93d6d5c959.dir
-      size: 3751352
-      nfiles: 431
+      md5: 69151182731086036689bb23c418ff33.dir
+      size: 3787504
+      nfiles: 435
   litert_export@dino3b16_segxl0v7r_country_aug8_s42:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v7r_country_aug8_s42.pt --profile gpu_split && 

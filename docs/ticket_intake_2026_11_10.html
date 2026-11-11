@@ -11,10 +11,11 @@
     <code>tasty_coffee</code>, and added classes 016 and 017. This ticket records the intake: the strip, the
     renames, the pipeline re-run, the segmenter dataset and the owner's decisions on it, a GIF among them, which
     amends ADR 0034. Written 2026-11-11; the intake is done and committed; the owner's review of the new crops is
-    open. <em>Since then</em> (2026-11-11) a second batch: 43 photos, class 018 among them.</p>
+    open. <em>Since then</em> (2026-11-11) a second batch: 43 photos, class 018 among them; and a third: 17
+    iPhone photos, the first run of ML-26's incremental stages.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object; 727ac3b); the second batch of 2026-11-11 the same way (242dab6); the owner's crop review done 2026-11-11: 172 accepted, 3 declined and out of the pool</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object; 727ac3b); the second batch of 2026-11-11 the same way (242dab6); the owner's crop review done 2026-11-11: 172 accepted, 3 declined and out of the pool; the third batch's 17 the same day, 16 accepted, its fallback out</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -45,6 +46,13 @@
     <code>class_014__Colombia_Excelso</code>, 4 in a new <code>class_018__CostaRica</code>) and 3 negatives. All were
     stripped, none is a copy, none a D18 fallback. The segmenter dataset grew to 1,693 photos (pool 742, negatives
     629), the classifier's pool to 1,668 crops.</p>
+  <p>The same afternoon a third batch: 23 iPhone 15 Pro Max and 16 Pro photos in
+    <code>class_001__Ethiopia_Sidamo</code>. 6 were copies and went to <code>tmp/</code> as in D2 and D4: 2 HEICs byte for
+    byte, and 4 "<code>-1</code>" files named <code>.DNG</code> that are JPEGs (a JPEG header; LibRaw refuses them), each
+    the JPEG of the DNG shot in the same second. The other 17 were stripped; none is a copy; one, the 48 MP
+    <code>20261111_173722</code> (a grinder's hopper in a caf&eacute;), is a D18 fallback. The segmenter dataset grew to
+    1,710 photos (pool 759), the classifier's pool to 1,682 crops. The owner's <code>classes.txt</code> gave 002 its
+    washing station: <code>002;Kenya,Nyeri,Gatomboya;AA</code>.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -172,6 +180,9 @@
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes.</span></li>
     <li><span class="box done"></span><span>The second batch the same way: 43 photos stripped and in the manifest,
       the segmenter dataset 1,693 photos (43 added, none changed).</span></li>
+    <li><span class="box done"></span><span>The third batch: 17 photos stripped and in the dataset; the owner's review of
+      their crops (<code>labels/ml2/review/ml25_new_crops_2026-11-11b.decisions.jsonl</code>): 16 accepted, the fallback
+      declined and out of the pool.</span></li>
     <li><span class="box done"></span><span>The owner's review of the 135 new pool crops, and of the second batch's 40
       (<code>labels/ml2/review/ml25_new_crops_2026-11-10.decisions.jsonl</code>, <code>..._2026-11-11</code>): 172
       accepted; the 3 declined in <code>labels/ml3/pool_exclude.csv</code>.</span></li>
@@ -209,6 +220,13 @@
       declined", as ML-16 D10's, written by <code>analysis/ml3/mask_review.py exclude</code>, which now reads both
       reviews; <code>merge_segpool</code> re-run: the pool 1,665 crops, 34 excluded. They stay in the
       segmenter dataset, which the pool exclusions do not touch.</div>
+    <div><div class="when">2026-11-11</div>The third batch: 23 photos, 6 copies to <code>tmp/</code>, 17 stripped (none
+      failing), none a copy. Its full pipeline run was stopped for ML-26 (the canonical folder it had half rebuilt checked
+      out again from the cache); ML-26's incremental run then took 3 minutes for the three stages, not about 45: 17
+      photos done, 394 kept, no output changed. The segmenter dataset (17 added) and
+      <code>seg_ml19_predict@xl0_v7r_s123</code> (4 test photos) re-run. The owner's review of the 17: 16 accepted, the
+      fallback <code>20261111_173722</code> declined on its frame, into <code>labels/ml3/pool_exclude.csv</code> as "D18
+      fallback with background" (35 rows); the pool 1,681 crops.</div>
   </div>
 
   <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (the intake before this one),

@@ -32,8 +32,8 @@ D15 = """\
 """
 # dataset/classes.txt today: D15 plus the coffees added since. 015 is the green Indonesia of 2026-10-21, a coffee
 # other than 010's Java whose farm region is unknown (owner, 2026-10-21); 018 a Costa Rica of unknown region
-# (2026-11-11, ML-25).
-CLASSES_TXT = D15 + """\
+# (2026-11-11, ML-25). D15's 002 gained its washing station, Gatomboya, the same day (the owner).
+CLASSES_TXT = D15.replace("002;Kenya,Nyeri;AA\n", "002;Kenya,Nyeri,Gatomboya;AA\n") + """\
 015;Indonesia;
 016;Ethiopia,Guji,SukeQuto;Daannisa
 017;Peru,Amazonas;Monteverde

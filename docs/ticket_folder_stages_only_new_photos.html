@@ -12,7 +12,7 @@
     batch.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; implemented and committed the same day; the code change recorded for the 41 stages with <code>dvc commit</code>; first used on ML-25's third batch</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; implemented and committed the same day; the code change recorded for the 41 stages with <code>dvc commit</code>; first used on ML-25's third batch: 3 minutes, not about 45</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: stage run time</span></div>
@@ -108,7 +108,9 @@
       made again.</span></li>
     <li><span class="box done"></span><span>The code change recorded for the 41 stages with <code>dvc commit</code>:
       only the two scripts' md5 moved in <code>dvc.lock</code>.</span></li>
-    <li><span class="box"></span><span>The first real incremental run: ML-25's third batch, 17 photos.</span></li>
+    <li><span class="box done"></span><span>The first real incremental run: ML-25's third batch, 17 photos, 2026-11-11:
+      the three stages in 3 minutes (canonicalize 56 s, segcrop 83 s, merge_segpool 33 s), 394 photos kept, every
+      output that existed unchanged.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -122,6 +124,9 @@
       batch, whose full run was stopped for it. The canonical folder it had half rebuilt was checked out again from the
       cache. The 41 stages' code change recorded with <code>dvc commit</code>, with the third batch's 17 photos set
       aside meanwhile so the photo folder matched dvc.lock.</div>
+    <div><div class="when">2026-11-11</div>First run, ML-25's third batch: <code>canonicalize@random_date_raccoon</code>
+      17 photos done and 394 kept in 56 s (about 17 minutes before), <code>segcrop@random_date_raccoon</code> 17 cropped
+      and 394 kept in 83 s (about 25 minutes); no output that existed changed.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>, <a href="ticket_canonicalization.html">ML-19</a>
