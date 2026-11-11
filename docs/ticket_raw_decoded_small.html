@@ -12,7 +12,7 @@
     investigated: the file is needed, since the service keeps no photo.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; not investigated, not planned</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-09; partly read 2026-11-10, needs the file; not planned</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-info</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: decoding of camera RAW uploads</span></div>
@@ -56,6 +56,22 @@
       Pixel 9 Pro) decode at full size; <code>tests/test_front_check_service.py</code> reads one at 3628 &times; 2732.
       The phone of 2026-11-09 sends Chrome's reduced browser string (&ldquo;Android 10; K&rdquo;), so its model is
       not in the logs.</li>
+    <li><strong>A Pixel 9 Pro DNG's two images</strong> (read 2026-11-10 with <code>exiftool -a -G1</code>, on
+      <code>20261027_135600_Pixel_9_Pro_Guatemala.dng</code>): IFD0 is SubfileType &ldquo;Reduced-resolution
+      image&rdquo;, 2560 &times; 1928, a YCbCr JPEG preview; its SubIFD is SubfileType &ldquo;Full-resolution
+      image&rdquo;, 8160 &times; 6144, a JPEG-compressed colour filter array. rawpy develops the SubIFD: five of the six
+      dataset DNGs come out at 8160 &times; 6144 or 8032 &times; 6048, and one at 3628 &times; 2732. 454 &times; 602
+      is neither directory's size nor the preview's aspect, so &ldquo;rawpy took the preview&rdquo; does not explain
+      the log line.</li>
+    <li><strong>How LibRaw chooses</strong> (<a href="https://www.libraw.org/docs/API-datastruct-eng.html">LibRaw
+      data structures</a>): a DNG's frames are listed in file order, depth-first over IFDs and SubIFDs; previews
+      (NewSubfileType 1) join the list only with <code>LIBRAW_RAWOPTIONS_DNG_ADD_PREVIEWS</code>;
+      <code>LIBRAW_RAWOPTIONS_DNG_PREFER_LARGEST_IMAGE</code> puts the largest first; <code>shot_select</code>
+      picks a frame by number. Some compressions decode only through Adobe's DNG SDK (<code>use_dng_sdk</code>), and
+      DNG 1.7 with JPEG XL arrived in LibRaw 0.22 that way (<a href="https://www.libraw.org/node/2861">LibRaw 0.22
+      release</a>). The installed rawpy 0.27.1 bundles LibRaw 0.22.1; whether its wheel is built with the DNG SDK is
+      not checked. rawpy's <code>Params</code> exposes neither <code>shot_select</code> nor the raw processing
+      options, so choosing another frame means patching rawpy or reading the directories ourselves.</li>
     <li><strong>No copy</strong>: the front never stores a photo (ADR 0033, OPS-3's &ldquo;What does not
       change&rdquo;), so the file must come from the owner's phone.</li>
   </ul>
@@ -111,6 +127,21 @@
       <tr><td class="id">D2</td><td>A floor on any photo's decoded pixels?</td>
         <td>(a) Yes, refuse a photo under N MP (b) No</td>
         <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>Add the size guard now, before the file explains the cause: refuse a DNG whose
+          developed size does not match its SubfileType-0 (full-resolution) directory's?</td>
+        <td>(a) Yes, now, as D1(b) for this case (b) Wait for the cause</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>If the cause needs what this rawpy cannot do (the DNG SDK, or a frame choice rawpy's
+          <code>Params</code> does not expose), how far to go?</td>
+        <td>(a) Build or patch rawpy ourselves (b) Read the DNG's directories ourselves and decode the raw frame
+          (c) Refuse such files (D1(b))</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">Q1</td><td>The file and where it came from (needs-info)?</td>
+        <td>The DNG itself, or another from the same phone and app; which phone and camera app wrote it; whether
+          it was 12 MP or 50 MP mode (the front refuses RAW over 16 MP, ML-19 D24, so the dataset's 50 MP Pixel DNGs
+          would not pass it); and whether Select File picked it from Files or from Google Photos, which may hand over
+          a different file than the original.</td>
+        <td>Open.</td></tr>
     </tbody>
   </table></div>
 
@@ -135,6 +166,13 @@
     <div><div class="when">2026-11-09</div>Ticket written from the check service's log line of OPS-3's phone check
       (release <code>20261109T1637Z-c37f30e</code>) and a read of <code>coffeecv/canonical.py</code>'s RAW branch.
       Decisions open. Not investigated: the file is needed.</div>
+    <div><div class="when">2026-11-10</div>A dataset Pixel 9 Pro DNG read: a 2560 &times; 1928 preview in IFD0 and the
+      8160 &times; 6144 raw in a SubIFD, and rawpy develops the raw; LibRaw's frame choice and DNG SDK dependence read
+      from its documentation (section 2). The owner's guess that the front decodes the thumbnail does not fit these
+      files; hypotheses (1) and (2) stand. Next, with the file: <code>exiftool -a -G1 -SubfileType -ImageWidth
+      -ImageHeight -Compression</code> on it, then check whether this rawpy wheel has the DNG SDK. A candidate guard
+      for D1(b), whatever the cause: refuse a DNG whose developed size does not match its SubfileType-0
+      directory's. Questions for the owner added as D3, D4 and Q1 (section 6). Still needs-info.</div>
   </div>
 
   <footer>Related: <a href="ticket_visitor_analytics.html">OPS-3</a>, <a href="ticket_canonicalization.html">ML-19</a>,
