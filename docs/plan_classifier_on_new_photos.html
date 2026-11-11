@@ -1,0 +1,154 @@
+<title>Implementation plan: classifier on new photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-27 · coffee-vision · implementation</div>
+  <h1>Implementation plan: classifier on new photos</h1>
+  <p class="lede">The order of work for <a href="ticket_classifier_on_new_photos.html">ticket ML-27</a>. One strand:
+    check the data, then the recorded run, the comparison, the candidate&rsquo;s ship, probe and conversion, and the
+    release after the owner&rsquo;s check. The first step that changes a number is P2&rsquo;s run.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; P1 done</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_classifier_on_new_photos.html"><code>ticket_classifier_on_new_photos.html</code></a> (ML-27)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-11</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1&ndash;D5 decided</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>9acaf4b</code>, not from the ticket alone. One thing the ticket does not
+      cover turned up, folded into P6.</p>
+    <ol>
+      <li><b>The live model&rsquo;s name is a default in code.</b> <code>webapp/app.py</code> (<code>CHECKPOINT</code>),
+        <code>tests/test_release_manifest.py</code>, <code>tests/test_webapp_analyze.py</code>,
+        <code>tests/test_model_and_ood_loading.py</code> and <code>tests/test_frozen_checkpoint.py</code> name
+        <code>dino3b16_segxl0v7r_country_aug8_s42</code>. They move to the new name in the release&rsquo;s change
+        (P6), with <code>docs/status.md</code> and <code>docs/inference_path.html</code>, not before.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 changes nothing. P2 is the first to change a number. P3&ndash;P5 run before the owner looks (D5); only P6
+    changes what the site serves.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The pool and stages current on <code>xl0_v7r_s123</code></td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P2</td><td>exp283&ndash;285, seeds 42, 123, 7, exp280&ndash;282&rsquo;s recipe (D1)</td><td>local, about 10 h</td><td>yes</td></tr>
+      <tr><td class="id">P3</td><td>Paired comparison with exp280&ndash;282 (D2)</td><td>local</td><td>no, a report</td></tr>
+      <tr><td class="id">P4</td><td>Ship the best seed on val (D3, D5), its OOD reference and refitted probe, measured (D4)</td><td>local, about 3 h</td><td>yes</td></tr>
+      <tr><td class="id">P5</td><td>LiteRT conversion, pushed to the DVC remote and checked <span class="pill sm open">stop</span></td><td>local, DVC remote</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>Release, after the owner&rsquo;s go <span class="pill sm open">stop</span></td><td>front, inference host</td><td>the live answers</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>None beyond the ticket&rsquo;s D1&ndash;D5.</p>
+
+  <h2>3. P1 &mdash; The pool and stages current</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-11</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box done"></span><span><code>dvc status</code>: &ldquo;Data and pipelines are up to date&rdquo;
+      (frozen stages only). <span class="result">Done 2026-11-11.</span></span></li>
+    <li><span class="box done"></span><span><code>data/segcropped/pool/merge_manifest.json</code>: 1,681 images, 35
+      excluded, 18 class folders; <code>seg_decoder</code> <code>xl0_v7r_s123</code>. <span class="result">Done 2026-11-11.</span></span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The recorded run</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The ticket and plan committed, so the run&rsquo;s commit holds them; the
+      config diffed against exp280&rsquo;s key by key (experiments.md): only the data may differ.</span></li>
+    <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 283</code>,
+      in the background.</span></li>
+    <li><span class="box"></span><span>Checks: three runs archived, <code>metrics.json</code>&rsquo;s
+      <code>class_ids</code> the same 10 countries as exp280&rsquo;s.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; Paired comparison</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>compare_experiments</code> per seed (283/280, 284/281, 285/282) into
+      <code>analysis/ml27/compare_283_285.txt</code>: val and test macro-F1, deltas, mean and range, per-class F1.</span></li>
+    <li><span class="box"></span><span>The photos in both arms&rsquo; test sets, as <code>analysis/ml16/common_photos.py</code>
+      did, in <code>analysis/ml27/common_photos.{py,txt}</code>.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; The candidate and its probe</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The seed with the highest val macro-F1 shipped:
+      <code>fit_frozen_head --ship &lt;exp&gt; --name dino3b16_segxl0v7r_country_aug8_ml27_s&lt;seed&gt; --seed-exps 283 284 285</code>.</span></li>
+    <li><span class="box"></span><span><code>build_ood_reference</code>, <code>fit_ood_probe</code> and
+      <code>ood_eval</code> on it, reports in <code>analysis/ml27/</code>.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Conversion and the DVC remote <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The candidate in <code>litert_export</code>&rsquo;s <code>foreach</code>
+      (<code>{seg: xl0_v7r_s123}</code>); <code>dvc repro -s litert_export@&lt;name&gt;</code> passes D7&rsquo;s bars
+      (ADR 0020).</span></li>
+    <li><span class="box"></span><span><code>models/&lt;name&gt;.pt</code> and <code>models/&lt;name&gt;.litert</code>
+      pushed as explicit targets; every object checked on the remote (dvc.md).</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh</code> passes.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the comparison and the candidate&rsquo;s numbers checked; a
+      go for the release.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Release <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, the owner&rsquo;s go</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The default checkpoint and the tests that name the live model moved to the new
+      name; <code>docs/status.md</code> and <code>docs/inference_path.html</code> updated.</span></li>
+    <li><span class="box"></span><span>The branch merged into main by a merge commit (ADR 0017); deploy per
+      <code>docs/agents/deploy.md</code>: <code>--stage-only</code>, <code>--compare</code>, the full deploy,
+      <code>--verify</code>.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the live site checked; the ticket closed.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P2: config diff shows only data-version keys against exp280.</span></li>
+    <li><span class="box"></span><span>P5: D7&rsquo;s check passed; every object on the remote.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase&rsquo;s last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket&rsquo;s &ldquo;Out of scope&rdquo;.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-11</div>Claude reads ticket ML-27 at <code>9acaf4b</code> and writes this plan.
+      One finding not in the ticket (the live name in code, P6). P1 done: the stages current, the pool 1,681 crops.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_classifier_on_new_photos.html">ML-27 ticket</a>,
+    <a href="ticket_next_training_session.html">ML-16</a>,
+    <a href="agents/experiments.md">experiments.md</a>, <a href="agents/dvc.md">dvc.md</a>,
+    <a href="agents/deploy.md">deploy.md</a>.</footer>
+</main>
