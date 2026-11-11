@@ -1,0 +1,186 @@
+{
+  "lnmeans768_f4.npz": {
+    "photos": [
+      {
+        "photo": "PXL_20260825_193325070.jpg",
+        "least_cosine": 0.9998691994538251,
+        "mask_iou": null,
+        "readout_max_abs": 0.04286012053489685,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0016903877258300781,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_130838005.jpg",
+        "least_cosine": 0.9998901749016853,
+        "mask_iou": null,
+        "readout_max_abs": 0.04179883003234863,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.003973662853240967,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_201618.JPG",
+        "least_cosine": 0.9998780768631894,
+        "mask_iou": null,
+        "readout_max_abs": 0.053147196769714355,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.00030153989791870117,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6258D.HEIC",
+        "least_cosine": 0.9998562935114065,
+        "mask_iou": null,
+        "readout_max_abs": 0.04902756214141846,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0008734464645385742,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260825_195610599.jpg",
+        "least_cosine": 0.9998490461974587,
+        "mask_iou": null,
+        "readout_max_abs": 0.05117392539978027,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0008178651332855225,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260807_072408172.jpg",
+        "least_cosine": 0.9998715611621846,
+        "mask_iou": null,
+        "readout_max_abs": 0.05559897422790527,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.007103383541107178,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260809_135958599.jpg",
+        "least_cosine": 0.9998736683358929,
+        "mask_iou": null,
+        "readout_max_abs": 0.0479276180267334,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0006009340286254883,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "IMG_6291D.HEIC",
+        "least_cosine": 0.9998760837805487,
+        "mask_iou": null,
+        "readout_max_abs": 0.05519825220108032,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0010725855827331543,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260809_202937.JPG",
+        "least_cosine": 0.9997803963932471,
+        "mask_iou": null,
+        "readout_max_abs": 0.05289706587791443,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.004494190216064453,
+        "guard": "linear_probe",
+        "guard_score_change": 1.354668064356502e-10,
+        "guard_distance_from_threshold": -0.4999999998787717,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260827_185019541.jpg",
+        "least_cosine": 0.9998583640669261,
+        "mask_iou": null,
+        "readout_max_abs": 0.055307865142822266,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 7.678449037484825e-06,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260830_200129.JPG",
+        "least_cosine": 0.9998621443011084,
+        "mask_iou": null,
+        "readout_max_abs": 0.05114564299583435,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0026505589485168457,
+        "guard": "linear_probe",
+        "guard_score_change": 7.874897181134737e-10,
+        "guard_distance_from_threshold": -0.4999999984939764,
+        "verdict_same": true
+      },
+      {
+        "photo": "PXL_20260924_123010061.jpg",
+        "least_cosine": 0.9999041236829772,
+        "mask_iou": null,
+        "readout_max_abs": 0.049435317516326904,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 0.0005695223808288574,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      },
+      {
+        "photo": "PIC_20260924_150009.JPG",
+        "least_cosine": 0.9998722211468882,
+        "mask_iou": null,
+        "readout_max_abs": 0.05018117278814316,
+        "nan_or_inf": false,
+        "top1_same": true,
+        "prob_max_change": 3.6169891245663166e-05,
+        "guard": "linear_probe",
+        "guard_score_change": 0.0,
+        "guard_distance_from_threshold": -0.4999999999999064,
+        "verdict_same": true
+      }
+    ],
+    "gate": {
+      "pass": false,
+      "least_cosine": 0.9997803963932471,
+      "least_mask_iou": null,
+      "all_finite": true,
+      "changed_answer": [],
+      "bars": {
+        "cosine": 0.99999,
+        "mask_iou": 0.999
+      }
+    }
+  }
+}

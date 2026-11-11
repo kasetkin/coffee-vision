@@ -1,0 +1,61 @@
+{
+  "timing": {
+    "create_s": 3.38,
+    "first_call_s": 4.037,
+    "cold_s": 7.417,
+    "warm": {
+      "n": 8,
+      "median": 4.168202252003539,
+      "p90": 4.216449829997146
+    }
+  },
+  "calls_s": [
+    4.037,
+    4.21,
+    4.206,
+    4.189,
+    4.16,
+    4.171,
+    4.163,
+    4.165,
+    4.108,
+    4.216,
+    4.309
+  ],
+  "warmup": 2,
+  "timed": 8,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5782.55078125,
+  "mem_available_drop_mb": 687.6,
+  "cpu_over_wall": 3.87,
+  "peak_rss_mb": 1670,
+  "counters": {
+    "samples": 326,
+    "wall_ms": 33487.4,
+    "cpu_mhz_median": 2400.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 5095
+  },
+  "loaded": {
+    "libs": [
+      "/usr/local/lib/python3.12/site-packages/ai_edge_litert/libLiteRtWebGpuAccelerator.so"
+    ],
+    "render_nodes": []
+  },
+  "gpu_sampler": null,
+  "cell": "litert_cpu",
+  "graph": "encoder",
+  "runtime": "litert",
+  "device": "cpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "encoder.tflite",
+  "batch": 1,
+  "fully_accelerated": true,
+  "threads": 4,
+  "calls_per_photo": 1
+}

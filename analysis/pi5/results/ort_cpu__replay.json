@@ -1,0 +1,103 @@
+{
+  "cell": "ort_cpu",
+  "batch": 8,
+  "passes": 2,
+  "threads": 4,
+  "graphs": {
+    "encoder": {
+      "cell": "ort_cpu",
+      "graph": "encoder",
+      "runtime": "ort",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "encoder.onnx",
+      "batch": 1,
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "decoder": {
+      "cell": "ort_cpu",
+      "graph": "decoder",
+      "runtime": "ort",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "decoder.onnx",
+      "batch": 1,
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "dino": {
+      "cell": "ort_cpu",
+      "graph": "dino_b8",
+      "runtime": "ort",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "dino_b8.onnx",
+      "batch": 8,
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    }
+  },
+  "load_s": 15.597,
+  "first_answer_s": 49.294,
+  "process_to_first_answer_s": 65.719,
+  "photo_s": [
+    33.697,
+    30.604,
+    31.261,
+    31.328,
+    31.697,
+    31.565,
+    31.563,
+    31.591,
+    31.495,
+    31.714,
+    31.437,
+    31.771,
+    31.579,
+    31.681,
+    31.795,
+    31.9,
+    32.328,
+    32.525,
+    32.713,
+    32.906,
+    33.08,
+    33.315,
+    33.291,
+    33.459,
+    33.468,
+    33.62
+  ],
+  "photo": {
+    "n": 25,
+    "median": 31.771462641991093,
+    "p90": 33.458590555994306
+  },
+  "nonfinite_photos": 0,
+  "cpu_over_wall": 3.91,
+  "peak_rss_mb": 2312,
+  "mem_available_mb_before": 6184.8515625,
+  "mem_available_drop_mb": 1758.9,
+  "counters": {
+    "samples": 8203,
+    "wall_ms": 837402.7,
+    "cpu_mhz_median": 2400,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 4426
+  },
+  "loaded": {
+    "libs": [],
+    "render_nodes": []
+  }
+}

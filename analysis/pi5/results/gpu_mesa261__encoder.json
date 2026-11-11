@@ -1,0 +1,76 @@
+{
+  "timing": {
+    "create_s": 14.458,
+    "first_call_s": 21.739,
+    "cold_s": 36.197,
+    "warm": {
+      "n": 3,
+      "median": 16.62757849600166,
+      "p90": 16.63716402600403
+    }
+  },
+  "calls_s": [
+    21.739,
+    16.73,
+    16.637,
+    16.628,
+    16.626
+  ],
+  "warmup": 1,
+  "timed": 3,
+  "nonfinite_calls": 5,
+  "mem_available_mb_before": 5640.515625,
+  "mem_available_drop_mb": 1694.5,
+  "cpu_over_wall": 0.0,
+  "peak_rss_mb": 2151,
+  "counters": {
+    "samples": 496,
+    "wall_ms": 49892.3,
+    "cpu_mhz_median": 1500.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 3946
+  },
+  "loaded": {
+    "libs": [
+      "/usr/lib/aarch64-linux-gnu/libvulkan.so.1.4.309",
+      "/usr/local/lib/python3.12/site-packages/ai_edge_litert/libLiteRtWebGpuAccelerator.so"
+    ],
+    "render_nodes": [
+      "/dev/dri/card0",
+      "/dev/dri/card1",
+      "/dev/dri/renderD128"
+    ]
+  },
+  "gpu_sampler": null,
+  "gpu_proof": {
+    "ok": false,
+    "why_not": [
+      "no vulkan library (libvulkan_intel.so) loaded",
+      "no i915 counters, or the GPU clock never left 0"
+    ],
+    "gpu_busy_frac": null,
+    "path": "vulkan"
+  },
+  "cell": "litert_gpu",
+  "graph": "encoder",
+  "runtime": "litert",
+  "device": "gpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "encoder.tflite",
+  "batch": 1,
+  "fully_accelerated": true,
+  "threads": 4,
+  "calls_per_photo": 1,
+  "delegate": {
+    "gpu_environment": true,
+    "refused": [],
+    "gpu_ops": null,
+    "cpu_ops": null,
+    "all_on_gpu": true
+  }
+}

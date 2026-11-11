@@ -1,0 +1,57 @@
+{
+  "timing": {
+    "create_s": 21.159,
+    "first_call_s": 7.864,
+    "cold_s": 29.024,
+    "warm": {
+      "n": 8,
+      "median": 7.560513209500641,
+      "p90": 7.617924608988687
+    }
+  },
+  "calls_s": [
+    7.864,
+    7.388,
+    7.586,
+    7.512,
+    7.559,
+    7.562,
+    7.651,
+    7.576,
+    7.555,
+    7.458,
+    7.618
+  ],
+  "warmup": 2,
+  "timed": 8,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5744.16796875,
+  "mem_available_drop_mb": 1523.2,
+  "cpu_over_wall": 3.69,
+  "peak_rss_mb": 2144,
+  "counters": {
+    "samples": 592,
+    "wall_ms": 60496.8,
+    "cpu_mhz_median": 2400.0,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 4221
+  },
+  "loaded": {
+    "libs": [],
+    "render_nodes": []
+  },
+  "gpu_sampler": null,
+  "cell": "torch",
+  "graph": "encoder",
+  "runtime": "torch",
+  "device": "cpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "release PyTorch modules",
+  "threads": 4,
+  "calls_per_photo": 1
+}

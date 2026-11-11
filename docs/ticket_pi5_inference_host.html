@@ -1,0 +1,368 @@
+<title>Raspberry Pi 5 as the inference host</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-23 · coffee-vision · inference host</div>
+  <h1>Measure the Raspberry Pi 5 as a replacement inference host, on its CPU and its GPU</h1>
+  <p class="lede">The owner asked whether the Home Assistant Raspberry Pi 5 could take over model inference from
+    <code>yappy</code>, running the models in Docker. Both paths were measured on 2026-11-10 with ML-7's photo replay and
+    its D7 check against PyTorch, on LiteRT, PyTorch and ONNX Runtime. Every fp32 path passes D7, but the fastest, ONNX
+    Runtime on the CPU, needs about 24 s of model time for a photo, and the fastest GPU path, LiteRT, about 104 s, where
+    <code>yappy</code>'s GPU needs about 8 s. With DINOv3 rewritten so that XNNPACK really runs it in fp16, the Pi's CPU
+    needs about 14 s per photo and stays within ADR 0020's fp16 bar on 288 photos. Measured; nothing is planned or
+    deployed.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-10; measurements done 2026-11-10 (CPU and GPU, D7 run on both); ONNX Runtime measured 2026-11-10; fp16 on the CPU measured 2026-11-10 and 2026-11-11; D1 to D4 open</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: inference host evaluation</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>analysis/pi5/</code> (scripts, the Vulkan layer and result records; the fp16 work in <code>analysis/pi5/fp16/</code>), <code>analysis/ml7_gpu/</code> (the replay, graph timing and D7 check it reuses)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (measurements), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-10</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-10.</strong> Connect to the Home Assistant Raspberry Pi 5 (HA OS, ssh alias
+      <code>webapphaos</code>) and see whether the project's models can run there on the CPU inside a Docker image, to
+      replace <code>yappy</code> for inference. Then: compare the Pi with <code>yappy</code>'s Intel N100; then try the
+      Pi's GPU through Mesa, Vulkan and LiteRT in fp32, with the latest Mesa, building it overnight if needed. Then:
+      record the CPU and GPU results as a ticket. Then: check the ONNX path on the Pi, CPU and GPU, against LiteRT and
+      PyTorch. Then (2026-11-10): continue the Pi experiments and report how inference on the Pi can be sped up with
+      fp16 arithmetic; do not report the XNNPACK bug found on the way.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The Pi 5 cannot replace <code>yappy</code> without making answers several times slower. Its CPU, on LiteRT with
+    XNNPACK in fp32, needs about 29 s of model time per photo as served today, and passes D7. fp16 on its CPU, with
+    today's graphs, either returns NaN or quietly runs at fp32 speed. With DINOv3's means rewritten (below) it runs at
+    2.5&times; DINOv3's fp32 speed, and with the segmenter left in fp32 a served photo takes about 14 s, within
+    ADR 0020's fp16 bar on 288 photos. Its GPU (V3D 7.1) runs the converted models through LiteRT's WebGPU accelerator only
+    with a Vulkan layer that hides two of V3DV's gaps from Dawn, and only with Mesa 26.2. It then passes D7 but needs
+    about 104 s per photo, 3.6&times; slower than the Pi's own CPU. ONNX Runtime is the fastest runtime on the Pi's
+    CPU, at about 24 s per photo and passing D7 (16% below LiteRT, 10% below PyTorch); its WebGPU plugin on the Pi's
+    GPU needs about 10 minutes per photo. <code>yappy</code>'s GPU needs about 8&ndash;9 s
+    (<a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The host.</strong> Raspberry Pi 5, 8 GB, 4 Cortex-A76 cores with hardware fp16 (<code>fphp</code>,
+      <code>asimdhp</code>), HA OS 18.5, Docker 29.8.2 reached through the Advanced SSH &amp; Web Terminal app (protection
+      mode off, user <code>hassio</code> with sudo). About 6.3 GB of memory was available beside Home Assistant's
+      containers, which kept running throughout. No fan; the CPU reached 84 &deg;C under sustained load, with the
+      reported clock at 2.4 GHz throughout (firmware throttle flags not read: no <code>vcgencmd</code> in the app).</li>
+    <li><strong>The instrument.</strong> ML-7's photo replay (<code>analysis/ml7_gpu/p4_replay.py</code>: 13 photos, the
+      segmenter's encoder and decoder twice per photo, then DINOv3 on the photo's 40 patches; the first photo, cold,
+      left out), its per-graph timing (<code>p4_graph.py</code>) and its D7 check (<code>parity.py</code>, through
+      <code>analysis/pi5/parity_now.py</code>, which fits it to today's <code>BeanSegmenter</code>), on ML-7's inputs and
+      PyTorch references (<code>analysis/ml7_gpu/artifacts/</code>, checkpoint
+      <code>allrigs_dino3b16_segxl0v3_country_s42</code>). The CPU runs use ML-7 P2's <code>.tflite</code> files, the
+      ones behind ADR 0019's <code>yappy</code> numbers; the fp16 DINOv3 and the GPU runs use the release's files
+      (<code>models/allrigs_dino3b16_segxl0v3_country_s42.litert/</code>), which carry
+      <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>'s forms.</li>
+    <li><strong>The containers.</strong> <code>python:3.12-slim</code> on arm64: <code>ai-edge-litert==2.3.0</code> (the
+      aarch64 wheel ships <code>libLiteRt.so</code> and <code>libLiteRtWebGpuAccelerator.so</code>);
+      <code>torch==2.14.0+cpu</code> from PyTorch's CPU index (PyPI's aarch64 wheel pulls in the CUDA stack);
+      <code>onnxruntime==1.31.0</code> and <code>onnxruntime-ep-webgpu==0.4.0</code>, ML-7's versions, both with
+      aarch64 wheels, on ML-7 P2's ONNX files (<code>analysis/ml7_gpu/artifacts/onnx/</code>); for the GPU, trixie with
+      Mesa 25.0.7, 26.1.6 from trixie-backports, and 26.2.6 from sid.</li>
+    <li><strong>A served photo</strong> runs the encoder and decoder once (one streamed request,
+      <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>) and DINOv3 on 40 patches at batch 8.
+      The replay runs the segmenter twice, as serving did at ML-7, so the per-photo serving estimates below are summed
+      from the per-graph times.</li>
+  </ul>
+
+  <h3>The CPU</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Graph, warm, per call</th><th>Pi 5, LiteRT fp32</th><th>Pi 5, PyTorch</th><th>Pi 5, ONNX Runtime</th><th><code>yappy</code> CPU, LiteRT</th><th><code>yappy</code> CPU, PyTorch</th><th><code>yappy</code> CPU, ONNX Runtime</th></tr></thead>
+    <tbody>
+      <tr><td>Encoder</td><td>4.17 s</td><td>7.56 s</td><td>5.82 s</td><td>6.91 s</td><td>6.49 s</td><td>4.88 s</td></tr>
+      <tr><td>Decoder</td><td>0.12 s</td><td>0.25 s</td><td>0.10 s</td><td>0.10 s</td><td>0.10 s</td><td>0.09 s</td></tr>
+      <tr><td>DINOv3, batch 8</td><td>4.93 s</td><td>3.86 s</td><td>3.69 s</td><td>6.72 s</td><td>4.39 s</td><td>4.82 s</td></tr>
+      <tr><td>DINOv3, batch 40</td><td>31.6 s</td><td>22.0 s</td><td>20.8 s</td><td>33.5 s</td><td>21.9 s</td><td>24.7 s</td></tr>
+      <tr><td><strong>A served photo, estimated</strong> (encoder + decoder + 5 &times; batch 8)</td><td>28.9 s</td><td>27.1 s</td><td><strong>24.4 s</strong></td><td>34.6 s</td><td>28.5 s</td><td>29.1 s</td></tr>
+    </tbody>
+  </table></div>
+  <p>Two warm-ups and eight timed calls per graph on the Pi (<code>analysis/pi5/results/graph_*.json</code>,
+    <code>ort_cpu__*.json</code>); the <code>yappy</code> columns are ML-7 P4 round 1. ONNX Runtime is its default CPU
+    provider (MLAS), 4 threads. One serving runtime holds both models (ADR 0019), so LiteRT's segmenter with another
+    runtime's DINOv3 (about 23 s together) is not an option.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Photo replay on the Pi's CPU</th><th>Per photo, median</th><th>D7 against PyTorch</th></tr></thead>
+    <tbody>
+      <tr><td>LiteRT fp32, DINOv3 batch 40, 2 passes</td><td>44.6 s (43.8 s in pass 2; 9 photos of pass 1 slowed by a
+        copy over ssh, 41 &rarr; 50 s)</td><td>Pass: least cosine 1.0000000, least mask IoU 0.999998, largest
+        probability change 3.5e-07, no answer changed. <code>yappy</code>'s CPU cell, checked the same way, has the same margins.</td></tr>
+      <tr><td>LiteRT, every graph forced to fp16 (XNNPACK flag 4), P2's files</td><td>13.3 s</td><td>Fail: NaN or Inf
+        in all 26 photos.</td></tr>
+      <tr><td>LiteRT, segmenter fp32 and the release's DINOv3 forced to fp16, batch 8</td><td>39.7 s</td><td>Fail:
+        least cosine 0.809, 11 of 13 answers changed. The cause is a fault in XNNPACK's fp16 rewrite, not range
+        (<a href="#fp16">fp16 on the CPU</a>).</td></tr>
+      <tr><td>PyTorch, batch 40 (2 photos only)</td><td>37.7 s</td><td>The reference itself.</td></tr>
+      <tr><td>ONNX Runtime, CPU provider, DINOv3 batch 8, 2 passes</td><td>31.8 s (p90 33.5 s)</td><td>Pass: least
+        cosine 1.0000000, least mask IoU 1.000000, largest probability change 6.0e-07, no answer changed.</td></tr>
+      <tr><td><em><code>yappy</code>: CPU LiteRT (batch 40) / CPU PyTorch (batch 40) / CPU ONNX Runtime (batch 8) / GPU
+        (production)</em></td><td><em>47.8 / 36.0 / 38.2 / 9.2 s</em></td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p>The LiteRT fp32 replay's peak RSS was 2.6 GB and its <code>MemAvailable</code> drop 1.3 GB; ONNX Runtime's 2.3 GB
+    and 1.8 GB. ONNX Runtime's first answer came 49 s after the process started, its graph optimisation at load
+    included; the worker warms its graphs at boot
+    (<a href="adr/0021-serving-warms-models-at-worker-boot.md">ADR 0021</a>).</p>
+
+  <h3>The GPU</h3>
+  <ul>
+    <li><strong>The device.</strong> <code>/dev/dri/renderD128</code> is <code>v3d</code> (V3D 7.1). Mesa's V3DV
+      reports Vulkan 1.3. Debian bookworm's Mesa 22.3 predates the Pi 5's GPU (Mesa 23.3), so the image is trixie. The
+      container also sees llvmpipe; <code>VK_ICD_FILENAMES</code> pins Broadcom's driver. Mesa 26 opens the display node
+      as well, so the container needs all of <code>/dev/dri</code>.</li>
+    <li><strong>Dawn refuses V3DV.</strong> LiteRT's WebGPU accelerator (Dawn) rejects the adapter with
+      <code>Vulkan shaderUniform*ArrayDynamicIndexing required</code>: V3DV reports all four
+      <code>shader*ArrayDynamicIndexing</code> features false. With those reported, Dawn then rejects WebGPU core's
+      limits: 4096 against 8192 for 1D, 2D and cube textures, viewports and framebuffers, 4 fragment outputs against 8,
+      and the inter-stage variables. All of these concern rendering, not compute. No environment variable changes this;
+      the <code>V3D_WEBGPU_OVERRIDE</code> found online appears in neither Mesa's driver nor LiteRT's library. The same
+      rejection is reported for another Dawn application on the Pi 5, unresolved
+      (<a href="https://github.com/TwilitRealm/dusklight/issues/2592">dusklight #2592</a>).</li>
+    <li><strong>The workaround.</strong> <code>analysis/pi5/pishim.c</code>, a Vulkan layer enabled only inside the test
+      container (<code>VK_INSTANCE_LAYERS=VK_LAYER_PI_webgpu_shim</code>), reports the four features (WGSL has no
+      descriptor arrays, so compute shaders cannot use them) and strips them from <code>vkCreateDevice</code>; with
+      <code>PISHIM_LIMITS=1</code> it reports the render limits at core's values. Dawn then selects
+      <code>V3D 7.1 &hellip; backend=Vulkan</code> and LiteRT places every operation of the release's graphs on the
+      GPU. With <code>PISHIM_DUMP</code> it saves each SPIR-V module Dawn creates.</li>
+    <li><strong>Mesa 25.0.7 (trixie) never compiles the decoder.</strong> Its 42nd module (36 KB of SPIR-V; a softmax
+      with a 32 &times; 4 local array of <code>vec2</code> and many <code>exp</code> calls) stayed in Mesa's generic NIR
+      optimisation loop (<code>nir_opt_algebraic</code>, <code>nir_opt_cse</code> under <code>v3d_optimize_nir</code>,
+      read with Debian's debug symbols) for more than 20 minutes. <code>V3D_DEBUG=opt_compile_time,noloopunroll</code>
+      did not help.</li>
+    <li><strong>Mesa 26.1.6 (trixie-backports) compiles every graph in about 4 minutes, but the encoder returns NaN or
+      Inf on all 5 calls.</strong></li>
+    <li><strong>Mesa 26.2.6 (sid) is correct.</strong></li>
+    <li><strong>ONNX Runtime's WebGPU plugin</strong> (also Dawn) needs the same layer and Mesa, and one more step:
+      ORT 1.31's own device discovery reads <code>/sys/class/drm/card*/device/vendor</code>, a PCI attribute, and skips
+      non-PCI cards other than NVIDIA's Jetson (<code>Skipping non-PCI DRM card</code>), so it offers the plugin no GPU.
+      The test container mounts a fake <code>/sys/class/drm</code> (<code>card0/device/vendor</code> 0x14e4,
+      <code>device</code> 0x2712, the V3D's <code>uevent</code>); Dawn and Mesa still open the real device through
+      <code>/dev/dri</code>. ORT then lists <code>WebGpuExecutionProvider</code> on a GPU.</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Graph, fp32, warm, per call</th><th>Pi 5 GPU, LiteRT, Mesa 26.2.6</th><th>Pi 5 GPU, ONNX Runtime WebGPU, Mesa 26.2.6</th><th>Pi 5 CPU, ONNX Runtime</th></tr></thead>
+    <tbody>
+      <tr><td>Encoder</td><td>16.8 s</td><td>105.7 s</td><td>5.82 s</td></tr>
+      <tr><td>Decoder</td><td>0.63 s</td><td>2.05 s</td><td>0.10 s</td></tr>
+      <tr><td>DINOv3, batch 8</td><td>17.5 s</td><td>101.1 s</td><td>3.69 s</td></tr>
+      <tr><td>DINOv3, batch 40</td><td>&mdash;</td><td>Fails: Mesa cannot allocate the device memory (<code>Failed to
+        allocate device memory for BO</code>), and ORT's download from the GPU fails</td><td>20.8 s</td></tr>
+      <tr><td><strong>A served photo, estimated</strong></td><td><strong>~104 s</strong></td><td><strong>~613 s</strong></td><td><strong>24.4 s</strong></td></tr>
+      <tr><td>Photo replay, batch 8</td><td>123.4 s (1 pass); D7 pass: least cosine 1.0000000, least mask IoU 0.999996,
+        largest probability change 4.8e-07, no answer changed</td><td>Not run</td><td>31.8 s (2 passes); D7 pass</td></tr>
+    </tbody>
+  </table></div>
+  <p>CPU time over wall time was 0.00&ndash;0.03 during the GPU's calls. The replay record's <code>gpu_proof</code> is
+    false only because <code>cellrun.gpu_proof</code> reads Intel's i915 counters; the V3D's own counter
+    (<code>gpu_stats</code>, queue <code>csd</code>) counted the compute jobs. The one published measurement found, of
+    llama.cpp's Vulkan backend on the same driver, puts the V3D at 25&times; slower than the Pi's CPU
+    (<a href="https://github.com/karolfurtak/jarvis-pi5-vulkan-embeddings">jarvis-pi5-vulkan-embeddings</a>).</p>
+
+  <h3 id="fp16">fp16 on the CPU</h3>
+  <p>The A76 has fp16 arithmetic, and XNNPACK uses it when LiteRT passes flag 4 (<code>FORCE_FP16</code>). DINOv3 is
+    about 80% of a served photo's time on the Pi's CPU, so the work went into it. Scripts and records:
+    <code>analysis/pi5/fp16/</code>.</p>
+  <ul>
+    <li><strong>XNNPACK converts a graph to fp16 entirely or not at all, and says nothing when it does not.</strong>
+      Graphs with ADR 0022's forms ran at fp32 speed under flag 4. The cause is the scaled LayerNorm's two
+      <code>.mean()</code> calls, which share one constant <code>1/768</code>. While widening fp16 sums' accumulators
+      to fp32 (<code>widen_fp16_accumulators</code>), XNNPACK reads that constant after replacing its buffer, so the
+      rewrite fails and the graph runs in fp32. On one block, two means kept fp16 to 1.10&times; fp32's speed; the same
+      block with its means as sums ran at 2.30&times;. ADR 0022's x86 fp16 checks may also have run partly in fp32. The
+      owner decided not to report the bug upstream.</li>
+    <li><strong>On the A76, XNNPACK's fp16 sums add up in fp16.</strong> With every mean written as
+      <code>sum(x &times; 1/N)</code> (<code>allpre</code>), the rewrite succeeds and runs at 1.88 s per call, but
+      gives NaN: block 0's output already has a cosine of 0.78. On x86 the same kernels add up in fp32.</li>
+    <li><strong>The form that works (<code>lnmean</code>).</strong> Every mean goes through TFLite's <code>MEAN</code>
+      operation, which XNNPACK widens correctly. The LayerNorm becomes <code>F.layer_norm(x / max|x|)</code>, and the
+      patch mean of the readout becomes an <code>AVERAGE_POOL_2D</code> over the 14 &times; 14 grid. The form is exact
+      except for eps. <code>F.layer_norm</code> takes a constant, so eps is 1e-12 instead of eps &times; r&sup2;, a
+      departure from <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>. eps is far below every token's
+      variance, and in fp32 the graph passes D7: least cosine 0.9999992.</li>
+    <li><strong>Splitting fc2's sum in two (<code>lnmean_split768</code>)</strong> brings the answers within the
+      fp16 bar at no measurable cost. fc2 has 3072 inputs; the split adds four 768-wide sums in a tree, as ADR 0022
+      does for the encoder's convolutions. Splitting every Linear at 128 is closer to fp32 but slower.</li>
+    <li><strong>The segmenter stays in fp32.</strong> P2's encoder returns NaN in fp16. The encoder with ADR 0022's
+      fp16 forms runs at 2.35 s in fp16, against 4.17 s for P2's encoder in fp32. On the replay, its masks fall to an
+      IoU of 0.99675 against the 0.999 bar. The x86-only fault in conv &rarr; GELU &rarr; conv that ML-7 found does not
+      occur on the A76.</li>
+    <li><strong>ONNX Runtime with ML-7's mixed-fp16 DINOv3</strong> takes 9.2 s per call on the Pi's CPU, slower than
+      its fp32 at 3.69 s, with least cosine 0.99907.</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>DINOv3, batch 8, Pi CPU, LiteRT</th><th>fp32, per call</th><th>Flag 4, per call</th><th>Flag 4, D7 on 13 photos (least cosine)</th></tr></thead>
+    <tbody>
+      <tr><td>P2 graph, no forms</td><td>4.70 s</td><td>1.69 s</td><td>NaN</td></tr>
+      <tr><td>Release graph, ADR 0022's forms</td><td>4.95 s</td><td>5.20 s (fp32 kept)</td><td>0.809</td></tr>
+      <tr><td><code>prescaled</code>: readout mean as a sum</td><td>5.20 s</td><td>5.13 s (fp32 kept)</td><td>0.99997</td></tr>
+      <tr><td><code>split128</code>: <code>prescaled</code>, every Linear split at 128</td><td>6.50 s</td><td>6.39 s (fp32 kept)</td><td>0.99997</td></tr>
+      <tr><td><code>allpre</code>: every mean as a sum</td><td>5.26 s</td><td>1.88 s</td><td>NaN</td></tr>
+      <tr><td><code>lnmean</code></td><td>5.41 s</td><td>1.83 s; 1.92, 1.85 s re-run</td><td>0.99919</td></tr>
+      <tr><td><strong><code>lnmean_split768</code></strong>: fc2 split</td><td>&mdash;</td><td><strong>2.15 s; 1.98, 1.77 s re-run</strong></td><td>0.99978</td></tr>
+      <tr><td><code>lnmean_split128</code>: every Linear over 128 inputs split</td><td>&mdash;</td><td>3.12 s</td><td>0.99992</td></tr>
+    </tbody>
+  </table></div>
+  <p>The strict D7 bar (cosine 0.99999) is fp32's, and fp16 is not expected to pass it. The fp16 rows above were
+    held to ADR 0020's fp16 bar on the photos serving accepts. The 288 photos present here
+    (<code>analysis/ml7_gpu/p7_answers.py</code>: serving's own patches, PyTorch fp32 as the base) were run on the Pi
+    with <code>ans_run.py</code>. 107 of them are accepted by the guard.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>288 photos, Pi fp16 against PyTorch fp32</th><th><code>lnmean</code></th><th><code>lnmean_split768</code></th><th>ADR 0020's fp16 bar</th></tr></thead>
+    <tbody>
+      <tr><td>Least patch cosine, 107 served photos</td><td>0.99846 &#10007;</td><td>0.99969 &#10003;</td><td>&ge; 0.999</td></tr>
+      <tr><td>p95 of the largest probability change, served</td><td>0.0555 &#10007;</td><td>0.0159 &#10003;</td><td>&le; 0.05</td></tr>
+      <tr><td>Top-1 changes, served (all 288)</td><td>0 (4, all on refused photos)</td><td>0 (1, refused)</td><td>&le; 1%</td></tr>
+      <tr><td>Guard verdict changes, all 288</td><td>0</td><td>0</td><td>0</td></tr>
+      <tr><td>NaN or Inf</td><td>0</td><td>0</td><td>0</td></tr>
+      <tr><td>DINOv3 per photo, median of 288</td><td>11.0 s</td><td>9.8 s</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p>In the 288-photo runs, <code>lnmean</code> ran first and was slower. The A, B, A, B re-run shows the two
+    variants at the same speed: about 1.9 s per call, or 9.4 s for a photo's 40 patches. <strong>A served photo with
+    the segmenter in fp32 (P2's encoder 4.17 s, decoder 0.12 s) and <code>lnmean_split768</code> in fp16 takes about
+    14 s</strong>. That compares with 24.4 s for ONNX Runtime fp32 and 28.9 s for LiteRT fp32 on the same CPU. With
+    the encoder in fp16 as well, the replay took 15.2 s per photo, the segmenter twice included (about 12 s served),
+    but failed the mask bar.</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>yappy</code> serves both models on its GPU, about 8&ndash;9 s per photo.</li>
+        <li>Whether the Pi 5 could serve was unknown.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The Pi 5 is measured: on its CPU about 24 s per photo with ONNX Runtime, 27 s with PyTorch and 29 s with
+          LiteRT, all fp32 and passing D7; on its GPU about 104 s with LiteRT, passing D7, and about 10 minutes with
+          ONNX Runtime's WebGPU plugin; with DINOv3 in fp16 in the <code>lnmean_split768</code> form, about 14 s on its
+          CPU, within ADR 0020's fp16 bar on 288 photos.</li>
+        <li>The scripts, the Vulkan layer and the result records are in <code>analysis/pi5/</code>, the fp16 work in
+          <code>analysis/pi5/fp16/</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>Serving.</strong> <code>yappy</code> keeps serving; no release, deploy or code path changes.</li>
+    <li><strong>Containerised serving stays closed</strong>
+      (<a href="../.out-of-scope/containerised-serving.md">.out-of-scope/containerised-serving.md</a>). The Pi could
+      only serve from a container on HA OS, so serving there would reopen that decision; nothing here proposes it.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The Pi's numbers are measured beside Home Assistant, without a fan.</strong></td>
+        <td>Other containers kept running and the CPU reached 84 &deg;C. The fp32 replay's photos varied by about 1 s
+          once the copy stopped; the conclusion holds with a large margin either way.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The GPU result depends on a layer that misreports the device.</strong></td>
+        <td>It reports features and limits V3DV lacks. D7 passed on all 13 photos, but a kernel that used a reported
+          texture size beyond 4096 would fail on the device. ONNX Runtime's GPU run adds a fake
+          <code>/sys/class/drm</code>. Both are kept to benchmark containers; neither is a serving path.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The fp16 result rests on 288 photos and on XNNPACK's behaviour.</strong></td>
+        <td>ADR 0022 sizes fp16 forms over all 2,027 photos in <code>dataset/</code>. Here 288 were checked, 107 of them
+          served, and the least served cosine (0.99969) is close to the bar. XNNPACK falls back to fp32 without saying so;
+          a LiteRT upgrade that fixes or moves the fault changes the speed, and possibly the arithmetic. Before serving
+          it, the form would be held to the full range scan and the bar on every photo, and the speed checked per
+          release.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Does the Pi 5 replace <code>yappy</code> as the inference host?</td>
+        <td>(a) No: <code>yappy</code> keeps serving, and this ticket closes as a measurement. (b) Yes, on the Pi's
+          CPU at about 29 s per photo with LiteRT, about 24 s with ONNX Runtime (D3), or about 14 s with DINOv3 in fp16
+          (D4), which reopens containerised
+          serving and needs an aarch64 lock and a Pi deploy path.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Is another host measured in the Pi's place?</td>
+        <td>(a) No. (b) An x86_64 mini PC with a larger iGPU, measured the same way (ADR 0019's replay and
+          <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>'s D7), in a ticket of its own:
+          discussed 2026-11-10 were an AMD Ryzen 7 7840HS or 8845HS (Radeon 780M), a Ryzen 6000 with a Radeon 680M, and an Intel
+          Core Ultra 5 125H, each with two memory channels and at least 16 GB.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>On a host that serves from its CPU, is ONNX Runtime a candidate serving runtime?</td>
+        <td>(a) No: ADR 0019 stands, LiteRT on XNNPACK, or PyTorch where LiteRT loses (its "D2 option (b)"). (b) Yes:
+          ONNX Runtime's CPU provider is timed and held to D7 beside them on such a host. It was the fastest CPU runtime
+          on the Pi (24.4 s against 27.1 s and 28.9 s per served photo) and beat LiteRT on <code>yappy</code>'s CPU
+          (ML-7 P4 replay: 38.2 s against 47.8 s); serving holds one runtime, so choosing it is a code change and an
+          amendment to ADR 0019.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>On a host that serves from an ARM CPU, does DINOv3 serve in fp16?</td>
+        <td>(a) No: fp32, about 24&ndash;29 s per photo on the Pi. (b) Yes, in the <code>lnmean_split768</code> form
+          with the segmenter in fp32, about 14 s per photo. This needs the form in <code>coffeecv/litert_forms.py</code>,
+          justified as a departure from ADR 0022 (constant eps), ADR 0020's fp16 bar extended from <code>yappy</code>'s
+          GPU to that host, and R3's checks. It matters only if D1 is (b).</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The models run on the Pi 5 in Docker, on its CPU (LiteRT and PyTorch) and
+      its GPU (LiteRT on Vulkan), timed with ML-7's instrument.</span></li>
+    <li><span class="box done"></span><span>ONNX Runtime timed on the Pi's CPU and GPU the same way.</span></li>
+    <li><span class="box done"></span><span>Each path's outputs held to D7 against PyTorch on ML-7's 13 photos (ONNX
+      Runtime's GPU path left out: about 10 minutes per photo).</span></li>
+    <li><span class="box done"></span><span>The scripts and result records committed in <code>analysis/pi5/</code>.</span></li>
+    <li><span class="box done"></span><span>fp16 on the Pi's CPU: why it failed found, a DINOv3 form that runs fast in
+      fp16 found, and held to ADR 0020's fp16 bar on 288 photos.</span></li>
+    <li><span class="box"></span><span>D1 to D4 decided by the owner.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li><strong>An NPU on the Pi.</strong> LiteRT's NPU support covers Google Tensor, MediaTek, Qualcomm, Samsung and
+      Intel (OpenVINO) only; the Pi's Hailo and Coral accelerators need their own compilers and int8 or int4 models.</li>
+    <li><strong>int8 models</strong>, and fewer than 40 patches per photo: both are model changes that would need their
+      own D7 work.</li>
+    <li><strong>Reporting the XNNPACK fault upstream</strong>: the owner decided against it (2026-11-10).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-10</div>Ticket written from the day's measurements on the Pi 5 (results in
+      <code>analysis/pi5/results/</code>). CPU and GPU measured, D7 run on both. D1 and D2 open. Not planned, not
+      implemented. The Pi's working files (<code>/share/coffee-bench</code>) and images (<code>coffee-bench:*</code>)
+      are still on it, and the SSH app's protection mode is still off.</div>
+    <div><div class="when">2026-11-10</div>Owner asked for the ONNX path on the Pi, CPU and GPU. ONNX Runtime 1.31.0
+      measured with ML-7 P2's ONNX files (<code>analysis/pi5/ort_runs.sh</code>, records
+      <code>analysis/pi5/results/ort_*.json</code>): the fastest CPU runtime on the Pi (about 24 s per served photo,
+      D7 pass on the 13-photo replay); its WebGPU plugin about 10 minutes per photo, and out of GPU memory at DINOv3
+      batch 40. D3 added. D1, D2 and D3 open.</div>
+    <div><div class="when">2026-11-11</div>Owner asked how fp16 can speed up inference on the Pi. Found why XNNPACK's
+      fp16 failed or did not engage on ADR 0022's forms, and wrote a DINOv3 form (<code>lnmean_split768</code>) that
+      runs at about 1.9 s per batch-8 call in fp16. It is within ADR 0020's fp16 bar on 288 photos. A served photo
+      takes about 14 s with the segmenter in fp32. Scripts and records in <code>analysis/pi5/fp16/</code>. D4 and R3
+      added. The Pi's working files and images are kept for now.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_inference_runtime.html">ML-7</a>,
+    <a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>,
+    <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>,
+    <a href="adr/0022-export-forms-are-exact.md">ADR 0022</a>,
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <code>analysis/ml7_gpu/</code>, <code>analysis/pi5/</code>,
+    <a href="https://github.com/TwilitRealm/dusklight/issues/2592">dusklight #2592</a>,
+    <a href="https://github.com/karolfurtak/jarvis-pi5-vulkan-embeddings">jarvis-pi5-vulkan-embeddings</a>.</footer>
+</main>

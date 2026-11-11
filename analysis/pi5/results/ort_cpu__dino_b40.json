@@ -1,0 +1,61 @@
+{
+  "timing": {
+    "create_s": 1.017,
+    "first_call_s": 20.332,
+    "cold_s": 21.348,
+    "warm": {
+      "n": 8,
+      "median": 20.804802193000796,
+      "p90": 20.93433200000436
+    }
+  },
+  "calls_s": [
+    20.332,
+    21.044,
+    20.775,
+    20.934,
+    20.957,
+    20.813,
+    20.717,
+    20.796,
+    20.736,
+    20.752,
+    20.82
+  ],
+  "warmup": 2,
+  "timed": 8,
+  "nonfinite_calls": 0,
+  "mem_available_mb_before": 5948.45703125,
+  "mem_available_drop_mb": 1792.5,
+  "cpu_over_wall": 3.87,
+  "peak_rss_mb": 2298,
+  "counters": {
+    "samples": 1625,
+    "wall_ms": 166527.9,
+    "cpu_mhz_median": 2400,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 4156
+  },
+  "loaded": {
+    "libs": [],
+    "render_nodes": []
+  },
+  "gpu_sampler": null,
+  "cell": "ort_cpu",
+  "graph": "dino_b40",
+  "runtime": "ort",
+  "device": "cpu",
+  "precision": "fp32",
+  "variant": "",
+  "file": "dino_b40.onnx",
+  "batch": 40,
+  "providers": [
+    "CPUExecutionProvider"
+  ],
+  "threads": 4,
+  "calls_per_photo": 1
+}

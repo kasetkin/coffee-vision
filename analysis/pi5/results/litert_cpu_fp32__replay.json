@@ -1,0 +1,99 @@
+{
+  "cell": "litert_cpu",
+  "batch": 40,
+  "passes": 2,
+  "threads": 4,
+  "graphs": {
+    "encoder": {
+      "cell": "litert_cpu",
+      "graph": "encoder",
+      "runtime": "litert",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "encoder.tflite",
+      "batch": 1,
+      "fully_accelerated": true
+    },
+    "decoder": {
+      "cell": "litert_cpu",
+      "graph": "decoder",
+      "runtime": "litert",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "decoder.tflite",
+      "batch": 1,
+      "fully_accelerated": false
+    },
+    "dino": {
+      "cell": "litert_cpu",
+      "graph": "dino_b40",
+      "runtime": "litert",
+      "device": "cpu",
+      "precision": "fp32",
+      "variant": "",
+      "file": "dino_b40.tflite",
+      "batch": 40,
+      "fully_accelerated": false
+    }
+  },
+  "load_s": 0.837,
+  "first_answer_s": 42.418,
+  "process_to_first_answer_s": 42.981,
+  "photo_s": [
+    41.58,
+    40.748,
+    44.617,
+    51.095,
+    49.85,
+    50.399,
+    49.98,
+    51.306,
+    51.716,
+    50.852,
+    51.483,
+    51.299,
+    42.907,
+    43.725,
+    43.379,
+    43.184,
+    42.958,
+    43.545,
+    43.051,
+    43.901,
+    43.842,
+    43.973,
+    44.288,
+    44.865,
+    44.582,
+    45.33
+  ],
+  "photo": {
+    "n": 25,
+    "median": 44.582082006003475,
+    "p90": 51.305633203999605
+  },
+  "nonfinite_photos": 0,
+  "cpu_over_wall": 3.73,
+  "peak_rss_mb": 2585,
+  "mem_available_mb_before": 5747.66796875,
+  "mem_available_drop_mb": 1256.7,
+  "counters": {
+    "samples": 11547,
+    "wall_ms": 1198463.8,
+    "cpu_mhz_median": 2400,
+    "gpu_mhz_median": null,
+    "gpu_mhz_max": null,
+    "rc6_ms_delta": null,
+    "pl1_throttled": null,
+    "temp_c_max": null,
+    "mem_available_mb_min": 4491
+  },
+  "loaded": {
+    "libs": [
+      "/usr/local/lib/python3.12/site-packages/ai_edge_litert/libLiteRtWebGpuAccelerator.so"
+    ],
+    "render_nodes": []
+  }
+}
