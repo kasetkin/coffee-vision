@@ -9,10 +9,10 @@
   <p class="lede">The owner asked that the page stop sending the visitor's file as it is: a file that is not an image
     should be refused before it is sent, a 200 MP photo or a RAW file should not travel at full size, and the photo's
     private metadata should not reach the server. The design was settled in one discussion with the owner on
-    2026-10-28 (D1&ndash;D19), and the plan's questions answered the same day (D20&ndash;D25). Planned in <a href="plan_browser_prepared_photo.html">the plan</a>; not implemented.</p>
+    2026-10-28 (D1&ndash;D19), and the plan's questions answered the same day (D20&ndash;D25). Planned in <a href="plan_browser_prepared_photo.html">the plan</a>; not implemented. <em>Closed 2026-11-11 by the owner's decision that it will not be implemented (D26).</em></p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-10-28; D1&ndash;D25 decided; planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-11 by the owner: not implemented (D26); written 2026-10-28; D1&ndash;D25 decided; planned, never implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Not set</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Web page: photo preparation on the device</span></div>
@@ -129,7 +129,7 @@
         <td>The browser has no exiftool. P2 plants private tags in real photos of every format and runs
           <code>strip_metadata</code>'s exiftool audit on the page's output in Chromium, Firefox and WebKit (D16).</td></tr>
       <tr><td class="id">R5</td><td><strong>A compromised JavaScript or WASM package.</strong></td>
-        <td>pnpm only, which runs no install script unless allowed by name (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>),
+        <td>pnpm only, which runs no install script unless allowed by name (<a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a>),
           a frozen lockfile, packages reviewed for build provenance and served from our own origin (D12).</td></tr>
       <tr><td class="id">R6</td><td><strong>The site and the CLI give different pixels for the same file.</strong></td>
         <td>Accepted (D3, D5): the site classifies the prepared photo. <code>coffeecv/infer.py</code>'s parity claim is
@@ -177,7 +177,7 @@
       <tr><td class="id">D7</td><td>Language and package manager?</td>
         <td>(a) TypeScript. (b) Rust to WASM. (c) Python in Pyodide.</td>
         <td><strong>(a)</strong>, 2026-10-28. Packages with pnpm, never npm, against supply-chain attacks
-          (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>).</td></tr>
+          (<a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a>).</td></tr>
       <tr><td class="id">D8</td><td>WASM or the browser's codecs only?</td>
         <td>(a) Browser codecs only: JPEG out, a cap of about 16 MP for iOS's canvas. (b) WASM codecs.</td>
         <td><strong>(b)</strong>, 2026-10-28: "we definitely will use WASM". WASM decoders for HEIC, JXL and RAW,
@@ -255,6 +255,13 @@
         <td>Chosen from P3's paired results and crops.</td>
         <td>2026-10-28: "start with d=0.5 and select after testing as planned": d&nbsp;=&nbsp;0.5 from the prototype on,
           replacing D5's starting 1.0, until the owner picks from P3.</td></tr>
+      <tr><td class="id">D26</td><td>Implement this ticket?</td>
+        <td>(a) yes, as planned (b) no: close it as not implemented</td>
+        <td><strong>(b)</strong>, 2026-11-11: "write decision that this will not be implemented. And close ticket." Since
+          it was written the server's front came to canonicalize every photo before the slow link (ML-19, ADR 0033;
+          OPS-22, ADR 0036): turned upright, capped, re-encoded, without metadata; the visitor's file is still uploaded
+          as it is. D1&ndash;D25 stand as the record of the design. ADR 0031 of this branch, pnpm, is renumbered 0038
+          (main's 0031 is another) and withdrawn; the four glossary terms it added are not merged.</td></tr>
     </tbody>
   </table></div>
 
@@ -288,15 +295,17 @@
     <div><div class="when">2026-10-28</div>Ticket written from the owner's request and a design discussion with
       Claude (<code>/grill-with-docs</code>) on <code>main</code> at <code>711d794</code>. D1&ndash;D19 decided;
       glossary terms Preview, Local thumbnail, Prepared photo and Original file added;
-      <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a> written. Planned, not implemented.</div>
+      <a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a> written. Planned, not implemented.</div>
     <div><div class="when">2026-10-28</div>The owner answers the plan's Q1&ndash;Q6, recorded as D20&ndash;D25. Not
       implemented.</div>
+    <div><div class="when">2026-11-11</div>D26: not implemented. Closed by the owner; the branch, never merged till now,
+      merged into main as the record, with its ADR renumbered 0038 and withdrawn, and without its glossary terms.</div>
   </div>
 
   <footer>Related: <a href="plan_browser_prepared_photo.html">OPS-12 plan</a>,
     <a href="ticket_photos_and_answers_optimization.html">OPS-7</a>,
     <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>,
     <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
-    <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>, <code>webapp/app.py</code>,
+    <a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a>, <code>webapp/app.py</code>,
     <code>coffeecv/photo_io.py</code>, <code>coffeecv/strip_metadata.py</code>.</footer>
 </main>

@@ -90,7 +90,7 @@
   <ol class="tasks">
     <li><span class="box"></span><span>Toolchain in <code>webapp/page/</code>: <code>package.json</code>,
       <code>pnpm-lock.yaml</code>, Node pinned, TypeScript, one bundler; pnpm's install-script allow list empty unless a
-      codec needs one, each such entry named (<a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>).
+      codec needs one, each such entry named (<a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a>).
       Node and pnpm in the devcontainer. Compiled output ignored by git (D15).</span></li>
     <li><span class="box"></span><span>Codec packages for HEIC, JXL (decode and encode) and RAW, each reviewed for
       build provenance and recorded with version and source (D12); single- and multi-threaded builds (D11).</span></li>
@@ -227,9 +227,11 @@
       the prototype served over HTTPS on the LAN; RAW in the browser where possible; effort 5 and
       d&nbsp;=&nbsp;0.5 to start, each picked after testing; only a non-image is refused. P5 no longer asks about the
       fallback. Not implemented.</div>
+    <div><div class="when">2026-11-11</div>Not implemented: the ticket closed by the owner (D26). No phase was
+      started.</div>
   </div>
 
   <footer>Related: <a href="ticket_browser_prepared_photo.html">OPS-12 ticket</a>,
-    <a href="adr/0031-pnpm-for-every-javascript-dependency.md">ADR 0031</a>, <code>docs/agents/experiments.md</code>,
+    <a href="adr/0038-pnpm-for-every-javascript-dependency.md">ADR 0038</a>, <code>docs/agents/experiments.md</code>,
     <code>docs/agents/deploy.md</code>, <code>webapp/static/index.html</code>, <code>coffeecv/strip_metadata.py</code>.</footer>
 </main>
