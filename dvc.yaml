@@ -551,6 +551,13 @@ stages:
         - coffeecv/sam_loader.py
         - coffeecv/canonical.py
         - coffeecv/canonical_store.py
+        # Ticket ML-26: what a canonical photo's bytes depend on besides its original (the canonicalize stages' deps),
+        # so that a photo's mask may be kept by its original's sha256 (coffeecv.incremental).
+        - coffeecv/canonicalize_folder.py
+        - coffeecv/jxl_encode.py
+        - coffeecv/jxl_header.py
+        - coffeecv/data/rec2020_bt709.icc
+        - coffeecv/data/accepted_formats.csv
         - third_party/efficientvit/efficientvit
         - labels/ml5/seg_dataset.yaml
         - data/canonical
@@ -561,7 +568,9 @@ stages:
             - seg_prompt
             - seg_mask_select
       outs:
-        - data/seg_masks_ml19/${key}
+        # Ticket ML-26: kept between runs; the stage predicts only photos new to the split or changed.
+        - data/seg_masks_ml19/${key}:
+            persist: true
 
   # Ticket ML-7 D6 (plan P9): the shipped model converted for LiteRT, beside its checkpoint, as the release serves it
   # (coffeecv.export_litert): the graphs converted in convert/.venv (litert-torch needs torch below 2.14), then the

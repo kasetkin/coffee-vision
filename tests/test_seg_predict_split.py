@@ -100,19 +100,23 @@ class ModelArgument(unittest.TestCase):
 
     def test_a_registered_name_writes_under_its_name_by_default(self):
         self.assertEqual(self.run_main(["xl0_v3", "--split", "test", "--threads", "1"]),
-                         [("xl0_v3", "test", seg_predict.ML5_MASK_ROOT / "xl0_v3")])
+                         [("xl0_v3", "test", seg_predict.ML5_MASK_ROOT / "xl0_v3", False)])
 
     def test_out_moves_the_masks(self):
         out = REPO_ROOT / "data" / "seg_masks_ml9" / "xl0_v3"
         self.assertEqual(self.run_main(["xl0_v3", "--split", "test", "--threads", "1", "--out", str(out)]),
-                         [("xl0_v3", "test", out)])
+                         [("xl0_v3", "test", out, False)])
 
     def test_weights_and_decoder_need_out(self):
         with self.assertRaises(SystemExit):
             self.run_main([self.UNREGISTERED, "--split", "test", "--threads", "1"])
         out = REPO_ROOT / "data" / "seg_masks_ml9" / "candidate"
         self.assertEqual(self.run_main([self.UNREGISTERED, "--split", "test", "--threads", "1", "--out", str(out)]),
-                         [(self.UNREGISTERED, "test", out)])
+                         [(self.UNREGISTERED, "test", out, False)])
+
+    def test_full_predicts_every_photo(self):   # ML-26
+        self.assertEqual(self.run_main(["xl0_v3", "--split", "test", "--threads", "1", "--full"]),
+                         [("xl0_v3", "test", seg_predict.ML5_MASK_ROOT / "xl0_v3", True)])
 
     def test_unknown_weights_are_refused(self):
         with self.assertRaises(SystemExit):

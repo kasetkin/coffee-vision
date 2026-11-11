@@ -4580,14 +4580,34 @@ stages:
       hash: md5
       md5: a85569f0556feacaa2191bb522e17dce
       size: 2454
+    - path: coffeecv/canonicalize_folder.py
+      hash: md5
+      md5: a0d4ce82557e4d6d041695a94256747f
+      size: 7013
+    - path: coffeecv/data/accepted_formats.csv
+      hash: md5
+      md5: fd81f1db7362efc20efffc5c0aeab2cc
+      size: 1637
+    - path: coffeecv/data/rec2020_bt709.icc
+      hash: md5
+      md5: 7015ab7a67fa33e20399cfdf84c7ff4f
+      size: 536
+    - path: coffeecv/jxl_encode.py
+      hash: md5
+      md5: a7295467d3eccc4c4c11493555e4a2ee
+      size: 13057
+    - path: coffeecv/jxl_header.py
+      hash: md5
+      md5: 9ceaf6f0f147e9676e4a9ca40333e50a
+      size: 8567
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
       size: 3296
     - path: coffeecv/seg_predict.py
       hash: md5
-      md5: 0caf1f0ff5a3e6ca8445dc69959a0738
-      size: 5324
+      md5: 91bad0d7b38a2eae7859894166cc5572
+      size: 9200
     - path: coffeecv/segment_beans.py
       hash: md5
       md5: 6fa89509a93a12ac601f8bb9773dc733

@@ -162,13 +162,13 @@ class Recorded(unittest.TestCase):
 
 
 class TheRepositorysStages(unittest.TestCase):
-    """The real dvc.yaml: both stages resolve as DVC's dvc.lock records them."""
+    """The real dvc.yaml: the three incremental stages resolve as DVC's dvc.lock records them."""
 
     def test_every_canonicalize_and_segcrop_stage_resolves_to_its_lock_entry(self):
         root = inc.REPO_ROOT
         lock = yaml.safe_load((root / "dvc.lock").read_text())["stages"]
         params = yaml.safe_load((root / "params.yaml").read_text())
-        names = [s for s in lock if s.split("@")[0] in ("canonicalize", "segcrop")]
+        names = [s for s in lock if s.split("@")[0] in ("canonicalize", "segcrop", "seg_ml19_predict")]
         self.assertGreater(len(names), 30)
         for stage in names:
             spec = inc.stage_spec(root, stage, params)
