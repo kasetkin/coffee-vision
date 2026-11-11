@@ -233,6 +233,18 @@ class TestStrip(unittest.TestCase):
         frames[0].save(self.tmp / "b.gif", save_all=True, append_images=frames[1:])
         self.assertNotEqual(sm.pixel_digest(self.tmp / "a.gif"), sm.pixel_digest(self.tmp / "b.gif"))
 
+    def test_a_jpegs_gain_map_is_no_frame(self):
+        """2026-11-11: Pillow read a Pixel 9 Pro's Ultra HDR JPEG as one frame, and as a two-frame MPO once exiftool had
+        rewritten its metadata: frames counted that way differ for the same pixels. A JPEG's digest is its primary
+        image's; the gain map is compared as bytes, an MPF tag."""
+        rng = np.random.default_rng(0)
+        primary = Image.fromarray(rng.integers(0, 255, (32, 48, 3), dtype=np.uint8))
+        gain = Image.fromarray(rng.integers(0, 255, (8, 12, 3), dtype=np.uint8))
+        primary.save(self.tmp / "a.jpg", quality=90)
+        primary.save(self.tmp / "b.jpg", format="MPO", save_all=True, append_images=[gain], quality=90)
+        self.assertEqual(Image.open(self.tmp / "b.jpg").n_frames, 2)
+        self.assertEqual(sm.pixel_digest(self.tmp / "a.jpg"), sm.pixel_digest(self.tmp / "b.jpg"))
+
     def test_dry_run_changes_nothing(self):
         path = write_fixture(self.tmp / "a.jpg")
         sha = sm.sha256_file(path)

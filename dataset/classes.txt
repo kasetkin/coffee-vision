@@ -15,3 +15,4 @@
 015;Indonesia;
 016;Ethiopia,Guji,SukeQuto;Daannisa
 017;Peru,Amazonas;Monteverde
+018;CostaRica;

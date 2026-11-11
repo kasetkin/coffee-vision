@@ -532,14 +532,11 @@ stages:
       outs:
         - data/seg_masks_xl0v6/${key}
 
-  # Ticket ML-19 P7 (D14, D48): today's segmenter's masks of the canonical test split, stored for ML-16's blind paired
-  # session against its new segmenter: the baseline that separates the input's change from the training's.
-  # xl0_v7r_s123 (ML-16 D8), the segmenter this release ships: its masks of the same photos, for the tiny-mask
-  # threshold and the owner's look.
+  # Ticket ML-19 P7 (D14, D48): the segmenter's masks of the canonical test split. xl0_v7r_s123 (ML-16 D8), the
+  # segmenter the release ships: for the tiny-mask threshold and the owner's look. xl0_v6_s42's, the baseline for
+  # ML-16's blind paired session, dropped by the owner 2026-11-11 (ML-25 D7); its last masks are in dvc.lock at 727ac3b.
   seg_ml19_predict:
     foreach:
-      xl0_v6_s42:
-        model: ${seg_ft.weights}:models/seg/xl0_v6_s42.pt
       xl0_v7r_s123:
         model: ${seg_ft.weights}:models/seg/xl0_v7r_s123.pt
     do:

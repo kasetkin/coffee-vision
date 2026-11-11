@@ -11,10 +11,10 @@
     <code>tasty_coffee</code>, and added classes 016 and 017. This ticket records the intake: the strip, the
     renames, the pipeline re-run, the segmenter dataset and the owner's decisions on it, a GIF among them, which
     amends ADR 0034. Written 2026-11-11; the intake is done and committed; the owner's review of the new crops is
-    open.</p>
+    open. <em>Since then</em> (2026-11-11) a second batch: 43 photos, class 018 among them.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object); the owner's crop review open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; intake done 2026-11-10 to 2026-11-11 (strip, renames, pipeline, segmenter dataset, DVC pushed and checked object by object; 727ac3b); the second batch of 2026-11-11 the same way; the owner's crop review open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -40,6 +40,11 @@
   <p>All 146 are in the segmenter dataset, which grew from 1,504 to 1,650 photos with no entry removed or changed: the
     pool from 567 to 702, the negatives from 615 to 626. The classifier's pool grew from 1,493 to 1,628 crops. The
     owner's 467 renames went through every record that names a photo (D1).</p>
+  <p>On 2026-11-11 a second batch: 40 bean photos in <code>random_date_raccoon</code> (26 in
+    <code>class_001__Ethiopia_Sidamo</code>, 3 in a new <code>class_008__Ethiopia_Yirgacheffe</code>, 7 in
+    <code>class_014__Colombia_Excelso</code>, 4 in a new <code>class_018__CostaRica</code>) and 3 negatives. All were
+    stripped, none is a copy, none a D18 fallback. The segmenter dataset grew to 1,693 photos (pool 742, negatives
+    629), the classifier's pool to 1,668 crops.</p>
 
   <h2>2. Background</h2>
   <ul>
@@ -51,7 +56,8 @@
     <li><strong>Classes 016 and 017.</strong> The owner's two new <code>classes.txt</code> lines had a <code>;</code>
       too many, and the loader refused the file; written in D15's format,
       <code>016;Ethiopia,Guji,SukeQuto;Daannisa</code> and <code>017;Peru,Amazonas;Monteverde</code> (D5). The class is
-      the country, so neither is a new class to the classifier.</li>
+      the country, so neither is a new class to the classifier. Nor is the owner's <code>018;CostaRica;</code> of
+      the second batch, a Costa Rica of unknown region beside 004's Tarrazu.</li>
     <li><strong>Twins.</strong> A JPG and a DNG of one shot share a file name but for the suffix, and so share a crop
       name: the second crop overwrote the first, and 11 photos had no crop of their own. <code>find_duplicates</code>
       scored 20 such pairs above its threshold and 10 below it; it never compared the GIF with its JPG, as GIF was not
@@ -76,11 +82,11 @@
     <div>
       <h3>After</h3>
       <ul>
-        <li>Segmenter dataset: 1,650 photos; pool 702, negatives 626.</li>
+        <li>Segmenter dataset: 1,650 photos; pool 702, negatives 626. After the second batch 1,693; pool 742, negatives 629.</li>
         <li><code>whole_folders</code>: <code>random_date_raccoon</code>, <code>massimo</code>,
           <code>tasty_coffee</code>.</li>
         <li>Intake strips GIFs too: their XMP, every frame compared (D6, ADR 0034 amended).</li>
-        <li><code>user_realworld</code>: 492 photos, named <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_ood_negative</code>.</li>
+        <li><code>user_realworld</code>: 492 photos (495 after the second batch), named <code>YYYYMMDD_HHMMSS_&lt;phone&gt;_ood_negative</code>.</li>
       </ul>
     </div>
   </div>
@@ -144,6 +150,11 @@
           <code>.gif</code>: its XMP goes, its comment stays, every frame is compared; <code>seg_dataset</code> and
           <code>find_duplicates</code> read that list. Amends
           <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</td></tr>
+      <tr><td class="id">D7</td><td><code>seg_ml19_predict@xl0_v6_s42</code>, the previous segmenter's masks of the
+          test split, kept up to date with each intake?</td>
+        <td>(a) keep it (b) drop it</td>
+        <td>(b), 2026-11-11: "drop xl0_v6_s42 baseline". The stage keeps <code>xl0_v7r_s123</code> only; the
+          baseline's last masks are in <code>dvc.lock</code> at 727ac3b, on the DVC remote.</td></tr>
     </tbody>
   </table></div>
 
@@ -159,7 +170,10 @@
     <li><span class="box done"></span><span>The segmenter dataset built: 146 added, none changed; both
       <code>seg_ml19_predict</code> stages re-run (36 new masks each, 119 renamed, the same bytes).</span></li>
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes.</span></li>
-    <li><span class="box"></span><span>The owner's review of the 135 new pool crops.</span></li>
+    <li><span class="box done"></span><span>The second batch the same way: 43 photos stripped and in the manifest,
+      the segmenter dataset 1,693 photos (43 added, none changed).</span></li>
+    <li><span class="box"></span><span>The owner's review of the 135 new pool crops, and of the second batch's 40
+      (<code>outputs/intake_2026-11-11/review/items.csv</code>).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -180,7 +194,14 @@
     <div><div class="when">2026-11-11</div>D4&ndash;D6. The 11 JPGs out, the two sessions re-run; GIF intake in
       <code>strip_metadata</code>, test first; the segmenter dataset built (1,650 photos) and both
       <code>seg_ml19_predict</code> stages re-run; everything pushed and checked; the full check passes. Ticket written
-      and committed on branch <code>ml25-intake-2026-11-10</code>. The crop review open.</div>
+      and committed on branch <code>ml25-intake-2026-11-10</code> (727ac3b). The crop review open.</div>
+    <div><div class="when">2026-11-11</div>The second batch: 43 photos. The strip first failed 27 of them, every
+      Pixel 9 Pro and OnePlus JPEG, "decoded pixels differ": D6's every-frame check read a JPEG's Ultra HDR gain map
+      as an MPO's second frame after exiftool and not before. The photos were untouched; the check now counts a
+      GIF's frames only, test first, and the 27 stripped on the rerun. One pair at 0.87 for a look (a Costa Rica
+      bag, an Indonesia cup): two photos. 3 negatives split with seed 20261111: 2 dev, 1 holdout. The pipeline,
+      the segmenter dataset (43 added). <code>seg_ml19_predict@xl0_v6_s42</code>'s rerun could not be recorded (a
+      DVC push held the lock); the owner then dropped it (D7), and <code>@xl0_v7r_s123</code> was re-run.</div>
   </div>
 
   <footer>Related: <a href="ticket_next_training_session.html">ML-16</a> (the intake before this one),

@@ -5614,6 +5614,24 @@ photos:
   batch: user_realworld
   split: test
   group: dataset/ood_negatives/user_realworld/20261109_145731_G8441_ood_negative.JPG
+- path: dataset/ood_negatives/user_realworld/20261111_121826_Pixel_9_Pro_ood_negative.jpg
+  sha256: 57842ebf9176a2a12c53f2a7161432d236ca6d9a9b693d1ddc4a6376e7f8345e
+  source: negative
+  batch: user_realworld
+  split: train
+  group: dataset/ood_negatives/user_realworld/20261111_121826_Pixel_9_Pro_ood_negative.jpg
+- path: dataset/ood_negatives/user_realworld/20261111_130406_Pixel_9_Pro_ood_negative.jpg
+  sha256: ae768d28552389e87ca666e426fcb5da9f6ae6fa49b5b709e14ece6eba17686a
+  source: negative
+  batch: user_realworld
+  split: train
+  group: dataset/ood_negatives/user_realworld/20261111_130406_Pixel_9_Pro_ood_negative.jpg
+- path: dataset/ood_negatives/user_realworld/20261111_150045_G8441_ood_negative.JPG
+  sha256: b465acb2767745b8969e371b6e2365dddff48d4f2f0381cfc51bb32bcb2d54da
+  source: negative
+  batch: user_realworld
+  split: test
+  group: dataset/ood_negatives/user_realworld/20261111_150045_G8441_ood_negative.JPG
 - path: dataset/ood_negatives/user_realworld/IMG_20260505_110109_307.jpg
   sha256: 5c16e4692ce4cfd2cda5f8cd17e8d715d79f2745ff6a66590f66ac86350f44bb
   source: negative
@@ -5945,6 +5963,162 @@ photos:
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_143617_G8441_Ethiopia.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_121402_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: ad421582aa58bb473f7fbb067f004cda4b710f56b3a34a4eea4b29d85c61021e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_121402_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_121412_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: d4f276660e840ddca2897cfac6186886e03b2f0843d630b197dfcd048b6415d2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_121412_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122039_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: 855e4abd3c70dfc7d011e28e5996068d830bb427783a9a4b0fc27e37e9cf75c8
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122039_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122044_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: 5a7ffab621b0312c0f437888b4474019265d239cece4c07688011b490c5fd7ef
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122044_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122048_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: 32b8fc23475ec37d81697268a073eadb559c5cd688d64a98bf0cb77cdec8a94d
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122048_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122051_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+  sha256: a82e01ed666b77fb529b6e6644ec29260a3cca4afca86d360512370093b6f56c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_122048_Pixel_9_Pro_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123621_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: 637d8608412056cdaede4fa05fa94329ceb5c4ae75a9da6e019bbca472ba7168
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123621_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123634_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: ffda60a9e840de7bc92aa44155eb9f782ec1cf7fe9a68030b4cdbb57af69411e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123634_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123643_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: 5c93e21906fa9fade8d11a7c2a5fc4cd53b41de5a59893d00d2f8c73361c017c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123643_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123645_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: e949ba54bc7551e37903f8bb80d812be831a98baa14f1eb6370bba14760a6c39
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123643_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123728_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: c33d364608d4d9f9a143e01f5674d1a72bb725eb0623df928881909581354119
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123728_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123743_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: d8f3f916cadecaa8ccef575bdf34432c05c0b5ef0664d5d2fa67d6dc25c87f3c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123743_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123749_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: e5dc114f31b9b9fa1c7d5351307fc2043be3c9eb85a866273889b25322af6fbf
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123749_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123808_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: 30cb171b8496cbb3474a68bba6c06bdf39377d8baf71c7fa0122ec430854f167
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123808_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123831_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: 3005c3594873160d95ec0799c554a7d50e8dccbd741c5b8228c91ac3a388c6f2
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123831_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123904_OnePlus_Ethiopia_Sidamo.jpg
+  sha256: 01b2a3e21d2177731c10023c653f48ac619a4968ae94e845c778f250cdc46b67
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_123904_OnePlus_Ethiopia_Sidamo.jpg
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143238_G8441_Ethiopia_Sidamo.JPG
+  sha256: cbbb609c6927181d8060c13d4ddd7e7447fbb1b07f9e0f1c8db7ff9abb20727e
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143238_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143313_G8441_Ethiopia_Sidamo.JPG
+  sha256: 96c14e7e8972a66cef8cd2503d8aeb3a884dcd73c23fa1de48c4ef1c41086fd7
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143313_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143433_G8441_Ethiopia_Sidamo.JPG
+  sha256: 84e87d7f1c25ad7b26a420ab70bf3013e9873d43bce26ae2b46a6d8d0dee4d81
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143433_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143520_G8441_Ethiopia_Sidamo.JPG
+  sha256: 863a7e3999b4a3081d717dc485dfcfc8c8e1e35c2f32fae4021f812e9a5d57ee
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143520_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143535_G8441_Ethiopia_Sidamo.JPG
+  sha256: a12e27f768a66523b46d1f552f3ea1d01e5b4f0dd727e423b892b7bfd6464a0a
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143535_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143543_G8441_Ethiopia_Sidamo.JPG
+  sha256: 7c78eabcc822f2399ee556a29c5fc6c2b2644e6fcf528b2e7bc4eca3ae63ca13
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_143543_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144004_G8441_Ethiopia_Sidamo.JPG
+  sha256: da82858283e1f1f7f09ac80bd8a666b30897f6c503306b176153cea4b1b22cd7
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144004_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144034_G8441_Ethiopia_Sidamo.JPG
+  sha256: b88336dec086f0b03e2500ccf79141b1760ee821d268bc49bcec23aadaafaf0c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144034_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144044_G8441_Ethiopia_Sidamo.JPG
+  sha256: 7aed336434347388ab5c86f98eafbbd998b90d9412531f5a41a0566b495f5063
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144044_G8441_Ethiopia_Sidamo.JPG
+- path: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144119_G8441_Ethiopia_Sidamo.JPG
+  sha256: 4e50013edac584176bcaed8b82ef8f7343dc061073e12408b44ed77a8520bb45
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_144119_G8441_Ethiopia_Sidamo.JPG
 - path: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261006_114728_Pixel_9_Pro_Guatemala.jpg
   sha256: e25dcc340c459c730a4ab62d7f185db6ab8aa8658f5dc7a89980fda59b8fd492
   source: pool
@@ -6029,6 +6203,24 @@ photos:
   folder: random_date_raccoon
   split: test
   group: dataset/random_date_raccoon/class_005__Guatemala_Tata/20261012_103924_Pixel_9_Pro_Guatemala.jpg
+- path: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_125947_Pixel_9_Pro_Ethiopia_Yirgacheffe.jpg
+  sha256: 0ad1d107a6e3c9c7d32a75f570bd45ba7f2fd91370119c2986dc205660afb41f
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_125947_Pixel_9_Pro_Ethiopia_Yirgacheffe.jpg
+- path: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_130003_Pixel_9_Pro_Ethiopia_Yirgacheffe.jpg
+  sha256: 696b53baeafbde289c29990425952a2dc96e02515a9d3200af7b387cd3d2fdcb
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_130003_Pixel_9_Pro_Ethiopia_Yirgacheffe.jpg
+- path: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_150129_G8441_Ethiopia_Yirgacheffe.JPG
+  sha256: 06cc25a06a51453af34c4f864280f8e39393f160cd2313efe0ebd50c781613aa
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_008__Ethiopia_Yirgacheffe/20261111_150129_G8441_Ethiopia_Yirgacheffe.JPG
 - path: dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114807_Pixel_9_Pro_Brazil_decaff.jpg
   sha256: 191410f86921392821bb27726dbaa2ddaf1f589cb29c6409e1338c3f0ce9ef21
   source: pool
@@ -7613,6 +7805,48 @@ photos:
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261110_163624_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_100420_Pixel_9_Pro_Colombia.dng
+  sha256: 6a302ab3ab569d971e9f45556f732a90533c9646c8cbf980065ecf7cd005c2c7
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_100420_Pixel_9_Pro_Colombia.dng
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_100437_Pixel_9_Pro_Colombia.dng
+  sha256: 50c0680f00c67ad9bb7105ffb982d5f3b6d72fe87e26b1e758a23d624268d29c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_100437_Pixel_9_Pro_Colombia.dng
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101253_Pixel_9_Pro_Colombia.jpg
+  sha256: 26955dfa545a8b5d8319a6d8450a28d5304b95e6915dee9d462691de08224d69
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101253_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101308_Pixel_9_Pro_Colombia.jpg
+  sha256: 1f82e7c486f1eebde369670faa97dcbe3ec407bd07f82f3ed04ffebdba11179c
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101308_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101314_Pixel_9_Pro_Colombia.jpg
+  sha256: 25c5b17b97214513cb27af38e54600362b82bb8ff9f08aa98b48c25f1b3cf10f
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_101314_Pixel_9_Pro_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_103730_KB2005_Colombia.jpg
+  sha256: 75826e4c2aaae2bc7635c430e76fb18e991d274eabcada9077e74f4917338614
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_103730_KB2005_Colombia.jpg
+- path: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_103741_KB2005_Colombia.jpg
+  sha256: 369fbff1b487f072d398a72bdae95bb72edf6137061a3e806fb2d40faa989dbf
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_014__Colombia_Excelso/20261111_103741_KB2005_Colombia.jpg
 - path: dataset/random_date_raccoon/class_015__Indonesia/20261105_114137_Pixel_9_Pro_Indonesia.jpg
   sha256: 6cbad0e868cb11944b20687b75b815591aecfad689501a1beb2584b5122361fd
   source: pool
@@ -7697,6 +7931,30 @@ photos:
   folder: random_date_raccoon
   split: train
   group: dataset/random_date_raccoon/class_015__Indonesia/20261105_134632_G8441_Indonesia.JPG
+- path: dataset/random_date_raccoon/class_018__CostaRica/20261111_130340_Pixel_9_Pro_CostaRica.jpg
+  sha256: 75c6e76721044bab8627278654d59f8e2430e877f6fe354414cfbf72ff24f204
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_018__CostaRica/20261111_130340_Pixel_9_Pro_CostaRica.jpg
+- path: dataset/random_date_raccoon/class_018__CostaRica/20261111_130434_Pixel_9_Pro_CostaRica.jpg
+  sha256: 39f3ea50c7697512906ca09d95c2c07dbb17984b2594cdbb4cb6f2131ca1e6c4
+  source: pool
+  folder: random_date_raccoon
+  split: train
+  group: dataset/random_date_raccoon/class_018__CostaRica/20261111_130434_Pixel_9_Pro_CostaRica.jpg
+- path: dataset/random_date_raccoon/class_018__CostaRica/20261111_130449_Pixel_9_Pro_CostaRica.jpg
+  sha256: 29205a82674e9f3c104a1213fc0c75d655a84a9e5d9cfa8df94f50fb5eafd79c
+  source: pool
+  folder: random_date_raccoon
+  split: test
+  group: dataset/random_date_raccoon/class_018__CostaRica/20261111_130449_Pixel_9_Pro_CostaRica.jpg
+- path: dataset/random_date_raccoon/class_018__CostaRica/20261111_130503_Pixel_9_Pro_CostaRica.jpg
+  sha256: f3fa0e98a194f421ee44537b9a0ee9fca24feb0c13527b39fc468755943203a9
+  source: pool
+  folder: random_date_raccoon
+  split: validation
+  group: dataset/random_date_raccoon/class_018__CostaRica/20261111_130503_Pixel_9_Pro_CostaRica.jpg
 - path: dataset/segmenter_positives/20261023_125142.jpg
   sha256: e6b50f6b336a7faaaa119a2526e13939c81428e7fd2a76cdb36621d2165c1ab1
   source: segmenter_positive

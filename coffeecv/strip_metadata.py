@@ -331,7 +331,9 @@ def pixel_digest(path: Path) -> str:
                     _digest(h, aux)
     else:
         with Image.open(path) as im:                # the file's own mode: a PNG's alpha counts
-            for i in range(getattr(im, "n_frames", 1)):   # every frame of a GIF
+            # Every frame of a GIF. Not a JPEG's: Pillow may read a phone's gain map as an MPO's second frame
+            # after exiftool and not before (2026-11-11); the gain map is compared as bytes, an MPF tag.
+            for i in range(im.n_frames if ext == ".gif" else 1):
                 im.seek(i)
                 _digest(h, np.asarray(im))
     return h.hexdigest()

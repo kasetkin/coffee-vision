@@ -926,9 +926,9 @@ stages:
       size: 25282
     - path: data/canonical/random_date_raccoon
       hash: md5
-      md5: 0b65cf2f59001d22d7adb5fd64a3c3e6.dir
-      size: 903075300
-      nfiles: 354
+      md5: 444ced697dfed2337e826a857c782d26.dir
+      size: 993958674
+      nfiles: 394
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -957,9 +957,9 @@ stages:
     outs:
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 5463ed7186815943b7cb7682a5547ac3.dir
-      size: 1753975504
-      nfiles: 710
+      md5: 1a020252a3505b258b78ca6d8e85dce6.dir
+      size: 2042146005
+      nfiles: 792
   seg_ml6_finetune@xl0_v3:
     cmd: python -m coffeecv.seg_finetune train --labels pass3 --seed 123 --name 
       xl0_v3 --threads 8
@@ -1277,9 +1277,9 @@ stages:
       nfiles: 7
     - path: data/segcropped/random_date_raccoon
       hash: md5
-      md5: 5463ed7186815943b7cb7682a5547ac3.dir
-      size: 1753975504
-      nfiles: 710
+      md5: 1a020252a3505b258b78ca6d8e85dce6.dir
+      size: 2042146005
+      nfiles: 792
     - path: data/segcropped/tasty_coffee
       hash: md5
       md5: e5bbbbbc6c5b4b3e7d2efc78a7e612e7.dir
@@ -1292,9 +1292,9 @@ stages:
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: f477e7e7911ca4a648f4b13b45088a1f.dir
-      size: 10951483383
-      nfiles: 3257
+      md5: 711767cd168bfbb0a670047cd8714925.dir
+      size: 11239627143
+      nfiles: 3337
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v3_country_aug8_s123.pt --profile gpu_split && 
@@ -3417,15 +3417,15 @@ stages:
       size: 8567
     - path: dataset/random_date_raccoon
       hash: md5
-      md5: f0c7e3e3ca53c4e6147b19547554f801.dir
-      size: 1665522882
-      nfiles: 354
+      md5: 760714d176b73ba2af20156c1171fd0d.dir
+      size: 1825684331
+      nfiles: 394
     outs:
     - path: data/canonical/random_date_raccoon
       hash: md5
-      md5: 0b65cf2f59001d22d7adb5fd64a3c3e6.dir
-      size: 903075300
-      nfiles: 354
+      md5: 444ced697dfed2337e826a857c782d26.dir
+      size: 993958674
+      nfiles: 394
   canonicalize@ood_negatives:
     cmd: python -m coffeecv.canonicalize_folder ood_negatives --jobs 4
     deps:
@@ -3455,15 +3455,15 @@ stages:
       size: 8567
     - path: dataset/ood_negatives
       hash: md5
-      md5: c85ec43371d9ea362d37764ab3a6264a.dir
-      size: 2139493289
-      nfiles: 634
+      md5: 954f402893f9076b542d9a3c5d62ae65.dir
+      size: 2150430669
+      nfiles: 637
     outs:
     - path: data/canonical/ood_negatives
       hash: md5
-      md5: a25e910fcadb51e90d5dc31a7a4ee9f1.dir
-      size: 1484841795
-      nfiles: 626
+      md5: 70364351c5ab9babed82e680403d7ba8.dir
+      size: 1492468961
+      nfiles: 629
   canonicalize@2026-08-09__pixel_cam:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-09__pixel_cam --jobs 4
     deps:
@@ -4112,63 +4112,6 @@ stages:
       md5: f738d9d08f8593f386cd082a217b73e8.dir
       size: 78386251
       nfiles: 20
-  seg_ml19_predict@xl0_v6_s42:
-    cmd: python -m coffeecv.seg_predict 
-      efficientvit_sam/efficientvit_sam_xl0.pt:models/seg/xl0_v6_s42.pt --split 
-      test --threads 4 --out data/seg_masks_ml19/xl0_v6_s42
-    deps:
-    - path: coffeecv/canonical.py
-      hash: md5
-      md5: 8e81e7a9f79040fb0297b67002a35cfe
-      size: 30816
-    - path: coffeecv/canonical_store.py
-      hash: md5
-      md5: a85569f0556feacaa2191bb522e17dce
-      size: 2454
-    - path: coffeecv/sam_loader.py
-      hash: md5
-      md5: e8615df752d8acadfae306946fdc6d21
-      size: 3296
-    - path: coffeecv/seg_predict.py
-      hash: md5
-      md5: 0caf1f0ff5a3e6ca8445dc69959a0738
-      size: 5324
-    - path: coffeecv/segment_beans.py
-      hash: md5
-      md5: 6fa89509a93a12ac601f8bb9773dc733
-      size: 25282
-    - path: data/canonical
-      hash: md5
-      md5: 7655b40072eee38dd099d9db2bb98b11.dir
-      size: 6228323378
-      nfiles: 2608
-    - path: labels/ml5/seg_dataset.yaml
-      hash: md5
-      md5: 10990e1e6213ca936646f80998aefff8
-      size: 513113
-    - path: models/seg/xl0_v6_s42.pt
-      hash: md5
-      md5: ef6f149a1ec9d5a1b131faba9d399b56
-      size: 16272713
-    - path: models_pretrained/efficientvit_sam/efficientvit_sam_xl0.pt
-      hash: md5
-      md5: 246bfc629317decc29dfb513872a7ca2
-      size: 468211343
-    - path: third_party/efficientvit/efficientvit
-      hash: md5
-      md5: f7eba3b3be3a0d58276ff5c6804b0eb5.dir
-      size: 621621
-      nfiles: 129
-    params:
-      params.yaml:
-        seg_mask_select: multi3
-        seg_prompt: box
-    outs:
-    - path: data/seg_masks_ml19/xl0_v6_s42
-      hash: md5
-      md5: 316da95fda1712a9baef120187687382.dir
-      size: 3531156
-      nfiles: 419
   seg_ml16_finetune@xl0_v7_s42:
     cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed 42 --name 
       xl0_v7_s42 --threads 8
@@ -4651,13 +4594,13 @@ stages:
       size: 25282
     - path: data/canonical
       hash: md5
-      md5: 7655b40072eee38dd099d9db2bb98b11.dir
-      size: 6228323378
-      nfiles: 2608
+      md5: 338498366e52f948d5ef3cb1989dfd89.dir
+      size: 6326833918
+      nfiles: 2651
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 10990e1e6213ca936646f80998aefff8
-      size: 513113
+      md5: ddf05d6d1dc549a4410ccaf745d9e0c0
+      size: 528029
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -4678,9 +4621,9 @@ stages:
     outs:
     - path: data/seg_masks_ml19/xl0_v7r_s123
       hash: md5
-      md5: 919222eaae3d445e095975aa37013d0d.dir
-      size: 3621330
-      nfiles: 419
+      md5: cb2dc1c373ddf7e343e1df93d6d5c959.dir
+      size: 3751352
+      nfiles: 431
   litert_export@dino3b16_segxl0v7r_country_aug8_s42:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v7r_country_aug8_s42.pt --profile gpu_split && 
