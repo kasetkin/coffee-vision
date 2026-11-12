@@ -190,6 +190,18 @@
       about the same (seeds 42, 123: 8&rarr;9, 21&rarr;22; seed 7: 9&rarr;18, Colombia and Rwanda): much of the F1 drop
       is precision over fewer true patches. The new arm&rsquo;s other test photos, mostly ML-25&rsquo;s: Ethiopia patch
       accuracy 0.970, 0.953, 0.903.</div>
+    <div><div class="when">2026-11-12</div>The owner asked for the release classifier and the candidate on the
+      photos of <code>random_date_raccoon</code>, <code>massimo</code> and <code>tasty_coffee</code>, one confusion
+      matrix each (<code>analysis/ml27/folders_eval.py</code>, <code>folders_eval.txt</code>, two PNGs). The photos:
+      the 444 pool crops of the three sessions less each model&rsquo;s train split (rebuilt, and checked against
+      every val and test photo of exp280&rsquo;s and exp283&rsquo;s records): 119 in neither. Serving path at the
+      store&rsquo;s canonical photo, 40 patches, top-1, no OOD guard. Release (exp280): 97/119 (0.815), macro-F1
+      0.836, Ethiopia F1 0.640 (11 of 34 answered Peru); candidate (exp283): 115/119 (0.966), macro-F1 0.933,
+      Ethiopia 0.970. Of the 119, the 69 already in exp280&rsquo;s pool are right for both (69/69 each); the 50 new
+      in ML-25 (27 Ethiopia, 13 Colombia, 10 Brazil) 28/50 for the release, 46/50 for the candidate. 20 photos
+      answered differently: 19 the candidate right, 1 the release right (a Brazil answered Indonesia). The
+      candidate&rsquo;s train split holds photos of the same sessions and bags, some taken minutes apart: the gain
+      on the new photos is what the new data taught it, measured on its neighbours.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
