@@ -179,7 +179,8 @@
     <li>Retraining on the front&rsquo;s canonical photos (ADR 0036).</li>
     <li>New photos after ML-25&rsquo;s third batch.</li>
     <li><code>imagecodecs</code> declared in <code>convert/pyproject.toml</code> (P5&rsquo;s finding): it moves
-      <code>convert/uv.lock</code>, a dep of every <code>litert_export</code> stage.</li>
+      <code>convert/uv.lock</code>, a dep of every <code>litert_export</code> stage. Done as a follow-up after the close
+      (Activity, 2026-11-12).</li>
   </ul>
 
   <h2>Activity</h2>
@@ -255,6 +256,15 @@
     <div><div class="when">2026-11-12</div>Closed by the owner. Follow-ups: <code>imagecodecs</code> declared in
       <code>convert/pyproject.toml</code> (P5&rsquo;s finding, Out of scope), and ML-16 D13&rsquo;s probe refit at
       the next retrain (D4 (b)).</div>
+    <div><div class="when">2026-11-12</div>Follow-up, the owner&rsquo;s go: <code>imagecodecs==2026.10.10</code>
+      declared in <code>convert/pyproject.toml</code> and locked (<code>convert/uv.lock</code> adds it alone). A fresh
+      env from the lock imports <code>coffeecv.canonical</code> and <code>coffeecv.litert_forms</code>;
+      <code>convert/.venv</code> synced to the lock, which also restored packages the hand-kept env lacked
+      (<code>xdsl</code> among them; torch 2.13.0, litert-torch 0.9.4, ai-edge-litert 2.2.0 unchanged).
+      <code>litert_export@dino3b16_segxl0v7r_country_aug8_ml27_s42</code> rerun in it: D7&rsquo;s check passed on 13
+      fixtures and all seven output files byte-identical to the released ones; the other six
+      <code>litert_export</code> stages recorded on the new lock by <code>dvc commit</code>, their outputs untouched;
+      <code>dvc status</code> clean.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
