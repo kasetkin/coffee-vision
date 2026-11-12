@@ -11,7 +11,7 @@
     release after the owner&rsquo;s check. The first step that changes a number is P2&rsquo;s run.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; P1 done</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-11; P1 done; P2 and P3 done 2026-11-12</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ticket_classifier_on_new_photos.html"><code>ticket_classifier_on_new_photos.html</code></a> (ML-27)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -63,27 +63,29 @@
 
   <h2>4. P2 &mdash; The recorded run</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-12; the run on 80c44ac</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The ticket and plan committed, so the run&rsquo;s commit holds them; the
-      config diffed against exp280&rsquo;s key by key (experiments.md): only the data may differ.</span></li>
-    <li><span class="box"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 283</code>,
-      in the background.</span></li>
-    <li><span class="box"></span><span>Checks: three runs archived, <code>metrics.json</code>&rsquo;s
-      <code>class_ids</code> the same 10 countries as exp280&rsquo;s.</span></li>
+    <li><span class="box done"></span><span>The ticket and plan committed, so the run&rsquo;s commit holds them; the
+      config diffed against exp280&rsquo;s key by key (experiments.md): only the data may differ. <span class="result">Done 2026-11-11: with the augmentation groups resolved, only
+      <code>seed</code> and <code>seg_dataset.whole_folders</code> (ML-25 D3, the segmenter dataset&rsquo;s) differ.</span></span></li>
+    <li><span class="box done"></span><span><code>python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 283</code>,
+      in the background. <span class="result">Done 2026-11-12: 19:43 to 05:21, about 3 h 10 min a seed.</span></span></li>
+    <li><span class="box done"></span><span>Checks: three runs archived, <code>metrics.json</code>&rsquo;s
+      <code>class_ids</code> the same 10 countries as exp280&rsquo;s. <span class="result">Done 2026-11-12; no D18
+      fallback in any split.</span></span></li>
   </ol>
 
   <h2>5. P3 &mdash; Paired comparison</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-12</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>compare_experiments</code> per seed (283/280, 284/281, 285/282) into
+    <li><span class="box done"></span><span><code>compare_experiments</code> per seed (283/280, 284/281, 285/282) into
       <code>analysis/ml27/compare_283_285.txt</code>: val and test macro-F1, deltas, mean and range, per-class F1.</span></li>
-    <li><span class="box"></span><span>The photos in both arms&rsquo; test sets, as <code>analysis/ml16/common_photos.py</code>
+    <li><span class="box done"></span><span>The photos in both arms&rsquo; test sets, as <code>analysis/ml16/common_photos.py</code>
       did, in <code>analysis/ml27/common_photos.{py,txt}</code>.</span></li>
   </ol>
 
@@ -145,6 +147,8 @@
   <div class="log">
     <div><div class="when">2026-11-11</div>Claude reads ticket ML-27 at <code>9acaf4b</code> and writes this plan.
       One finding not in the ticket (the live name in code, P6). P1 done: the stages current, the pool 1,681 crops.</div>
+    <div><div class="when">2026-11-12</div>P2 and P3 done: exp283&ndash;285 and their comparison with exp280&ndash;282
+      (<code>analysis/ml27/</code>); the numbers in the ticket&rsquo;s Activity.</div>
   </div>
 
   <footer>Related: <a href="ticket_classifier_on_new_photos.html">ML-27 ticket</a>,

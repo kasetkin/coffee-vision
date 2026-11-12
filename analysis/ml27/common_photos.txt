@@ -1,0 +1,25 @@
+seed 42 (exp283 vs exp280): identical test photos in Kenya, Guatemala, Vietnam, Indonesia, Rwanda
+  new  on the common photos: macro-F1 0.9576, 1011 patches
+  base on the common photos: macro-F1 0.9620, 1052 patches
+  new  on its other test photos: patch accuracy Brazil 0.957 (93), Colombia 0.950 (80), CostaRica 1.000 (148), Ethiopia 0.970 (132), Peru 0.993 (136)
+seed 123 (exp284 vs exp281): identical test photos in Kenya, Guatemala, Vietnam, Indonesia, Rwanda
+  new  on the common photos: macro-F1 0.9397, 1067 patches
+  base on the common photos: macro-F1 0.9352, 1116 patches
+  new  on its other test photos: patch accuracy Brazil 0.989 (88), Colombia 0.900 (70), CostaRica 1.000 (104), Ethiopia 0.953 (129), Peru 0.993 (142)
+seed 7 (exp285 vs exp282): identical test photos in Kenya, Guatemala, Vietnam, Indonesia, Rwanda
+  new  on the common photos: macro-F1 0.8952, 1021 patches
+  base on the common photos: macro-F1 0.9042, 1055 patches
+  new  on its other test photos: patch accuracy Brazil 1.000 (94), Colombia 0.910 (100), CostaRica 1.000 (115), Ethiopia 0.903 (134), Peru 0.978 (136)
+
+per-class test F1 on the common photos, baseline -> new
+  class                  s42            s123              s7
+  Ethiopia      0.913->0.844    0.789->0.658    0.800->0.743
+  Kenya         0.975->0.972    0.972->0.981    0.972->0.971
+  Colombia      0.949->0.943    0.909->0.928    0.815->0.797
+  CostaRica     0.957->1.000    0.991->1.000    0.989->0.978
+  Guatemala     0.949->0.949    0.887->0.893    0.940->0.946
+  Brazil        0.974->0.944    0.956->0.972    0.950->0.932
+  Vietnam       1.000->1.000    1.000->1.000    1.000->1.000
+  Indonesia     0.997->0.994    0.994->0.994    0.963->0.978
+  Peru          0.920->0.941    0.857->0.973    0.638->0.634
+  Rwanda        0.987->0.991    0.997->0.997    0.975->0.971
