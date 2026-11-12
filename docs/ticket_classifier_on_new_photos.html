@@ -9,10 +9,11 @@
   <p class="lede">ML-25 added 188 accepted crops to the classifier&rsquo;s pool (1,493 to 1,681), and ML-26 made the
     folder stages incremental. No classifier has trained on them: the live one, exp280, was fitted on ML-16&rsquo;s
     pool. The owner wants a new classifier on the current data, with the segmenter left as it is in the release.
-    Written 2026-11-11; D1&ndash;D5 decided; planned (<a href="plan_classifier_on_new_photos.html">plan</a>).</p>
+    Written 2026-11-11; D1&ndash;D6 decided; planned (<a href="plan_classifier_on_new_photos.html">plan</a>);
+    exp283 live 2026-11-12.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 done 2026-11-12 (exp283 shipped, its OOD reference, exp280&rsquo;s probe, D4 (b)); D6: exp283 to be released; P5 done 2026-11-12 (converted, pushed, checked); P6 in progress</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 done 2026-11-12 (exp283 shipped, its OOD reference, exp280&rsquo;s probe, D4 (b)); D6: exp283 to be released; P5 done 2026-11-12 (converted, pushed, checked); P6: live 2026-11-12, release <code>20261112T0808Z-e7616ab-dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, --verify passed; the owner&rsquo;s check of the live site open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model: classifier retrain on new data</span></div>
@@ -159,17 +160,17 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>The segcrop and <code>merge_segpool</code> stages current on
+    <li><span class="box done"></span><span>The segcrop and <code>merge_segpool</code> stages current on
       <code>xl0_v7r_s123</code>, and the pool at 1,681 crops.</span></li>
-    <li><span class="box"></span><span>exp283&ndash;285 (seeds 42, 123, 7) recorded on a committed tree, with the
+    <li><span class="box done"></span><span>exp283&ndash;285 (seeds 42, 123, 7) recorded on a committed tree, with the
       config diffed against exp280&rsquo;s.</span></li>
-    <li><span class="box"></span><span>The paired comparison with exp280&ndash;282 written up (D2); the owner&rsquo;s
+    <li><span class="box done"></span><span>The paired comparison with exp280&ndash;282 written up (D2); the owner&rsquo;s
       pick (ADR 0002).</span></li>
-    <li><span class="box"></span><span>The pick shipped (<code>fit_frozen_head --ship</code>, D3), its OOD probe (D4),
+    <li><span class="box done"></span><span>The pick shipped (<code>fit_frozen_head --ship</code>, D3), its OOD probe (D4),
       the LiteRT conversion passing ADR 0020&rsquo;s bars, all pushed to the DVC remote and checked.</span></li>
-    <li><span class="box"></span><span>If released (D5): live and verified with <code>--verify</code>,
+    <li><span class="box done"></span><span>If released (D5): live and verified with <code>--verify</code>,
       <code>docs/status.md</code> and <code>docs/inference_path.html</code> updated.</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh</code> passes.</span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh</code> passes.</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -228,6 +229,22 @@
       2026.10.10, so no stage&rsquo;s deps moved. The weights and the conversion pushed (5 objects new) and all 9 checked
       on the remote. P6: the app&rsquo;s default checkpoint, the tests that name the live model,
       <code>docs/status.md</code> and <code>docs/inference_path.html</code> on the new name.</div>
+    <div><div class="when">2026-11-12</div>Merged into main by a merge commit (<code>e7616ab</code>, ADR 0017) and pushed;
+      <code>scripts/check.sh --full</code> passed on it (1,077 tests; one fix: <code>test_class_list</code> accepts the
+      candidate&rsquo;s frozen list, today&rsquo;s <code>classes.txt</code>). The three graphs byte-identical to the live
+      release&rsquo;s (778 MB) copied on the inference host first, into <code>releases/seed-ml27-graphs</code>. The
+      first <code>--stage-only</code> stopped in preflight: 146 MB free on the front&rsquo;s <code>/opt</code> (200 MB
+      needed); the owner had the front&rsquo;s <code>previous</code> release (<code>9c1edda</code>) deleted with its
+      link, after which the proxy showed 3.1 GB free (more than the release held: something else on the proxy freed
+      space too). <code>--stage-only</code> (the suite skipped, passed on the same commit): upload 11 s, the GPU smoke
+      top-1 Colombia as locally (score diff 2.9e-03, mask IoU 0.999997), the four examples as the front sends them
+      Brazil, Ethiopia, Indonesia, the cappuccino refused; 34 s of photo answers down. <code>--compare</code>: 12
+      photos, 0 verdict and 0 top-1 changes, p95 largest change 0.0043, 151 s down. The full deploy flipped both hosts
+      (52 s down) and <code>--verify</code> passed on the domain: release <code>20261112T0808Z-e7616ab-dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, commit
+      <code>e7616ab</code>, <code>model_sha</code> <code>23229978aa4817b3</code>, public <code>/analyze</code> top-1
+      Colombia, the examples the release&rsquo;s bytes with their answers, CORS and the timeline as before. The prune
+      removed <code>9c1edda</code> and the seed on the inference host. Left for the owner: a look at the live site,
+      and closing the ticket.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
