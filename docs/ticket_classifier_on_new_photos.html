@@ -12,7 +12,7 @@
     Written 2026-11-11; D1&ndash;D5 decided; planned (<a href="plan_classifier_on_new_photos.html">plan</a>).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 shipped exp283 2026-11-12; D6: exp283 to be released</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model: classifier retrain on new data</span></div>
@@ -143,6 +143,12 @@
           release.&rdquo; The best candidate is the seed with the highest val macro-F1, as
           <code>fit_frozen_head</code> ships (never chosen on test). It is shipped, its probe refitted, converted and
           pushed before the owner looks; the release waits for the owner&rsquo;s go.</td></tr>
+      <tr><td class="id">D6</td><td>Release exp283 (<code>dino3b16_segxl0v7r_country_aug8_ml27_s42</code>) in place of
+          exp280, after the paired comparison (val lower at every seed, test mixed) and the held-out photos of the
+          three sessions (97/119 against 115/119)?</td>
+        <td>(a) release exp283 (b) keep exp280</td>
+        <td>(a), 2026-11-12: &ldquo;we will deploy exp283 model&rdquo;. The owner&rsquo;s go for P6, once P4&rsquo;s
+          probe and P5&rsquo;s conversion and push are done.</td></tr>
     </tbody>
   </table></div>
 
@@ -202,6 +208,8 @@
       answered differently: 19 the candidate right, 1 the release right (a Brazil answered Indonesia). The
       candidate&rsquo;s train split holds photos of the same sessions and bags, some taken minutes apart: the gain
       on the new photos is what the new data taught it, measured on its neighbours.</div>
+    <div><div class="when">2026-11-12</div>D6: the owner, on these results, releases exp283. P6 follows P4&rsquo;s
+      probe and P5.</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
