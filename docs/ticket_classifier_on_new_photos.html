@@ -1,0 +1,240 @@
+<title>Classifier on new photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-27 · coffee-vision · classifier, OOD probe and release</div>
+  <h1>The classifier retrained on the pool with ML-25&rsquo;s 188 new crops, the live segmenter xl0_v7r_s123 kept</h1>
+  <p class="lede">ML-25 added 188 accepted crops to the classifier&rsquo;s pool (1,493 to 1,681), and ML-26 made the
+    folder stages incremental. No classifier has trained on them: the live one, exp280, was fitted on ML-16&rsquo;s
+    pool. The owner wants a new classifier on the current data, with the segmenter left as it is in the release.
+    Written 2026-11-11; D1&ndash;D5 decided; planned (<a href="plan_classifier_on_new_photos.html">plan</a>).</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 done 2026-11-12 (exp283 shipped, its OOD reference, exp280&rsquo;s probe, D4 (b)); D6: exp283 to be released; P5 done 2026-11-12 (converted, pushed, checked); P6 in progress</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Model: classifier retrain on new data</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">coffeecv/fit_frozen_head.py, experiments/, models/ (the shipped head, its OOD reference and probe, its LiteRT conversion), dvc.yaml (litert_export), docs/status.md, docs/inference_path.html, the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-11</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The live classifier and its OOD probe change at the release step, if the owner ships the candidate (D5); the segmenter, the front and the page do not change.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">ML-25 and ML-26 closed and merged (92df6f3)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-11.</strong> &ldquo;Create new branch and ticket for training new classifier
+      model with new data after ML-25 and ML-26. Keep segmenter model as it is now in the release.&rdquo;</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the site serves <code>dino3b16_segxl0v7r_country_aug8_s42</code> (exp280, ML-16), fitted on a pool of
+    1,493 crops. Since then ML-25 brought 188 accepted crops: about 102 Ethiopia, 42 Colombia, 39 Brazil, 4 Costa Rica
+    and 1 Peru. After this ticket a classifier fitted on the 1,681-crop pool is trained at seeds 42, 123 and 7, compared
+    paired with exp280&ndash;282, and, if the owner picks it, shipped with a refitted OOD probe and its LiteRT
+    conversion, then released. The segmenter stays <code>xl0_v7r_s123</code>, so there is no re-crop.</p>
+  <p>The work splits into: a check that the pool and the stages are current; the recorded run; the paired comparison
+    and the owner&rsquo;s pick; the ship, probe refit and conversion; the release.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The segmenter.</strong> <code>params.yaml</code> <code>seg_decoder</code> is
+      <code>models/seg/xl0_v7r_s123.pt</code>, the release&rsquo;s (ML-16, live 2026-11-08). Every crop in
+      <code>data/segcropped/pool</code>, ML-25&rsquo;s included, was made with it. Keeping it means no step of
+      <code>docs/agents/experiments.md</code>&rsquo;s &ldquo;Changing the segmenter&rdquo;.</li>
+    <li><strong>The new crops.</strong> ML-25&rsquo;s three batches: 146, 43 and 17 photos. Of the bean
+      photos&rsquo; crops, the owner accepted 188 and declined 4 (<code>labels/ml3/pool_exclude.csv</code>, 35 rows).
+      <code>merge_segpool</code> reports 1,681 crops.</li>
+    <li><strong>No new label.</strong> Classes 016 (Ethiopia), 017 (Peru) and 018 (Costa Rica) are new coffees in
+      existing countries. The class is the country (ADR 0012), so the head keeps exp280&rsquo;s 10 classes.</li>
+    <li><strong>The recipe.</strong> exp280&ndash;282 used <code>fit_frozen_head</code> with frozen DINOv3 ViT-B/16
+      and head augmentation <code>aug8</code> (ADR 0006, 0025, 0027). Each seed took about 3 h 10 min (ML-16,
+      2026-11-07). exp282 is the last experiment, so this run starts at exp283.</li>
+    <li><strong>Splits move.</strong> The photo split is seeded on the sorted (folder, name) list (ML-1 D1(b)). New
+      photos in Ethiopia, Colombia, Brazil, Costa Rica and Peru redraw those classes&rsquo; splits, so test sets
+      differ from exp280&ndash;282&rsquo;s, as in ML-16 D11. <code>analysis/ml16/common_photos.py</code> scored the
+      photos in both arms then.</li>
+    <li><strong>The probe.</strong> ML-16 D13 shipped exp280&rsquo;s probe without a refit and left the refit
+      &ldquo;at the next refit&rdquo;: this one.</li>
+    <li><strong>The live input.</strong> Since OPS-22 the front canonicalizes visitors&rsquo; photos with cheaper
+      settings than the store, which training reads (ADR 0036). The ADR keeps training on the store&rsquo;s photos.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Live classifier exp280, fitted on 1,493 crops; ML-25&rsquo;s 188 crops unseen by any model.</li>
+        <li>The OOD probe exp280&rsquo;s, fitted before D10&rsquo;s 87 photos of ML-16 joined (ML-16 D13).</li>
+        <li>Segmenter <code>xl0_v7r_s123</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>exp283&ndash;285 on 1,681 crops, compared paired with exp280&ndash;282; the owner&rsquo;s pick shipped
+          under a new name (D3), with a refitted probe and its LiteRT conversion, and live if the owner releases it
+          (D5).</li>
+        <li>Segmenter <code>xl0_v7r_s123</code>, unchanged.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The segmenter and the crops.</strong> <code>xl0_v7r_s123</code> and <code>seg_min_area_frac</code>
+      stay as the owner asked, and <code>params.yaml</code>&rsquo;s segmenter keys are not touched.</li>
+    <li><strong>The class list.</strong> 10 countries (ADR 0012).</li>
+    <li><strong>The canonical store and the front.</strong> Training reads the store&rsquo;s canonical photos, and the
+      front keeps OPS-22&rsquo;s settings (ADR 0036).</li>
+    <li><strong>The models in <code>models/</code>.</strong> They are kept, with exp280 as the rollback.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The paired test deltas mix the model with the redrawn test sets.</strong></td>
+        <td>ML-16 D11: exp280&ndash;282 tested &minus;0.0080 below their baseline, on test sets that were not the same
+          photos. Mitigation: report both the full test sets and the photos common to both arms
+          (<code>analysis/ml16/common_photos.py</code>), with per-class F1 (D2).</td></tr>
+      <tr><td class="id">R2</td><td><strong>The new data is lopsided toward Ethiopia.</strong></td>
+        <td>About 102 of the 188 crops are Ethiopia, and most are Sidamo from one session. Per-class patch caps
+          (600 train) bound its weight in the head. Per-class F1 shows any shift in other classes.</td></tr>
+      <tr><td class="id">R3</td><td><strong>A stale stage trains on an old pool.</strong></td>
+        <td>The driver refuses stale stages and a dirty tree (experiments.md). Check <code>dvc status</code> for the
+          segcrop and <code>merge_segpool</code> stages first, and diff the run&rsquo;s config against exp280&rsquo;s
+          key by key.</td></tr>
+      <tr><td class="id">R4</td><td><strong>The live input differs from training&rsquo;s.</strong></td>
+        <td>ADR 0036: the front&rsquo;s canonical photo has less fine detail. This ticket does not change that; the
+          release&rsquo;s <code>--compare</code> and <code>--verify</code> score the front&rsquo;s path on the
+          examples.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The recipe?</td>
+        <td>(a) exp280&ndash;282&rsquo;s unchanged, the data the only difference (recommended) (b) a change to the
+          recipe in the same run</td>
+        <td>(a), 2026-11-11: &ldquo;D1-D5 as recommended&rdquo;.</td></tr>
+      <tr><td class="id">D2</td><td>What the comparison with exp280&ndash;282 reports?</td>
+        <td>(a) the full val and test sets and the photos common to both arms, per class (recommended) (b) the full
+          sets only</td>
+        <td>(a), 2026-11-11.</td></tr>
+      <tr><td class="id">D3</td><td>The shipped model&rsquo;s name? The segmenter is the same, so
+          <code>dino3b16_segxl0v7r_country_aug8_s42</code> is taken.</td>
+        <td>(a) <code>dino3b16_segxl0v7r_country_aug8_ml27_s&lt;seed&gt;</code> (b) another name</td>
+        <td>(a), 2026-11-11: <code>dino3b16_segxl0v7r_country_aug8_ml27_s&lt;seed&gt;</code>.</td></tr>
+      <tr><td class="id">D4</td><td>The OOD probe for the shipped candidate?</td>
+        <td>(a) refit and re-measure it on the candidate, ML-16 D13&rsquo;s deferred refit (recommended, about 3 h)
+          (b) reuse exp280&rsquo;s</td>
+        <td>(a), 2026-11-11; changed to (b), 2026-11-12: &ldquo;yes, reuse the probe&rdquo;, to save about 2 h. The
+          probe reads the head&rsquo;s input, the frozen DINOv3 readout both checkpoints share, so its scores and
+          serving&rsquo;s refusals are the live model&rsquo;s; checked on six photos
+          (<code>analysis/ml27/reuse_probe.py</code>: embeddings bit for bit, the cappuccino 1.0000, the beans
+          0.0000). exp280&rsquo;s probe is written beside the candidate with its sha and a <code>reused_from</code>
+          record. ML-16 D13&rsquo;s refit moves to the next retrain. The OOD reference is the candidate&rsquo;s own.</td></tr>
+      <tr><td class="id">D5</td><td>Release?</td>
+        <td>(a) release once the owner picks a candidate, per <code>docs/agents/deploy.md</code> (b) the ticket ends
+          at a shipped, converted candidate; release later</td>
+        <td>(a), 2026-11-11, with the owner&rsquo;s check between: &ldquo;prepare the best candidate for releasing
+          (convert to LiteRT and upload to the DVC remote). So, after I check the results, we can deploy the new
+          release.&rdquo; The best candidate is the seed with the highest val macro-F1, as
+          <code>fit_frozen_head</code> ships (never chosen on test). It is shipped, its probe refitted, converted and
+          pushed before the owner looks; the release waits for the owner&rsquo;s go.</td></tr>
+      <tr><td class="id">D6</td><td>Release exp283 (<code>dino3b16_segxl0v7r_country_aug8_ml27_s42</code>) in place of
+          exp280, after the paired comparison (val lower at every seed, test mixed) and the held-out photos of the
+          three sessions (97/119 against 115/119)?</td>
+        <td>(a) release exp283 (b) keep exp280</td>
+        <td>(a), 2026-11-12: &ldquo;we will deploy exp283 model&rdquo;. The owner&rsquo;s go for P6, once P4&rsquo;s
+          probe and P5&rsquo;s conversion and push are done.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The segcrop and <code>merge_segpool</code> stages current on
+      <code>xl0_v7r_s123</code>, and the pool at 1,681 crops.</span></li>
+    <li><span class="box"></span><span>exp283&ndash;285 (seeds 42, 123, 7) recorded on a committed tree, with the
+      config diffed against exp280&rsquo;s.</span></li>
+    <li><span class="box"></span><span>The paired comparison with exp280&ndash;282 written up (D2); the owner&rsquo;s
+      pick (ADR 0002).</span></li>
+    <li><span class="box"></span><span>The pick shipped (<code>fit_frozen_head --ship</code>, D3), its OOD probe (D4),
+      the LiteRT conversion passing ADR 0020&rsquo;s bars, all pushed to the DVC remote and checked.</span></li>
+    <li><span class="box"></span><span>If released (D5): live and verified with <code>--verify</code>,
+      <code>docs/status.md</code> and <code>docs/inference_path.html</code> updated.</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh</code> passes.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A segmenter retrain or re-crop, including ML-23 (the segmenter on green beans).</li>
+    <li>Retraining on the front&rsquo;s canonical photos (ADR 0036).</li>
+    <li>New photos after ML-25&rsquo;s third batch.</li>
+    <li><code>imagecodecs</code> declared in <code>convert/pyproject.toml</code> (P5&rsquo;s finding): it moves
+      <code>convert/uv.lock</code>, a dep of every <code>litert_export</code> stage.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-11</div>Ticket written from the owner&rsquo;s request, ML-25, ML-26, ML-16 (D11,
+      D13), <code>params.yaml</code> and <code>docs/status.md</code> at 9acaf4b, on branch
+      <code>ml27-classifier-retrain</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-11</div>D1&ndash;D5 decided by the owner, as recommended; D5 with the owner&rsquo;s
+      check of the results before the deploy. Planned
+      (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6). P1: <code>dvc status</code> reports
+      &ldquo;Data and pipelines are up to date&rdquo;, the pool 1,681 crops (35 excluded, 18 class folders).</div>
+    <div><div class="when">2026-11-12</div>P2: exp283&ndash;285 (seeds 42, 123, 7; exp280&ndash;282&rsquo;s recipe, D1),
+      about 3 h 10 min a seed, no D18 fallback in any split. P3 (D2,
+      <code>analysis/ml27/compare_283_285.txt</code>, <code>common_photos.txt</code>): val macro-F1 against
+      exp280/281/282 &minus;0.0087, &minus;0.0220, &minus;0.0142 (mean &minus;0.0150), lower at every seed; test
+      &minus;0.0031, +0.0028, &minus;0.0056 (mean &minus;0.0020), on test sets redrawn in Brazil, Colombia, Costa Rica,
+      Ethiopia and Peru. Ethiopia is the class that moves: test F1 mean &minus;0.036, val &minus;0.037, lower at every
+      seed; Peru val &minus;0.037, test +0.013; Colombia val &minus;0.025, test &minus;0.010. On the test photos in both
+      arms: macro-F1 0.9620&rarr;0.9576, 0.9352&rarr;0.9397, 0.9042&rarr;0.8952; Ethiopia 0.913&rarr;0.844,
+      0.789&rarr;0.658, 0.800&rarr;0.743. Those are 7&ndash;9 Ethiopia photos a seed, which hold fewer of the
+      class&rsquo;s 160 test patches now (42&rarr;28 at seed 42) while the patches of other classes answered Ethiopia stay
+      about the same (seeds 42, 123: 8&rarr;9, 21&rarr;22; seed 7: 9&rarr;18, Colombia and Rwanda): much of the F1 drop
+      is precision over fewer true patches. The new arm&rsquo;s other test photos, mostly ML-25&rsquo;s: Ethiopia patch
+      accuracy 0.970, 0.953, 0.903.</div>
+    <div><div class="when">2026-11-12</div>The owner asked for the release classifier and the candidate on the
+      photos of <code>random_date_raccoon</code>, <code>massimo</code> and <code>tasty_coffee</code>, one confusion
+      matrix each (<code>analysis/ml27/folders_eval.py</code>, <code>folders_eval.txt</code>, two PNGs). The photos:
+      the 444 pool crops of the three sessions less each model&rsquo;s train split (rebuilt, and checked against
+      every val and test photo of exp280&rsquo;s and exp283&rsquo;s records): 119 in neither. Serving path at the
+      store&rsquo;s canonical photo, 40 patches, top-1, no OOD guard. Release (exp280): 97/119 (0.815), macro-F1
+      0.836, Ethiopia F1 0.640 (11 of 34 answered Peru); candidate (exp283): 115/119 (0.966), macro-F1 0.933,
+      Ethiopia 0.970. Of the 119, the 69 already in exp280&rsquo;s pool are right for both (69/69 each); the 50 new
+      in ML-25 (27 Ethiopia, 13 Colombia, 10 Brazil) 28/50 for the release, 46/50 for the candidate. 20 photos
+      answered differently: 19 the candidate right, 1 the release right (a Brazil answered Indonesia). The
+      candidate&rsquo;s train split holds photos of the same sessions and bags, some taken minutes apart: the gain
+      on the new photos is what the new data taught it, measured on its neighbours.</div>
+    <div><div class="when">2026-11-12</div>D6: the owner, on these results, releases exp283. P6 follows P4&rsquo;s
+      probe and P5.</div>
+    <div><div class="when">2026-11-12</div>P4: the OOD reference built from exp283&rsquo;s training split (1,173
+      photos, 6,000 patches; <code>analysis/ml27/ood_reference.txt</code>). D4 changed to (b) by the owner: the probe
+      refit stopped before it started, exp280&rsquo;s probe reused (<code>analysis/ml27/reuse_probe.txt</code>); no
+      ood_eval, as the probe&rsquo;s scores are the live model&rsquo;s (<code>analysis/ml16/ood_eval.txt</code>).</div>
+    <div><div class="when">2026-11-12</div>P5: <code>litert_export@dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, D7&rsquo;s
+      check passed on 13 fixtures (IoU 1.00000, cosine &ge; 0.9999998, the same verdicts and top-1). Its first run
+      failed: <code>convert/.venv</code> lacked <code>imagecodecs</code>, which <code>coffeecv.canonical</code> imports
+      since ML-19 P6 and <code>convert/pyproject.toml</code> does not declare; installed by hand at the pinned
+      2026.10.10, so no stage&rsquo;s deps moved. The weights and the conversion pushed (5 objects new) and all 9 checked
+      on the remote. P6: the app&rsquo;s default checkpoint, the tests that name the live model,
+      <code>docs/status.md</code> and <code>docs/inference_path.html</code> on the new name.</div>
+  </div>
+
+  <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
+    <a href="ticket_folder_stages_only_new_photos.html">ML-26</a>,
+    <a href="ticket_next_training_session.html">ML-16</a> (the last retrain, exp280&ndash;282),
+    <a href="ticket_segmenter_misses_green.html">ML-23</a>,
+    <a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="agents/experiments.md">experiments.md</a>.</footer>
+</main>

@@ -1,0 +1,53 @@
+Photos of random_date_raccoon, massimo, tasty_coffee in the pool and in neither model's train split: 119
+(by session: random_date_raccoon 102, massimo 1, tasty_coffee 16)
+Serving path at the store's canonical photo, 40 patches, top-1, no OOD guard.
+
+release (dino3b16_segxl0v7r_country_aug8_s42, exp280): accuracy 0.8151 (97/119), macro-F1 over the 5 classes present 0.8356; 0 unmeasurable
+            Ethiop  Kenya Colomb CostaR Guatem Brazil Vietna Indone   Peru Rwanda   (rows true, columns predicted)
+Ethiopia        16      0      3      0      3      0      0      1     11      0
+Kenya            0      0      0      0      0      0      0      0      0      0
+Colombia         0      0     32      0      0      0      0      0      4      0
+CostaRica        0      0      0      0      0      0      0      0      0      0
+Guatemala        0      0      0      0      4      0      0      0      0      0
+Brazil           0      0      0      0      0     40      0      0      0      0
+Vietnam          0      0      0      0      0      0      0      0      0      0
+Indonesia        0      0      0      0      0      0      0      5      0      0
+Peru             0      0      0      0      0      0      0      0      0      0
+Rwanda           0      0      0      0      0      0      0      0      0      0
+per-class F1: Ethiopia 0.640, Colombia 0.901, Guatemala 0.727, Brazil 1.000, Indonesia 0.909
+
+candidate (dino3b16_segxl0v7r_country_aug8_ml27_s42, exp283): accuracy 0.9664 (115/119), macro-F1 over the 5 classes present 0.9330; 0 unmeasurable
+            Ethiop  Kenya Colomb CostaR Guatem Brazil Vietna Indone   Peru Rwanda   (rows true, columns predicted)
+Ethiopia        32      0      0      0      1      0      0      1      0      0
+Kenya            0      0      0      0      0      0      0      0      0      0
+Colombia         0      0     35      0      0      0      0      0      1      0
+CostaRica        0      0      0      0      0      0      0      0      0      0
+Guatemala        0      0      0      0      4      0      0      0      0      0
+Brazil           0      0      0      0      0     39      0      1      0      0
+Vietnam          0      0      0      0      0      0      0      0      0      0
+Indonesia        0      0      0      0      0      0      0      5      0      0
+Peru             0      0      0      0      0      0      0      0      0      0
+Rwanda           0      0      0      0      0      0      0      0      0      0
+per-class F1: Ethiopia 0.970, Colombia 0.986, Guatemala 0.889, Brazil 0.987, Indonesia 0.833
+
+Photos the two answer differently: 20
+  20261109_135939_OnePlus_Colombia__cropped.jxl (random_date_raccoon): true Colombia; release Peru (0.4167), candidate Colombia (0.4442)
+  20261109_150909_KB2005_Brazil_Rockets__cropped.jxl (random_date_raccoon): true Brazil; release Brazil (0.5214), candidate Indonesia (0.5262)
+  20261110_113804_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Colombia (0.67), candidate Ethiopia (0.7339)
+  20261110_130523_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.5376), candidate Ethiopia (0.8897)
+  20261110_130542_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Guatemala (0.3465), candidate Ethiopia (0.9711)
+  20261110_210729_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.9813), candidate Ethiopia (0.9723)
+  20261110_210745_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.5075), candidate Ethiopia (0.9878)
+  20261110_210858_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.9099), candidate Ethiopia (0.9525)
+  20261110_210930_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.3914), candidate Ethiopia (0.9982)
+  20261110_211301_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.6085), candidate Ethiopia (0.964)
+  20261110_211614_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.811), candidate Ethiopia (0.9766)
+  20261110_212041_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Guatemala (0.7761), candidate Ethiopia (0.5881)
+  20261110_212130_Pixel_9_Pro_Ethiopia_Sidamo__cropped.jxl (tasty_coffee): true Ethiopia; release Peru (0.9373), candidate Ethiopia (0.808)
+  20261111_100437_Pixel_9_Pro_Colombia__cropped.jxl (random_date_raccoon): true Colombia; release Peru (0.8181), candidate Colombia (0.4357)
+  20261111_103741_KB2005_Colombia__cropped.jxl (random_date_raccoon): true Colombia; release Peru (0.513), candidate Colombia (0.5541)
+  20261111_143520_G8441_Ethiopia_Sidamo__cropped.jxl (random_date_raccoon): true Ethiopia; release Peru (0.4866), candidate Ethiopia (0.7334)
+  20261111_143543_G8441_Ethiopia_Sidamo__cropped.jxl (random_date_raccoon): true Ethiopia; release Peru (0.615), candidate Ethiopia (0.5003)
+  20261111_144034_G8441_Ethiopia_Sidamo__cropped.jxl (random_date_raccoon): true Ethiopia; release Peru (0.6719), candidate Ethiopia (0.7483)
+  20261111_173221_iPhone_15_Pro_Max_Ethiopia_Sidamo__cropped.jxl (random_date_raccoon): true Ethiopia; release Colombia (0.4725), candidate Ethiopia (0.9187)
+  20261111_180451_iPhone_16_Pro_Ethiopia_Sidamo__cropped.jxl (random_date_raccoon): true Ethiopia; release Colombia (0.5109), candidate Ethiopia (0.8495)

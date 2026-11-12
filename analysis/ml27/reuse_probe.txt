@@ -1,0 +1,7 @@
+20261110_113804_Pixel_9_Pro_Ethiopia_Sidamo.jpg.jxl: 40 patches, embeddings identical, probe 0.0000
+20261107_101201_Pixel_9_Pro_Peru_Massimo.jpg.jxl: 40 patches, embeddings identical, probe 0.0000
+brazil-grinder.jxl: 40 patches, embeddings identical, probe 0.0000
+cappuccino.jxl: 40 patches, embeddings identical, probe 1.0000
+ethiopia-green.jxl: 40 patches, embeddings identical, probe 0.0000
+indonesia-roasted.jxl: 40 patches, embeddings identical, probe 0.0000
+wrote models/dino3b16_segxl0v7r_country_aug8_ml27_s42.ood_probe.json; load_ood_probe accepts it (23229978aa4817b3)
