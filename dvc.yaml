@@ -579,7 +579,8 @@ stages:
   # Live since 2026-10-29 (ticket ML-13): dino3b16_segxl0v6_country_aug8_s42; the four above it are the releases before it.
   # Each model names the decoder its card was trained with (training_config.seg_decoder), which the export converts:
   # ticket ML-9's candidate is the first on XL0-v4, the XL0-v5 candidate (exp276) the first on XL0-v5, ML-13's
-  # (exp279) the first on xl0_v6_s42, ticket ML-16's (exp280, D11) the first on xl0_v7r_s123.
+  # (exp279) the first on xl0_v6_s42, ticket ML-16's (exp280, D11) the first on xl0_v7r_s123; ticket ML-27's (exp283,
+  # D6) the same segmenter, its head refitted on ML-25's photos.
   litert_export:
     foreach:
       allrigs_dino3b16_segxl0v3_country_s42: {seg: xl0_v3}
@@ -588,6 +589,7 @@ stages:
       dino3b16_segxl0v5_country_aug8_s42: {seg: xl0_v5}
       dino3b16_segxl0v6_country_aug8_s42: {seg: xl0_v6_s42}
       dino3b16_segxl0v7r_country_aug8_s42: {seg: xl0_v7r_s123}
+      dino3b16_segxl0v7r_country_aug8_ml27_s42: {seg: xl0_v7r_s123}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split
