@@ -105,23 +105,25 @@
 
   <h2>7. P5 &mdash; Conversion and the DVC remote <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-12; 3b93356, 7f4fefc</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The candidate in <code>litert_export</code>&rsquo;s <code>foreach</code>
+    <li><span class="box done"></span><span>The candidate in <code>litert_export</code>&rsquo;s <code>foreach</code>
       (<code>{seg: xl0_v7r_s123}</code>); <code>dvc repro -s litert_export@&lt;name&gt;</code> passes D7&rsquo;s bars
-      (ADR 0020).</span></li>
-    <li><span class="box"></span><span><code>models/&lt;name&gt;.pt</code> and <code>models/&lt;name&gt;.litert</code>
-      pushed as explicit targets; every object checked on the remote (dvc.md).</span></li>
+      (ADR 0020). <span class="result">Done 2026-11-12: 13 fixtures; <code>convert/.venv</code> first lacked
+      <code>imagecodecs</code>, installed by hand at the pinned 2026.10.10.</span></span></li>
+    <li><span class="box done"></span><span><code>models/&lt;name&gt;.pt</code> and <code>models/&lt;name&gt;.litert</code>
+      pushed as explicit targets; every object checked on the remote (dvc.md). <span class="result">Done 2026-11-12: 5 pushed, 9 of 9
+      present.</span></span></li>
     <li><span class="box"></span><span><code>scripts/check.sh</code> passes.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: the comparison and the candidate&rsquo;s numbers checked; a
-      go for the release.</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: the comparison and the candidate&rsquo;s numbers checked; a
+      go for the release. <span class="result">The go given 2026-11-12 (ticket D6).</span></span></li>
   </ol>
 
   <h2>8. P6 &mdash; Release <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-12</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5; the owner&rsquo;s go given 2026-11-12 (ticket D6)</span></div>
   </div>
   <ol class="tasks">
@@ -153,6 +155,8 @@
       (<code>analysis/ml27/</code>); the numbers in the ticket&rsquo;s Activity.</div>
     <div><div class="when">2026-11-12</div>P4 done: exp283 shipped, its OOD reference, exp280&rsquo;s probe reused
       (D4 (b)).</div>
+    <div><div class="when">2026-11-12</div>P5 done: converted (D7&rsquo;s check on 13 fixtures), pushed and checked on
+      the remote. P6 in progress: the live name moved in the app, the tests and the docs.</div>
   </div>
 
   <footer>Related: <a href="ticket_classifier_on_new_photos.html">ML-27 ticket</a>,

@@ -27,7 +27,7 @@ from coffeecv import canonical  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
 
 # The model the live release serves, the one with a LiteRT export (dvc.yaml's litert_export, ticket ML-7 P9).
-MODELS = ("dino3b16_segxl0v7r_country_aug8_s42",)
+MODELS = ("dino3b16_segxl0v7r_country_aug8_ml27_s42",)
 # The deploy's smoke photo, from the same list the deploy uses.
 PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.txt").read_text().splitlines()
                     if line.startswith("smoke "))
