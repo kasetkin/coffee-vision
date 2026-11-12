@@ -1,0 +1,41 @@
+config: models/dino3b16_segxl0v7r_country_aug8_ml27_s42.json (training_config)
+capture dirs: ['pool']
+train patches: 6000
+  embedded 256/6000
+  embedded 512/6000
+  embedded 768/6000
+  embedded 1024/6000
+  embedded 1280/6000
+  embedded 1536/6000
+  embedded 1792/6000
+  embedded 2048/6000
+  embedded 2304/6000
+  embedded 2560/6000
+  embedded 2816/6000
+  embedded 3072/6000
+  embedded 3328/6000
+  embedded 3584/6000
+  embedded 3840/6000
+  embedded 4096/6000
+  embedded 4352/6000
+  embedded 4608/6000
+  embedded 4864/6000
+  embedded 5120/6000
+  embedded 5376/6000
+  embedded 5632/6000
+  embedded 5888/6000
+  embedded 6000/6000
+  Ethiopia                       n=600   spread=8.612
+  Kenya                          n=600   spread=6.873
+  Colombia                       n=600   spread=8.214
+  CostaRica                      n=600   spread=7.260
+  Guatemala                      n=600   spread=8.357
+  Brazil                         n=600   spread=9.052
+  Vietnam                        n=600   spread=6.605
+  Indonesia                      n=600   spread=6.849
+  Peru                           n=600   spread=6.521
+  Rwanda                         n=600   spread=6.336
+
+per-patch  self-scores: mean 0.94  p95 1.21  max 2.18
+per-photo  self-scores: median 0.92  p95 1.16  max 2.04   (1173 photos)
+Wrote models/dino3b16_segxl0v7r_country_aug8_ml27_s42.ood_reference.json
