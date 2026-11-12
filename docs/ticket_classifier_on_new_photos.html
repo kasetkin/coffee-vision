@@ -10,10 +10,10 @@
     folder stages incremental. No classifier has trained on them: the live one, exp280, was fitted on ML-16&rsquo;s
     pool. The owner wants a new classifier on the current data, with the segmenter left as it is in the release.
     Written 2026-11-11; D1&ndash;D6 decided; planned (<a href="plan_classifier_on_new_photos.html">plan</a>);
-    exp283 live 2026-11-12.</p>
+    exp283 live 2026-11-12, checked by the owner; closed 2026-11-12.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 done 2026-11-12 (exp283 shipped, its OOD reference, exp280&rsquo;s probe, D4 (b)); D6: exp283 to be released; P5 done 2026-11-12 (converted, pushed, checked); P6: live 2026-11-12, release <code>20261112T0808Z-e7616ab-dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, --verify passed; the owner&rsquo;s check of the live site done 2026-11-12; for the owner to close</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-12 by the owner; written 2026-11-11 on branch ml27-classifier-retrain; D1&ndash;D5 decided 2026-11-11; planned (<a href="plan_classifier_on_new_photos.html">plan</a>, P1&ndash;P6); P1 done 2026-11-11; P2 and P3 done 2026-11-12 (exp283&ndash;285); P4 done 2026-11-12 (exp283 shipped, its OOD reference, exp280&rsquo;s probe, D4 (b)); D6: exp283 to be released; P5 done 2026-11-12 (converted, pushed, checked); P6: live 2026-11-12, release <code>20261112T0808Z-e7616ab-dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, --verify passed; the owner&rsquo;s check of the live site done 2026-11-12</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Model: classifier retrain on new data</span></div>
@@ -252,6 +252,9 @@
       &asymp;1.0 &mdash; the owner: &ldquo;refusal were correct, it were just random photos, no coffee beans&rdquo;.
       In the app about 10.1 s a photo (classification 5.9 s), 13.5 s at the front, as before the release. For the owner
       to close.</div>
+    <div><div class="when">2026-11-12</div>Closed by the owner. Follow-ups: <code>imagecodecs</code> declared in
+      <code>convert/pyproject.toml</code> (P5&rsquo;s finding, Out of scope), and ML-16 D13&rsquo;s probe refit at
+      the next retrain (D4 (b)).</div>
   </div>
 
   <footer>Related: <a href="ticket_intake_2026_11_10.html">ML-25</a>,
