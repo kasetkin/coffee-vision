@@ -1147,8 +1147,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/allrigs_dino3b16_segxl0v3_country_s42.json
       hash: md5
       md5: 5ce986bef26db7bde27d67cdbb96d103
@@ -1315,8 +1315,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v3_country_aug8_s123.json
       hash: md5
       md5: 9c6c4a93727996d0846adb1ad9bb8b6a
@@ -2235,8 +2235,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v4_country_aug8_s42.json
       hash: md5
       md5: b488a9f47ddbf4af8700e98c427dec40
@@ -2868,8 +2868,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v5_country_aug8_s42.json
       hash: md5
       md5: 454027f6d72fd092625188c20dcd9e43
@@ -3321,8 +3321,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v6_country_aug8_s42.json
       hash: md5
       md5: b2635d57bf9aec08fe97c4f3fe2d1107
@@ -4664,8 +4664,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v7r_country_aug8_s42.json
       hash: md5
       md5: 81e55d8dc3c313fdfda2ac8a4328281e
@@ -4907,8 +4907,8 @@ stages:
       size: 24847
     - path: convert/uv.lock
       hash: md5
-      md5: 6e114bc858961f7f66b18ddf7c596ed8
-      size: 64217
+      md5: d6afc5d8ed36534a5a8b435b78e4b79e
+      size: 65748
     - path: models/dino3b16_segxl0v7r_country_aug8_ml27_s42.json
       hash: md5
       md5: a12e1d6fbc5a13758247d9b30c7a0edd
