@@ -10,4 +10,4 @@ The guard stays [ADR 0005](0005-linear-probe-ood-guard.md)'s linear probe: a log
 - The guard no longer carries a false-refusal promise (ADR 0005's certified alpha). Its refusal rate on genuine photos is a measured number on the test split.
 - The serving warn band came from the conformal fit (the 20% threshold). A probe fitted under this ADR has none, so the band ends with the first such release.
 
-Source: [ML-5](../ticket_segmenter_dataset.html) D2, D9, D16, D17; supersedes [ADR 0005](0005-linear-probe-ood-guard.md).
+Source: [ML-5](../ml-0005_ticket_segmenter_dataset.html) D2, D9, D16, D17; supersedes [ADR 0005](0005-linear-probe-ood-guard.md).

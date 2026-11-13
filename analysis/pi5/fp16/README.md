@@ -1,7 +1,7 @@
 # OPS-23: fp16 on the Raspberry Pi 5's CPU
 
 How DINOv3 runs on the Pi's CPU in fp16 (LiteRT, XNNPACK flag 4, `FORCE_FP16`) fast and close enough to PyTorch.
-Findings and numbers: [ticket OPS-23](../../../docs/ticket_pi5_inference_host.html), section "fp16 on the CPU".
+Findings and numbers: [ticket OPS-23](../../../docs/ops-0023_ticket_pi5_inference_host.html), section "fp16 on the CPU".
 
 The scripts were run in two places, as in the rest of `analysis/pi5/`:
 

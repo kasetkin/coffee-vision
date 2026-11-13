@@ -2906,7 +2906,7 @@ the isolated `/opt/coffee-cv` service (OPS-1); it has served production since 14
 
 ### exp255-260: ML-2 P4, segmenter pools vs tray-heuristic pools, paired by seed (2026-10-02)
 
-Ticket ML-2 (docs/ticket_segmentation_mask.html), plan §7. Run on the VM at `7b273ec`, timm 1.0.30, 4 threads,
+Ticket ML-2 (docs/ml-0002_ticket_segmentation_mask.html), plan §7. Run on the VM at `7b273ec`, timm 1.0.30, 4 threads,
 `coffeecv.fit_frozen_head`, frozen `dinov3_vitb16` × cls_mean, C = 0.1. Baseline arm `--pools cropped` (today's
 recipe, refitted under timm 1.0.30); new arm `--pools segcropped` (the seed-123 fine-tuned segmenter, gray fill,
 D4 crop, D17 patch placement). The pools hold 938 photos with 0 D18 fallbacks, and no new-arm patch fell below
@@ -2930,7 +2930,7 @@ the 80% bean share. In-distribution only.
 
 ### exp261-263: ML-3, country classes on the segmenter pools plus the new photos (2026-10-06)
 
-Ticket ML-3 (docs/ticket_country_classes.html), plan §8-§11. Run on the VM at `6a842a1`, timm 1.0.30, 4 threads,
+Ticket ML-3 (docs/ml-0003_ticket_country_classes.html), plan §8-§11. Run on the VM at `6a842a1`, timm 1.0.30, 4 threads,
 `coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 261`, frozen `dinov3_vitb16` × cls_mean, C = 0.1. The class
 is the country (D15 `classes.txt`): 10 classes, 14 coffee folders. The pools hold 1,207 photos: the 938 old ones
 plus 288 new (Peru, Rwanda, and three new coffees of old countries), less 19 crops the owner declined (P5). 5,550
@@ -2982,12 +2982,12 @@ deleted. The untracked `.ood_embeddings.npz` sidecars of the three newest were m
 
 ML-5's (exp264-266, segmenter XL0-v2 pools) and ML-6's (exp267-269, XL0-v3) refits of the same recipe were recorded
 in their tickets instead: `analysis/ml5_p11/`, `analysis/ml6_p8/summary.txt` and `compare_exp267-269_vs_264-266.txt`,
-and `docs/plan_segmenter_retrain.html`'s Activity. exp267 (`allrigs_dino3b16_segxl0v3_country_s42`) was live
+and `docs/ml-0006_plan_segmenter_retrain.html`'s Activity. exp267 (`allrigs_dino3b16_segxl0v3_country_s42`) was live
 2026-10-13 to 2026-10-20.
 
 ### exp270-272: ML-8, one pool and an augmented head, paired against the same runs unaugmented (2026-10-19)
 
-Ticket ML-8 (`docs/ticket_data_refresh_retrain.html`). One pool of every session's XL0-v3 crops
+Ticket ML-8 (`docs/ml-0008_ticket_data_refresh_retrain.html`). One pool of every session's XL0-v3 crops
 (`data/segcropped/pool`, 1,251 photos; no camera, rig or tag anywhere, ADR 0024), 600/160/160 patches per class,
 frozen DINOv3 ViT-B/16 `cls_mean`, logistic-regression head at C = 0.1. Each run fits two heads on the same
 patches: on the originals, and on each original plus 8 augmented views at weight 1/9 per row, so both carry the
@@ -3019,7 +3019,7 @@ same total weight (ADR 0025; `params.yaml` `head_augment`). About 2.6 h per seed
 
 ### exp273-275: ML-9, the classifier on XL0-v4's crops, green Indonesia and Peru included (2026-10-23)
 
-Ticket ML-9 (`docs/ticket_green_origins_retrain.html`). ML-8's recipe unchanged (600/160/160 patches per class,
+Ticket ML-9 (`docs/ml-0009_ticket_green_origins_retrain.html`). ML-8's recipe unchanged (600/160/160 patches per class,
 frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8 augmented views per training patch at weight 1/9) on new data: every
 session re-cropped with the XL0-v4 segmenter at a tiny-mask threshold of 0.039049, and the pool grown to 1,326
 photos (31 excluded) with the green Indonesia (class 015) and Peru photos of 2026-10-21 and 33 more Brazil photos.
@@ -3080,7 +3080,7 @@ a tiny-mask threshold of 0.021008, half the smallest non-empty test-positive mas
 ML-9's recipe unchanged (600/160/160 patches per class, frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8 augmented
 views per training patch at weight 1/9) on new crops: every session re-cropped with the XL0-v6 segmenter
 (`xl0_v6_s42`, seed 42 of its pass10 fine-tune, adopted by the owner on the test split, ticket
-[ML-13](docs/ticket_segmenter_xl0v6.html) D14) at a tiny-mask threshold of 0.028521, half the smallest non-empty
+[ML-13](docs/ml-0013_ticket_segmenter_xl0v6.html) D14) at a tiny-mask threshold of 0.028521, half the smallest non-empty
 test-positive mask the owner accepted (`analysis/xl0v6/paired_s42_report.txt`). The pool is the same 1,376 photos
 as exp276's (3 excluded); none was added, so the split is exp276's. One seed (42): ML-13 D6 ships the one run. 2 h 31 min.
 

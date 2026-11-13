@@ -14,4 +14,4 @@ We chose `*` over an allow-list of origins because CORS controls only who may *r
 - A key or a cookie would end `*`. Credentials need the exact origin echoed back with `Vary: Origin`, so that change revisits this ADR.
 - The contract (`llms.txt`, `openapi.json`) asks a calling site to tell its visitors that their photo is sent here. The photo is never stored, whoever sends it.
 
-Source: [OPS-19](../ticket_cors_analyze.html) D1, D2, D3, D6.
+Source: [OPS-19](../ops-0019_ticket_cors_analyze.html) D1, D2, D3, D6.

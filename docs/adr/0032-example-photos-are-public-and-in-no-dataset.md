@@ -14,4 +14,4 @@ We chose git over shipping them from DVC at deploy time, which would have let us
 - A new example photo has to come from outside every set, or leave them before the next retrain, like these five.
 - The re-encode is not the original's pixels. Each example ships only once the model it ships with gives it the original's answer and the owner accepts its mask, and every deploy's `--verify` checks the expected answers again.
 
-Source: [OPS-16](../ticket_example_photos.html) D2, D3, D5; [ML-16](../ticket_next_training_session.html) D3.
+Source: [OPS-16](../ops-0016_ticket_example_photos.html) D2, D3, D5; [ML-16](../ml-0016_ticket_next_training_session.html) D3.

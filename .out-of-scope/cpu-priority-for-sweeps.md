@@ -8,4 +8,4 @@ When both are busy they share the CPU, and the site stays on during sweeps: serv
 
 ## Prior requests
 
-- [OPS-1](../docs/ticket_webapp_release_isolation.html), `docs/ops1_release_isolation_plan.html` §10 (Out of scope); confirmed by the owner when OPS-1 closed.
+- [OPS-1](../docs/ops-0001_ticket_webapp_release_isolation.html), `docs/ops1_release_isolation_plan.html` §10 (Out of scope); confirmed by the owner when OPS-1 closed.

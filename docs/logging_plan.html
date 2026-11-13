@@ -271,7 +271,7 @@
       <tr><td>client IP, per request</td><td class="why">would tie an IP to each photo's verdict and timing &mdash; more than any question here needs</td><td><span class="pill exclude">exclude</span></td></tr>
       <tr><td>client IP, per TLS session</td><td class="why">blocks a specific abusive source mid-incident; the session's time places it beside the front's request lines, without a join key (OPS-15 D20)</td><td><span class="pill minimize">collect, 30 days</span></td></tr>
       <tr><td>raw User-Agent string, the app</td><td class="why">exact minor version / device token adds fingerprinting surface for little extra signal</td><td><span class="pill minimize">minimize</span></td></tr>
-      <tr><td>raw User-Agent string, the front's access log</td><td class="why">tells a crawler from a visit, so page loads count people; with no IP, no cookie and no ID beside it, it names a browser, not a visitor (<a href="ticket_visitor_analytics.html">OPS-3</a> D5, the owner, 2026-11-09)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
+      <tr><td>raw User-Agent string, the front's access log</td><td class="why">tells a crawler from a visit, so page loads count people; with no IP, no cookie and no ID beside it, it names a browser, not a visitor (<a href="ops-0003_ticket_visitor_analytics.html">OPS-3</a> D5, the owner, 2026-11-09)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
       <tr><td>coarse UA category (OS + browser family)</td><td class="why">HEIC/AVIF decode failures cluster by browser family &mdash; this is the actual useful signal</td><td><span class="pill collect">collect</span></td></tr>
       <tr><td>Referer header</td><td class="why">where visits come from: a site's address, not a visitor's; the reading script shows other sites' by host only (OPS-3 D5; excluded before it, as adding nothing to a single-page app)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
       <tr><td>Origin header, per request</td><td class="why">a site's address, not a visitor's: the page's own uploads log the live site, another site's page its own, <code>curl</code> or an agent &ldquo;-&rdquo;; the only way to tell other sites' traffic from the page's, now that <code>/analyze</code> answers every origin (OPS-19 D3, <a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>)</td><td><span class="pill collect">collect, 365 days</span></td></tr>
@@ -322,7 +322,7 @@
     </tbody>
   </table></div>
 
-  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">G &middot; The photo's timeline (OPS-3, <a href="ticket_visitor_analytics.html">ticket</a>)</h3>
+  <h3 style="font-size:15px; margin:26px 0 4px; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.05em;">G &middot; The photo's timeline (OPS-3, <a href="ops-0003_ticket_visitor_analytics.html">ticket</a>)</h3>
   <p class="section-note">
     Each photo, from the visitor's pick to the answer on screen, from logs alone (OPS-3 D2, D6): no tracker, no
     analytics service, no cookie, no IP. Three sources, joined by the one request ID (&sect;05), each saying what it

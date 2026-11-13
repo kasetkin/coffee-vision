@@ -1,6 +1,6 @@
 # ML-14: the metadata stripper on several cores
 
-Plan: `docs/plan_strip_metadata_parallel.html`; ticket: `docs/ticket_strip_metadata_parallel.html` (decisions
+Plan: `docs/ml-0014_plan_strip_metadata_parallel.html`; ticket: `docs/ml-0014_ticket_strip_metadata_parallel.html` (decisions
 D1-D15, Activity). The scripts written while building it, 2026-10-30; each runs from the repo root.
 
 - `factor.py`: pixel_digest's peak memory per pixel for one photo (P3), run on real photos of

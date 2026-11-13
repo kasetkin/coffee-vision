@@ -1,6 +1,6 @@
 # ML-19 D52: libjxl's chunked encoder, for the front's memory
 
-Measured 2026-11-03 for [ML-19](../../docs/ticket_canonicalization.html) D52 (plan Q6, option (a)), after P1
+Measured 2026-11-03 for [ML-19](../../../docs/ml-0019_ticket_canonicalization.html) D52 (plan Q6, option (a)), after P1
 ([`../p1/README.md`](../p1/README.md)) found that the whole-frame encode needs about 1 GB at 60 MP. Raw results are in
 `results/`. The front ran in a throwaway uv environment under `/tmp/ml19p1`, each photo in its own
 `systemd-run --user --scope -p MemoryMax=500M -p MemorySwapMax=0`. The scope's own `memory.peak` was read from inside

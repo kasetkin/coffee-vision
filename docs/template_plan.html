@@ -4,7 +4,8 @@
 <link rel="stylesheet" href="tickets.css">
 
 <!--
-  Plan template. One plan per ticket: copy to docs/plan_<slug>.html, with the ticket's slug, then:
+  Plan template. One plan per ticket: copy to docs/<id>_plan_<slug>.html, with the ticket's ID prefix and slug
+  (docs/ml-0007_ticket_x.html's plan is docs/ml-0007_plan_x.html), then:
   - Replace every [[...]] placeholder; none may be left (grep -n '\[\[' the new file).
   - Each phase is a ticket for /implement ("ML-n P2"). Its fields block holds its own Status and Blocked by;
     a phase is ready when everything it names is Done, Closed or answered.
@@ -14,13 +15,13 @@
 <main>
   <div class="eyebrow">Plan · [[ML-n]] · coffee-vision · implementation</div>
   <h1>Implementation plan: [[short title]]</h1>
-  <p class="lede">The order of work for <a href="[[ticket_slug.html]]">ticket [[ML-n]]</a>. [[The strands of work, which
+  <p class="lede">The order of work for <a href="[[ml-000n_ticket_slug.html]]">ticket [[ML-n]]</a>. [[The strands of work, which
     one comes first and why, and the first step that changes a number.]]</p>
 
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">[[written YYYY-MM-DD; Q1&ndash;Qn open; not implemented]]</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
-    <div class="field"><span class="k">Ticket</span><span class="v"><a href="[[ticket_slug.html]]"><code>[[ticket_slug.html]]</code></a> ([[ML-n]])</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="[[ml-000n_ticket_slug.html]]"><code>[[ml-000n_ticket_slug.html]]</code></a> ([[ML-n]])</span></div>
     <div class="field"><span class="k">Author</span><span class="v">[[Claude]]</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">[[YYYY-MM-DD]]</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">[[or the Qs and ticket IDs the plan as a whole waits on]]</span></span></div>
@@ -104,5 +105,5 @@
       plan. [[N findings not in the ticket]]; Q1&ndash;Qn open for the owner. Not implemented.</div>
   </div>
 
-  <footer>Related: <a href="[[ticket_slug.html]]">[[ML-n]] ticket</a>, [[files and other plans]].</footer>
+  <footer>Related: <a href="[[ml-000n_ticket_slug.html]]">[[ML-n]] ticket</a>, [[files and other plans]].</footer>
 </main>

@@ -10,4 +10,4 @@ On the labelling page (`coffeecv.seg_review label`), a declined mask is redrawn 
 - **pass5** is the first session with seven. It had no verdicts of its own when its file gained `"rounds": 7`. A photo pass4 dropped after three rounds starts again at round 1 there, like any photo not carried.
 - **Considered**: an unlimited number of rounds. Rejected because a mask the model cannot draw would never leave the queue. Seven was the owner's pick over five.
 
-Source: the owner, 2026-10-24; amends ML-5 D14 ([ticket](../ticket_segmenter_dataset.html)) and the round limit in ADR 0015.
+Source: the owner, 2026-10-24; amends ML-5 D14 ([ticket](../ml-0005_ticket_segmenter_dataset.html)) and the round limit in ADR 0015.

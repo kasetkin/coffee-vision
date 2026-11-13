@@ -21,4 +21,4 @@ The gates compare against PyTorch within these bars, not bit for bit. The same c
 - `deploy_webapp.sh --compare` and `release_probe.py` move from bit-identical answers to these bars (ML-7 R4).
 - The checks need the serving accelerator, so they run on the serving host, in the smoke-test unit before a release goes live. A new host or accelerator reruns them, and P7's answer check, before it serves.
 
-Source: [ML-7](../ticket_inference_runtime.html) D7, D14; measurements in `docs/plan_inference_runtime.html` (P2, P4, P7).
+Source: [ML-7](../ml-0007_ticket_inference_runtime.html) D7, D14; measurements in `docs/ml-0007_plan_inference_runtime.html` (P2, P4, P7).

@@ -6,6 +6,7 @@
 #
 # Runs coffeecv.leak_check (no public IPs, emails, credentials or photo GPS in what git would publish, ~6 s),
 # coffeecv.ticket_check (the HTML tickets, plans and ADRs keep docs/agents/issue-tracker.md's rules, <1 s),
+# coffeecv.ticket_board --check (docs/tickets.html is the board the tickets give, ADR 0039, <1 s),
 # ruff check (the lint rules in pyproject.toml's [tool.ruff], over the working tree, <1 s),
 # coffeecv.coverage_report (dataset/ vs classes.txt vs dvc.yaml, ~5 s) and the unittest suite. The
 # fast tier sets COFFEECV_FAST_TESTS=1, which skips the tests marked @real_data (tests/_tiers.py: real
@@ -39,6 +40,7 @@ run() {  # run <name> <command...>
 
 run leak_check python -m coffeecv.leak_check
 run ticket_check python -m coffeecv.ticket_check
+run ticket_board python -m coffeecv.ticket_board --check
 run lock_check python -m coffeecv.lock_check
 run ruff python -m ruff check --output-format concise
 run coverage_report python -m coffeecv.coverage_report

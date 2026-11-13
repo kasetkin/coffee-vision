@@ -14,4 +14,4 @@ The owner chose this for time: with the store's settings a 50 MP photo took abou
 - The deploy checks the front's path: `--verify`'s public `/analyze` is held to the staged app's answer on the smoke photo as the front makes it, and before anything is stopped each example's answer on its re-encoded photo is held to its country (OPS-22 D6, D7). The host's own smoke keeps the store's photo.
 - A change to `FRONT_SETTINGS` changes the live input and nothing else; a change to `STORE_SETTINGS` is still a re-canonicalization and a retrain (ADR 0033). Bringing the two back together, by re-canonicalizing the store with the front's settings and retraining, is open to a later ticket.
 
-Source: [OPS-22](../ticket_front_fast_canonicalization.html) D1, D3, D4, D5.
+Source: [OPS-22](../ops-0022_ticket_front_fast_canonicalization.html) D1, D3, D4, D5.

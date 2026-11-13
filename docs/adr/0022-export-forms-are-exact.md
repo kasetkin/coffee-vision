@@ -20,4 +20,4 @@ An fp16 form's scales are sized from a range scan of every module's values in fp
 - A new model, a new checkpoint of a different architecture, or a new runtime version reruns the range scan and the forms' checks before conversion.
 - Split sums cost graph size: the encoder grew from 65 convolutions to 612 at 128 channels, and to 2,420 at 32, where it lost fp16's speed.
 
-Source: [ML-7](../ticket_inference_runtime.html) D4, D14; measurements in `docs/plan_inference_runtime.html` (P1, P2, P7) and `analysis/ml7_gpu/p7_ranges.json`.
+Source: [ML-7](../ml-0007_ticket_inference_runtime.html) D4, D14; measurements in `docs/ml-0007_plan_inference_runtime.html` (P1, P2, P7) and `analysis/ml7_gpu/p7_ranges.json`.

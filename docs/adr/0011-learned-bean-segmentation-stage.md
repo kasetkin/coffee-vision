@@ -6,6 +6,6 @@ status: superseded by ADR-0015
 
 EfficientViT-SAM-L0, fine-tuned on this project's photos, masks the photo's bean region, and the photo is cropped to it before classification; it replaced the per-session tray heuristic at both ends. Its training masks have no hand annotation: Claude (Opus, through headless `claude -p` on the owner's plan) judges each proposed mask and gives corrective points, and the owner audits the verdicts.
 
-Source: [ML-2](../ticket_segmentation_mask.html) D1, D6, D15.
+Source: [ML-2](../ml-0002_ticket_segmentation_mask.html) D1, D6, D15.
 
 Superseded by [ADR 0015](0015-xl0-segmenter-owner-judged-labels.md) (ML-5 D17), 2026-10-08.

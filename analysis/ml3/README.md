@@ -1,6 +1,6 @@
 # ML-3: country classes and the new photos
 
-Plan: `docs/plan_country_classes.html`; ticket: `docs/ticket_country_classes.html` (decisions D1-D15, Activity).
+Plan: `docs/ml-0003_plan_country_classes.html`; ticket: `docs/ml-0003_ticket_country_classes.html` (decisions D1-D15, Activity).
 
 - `new_photos.py`, `premerge_check.py`: the 288 new photos, fixed on 2026-10-05 (P2), and the checks before
   they joined `dataset/` (P4). `labels/ml3/new_photos.csv` is the list.

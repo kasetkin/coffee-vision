@@ -11,4 +11,4 @@ status: accepted
 - **What changes**: the segmenter's brightness and contrast (RandomBrightnessContrast 0.2, 0.2 at p 0.5, as XL0-v3 trained) give way to the colour group, which adds saturation and white balance at p 0.8. That takes effect at its next fine-tune; XL0-v3's stage is frozen with the pipeline it trained with.
 - **DVC**: a stage that trains with a pipeline lists `augment` in its params beside its own block, or a changed group does not invalidate it.
 
-Source: the owner, 2026-10-20, after [ML-8](../ticket_data_refresh_retrain.html); amends ADR 0018 and ADR 0025.
+Source: the owner, 2026-10-20, after [ML-8](../ml-0008_ticket_data_refresh_retrain.html); amends ADR 0018 and ADR 0025.

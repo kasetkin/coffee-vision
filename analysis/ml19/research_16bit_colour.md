@@ -1,6 +1,6 @@
 # ML-19: 16-bit and float colour management, and JPEG XL from Python
 
-Research note for [ML-19](../../docs/ticket_canonicalization.html), written 2026-11-03. Sources are primary: source code at a
+Research note for [ML-19](../../docs/ml-0019_ticket_canonicalization.html), written 2026-11-03. Sources are primary: source code at a
 named tag, official docs, PyPI metadata and wheels unpacked under `/tmp`. "Measured" means a run of imagecodecs
 2026.10.10 from its PyPI wheel, on an AVX2-only x86_64 machine (AMD Zen 3, glibc 2.41, NumPy 2.5.4). The scripts lived
 in `/tmp` and are not committed. "Unverified" marks claims that could not be checked here.

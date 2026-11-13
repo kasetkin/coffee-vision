@@ -1,7 +1,7 @@
 # ML-19 P1: the encoder and the colour on three machines
 
-Measured 2026-11-03 for [ML-19](../../docs/ticket_canonicalization.html), plan phase P1
-([plan](../../docs/plan_canonicalization.html)). The prototype is not P3's module and has no tests. Every remote run
+Measured 2026-11-03 for [ML-19](../../../docs/ml-0019_ticket_canonicalization.html), plan phase P1
+([plan](../../../docs/ml-0019_plan_canonicalization.html)). The prototype is not P3's module and has no tests. Every remote run
 used a throwaway uv environment under `/tmp/ml19p1` (uv's cache and Python included), never a release's `.venv`. Both
 remote directories were deleted afterwards. The raw results are in `results/`.
 

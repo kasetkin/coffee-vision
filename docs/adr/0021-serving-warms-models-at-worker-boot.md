@@ -14,4 +14,4 @@ Why: a model's first inference pays set-up that later ones do not, and gunicorn 
 - A warm-up that fails or returns non-finite outputs fails the boot, rather than surfacing on a visitor's request.
 - The warm-up input is a fixed photo shipped with the release, so every boot does the same work.
 
-Source: [ML-7](../ticket_inference_runtime.html) D2, R6; measurements in `docs/plan_inference_runtime.html` (P0, P4, P7).
+Source: [ML-7](../ml-0007_ticket_inference_runtime.html) D2, R6; measurements in `docs/ml-0007_plan_inference_runtime.html` (P0, P4, P7).

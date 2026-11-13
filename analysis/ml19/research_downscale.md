@@ -1,6 +1,6 @@
 # ML-19: OpenCV or Pillow for the over-60 MP to 50 MP downscale
 
-Researched 2026-11-03 for [ML-19](../../docs/ticket_canonicalization.html) (D27: a photo over 60 MP is downscaled,
+Researched 2026-11-03 for [ML-19](../../docs/ml-0019_ticket_canonicalization.html) (D27: a photo over 60 MP is downscaled,
 aspect kept, to at most 50 MP; in the dataset 16320x12240 to 8164x6123, factor 1.999, and 10584x7936 to 8165x6122,
 factor 1.296). Versions: Pillow 12.3.0, opencv-python-headless 5.0.0.93 (OpenCV 5.0.0, Intel IPP ICV 2026.0.0,
 pthreads), NumPy 2.5.3, Python 3.12.16, torch 2.14.0, torchvision 0.29.1. The measurements ran on an AMD Ryzen 5

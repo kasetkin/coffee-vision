@@ -58,6 +58,10 @@ _Avoid_: Test photo, example photo
 The record of one photo's way from the visitor's pick to the answer on screen: each step's time and outcome, as the page and both hosts saw it, joined by one request ID. A photo has one timeline even when it waited for the classifier or was refused before it left the page.
 _Avoid_: Report (a results report is an experiment's), analytics event, trace
 
+**Ticket board**:
+The one page that lists every ticket with its ID, title, status and plan (`docs/tickets.html`). A ticket is on it from the commit that writes the ticket; the ticket itself stays the record of what is done.
+_Avoid_: Dashboard, ticket index, ticket list, backlog
+
 ## Mask quality
 
 **Judge**:

@@ -12,6 +12,6 @@ Read before starting, watching or syncing a run on a machine other than this one
 ## Keeping the remote history and local history together
 
 - **Before a run**, sync the remote checkout to local `main`; **after it**, bring its experiment commits home promptly. The longer both sides commit, the harder the merge.
-- Sync by simple merges only ([ADR 0009](../adr/0009-simple-merges-only.md)), the procedure in OPS-1 §7 (`docs/ticket_webapp_release_isolation.html`): `git fetch <host> main:tmp/vm-sweep`, merge on a `tmp/merge-sweep` branch, check, `git merge --ff-only` into `main`; then push `main` to the remote's `tmp/from-local` and `git merge --ff-only` there.
+- Sync by simple merges only ([ADR 0009](../adr/0009-simple-merges-only.md)), the procedure in OPS-1 §7 (`docs/ops-0001_ticket_webapp_release_isolation.html`): `git fetch <host> main:tmp/vm-sweep`, merge on a `tmp/merge-sweep` branch, check, `git merge --ff-only` into `main`; then push `main` to the remote's `tmp/from-local` and `git merge --ff-only` there.
 - `git reset --hard` discards every uncommitted tracked change in the tree, not only the commit being undone; it once wiped a day's uncommitted code on the VM. Commit or stash first, or undo with `git checkout <commit> -- <paths>`.
 - Before trusting a remote run, check `git log` there matches what you meant to run.

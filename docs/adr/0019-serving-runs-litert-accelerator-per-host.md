@@ -49,4 +49,4 @@ LiteRT stays, with XNNPACK on the CPU or whatever accelerator that host offers, 
 - **On a GPU host,** the service depends on the host's GPU stack (on `yappy`: Mesa's Vulkan driver, the render node opened by the service, LiteRT's accelerator library from the wheel). The CPU and GPU share the N100's package power limit, so heavy CPU work beside serving slows the GPU: an upload's ssh cost 2–6% of a photo's time.
 - **Start-up costs:** every graph sets up at start, so the worker warms them at boot ([ADR 0021](0021-serving-warms-models-at-worker-boot.md)).
 
-Source: [ML-7](../ticket_inference_runtime.html) D2, D3, D4; measurements in `docs/plan_inference_runtime.html` (P4, P7) and `analysis/ml7_gpu/README.md`.
+Source: [ML-7](../ml-0007_ticket_inference_runtime.html) D2, D3, D4; measurements in `docs/ml-0007_plan_inference_runtime.html` (P4, P7) and `analysis/ml7_gpu/README.md`.

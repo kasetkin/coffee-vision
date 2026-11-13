@@ -1,6 +1,6 @@
 # ML-7: a GPU or CPU runtime for serving, measured on `yappy`
 
-The report of plan P5 (`docs/plan_inference_runtime.html`, ticket `docs/ticket_inference_runtime.html`). Every
+The report of plan P5 (`docs/ml-0007_plan_inference_runtime.html`, ticket `docs/ml-0007_ticket_inference_runtime.html`). Every
 number comes from a committed record in this directory; the raw outputs are in DVC (`artifacts.dvc`).
 
 **In short:** three cells pass D10's test with D15's margin, all of them on the N100's iGPU. They are:

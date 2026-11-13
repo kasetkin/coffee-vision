@@ -1,6 +1,6 @@
 # ML-2 P4: classifier refit on the segmenter's pools
 
-Plan §7 of `docs/plan_segmentation_mask.html`; summary in the ticket's Activity and in `EXPERIMENTS_LOG.md`
+Plan §7 of `docs/ml-0002_plan_segmentation_mask.html`; summary in the ticket's Activity and in `EXPERIMENTS_LOG.md`
 (exp255-260).
 
 - `paired_258-260_vs_255-257.txt`: `python -m coffeecv.compare_experiments 258 259 260 --vs 255 256 257`, the
