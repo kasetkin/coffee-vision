@@ -31,14 +31,17 @@ D15 = """\
 014;Colombia,Antioquia;Excelso
 """
 # dataset/classes.txt today: D15 plus the coffees added since. 015 is the green Indonesia of 2026-10-21, a coffee
-# other than 010's Java whose farm region is unknown (owner, 2026-10-21); 018 a Costa Rica of unknown region
-# (2026-11-11, ML-25). D15's 002 gained its washing station, Gatomboya, the same day (the owner).
-CLASSES_TXT = D15.replace("002;Kenya,Nyeri;AA\n", "002;Kenya,Nyeri,Gatomboya;AA\n") + """\
+# other than 010's Java whose farm region is unknown (owner, 2026-10-21); 018 a Costa Rica (2026-11-11, ML-25).
+# D15's 002 gained its washing station, Gatomboya, the same day (the owner). ML27_TXT is the file ML-27's model froze,
+# when 018's region was unknown; 018 has since gained it: Las Lajas micromill's Finca La Mirella, Sabanilla de
+# Alajuela in the Central Valley (the owner, 2026-11-13; the lot is the Mariana variety).
+ML27_TXT = D15.replace("002;Kenya,Nyeri;AA\n", "002;Kenya,Nyeri,Gatomboya;AA\n") + """\
 015;Indonesia;
 016;Ethiopia,Guji,SukeQuto;Daannisa
 017;Peru,Amazonas;Monteverde
 018;CostaRica;
 """
+CLASSES_TXT = ML27_TXT.replace("018;CostaRica;\n", "018;CostaRica,CentralValley,Sabanilla;LaMirella\n")
 # An old-format frozen list, word for word: allrigs_cam_s123's (the same bytes as allrigs_dino3b16_s123's), from
 # the 10-class models retired on 2026-10-06. Archived experiments' configs still name lists in this format.
 OLD_FORMAT = """\
@@ -128,11 +131,11 @@ class TestClassList(unittest.TestCase):
     def test_every_shipped_frozen_list_is_d15(self):
         frozen = sorted((REPO_ROOT / "models").glob("*.classes.txt"))
         self.assertTrue(frozen)
-        # Shipped since ML-3: the D15 file, since ML-9 with class_015, since ML-27 dataset/classes.txt as it is now
-        # (ML-25's 016-018 and 002's washing station).
+        # Shipped since ML-3: the D15 file, since ML-9 with class_015, since ML-27 ML-25's 016-018 and 002's washing
+        # station; a model fitted since 018 gained its farm region freezes dataset/classes.txt as it is now.
         for path in frozen:
             with self.subTest(path=path.name):
-                self.assertIn(path.read_text(), (D15, D15 + "015;Indonesia;\n", CLASSES_TXT))
+                self.assertIn(path.read_text(), (D15, D15 + "015;Indonesia;\n", ML27_TXT, CLASSES_TXT))
 
     def test_old_format_list_reads_as_before(self):
         path = self.write(OLD_FORMAT)
