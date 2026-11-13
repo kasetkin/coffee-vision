@@ -13,7 +13,7 @@ from pathlib import Path
 from coffeecv.class_list import ClassList, folder_classes, load_classes, read_coffees
 from coffeecv.config import REPO_ROOT
 
-# The D15 content, word for word from the ticket (docs/ticket_country_classes.html, D15).
+# The D15 content, word for word from the ticket (docs/ml-0003_ticket_country_classes.html, D15).
 D15 = """\
 001;Ethiopia,Sidamo;
 002;Kenya,Nyeri;AA

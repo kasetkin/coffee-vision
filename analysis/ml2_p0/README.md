@@ -1,6 +1,6 @@
 # ML-2 P0: setup, mask selection, latency, determinism
 
-Ticket: `docs/ticket_segmentation_mask.html` (ML-2). Plan: `docs/plan_segmentation_mask.html` §3.
+Ticket: `docs/ml-0002_ticket_segmentation_mask.html` (ML-2). Plan: `docs/ml-0002_plan_segmentation_mask.html` §3.
 Run 2026-09-30 on `tmp/segmentation-mask`.
 
 ## Done

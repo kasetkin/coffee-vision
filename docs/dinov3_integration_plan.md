@@ -8,7 +8,7 @@ on 2026-09-27. **2026-09-27: deployed.**
 The owner chose it as the first release of the isolated `/opt/coffee-cv` service (OPS-1,
 `docs/ops1_release_isolation_plan.html`); it passed the smoke test in the real systemd sandbox (§9.4) and
 has been live since 14:25 UTC. That was the owner's call ahead of the §7.2 comparison.
-**2026-09-29: §7.2 is CLOSED, superseded** -- ticket ML-1 (`docs/ticket_retire_cross_rig.html`, D7)
+**2026-09-29: §7.2 is CLOSED, superseded** -- ticket ML-1 (`docs/ml-0001_ticket_retire_cross_rig.html`, D7)
 retired the leave-one-camera-out fold protocol it was built on, so the owner's 2026-09-26 selection
 stands without it. Screen D (§7.3) and Screen C (§10) score the cross-camera set, which no longer
 exists: they are re-scoped to the pooled protocol only if still wanted (D7). This file

@@ -1,6 +1,6 @@
 # ML-19: measurements behind canonicalization's first decisions
 
-Measured 2026-11-03 on the local checkout at `840bb87`, for [ML-19](../../docs/ticket_canonicalization.html). Scratch
+Measured 2026-11-03 on the local checkout at `840bb87`, for [ML-19](../../docs/ml-0019_ticket_canonicalization.html). Scratch
 inputs lived in `/tmp/ml16/q13/`; the scripts here are as run.
 
 ## The dataset's colour profiles, orientation and second images

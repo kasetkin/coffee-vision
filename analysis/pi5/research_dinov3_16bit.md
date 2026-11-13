@@ -1,6 +1,6 @@
 # OPS-23: DINOv3 in 16-bit floating point (BF16 first, then FP16)
 
-Research note for [OPS-23](../../docs/ticket_pi5_inference_host.html), written 2026-11-10. Sources are primary: source code
+Research note for [OPS-23](../../docs/ops-0023_ticket_pi5_inference_host.html), written 2026-11-10. Sources are primary: source code
 at a named tag or commit, official docs, specs, and the model authors' paper and repository. "Measured" means a run on
 this devcontainer's CPU, an AMD Ryzen 5 5600U (Zen 3: AVX2, FMA, F16C; no AVX-512, no BF16 instructions), with
 LiteRT 2.3.0 (`ai-edge-litert`), torch 2.14.0+cpu and timm 1.0.30 from the training environment, and litert-torch 0.9.4
@@ -196,7 +196,7 @@ This explains every detail of the Pi's result:
 
 - attention scores up to 1.3×10^5, past fp16's 65,504;
 - LayerNorm sums of squares beyond fp16 in 19 of 25 norms, because the register tokens reach 1.5×10^4
-  (`docs/plan_inference_runtime.html`, P7).
+  (`docs/ml-0007_plan_inference_runtime.html`, P7).
 
 FORCE_FP16 materialises both in fp16.
 

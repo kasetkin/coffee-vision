@@ -12,4 +12,4 @@ A deploy to `webappremote` stops the live service (`coffee-cv-web`) before it sm
 
 The immutable releases and rollback of ADR 0008 are unchanged. Supersedes the owner's per-deploy choice in OPS-7 and settles OPS-10's question of making room.
 
-Source: the owner, 2026-10-20, after ML-8's deploy; [OPS-10](../ticket_deploy_memory_headroom.html).
+Source: the owner, 2026-10-20, after ML-8's deploy; [OPS-10](../ops-0010_ticket_deploy_memory_headroom.html).

@@ -13,4 +13,4 @@ Two related measurements were deferred by the owner, not rejected; propose them 
 
 ## Prior requests
 
-- [ML-1](../docs/ticket_retire_cross_rig.html), owner decision 2026-09-28, and its D1, D2 and D7: the protocol and the screens built on it were retired.
+- [ML-1](../docs/ml-0001_ticket_retire_cross_rig.html), owner decision 2026-09-28, and its D1, D2 and D7: the protocol and the screens built on it were retired.

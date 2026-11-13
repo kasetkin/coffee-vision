@@ -5,10 +5,11 @@
 
 
 <!--
-  Ticket template. Copy to docs/ticket_<slug>.html, then:
+  Ticket template. Copy to docs/<id>_ticket_<slug>.html, where <id> is the ticket's ID lowercased
+  and zero-padded to four digits (ML-7: docs/ml-0007_ticket_<slug>.html), then:
   - Replace every [[...]] placeholder; none may be left (grep -n '\[\[' the new file).
   - ID: the next free ML-n (data, model, training, evaluation) or OPS-n (deploy, infrastructure):
-      grep -o 'Ticket [A-Z]*-[0-9]*' docs/ticket_*.html
+      ls docs/*_ticket_*.html
   - Delete these HTML comments, and any optional field or section you don't use.
   - Conventions: docs/agents/issue-tracker.md. Terms: GLOSSARY.md.
 -->

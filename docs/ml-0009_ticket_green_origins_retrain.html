@@ -1,0 +1,287 @@
+<title>Green Origins Retrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-9 · coffee-vision · segmenter, classifier and release</div>
+  <h1>Retrain the segmenter and the classifier on every photo of 2026-10-21, green Indonesia and Peru included</h1>
+  <p class="lede">The ingest of 2026-10-21 brought the first green Indonesia and green Peru photos, 7 more roasted
+    Colombia Excelso photos, 3 segmenter positives and a negative. They are in the data, but no model has trained on
+    them: the live classifier knows Indonesia and Peru roasted only. The owner wants every new photo used, and both
+    models retrained. D1, D2 and D4&ndash;D9 decided, D3 open (run as plan Q1 recommends); P1&ndash;P7 done; live
+    2026-10-24.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-10-27 by the owner; written 2026-10-21; D1, D2, D7 decided; planned (<a href="ml-0009_plan_green_origins_retrain.html">plan</a>, P1&ndash;P7); P1 and P2 done 2026-10-21; P3's XL0-v4 trained 2026-10-22; D8's runs done 2026-10-23 (3e-5 below 1e-4 on every seed); D4: XL0-v4 at 0.039049 (P4 done 2026-10-23); P5 done 2026-10-23 (re-crop, 33 Brazil photos, D9); P3&ndash;P5 pushed 2026-10-23; D5 and D6 decided; P6 done 2026-10-23 (candidate exp273); P7 done: <code>dino3b16_segxl0v4_country_aug8_s42</code> live 2026-10-24 (release <code>15b01c3</code>); replaced 2026-10-27 by XL0-v5&rsquo;s <code>dino3b16_segxl0v5_country_aug8_s42</code></span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-info</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data and model: segmenter labels and fine-tune, re-crop, classifier retrain, release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/seg_dataset.yaml</code>, <code>coffeecv/seg_dataset.py</code> (D2), <code>coffeecv/seg_review.py</code>, <code>coffeecv/seg_finetune.py</code>, <code>coffeecv/seg_predict.py</code>, <code>data/ml5_labels/</code>, <code>dvc.yaml</code> (a new fine-tune stage, <code>segcrop</code>, <code>merge_segpool</code>, <code>litert_export</code>), <code>params.yaml</code> (<code>seg_decoder</code>, <code>seg_min_area_frac</code>), <code>coffeecv/fit_frozen_head.py</code>, <code>coffeecv/fit_ood_probe.py</code>, <code>coffeecv/ood_eval.py</code>, <code>models/</code>, <code>tests/fixtures/dinov3_vits16_reference.npz</code>, the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, mask verdicts, the deploy's go)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-10-21</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The last phase deploys the new models on the owner's go (D6), through <a href="agents/deploy.md">docs/agents/deploy.md</a>; a deploy stops the live service while it runs (<a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>). Nothing changes on the live site before it.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">builds on the ingest of 2026-10-21, committed</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-10-21.</strong> "I want to use ALL new photos and retrain both segmenter and
+      classifier. Create new ticket for it."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the live models are the XL0-v3 segmenter (<code>models/seg/xl0_v3.pt</code>, ticket
+    <a href="ml-0006_ticket_segmenter_retrain.html">ML-6</a>) and the classifier
+    <code>dino3b16_segxl0v3_country_aug8_s123</code> (exp271, ticket <a href="ml-0008_ticket_data_refresh_retrain.html">ML-8</a>).
+    Neither has seen a photo of 2026-10-21. After this ticket both are retrained on every new photo (D1), compared with
+    the live ones, and, on the owner's go, deployed.</p>
+  <p>The parts: the new photos into the segmenter dataset (D2) and a label pass the owner judges
+    (<a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>); a new XL0 decoder fine-tuned (D3) and
+    compared with XL0-v3 (D4); every session re-cropped if it is adopted, its new fallbacks judged; the classifier at
+    seeds 42, 123 and 7 with its OOD probe, compared as D5 says; the LiteRT export and the deploy (D6).</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>What arrived on 2026-10-21</strong> (all stripped of private metadata,
+      <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>, and in DVC):
+      <code>dataset/2026-10-21__new_green</code>, 41 Pixel 9 Pro photos of green beans: 21 of a new coffee,
+      <code>015;Indonesia;</code> (region unknown, not 010's Java), and 20 of Peru Minca (class 011, the roasted Peru's
+      coffee); 7 roasted Colombia Excelso photos in <code>random_date_raccoon</code> (class 014); 3 segmenter positives;
+      1 negative in <code>ood_negatives/user_realworld</code>; 2 label cards in <code>classes_labels_only</code>.</li>
+    <li><strong>The crops.</strong> Both new sessions were cropped by XL0-v3; the 68 older
+      <code>random_date_raccoon</code> crops came back byte-identical. The owner accepted all 48 new crops (D1), so the
+      pool holds 1,299 photos from 17 sessions. One, <code>IMG_7317.HEIC</code> (Excelso), is a D18 fallback: the
+      segmenter found no beans, so the whole photo trains, cups and hopper included (R3).</li>
+    <li><strong>The segmenter dataset</strong> holds 923 photos since the ingest: 149 segmenter positives, 149 pool, 613
+      negatives, 12 internet positives. Its pool side is drawn to match the positives in number (ML-5 D12), so of the 48
+      new pool photos it holds none; the draw took 3 older pool photos (D2). Shots are grouped within 3 s, not 120 s,
+      since the ingest (<a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>).</li>
+    <li><strong>Labels</strong> are the owner's: pass3 (ML-6) holds the accepted masks. A new session started with
+      <code>seg_review label --carry pass3</code> shows only the photos new since.</li>
+    <li><strong>The fine-tune recipe moved on.</strong> <code>seg_ml6_finetune</code> is frozen with XL0-v3's own
+      augmentation; <code>params.yaml</code>'s <code>seg_ft.augment</code> now takes the groups shared with the
+      classifier (<a href="adr/0027-both-fits-share-augmentation-groups.md">ADR 0027</a>), which replace XL0-v3's
+      brightness and contrast with the colour group (D3).</li>
+    <li><strong>Roast state</strong> (<a href="status.md">status.md</a>): Indonesia now has 126 roasted and 21 green pool
+      photos, Peru 168 and 20. Rwanda stays roasted only, Kenya and Costa Rica green only.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The live classifier has seen Indonesia and Peru roasted only.</li>
+        <li>XL0-v3 was fine-tuned without the 2026-10-21 photos.</li>
+        <li>The segmenter dataset holds 7 photos of the ingest (3 positives, 1 negative, 3 older pool photos the draw
+          took), with no labels yet.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The segmenter dataset holds the new photos as D2 decides, and each training and validation one has an
+          owner-judged label.</li>
+        <li>A new segmenter (or XL0-v3, if the owner keeps it, D4) crops every session.</li>
+        <li>A classifier trained on every new photo, with its refitted probe, reported per class and on the green photos of
+          2026-10-21 alone, converted and live on the owner's go (D6).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The country is the label</strong> (<a href="adr/0012-country-is-the-label.md">ADR 0012</a>): class 015
+      trains as Indonesia, beside 010; green and roasted beans of a country stay one class
+      (<a href="ml-0003_ticket_country_classes.html">ML-3</a> D4).</li>
+    <li><strong>The classifier's recipe</strong>: frozen DINOv3 ViT-B/16 with a linear head at C = 0.1
+      (<a href="adr/0006-frozen-dinov3-b16-head.md">ADR 0006</a>), 8 augmented views per patch
+      (<a href="adr/0025-frozen-head-fits-augment-per-run-in-memory.md">ADR 0025</a>). New data is the change.</li>
+    <li><strong>The owner judges every segmenter label</strong> (ADR 0015) and reads every comparison
+      (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>); nothing passes on a numeric gate.</li>
+    <li><strong>A converted model serves only within ML-7 D7's bars</strong>
+      (<a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>).</li>
+    <li><strong>The label cards</strong> in <code>classes_labels_only</code> are a record of which coffee is which, not
+      training data.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Green Indonesia and Peru come from one session: one phone, one day, one
+        light.</strong></td>
+        <td>Their patches in <code>docs/patch_samples.png</code> are warmer and browner than the older green ones (mostly
+          iPhone). A model can learn the session for those two countries, not the beans, and the split, by single photo
+          within the pool, cannot see it: the test photos share the session. Mitigation: report that session's test
+          photos on their own (roast state is not recorded per photo, ML-3 D4, but every photo of the session is green); a
+          held-out session of green beans would measure it (<a href="ml-0004_ticket_capture_gaps.html">ML-4</a> D3, never
+          decided).</td></tr>
+      <tr><td class="id">R2</td><td><strong>New photos re-draw the pooled split, so no run is paired with
+        exp270&ndash;272.</strong></td>
+        <td>The test split changes with the pool (ML-4 &sect;4). D5 asks how the candidate is compared: the live model
+          can be scored on the new test split, as a baseline on the same photos.</td></tr>
+      <tr><td class="id">R3</td><td><strong><code>IMG_7317.HEIC</code> trains as a whole photo.</strong></td>
+        <td>A D18 fallback: its patches are cups, the hopper and the counter, labelled Colombia. The owner accepted it
+          (D1). A new segmenter re-crops it; if that finds the beans, the fallback is gone. Reported either way.</td></tr>
+      <tr><td class="id">R4</td><td><strong>A new segmenter can differ from XL0-v3 in two ways at once.</strong></td>
+        <td>At <code>params.yaml</code>'s recipe the fine-tune changes data and augmentation (ADR 0027), so the
+          comparison cannot say which one moved a result. D3.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The owner's time.</strong></td>
+        <td>Every training and validation positive without a pass3 label needs a verdict (ADR 0015): 23 at D2 (c), 18 of
+          them from ML-8's appends of 2026-10-17 and 18, never labelled. The comparison then judges 76 test positives.
+          XL0-v3's fine-tune took about 7 h at 8 threads (ML-6 D15).</td></tr>
+      <tr><td class="id">R6</td><td><strong>XL0-v4 speckles some dense piles in a hopper.</strong> Found in P5,
+        2026-10-23.</td>
+        <td>Where XL0-v3 masks the pile whole, XL0-v4 masks beans one by one and leaves the gaps out: 5 of the 33
+          Brazil photos of 2026-10-22 and 23, a Guatemala and a green Indonesia photo (XL0-v3 0.24 and 0.13 of the
+          photo, XL0-v4 0.07 and 0.08). Rare in the pool (4 of 1,324 photos lost over a fifth of their mask in the
+          re-crop), but these are the photos the site is sent. The owner declined the 6 worst from the pool (D9); a
+          later fine-tune can take them as labels.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which new photos train?</td>
+        <td>(a) All of them: every new crop in the pool, and the new photos in the segmenter's data. (b) Only the crops
+          the owner accepts.</td>
+        <td><strong>(a), 2026-10-21:</strong> "use ALL new photos". All 48 new crops are in the pool,
+          <code>IMG_7317.HEIC</code>'s fallback included (R3). The 2 label cards are not bean photos and train
+          nothing.</td></tr>
+      <tr><td class="id">D2</td><td>How do the 48 new pool photos enter the segmenter dataset, whose pool side is drawn
+        to match the positives in number (ML-5 D12)?</td>
+        <td>(a) All 48 as pool entries beyond D12's count, this batch only. (b) From now on every new pool session joins
+          the segmenter dataset whole, amending D12 (an ADR). (c) Keep D12: only the 3 photos drawn so far.</td>
+        <td><strong>(c), 2026-10-21:</strong> "keep the rule". The segmenter still learns from photos XL0-v3 never saw:
+          ML-8's appends and the 7 of 2026-10-21 (R5). D1's "all" holds for the classifier.</td></tr>
+      <tr><td class="id">D3</td><td>Which augmentation does the new fine-tune use?</td>
+        <td>(a) <code>params.yaml</code>'s, the groups shared with the classifier (ADR 0027): data and augmentation
+          both change. (b) XL0-v3's own (in <code>dvc.lock</code> and <code>models/seg/xl0_v3.json</code>): data is the
+          one change; departs from ADR 0027 for this fine-tune.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>Which segmenter ships, at which tiny-mask threshold?</td>
+        <td>After the comparison on the test split (positives judged pass or fail by the owner, negatives empty or tiny),
+          as ML-6 D7 and D23: (a) the new decoder (b) XL0-v3.</td>
+        <td><strong>(a), 2026-10-23:</strong> "keep XL0-v4 as you recommend": XL0-v4 at the threshold re-derived
+          by ML-5 D21's rule, 0.039049 (was 0.064511). Test positives, blind: XL0-v3 62/76, XL0-v4 65/76 (4 and 7
+          discordant, exact McNemar p = 0.549); test negatives empty: 44/160 and 156/160
+          (<code>analysis/ml9/p4_paired_report.txt</code>). No green photo of 2026-10-21 is a test positive.</td></tr>
+      <tr><td class="id">D5</td><td>How is the new classifier compared, with no paired baseline (R2)?</td>
+        <td>(a) Its seeds 42, 123 and 7, beside the live model scored on the same new test split, per class and on the green
+          photos of 2026-10-21 alone. (b) Its seeds alone, beside exp270&ndash;272's numbers.</td>
+        <td><strong>(a), as recommended</strong>; the owner left the choice to Claude on 2026-10-23 ("select the best
+          model yourself"). On the test photos the live model did not train on, patch macro-F1 0.9541&ndash;0.9686
+          against its 0.8945&ndash;0.9387; the green 2026-10-21 test photos all right against none
+          (<code>analysis/ml9/p6_report.txt</code>).</td></tr>
+      <tr><td class="id">D6</td><td>Does the ticket end with a deploy?</td>
+        <td>(a) Yes, on the owner's go after D4 and D5's results. (b) No: it stops at a converted candidate.</td>
+        <td><strong>(a), 2026-10-23</strong>, given before the results: "after training is done select the best model
+          yourself and deploy it if no critical error arise", with leave to stop the site on <code>yappy</code> and
+          delete an old release if needed.</td></tr>
+      <tr><td class="id">D7</td><td>The owner asks for a rectangle on the review page beside the green and red points.
+        XL0-v3 ignores a box smaller than the photo (plan P1). What does the rectangle do?</td>
+        <td>(a) A fence: the redrawn mask is cut to it. (b) A prompt, after a segmenter is trained to follow boxes.</td>
+        <td><strong>(a), 2026-10-21</strong>, amending <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR
+          0015</a>; (b) is recorded as <a href="ml-0010_ticket_segmenter_box_prompts.html">ML-10</a>, for later.</td></tr>
+      <tr><td class="id">D8</td><td>XL0-v4's validation score swung from epoch to epoch (mean IoU 0.65&ndash;0.97
+        after epoch 4), as XL0-v3's had. Is a steadier run tried?</td>
+        <td>(a) A second candidate after XL0-v4: the same labels, seed and params at a third of the learning rate,
+          <code>seg_ft.lr</code> 3e-5 instead of 1e-4. (b) No: P4 judges XL0-v4 as it is.</td>
+        <td><strong>(a), 2026-10-21:</strong> "launch the same experiment but with training speed changed &hellip;
+          3e-5". XL0-v4_lr3e5, in its own stage. Extended the same day: "after &hellip; one training session with new LR
+          value launch more seeds with old LR and new LR", seeds 42 and 7 at both rates (ADR 0002), one run at a
+          time.</td></tr>
+      <tr><td class="id">D9</td><td>Which crops train after the re-crop with XL0-v4, and the 33 Brazil Sul de Minas
+        photos the owner added on 2026-10-23?</td>
+        <td>Each photo whose crop is a fallback, or whose mask lost its beans, accepted or declined (as ML-3 D8, ML-8
+          D11).</td>
+        <td><strong>2026-10-23:</strong> declined 8: the two new Brazil fallbacks showing background, five speckled
+          masks (R6: four new Brazil photos and the Guatemala one) and the green Indonesia one. Readmitted 2: Brazil
+          <code>PXL_20261016_081726673</code> and <code>081741399</code>, ML-8's declined fallbacks, which XL0-v4
+          masks. <code>labels/ml2/review/ml9_p5_crops.decisions.jsonl</code>; the pool 1,326 photos, 31
+          excluded.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The photos of 2026-10-21 stripped, in DVC and pushed; both sessions
+      cropped; every new crop in the pool (D1); the segmenter dataset appended at 3 s (ADR 0029).</span></li>
+    <li><span class="box done"></span><span>A label session carried from pass3, every training and validation positive without
+      a label judged by the owner (D2 (c): the dataset as appended). Done 2026-10-21: pass4, 22 accepted and 1
+      dropped of 23, 233 labels in all.</span></li>
+    <li><span class="box"></span><span>A new XL0 decoder fine-tuned in its own DVC stage with D3's augmentation (and,
+      by D8, a second at lr 3e-5), and compared with XL0-v3 on the test split; the owner's choice and threshold recorded (D4).</span></li>
+    <li><span class="box"></span><span>If a new segmenter is adopted: every session re-cropped, its new fallbacks shown
+      to the owner, the DINOv3 fixture regenerated (<a href="agents/experiments.md">experiments.md</a>).</span></li>
+    <li><span class="box"></span><span>The classifier at seeds 42, 123 and 7 as recorded runs, reported as ranges with
+      per-class F1 and the green photos of 2026-10-21 alone, compared as D5 says; its probe refitted and measured with
+      <code>ood_eval</code>.</span></li>
+    <li><span class="box"></span><span>The chosen models converted, within ML-7 D7's bars on the serving host (ADR 0020), and
+      deployed if D6 says so; <code>docs/status.md</code>, the README and <code>docs/inference_path.html</code>
+      updated for the live models.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>New countries, and splitting a country's classes by roast state (ML-3 D4).</li>
+    <li>A held-out session of a new bag or a new phone (ML-4 D3), though R1 would want one.</li>
+    <li>The grouping rule (ADR 0029) and the classifier's recipe.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-10-21</div>Ticket written at the owner's request, after the ingest of the same day,
+      from the code and data at that commit, <a href="ml-0006_ticket_segmenter_retrain.html">ML-6</a> and
+      <a href="ml-0008_ticket_data_refresh_retrain.html">ML-8</a>. D1 decided by the owner ("use ALL new photos"); D2&ndash;D6
+      open. Not planned, not implemented.</div>
+    <div><div class="when">2026-10-21</div>D2 decided by the owner: keep ML-5 D12's pool draw (c). Planned
+      (<a href="ml-0009_plan_green_origins_retrain.html">plan</a>, P1&ndash;P7; Q1&ndash;Q3 carry D3, D5 and D6 with
+      recommendations). Reporting "per roast state" became "the green photos of 2026-10-21 alone": roast state is not
+      recorded per photo (ML-3 D4).</div>
+    <div><div class="when">2026-10-21</div>D7 decided by the owner during P1: the review page gets a fence, a rectangle
+      the redrawn mask is cut to (ADR 0015 amended); a segmenter that follows box prompts is ML-10.</div>
+    <div><div class="when">2026-10-21</div>P1 done: the owner labelled pass4 (22 accepted, 9 of them fenced; 1
+      dropped). P2 done: <code>seg_predict</code> by path, the stages, a toy run. P3, the fine-tune, next.</div>
+    <div><div class="when">2026-10-21</div>D8 decided by the owner while P3 ran: a second candidate at lr 3e-5,
+      launched when XL0-v4's run ends (plan P3b).</div>
+    <div><div class="when">2026-10-21</div>D8 extended by the owner: seeds 42 and 7 at both rates after the lr 3e-5
+      run, four more runs (plan P3b).</div>
+    <div><div class="when">2026-10-22</div>P3: XL0-v4 trained, restarted once after a host reboot; it chose epoch 28 of 36
+      (validation score 0.961). Its push waits for the DVC remote.</div>
+    <div><div class="when">2026-10-23</div>D8's runs: lr 1e-4 chose validation scores 0.958&ndash;0.961 at seeds 123,
+      42 and 7; lr 3e-5 0.916&ndash;0.920 at seeds 123 and 42, no steadier. The owner stopped 3e-5 at seed 7 in its
+      epoch 10, on track with the other two. Plan Q4 recommends XL0-v4 for P4.</div>
+    <div><div class="when">2026-10-23</div>P4: the owner judged the 76 test positives blind (XL0-v3 62, XL0-v4 65; p =
+      0.549); XL0-v4 left 156 of 160 test negatives empty, XL0-v3 44. D4 decided: XL0-v4, threshold 0.039049.</div>
+    <div><div class="when">2026-10-23</div>P5: every session re-cropped with XL0-v4 (fallbacks 5 to 2, both already
+      excluded; <code>IMG_7317.HEIC</code> masked, R3 gone). The owner added 33 Brazil Sul de Minas photos; the 13 from
+      Galaxy phones needed <code>strip_metadata</code> to cut Samsung's trailer (network country, a timestamp).
+      XL0-v4 speckles some hopper piles (R6); the owner declined 8 crops and readmitted 2 (D9). The DINOv3 fixture
+      regenerated, class_015 added.</div>
+    <div><div class="when">2026-10-23</div>P3&ndash;P5's outputs pushed to <code>dvcnewremote</code> in one 4 h push and
+      verified object by object. D6 decided by the owner while P6 ran: deploy the best seed without another stop, unless
+      something critical fails; D5 (a) with it. P6: exp273&ndash;275, val 0.9655&ndash;0.9686, test
+      0.9649&ndash;0.9807; beside the live model on the test photos it did not train on, 0.9541&ndash;0.9686 against
+      0.8945&ndash;0.9387, and every green 2026-10-21 test photo right where it had none. exp273 (seed 42, the val pick)
+      shipped as <code>dino3b16_segxl0v4_country_aug8_s42</code>; its probe caught 160/160 test negatives and refused
+      0/76 positives.</div>
+    <div><div class="when">2026-10-24</div>P7: the LiteRT export passed D7; <code>main</code> pushed to
+      <code>origin</code> for the deploy; staged, compared with PyTorch (12 photos, no top-1 change) and deployed,
+      verified on the domain. <code>dino3b16_segxl0v4_country_aug8_s42</code> is live with XL0-v4; ML-8's release is
+      <code>previous</code> for a rollback. Implemented; left for the owner to close.</div>
+    <div><div class="when">2026-10-27</div>Closed by the owner. The model shipped here was live until 2026-10-27, when
+      <code>dino3b16_segxl0v5_country_aug8_s42</code> (exp276, the XL0-v5 segmenter; <code>EXPERIMENTS_LOG.md</code>,
+      exp276-278) replaced it; its release is now <code>previous</code>.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0006_ticket_segmenter_retrain.html">ML-6</a>, <a href="ml-0008_ticket_data_refresh_retrain.html">ML-8</a>,
+    <a href="ml-0004_ticket_capture_gaps.html">ML-4</a>, <a href="ml-0003_ticket_country_classes.html">ML-3</a>,
+    <a href="adr/0015-xl0-segmenter-owner-judged-labels.md">ADR 0015</a>,
+    <a href="adr/0027-both-fits-share-augmentation-groups.md">ADR 0027</a>,
+    <a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>, <code>docs/status.md</code>.</footer>
+</main>

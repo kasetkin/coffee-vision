@@ -10,4 +10,4 @@ Training reads one pool, `data/segcropped/pool`, merged by one stage (`merge_seg
 - **Cost**: the camera column told the grouping that a Pixel names its files in UTC; on one local clock a Pixel photo without an EXIF time no longer chains with a burst mate that has one, and two phones' photos at one local minute may chain. On 2026-10-19 this moved no group: 21 of 2,046 photos took the file-name path.
 - **Not changed**: no camera is held out or reported apart (ADR 0010's rule stands); historical records are not rewritten to drop their cameras: one the current pipeline still reads keeps them as written, and one it no longer needs (ML-2's lists, retired `analysis/` scripts) leaves the tree and stays in git history.
 
-Source: [ML-8](../ticket_data_refresh_retrain.html) D2, D8; supersedes [ADR 0010](0010-all-cameras-equal.md). Amended 2026-10-21: records the pipeline no longer needs leave the tree (the owner).
+Source: [ML-8](../ml-0008_ticket_data_refresh_retrain.html) D2, D8; supersedes [ADR 0010](0010-all-cameras-equal.md). Amended 2026-10-21: records the pipeline no longer needs leave the tree (the owner).

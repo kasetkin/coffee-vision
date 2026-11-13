@@ -16,4 +16,4 @@ We chose this over decoding each original as it comes (today), because that path
 - `pillow-jxl-plugin` leaves every environment: `imagecodecs` decodes a visitor's JPEG XL too.
 - Label masks line up with canonical photos, which are rotated. Earlier sessions' masks line up with the unrotated originals, and are carried into the canonical geometry, not reused as they are.
 
-Source: [ML-19](../ticket_canonicalization.html) D1, D3, D5, D7, D12, D27, D31, D41, D44, D45, D46.
+Source: [ML-19](../ml-0019_ticket_canonicalization.html) D1, D3, D5, D7, D12, D27, D31, D41, D44, D45, D46.

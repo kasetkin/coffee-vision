@@ -10,14 +10,14 @@
 > - The VM's history comes back through merges on `tmp/*` branches, never `reset --hard` or the
 >   `sync-from-local` recipe (`docs/ops1_release_isolation_plan.html` §6).
 > - The DVC remote exists (A4, done 2026-09-04).
-> - **2026-09-29, ticket ML-1** (`docs/ticket_retire_cross_rig.html`): the leave-one-camera-out folds
+> - **2026-09-29, ticket ML-1** (`docs/ml-0001_ticket_retire_cross_rig.html`): the leave-one-camera-out folds
 >   are retired; photos are pooled across the four `cam_*` dirs and split per class only. Everything
 >   below that argues from a held-out rig's fold is history. Per D7: **A2 is dropped**; **A1 is kept only
 >   as class balance** (the per-capture-dir class-balance table in `coffeecv/coverage_report.py` now
 >   shows it); C1-ship is re-scoped to the pooled protocol only if still wanted. `run_folds.py` and the
 >   `merge_oneplus`/`oneplus_combined` stage are deleted.
 >
-> The active plan was `docs/dinov3_integration_plan.md`; see ML-1's plan, `docs/plan_retire_cross_rig.html`.
+> The active plan was `docs/dinov3_integration_plan.md`; see ML-1's plan, `docs/ml-0001_plan_retire_cross_rig.html`.
 
 Status: REVISED twice on 2026-09-02 — an adversarial re-verification pass (second review), then a
 third pass that actually reached the `powervpsssh` remote box over SSH (its git log, DVC status, and

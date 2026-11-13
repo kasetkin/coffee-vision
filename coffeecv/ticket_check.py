@@ -1,5 +1,6 @@
-"""The HTML issue tracker's mechanical rules (docs/agents/issue-tracker.md), checked over docs/ticket_*.html,
-docs/plan_*.html, the two templates and docs/adr/*.md. scripts/check.sh runs it in both tiers.
+"""The HTML issue tracker's mechanical rules (docs/agents/issue-tracker.md), checked over the tickets
+(docs/<type>-<nnnn>_ticket_<slug>.html), their plans (docs/<type>-<nnnn>_plan_<slug>.html), the two
+templates and docs/adr/*.md. scripts/check.sh runs it in both tiers.
 
     python -m coffeecv.ticket_check
 
@@ -10,8 +11,10 @@ Checks:
 2. Tickets and plans: no [[...]] placeholder and no HTML comment left from the template. A dotted
    [[tool.uv.index]] is a TOML table header quoted in prose, not a placeholder.
 3. Relative links in tracker files and ADRs point at files that exist.
-4. Each ticket names one ID in its eyebrow ("Ticket ML-n" / "Ticket OPS-n"), unique across tickets; each
-   plan_<slug>.html names ("Plan · ID") the ID of ticket_<slug>.html.
+4. Each ticket names one ID in its eyebrow ("Ticket ML-n" / "Ticket OPS-n"), unique across tickets, and its
+   file name starts with that ID, lowercased and zero-padded to four digits (ML-7: ml-0007_ticket_<slug>.html);
+   each <id>_plan_<slug>.html names ("Plan · ID") the ID of <id>_ticket_<slug>.html. A ticket_ or plan_ file
+   without the ID prefix is a finding.
 5. A ticket an ADR's Source line links to links back to that ADR.
 6. Tickets and plans written from the templates (every slug not in LEGACY): a ticket's Status is Open,
    In progress or Closed, and its Triage row is one category role and one state role from
@@ -44,6 +47,8 @@ _TOML_HEADER = re.compile(r"[\w-]+(?:\.[\w-]+)+")
 _HREF = re.compile(r'(?:href|src)="([^"]*)"')
 _MD_LINK = re.compile(r"\]\(([^)\s]+)\)")
 _TICKET_ID = re.compile(r'class="eyebrow">Ticket ((?:ML|OPS)-\d+) ')
+_FILE = re.compile(r"((?:ml|ops)-\d{4})_(ticket|plan)_([\w-]+)\.html")
+_UNPREFIXED = re.compile(r"(?:[\w-]+_)?(?:ticket|plan)_[\w-]+\.html")
 _PLAN_ID = re.compile(r'class="eyebrow">Plan · ((?:ML|OPS)-\d+) ')
 _STATUS = re.compile(r'class="k">Status</span><span class="v"><span class="pill [^"]*">([^<]*)<')
 _BLOCKED = re.compile(r'class="k">Blocked by</span>')
@@ -103,7 +108,7 @@ def triage_roles(labels_md: str) -> tuple[set[str], set[str]]:
 
 
 def check_file(rel: str, text: str, docs: Path, category: set[str], state: set[str]) -> list[Finding]:
-    """Checks 1-3 and 6 on one tracker file (path relative to the repo root, e.g. docs/ticket_x.html)."""
+    """Checks 1-3 and 6 on one tracker file (path relative to the repo root, e.g. docs/ml-0007_ticket_x.html)."""
     out = [Finding(rel, line, msg) for line, msg in nesting_errors(text)]
     if "<style" in text:
         out.append(Finding(rel, _line(text, text.index("<style")), "inline <style>: link tickets.css instead"))
@@ -125,7 +130,7 @@ def check_file(rel: str, text: str, docs: Path, category: set[str], state: set[s
     for m in re.finditer("<!--", text):
         out.append(Finding(rel, _line(text, m.start()), "HTML comment left from the template"))
 
-    kind, slug = name.removesuffix(".html").split("_", 1)
+    _, kind, slug = _FILE.fullmatch(name).groups()
     if slug in LEGACY:
         return out
     allowed = TICKET_STATUS if kind == "ticket" else PLAN_STATUS
@@ -155,15 +160,19 @@ def check_file(rel: str, text: str, docs: Path, category: set[str], state: set[s
 def check(root: Path = REPO_ROOT) -> list[Finding]:
     docs = root / "docs"
     category, state = triage_roles((docs / "agents" / "triage-labels.md").read_text())
-    tickets = sorted(docs.glob("ticket_*.html"))
-    plans = sorted(docs.glob("plan_*.html"))
+    named = {f: _FILE.fullmatch(f.name) for f in sorted(docs.glob("*.html"))}
+    tickets = [f for f, m in named.items() if m and m.group(2) == "ticket"]
+    plans = [f for f, m in named.items() if m and m.group(2) == "plan"]
     files = tickets + plans + sorted(docs.glob("template_*.html"))
     texts = {f: f.read_text() for f in files}
 
     def rel(f: Path) -> str:
         return str(f.relative_to(root))
 
-    out = [x for f in files for x in check_file(rel(f), texts[f], docs, category, state)]
+    out = [Finding(rel(f), 1, "a ticket or plan file name starts with its ID: <type>-<nnnn>_ticket_<slug>.html "
+                              "or <type>-<nnnn>_plan_<slug>.html")
+           for f, m in named.items() if not m and _UNPREFIXED.fullmatch(f.name)]
+    out += [x for f in files for x in check_file(rel(f), texts[f], docs, category, state)]
 
     ids: dict[str, Path] = {}
     for f in tickets:
@@ -171,11 +180,14 @@ def check(root: Path = REPO_ROOT) -> list[Finding]:
         if len(found) != 1:
             out.append(Finding(rel(f), 1, f"needs one 'Ticket ML-n/OPS-n' eyebrow, found {found or 'none'}"))
             continue
+        kind, n = found[0].split("-")
+        if named[f].group(1) != f"{kind.lower()}-{int(n):04d}":
+            out.append(Finding(rel(f), 1, f"file name starts with {named[f].group(1)}, the eyebrow names {found[0]}"))
         if found[0] in ids:
             out.append(Finding(rel(f), 1, f"ID {found[0]} is already {rel(ids[found[0]])}'s"))
         ids.setdefault(found[0], f)
     for f in plans:
-        ticket = docs / f.name.replace("plan_", "ticket_", 1)
+        ticket = docs / f.name.replace("_plan_", "_ticket_", 1)
         found = _PLAN_ID.findall(texts[f])
         want = _TICKET_ID.findall(texts.get(ticket, ""))
         if not ticket.exists():
@@ -190,7 +202,7 @@ def check(root: Path = REPO_ROOT) -> list[Finding]:
             if target and not re.match(r"[a-z]+:", target) and not (adr.parent / target).exists():
                 out.append(Finding(rel(adr), _line(text, m.start()), f"link to a missing file: {m.group(1)}"))
         for line in re.findall(r"(?m)^Sources?:.*$", text):
-            for target in re.findall(r"\]\(\.\./(ticket_[\w-]+\.html)\)", line):
+            for target in re.findall(r"\]\(\.\./((?:ml|ops)-\d{4}_ticket_[\w-]+\.html)\)", line):
                 ticket = docs / target
                 if ticket.exists() and f'href="adr/{adr.name}"' not in texts[ticket]:
                     out.append(Finding(rel(ticket), 1, f"{rel(adr)} names this ticket as its source, "
