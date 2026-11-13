@@ -14,7 +14,7 @@
     read.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; P1&ndash;P3 done 2026-11-10 (<code>16f73ef</code>, <code>72f4971</code>, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>); released 2026-11-10 in <code>20261110T1117Z-42ba447</code>, <code>--verify</code> passed (the first release, <code>e09ef86</code>, rolled back: no OpenCV on the front, fixed in <code>72a6e1a</code>); the live numbers not yet read</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-10; D1&ndash;D5 decided 2026-11-10; planned 2026-11-10 (<a href="plan_front_fast_canonicalization.html">P1&ndash;P4</a>); D6, D7 from its Q1, Q2 2026-11-10; P1&ndash;P3 done 2026-11-10 (<code>16f73ef</code>, <code>72f4971</code>, <code>5404704</code>, <code>91cf9d9</code>, <code>ea10f5d</code>); released 2026-11-10 in <code>20261110T1117Z-42ba447</code>, <code>--verify</code> passed (the first release, <code>e09ef86</code>, rolled back: no OpenCV on the front, fixed in <code>72a6e1a</code>); the live numbers read 2026-11-13 (&sect;7); every acceptance item met; for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Serving: time per photo</span></div>
@@ -203,24 +203,47 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>An ADR amending ADR 0033: the front's canonical photo differs from the store's,
+    <li><span class="box done"></span><span>An ADR amending ADR 0033: the front's canonical photo differs from the store's,
       by D1; ADR 0033 links it. <code>GLOSSARY.md</code>'s "Canonicalization" names both.</span></li>
-    <li><span class="box"></span><span><code>canonical.py</code> and <code>jxl_encode.py</code> take the colour path,
+    <li><span class="box done"></span><span><code>canonical.py</code> and <code>jxl_encode.py</code> take the colour path,
       effort, quality and the two thresholds as parameters, training's as defaults; <code>check_service.py</code>
       passes D1's. ML-19 D8's tests and the golden file pass unchanged.</span></li>
-    <li><span class="box"></span><span>Tests: a photo over 18 MP is stored at most 15 MP and one at 18 MP is kept; the
+    <li><span class="box done"></span><span>Tests: a photo over 18 MP is stored at most 15 MP and one at 18 MP is kept; the
       front's settings give D7's header; an already canonical upload is re-encoded, not passed on (D3), and its log
       line says <code>canonicalized</code>; each D4 source decodes within one 8-bit level of the float path's
       conversion before the encode.</span></li>
-    <li><span class="box"></span><span>The check service's log line names the settings it canonicalized with, so the
+    <li><span class="box done"></span><span>The check service's log line names the settings it canonicalized with, so the
       timelines tell the releases apart.</span></li>
-    <li><span class="box"></span><span>Released, <code>--verify</code> passed; the front's <code>canonicalize_ms</code>,
+    <li><span class="box done"></span><span>Released, <code>--verify</code> passed; the front's <code>canonicalize_ms</code>,
       <code>canonical_bytes</code> and <code>crossing_ms</code>, and <code>yappy</code>'s <code>decode_ms</code>, read
       from the live logs for 12 MP and 50 MP photos, and the grinder example's <code>peak_mb</code> (R3), recorded
       here.</span></li>
-    <li><span class="box"></span><span><code>docs/status.md</code> and <code>docs/inference_path.html</code> say the
+    <li><span class="box done"></span><span><code>docs/status.md</code> and <code>docs/inference_path.html</code> say the
       live input differs from training's, and how.</span></li>
   </ul>
+  <p><strong>The live numbers</strong>, read 2026-11-13 from both hosts' logs (the check service's
+    <code>requests.jsonl</code> and the app's <code>app.jsonl</code>, rotated files included): every photo from the
+    release (2026-11-10 11:17Z) to 2026-11-13 09:00Z, each line carrying <code>canonical_settings</code> "front: integer
+    e3 q90 18/15 MP"; the deploy's own requests left out except where named. Medians, with the range; "before" is the
+    same logs' lines from the store's settings, 2026-11-09 to 2026-11-10 08:09Z.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Photo</th><th><code>canonicalize_ms</code></th><th><code>canonical_bytes</code></th><th><code>crossing_ms</code></th><th><code>peak_mb</code></th><th><code>yappy</code> <code>decode_ms</code></th></tr></thead>
+    <tbody>
+      <tr><td>12 MP JPEG, kept: 41 photos (before: 21)</td><td>4624 &rarr; <b>1380</b> (1196&ndash;2336)</td><td>1.74 &rarr; <b>1.12 MB</b> (0.45&ndash;3.19)</td><td>2293 &rarr; <b>450</b> (65&ndash;8934)</td><td>360 &rarr; <b>263</b> (232&ndash;349)</td><td>3790* &rarr; <b>1383</b> (1166&ndash;1511)</td></tr>
+      <tr><td>50 MP Pixel JPEG &rarr; 3360&times;4463: 6 photos (before: 10 at 50 MP)</td><td>19234 &rarr; <b>2144</b> (2010&ndash;2550)</td><td>5.36 &rarr; <b>1.74 MB</b> (1.06&ndash;1.79)</td><td>17293 &rarr; <b>718</b> (412&ndash;1741)</td><td>450 &rarr; <b>306</b> (294&ndash;354)</td><td>10749* &rarr; <b>1779</b> (1673&ndash;1829)</td></tr>
+      <tr><td>Other JPEGs over 18 MP &rarr; 3354&times;4472: 6 photos</td><td><b>1913</b> (1729&ndash;3042)</td><td><b>1.58 MB</b> (1.17&ndash;1.96)</td><td><b>519</b> (416&ndash;633)</td><td><b>298</b> (288&ndash;315)</td><td><b>1789</b> (1626&ndash;1812)</td></tr>
+      <tr><td>The grinder example (R3): <code>--verify</code>'s two picks, 2026-11-10 and 2026-11-12</td><td><b>3239, 4713</b></td><td><b>1.06 MB</b></td><td><b>834, 435</b></td><td><b>451, 409</b></td><td><b>1637, 1648</b></td></tr>
+    </tbody>
+  </table></div>
+  <p>* Before, <code>decode_ms</code> mixes lines from before and after ML-21's threaded decode (released
+    2026-11-10 06:07Z); &sect;2's one 50 MP request, <code>cfe99dda</code>, decoded in 5.8 s. Against &sect;2's
+    prediction the front is faster than measured here (1.38 s against 2.05 s at 12 MP, 2.14 s against 2.99 s at 50 MP),
+    and a 50 MP Pixel photo crosses at 1.74 MB, not 1.07 MB: the prediction came from the grinder example, which has
+    less fine detail than the typical photo. R3: the grinder example's peak is 409&ndash;451 MB under
+    <code>MemoryMax=600M</code>, the highest of any photo since the release 456 MB (a 16 MB DNG), swap at most 97 MB.
+    No visitor picked an example in the period, so the grinder's numbers are <code>--verify</code>'s, through the live
+    front like any other photo. DNGs (15 photos) decode to 0.6&ndash;12.5 MP, which is ML-24's bug, not this
+    ticket's.</p>
 
   <h2>Out of scope</h2>
   <ul>
@@ -276,6 +299,12 @@
       brazil-grinder and indonesia-roasted included. Not yet done (P4): the front's <code>canonicalize_ms</code>,
       <code>canonical_bytes</code>, <code>crossing_ms</code> and <code>peak_mb</code>, and yappy's
       <code>decode_ms</code>, from the live logs; this session was not allowed to read the production hosts.</div>
+    <div><div class="when">2026-11-13</div>P4's live numbers read from both hosts' logs and recorded in &sect;7:
+      a 12 MP photo canonicalized in 1.38 s (4.6 s before), a 50 MP photo in 2.14 s (19.2 s before), crossing at
+      1.74 MB (5.36 MB before); the grinder example's peak 451 MB at most, under the front's 600 MB (R3). Every
+      acceptance item ticked. Not done: the plan's P3 byte comparison of the smoke photo made on the front (finding 5),
+      which needs a run on the production front; <code>--verify</code>'s answers on the front's photos stand in for it.
+      For the owner to close.</div>
   </div>
 
   <footer>Related: <a href="ticket_canonicalization.html">ML-19</a> (D7, D12, D17, D23, D24, D27, D31, D38, D50),
