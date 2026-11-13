@@ -15,7 +15,7 @@ This repo is public: every committed file is published, and history is kept, not
 
 ### Issue tracker
 
-HTML tickets, `docs/<id>_ticket_<slug>.html` (IDs ML-n, OPS-n; `<id>` is the ID lowercased and zero-padded, e.g. `ml-0007`), with plans in `docs/<id>_plan_<slug>.html`. See `docs/agents/issue-tracker.md`.
+HTML tickets, `docs/<id>_ticket_<slug>.html` (IDs ML-n, OPS-n; `<id>` is the ID lowercased and zero-padded, e.g. `ml-0007`), with plans in `docs/<id>_plan_<slug>.html`. The ticket board, `docs/tickets.html`, lists every ticket with its status; the pre-commit hook generates it from the tickets (ADR 0039), so it is never edited by hand. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
