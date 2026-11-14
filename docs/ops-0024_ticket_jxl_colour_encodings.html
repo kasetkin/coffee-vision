@@ -1,0 +1,218 @@
+<title>JPEG XL uploads in linear Rec.2020 and other colour encodings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-24 · coffee-vision · what the site accepts</div>
+  <h1>Canonicalization reads a JPEG XL in linear Rec.2020 and in the other standard-range colour encodings, not only sRGB and D7's</h1>
+  <p class="lede">The owner exports Canon CR3 raws from darktable to JPEG XL and wants to keep Rec.2020. The site
+    refuses every Rec.2020 export darktable offers, because canonicalization reads a JPEG XL only in sRGB or in the
+    canonical photo's own encoding (Rec.2020 primaries, BT.709 transfer), which darktable cannot write. This ticket
+    widens what is read to linear Rec.2020 and the other standard-range encodings. HDR transfers (PQ, HLG) belong
+    with <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a>. Written; decisions open, not planned, not
+    implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-13; R1 checked on six darktable profiles 2026-11-13; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: accepted uploads</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/canonical.py</code> (<code>_decode_jxl</code>), <code>coffeecv/jxl_header.py</code>, <code>tests/test_canonical.py</code>, the front's refusal message, <code>webapp/static/openapi.json</code> and <code>llms.txt</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-13</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The front accepts JPEG XL uploads it refuses today, from the front release that ships it. A photo the front already accepts canonicalizes to the same bytes.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-13.</strong> The owner was exporting CR3 negatives to JPEG XL in Rec.2020 from
+      darktable and asked which profile the site would open. The answer was that none of darktable's Rec.2020 profiles
+      opens. Then: "create new OPS ticket for Rec2020 linear and other types support, add link to the OPS ticket
+      about HDR support" (the HDR ticket is ML-20).</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today <code>_decode_jxl</code> reads a non-canonical JPEG XL only if its header declares, as an enumeration, RGB,
+    D65, and either sRGB primaries with the sRGB transfer, or Rec.2020 primaries with the BT.709 transfer. Anything else
+    is <code>Unreadable</code>: another transfer, other primaries, an embedded ICC profile, or floating-point samples.
+    After this ticket it also reads the other standard-range enumerated encodings (linear Rec.2020 first) by building
+    each one's source profile for LittleCMS. Which encodings, how their profiles are made, and what happens to ICC-tagged,
+    float and HDR files are D1&ndash;D5.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The rule today.</strong> <a href="../coffeecv/canonical.py">canonical.py</a>, <code>_decode_jxl</code>:
+      <code>want_icc</code>, a colour space other than RGB, a white point other than D65 or more than one extra channel
+      is refused. Of the enumerations, only (sRGB, sRGB) &rarr; LittleCMS's sRGB and (BT2100, BT709) &rarr; the
+      committed <code>rec2020_bt709.icc</code> (ML-19 D46) are read. A float32 decode is refused. The docstring gives the
+      reason: <code>imagecodecs</code> returns no ICC profile from a JPEG XL, so the source profile has to come from the
+      header.</li>
+    <li><strong>The header already parses the rest.</strong> <a href="../coffeecv/jxl_header.py">jxl_header.py</a> names
+      primaries sRGB, BT2100 and P3, and transfers BT709, Linear, sRGB, PQ, DCI and HLG, plus an explicit gamma.</li>
+    <li><strong>A linear Rec.2020 profile already exists.</strong> <code>canonical.LINEAR_REC2020</code>, built with
+      <code>ic.cms_profile</code> for rawpy's output (RAW path), is the profile a linear Rec.2020 JPEG XL needs.</li>
+    <li><strong>darktable's export list</strong> (owner's screenshot, 2026-11-13): sRGB, Adobe RGB, linear Rec709,
+      Rec709, linear Rec2020, PQ Rec2020, HLG Rec2020, PQ P3, HLG P3, Display P3, linear ProPhoto. There is no Rec.2020
+      with a gamma curve. Of these, only sRGB opens today. "Rec709" (sRGB primaries, BT.709 transfer) and Display P3 (P3
+      primaries, sRGB transfer) are refused too; <code>tests/test_canonical.py</code> already encodes a Display P3 JPEG XL
+      as a canonical near-miss.</li>
+    <li><strong>What darktable writes</strong> (R1), read 2026-11-13 from the owner's eleven exports of one Canon EOS 90D
+      photo (6984&times;4660, quality 90) with <code>read_header</code> and <code>imagecodecs</code>, not from their
+      names. Every file is a bare, XYB (lossy) codestream with no boxes, no extra channels, orientation 1, and its colour
+      as an enumeration: darktable embedded no ICC profile in any of them.
+      <div class="table-wrap"><table>
+        <thead><tr><th>darktable profile</th><th>Samples</th><th>Header colour (primaries, transfer)</th><th>Today</th><th>Here</th></tr></thead>
+        <tbody>
+          <tr><td>sRGB</td><td>8, 10, 12, 16-bit integer</td><td>sRGB, sRGB</td><td>read</td><td>unchanged</td></tr>
+          <tr><td>sRGB</td><td>32-bit float</td><td>sRGB, sRGB</td><td>refused: float</td><td>D4</td></tr>
+          <tr><td>linear Rec2020</td><td>8, 16-bit integer</td><td>BT2100, Linear</td><td>refused</td><td>D1 (a), (b)</td></tr>
+          <tr><td>Display P3</td><td>8-bit</td><td>P3, sRGB</td><td>refused</td><td>D1 (b)</td></tr>
+          <tr><td>Adobe RGB</td><td>8-bit</td><td>Custom, explicit gamma 0.454707</td><td>refused</td><td>D1 (c)</td></tr>
+          <tr><td>HLG Rec2020</td><td>8-bit</td><td>BT2100, HLG</td><td>refused</td><td>D3</td></tr>
+          <tr><td>PQ Rec2020</td><td>8-bit</td><td>BT2100, PQ</td><td>refused</td><td>D3</td></tr>
+        </tbody>
+      </table></div>
+      The 10- and 12-bit files decode to <code>uint16</code> with white at 1023 and 4095, and still canonicalize to the
+      8-bit file's pixels as the models read them (mean 123.16, max 255), so they need no change. The float file holds
+      values from &minus;0.295 to 1.074: colours outside sRGB, which clipping would flatten. The 8-bit linear file
+      averages 58 of 255 where the 8-bit sRGB one averages 123: its shadows sit in few levels (R3). Not yet exported:
+      linear Rec709, Rec709, PQ P3, HLG P3, linear ProPhoto.</li>
+    <li><strong>Custom primaries are not read today.</strong> <code>jxl_header._customxy</code> reads past a custom
+      white point's or primaries' xy coordinates without keeping them, so an Adobe RGB file's profile cannot be built
+      from the header as it is parsed now.</li>
+    <li><strong>RAW is no way round it.</strong> The site develops a CR3 straight into Rec.2020, but caps a RAW upload
+      at 16 MP (<code>openapi.json</code>), which most current Canon bodies exceed.</li>
+    <li><strong>The docs promise more than the code does.</strong> <code>openapi.json</code> and <code>llms.txt</code>
+      list "JPEG XL" as accepted, with no word about colour encodings.</li>
+    <li><strong>Dataset intake reads JPEG XL the same way.</strong> Since ML-28 D4
+      (<a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a>) the owner's darktable JPEG XL developments go through
+      the same canonicalization, so this widening also changes which of them the dataset can take (D5).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>A JPEG XL is read in two enumerated encodings only: sRGB, and Rec.2020 with the BT.709 transfer.</li>
+        <li>darktable's linear Rec2020, Rec709, Display P3, Adobe RGB and ProPhoto exports are refused.</li>
+        <li>The refusal names the primaries and transfer, and does not say what to export instead.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Every encoding D1 admits is read through a source profile built for it, then canonicalized like any other
+          photo, into Rec.2020 (BT.709 transfer).</li>
+        <li>PQ and HLG are refused with a message that points at an SDR export, until ML-20 decides otherwise (D3).</li>
+        <li><code>openapi.json</code> and <code>llms.txt</code> say which JPEG XL encodings are read.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The canonical photo.</strong> Still Rec.2020 with the BT.709 transfer, quality 95, read back as 8-bit
+      sRGB (ADR 0033, ML-19 D7). Only what can be read <em>into</em> it widens.</li>
+    <li><strong>Photos read today.</strong> An sRGB or D7-encoded JPEG XL, and every other format, canonicalizes to the
+      same bytes; no re-canonicalization, no retrain.</li>
+    <li><strong>The format list.</strong> JPEG XL is already an accepted format
+      (<a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>); this ticket changes which of its
+      colour encodings decode, not which formats reach a decoder.</li>
+    <li><strong>One library.</strong> <code>imagecodecs</code> at its pinned version does the decode and the colour
+      conversion (ADR 0033, ML-19 D44); no new dependency.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>darktable writes some profiles as an embedded ICC profile, not an
+          enumeration, so widening the enumerations alone does not open them.</strong></td>
+        <td>Checked 2026-11-13 for sRGB, linear Rec2020, Display P3, Adobe RGB, HLG Rec2020 and PQ Rec2020 (Background):
+          all enumerated, none with an ICC profile; Adobe RGB as custom primaries with an explicit gamma. Still to export
+          and record: linear Rec709, Rec709, PQ P3, HLG P3, linear ProPhoto.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A profile built in code differs by rounding from libjxl's own, and moves
+          pixels.</strong></td>
+        <td>ML-19 D46 measured a rounding-only profile difference moving 3% of 8-bit pixels by one level. For an input
+          profile this changes only the new encodings' photos, which no model has seen yet. D2 decides whether that
+          matters.</td></tr>
+      <tr><td class="id">R3</td><td><strong>An 8-bit linear export bands in the shadows before it reaches the
+          site.</strong></td>
+        <td>A property of the file, not of the decoder. Mitigation: the refusal and API docs advise 16-bit for linear
+          encodings; nothing is refused for it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which enumerated encodings are read?</td>
+        <td>(a) linear Rec.2020 only (b) every SDR combination of sRGB, P3 and BT2100 primaries with the sRGB, BT.709,
+          linear and explicit-gamma transfers, D65 (c) (b) plus custom primaries, which darktable's Adobe RGB export
+          uses (and so <code>_customxy</code> keeping the xy coordinates) (d) (c) plus DCI white point and
+          transfer</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Where does each new source profile come from?</td>
+        <td>(a) built in code with <code>ic.cms_profile</code>, as <code>LINEAR_REC2020</code> is (b) libjxl's own
+          profile for each encoding, committed and hash-tested as D46's is</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>PQ and HLG (HDR transfers)?</td>
+        <td>(a) refused, with a message pointing at an SDR export; left to
+          <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> (b) tone-mapped into the canonical range here</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>Float samples (darktable's 32-bit export, values outside 0&ndash;1), and a JPEG XL
+          with an embedded ICC profile (none of darktable's exports so far; other software)?</td>
+        <td>Float: (a) still refused (b) decoded and clipped to 0&ndash;1, out-of-gamut colour flattened (c) decoded
+          and converted by LittleCMS on float32 unclipped, clipped only in Rec.2020. ICC: (a) still refused (b) the
+          profile read from the codestream by our own parser (c) a separate ticket</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D5</td><td>Dataset intake: does the widening apply to the owner's darktable JPEG XLs in
+          <code>dataset/</code> as well (ML-28)?</td>
+        <td>(a) yes, one decoder for both (b) visitor uploads only</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>R1's table: every darktable export profile, its header colour fields, and
+      whether it opens before and after (six profiles recorded 2026-11-13; five to go).</span></li>
+    <li><span class="box"></span><span>A darktable linear Rec2020 export, 8- and 16-bit, uploads and gets an answer on
+      the live site.</span></li>
+    <li><span class="box"></span><span>Tests: every encoding D1 admits decodes to the same canonical pixels (within a
+      stated tolerance) as the same image encoded in sRGB; every one it does not admit is <code>Unreadable</code> with
+      its message.</span></li>
+    <li><span class="box"></span><span>Today's sRGB and D7 JPEG XL fixtures canonicalize to unchanged bytes
+      (<code>tests/test_canonical_fixtures.py</code>).</span></li>
+    <li><span class="box"></span><span><code>openapi.json</code> and <code>llms.txt</code> list the encodings
+      read.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>HDR: PQ and HLG rendering and gain maps (<a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a>).</li>
+    <li>Changing the canonical photo's own encoding, or what the models read (ADR 0033).</li>
+    <li>Raising the 16 MP cap on RAW uploads.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-13</div>Ticket written at the owner's request, from <code>canonical._decode_jxl</code>,
+      <code>jxl_header.py</code>, ML-19 D7 and D46, and the owner's darktable export screenshot. Decisions open. Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-11-13</div>R1 checked on the owner's eleven darktable exports, read from the files, not
+      their names: all colour enumerated, no ICC profile. Background gains the table. Adobe RGB is custom primaries with
+      an explicit gamma, which no D1 option covered: D1 gains (c). D4 split into float and ICC, with the float file's
+      out-of-range values. Decisions still open.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> (HDR),
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D7, D44, D46),
+    <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (D4),
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</footer>
+</main>
