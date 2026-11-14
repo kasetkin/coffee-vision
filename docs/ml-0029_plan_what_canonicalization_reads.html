@@ -14,7 +14,7 @@
     retrain.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14; Q1&ndash;Q4 answered 2026-11-14 (ML-29 D26&ndash;D29); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14; Q1&ndash;Q4 answered 2026-11-14 (ML-29 D26&ndash;D29); P1 started 2026-11-14</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0029_ticket_what_canonicalization_reads.html"><code>ml-0029_ticket_what_canonicalization_reads.html</code></a> (ML-29)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -117,7 +117,7 @@
 
   <h2>3. P1 &mdash; the colour-declaration reader and the profile builder, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-14: the reader, the builder and their tests done; the 22 exports read as recorded; the files made here (D25) in progress</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One new module, <code>coffeecv/colour_declaration.py</code>, with one small interface: a file's bytes and its
@@ -367,6 +367,17 @@
       Q1&ndash;Q4 open for the owner. Not implemented.</div>
     <div><div class="when">2026-11-14</div>The owner answers Q1&ndash;Q4, each "as recommended": the ticket's D26 to
       D29. Nothing started, at the owner's word.</div>
+    <div><div class="when">2026-11-14</div>P1 started. <code>coffeecv/colour_declaration.py</code> reads every
+      declaration by ADR 0040's precedence and builds the source profile; <code>tests/test_colour_declaration.py</code>
+      makes its own files (AVIF with any <code>nclx</code>, PNG chunks, a BMP V5 header, EXIF with R03, a JPEG XL
+      header written bit by bit for custom primaries and white point). Read from the owner's 22 exports
+      (<code>analysis/ml29/read_declarations.py</code>), each declaration is the one
+      <code>analysis/ml29/README.md</code> records. Over the dataset (<code>analysis/ml29/dataset_same_profile.py</code>)
+      all 2,851 photos keep the profile they are converted from today. R2 measured: a profile LittleCMS builds and
+      libjxl's Rec.2020 differ by up to 13 of 65,535 (0.05 of an 8-bit level) at saturated corners, as the RAW path's
+      linear Rec.2020, which is the builder's own, already does; not the one 16-bit step this plan hoped for. One
+      departure from the plan: <code>jxl_header</code>, a DVC dependency, keeps the custom coordinates now (D5), so
+      the canonicalize stages read as changed from this commit; they are re-run once, in P2, as planned.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

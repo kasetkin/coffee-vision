@@ -70,6 +70,8 @@ class ColourEncoding:
     transfer: str | None = None
     gamma: float | None = None
     rendering_intent: str | None = None
+    white_xy: tuple[float, float] | None = None                                     # a Custom white point's x, y
+    primaries_xy: tuple[float, float, float, float, float, float] | None = None     # Custom primaries: R, G, B x, y
 
 
 @dataclass
@@ -138,9 +140,12 @@ def _extra_channel(b: Bits) -> str:
             15: "NonOptional", 16: "Optional"}.get(kind, f"Reserved{kind}")
 
 
-def _customxy(b: Bits) -> None:
-    for _ in range(2):
-        b.u32((0, 19), (524288, 19), (1048576, 20), (2097152, 21))
+def _customxy(b: Bits) -> tuple[float, float]:
+    """CustomXY (E.2): x and y, each a U32 holding UnpackSigned(value) in millionths (ticket ML-29 D5)."""
+    def signed(u: int) -> int:
+        return -((u + 1) >> 1) if u & 1 else u >> 1
+    x, y = (signed(b.u32((0, 19), (524288, 19), (1048576, 20), (2097152, 21))) for _ in range(2))
+    return x / 1e6, y / 1e6
 
 
 def _colour_encoding(b: Bits) -> ColourEncoding:
@@ -155,13 +160,12 @@ def _colour_encoding(b: Bits) -> ColourEncoding:
         wp = b.enum()
         enc.white_point = WHITE_POINTS.get(wp, f"Reserved{wp}")
         if wp == 2:
-            _customxy(b)
+            enc.white_xy = _customxy(b)
         if space != "Grey":
             pr = b.enum()
             enc.primaries = PRIMARIES.get(pr, f"Reserved{pr}")
             if pr == 2:
-                for _ in range(3):
-                    _customxy(b)
+                enc.primaries_xy = sum((_customxy(b) for _ in range(3)), ())
     if b.bool():   # have_gamma
         enc.gamma = b.u(24) / 1e7
     else:
