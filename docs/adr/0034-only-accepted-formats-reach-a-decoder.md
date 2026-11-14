@@ -12,10 +12,12 @@ Amended 2026-11-09 by [OPS-21](../ops-0021_ticket_android_image_and_file.html) D
 
 Amended 2026-11-11 by [ML-25](../ml-0025_ticket_intake_2026_11_10.html) D6: dataset intake takes GIF. The owner kept a GIF in the dataset for diversity; canonicalization already read it, but intake's list did not name it, so its metadata went unchecked and the segmenter dataset left it out. `strip_metadata` now strips a GIF's XMP, keeps its comment and compares every frame; intake's list is still narrower than the accepted formats.
 
+Amended 2026-11-13 by [ML-28](../ml-0028_ticket_intake_2026_11_13.html) D4: dataset intake takes JPEG XL. The owner's Canon raws came with a JPEG XL development of each, kept beside them for their different colour. `strip_metadata` strips a JPEG XL's Exif and XMP boxes (a bare codestream has none, and is left as it is) and compares its pixels at full depth, as canonicalization decodes it; `coverage_report`, whose own list had drifted, now reads intake's.
+
 ## Consequences
 
 - A new format, TIFF included, is a new row and its recogniser rule, the contract's texts updated in the same change, and a test that canonicalizes it. Nothing reads a format that has no row.
 - The file ships in both releases' manifests, since both hosts import `canonical.py`, which reads it.
-- Dataset intake keeps its own, narrower list (`strip_metadata.PHOTO_EXTENSIONS`): what metadata stripping is checked on. GIF joined it on 2026-11-11 (ML-25 D6). `canonicalize_folder` reports a file in `dataset/` with no row and goes on.
+- Dataset intake keeps its own, narrower list (`strip_metadata.PHOTO_EXTENSIONS`): what metadata stripping is checked on. GIF joined it on 2026-11-11 (ML-25 D6), JPEG XL on 2026-11-13 (ML-28 D4). `canonicalize_folder` reports a file in `dataset/` with no row and goes on.
 
-Source: [OPS-18](../ops-0018_ticket_gif_bmp_uploads.html) D3, D4, D10, D11, D12, D17; [ML-25](../ml-0025_ticket_intake_2026_11_10.html) D6.
+Source: [OPS-18](../ops-0018_ticket_gif_bmp_uploads.html) D3, D4, D10, D11, D12, D17; [ML-25](../ml-0025_ticket_intake_2026_11_10.html) D6; [ML-28](../ml-0028_ticket_intake_2026_11_13.html) D4.

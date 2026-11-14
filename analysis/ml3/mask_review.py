@@ -58,6 +58,10 @@ Since 2026-11-11 it also holds the owner's review for ticket ML-25 of the photos
 p6_review_items.py --new-only): none is a fallback, so every decline is "mask declined". Then the third batch's 17
 (..._2026-11-11b): one fallback, judged on its frame as in ML-19 P6, its decline "D18 fallback with background"
 (ML25_FALLBACKS).
+Since 2026-11-14 it also holds the owner's review for ticket ML-28 of the photos new to random_date_raccoon's crops on
+2026-11-13, the first CR3s and their JPEG XL twins among them (labels/ml2/review/ml28_new_crops_2026-11-13.decisions.jsonl,
+83 items, from p6_review_items.py --session random_date_raccoon): two fallbacks, each judged on its frame, their
+declines "D18 fallback with background" (ML28_FALLBACKS); every other decline "mask declined".
 A photo the owner moved out of its session leaves the file with it (MOVED_OUT): there is no crop left for merge_rig
 to exclude, and it refuses a row that matches none. The decisions stay in the review files.
 
@@ -109,6 +113,12 @@ ML25_DECISIONS = {   # file: items, every one judged
 }
 ML25_FALLBACKS = {   # the D18 fallbacks among ML-25's items, as segcrop recorded them
     "dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_173722_iPhone_15_Pro_Max_Ethiopia_Sidamo.DNG",
+}
+ML28_DECISIONS = REPO_ROOT / "labels" / "ml2" / "review" / "ml28_new_crops_2026-11-13.decisions.jsonl"
+ML28_ITEMS = 83
+ML28_FALLBACKS = {   # the D18 fallbacks among ML-28's items, as segcrop recorded them
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170942-jxl_Canon_EOS_90D_Colombia.jxl",
+    "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170955_Canon_EOS_90D_Colombia.CR3",
 }
 ML16_FALLBACKS = {   # the D18 fallbacks among ML-16's items, as segcrop recorded them with xl0_v7r_s123
     "dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261105_121749_Pixel_9_Pro_Ethiopia.jpg",
@@ -214,6 +224,7 @@ def exclusions() -> list[dict]:
         raise ValueError(f"not D18 fallbacks: {sorted(BACKGROUND_FALLBACKS - fallback)}")
     rows = ml8_exclusions() + ml9_exclusions() + new_crops_exclusions() + ml19_exclusions() + ml16_exclusions()
     rows += ml25_exclusions()
+    rows += ml28_exclusions()
     for it in its:
         declined = dec[it["item"]]["decision"] == "decline"
         if it["path"] in BACKGROUND_FALLBACKS:
@@ -330,6 +341,14 @@ def ml25_exclusions() -> list[dict]:
             raise ValueError(f"ML-25, {path.name}: {len(dec)} items judged, not all {n}")
         rows += declined_rows(list(dec.values()), lambda r: r["path"] in ML25_FALLBACKS)
     return rows
+
+
+def ml28_exclusions() -> list[dict]:
+    """Ticket ML-28's declines (see the module docstring): every item of its review judged."""
+    dec = last_decisions(ML28_DECISIONS)
+    if len(dec) != ML28_ITEMS:
+        raise ValueError(f"ML-28: {len(dec)} items judged, not all {ML28_ITEMS}")
+    return declined_rows(list(dec.values()), lambda r: r["path"] in ML28_FALLBACKS)
 
 
 def exclude() -> int:

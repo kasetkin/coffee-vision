@@ -111,6 +111,9 @@ columns held.
   Three more on 2026-11-11, shot that day: 2 Pixel 9 Pro and 1 Sony G8441, stripped the same way. Three groups,
   seed 20261111: 2 dev, 1 holdout (ticket ML-25).
 
+  Three more on 2026-11-13, shot 2026-11-12 and 2026-11-13: 2 Pixel 9 Pro and 1 Sony G8441, stripped the same way.
+  Three groups, seed 20261113: 2 dev, 1 holdout (`20261112_140209_Pixel_9_Pro_ood_negative.jpg`; ticket ML-28).
+
   **This batch's holdout no longer means "unseen by every model"** (ticket ML-6 D1, from
   2026-10-12). The segmenter dataset (`labels/ml5/seg_dataset.yaml`) ignores the manifest's
   `split` column (ML-5 D16) and splits all 479 photos 60/15/25 itself, so about 120 holdout

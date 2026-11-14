@@ -39,6 +39,8 @@ HAVE_EXIFTOOL = shutil.which("exiftool") is not None
 DNG = REPO_ROOT / "dataset/2026-07-24__first_pictures/dng/PXL_20260724_114105353.RAW-02.ORIGINAL.dng"
 # ML-6 D10: two of its auxiliary images are 10-bit, which pillow-heif cannot decode.
 IPHONE16 = REPO_ROOT / "dataset/segmenter_positives/IMG_7252.HEIC"
+# ML-28: the dataset's first CR3s, a Canon EOS 90D's.
+CR3 = REPO_ROOT / "dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170905_Canon_EOS_90D_Colombia.CR3"
 # 16320x12240, above Pillow's own limit (tests/test_large_photos.py).
 GALAXY_200MP = REPO_ROOT / "dataset/segmenter_positives/20261028_112339_Galaxy_Z_Fold8_Ultra_Brazil.jpg"
 PRIVATE = ["-GPSLatitude=48.1", "-GPSLatitudeRef=N", "-GPSLongitude=11.5", "-GPSLongitudeRef=E",
@@ -63,6 +65,21 @@ def write_gif(path: Path) -> Path:
     im.save(path, comment=b"Created with GIMP")
     subprocess.run(["exiftool", "-q", "-overwrite_original", "-XMP:GPSLatitude=48.1", "-XMP:GPSLongitude=11.5",
                     "-XMP-dc:Creator=Someone", str(path)], check=True)
+    return path
+
+
+def write_jxl(path: Path, private: bool = True, bits: int = 8) -> Path:
+    """A small lossless JPEG XL, a bare codestream as the owner's raw developer writes one; with `private`, wrapped
+    in a container with an Exif box (kept Make and Orientation, GPS, a serial) and an XMP box (GPS, a creator)."""
+    import imagecodecs
+    dtype = np.uint8 if bits == 8 else np.uint16
+    rgb = np.random.default_rng(0).integers(0, 2**bits, (64, 96, 3)).astype(dtype)
+    path.write_bytes(imagecodecs.jpegxl_encode(rgb, lossless=True, bitspersample=bits))
+    if private:   # -m: exiftool wraps a bare codestream in a container to write it
+        subprocess.run(["exiftool", "-m", "-q", "-overwrite_original", "-Make=TestMake", "-Orientation#=6",
+                        "-ExifIFD:DateTimeOriginal=2026:11:13 17:27:01", "-GPSLatitude=48.1", "-GPSLatitudeRef=N",
+                        "-SerialNumber=SN123", "-XMP:GPSLongitude=11.5",
+                        "-XMP-dc:Creator=Someone", str(path)], check=True)
     return path
 
 
@@ -233,6 +250,47 @@ class TestStrip(unittest.TestCase):
         frames[0].save(self.tmp / "b.gif", save_all=True, append_images=frames[1:])
         self.assertNotEqual(sm.pixel_digest(self.tmp / "a.gif"), sm.pixel_digest(self.tmp / "b.gif"))
 
+    def test_jxl(self):
+        """2026-11-13, ML-28 D4: intake takes JPEG XL. A JPEG XL's metadata is its Exif and XMP boxes: the private tags
+        go, Make and Orientation stay, the pixels are unchanged, and the photo is found in a folder like any other."""
+        path = write_jxl(self.tmp / "a.jxl")
+        pixels = sm.pixel_digest(path)
+        manifest = self.tmp / "manifest.csv"
+        self.assertEqual(sm.main([str(self.tmp), "--manifest", str(manifest)]), 0)
+        after = sm.read_tags(path)
+        self.assertEqual([k for k in after if sm.is_denied(k)], [])
+        self.assertEqual(sm.pixel_digest(path), pixels)
+        self.assertEqual(after.get("EXIF:IFD0:Make"), "TestMake")
+        self.assertIn("EXIF:IFD0:Orientation", after)
+        [row] = manifest_rows(manifest)
+        self.assertEqual(row["path"].rsplit("/", 1)[-1], "a.jxl")
+        removed = row["removed"].split()
+        for tag in ["EXIF:GPS:GPSLatitude", "EXIF:ExifIFD:SerialNumber", "XMP:XMP-exif:GPSLongitude",
+                    "XMP:XMP-dc:Creator"]:
+            self.assertIn(tag, removed)
+
+    def test_a_bare_jxl_codestream_is_left_as_it_is(self):
+        """A bare JPEG XL codestream, as all 19 of ML-28's are, has no box to hold metadata: it gets its row, the
+        same bytes on both sides."""
+        path = write_jxl(self.tmp / "a.jxl", private=False)
+        sha = sm.sha256_file(path)
+        manifest = self.tmp / "manifest.csv"
+        self.assertEqual(sm.main([str(self.tmp), "--manifest", str(manifest)]), 0)
+        self.assertEqual(sm.sha256_file(path), sha)
+        [row] = manifest_rows(manifest)
+        self.assertEqual((row["sha256_before"], row["sha256_after"], row["removed"]), (sha, sha, ""))
+
+    def test_a_jxls_digest_is_at_full_depth(self):
+        """ML-28's JPEG XLs are 12-bit; canonicalization reads them at full depth (imagecodecs), so a change below
+        the 8 bits Pillow's RGB gives is a pixel difference."""
+        import imagecodecs
+        a = write_jxl(self.tmp / "a.jxl", private=False, bits=16)
+        rgb = imagecodecs.jpegxl_decode(a.read_bytes())
+        rgb[3, 3, 0] ^= 1
+        b = self.tmp / "b.jxl"
+        b.write_bytes(imagecodecs.jpegxl_encode(rgb, lossless=True, bitspersample=16))
+        self.assertNotEqual(sm.pixel_digest(a), sm.pixel_digest(b))
+
     def test_a_jpegs_gain_map_is_no_frame(self):
         """2026-11-11: Pillow read a Pixel 9 Pro's Ultra HDR JPEG as one frame, and as a two-frame MPO once exiftool had
         rewritten its metadata: frames counted that way differ for the same pixels. A JPEG's digest is its primary
@@ -299,6 +357,47 @@ class TestStrip(unittest.TestCase):
             shutil.copyfile(path, planted)
             flip_coded_byte(planted, item)
             self.assertNotEqual(sm.pixel_digest(planted), row["pixel_sha256"], item)
+
+    def test_a_cr3s_canon_maker_notes_are_accepted_but_for_the_blanked(self):
+        """ML-28 D6 (2026-11-13): exiftool cannot delete a CR3's maker notes, so a CR3's Canon maker notes are
+        accepted, as a RAW's preview is, but for the six that identify the camera, the shot or the region, which
+        must be blank. In another RAW, maker notes are still denied."""
+        settings = {"MakerNotes:Canon:FocusMode": "One-shot AF", "MakerNotes:Track4:CameraTemperature": "20 C"}
+        blank = {"MakerNotes:Canon:InternalSerialNumber": "", "MakerNotes:Canon:OwnerName": "",
+                 "MakerNotes:Canon:TimeZone": "+00:00", "MakerNotes:Canon:TimeZoneCity": "(not set)",
+                 "MakerNotes:Canon:DaylightSavings": "Off"}
+        tags = {**settings, **blank}
+        self.assertEqual(sm.compare(tags, tags, ".CR3")[1], [])
+        self.assertEqual(len(sm.compare(tags, tags, ".dng")[1]), len(tags))
+        for key, value in [("MakerNotes:Canon:InternalSerialNumber", "GJ1"), ("MakerNotes:Canon:OwnerName", "A"),
+                           ("MakerNotes:Canon:TimeZone", "+01:00"), ("MakerNotes:Canon:TimeZoneCity", "London"),
+                           ("MakerNotes:Canon:DaylightSavings", "On"),
+                           ("MakerNotes:Canon:ImageUniqueID", "0123456789abcdef0123456789abcdef")]:
+            after = {**tags, key: value}
+            self.assertEqual(sm.compare(after, after, ".cr3")[1], [f"deny-listed tag survived: {key}"], key)
+
+    @real_data
+    @unittest.skipUnless(CR3.exists(), "the 2026-11-13 CR3s are not present (dvc pull)")
+    def test_canon_cr3(self):
+        """A Canon EOS 90D CR3 (ML-28 D6) loses its Exif serials and GPS, and its six identifying Canon maker-note
+        tags are blanked; its sensor data and rendering are unchanged, its other maker notes and its preview stay,
+        noted, and its chunk offsets may move."""
+        path = self.tmp / CR3.name
+        shutil.copyfile(CR3, path)
+        # The dataset's CR3s are stripped: give the copy identifying values back first (none of them the owner's).
+        subprocess.run(["exiftool", "-q", "-overwrite_original", "-SerialNumber=SN123", "-GPSLatitude=48.1",
+                        "-GPSLatitudeRef=N", "-MakerNotes:InternalSerialNumber=GJ123", "-MakerNotes:OwnerName=Someone",
+                        "-MakerNotes:TimeZone#=-600", "-MakerNotes:TimeZoneCity#=1", "-MakerNotes:DaylightSavings#=60",
+                        "-MakerNotes:ImageUniqueID=0123456789abcdef0123456789abcdef", str(path)], check=True)
+        row = sm.strip_one(path, dry_run=True)
+        self.assertEqual(row["problems"], [])
+        removed = row["removed"].split()
+        for tag in ["EXIF:ExifIFD:SerialNumber", "EXIF:GPS:GPSLatitude", "MakerNotes:Canon:InternalSerialNumber",
+                    "MakerNotes:Canon:OwnerName", "MakerNotes:Canon:TimeZone", "MakerNotes:Canon:TimeZoneCity",
+                    "MakerNotes:Canon:DaylightSavings", "MakerNotes:Canon:ImageUniqueID"]:
+            self.assertIn(tag, removed)
+        self.assertIn("RAW preview image stays (owner, 2026-10-05)", row["notes"])
+        self.assertIn("Canon maker notes stay, the six identifying tags blanked (ML-28 D6)", row["notes"])
 
     @real_data
     @unittest.skipUnless(DNG.exists(), "the 2026-07-24 DNGs are not present (dvc pull)")
@@ -421,13 +520,15 @@ class TestMemoryCeiling(unittest.TestCase):
 
     def test_estimate_per_format(self):
         """Measured on 2026-10-30 (ML-14 P3), peak memory above the imports: 10 bytes per pixel for a JPEG,
-        12 for an RGBA PNG, 11 for a HEIC, 13 for a DNG; 2026-11-11, 10.0 for a GIF (the owner's 12.5 MP one). The
+        12 for an RGBA PNG, 11 for a HEIC, 13 for a DNG; 2026-11-11, 10.0 for a GIF (the owner's 12.5 MP one); 2026-11-13,
+        4.8 for a JPEG XL (the owner's 32.5 MP 12-bit ones, ML-28). The
         estimate must not be below any of them."""
         pixels = 64 * 96
         im = Image.fromarray(np.zeros((64, 96, 4), np.uint8))
         im.save(self.tmp / "a.png")
         for path, at_least in [(write_fixture(self.tmp / "a.jpg"), 10), (self.tmp / "a.png", 12),
-                               (write_fixture(self.tmp / "a.heic"), 11), (write_gif(self.tmp / "a.gif"), 10)]:
+                               (write_fixture(self.tmp / "a.heic"), 11), (write_gif(self.tmp / "a.gif"), 10),
+                               (write_jxl(self.tmp / "a.jxl"), 5)]:
             self.assertGreaterEqual(sm.estimate_decode_bytes(path), at_least * pixels, path.name)
             self.assertLess(sm.estimate_decode_bytes(path), 16 * pixels, path.name)
 
