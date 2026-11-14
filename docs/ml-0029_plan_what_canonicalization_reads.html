@@ -14,12 +14,12 @@
     retrain.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14; Q1&ndash;Q4 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14; Q1&ndash;Q4 answered 2026-11-14 (ML-29 D26&ndash;D29); not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0029_ticket_what_canonicalization_reads.html"><code>ml-0029_ticket_what_canonicalization_reads.html</code></a> (ML-29)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-14</span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1&ndash;Q4 each block one phase (§2)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1&ndash;Q4 answered</span></span></div>
   </div>
 
   <div class="callout info">
@@ -83,8 +83,8 @@
   </table></div>
 
   <h2>2. Questions for the owner</h2>
-  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
-    assumes until it is answered.</p>
+  <p>Each comes from the code or the data, not from the ticket's decisions. All four were answered by the owner on
+    2026-11-14 and are the ticket's D26 to D29.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
     <tbody>
@@ -92,23 +92,26 @@
           profile? The front's integer path cannot carry a linear, PQ or HLG source at 8 bits (finding 3).
           (a) the float path for these photos only, every other upload as today (b) the float path for every upload
           (c) the integer path, accepting the loss.</td>
-        <td><span class="pill sm open">Open</span> (a). Such files are rare, so the front's usual time stays; P2 measures
-          a 15 MP one against the front's budget (ML-19 D22) and reports it. It amends ADR 0036 by one sentence.</td><td>P2</td></tr>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-14: "as recommended" (ML-29 D26). Such files are rare,
+          so the front's usual time stays; P2 measures a 15 MP one against the front's budget (ML-19 D22) and reports
+          it. It amends ADR 0036 by one sentence.</td><td>P2</td></tr>
       <tr><td class="id">Q2</td><td>The tolerance for "lands within a stated tolerance of the 8-bit sRGB export" (the
           ticket's first acceptance item). Measured today on 32&times;32 block means of what the models read: files read
           correctly differ from the reference by a mean of 0.32 to 0.60 levels and at most 3.2 to 5.4 in one block (three
           lossy codecs); the misread ones by 2.2 (Display P3) and 65 (linear Rec.2020).</td>
-        <td><span class="pill sm open">Open</span> Standard-range declarations: mean at most 1.0 level, no block over 6.
-          HDR ones have no such reference until P4, whose report proposes their tolerance with the operator.</td><td>P2</td></tr>
+        <td><span class="pill sm ok">Answered</span> 2026-11-14: "as recommended" (ML-29 D27). Standard-range
+          declarations: mean at most 1.0 level, no block over 6. HDR ones have no such reference until P4, whose report
+          proposes their tolerance with the operator.</td><td>P2</td></tr>
       <tr><td class="id">Q3</td><td>One release for Part 1, or two? The standard-range work (P2) is ready before the
           operator is chosen.</td>
-        <td><span class="pill sm open">Open</span> Two: release A after P2, so the darktable path works on the site
-          without waiting for the research (D6), and release B after P5.</td><td>P3</td></tr>
+        <td><span class="pill sm ok">Answered</span> Two, 2026-11-14: "as recommended" (ML-29 D28). Release A after P2, so
+          the darktable path works on the site without waiting for the research (D6), and release B after P5.</td><td>P3</td></tr>
       <tr><td class="id">Q4</td><td>Public sample files (finding 5) in a public repo: (a) kept in <code>tmp/</code> for
           the analysis, never committed, with their URLs and licences recorded in <code>analysis/ml29/</code>; the
           tests make their own small files in code (b) a few committed as fixtures.</td>
-        <td><span class="pill sm open">Open</span> (a). The tests stay offline and self-made, as
-          <code>tests/test_canonical.py</code> already does, and the repo publishes nobody else's photos.</td><td>P4</td></tr>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-14: "as recommended" (ML-29 D29). The tests stay offline
+          and self-made, as <code>tests/test_canonical.py</code> already does, and the repo publishes nobody else's
+          photos.</td><td>P4</td></tr>
     </tbody>
   </table></div>
 
@@ -148,7 +151,7 @@
   <h2>4. P2 &mdash; standard-range declarations wired into decode</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1, Q2</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 <span class="tag">Q1, Q2 answered</span></span></div>
   </div>
   <p><code>canonical.decode</code> asks P1's module for the declaration and no longer falls back to sRGB on its own.
     A PQ or HLG declaration is refused in this phase with a message that says so; P5 lifts that. This is the phase that
@@ -180,7 +183,7 @@
   <h2>5. P3 &mdash; release A <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q3; the owner's go-ahead to merge, push and deploy</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2; the owner's go-ahead to merge, push and deploy <span class="tag">Q3 answered</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
@@ -195,7 +198,7 @@
   <h2>6. P4 &mdash; tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q4 <span class="tag">can run beside P2 and P3</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1 <span class="tag">Q4 answered; can run beside P2 and P3</span></span></div>
   </div>
   <p>D11 as a measurement, with the data in hand (D25). The result is a research note,
     <code>analysis/ml29/research_tone_mapping.md</code>, a prototype module <code>coffeecv/tone_map.py</code> that
@@ -362,6 +365,8 @@
     <div><div class="when">2026-11-14</div>Claude reads ticket ML-29 at <code>c550146</code> and writes this plan.
       Six findings not in the ticket, one of them the owner's word that no new exports will come (the ticket's D25);
       Q1&ndash;Q4 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-14</div>The owner answers Q1&ndash;Q4, each "as recommended": the ticket's D26 to
+      D29. Nothing started, at the owner's word.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

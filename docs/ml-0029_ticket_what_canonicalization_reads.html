@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D24 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; D25 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>, its Q1&ndash;Q4 open); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -288,6 +288,24 @@
           have or use the internet to get more info about PQ and HLG, get example photos if needed." What darktable
           itself writes for linear Rec709, Rec709, PQ P3, HLG P3 and linear ProPhoto stays unchecked; D5 reads every
           header declaration either way.</td></tr>
+      <tr><td class="id">D26</td><td>On the front, which colour path does a photo take whose declaration is not an ICC
+          profile? The front's integer path cannot carry a linear, PQ or HLG source at 8 bits. (Plan Q1.)</td>
+        <td>(a) the float path for these photos only (b) the float path for every upload (c) the integer path</td>
+        <td>(a), 2026-11-14: "as recommended". Every other upload as today; a 15 MP one is measured against the front's
+          budget. Amends <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a> by one sentence, when
+          it is implemented.</td></tr>
+      <tr><td class="id">D27</td><td>The tolerance for "within a stated tolerance of the 8-bit sRGB export"? (Plan Q2.)</td>
+        <td>Proposed: on 32&times;32 block means of what the models read, a mean of at most 1.0 level and no block
+          over 6</td>
+        <td>As proposed, 2026-11-14, for standard-range declarations (files read correctly today: 0.32 to 0.60 and 3.2
+          to 5.4; misread: 2.2 and 65). The tolerance for HDR files comes with the operator, from the plan's P4.</td></tr>
+      <tr><td class="id">D28</td><td>One release for Part 1, or two? (Plan Q3.)</td>
+        <td>(a) two: after the standard-range declarations, and after HDR main images (b) one</td>
+        <td>(a), 2026-11-14: "as recommended".</td></tr>
+      <tr><td class="id">D29</td><td>Public sample files in a public repo? (Plan Q4.)</td>
+        <td>(a) kept in <code>tmp/</code>, never committed, their URLs and licences recorded in
+          <code>analysis/ml29/</code>; the tests make their own files (b) a few committed as fixtures</td>
+        <td>(a), 2026-11-14: "as recommended".</td></tr>
     </tbody>
   </table></div>
 
@@ -350,6 +368,8 @@
       Part 1 in two releases (P3, P6), Part 2 from P7 with the owner's stops at P9, P10 and P11. D25: the owner will
       provide no new exports; the missing test files are made here and public samples used. The plan's Q1&ndash;Q4 are
       open. Not implemented.</div>
+    <div><div class="when">2026-11-14</div>The plan's Q1 to Q4 answered by the owner, each as recommended: D26 to D29.
+      Nothing started, at the owner's word.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
