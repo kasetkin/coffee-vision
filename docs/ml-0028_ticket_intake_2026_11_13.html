@@ -267,7 +267,8 @@
     <li><span class="box done"></span><span><code>seg_ml19_predict@xl0_v7r_s123</code> re-run (2026-11-13).</span></li>
     <li><span class="box done"></span><span>The new crops opened at full size, every D18 fallback included (two new: the JXL
       <code>20261109_170942-jxl</code>, mask 0.002 of the photo, and the CR3 <code>20261109_170955</code>, 0.023).</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh --full</code> passes.</span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh --full</code> passes (2026-11-14, after the commit:
+      1,092 tests, the one failure the pinned exclusion count of <code>test_seg_parity</code>, 35 to 55, updated).</span></li>
     <li><span class="box done"></span><span>The owner's review of the new pool crops
       (<code>labels/ml2/review/ml28_new_crops_2026-11-13.decisions.jsonl</code>, 83 items): 62 of the 82 new accepted, 20
       declined into <code>labels/ml3/pool_exclude.csv</code> (55 rows) by <code>analysis/ml3/mask_review.py exclude</code>;
