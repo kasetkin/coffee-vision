@@ -48,10 +48,12 @@ from coffeecv.config import REPO_ROOT
 from coffeecv.dataset import CAPTURES, CLASS_DIR_RE
 from coffeecv.merge_rig import merge_cmd_args, read_exclusions
 from coffeecv.repro_utils import POOL_MERGE_STAGE
+from coffeecv.strip_metadata import PHOTO_EXTENSIONS
 
 DATASET_DIR = REPO_ROOT / "dataset"
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".dng", ".cr2", ".cr3",
-              ".nef", ".arw", ".raf", ".orf", ".rw2", ".pef", ".srw"}
+# Intake's list, as find_duplicates and seg_dataset read it (ADR 0034): this one had drifted without .gif, .heif and
+# .jxl (ML-28 D4).
+IMAGE_EXTS = PHOTO_EXTENSIONS
 
 # Naming drift that is known, understood, and deliberately not fixed. Reported
 # as a warning (never silently suppressed) so it stays visible, but it does not

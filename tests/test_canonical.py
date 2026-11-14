@@ -684,6 +684,17 @@ class Readers(unittest.TestCase):
         self.assertTrue(cn.is_canonical(canon))
         self.assertLess(np.abs(cn.load_canonical(canon).astype(int) - a).mean(), 2)
 
+    def test_a_12_bit_jpeg_xl_is_read_at_its_own_bit_depth(self):
+        """ML-28 (2026-11-13): imagecodecs gives a 12-bit JPEG XL's samples as 0-4095 in a uint16, so its white is
+        4095, not the uint16's 65535; read as 65535 every 12-bit photo came out about 16 times too dark (the owner's
+        Canon developments, 17 of 19 then D18 fallbacks)."""
+        a = np.asarray(patches(SRGB_PATCHES))
+        twelve = ((a.astype(np.uint32) * 4095 + 127) // 255).astype(np.uint16)
+        data = ic.jpegxl_encode(twelve, lossless=True, bitspersample=12, primaries="SRGB", transfer="SRGB")
+        self.assertEqual(cn.read_header(data).bits_per_sample, 12)
+        back = cn.load_canonical(cn.canonicalize(data))
+        self.assertLess(np.abs(back.astype(int) - a).mean(), 2)
+
     def test_grey_photos(self):
         for data in (png(np.full((32, 32), 128, np.uint8)), ic.png_encode(np.dstack([np.full((32, 32), 128, np.uint8), np.full((32, 32), 255, np.uint8)]))):
             with self.subTest(n=len(data)):

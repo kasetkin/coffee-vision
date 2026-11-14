@@ -10,3 +10,117 @@ split_units:
       - dataset/segmenter_positives/IMG_7252.HEIC
       - dataset/segmenter_positives/IMG_20261011_095933.jpg
       - dataset/segmenter_positives/IMG_20261011_095935.jpg
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172701_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172701-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172704_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172704-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172718_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172718-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172727_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172727-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172731_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172731-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172738_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172738-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172739_Canon_EOS_90D_Brazil.CR3
+      - dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172739-jxl_Canon_EOS_90D_Brazil.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170905_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170905-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170917_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170917-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170918-1_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170918-1-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170918_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170918-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170932_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170932-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939-1_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939-1-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939-2_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939-2-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170939-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170942_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170942-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170943_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170943-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170953_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170953-jxl_Canon_EOS_90D_Colombia.jxl
+  - why: >-
+      A Canon EOS 90D raw and its JPEG XL development, one shot (ML-28 D1): the CR3's EXIF time has a UTC offset and
+      the JPEG XL has no EXIF, so the two are on two clocks.
+    photos:
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170955_Canon_EOS_90D_Colombia.CR3
+      - dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170955-jxl_Canon_EOS_90D_Colombia.jxl

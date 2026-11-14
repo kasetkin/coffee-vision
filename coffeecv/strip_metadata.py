@@ -10,6 +10,8 @@ trailer (MCC_Data, the network's country; Image_UTC_Data), cut from the file's e
 delete it (samsung_trailer_start, 2026-10-23). Everything else stays,
 Orientation and the ICC profile included: they are not private and they describe the photo. A RAW file's
 preview and a HEIF's thumbnail item are image data exiftool cannot remove; the owner keeps them (2026-10-05).
+A CR3's Canon maker notes exiftool cannot delete either: they stay, but for the six identifying tags, written blank
+(CR3_BLANKED; ticket ML-28 D6).
 
 exiftool edits metadata without re-encoding image data. Each photo is written to a new file beside it,
 checked, and only then moved over the original (a new inode: a DVC cache file linked from the working
@@ -74,6 +76,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import imagecodecs
 import numpy as np
 import pillow_heif
 import rawpy
@@ -87,7 +90,7 @@ from coffeecv.repo_files import sha256_file
 # imports this module gets it too; photo_io, not coffeecv.dataset, so no process here imports torch (ML-14 D8).
 Image.MAX_IMAGE_PIXELS = DATASET_MAX_PIXELS
 
-PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".heic", ".heif"} | RAW_EXTENSIONS   # .gif: ML-25 D6
+PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".heic", ".heif", ".jxl"} | RAW_EXTENSIONS   # .gif: ML-25 D6; .jxl: ML-28 D4
 HEIF_EXTENSIONS = {".heic", ".heif"}
 
 # What exiftool is asked to delete. The audit below, not this list, is the guarantee: a deny-listed tag
@@ -117,6 +120,18 @@ _DENY_TAG_RE = re.compile(r"^GPS|SerialNumber")
 # items exiftool does not even list). Noted in the report, not failed.
 ACCEPTED_IN_RAW = {"PreviewImage", "PreviewImageStart", "PreviewImageLength"}
 
+# ML-28 D6 (2026-11-13): exiftool cannot delete a CR3's maker notes ("Can't delete MakerNotes from CR3"), so in a CR3
+# they are accepted, noted, like the preview: how the camera was set and calibrated. The six that identify the camera,
+# the shot or the region set in its menu are blanked one by one instead, and must read back blank: the value exiftool
+# lists after the blanking, or None for a tag it then no longer lists (a zeroed ImageUniqueID).
+CR3_BLANKED = {"InternalSerialNumber": "", "OwnerName": "", "ImageUniqueID": None, "TimeZone": "+00:00",
+               "TimeZoneCity": "(not set)", "DaylightSavings": "Off"}
+CR3_BLANK_ARGS = ["-MakerNotes:InternalSerialNumber=", "-MakerNotes:OwnerName=",
+                  "-MakerNotes:ImageUniqueID=" + "0" * 32,   # a zero-length one is refused
+                  "-MakerNotes:TimeZone#=0", "-MakerNotes:TimeZoneCity#=32766",   # 32766: "(not set)"
+                  "-MakerNotes:DaylightSavings#=0"]
+CR3_NOTE = "Canon maker notes stay, the six identifying tags blanked (ML-28 D6)"
+
 # D13.1's "keep" list: must be there after if it was there before, byte for byte.
 KEPT_TAGS = {"Orientation", "ICC_Profile", "Make", "Model", "DateTimeOriginal", "CreateDate",
              "ExposureTime", "FNumber", "ISO", "ExposureProgram", "ExposureCompensation", "FocalLength",
@@ -130,7 +145,7 @@ VOLATILE_GROUPS = {"System", "ExifTool", "Composite"}
 # nothing else, and EnvelopeRecordVersion and the IPTC digests come with rewritten IPTC.
 LAYOUT_TAGS = {"MPImageStart", "MPImageLength", "FileSize", "ExifByteOrder", "XMPToolkit",
                "CurrentIFDPosition", "MediaDataOffset", "MediaDataSize", "MediaData", "TileOffsets",
-               "StripOffsets", "YCbCrPositioning", "EnvelopeRecordVersion", "CurrentIPTCDigest", "IPTCDigest"}
+               "StripOffsets", "ChunkOffset", "ChunkOffset64", "YCbCrPositioning", "EnvelopeRecordVersion", "CurrentIPTCDigest", "IPTCDigest"}
 
 MANIFEST_FIELDS = ["path", "sha256_before", "sha256_after", "pixel_sha256", "removed"]
 
@@ -138,9 +153,10 @@ GB = 10**9
 # pixel_digest's peak memory above the imports, per pixel, measured 2026-10-30 (ticket ML-14 P3; each photo in its
 # own process, 12-200 MP, the same at every size): a JPEG 10.0 (RGB or grey), an RGBA PNG 12.0, a HEIC 11.0 (per
 # pixel of its top-level images, Apple's auxiliary images included), a DNG 13.0 (per pixel of rawpy's output size);
-# a GIF 10.0, measured 2026-11-11 on the owner's 12.5 MP one (ML-25).
+# a GIF 10.0, measured 2026-11-11 on the owner's 12.5 MP one (ML-25); a JPEG XL 4.8, measured 2026-11-13 on the
+# owner's 32.5 MP 12-bit ones (ML-28), taken to 8 since the 16-bit decode alone is 6.
 # Rounded up. The stripped copy is decoded after the photo, never beside it.
-DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".gif": 11, ".heic": 12, ".heif": 12,
+DECODE_BYTES_PER_PIXEL = {".jpg": 11, ".jpeg": 11, ".png": 13, ".gif": 11, ".heic": 12, ".heif": 12, ".jxl": 8,
                           **dict.fromkeys(RAW_EXTENSIONS, 14)}
 MAX_DEFAULT_JOBS = 10                       # the owner's, 2026-10-30 (ML-14 D15)
 
@@ -315,6 +331,10 @@ def pixel_digest(path: Path) -> str:
     if ext in RAW_EXTENSIONS:
         with rawpy.imread(str(path)) as raw:
             _digest(h, raw.raw_image_visible)
+    elif ext == ".jxl":
+        # At full depth, as canonicalization reads it (canonical._decode_jxl): ML-28's are 12-bit, and Pillow's RGB
+        # above is 8-bit.
+        _digest(h, imagecodecs.jpegxl_decode(path.read_bytes()))
     elif ext in HEIF_EXTENSIONS:
         heif = pillow_heif.open_heif(str(path), convert_hdr_to_8bit=False)
         for img in heif:
@@ -339,14 +359,22 @@ def pixel_digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def accepted(key: str, ext: str) -> bool:
-    return ext.lower() in RAW_EXTENSIONS and _parts(key)[2] in ACCEPTED_IN_RAW
+def accepted(key: str, ext: str, value: object = None) -> bool:
+    """A deny-listed tag kept for this file type: a RAW's preview; in a CR3 its maker notes, the six of CR3_BLANKED
+    only at their blank `value` (ML-28 D6)."""
+    ext = ext.lower()
+    fam0, _, tag = _parts(key)
+    if ext in RAW_EXTENSIONS and tag in ACCEPTED_IN_RAW:
+        return True
+    if ext == ".cr3" and fam0 == "MakerNotes":
+        return tag not in CR3_BLANKED or value == CR3_BLANKED[tag]
+    return False
 
 
 def compare(before: dict, after: dict, ext: str = "") -> tuple[list[str], list[str]]:
     """(denied tags that went, problems). A problem is a denied tag still there (unless accepted for this
     file type), or a compared tag that changed or went."""
-    problems = [f"deny-listed tag survived: {k}" for k in after if is_denied(k) and not accepted(k, ext)]
+    problems = [f"deny-listed tag survived: {k}" for k, v in after.items() if is_denied(k) and not accepted(k, ext, v)]
     for k, v in before.items():
         if not is_compared(k):
             continue
@@ -358,7 +386,9 @@ def compare(before: dict, after: dict, ext: str = "") -> tuple[list[str], list[s
     problems += [f"kept field lost: {k}" for k in sorted(kept_before - set(after))]
     problems += [f"tag added: {k}" for k in after if k not in before and is_compared(k)]
     # Composite tags are exiftool's own, derived from the real ones: they go with them, and are not listed.
-    removed = sorted(k for k in before if is_denied(k) and k not in after and _parts(k)[0] != "Composite")
+    removed = sorted(k for k in before if is_denied(k) and _parts(k)[0] != "Composite"
+                     and (k not in after or (after[k] != before[k] and not accepted(k, ext, before[k])
+                                             and accepted(k, ext, after[k]))))   # a CR3's blanked tag (D6)
     return removed, problems
 
 
@@ -419,9 +449,12 @@ def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
         n = sum(len(img.info.get("thumbnails") or []) for img in pillow_heif.open_heif(str(path)))
         if n:
             row["notes"].append("HEIF thumbnail image item stays (exiftool cannot remove it)")
-    if any(accepted(k, path.suffix) for k in before):
+    cr3 = path.suffix.lower() == ".cr3"
+    if path.suffix.lower() in RAW_EXTENSIONS and any(_parts(k)[2] in ACCEPTED_IN_RAW for k in before):
         row["notes"].append("RAW preview image stays (owner, 2026-10-05)")
-    if not any(is_denied(k) and not accepted(k, path.suffix) for k in before):
+    if cr3 and any(_parts(k)[0] == "MakerNotes" for k in before):
+        row["notes"].append(CR3_NOTE)
+    if not any(is_denied(k) and not accepted(k, path.suffix, v) for k, v in before.items()):
         return row
     # Beside the photo for a real strip (os.replace is atomic within one filesystem); a dry run writes
     # nothing under the photo's folder.
@@ -431,7 +464,8 @@ def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
     tmp = Path(tmp_name)
     try:
         tmp.unlink()                                 # exiftool -o refuses to overwrite
-        proc = exiftool("-q", "-q", *DELETE_ARGS, "-o", str(tmp), str(path))
+        args = [a for a in DELETE_ARGS if a != "-makernotes:all="] + CR3_BLANK_ARGS if cr3 else DELETE_ARGS
+        proc = exiftool("-q", "-q", *args, "-o", str(tmp), str(path))
         if proc.returncode != 0 or not tmp.exists():
             row["problems"].append(f"exiftool failed: {(proc.stderr or proc.stdout).strip()}")
             return row

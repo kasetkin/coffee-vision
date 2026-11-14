@@ -453,9 +453,10 @@ class CommittedFile(unittest.TestCase):
         # photos in it, a GIF among them, massimo (2) and tasty_coffee (57) in full (whole_folders), and 11
         # user_realworld negatives; 31 JPGs whose DNG or GIF twin is also in the data were moved out first (ML-25).
         # Then the owner's 40 photos of 2026-11-11 in it, class 018 among them, and 3 user_realworld negatives; then 17
-        # iPhone photos the same afternoon (6 copies moved out first).
+        # iPhone photos the same afternoon (6 copies moved out first). 2026-11-13 the owner's 82 photos in it, the
+        # first CR3s with their JPEG XL twins among them, and 3 user_realworld negatives (ML-28).
         self.assertEqual(by_source(self.photos),
-                         {"segmenter_positive": 311, "pool": 759, "negative": 629, "internet_positive": 11})
+                         {"segmenter_positive": 311, "pool": 841, "negative": 632, "internet_positive": 11})
         whole = RunConfig.from_params_yaml().seg_dataset["whole_folders"]
         drawn = [e for e in self.photos if e["source"] == "pool" and e["folder"] not in whole]
         self.assertEqual(len(drawn), 311)

@@ -388,7 +388,10 @@ def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Sour
     rgb = ic.jpegxl_decode(data)                 # imagecodecs applies the file's orientation
     if rgb.dtype == np.float32:
         raise Unreadable("a floating-point JPEG XL")
-    return Source(_cap(rgb, settings), float(np.iinfo(rgb.dtype).max), profile, f"jxl{rgb.dtype.itemsize * 8}")
+    # White is the file's own bit depth, not the dtype's: imagecodecs gives a 10- or 12-bit JPEG XL's samples
+    # unscaled in a uint16 (ticket ML-28: 12-bit ones read as 16 came out about 16 times too dark).
+    white = float(min(2**header.bits_per_sample, np.iinfo(rgb.dtype).max + 1) - 1)
+    return Source(_cap(rgb, settings), white, profile, f"jxl{header.bits_per_sample}")
 
 
 # ----- the colour conversion and the encode -----
