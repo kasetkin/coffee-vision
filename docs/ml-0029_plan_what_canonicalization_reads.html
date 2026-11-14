@@ -1,0 +1,375 @@
+<title>Implementation plan: what canonicalization reads from an original</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-29 · coffee-vision · implementation</div>
+  <h1>Implementation plan: what canonicalization reads from an original</h1>
+  <p class="lede">The order of work for <a href="ml-0029_ticket_what_canonicalization_reads.html">ticket ML-29</a>. Two
+    strands, as the ticket has them. Part 1, read correctly (P1 to P6), comes first and ships in two releases: the
+    standard-range colour declarations, which is the owner's darktable path (D6), then HDR main images once a
+    tone-mapping operator is chosen. Part 2, use more (P7 to P11), is the gain-map experiment, offline until the owner
+    adopts it. No phase of Part 1 changes a dataset photo; the first step that can change a model's number is P10's
+    retrain.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14; Q1&ndash;Q4 open; not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0029_ticket_what_canonicalization_reads.html"><code>ml-0029_ticket_what_canonicalization_reads.html</code></a> (ML-29)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-14</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1&ndash;Q4 each block one phase (§2)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>c550146</code>, not from the ticket alone. Six things the ticket does not
+      cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q4 (§2).</p>
+    <ol>
+      <li><b>No new files from the owner.</b> 2026-11-14: "I will not provide new exports from Darktable or new
+        profiles. Work with data that you have or use the internet to get more info about PQ and HLG, get example
+        photos if needed." Recorded as the ticket's D25. The five profiles not exported, and PQ and HLG in AVIF and
+        HEIC, are made here: the darktable JPEG XL's own pixels re-encoded with the other declaration
+        (<code>imagecodecs.avif_encode</code> and <code>jpegxl_encode</code> take <code>primaries</code> and
+        <code>transfer</code>; pillow-heif has an x265 encoder, its coded tag on writing to be checked in P1), plus
+        public samples (finding 5). What darktable itself writes for the five missing profiles stays unchecked; D5
+        reads every header declaration, so the answer does not change the work.</li>
+      <li><b>Every change to <code>canonical.py</code> re-runs the store.</b> It is a dependency of each
+        <code>canonicalize</code>, <code>segcrop</code> and segmenter stage in <code>dvc.yaml</code>, so a change
+        re-runs them all, as ML-28 did after its 12-bit fix and ML-25 after OPS-22. That re-run is the proof Part 1
+        needs: every output must come back byte-identical. To pay for it once per release, the new code is written in
+        its own modules first (P1, P4, P7), which no stage depends on until P2, P5 and P11 wire them in.</li>
+      <li><b>The front's colour path is the integer one</b> (<code>FRONT_SETTINGS</code>, OPS-22 D4, ADR 0036):
+        LittleCMS's optimized transform on the source's own 8- or 16-bit samples. A linear, PQ or HLG source at 8 bits
+        through an integer lookup loses its shadows. Q1.</li>
+      <li><b>The libraries are already there</b> (R7). <code>imagecodecs.avif_decode</code> returns the 10-bit
+        darktable AVIF as <code>uint16</code> with white at 1023, where Pillow's plugin gives 8 bits; pillow-heif
+        returns a HEIC's coded tag as <code>nclx_profile</code>; <code>imagecodecs</code> 2026.10.10 bundles
+        libavif 1.4.2 and libultrahdr 2.0.2 (<code>ultrahdr_decode</code> gives linear float). No new dependency is
+        expected; each use is checked in its phase, on the three machines' locks (ML-19 D41).</li>
+      <li><b>Public HDR and gain-map samples exist.</b> libavif's <code>tests/data</code> lists 35 such files, each
+        with its licence in that folder's README: HDR main images (<code>seine_hdr_rec2020.avif</code>,
+        <code>colors_hdr_p3.avif</code>), a standard-range image with a gain map as AVIF and as JPEG
+        (<code>seine_sdr_gainmap_srgb</code>), an HDR main image with a gain map down to standard range
+        (<code>seine_hdr_gainmap_srgb.avif</code>, the layout no dataset photo has), and Apple gain-map JPEGs. The same
+        scene in several forms is a second test rig beside the darktable exports. Q4.</li>
+      <li><b>Dataset intake compares a JPEG XL's pixels as <code>canonical._decode_jxl</code> reads them</b>
+        (<code>strip_metadata.py</code>, ML-28 D4), so intake follows the decoder: a float or newly read JPEG XL has to
+        pass its pixel comparison too (D23). Folded into P2.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>The reader and the profile builder come first as a module nothing calls (P1), so they can be tested on all 22
+    exports without touching a DVC stage. P2 wires in the standard-range declarations, and its store re-run proves no
+    dataset photo moved. HDR main images wait for the operator (P4, the owner's pick), because a tone curve chosen
+    later would change those photos' canonical bytes twice. Part 2 starts only after the operator exists, since D11
+    uses the same one for gain maps, and runs entirely beside the store until P11.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The colour-declaration reader and the profile builder, not wired in; the test files made</td><td>local</td><td>no: nothing calls it</td></tr>
+      <tr><td class="id">P2</td><td>Standard-range declarations wired into <code>decode</code>; AVIF at its depth; float JPEG XL; refusals; texts</td><td>local</td><td>no for the dataset: the store byte-identical. Yes for files misread or refused today</td></tr>
+      <tr><td class="id">P3</td><td>Release A <span class="pill sm open">stop</span></td><td>owner, front, inference host</td><td>the live site reads the darktable path</td></tr>
+      <tr><td class="id">P4</td><td>Tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></td><td>local, internet</td><td>no: a report</td></tr>
+      <tr><td class="id">P5</td><td>HDR main images wired: PQ, HLG, values above white</td><td>local</td><td>no for the dataset: the store byte-identical</td></tr>
+      <tr><td class="id">P6</td><td>Release B <span class="pill sm open">stop</span></td><td>owner, front, inference host</td><td>the live site reads HDR main images</td></tr>
+      <tr><td class="id">P7</td><td>The gain-map reader, not wired in; ISO checked against the vendor maps</td><td>local</td><td>no: nothing calls it</td></tr>
+      <tr><td class="id">P8</td><td>Step 1: the scratch store and the pixel report</td><td>local</td><td>no: beside the store</td></tr>
+      <tr><td class="id">P9</td><td>Step 2: today's models on the scratch photos <span class="pill sm open">stop</span></td><td>local</td><td>no: a report</td></tr>
+      <tr><td class="id">P10</td><td>Step 3: re-crop, retrain, compare <span class="pill sm open">stop</span></td><td>training machine</td><td>yes: recorded runs</td></tr>
+      <tr><td class="id">P11</td><td>Adopt as one release, or close <span class="pill sm open">stop</span></td><td>owner, all machines</td><td>if adopted: the store, the model, the site</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket's decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>On the front, which colour path does a photo take whose declaration is not an ICC
+          profile? The front's integer path cannot carry a linear, PQ or HLG source at 8 bits (finding 3).
+          (a) the float path for these photos only, every other upload as today (b) the float path for every upload
+          (c) the integer path, accepting the loss.</td>
+        <td><span class="pill sm open">Open</span> (a). Such files are rare, so the front's usual time stays; P2 measures
+          a 15 MP one against the front's budget (ML-19 D22) and reports it. It amends ADR 0036 by one sentence.</td><td>P2</td></tr>
+      <tr><td class="id">Q2</td><td>The tolerance for "lands within a stated tolerance of the 8-bit sRGB export" (the
+          ticket's first acceptance item). Measured today on 32&times;32 block means of what the models read: files read
+          correctly differ from the reference by a mean of 0.32 to 0.60 levels and at most 3.2 to 5.4 in one block (three
+          lossy codecs); the misread ones by 2.2 (Display P3) and 65 (linear Rec.2020).</td>
+        <td><span class="pill sm open">Open</span> Standard-range declarations: mean at most 1.0 level, no block over 6.
+          HDR ones have no such reference until P4, whose report proposes their tolerance with the operator.</td><td>P2</td></tr>
+      <tr><td class="id">Q3</td><td>One release for Part 1, or two? The standard-range work (P2) is ready before the
+          operator is chosen.</td>
+        <td><span class="pill sm open">Open</span> Two: release A after P2, so the darktable path works on the site
+          without waiting for the research (D6), and release B after P5.</td><td>P3</td></tr>
+      <tr><td class="id">Q4</td><td>Public sample files (finding 5) in a public repo: (a) kept in <code>tmp/</code> for
+          the analysis, never committed, with their URLs and licences recorded in <code>analysis/ml29/</code>; the
+          tests make their own small files in code (b) a few committed as fixtures.</td>
+        <td><span class="pill sm open">Open</span> (a). The tests stay offline and self-made, as
+          <code>tests/test_canonical.py</code> already does, and the repo publishes nobody else's photos.</td><td>P4</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; the colour-declaration reader and the profile builder, not wired in</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>One new module, <code>coffeecv/colour_declaration.py</code>, with one small interface: a file's bytes and its
+    accepted format in, its colour declaration out (the kind, the primaries and white point as xy, the curve), or the
+    reason it cannot be converted. A second function turns a declaration into what the conversion needs: the curve
+    undone in our own code, then a linear RGB profile with the declared primaries and white point
+    (<code>ic.cms_profile</code>), so one builder serves every curve, PQ and HLG included (D20). Nothing calls it yet,
+    so no DVC stage moves.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The readers, in D4's order of precedence: an ICC profile; the coded tag of a
+      HEIC's, HEIF's or AVIF's main image (its own <code>colr</code> boxes by item association, the reader of
+      <code>analysis/ml29/scan_dataset.py</code> moved here) and of a PNG (<code>cICP</code>, then <code>sRGB</code>);
+      a JPEG XL header, with <code>jxl_header._customxy</code> keeping the coordinates (D5); a JPEG's R03 (D8); a BMP's
+      embedded ICC profile (D7). "Unspecified" is no declaration; PNG <code>gAMA</code> and <code>cHRM</code> and BMP
+      endpoints are not read.</span></li>
+    <li><span class="box"></span><span>The builder: sRGB, BT.709, linear, explicit gamma and DCI curves, any primaries
+      and white point. PQ and HLG are recognised and marked HDR; their rendering is P4's and P5's.</span></li>
+    <li><span class="box"></span><span>The test files (D25), in <code>tmp/</code>: the five profiles darktable did not
+      export, and PQ and HLG as AVIF and HEIC, re-encoded from the darktable JPEG XLs' pixels; each read back from its
+      bytes and added to <code>analysis/ml29/README.md</code>'s table as made here, not by darktable. Whether
+      pillow-heif writes a coded tag is checked; if not, HEIC keeps the owner's six files.</span></li>
+    <li><span class="box"></span><span>Tests, test first, on small files made in code: each declaration kind, the
+      precedence (an ICC profile beside a coded tag, a coded tag alone, "unspecified", R03), custom primaries, a
+      reserved coded value as a refusal, the legacy fields ignored.</span></li>
+    <li><span class="box"></span><span>Checks: on the owner's 22 exports and the files made here, the declaration read
+      equals what <code>analysis/ml29/README.md</code> records; the builder's sRGB and Display P3 profiles convert
+      within one 16-bit rounding step of LittleCMS's own sRGB and of the dataset's Display P3 ICC profile (R2); no
+      file under <code>coffeecv/</code> that a DVC stage depends on has changed.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; standard-range declarations wired into decode</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q1, Q2</span></div>
+  </div>
+  <p><code>canonical.decode</code> asks P1's module for the declaration and no longer falls back to sRGB on its own.
+    A PQ or HLG declaration is refused in this phase with a message that says so; P5 lifts that. This is the phase that
+    re-runs the store (finding 2).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>decode</code> for every format: the declaration by precedence; a
+      declaration that cannot be converted raises <code>Unreadable</code> naming it (ADR 0040). A photo with a usable
+      ICC profile, or with no declaration, takes exactly today's path.</span></li>
+    <li><span class="box"></span><span>JPEG XL: every standard-range header declaration (D5); float samples converted
+      unclipped, values above white clipped for now, values outside the gamut clipped after the conversion (D21); an
+      embedded ICC profile still refused, with its message (D22).</span></li>
+    <li><span class="box"></span><span>AVIF decoded at its own depth (D9): <code>imagecodecs.avif_decode</code>, after
+      checking it against Pillow's plugin on an 8-bit AVIF for orientation (<code>irot</code>, <code>imir</code>),
+      transparency and the pixels; <code>accepted_formats.csv</code>'s decoder column and ADR 0034's rule kept.</span></li>
+    <li><span class="box"></span><span>The front: Q1's path for a built declaration; a 15 MP linear Rec.2020 upload
+      timed and its memory read against the front's budget.</span></li>
+    <li><span class="box"></span><span>Intake: <code>strip_metadata</code>'s JPEG XL pixel comparison follows the new
+      decode (finding 6).</span></li>
+    <li><span class="box"></span><span>The texts: <code>openapi.json</code>, <code>llms.txt</code>, the refusal message
+      and <code>webapp/README.md</code> say what is read; the tests that hold them updated.
+      <code>dvc.yaml</code>'s stages gain the new module as a dependency.</span></li>
+    <li><span class="box"></span><span>Checks: the owner's standard-range exports and the files made in P1 each land
+      within Q2's tolerance of the 8-bit sRGB export, the three misread today among them; every
+      <code>canonicalize</code> and <code>segcrop</code> stage re-run with every output byte-identical
+      (<code>docs/agents/dvc.md</code> first); <code>scan_dataset.py</code>'s "read today as" column unchanged under
+      the new rule; <code>scripts/check.sh --full</code> green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; release A <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, Q3; the owner's go-ahead to merge, push and deploy</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
+      (<code>docs/agents/deploy.md</code>).</span></li>
+    <li><span class="box"></span><span>Release with <code>--verify</code>; the front's and the inference host's
+      <code>imagecodecs</code> at the pinned version.</span></li>
+    <li><span class="box"></span><span>Checks, on the live site: the darktable linear Rec2020 JPEG XL, AVIF and HEIC
+      each get an answer, the same country as the sRGB export; a PQ export gets the refusal message; the front's log
+      line for one of them read for its time.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, Q4 <span class="tag">can run beside P2 and P3</span></span></div>
+  </div>
+  <p>D11 as a measurement, with the data in hand (D25). The result is a research note,
+    <code>analysis/ml29/research_tone_mapping.md</code>, a prototype module <code>coffeecv/tone_map.py</code> that
+    nothing calls, and a recommendation the owner accepts or changes.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The primary sources read and cited by section: ITU-R BT.2100 (the PQ and HLG
+      curves, HLG's system gamma), BT.2408 (reference white at 203 nits), BT.2390 (the roll-off for PQ), ISO 21496-1
+      and the Ultra HDR and Apple gain-map descriptions (for P7), and what libjxl, libavif and libultrahdr do when
+      asked for a standard-range rendering.</span></li>
+    <li><span class="box"></span><span>What darktable did: from the PQ and HLG JPEG XLs against the sRGB one of the
+      same photo, the light level its standard white was written at and how much of the picture lies above it.</span></li>
+    <li><span class="box"></span><span>The public samples (finding 5) fetched into <code>tmp/</code>, each file's
+      licence line and URL recorded; none committed (Q4).</span></li>
+    <li><span class="box"></span><span>Candidates, each a pure function on linear light: reference white to white with
+      a clip; a BT.2390-style roll-off; a scale by the peak; one more if the sources name a better one. Each run on
+      three sets: the darktable PQ and HLG files (JPEG XL, and the AVIF and HEIC of P1) against the sRGB export; the
+      public same-scene HDR and standard-range pairs; a sample of dataset gain-map photos per camera, the map applied
+      by a throwaway reader.</span></li>
+    <li><span class="box"></span><span>The report: per candidate and set, the difference from the standard-range
+      reference in 8-bit levels (mean, worst block), what happens in the bean region, side-by-side crops; the proposed
+      operator and the proposed tolerance for HDR files (Q2).</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the operator and its tolerance, recorded as the ticket's
+      next D-number.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; HDR main images wired</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A PQ or HLG declaration, in JPEG XL, AVIF, HEIC and PNG, and a float JPEG XL's
+      values above white, go through the chosen operator into the standard-range canonical photo (D2, D11, D21). P2's
+      refusal of PQ and HLG is removed.</span></li>
+    <li><span class="box"></span><span>Tests, test first: each curve in each container on files made in code; a
+      standard-range photo's bytes unchanged by the operator's presence.</span></li>
+    <li><span class="box"></span><span>The texts updated again; the front's time for a 15 MP PQ upload measured.</span></li>
+    <li><span class="box"></span><span>Checks: the darktable PQ and HLG files within P4's tolerance of the sRGB export;
+      the store re-run, every output byte-identical; <code>scripts/check.sh --full</code> green.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; release B <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5; the owner's go-ahead to merge, push and deploy</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy.</span></li>
+    <li><span class="box"></span><span>Release with <code>--verify</code>.</span></li>
+    <li><span class="box"></span><span>Checks, on the live site: the darktable PQ and HLG exports each get an answer,
+      the same country as the sRGB export. Part 1's acceptance items in the ticket ticked.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; the gain-map reader, not wired in</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <p>A new module, <code>coffeecv/gain_map.py</code>: a file's bytes in, its gain map and what it means out (the map,
+    its parameters, which way it leads), or none. Applying it gives linear light above white, which P4's operator
+    brings back. It sits behind a setting that is off, so the store and the front do not change.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The readers, ISO 21496-1 first (D14): the ISO form in a JPEG, in a HEIC's
+      <code>tmap</code> item and in an AVIF; then Ultra HDR's <code>hdrgm</code>; then Apple's auxiliary image with its
+      headroom. For each, the bundled library (libultrahdr, libavif) is tried before our own arithmetic, and kept only
+      if it gives the unclipped linear result.</span></li>
+    <li><span class="box"></span><span>Both directions: a map up from a standard-range main image (every dataset
+      photo), and a map down from an HDR main image (the public sample), each ending in the same canonical photo
+      form (D10).</span></li>
+    <li><span class="box"></span><span>Tests, test first, on files made in code with <code>ultrahdr_encode</code> and
+      on synthetic maps: a flat map is a pure brightness change; a zero map changes nothing; orientation follows the
+      main image.</span></li>
+    <li><span class="box"></span><span>Checks: on the 208 dataset files that carry both forms, the ISO result against
+      the vendor map's, the differences reported (R5); the public samples read; the setting off, the store's bytes
+      and the suite unchanged.</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; step 1: the scratch store and the pixel report</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The 1,731 gain-map photos canonicalized with the setting on into a scratch
+      folder outside <code>data/canonical</code> and outside DVC; the real store untouched.</span></li>
+    <li><span class="box"></span><span>The report, per camera: the change from today's canonical photo in the bean
+      region (the hand-checked masks of <code>data/seg_masks_ml19</code>) and outside it, in 8-bit levels as the
+      models read them; how many photos change by less than a level.</span></li>
+    <li><span class="box"></span><span>A review page of side-by-side crops for the owner, a sample per camera and the
+      largest changes.</span></li>
+    <li><span class="box"></span><span>Checks: the photo counts match <code>scan_dataset.py</code>'s; a photo with no
+      gain map canonicalizes to today's bytes with the setting on.</span></li>
+  </ol>
+
+  <h2>11. P9 &mdash; step 2: today's models on the scratch photos <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P8</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The shipped segmenter, classifier and OOD probe run on each scratch photo and
+      on its canonical photo of today, on one machine at one thread count
+      (<code>docs/agents/experiments.md</code>).</span></li>
+    <li><span class="box"></span><span>The report, per camera and per class: country answers that change, and which
+      way against the label; mask overlap between the two; OOD verdicts that flip.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: run step 3, or stop here and close Part 2 (P11's second
+      branch).</span></li>
+  </ol>
+
+  <h2>12. P10 &mdash; step 3: re-crop, retrain, compare <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P9 <span class="tag">and the owner's word to run it</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The scratch photos re-cropped with the existing segmenter, beside
+      <code>data/segcropped</code>; the classifier retrained as recorded runs on seeds 42, 123 and 7
+      (<code>docs/agents/experiments.md</code>; <code>docs/agents/remote-sweeps.md</code> if it runs on another
+      machine); the baseline is the shipped model's own three runs.</span></li>
+    <li><span class="box"></span><span>The comparison, paired by seed (ADR 0002): the overall test metric as a range
+      over seeds, per-class F1, and both again per camera (D13), set against D16's bar.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: adopt, or not (D16).</span></li>
+  </ol>
+
+  <h2>13. P11 &mdash; adopt as one release, or close <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P9 or P10 <span class="tag">the owner's decision</span></span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Not adopted: <code>.out-of-scope/</code> gains gain maps with P8's to P10's
+      measurements; the setting and <code>gain_map.py</code> are removed or kept off, as the owner says; the ticket's
+      acceptance items closed.</span></li>
+    <li><span class="box"></span><span>Adopted: the setting on for the store and the front; the store re-canonicalized
+      through its DVC stages; the segmenter's and classifier's follow-through
+      (<code>docs/agents/experiments.md</code>, "Changing the segmenter" where it applies); the front's time and
+      memory for a gain-map photo measured against its budget (R6); ADR 0033 amended (the main image "only" becomes
+      the main image with its gain map applied), and a new ADR for the decision.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the go-ahead to release store, front and model together
+      (D15).</span></li>
+  </ol>
+
+  <h2>14. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the declarations read from the 22 exports equal the recorded ones; no DVC
+      dependency changed.</span></li>
+    <li><span class="box"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
+      within tolerance.</span></li>
+    <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files.</span></li>
+    <li><span class="box"></span><span>P4: the operator and tolerance chosen by the owner, in the ticket.</span></li>
+    <li><span class="box"></span><span>P7: ISO against vendor on 208 files; the setting off changes nothing.</span></li>
+    <li><span class="box"></span><span>P8 to P10: each report in <code>analysis/ml29/</code>, per camera.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". New darktable exports (D25). Committing anyone else's sample
+      photos (Q4).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-14</div>Claude reads ticket ML-29 at <code>c550146</code> and writes this plan.
+      Six findings not in the ticket, one of them the owner's word that no new exports will come (the ticket's D25);
+      Q1&ndash;Q4 open for the owner. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
+    <a href="../analysis/ml29/README.md">analysis/ml29/README.md</a>,
+    <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="agents/experiments.md">experiments.md</a>, <a href="agents/dvc.md">dvc.md</a>,
+    <a href="agents/deploy.md">deploy.md</a>,
+    <a href="ml-0019_plan_canonicalization.html">ML-19's plan</a>.</footer>
+</main>

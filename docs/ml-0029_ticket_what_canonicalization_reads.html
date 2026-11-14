@@ -11,10 +11,11 @@
     refused, never guessed, in every accepted format, and an HDR main image is tone-mapped into today's canonical
     photo. The second is an experiment, judged by the owner before anything is adopted: applying the gain maps that
     61% of the dataset's photos carry. This ticket absorbs <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
-    <a href="ops-0024_ticket_jxl_colour_encodings.html">OPS-24</a>. Decided; not planned, not implemented.</p>
+    <a href="ops-0024_ticket_jxl_colour_encodings.html">OPS-24</a>. Decided and planned
+    (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D24 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D24 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; D25 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>, its Q1&ndash;Q4 open); not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -156,8 +157,9 @@
         <td>ML-19 D46 measured 3% of 8-bit pixels moving one level. Here it touches only photos no model has seen.
           Tests pin the builder: each of the owner's exports lands within a stated tolerance of the sRGB export.</td></tr>
       <tr><td class="id">R3</td><td><strong>The tone-mapping operator is a matter of taste.</strong></td>
-        <td>D11 makes it a measurement: the owner's PQ and HLG exports against the sRGB export of the same photo. Needs
-          PQ and HLG exports as AVIF or HEIC from the owner.</td></tr>
+        <td>D11 makes it a measurement: the owner's PQ and HLG exports against the sRGB export of the same photo. PQ
+          and HLG as AVIF and HEIC are re-encoded here from those exports' pixels, and public same-scene HDR and
+          standard-range samples add a second set (D25). The owner picks the operator from the report (plan P4).</td></tr>
       <tr><td class="id">R4</td><td><strong>Applying gain maps adds a brightness difference between camera
           brands.</strong></td>
         <td>Measured: 0.37 to 0.86 stops by brand in the bean region, nothing for Sony, the other OnePlus and raws.
@@ -279,6 +281,13 @@
         <td>Proposed GLOSSARY.md entries</td>
         <td>As proposed, 2026-11-14: main image, second image, gain map, colour declaration, and HDR as four named
           meanings.</td></tr>
+      <tr><td class="id">D25</td><td>New darktable exports for the profiles not yet exported, and PQ and HLG as AVIF or
+          HEIC?</td>
+        <td>(a) the owner exports them (b) made here from the files in hand, and public samples</td>
+        <td>(b), 2026-11-14: "I will not provide new exports from Darktable or new profiles. Work with data that you
+          have or use the internet to get more info about PQ and HLG, get example photos if needed." What darktable
+          itself writes for linear Rec709, Rec709, PQ P3, HLG P3 and linear ProPhoto stays unchecked; D5 reads every
+          header declaration either way.</td></tr>
     </tbody>
   </table></div>
 
@@ -288,14 +297,15 @@
     <li><span class="box"></span><span>Each of the owner's 22 darktable exports is read, and its canonical photo lands
       within a stated tolerance of the 8-bit sRGB export's; the three files misread today (linear Rec.2020 AVIF and
       HEIC, Display P3 HEIC) are among them.</span></li>
-    <li><span class="box"></span><span>The darktable profiles not yet exported (linear Rec709, Rec709, PQ P3, HLG P3,
-      linear ProPhoto) are exported, read from their bytes and added to the table.</span></li>
+    <li><span class="box"></span><span>Files with the declarations darktable's unexported profiles would carry (linear
+      Rec709, Rec709, PQ P3, HLG P3, linear ProPhoto), and PQ and HLG as AVIF and HEIC, are made here from the exports
+      in hand (D25), read from their bytes and added to the table as made here.</span></li>
     <li><span class="box"></span><span>Tests for the precedence: a file with an ICC profile and a coded tag, a coded
       tag alone, "unspecified", R03, PNG <code>cICP</code> and <code>sRGB</code>, legacy PNG chunks and BMP endpoints
       ignored, a reserved coded value refused with its message.</span></li>
     <li><span class="box"></span><span>A 10- and a 12-bit AVIF reach the canonical photo at their own depth.</span></li>
-    <li><span class="box"></span><span>The tone-mapping research: its candidates, the measurement on the owner's PQ and
-      HLG exports (JPEG XL, and AVIF or HEIC), and the operator chosen.</span></li>
+    <li><span class="box"></span><span>The tone-mapping research: its sources, its candidates, the measurement on the
+      owner's PQ and HLG exports and on public samples, and the operator the owner chose.</span></li>
     <li><span class="box"></span><span>Every dataset photo canonicalizes to the bytes it has today
       (<code>scan_dataset.py</code>'s "read today as" against the new rule, then the canonical store's hashes).</span></li>
     <li><span class="box"></span><span><code>openapi.json</code>, <code>llms.txt</code> and the refusal message say what
@@ -336,6 +346,10 @@
       (<code>analysis/ml29/scan_dataset.py</code>); the gain maps' boost measured in the bean region
       (<code>gainmap_in_beans.py</code>); the Sony photos found to hold no gain map. D1 to D24 decided. GLOSSARY.md
       gained five terms; ADR 0040 written. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-14</div>Planned: <a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>,
+      Part 1 in two releases (P3, P6), Part 2 from P7 with the owner's stops at P9, P10 and P11. D25: the owner will
+      provide no new exports; the missing test files are made here and public samples used. The plan's Q1&ndash;Q4 are
+      open. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
