@@ -14,7 +14,7 @@
     implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-13; R1 checked on six darktable profiles 2026-11-13; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-14 by the owner: merged into <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a>, which decides its D1 to D5; written 2026-11-13; R1 checked on six darktable profiles 2026-11-13; not implemented here</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: accepted uploads</span></div>
@@ -208,11 +208,18 @@
       their names: all colour enumerated, no ICC profile. Background gains the table. Adobe RGB is custom primaries with
       an explicit gamma, which no D1 option covered: D1 gains (c). D4 split into float and ICC, with the float file's
       out-of-range values. Decisions still open.</div>
+    <div><div class="when">2026-11-14</div>Closed by the owner: merged, with ML-20, into
+      <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a>. Its decisions are made there: D1 as ML-29 D5
+      (every header declaration), D2 as D20 (profiles built in code), D3 as D2 and D11 (PQ and HLG tone-mapped, not
+      refused), D4 as D21 and D22 (float read; an embedded ICC profile refused), D5 as D23 (intake too). The same check
+      on the owner's AVIF and HEIC exports found three accepted and read wrong, which is why ML-29 covers every
+      format.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> (HDR),
     <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D7, D44, D46),
     <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (D4),
     <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
-    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>.</footer>
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a> (this ticket merged into it).</footer>
 </main>

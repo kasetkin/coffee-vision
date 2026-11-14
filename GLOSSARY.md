@@ -46,6 +46,26 @@ _Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a r
 Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization". Made with one of two sets of settings, the same format either way: the **store's** (float colour, effort 7, quality 95, over 60 MP to 50 MP), which the canonical store and training use, and the **front's** (integer colour, effort 3, quality 90, over 18 MP to 15 MP), with which the front canonicalizes every visitor's photo (ADR 0036).
 _Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
 
+**Main image**:
+The one picture in a photo file that canonicalization turns into the canonical photo.
+_Avoid_: Primary image, base image
+
+**Second image**:
+Any other picture stored in the same file as the main image: a gain map, a depth map, a matte, a thumbnail or an appended video.
+_Avoid_: Sub-image, auxiliary image (one container's word for it)
+
+**Gain map**:
+A second image that says, region by region, how much brighter the HDR version of the photo is than the main image.
+_Avoid_: HDR map, HDR image (a photo whose main image is itself HDR is not a gain map)
+
+**HDR**:
+Ambiguous on its own; say which of four things is meant. A **gain map** beside a standard-range main image. An **HDR main image**: one whose colour declaration uses the PQ or HLG curve. **Values above white**: samples over 1.0 in a floating-point file. **Multi-exposure HDR**: several exposures merged by the camera into an ordinary standard-range photo, which leaves nothing in the file to read.
+_Avoid_: HDR photo, HDR support (without saying which)
+
+**Colour declaration**:
+How a photo file states what its colour numbers mean: an ICC profile, a coded tag, a header enumeration, or nothing.
+_Avoid_: Colour encoding, colour space, profile (when any of the four ways is meant)
+
 **Accepted format**:
 A photo format the service promises to read, named on the page and to agents. A photo in any other format is refused unread, even when a decoder for it exists.
 _Avoid_: Supported format, decodable format

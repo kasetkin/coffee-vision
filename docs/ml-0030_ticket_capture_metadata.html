@@ -1,0 +1,62 @@
+<title>Capture metadata as a signal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-30 · coffee-vision · what both models read</div>
+  <h1>Stub: use a photo's capture metadata (subject distance, focal length, exposure), which canonicalization drops</h1>
+  <p class="lede">A placeholder, not a ticket yet. Most of the dataset's photos record how far the subject was, the
+    lens's focal length and the exposure. A canonical photo carries no metadata, so neither model sees any of it. The
+    owner wants as much of what a photo file carries used as we can; this is the part of that which is not image
+    data. To be researched and written; nothing here is decided.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">stub written 2026-11-14; not researched, not written, not planned</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Not set (stub)</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">canonicalization, dataset intake, the front</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">None yet</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-14</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-14.</strong> While grilling ML-29: "We have two tasks. First: read all data
+      correctly. Second: use as much info as we can." On capture metadata (its Q18): out of ML-29, a stub of its
+      own.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Stub. The question is whether anything a camera records about the shot, beside the picture, gives either model
+    a better input: the size of a bean in pixels from the subject distance and focal length, or the scene's
+    brightness from the exposure. Nothing is proposed yet.</p>
+
+  <h2>2. Background</h2>
+  <p>Counted 2026-11-14 over the 2,851 photos in <code>dataset/</code>
+    (<a href="../analysis/ml29/README.md">analysis/ml29/README.md</a>); to be checked when the ticket is written.</p>
+  <ul>
+    <li><b>How many.</b> Subject distance in 1,687 photos; 35 mm-equivalent focal length in 2,181; exposure time,
+      f-number and ISO in about 2,655; brightness value in 2,124. How trustworthy a phone's subject distance is has not
+      been looked at.</li>
+    <li><b>Today.</b> A canonical photo holds no metadata but its colour encoding (ML-19 D21), and the front never
+      forwards or stores the original upload
+      (<a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>). Anything used would have to be read before
+      that, at intake and on the front, and carried beside the canonical photo.</li>
+    <li><b>Why it might matter.</b> EXPERIMENTS_LOG.md's cross-rig test of 2026-08-09 found the models' transfer
+      between cameras tracking how far the bean scale was extrapolated. That protocol was retired
+      (<code>.out-of-scope/cross-camera-evaluation.md</code>), so this is a lead, not a measured need.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-14</div>Stub created at the owner's request while grilling ML-29 (its D19). Not
+      researched, not written.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a> (D19),
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D21),
+    <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>.</footer>
+</main>

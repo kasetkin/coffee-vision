@@ -1,0 +1,352 @@
+<title>What canonicalization reads from an original: colour declarations, HDR, gain maps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-29 · coffee-vision · what both models read</div>
+  <h1>Canonicalization honours every colour declaration, reads HDR main images, and tries applying gain maps</h1>
+  <p class="lede">Two goals, the owner's of 2026-11-14: read every photo correctly, and use as much of what a photo
+    file carries as we can. The first is a set of fixes with no retrain: a file's colour declaration is honoured or
+    refused, never guessed, in every accepted format, and an HDR main image is tone-mapped into today's canonical
+    photo. The second is an experiment, judged by the owner before anything is adopted: applying the gain maps that
+    61% of the dataset's photos carry. This ticket absorbs <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
+    <a href="ops-0024_ticket_jxl_colour_encodings.html">OPS-24</a>. Decided; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D24 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/canonical.py</code>, <code>coffeecv/jxl_header.py</code>, <code>tests/test_canonical.py</code>, the canonical store, the front's check service, <code>webapp/static/openapi.json</code> and <code>llms.txt</code>; <code>analysis/ml29/</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-14</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">Part 1: the front reads files it refuses or misreads today, from the release that ships each phase; a photo read correctly today canonicalizes to the same bytes. Part 2: none until the owner adopts it, then one release of store, front and model (D15).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-14.</strong> "Can we create new ticket that will unite ML-20 and OPS-24 and
+      include work with JXL, HDR images, different color spaces. Maybe also include processing of HEIC or HEIF
+      sub-images that are provided by iOS and iPhone." Then, during the session: "We have two tasks. First: read all
+      data correctly. Second: use as much info as we can."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today canonicalization takes a photo's colour from its ICC profile, or reads it as sRGB; a JPEG XL is read in two
+    header enumerations only. A file that declares its colour another way is either refused (JPEG XL) or accepted and
+    read wrong (HEIC, AVIF). Every second image in a file is ignored. After this ticket:</p>
+  <ul>
+    <li><strong>Part 1, read correctly.</strong> Every colour declaration is honoured or refused
+      (<a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>); a 10- or 12-bit AVIF keeps its
+      depth; a float JPEG XL is read; an HDR main image (PQ, HLG, values above white) is tone-mapped by one operator
+      into the standard-range canonical photo. No dataset photo changes, so nothing is retrained.</li>
+    <li><strong>Part 2, use more.</strong> A gain map is applied at canonicalization and brought back to standard range
+      with the same operator. This changes 1,731 dataset photos, so it is checked in three steps with a stop for the
+      owner, and adopted only past a bar fixed now (D12, D16).</li>
+  </ul>
+  <p>The terms are GLOSSARY.md's: main image, second image, gain map, colour declaration, and the four meanings of
+    HDR.</p>
+
+  <h2>2. Background</h2>
+  <p>All of it measured 2026-11-13 and 2026-11-14 from the files' bytes; the tables, scripts and limits are in
+    <a href="../analysis/ml29/README.md">analysis/ml29/README.md</a>.</p>
+  <ul>
+    <li><strong>How colour is read today.</strong> <a href="../coffeecv/canonical.py">canonical.py</a>,
+      <code>decode</code>: JPEG, PNG, WebP, AVIF, GIF and BMP take Pillow's <code>icc_profile</code>, HEIC
+      pillow-heif's; no profile, or one LittleCMS cannot use as RGB, means sRGB (ML-19 D16). RAW is developed into
+      linear Rec.2020. <code>_decode_jxl</code> reads only the enumerations (sRGB, sRGB) and (BT2100, BT709), and
+      refuses an embedded ICC profile and float samples.</li>
+    <li><strong>What each format can declare.</strong>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Format</th><th>Colour declarations it can carry</th><th>Read today</th></tr></thead>
+        <tbody>
+          <tr><td>JPEG</td><td>ICC profile; EXIF ColorSpace and the interoperability tag (R03: Adobe RGB)</td><td>ICC only</td></tr>
+          <tr><td>PNG</td><td>ICC chunk; coded tag (<code>cICP</code>, can be PQ or HLG); <code>sRGB</code> chunk; legacy <code>gAMA</code> and <code>cHRM</code></td><td>ICC only</td></tr>
+          <tr><td>WebP</td><td>ICC profile</td><td>ICC</td></tr>
+          <tr><td>HEIC/HEIF, AVIF</td><td>ICC profile; coded tag (<code>nclx</code>, can be PQ or HLG)</td><td>ICC only</td></tr>
+          <tr><td>JPEG XL</td><td>header enumeration (any primaries, white point and curve); ICC profile</td><td>two enumerations</td></tr>
+          <tr><td>GIF</td><td>none</td><td>sRGB</td></tr>
+          <tr><td>BMP</td><td>v4/v5 header: calibrated endpoints and gamma, or an embedded ICC profile</td><td>sRGB</td></tr>
+          <tr><td>Camera RAW</td><td>none that applies: the site develops it</td><td>developed</td></tr>
+        </tbody>
+      </table></div>
+      The PNG, JPEG, BMP and WebP rows are read from the code and the formats' specifications; AVIF, HEIC and JPEG XL
+      were tested with real files.</li>
+    <li><strong>The owner's darktable exports of one photo.</strong> Of 11 JPEG XL, only the four integer sRGB ones
+      are read; linear Rec2020, Display P3, Adobe RGB (custom primaries with an explicit gamma), PQ, HLG and 32-bit
+      float are refused. Of 5 AVIF and 6 HEIC, all are accepted, and three are read wrong because their only
+      declaration is a coded tag: linear Rec.2020 as AVIF and as HEIC (65 of 255 levels off) and Display P3 as HEIC
+      (2 levels off, up to 8). The 10- and 12-bit AVIFs are decoded at 8 bits, against ML-19 D36.</li>
+    <li><strong>The dataset is read correctly today.</strong> 2,851 photos. Every HEIC and 1,715 of 2,556 JPEGs have
+      an ICC profile; the 841 JPEGs without one carry no Adobe RGB tag; the 9 PNGs with legacy chunks carry sRGB's
+      own values; no main image is PQ or HLG; every JPEG, HEIC and PNG is 8-bit.</li>
+    <li><strong>What the dataset's files carry unused.</strong> A gain map in 1,731 photos (61%): 1,570 Ultra HDR
+      JPEGs (Google 984, OnePlus 7 Pro 536, Samsung 50) and 161 iPhone HEICs; 208 of them also carry the ISO 21496-1
+      form. In every one the main image is standard-range. Also: depth or disparity 8, mattes and style maps 6,
+      motion-photo video 27, a DNG local tone map 71, and capture metadata (subject distance 1,687, focal length
+      2,181).</li>
+    <li><strong>What the gain maps ask for in the bean region.</strong> On 206 photos with a hand-checked mask: a
+      mean boost of 0.43 stops, by brand 0.37 (Google), 0.43 (OnePlus 7 Pro), 0.86 (Samsung), 0.44 (Apple). On the
+      Android phones the boost is one value over the whole region in about half the photos and varies little in the
+      rest; only Apple's maps vary inside the region in every photo. Sony (455 photos), the other OnePlus (262) and
+      every raw have no map: the Sony phone's HDR setting merges exposures into one standard-range JPEG and leaves
+      nothing in the file.</li>
+    <li><strong>Storage has the room.</strong> A canonical photo is already a 16-bit JPEG XL. A gain-map result
+      needs about 12 bits; what would stop an HDR picture being stored is the canonical photo's standard-range
+      colour encoding (ML-19 D7), which D2 keeps.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Colour comes from an ICC profile or is taken as sRGB; a coded tag is not read.</li>
+        <li>A JPEG XL is read in two enumerations; float and every other declaration are refused.</li>
+        <li>A linear Rec.2020 or Display P3 AVIF or HEIC without a profile is accepted and read wrong.</li>
+        <li>A 10- or 12-bit AVIF is decoded at 8 bits.</li>
+        <li>A PQ or HLG main image is refused (JPEG XL) or read as sRGB (HEIC, AVIF, PNG).</li>
+        <li>Gain maps and every other second image are ignored.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A colour declaration is honoured or refused: ICC profile, then coded tag or enumeration, then R03, then
+          sRGB (ADR 0040).</li>
+        <li>Every JPEG XL header declaration is read, float included; an embedded ICC profile is refused with a
+          message.</li>
+        <li>An AVIF keeps its bit depth.</li>
+        <li>A PQ or HLG main image, and values above white, are tone-mapped by one operator into the standard-range
+          canonical photo.</li>
+        <li>If the owner adopts Part 2: a gain map is applied and brought back with that operator. If not: ignored by
+          decision, recorded in <code>.out-of-scope/</code>.</li>
+        <li>Every other second image is ignored by rule, stated here.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The canonical photo.</strong> Rec.2020 with the BT.709 transfer, standard-range, 16-bit lossy JPEG XL,
+      read back as 8-bit sRGB (ML-19 D2, D7; <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR
+      0033</a>). Only what is read into it changes.</li>
+    <li><strong>Part 1 changes no dataset photo.</strong> The scan found none that the new rule reads differently, so
+      there is no re-canonicalization and no retrain. A phase that finds otherwise stops and says so.</li>
+    <li><strong>The format list.</strong> No format is added or removed
+      (<a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>).</li>
+    <li><strong>A photo with no declaration.</strong> Still read as sRGB (ML-19 D16).</li>
+    <li><strong>All cameras equal.</strong> Part 2 is reported per camera and judged by the owner; it adds no
+      camera-specific rule (<a href="adr/0010-all-cameras-equal.md">ADR 0010</a>).</li>
+    <li><strong>The site, during Part 2's experiment.</strong> Untouched until adoption (D15).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A file accepted today is refused after Part 1.</strong></td>
+        <td>Only a file whose declaration cannot be converted: a coded tag with a reserved value, a JPEG XL with an
+          embedded ICC profile (already refused). Legacy PNG and BMP fields are ignored, not refused (D7). The refusal
+          names the declaration.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A profile built in code differs by rounding from a reference profile and
+          moves pixels.</strong></td>
+        <td>ML-19 D46 measured 3% of 8-bit pixels moving one level. Here it touches only photos no model has seen.
+          Tests pin the builder: each of the owner's exports lands within a stated tolerance of the sRGB export.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The tone-mapping operator is a matter of taste.</strong></td>
+        <td>D11 makes it a measurement: the owner's PQ and HLG exports against the sRGB export of the same photo. Needs
+          PQ and HLG exports as AVIF or HEIC from the owner.</td></tr>
+      <tr><td class="id">R4</td><td><strong>Applying gain maps adds a brightness difference between camera
+          brands.</strong></td>
+        <td>Measured: 0.37 to 0.86 stops by brand in the bean region, nothing for Sony, the other OnePlus and raws.
+          D13: every result of Part 2 is reported per camera; D16 fixes the adoption bar; the owner decides.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The ISO 21496-1 reader is wrong.</strong></td>
+        <td>208 dataset files carry both forms: the ISO result is checked against the vendor map's on them before it is
+          trusted (D14).</td></tr>
+      <tr><td class="id">R6</td><td><strong>Gain maps cost the front time and memory.</strong></td>
+        <td>Not measured. Only matters at adoption (D15); the adoption release measures it against the front's budget
+          (ML-19 D22, D38).</td></tr>
+      <tr><td class="id">R7</td><td><strong>The 16-bit AVIF decode needs a decoder the front does not have.</strong></td>
+        <td>To be verified in the first phase (D9); <code>imagecodecs</code> and pillow-heif are both installed
+          already.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <p>All made by the owner on 2026-11-14, in a grilling session; Qn is the session's question number.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>One ticket, or a map with children? (Q1)</td>
+        <td>(a) one ticket absorbing ML-20 and OPS-24 (b) a wayfinder map (c) cross-links only</td>
+        <td>(a), 2026-11-14. ML, not OPS: it is the models' input. Its plan has two groups of phases: read correctly,
+          which ship on their own, and use more, gated by D12.</td></tr>
+      <tr><td class="id">D2</td><td>What should reading HDR achieve? (Q2)</td>
+        <td>(a) HDR files accepted and tone-mapped into today's canonical photo (b) the canonical photo keeps HDR
+          (c) the models read HDR</td>
+        <td>(a), 2026-11-14. ADR 0033 and ML-19 D2, D7 stand.</td></tr>
+      <tr><td class="id">D3</td><td>Which second images, and for what? (Q3, Q13)</td>
+        <td>(a) only the gain map changes pixels; the rest inventoried and ignored (b) depth or mattes used too
+          (c) inventory only</td>
+        <td>(a), 2026-11-14. Depth and disparity maps, mattes, style delta maps, thumbnails and motion-photo video
+          are ignored by rule.</td></tr>
+      <tr><td class="id">D4</td><td>A colour declaration that is not an ICC profile, in any format? (Q4, Q7)</td>
+        <td>(a) honoured or refused, never read as sRGB by guess (b) as today</td>
+        <td>(a), 2026-11-14. Precedence: ICC profile, then coded tag or header enumeration, then R03, then sRGB;
+          "unspecified" is no declaration; one that cannot be converted is refused.
+          <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>.</td></tr>
+      <tr><td class="id">D5</td><td>Which JPEG XL header declarations are read? (Q5, Q27; OPS-24 D1)</td>
+        <td>(a) linear Rec.2020 only (b) the standard-range combinations of three primaries (c) plus custom primaries
+          (d) everything the header can express</td>
+        <td>(d), 2026-11-14: sRGB, P3, BT2100 or custom primaries; the sRGB, BT.709, linear, explicit-gamma, PQ, HLG
+          or DCI curve; any white point. <code>jxl_header._customxy</code> keeps the coordinates. A JPEG XL gain map
+          follows D10; animation and extra channels stay refused. ADR 0040.</td></tr>
+      <tr><td class="id">D6</td><td>Whose files first? (Q6)</td>
+        <td>(a) the owner's darktable path (b) visitors' HDR files</td>
+        <td>(a), 2026-11-14: "we will do all phases, so order is not too important."</td></tr>
+      <tr><td class="id">D7</td><td>Legacy declarations: PNG <code>gAMA</code> and <code>cHRM</code>, a BMP's calibrated
+          endpoints? (Q8, Q16)</td>
+        <td>(a) ignored, the file read as sRGB (b) honoured</td>
+        <td>(a), 2026-11-14. All 9 dataset PNGs that use them carry sRGB's values; honouring a 2.2 gamma would shift 7.
+          PNG's <code>iCCP</code>, <code>cICP</code> and <code>sRGB</code> chunks and a BMP's embedded ICC profile are
+          honoured. ADR 0040.</td></tr>
+      <tr><td class="id">D8</td><td>A JPEG with no ICC profile and the Adobe RGB interoperability tag? (Q9)</td>
+        <td>(a) R03 read as Adobe RGB (b) by hand, as ML-19 D16 did</td>
+        <td>(a), 2026-11-14, for R03 only. No dataset photo carries it; every other JPEG without a profile stays sRGB.
+          ADR 0040.</td></tr>
+      <tr><td class="id">D9</td><td>A 10- or 12-bit AVIF, decoded at 8 bits today? (Q10)</td>
+        <td>(a) decoded at its own depth (b) left</td>
+        <td>(a), 2026-11-14, as ML-19 D36 says. The dataset has no AVIF. Which installed decoder is a fact for the first
+          phase (R7).</td></tr>
+      <tr><td class="id">D10</td><td>Gain maps? (Q11, Q15)</td>
+        <td>(a) ignored when the main image is standard-range (b1) applied at canonicalization, tone-mapped back, stored
+          standard-range (b2) applied and stored as HDR (d) iPhone only</td>
+        <td>(b1), 2026-11-14, after the measurement in the bean region: "I want to check what will change if we do it."
+          As an experiment (D12), not yet as the rule. A map that leads from an HDR main image down to standard range is
+          used the same way.</td></tr>
+      <tr><td class="id">D11</td><td>Which tone-mapping operator? (Q12, Q20)</td>
+        <td>(a) scale by the peak (b) a roll-off curve (c) one operator for every HDR source, picked by measurement</td>
+        <td>(c), 2026-11-14. A research phase picks it: the owner's PQ and HLG exports must land within a stated
+          tolerance of the sRGB export of the same photo, and the candidates are also shown on gain-map photos. The same
+          operator serves PQ, HLG, values above white and applied gain maps.</td></tr>
+      <tr><td class="id">D12</td><td>How is Part 2 checked? (Q21)</td>
+        <td>Three steps, a stop after the second</td>
+        <td>As proposed, 2026-11-14. (1) The 1,731 gain-map photos canonicalized into a scratch store; per camera, the
+          difference from today's canonical photos in the bean region, with side-by-side crops for the owner. (2) Today's
+          models on the scratch photos: country answers, masks and OOD verdicts that change. <em>Stop for the
+          owner.</em> (3) Re-crop with the existing segmenter, retrain on seeds 42, 123 and 7, compare paired with
+          per-class F1 (ADR 0002, <code>docs/agents/experiments.md</code>).</td></tr>
+      <tr><td class="id">D13</td><td>1,731 photos change and 1,120 do not: acceptable? (Q22)</td>
+        <td>(a) yes for the experiment, results per camera (b) no</td>
+        <td>(a), 2026-11-14. Production is the owner's call after step 3.</td></tr>
+      <tr><td class="id">D14</td><td>Which map when a file carries two? (Q23)</td>
+        <td>(a) ISO 21496-1 first, the vendor's as fallback (b) the vendor's first (c) the vendor's only</td>
+        <td>(a), 2026-11-14. The ISO reader is checked against the vendor map on the 208 files with both (R5).</td></tr>
+      <tr><td class="id">D15</td><td>The site during the experiment? (Q24)</td>
+        <td>(a) untouched until adoption, then one release of store, front and model (b) the front first</td>
+        <td>(a), 2026-11-14. Not adopted: the idea goes to <code>.out-of-scope/</code> with the measurements.</td></tr>
+      <tr><td class="id">D16</td><td>What counts as better, fixed before the results? (Q25)</td>
+        <td>Proposed bar</td>
+        <td>As proposed, 2026-11-14: adopted only if the paired three-seed comparison improves the overall test metric
+          beyond the seed range and no class's F1 drops beyond it. The owner decides either way.</td></tr>
+      <tr><td class="id">D17</td><td>ML-20 and OPS-24? (Q14)</td>
+        <td>(a) closed as merged into this ticket (b) left open</td>
+        <td>(a), 2026-11-14, closed on the owner's word. OPS-24's R1 evidence and its D1 to D5 are carried here (D5, D20,
+          D21, D22, D23); ML-20's question is D10.</td></tr>
+      <tr><td class="id">D18</td><td>A DNG's local tone map (<code>ProfileGainTableMap</code>, 71 photos)? (Q17)</td>
+        <td>(a) left: raws are developed one way for every camera (b) investigated</td>
+        <td>(a), 2026-11-14. rawpy does not apply it. A known, deliberate gap.</td></tr>
+      <tr><td class="id">D19</td><td>Capture metadata: subject distance, focal length, exposure? (Q18)</td>
+        <td>(a) out of this ticket, a stub of its own (b) a phase here (c) not at all</td>
+        <td>(a), 2026-11-14: <a href="ml-0030_ticket_capture_metadata.html">ML-30</a>.</td></tr>
+      <tr><td class="id">D20</td><td>Where do the source profiles come from? (Q28; OPS-24 D2)</td>
+        <td>(a) built in code from the declared primaries, white point and curve (b) a committed profile each</td>
+        <td>(a), 2026-11-14. One builder for JPEG XL enumerations and coded tags. The canonical photo's own committed
+          profile (ML-19 D46) stays. ADR 0040.</td></tr>
+      <tr><td class="id">D21</td><td>A float JPEG XL? (Q29; OPS-24 D4)</td>
+        <td>(a) refused (b) clipped to 0&ndash;1 (c) converted unclipped</td>
+        <td>(c), 2026-11-14: values above white go through D11's operator; values outside the gamut are clipped only
+          after the conversion to Rec.2020.</td></tr>
+      <tr><td class="id">D22</td><td>A JPEG XL with an embedded ICC profile? (Q30; OPS-24 D4)</td>
+        <td>(a) refused with a message until the library returns the profile (b) our own decoder for it</td>
+        <td>(a), 2026-11-14. ADR 0040.</td></tr>
+      <tr><td class="id">D23</td><td>Dataset intake? (OPS-24 D5)</td>
+        <td>(a) the same decoder as the site (b) visitor uploads only</td>
+        <td>(a), 2026-11-14: one canonicalization, so everything here applies to both.</td></tr>
+      <tr><td class="id">D24</td><td>The words? (Q19, Q26)</td>
+        <td>Proposed GLOSSARY.md entries</td>
+        <td>As proposed, 2026-11-14: main image, second image, gain map, colour declaration, and HDR as four named
+          meanings.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <p><strong>Part 1: read correctly.</strong></p>
+  <ul class="checks">
+    <li><span class="box"></span><span>Each of the owner's 22 darktable exports is read, and its canonical photo lands
+      within a stated tolerance of the 8-bit sRGB export's; the three files misread today (linear Rec.2020 AVIF and
+      HEIC, Display P3 HEIC) are among them.</span></li>
+    <li><span class="box"></span><span>The darktable profiles not yet exported (linear Rec709, Rec709, PQ P3, HLG P3,
+      linear ProPhoto) are exported, read from their bytes and added to the table.</span></li>
+    <li><span class="box"></span><span>Tests for the precedence: a file with an ICC profile and a coded tag, a coded
+      tag alone, "unspecified", R03, PNG <code>cICP</code> and <code>sRGB</code>, legacy PNG chunks and BMP endpoints
+      ignored, a reserved coded value refused with its message.</span></li>
+    <li><span class="box"></span><span>A 10- and a 12-bit AVIF reach the canonical photo at their own depth.</span></li>
+    <li><span class="box"></span><span>The tone-mapping research: its candidates, the measurement on the owner's PQ and
+      HLG exports (JPEG XL, and AVIF or HEIC), and the operator chosen.</span></li>
+    <li><span class="box"></span><span>Every dataset photo canonicalizes to the bytes it has today
+      (<code>scan_dataset.py</code>'s "read today as" against the new rule, then the canonical store's hashes).</span></li>
+    <li><span class="box"></span><span><code>openapi.json</code>, <code>llms.txt</code> and the refusal message say what
+      is read.</span></li>
+    <li><span class="box"></span><span>A darktable linear Rec2020 export gets an answer on the live site.</span></li>
+  </ul>
+  <p><strong>Part 2: use more.</strong></p>
+  <ul class="checks">
+    <li><span class="box"></span><span>The ISO 21496-1 reader agrees with the vendor map on the files that carry both
+      (R5).</span></li>
+    <li><span class="box"></span><span>Step 1's report: per camera, the change in the bean region, and the crops the
+      owner looked at.</span></li>
+    <li><span class="box"></span><span>Step 2's report: answers, masks and OOD verdicts that change with today's
+      models. The owner's decision to run step 3 or stop.</span></li>
+    <li><span class="box"></span><span>Step 3, if run: the paired three-seed comparison, per class and per camera,
+      against D16's bar, and the owner's decision.</span></li>
+    <li><span class="box"></span><span>Adopted: one release of store, front and model, with the front's time and
+      memory measured (R6). Not adopted: <code>.out-of-scope/</code> gains the idea and its measurements.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A canonical photo that keeps HDR, or models that read more than 8-bit sRGB (D2). It would amend ADR 0033 and
+      re-canonicalize every photo; proposed again only if the owner wants the models' input changed.</li>
+    <li>A gain map given to the models as an extra input, and gain maps applied for one brand only (D10).</li>
+    <li>Depth or disparity as a segmenter hint: 8 photos carry one (D3).</li>
+    <li>The DNG local tone map (D18).</li>
+    <li>A decoder for a JPEG XL's embedded ICC profile; unblocked when <code>imagecodecs</code> returns it (D22).</li>
+    <li>JPEG XL animation and extra channels.</li>
+    <li>Capture metadata as a signal (<a href="ml-0030_ticket_capture_metadata.html">ML-30</a>).</li>
+    <li>Raising the 16 MP cap on RAW uploads.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-14</div>Ticket written from a grilling session with the owner (Q1 to Q30), absorbing
+      ML-20 and OPS-24. During it: the owner's 22 darktable exports read from their bytes; the dataset scanned
+      (<code>analysis/ml29/scan_dataset.py</code>); the gain maps' boost measured in the bean region
+      (<code>gainmap_in_beans.py</code>); the Sony photos found to hold no gain map. D1 to D24 decided. GLOSSARY.md
+      gained five terms; ADR 0040 written. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
+    <a href="ops-0024_ticket_jxl_colour_encodings.html">OPS-24</a> (merged into this ticket),
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D2, D7, D16, D20, D36, D46),
+    <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (D4),
+    <a href="ml-0030_ticket_capture_metadata.html">ML-30</a>,
+    <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
+    <a href="adr/0010-all-cameras-equal.md">ADR 0010</a>,
+    <a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>,
+    <a href="../analysis/ml29/README.md">analysis/ml29/README.md</a>.</footer>
+</main>
