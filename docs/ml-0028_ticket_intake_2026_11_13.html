@@ -281,7 +281,6 @@
     <li>A segcrop guard against two photos of one stem (ML-25 R2), unless the owner asks for it here.</li>
     <li>Deploying the <code>canonical.py</code> fix (Production impact), and the JPEG XL colour encodings of
       OPS-24 (written in another session, not in this commit), which reads the same function.</li>
-    <li>The abandoned <code>.tmp</code> files on the DVC remote.</li>
   </ul>
 
   <h2>Activity</h2>
@@ -334,6 +333,10 @@
       about 250 KB/s): the first run was stopped by a 50-minute cap with 239 objects unsent, the second sent them. Every
       object checked on the remote by path. The stopped run left 15 <code>.tmp</code> files (211 MB) on the remote,
       beside the 74 of earlier intakes: the owner's to delete. Committed on branch ml28-intake-2026-11-13.</div>
+    <div><div class="when">2026-11-14</div>On the owner's request, the DVC remote's 88 abandoned <code>.tmp</code> files
+      (420 MB: 35 of 2026-10-26, 8 of 2026-11-04, 30 of 2026-11-10, 15 of 2026-11-14) deleted, each a hidden partial
+      upload, no push running. None left; every object <code>dvc.lock</code> names still there but the 14
+      <code>cache: false</code> <code>.json</code> files.</div>
   </div>
 
   <footer>Related: <a href="ml-0025_ticket_intake_2026_11_10.html">ML-25</a> (the intake before this one; D2, D4, D6, R2),
