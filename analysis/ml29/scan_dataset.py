@@ -189,10 +189,10 @@ SRGB_CHRM = (0.3127, 0.329, 0.64, 0.33, 0.3, 0.6, 0.15, 0.06)
 
 
 def png_declares(c: dict) -> str:
+    if c.get("cICP"):                     # before iCCP: PNG 3rd edition, section 4.3 (ML-29 D30)
+        return "cICP " + c["cICP"]
     if c.get("iCCP"):
         return "ICC"
-    if c.get("cICP"):
-        return "cICP " + c["cICP"]
     if c.get("sRGB"):
         return "sRGB chunk"
     parts = []

@@ -6,14 +6,14 @@
 A colour declaration (GLOSSARY.md) is an ICC profile, a coded tag (HEIF's and AVIF's `nclx`, PNG's `cICP`, and PNG's
 `sRGB` chunk), a JPEG XL header enumeration, or the EXIF interoperability tag R03 (Adobe RGB) of a JPEG. They are
 honoured in that order (D4): a usable ICC profile first, then the coded tag or enumeration, then R03, then nothing,
-which is read as sRGB (ML-19 D16). "Unspecified" declares nothing; an unspecified primaries or curve, beside a
-specified other half, is sRGB's. One that cannot be converted raises Refused, naming it. Not read (D7): PNG's gAMA
-and cHRM chunks, a BMP header's calibrated endpoints. A BMP's embedded ICC profile is read here, since Pillow does not.
+which is read as sRGB (ML-19 D16); but a PNG's cICP comes before its ICC profile, as the PNG 3rd edition orders
+(D30). "Unspecified" declares nothing; an unspecified primaries or curve, beside a specified other half, is sRGB's.
+One that cannot be converted raises Refused, naming it. Not read (D7): PNG's gAMA and cHRM chunks, a BMP header's
+calibrated endpoints. A BMP's embedded ICC profile is read here, since Pillow does not.
 
 `icc` is the profile the format's decoder already found (Pillow's or pillow-heif's): this module reads only what
 those leave out. A file with a profile LittleCMS cannot use as RGB is read as sRGB, whatever else it declares (ADR
-0040's consequence of ML-19 D16). For PNG this departs from the PNG 3rd edition, which puts cICP before iCCP: ADR 0040
-puts the ICC profile first in every format.
+0040's consequence of ML-19 D16), unless it is a PNG with a cICP chunk.
 
 The builder (D20): a declaration that is not an ICC profile becomes a linear RGB profile with its primaries and white
 point (LittleCMS), with its curve undone in numpy first, so one builder serves every curve. Two declarations keep the
@@ -124,12 +124,18 @@ def declare(data: bytes, format_id: str, icc: bytes | None = None) -> Declaratio
     developed."""
     if format_id == "bmp" and not icc:
         icc = bmp_profile(data)
+    if format_id == "png":                         # PNG 3rd edition, section 4.3: cICP before iCCP
+        cicp = _parsed(format_id, _png_cicp, data)
+        if cicp is not NONE:
+            return cicp
     if icc:
         profile = usable_profile(icc)
         return Declaration("icc", "ICC profile", icc=profile) if profile else NONE
-    reader = {"heif": _bmff, "avif": _bmff, "png": _png, "jxl": _jxl, "jpeg": _jpeg}.get(format_id)
-    if reader is None:
-        return NONE
+    reader = {"heif": _bmff, "avif": _bmff, "png": _png_srgb, "jxl": _jxl, "jpeg": _jpeg}.get(format_id)
+    return NONE if reader is None else _parsed(format_id, reader, data)
+
+
+def _parsed(format_id: str, reader: Callable[[bytes], Declaration], data: bytes) -> Declaration:
     try:
         return reader(data)
     except (struct.error, IndexError) as exc:      # an upload's boxes or chunks running past their own ends
@@ -227,24 +233,34 @@ def _bmff(data: bytes) -> Declaration:
     return NONE
 
 
-def _png(data: bytes) -> Declaration:
-    """A PNG's cICP chunk (PNG 3rd edition, section 11.3.2, cICP), then its sRGB chunk; gAMA and cHRM are not read (D7)."""
-    pos, srgb = 8, False
+def _png_chunks(data: bytes):
+    """A PNG's chunks before its image data, as (type, body)."""
+    pos = 8
     while pos + 8 <= len(data):
         n, kind = struct.unpack(">I4s", data[pos:pos + 8])
-        body = data[pos + 8:pos + 8 + n]
-        if kind == b"cICP" and n == 4:
+        if kind in (b"IDAT", b"IEND"):
+            return
+        yield kind, data[pos + 8:pos + 8 + n]
+        pos += 12 + n
+
+
+def _png_cicp(data: bytes) -> Declaration:
+    """A PNG's cICP chunk, read before its ICC profile as the PNG 3rd edition's section 4.3 orders."""
+    for kind, body in _png_chunks(data):
+        if kind == b"cICP" and len(body) == 4:
             if body[2] != 0:
                 raise _cannot(f"cICP {body[0]}/{body[1]} with matrix coefficients {body[2]}")
             if body[3] != 1:                     # narrow range: PNG decoders do not scale it, so it is not read
                 raise _cannot(f"cICP {body[0]}/{body[1]} in narrow range")
             return _coded("cICP", body[0], body[1])
-        if kind == b"sRGB":
-            srgb = True
-        if kind in (b"IDAT", b"IEND"):
-            break
-        pos += 12 + n
-    return Declaration("coded", "PNG sRGB chunk", primaries=SRGB_PRIMARIES, white=D65, curve="sRGB") if srgb else NONE
+    return NONE
+
+
+def _png_srgb(data: bytes) -> Declaration:
+    """A PNG's sRGB chunk, read after its ICC profile; gAMA and cHRM are not read (D7)."""
+    if any(kind == b"sRGB" for kind, _ in _png_chunks(data)):
+        return Declaration("coded", "PNG sRGB chunk", primaries=SRGB_PRIMARIES, white=D65, curve="sRGB")
+    return NONE
 
 
 def _jxl(data: bytes) -> Declaration:

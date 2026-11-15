@@ -307,8 +307,8 @@
     effort 3, quality 90, and a photo over 18 MP area-averaged to at most 15 MP; and every upload, an already canonical
     one (a picked example) included, where until then a canonical upload went on as it was (ML-19 D17). Since ML-29
     (ADR 0040) it reads each photo's colour from its declaration, <code>coffeecv/colour_declaration.py</code>: an ICC
-    profile, else a coded tag (HEIC and AVIF <code>nclx</code>, PNG <code>cICP</code>) or a JPEG XL header
-    enumeration, else a JPEG's R03, else sRGB; one it cannot convert, PQ and HLG included, is a 400 that names it. A
+    profile (a PNG's <code>cICP</code> first, D30), else a coded tag (HEIC and AVIF <code>nclx</code>) or a JPEG XL
+    header enumeration, else a JPEG's R03, else sRGB; one it cannot convert, PQ and HLG included, is a 400 that names it. A
     profile built from a declaration takes the float colour path (ML-29 D26), and AVIF is decoded by libavif at its
     own depth (D9). It forwards the
     form with the canonical photo in place of the visitor's over the

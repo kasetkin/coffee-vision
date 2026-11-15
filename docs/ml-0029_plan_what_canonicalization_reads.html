@@ -399,6 +399,11 @@
       the review was stopped, to run once on the fixed code. Departures, for the owner: an animated JPEG XL and one
       with a non-alpha extra channel are now refused (D5 "stay refused"; before, one such channel was read as
       alpha); for PNG, ADR 0040's ICC-first order departs from the PNG 3rd edition's cICP-first.</div>
+    <div><div class="when">2026-11-15</div>The owner on those three: a PNG's <code>cICP</code> comes before its ICC
+      profile, as the PNG 3rd edition's section 4.3 orders (D30; ADR 0040 amended, the public texts and
+      <code>scan_dataset.py</code> follow); the 612 MB float JPEG XL is accepted, the front swaps (D31); an animated
+      JPEG XL stays refused (D32). The store re-run, a few minutes into its first stage, was stopped again so it runs
+      once on this code; every dataset photo still keeps its profile (<code>dataset_same_profile.py</code>).</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

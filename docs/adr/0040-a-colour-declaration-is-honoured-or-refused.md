@@ -8,6 +8,8 @@ A photo file can state what its colour numbers mean in several ways (GLOSSARY.md
 
 We chose this over reading every unrecognised declaration as sRGB, which accepts more files but gives a wrong answer with nothing to show it was wrong, where a refusal tells the visitor what to export instead. We chose the ICC profile first, over the coded tag first, because the HEIF and AVIF specifications give the profile precedence for colour, and because it keeps every photo that has a profile, which is every HEIC and 1,715 of the 2,556 JPEGs in the dataset, reading exactly as it does today. We chose to build each source profile in code from the declared primaries, white point and curve, over a committed profile per declaration, because custom primaries (darktable's Adobe RGB JPEG XL) make a fixed set impossible.
 
+Amended 2026-11-15 by [ML-29](../ml-0029_ticket_what_canonicalization_reads.html) D30: in a PNG the coded tag `cICP` comes before the ICC profile (`iCCP`), as the PNG 3rd edition's section 4.3 orders; every other format keeps the profile first. No dataset PNG carries `cICP`, so none reads differently.
+
 ## Consequences
 
 - Two legacy declarations are deliberately not honoured, and their files are read as sRGB: PNG's `gAMA` and `cHRM` chunks, and a BMP header's calibrated endpoints. They are often wrong or zero in files found in the wild, browsers disagree on them, and honouring a pure 2.2 gamma would shift 7 dataset PNGs that carry sRGB's own values. PNG's `iCCP`, `cICP` and `sRGB` chunks and a BMP's embedded ICC profile are honoured.

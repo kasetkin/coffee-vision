@@ -204,11 +204,10 @@ class Precedence(unittest.TestCase):
             self.assertIn(f"nclx {p}/{t}", str(e.exception))
             self.assertIn(word, str(e.exception))
 
-    def test_an_unusable_icc_profile_is_srgb_whatever_else_is_declared(self):   # ML-19 D16, as ADR 0040 keeps it
+    def test_an_unusable_icc_profile_is_srgb_whatever_else_is_declared(self):   # ML-19 D16; a PNG's cICP comes first
         grey = SRGB_ICC[:16] + b"GRAY" + SRGB_ICC[20:]
         self.assertEqual(cd.declare(avif(9, 8), "avif", icc=grey), cd.NONE)
-        self.assertEqual(cd.declare(png((b"cICP", bytes([9, 8, 0, 1]))), "png", icc=b"\0" * 16 + b"RGB " + b"\0" * 200),
-                         cd.NONE)
+        self.assertEqual(cd.declare(png((b"sRGB", b"\0")), "png", icc=b"\0" * 16 + b"RGB " + b"\0" * 200), cd.NONE)
         self.assertEqual(cd.declare(jpeg("R03"), "jpeg", icc=grey), cd.NONE)
 
     def test_boxes_that_run_past_their_ends_are_refused_not_raised(self):   # an upload's bytes are anyone's
@@ -245,10 +244,21 @@ class Png(unittest.TestCase):
         d = cd.declare(png((b"cICP", bytes([9, 16, 0, 1]))), "png")
         self.assertEqual((d.kind, d.source, d.curve, d.is_hdr), ("coded", "cICP 9/16 (BT.2020, PQ)", "PQ", True))
 
-    def test_cicp_before_the_srgb_chunk_and_iccp_before_both(self):
+    def test_cicp_before_iccp_and_iccp_before_the_srgb_chunk(self):   # PNG 3rd edition, section 4.3; the owner, 2026-11-15
         both = png((b"sRGB", b"\0"), (b"cICP", bytes([12, 13, 0, 1])))
         self.assertEqual(cd.declare(both, "png").primaries, cd.P3_PRIMARIES)
-        self.assertEqual(cd.declare(both, "png", icc=SRGB_ICC).kind, "icc")
+        self.assertEqual(cd.declare(both, "png", icc=SRGB_ICC).primaries, cd.P3_PRIMARIES)
+        self.assertEqual(cd.declare(both, "png", icc=b"not a profile").primaries, cd.P3_PRIMARIES)
+        self.assertEqual(cd.declare(png((b"sRGB", b"\0")), "png", icc=DISPLAY_P3).icc, DISPLAY_P3)
+
+    def test_an_unspecified_cicp_leaves_the_iccp(self):
+        unspecified = png((b"cICP", bytes([2, 2, 0, 1])))
+        self.assertEqual(cd.declare(unspecified, "png", icc=DISPLAY_P3).icc, DISPLAY_P3)
+        self.assertEqual(cd.declare(unspecified, "png"), cd.NONE)
+
+    def test_a_refused_cicp_is_refused_beside_a_profile(self):
+        with self.assertRaises(cd.Refused):
+            cd.declare(png((b"cICP", bytes([1, 13, 0, 0]))), "png", icc=DISPLAY_P3)
 
     def test_the_srgb_chunk(self):
         d = cd.declare(png((b"sRGB", b"\0")), "png")

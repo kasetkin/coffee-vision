@@ -225,9 +225,9 @@ def recognise(head: bytes, name: str = "") -> str | None:
 
 
 # What the public texts say is read (llms.txt, openapi.json; ML-29 P2), held to them by tests/test_accepted_formats_named.py
-COLOUR_TEXT = ("Colour is read from the file's ICC profile, else its colour tag (HEIC/HEIF and AVIF nclx, PNG cICP) or "
-               "JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR photo (PQ or HLG) and a JPEG XL "
-               "with an embedded ICC profile are refused.")
+COLOUR_TEXT = ("Colour is read from the file's ICC profile (a PNG's cICP colour tag comes first), else its colour tag "
+               "(HEIC/HEIF and AVIF nclx) or JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR "
+               "photo (PQ or HLG) and a JPEG XL with an embedded ICC profile are refused.")
 
 
 class Unreadable(OSError):

@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -306,6 +306,21 @@
         <td>(a) kept in <code>tmp/</code>, never committed, their URLs and licences recorded in
           <code>analysis/ml29/</code>; the tests make their own files (b) a few committed as fixtures</td>
         <td>(a), 2026-11-14: "as recommended".</td></tr>
+      <tr><td class="id">D30</td><td>A PNG with both <code>cICP</code> and an ICC profile: which is read? (P2's
+          review.)</td>
+        <td>(a) the ICC profile, as ADR 0040 orders every format (b) <code>cICP</code>, as the PNG 3rd edition's
+          section 4.3 orders</td>
+        <td>(b), 2026-11-15: "for PNG we can use cICP first if standard says so". An all-"unspecified"
+          <code>cICP</code> leaves the profile in charge. No dataset PNG carries <code>cICP</code>. Amends
+          <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a> and D4 for PNG.</td></tr>
+      <tr><td class="id">D31</td><td>A large float JPEG XL on the front: a 33 MP one peaks at 612 MB, over the front's
+          600M. (P2's measurement.)</td>
+        <td>(a) accepted, the front swaps (b) capped or refused</td>
+        <td>(a), 2026-11-15: "okay, we have swap".</td></tr>
+      <tr><td class="id">D32</td><td>An animated JPEG XL, and one with an extra channel that is not alpha, which P2
+          refuses (before, one such channel was read as alpha)?</td>
+        <td>(a) refused (b) read as before</td>
+        <td>(a), 2026-11-15: "refuse animated image &mdash; okay".</td></tr>
     </tbody>
   </table></div>
 
@@ -370,6 +385,9 @@
       open. Not implemented.</div>
     <div><div class="when">2026-11-14</div>The plan's Q1 to Q4 answered by the owner, each as recommended: D26 to D29.
       Nothing started, at the owner's word.</div>
+    <div><div class="when">2026-11-15</div>P1 done, P2's code done (the plan's Activity). The owner decided D30 (a
+      PNG's <code>cICP</code> before its ICC profile; ADR 0040 amended), D31 (a large float JPEG XL on the front is
+      accepted) and D32 (an animated JPEG XL stays refused).</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
