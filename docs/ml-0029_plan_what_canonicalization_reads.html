@@ -199,7 +199,7 @@
 
   <h2>6. P4 &mdash; tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the report written; the owner's pick open</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 <span class="tag">Q4 answered; can run beside P2 and P3</span></span></div>
   </div>
   <p>D11 as a measurement, with the data in hand (D25). The result is a research note,
@@ -422,6 +422,14 @@
       answered Brazil; the PQ JPEG XL a 400 naming its curve. The front's log: canonicalized in 3.0 s (sRGB, integer
       path), 6.0, 5.3 and 6.5 s (the linear JPEG XL, AVIF and HEIC, float path); the PQ refused in 1.6 s. Its log's
       <code>canonical_settings</code> names the front's settings ("integer"), not the path a photo took.</div>
+    <div><div class="when">2026-11-15</div>P4's report, by a research agent, in
+      <code>analysis/ml29/research_tone_mapping.md</code>, with the prototype <code>coffeecv/tone_map.py</code> (nothing
+      imports it, no DVC stage or release depends on it; <code>tests/test_tone_map.py</code>) and
+      <code>analysis/ml29/tone_map_measure.py</code>. Proposed: BT.2408-8 Annex 5's EETF on max(R, G, B) with the
+      picture's measured peak and BT.2408's reference white; the owner's darktable PQ and HLG exports recorded as out
+      of tolerance (darktable &le; 5.6.2's own bug, #20562), the files made here taking their place; D27's bar for HDR
+      files with nothing above white. The agent stopped before its hand-back; its files were checked here (ruff, its 21
+      tests). The owner's pick is open: P5 and P7 wait on it.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
