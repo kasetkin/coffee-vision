@@ -185,7 +185,7 @@ class Precedence(unittest.TestCase):
                 d = cd.declare(data, fmt)
                 self.assertEqual((d.kind, d.primaries, d.white, d.curve), ("coded", cd.REC2020_PRIMARIES, cd.D65,
                                                                            "linear"))
-                self.assertEqual(d.source, "nclx 9/8")
+                self.assertEqual(d.source, "nclx 9/8 (BT.2020, linear)")
 
     def test_display_p3_as_a_coded_tag(self):
         d = cd.declare(avif(12, 13), "avif")
@@ -204,10 +204,26 @@ class Precedence(unittest.TestCase):
             self.assertIn(f"nclx {p}/{t}", str(e.exception))
             self.assertIn(word, str(e.exception))
 
-    def test_an_unusable_icc_profile_gives_way_to_the_next_declaration(self):   # ML-19 D16's rule, then D4
+    def test_an_unusable_icc_profile_is_srgb_whatever_else_is_declared(self):   # ML-19 D16, as ADR 0040 keeps it
         grey = SRGB_ICC[:16] + b"GRAY" + SRGB_ICC[20:]
-        self.assertEqual(cd.declare(avif(9, 8), "avif", icc=grey).curve, "linear")
-        self.assertEqual(cd.declare(png(), "png", icc=b"\0" * 16 + b"RGB " + b"\0" * 200), cd.NONE)
+        self.assertEqual(cd.declare(avif(9, 8), "avif", icc=grey), cd.NONE)
+        self.assertEqual(cd.declare(png((b"cICP", bytes([9, 8, 0, 1]))), "png", icc=b"\0" * 16 + b"RGB " + b"\0" * 200),
+                         cd.NONE)
+        self.assertEqual(cd.declare(jpeg("R03"), "jpeg", icc=grey), cd.NONE)
+
+    def test_boxes_that_run_past_their_ends_are_refused_not_raised(self):   # an upload's bytes are anyone's
+        good = avif(9, 8)
+        meta = good.index(b"meta") - 4
+        broken = [good[:meta] + b"\0\0\0\x01meta",                       # a 64-bit size with no size after it
+                  good[:good.index(b"ipma") + 8] + b"\0\0\0\x09"]        # an ipma claiming nine entries
+        for data in broken:
+            with self.subTest(n=len(data)):
+                try:
+                    d = cd.declare(data, "avif")
+                except cd.Refused as e:
+                    self.assertIn("cannot be parsed", str(e))
+                else:
+                    self.assertEqual(d, cd.NONE)
 
     def test_r03_is_adobe_rgb_and_only_without_a_profile(self):   # D8
         d = cd.declare(jpeg("R03"), "jpeg")
@@ -227,7 +243,7 @@ class Precedence(unittest.TestCase):
 class Png(unittest.TestCase):
     def test_cicp(self):
         d = cd.declare(png((b"cICP", bytes([9, 16, 0, 1]))), "png")
-        self.assertEqual((d.kind, d.source, d.curve, d.is_hdr), ("coded", "cICP 9/16", "PQ", True))
+        self.assertEqual((d.kind, d.source, d.curve, d.is_hdr), ("coded", "cICP 9/16 (BT.2020, PQ)", "PQ", True))
 
     def test_cicp_before_the_srgb_chunk_and_iccp_before_both(self):
         both = png((b"sRGB", b"\0"), (b"cICP", bytes([12, 13, 0, 1])))
@@ -245,9 +261,11 @@ class Png(unittest.TestCase):
         self.assertEqual(cd.declare(png((b"gAMA", gama), (b"cHRM", chrm)), "png"), cd.NONE)
         self.assertEqual(cd.declare(png((b"gAMA", struct.pack(">I", 100000))), "png"), cd.NONE)
 
-    def test_a_cicp_with_a_matrix_is_refused(self):   # PNG's cICP is RGB only
-        with self.assertRaises(cd.Refused):
-            cd.declare(png((b"cICP", bytes([1, 13, 1, 1]))), "png")
+    def test_a_cicp_with_a_matrix_or_in_narrow_range_is_refused(self):   # PNG's cICP is full-range RGB to be read
+        for body, word in ((bytes([1, 13, 1, 1]), "matrix"), (bytes([1, 13, 0, 0]), "narrow range")):
+            with self.subTest(word), self.assertRaises(cd.Refused) as e:
+                cd.declare(png((b"cICP", body)), "png")
+            self.assertIn(word, str(e.exception))
 
 
 class Bmp(unittest.TestCase):
@@ -278,12 +296,14 @@ class JpegXl(unittest.TestCase):
 
     def test_every_enumeration_imagecodecs_writes(self):   # D5
         prim = {"SRGB": cd.SRGB_PRIMARIES, "BT2100": cd.REC2020_PRIMARIES, "P3": cd.P3_PRIMARIES}
-        curve = {"BT709": "BT709", "SRGB": "sRGB", "LINEAR": "linear", "PQ": "PQ", "HLG": "HLG", "DCI": "DCI"}
+        curve = {"BT709": "BT709", "SRGB": "sRGB", "LINEAR": "linear", "PQ": "PQ", "HLG": "HLG", "DCI": "gamma"}
         for p, xy in prim.items():
             for t, name in curve.items():
                 with self.subTest(primaries=p, transfer=t):
                     d = cd.declare(self.jxl(p, t), "jxl")
                     self.assertEqual((d.kind, d.primaries, d.white, d.curve), ("enumeration", xy, cd.D65, name))
+                    if t == "DCI":                   # libjxl's DCI is a pure 2.6 gamma, not H.273's ST 428-1
+                        self.assertEqual(d.gamma, 2.6)
 
     def test_custom_primaries_white_point_and_gamma(self):   # darktable's Adobe RGB, and ProPhoto's D50
         adobe = (0.639997, 0.329999, 0.209995, 0.709998, 0.150005, 0.059996)

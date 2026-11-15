@@ -801,6 +801,13 @@ class Declarations(unittest.TestCase):
         self.assertEqual(back[0].tolist(), [255, 255, 255])
         self.assertEqual(back[1].tolist(), [0, 0, 0])
 
+    def test_a_float_sources_nan_is_black(self):
+        a = np.full((4, 4, 3), 0.5, np.float32)
+        a[0, 0] = np.nan
+        rec = cn.to_rec2020(a, 1.0, None)
+        self.assertEqual(rec[0, 0].tolist(), [0, 0, 0])
+        self.assertGreater(int(rec[1, 1, 0]), 0)
+
     def test_an_r03_jpeg_is_adobe_rgb(self):   # D8
         from tests.test_colour_declaration import exif_with_interop
         adobe = np.array([[0.64, 0.33], [0.21, 0.71], [0.15, 0.06]])

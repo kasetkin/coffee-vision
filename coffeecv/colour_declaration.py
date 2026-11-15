@@ -11,8 +11,9 @@ specified other half, is sRGB's. One that cannot be converted raises Refused, na
 and cHRM chunks, a BMP header's calibrated endpoints. A BMP's embedded ICC profile is read here, since Pillow does not.
 
 `icc` is the profile the format's decoder already found (Pillow's or pillow-heif's): this module reads only what
-those leave out. A profile LittleCMS cannot use as RGB counts as none (usable_profile), so the next declaration in the
-precedence, or sRGB, is read instead.
+those leave out. A file with a profile LittleCMS cannot use as RGB is read as sRGB, whatever else it declares (ADR
+0040's consequence of ML-19 D16). For PNG this departs from the PNG 3rd edition, which puts cICP before iCCP: ADR 0040
+puts the ICC profile first in every format.
 
 The builder (D20): a declaration that is not an ICC profile becomes a linear RGB profile with its primaries and white
 point (LittleCMS), with its curve undone in numpy first, so one builder serves every curve. Two declarations keep the
@@ -69,7 +70,8 @@ UNSPECIFIED = 2
 # JPEG XL's header enumerations (ISO/IEC 18181-1, E.2), as coffeecv.jxl_header names them
 JXL_PRIMARIES: dict[str, Primaries] = {"sRGB": SRGB_PRIMARIES, "BT2100": REC2020_PRIMARIES, "P3": P3_PRIMARIES}
 JXL_WHITE_POINTS: dict[str, XY] = {"D65": D65, "DCI": (0.314, 0.351), "E": (1 / 3, 1 / 3)}
-JXL_TRANSFERS = {"BT709": "BT709", "Linear": "linear", "sRGB": "sRGB", "PQ": "PQ", "HLG": "HLG", "DCI": "DCI"}
+# JPEG XL's DCI curve is a pure 2.6 gamma (libjxl's jxl_cms), not H.273's SMPTE ST 428-1 form under the same number
+JXL_TRANSFERS = {"BT709": "BT709", "Linear": "linear", "sRGB": "sRGB", "PQ": "PQ", "HLG": "HLG", "DCI": "gamma"}
 
 CURVES = ("sRGB", "BT709", "linear", "gamma", "SMPTE240M", "DCI", "PQ", "HLG")
 
@@ -103,9 +105,8 @@ NONE = Declaration("none", "none")
 # ----- reading -----
 
 def usable_profile(profile: bytes | None) -> bytes | None:
-    """The photo's ICC profile if LittleCMS can convert from it as RGB; else None, so the photo is read through its next
-    declaration, or as sRGB, as an untagged one is (ML-19 D16): a grey or broken profile, which a phone does not
-    write, refuses no photo."""
+    """The photo's ICC profile if LittleCMS can convert from it as RGB; else None, so the photo is read as sRGB, as an
+    untagged one is (ML-19 D16): a grey or broken profile, which a phone does not write, refuses no photo."""
     if not profile or profile[16:20] != b"RGB ":
         return None
     try:
@@ -117,15 +118,26 @@ def usable_profile(profile: bytes | None) -> bytes | None:
 
 def declare(data: bytes, format_id: str, icc: bytes | None = None) -> Declaration:
     """The colour declaration of a file in accepted format `format_id` (coffeecv/data/accepted_formats.csv's id), by
-    precedence: `icc` (the profile its decoder found) if usable, then what this module reads from the bytes. Raises
-    Refused for a declaration that cannot be converted. A RAW format declares nothing that applies: it is developed."""
-    profile = usable_profile(icc)
-    if format_id == "bmp" and profile is None:
-        profile = usable_profile(bmp_profile(data))
-    if profile is not None:
-        return Declaration("icc", "ICC profile", icc=profile)
+    precedence: `icc` (the profile its decoder found), then what this module reads from the bytes. A profile LittleCMS
+    cannot use as RGB is sRGB (ML-19 D16), not a way to the next declaration. Raises Refused for a declaration that
+    cannot be converted, or colour boxes that cannot be parsed. A RAW format declares nothing that applies: it is
+    developed."""
+    if format_id == "bmp" and not icc:
+        icc = bmp_profile(data)
+    if icc:
+        profile = usable_profile(icc)
+        return Declaration("icc", "ICC profile", icc=profile) if profile else NONE
     reader = {"heif": _bmff, "avif": _bmff, "png": _png, "jxl": _jxl, "jpeg": _jpeg}.get(format_id)
-    return reader(data) if reader else NONE
+    if reader is None:
+        return NONE
+    try:
+        return reader(data)
+    except (struct.error, IndexError) as exc:      # an upload's boxes or chunks running past their own ends
+        raise Refused(f"a {format_id.upper()} file whose colour declaration cannot be parsed") from exc
+
+
+def _cannot(what: str) -> Refused:
+    return Refused(f"a colour declaration canonicalization does not read: {what}")
 
 
 def _coded(source: str, primaries: int, transfer: int) -> Declaration:
@@ -134,14 +146,14 @@ def _coded(source: str, primaries: int, transfer: int) -> Declaration:
     if primaries == UNSPECIFIED and transfer == UNSPECIFIED:
         return NONE
     if primaries != UNSPECIFIED and primaries not in H273_PRIMARIES:
-        raise Refused(f"a colour declaration canonicalization does not read: {what}, primaries {primaries}")
+        raise _cannot(f"{what}, primaries {primaries}")
     if transfer != UNSPECIFIED and transfer not in H273_TRANSFERS:
-        raise Refused(f"a colour declaration canonicalization does not read: {what}, transfer characteristics "
-                      f"{transfer}")
-    _, xy, white = H273_PRIMARIES.get(primaries, H273_PRIMARIES[1])
+        raise _cannot(f"{what}, transfer characteristics {transfer}")
+    name, xy, white = H273_PRIMARIES.get(primaries, H273_PRIMARIES[1])
     curve = H273_TRANSFERS.get(transfer, "sRGB")
     gamma = {"gamma2.2": 2.2, "gamma2.8": 2.8}.get(curve)
-    return Declaration("coded", what, primaries=xy, white=white, curve="gamma" if gamma else curve, gamma=gamma)
+    return Declaration("coded", f"{what} ({name}, {curve})", primaries=xy, white=white,
+                       curve="gamma" if gamma else curve, gamma=gamma)
 
 
 # ISO BMFF (HEIF, AVIF): the primary item's colr properties (ISO/IEC 23008-12, 6.5.5; 14496-12, 12.1.5)
@@ -223,8 +235,9 @@ def _png(data: bytes) -> Declaration:
         body = data[pos + 8:pos + 8 + n]
         if kind == b"cICP" and n == 4:
             if body[2] != 0:
-                raise Refused(f"a colour declaration canonicalization does not read: cICP {body[0]}/{body[1]} with "
-                              f"matrix coefficients {body[2]}")
+                raise _cannot(f"cICP {body[0]}/{body[1]} with matrix coefficients {body[2]}")
+            if body[3] != 1:                     # narrow range: PNG decoders do not scale it, so it is not read
+                raise _cannot(f"cICP {body[0]}/{body[1]} in narrow range")
             return _coded("cICP", body[0], body[1])
         if kind == b"sRGB":
             srgb = True
@@ -247,28 +260,29 @@ def jxl_declaration(c: ColourEncoding) -> Declaration:
                       "the colour space in the header (an enumeration)")
     what = f"JPEG XL header {c.colour_space} {c.white_point} {c.primaries} {c.transfer or f'gamma {c.gamma}'}"
     if c.colour_space not in ("RGB", "Grey"):
-        raise Refused(f"a colour declaration canonicalization does not read: {what}")
+        raise _cannot(what)
     white = c.white_xy if c.white_point == "Custom" else JXL_WHITE_POINTS.get(c.white_point or "")
     if white is None:
-        raise Refused(f"a colour declaration canonicalization does not read: {what}")
+        raise _cannot(what)
     if c.colour_space == "Grey":
         primaries = SRGB_PRIMARIES          # grey has none: any primaries with its white point give the same grey
     else:
         primaries = c.primaries_xy if c.primaries == "Custom" else JXL_PRIMARIES.get(c.primaries or "")
         if primaries is None:
-            raise Refused(f"a colour declaration canonicalization does not read: {what}")
+            raise _cannot(what)
     if c.gamma is not None:
         if c.gamma <= 0:
-            raise Refused(f"a colour declaration canonicalization does not read: {what}")
+            raise _cannot(what)
         return Declaration("enumeration", what, primaries=primaries, white=white, curve="gamma", gamma=1 / c.gamma)
     curve = JXL_TRANSFERS.get(c.transfer or "")
     if curve is None:
-        raise Refused(f"a colour declaration canonicalization does not read: {what}")
-    return Declaration("enumeration", what, primaries=primaries, white=white, curve=curve)
+        raise _cannot(what)
+    return Declaration("enumeration", what, primaries=primaries, white=white, curve=curve,
+                       gamma=2.6 if curve == "gamma" else None)
 
 
 def _jpeg(data: bytes) -> Declaration:
-    """A JPEG with no usable ICC profile: Adobe RGB if its EXIF interoperability index is R03 (DCF 2.0, D8)."""
+    """A JPEG with no ICC profile: Adobe RGB if its EXIF interoperability index is R03 (DCF 2.0, D8)."""
     from PIL import Image
     try:
         with Image.open(io.BytesIO(data), formats=("JPEG",)) as im:
@@ -368,7 +382,7 @@ def _smpte240m(a: np.ndarray) -> None:       # SMPTE ST 240, inverted (H.273 tra
 
 
 def _dci(a: np.ndarray) -> None:             # SMPTE ST 428-1: E' = (48 L / 52.37) ** (1 / 2.6); 48 cd/m2 is white
-    np.maximum(a, 0, out=a)
+    np.maximum(a, 0, out=a)                  # the one curve that does not keep a sign: XYZ-coded values are not below 0
     np.power(a, 2.6, out=a)
     a *= 52.37 / 48
 

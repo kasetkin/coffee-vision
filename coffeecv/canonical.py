@@ -42,6 +42,7 @@ import io
 import os
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -259,11 +260,19 @@ class Source:
     @classmethod
     def declared(cls, pixels: np.ndarray, full: float, declaration: cd.Declaration, decoder: str) -> Source:
         """A source converted as its colour declaration says (ADR 0040); Unreadable if it cannot be."""
-        try:
+        with _refusal():
             colour = cd.conversion(declaration)
-        except cd.Refused as exc:
-            raise Unreadable(str(exc)) from exc
         return cls(pixels, full, colour.profile, decoder, colour.linearize)
+
+
+@contextmanager
+def _refusal():
+    """A colour declaration that cannot be converted (colour_declaration.Refused) is an Unreadable photo, its message
+    the visitor's answer."""
+    try:
+        yield
+    except cd.Refused as exc:
+        raise Unreadable(str(exc)) from exc
 
 
 def accepted_format(data: bytes, name: str = "") -> AcceptedFormat:
@@ -390,10 +399,8 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None, settings:
 
 
 def _declare(data: bytes, format_id: str, icc: bytes | None) -> cd.Declaration:
-    try:
+    with _refusal():
         return cd.declare(data, format_id, icc)
-    except cd.Refused as exc:
-        raise Unreadable(str(exc)) from exc
 
 
 def _decode_avif(data: bytes) -> tuple[np.ndarray, float]:
@@ -420,10 +427,8 @@ def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Sour
         raise Unreadable("a JPEG XL with extra channels")
     if header.have_animation:
         raise Unreadable("an animated JPEG XL")
-    try:
+    with _refusal():
         declaration = cd.jxl_declaration(header.colour)
-    except cd.Refused as exc:
-        raise Unreadable(str(exc)) from exc
     rgb = ic.jpegxl_decode(data)                 # imagecodecs applies the file's orientation
     if rgb.dtype == np.float32:
         white = 1.0
@@ -468,6 +473,8 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
         if linearize is not None:
             linearize(f)
         c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
+        if part.dtype.kind == "f":               # a float JPEG XL's NaN, which no clip removes, is black
+            np.nan_to_num(c, copy=False, nan=0.0)
         np.clip(c, 0, 1, out=c)
         if fill is not None:                     # c * alpha + fill * (1 - alpha)
             f[...] = part[..., alpha_at:alpha_at + 1]

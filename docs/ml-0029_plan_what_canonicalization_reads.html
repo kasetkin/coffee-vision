@@ -117,7 +117,7 @@
 
   <h2>3. P1 &mdash; the colour-declaration reader and the profile builder, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-14: the reader, the builder and their tests done; the 22 exports read as recorded; the files made here (D25) in progress</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-15: <code>fcb7492</code>; the files made here (D25) with <code>be51eb8</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One new module, <code>coffeecv/colour_declaration.py</code>, with one small interface: a file's bytes and its
@@ -378,6 +378,27 @@
       linear Rec.2020, which is the builder's own, already does; not the one 16-bit step this plan hoped for. One
       departure from the plan: <code>jxl_header</code>, a DVC dependency, keeps the custom coordinates now (D5), so
       the canonicalize stages read as changed from this commit; they are re-run once, in P2, as planned.</div>
+    <div><div class="when">2026-11-15</div>P1 done. The ten files made here (D25,
+      <code>analysis/ml29/make_test_files.py</code>): five JPEG XL declarations darktable did not export, PQ and HLG
+      as AVIF and HEIC; pillow-heif writes a coded tag. Each declaration read back from its bytes as intended. Seen on
+      the way: darktable's PQ export puts standard white at PQ's 10,000 cd/m², not BT.2408's 203 (a question for P4);
+      its Adobe RGB JPEG XL holds another rendering of the photo than its other exports, so it checks the declaration
+      only.</div>
+    <div><div class="when">2026-11-15</div>P2 code in <code>be51eb8</code>: decode reads the declarations, AVIF at
+      its own depth, the front's float path for built profiles, the texts, the releases' manifests, the DVC
+      dependencies. Measured (<code>analysis/ml29/README.md</code>, "P2"): 18 of the 20 standard-range exports within
+      D27; the Adobe RGB JPEG XL outside for its pixels, the linear Rec2020 HEIC (q50) outside on its worst block only,
+      59 dark blocks of 31,610, which the same photo as a linear JPEG XL is not; every PQ and HLG file refused naming
+      its curve. The front: the float path costs about 2.5 s at 15 MP; a 33 MP float JPEG XL peaks at 612 MB, over
+      the front's 600M. Intake's JPEG XL pixel comparison checked on the linear, float, P3 and Adobe RGB files: it
+      already reads them at full depth, so <code>strip_metadata</code> is unchanged. A review (standards and spec) then
+      found: an unusable ICC profile let the next declaration through, where ADR 0040 keeps ML-19 D16's sRGB; a
+      narrow-range PNG <code>cICP</code> read as full range; a JPEG XL's DCI curve taken as H.273's ST 428-1 where
+      libjxl's is a 2.6 gamma; malformed HEIF and AVIF boxes raising past <code>Unreadable</code>; a float NaN reaching
+      the encode. All fixed with tests; still no dataset photo's conversion changes. The store re-run started before
+      the review was stopped, to run once on the fixed code. Departures, for the owner: an animated JPEG XL and one
+      with a non-alpha extra channel are now refused (D5 "stay refused"; before, one such channel was read as
+      alpha); for PNG, ADR 0040's ICC-first order departs from the PNG 3rd edition's cICP-first.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

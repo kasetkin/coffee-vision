@@ -25,7 +25,9 @@ serves the domain; it has no ML code (`front/`), and since ticket ML-19 (ADR 003
 `coffeecv/canonical.py` and forwards the canonical photo in its place. Since OPS-22 (ADR 0036) it does so with its own,
 cheaper settings (`canonical.FRONT_SETTINGS`: integer colour, effort 3, quality 90, over 18 MP to at most 15 MP), not
 the store's that training read (a photo whose colour profile is built from a declaration that is not an ICC profile,
-such as a linear Rec.2020 AVIF, and a float JPEG XL take the float colour path: ML-29 D26), and re-encodes every upload, a picked example included; its log line names them
+such as a linear Rec.2020 AVIF, and a float JPEG XL take the float colour path: ML-29 D26; the colour is read from
+the photo's ICC profile, else its coded tag or JPEG XL header, else a JPEG's R03, else as sRGB, and a declaration it
+cannot convert, PQ and HLG included, is refused naming it: ADR 0040), and re-encodes every upload, a picked example included; its log line names them
 (`canonical_settings`). The inference host has the GPU and a slow link
 (2.1 Mbit/s in): the front refuses a photo over 40 MB (ML-19 D23), in a format the app cannot read, or over its
 pixel ceiling (60 MP, D38; RAW 16 MP, D24), before it is converted, and only the canonical photo crosses; the host refuses anything that is not a canonical
