@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 and P2 done 2026-11-15</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -343,7 +343,7 @@
       (<code>scan_dataset.py</code>'s "read today as" against the new rule, then the canonical store's hashes).</span></li>
     <li><span class="box done"></span><span><code>openapi.json</code>, <code>llms.txt</code> and the refusal message say what
       is read.</span></li>
-    <li><span class="box"></span><span>A darktable linear Rec2020 export gets an answer on the live site.</span></li>
+    <li><span class="box done"></span><span>A darktable linear Rec2020 export gets an answer on the live site.</span></li>
   </ul>
   <p><strong>Part 2: use more.</strong></p>
   <ul class="checks">
@@ -391,6 +391,9 @@
     <div><div class="when">2026-11-15</div>P2 done: the standard-range declarations read on <code>bb54b4b</code>,
       and every dataset photo's canonical bytes, crops and masks unchanged by the store's re-run. The owner gave release
       A's go-ahead.</div>
+    <div><div class="when">2026-11-15</div>Release A live (P3): <code>20261115T0847Z-2807d2a</code>. The darktable
+      linear Rec2020 JPEG XL, AVIF and HEIC answer Brazil on the live site, as the sRGB export does; a PQ export is
+      refused naming its curve.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

@@ -182,17 +182,19 @@
 
   <h2>5. P3 &mdash; release A <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the owner's go-ahead given</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-15: release <code>20261115T0847Z-2807d2a</code>, live and verified</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P2 done; Q3 answered</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box done"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
       (<code>docs/agents/deploy.md</code>). <span class="tag">given 2026-11-15, after P2 and with no errors</span></span></li>
-    <li><span class="box"></span><span>Release with <code>--verify</code>; the front's and the inference host's
-      <code>imagecodecs</code> at the pinned version.</span></li>
+    <li><span class="box done"></span><span>Release with <code>--verify</code>; the front's and the inference host's
+      <code>imagecodecs</code> at the pinned version. <span class="tag">2026.10.10 on both; libavif 1.4.2 on the
+      front</span></span></li>
     <li><span class="box"></span><span>Checks, on the live site: the darktable linear Rec2020 JPEG XL, AVIF and HEIC
       each get an answer, the same country as the sRGB export; a PQ export gets the refusal message; the front's log
-      line for one of them read for its time.</span></li>
+      line for one of them read for its time. <span class="tag">all four Brazil; PQ refused naming its curve;
+      Activity 2026-11-15</span></span></li>
   </ol>
 
   <h2>6. P4 &mdash; tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></h2>
@@ -347,7 +349,8 @@
       dependency changed. <span class="tag"><code>jxl_header</code> excepted (D5)</span></span></li>
     <li><span class="box"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
       within tolerance.</span></li>
-    <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files.</span></li>
+    <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files. <span class="tag">P3's
+      done 2026-11-15; P6's to come</span></span></li>
     <li><span class="box"></span><span>P4: the operator and tolerance chosen by the owner, in the ticket.</span></li>
     <li><span class="box"></span><span>P7: ISO against vendor on 208 files; the setting off changes nothing.</span></li>
     <li><span class="box"></span><span>P8 to P10: each report in <code>analysis/ml29/</code>, per camera.</span></li>
@@ -411,6 +414,14 @@
       <code>jxl_header.py</code> and <code>accepted_formats.csv</code> did. <code>dvc status</code> clean;
       <code>scripts/check.sh --full</code> passed. The owner gave P3's go-ahead: release A after P2, if no errors.
       P1's tests were written beside its code, not first.</div>
+    <div><div class="when">2026-11-15</div>P3 done: release A, <code>20261115T0847Z-2807d2a</code> with the live model
+      <code>dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, deployed and verified (<code>--verify</code>: every check
+      ok, the four examples their countries). <code>main</code> fast-forwarded to <code>2807d2a</code> and pushed;
+      the deploy's own check skipped, the pre-push hook having run it on that commit. On the live site, through the
+      domain with the probe marker: the darktable sRGB JPEG XL, linear Rec2020 JPEG XL (16-bit), AVIF and HEIC each
+      answered Brazil; the PQ JPEG XL a 400 naming its curve. The front's log: canonicalized in 3.0 s (sRGB, integer
+      path), 6.0, 5.3 and 6.5 s (the linear JPEG XL, AVIF and HEIC, float path); the PQ refused in 1.6 s. Its log's
+      <code>canonical_settings</code> names the front's settings ("integer"), not the path a photo took.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
