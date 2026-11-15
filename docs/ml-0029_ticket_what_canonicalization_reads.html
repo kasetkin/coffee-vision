@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 and P2 done 2026-11-15</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -330,18 +330,18 @@
     <li><span class="box"></span><span>Each of the owner's 22 darktable exports is read, and its canonical photo lands
       within a stated tolerance of the 8-bit sRGB export's; the three files misread today (linear Rec.2020 AVIF and
       HEIC, Display P3 HEIC) are among them.</span></li>
-    <li><span class="box"></span><span>Files with the declarations darktable's unexported profiles would carry (linear
+    <li><span class="box done"></span><span>Files with the declarations darktable's unexported profiles would carry (linear
       Rec709, Rec709, PQ P3, HLG P3, linear ProPhoto), and PQ and HLG as AVIF and HEIC, are made here from the exports
       in hand (D25), read from their bytes and added to the table as made here.</span></li>
-    <li><span class="box"></span><span>Tests for the precedence: a file with an ICC profile and a coded tag, a coded
+    <li><span class="box done"></span><span>Tests for the precedence: a file with an ICC profile and a coded tag, a coded
       tag alone, "unspecified", R03, PNG <code>cICP</code> and <code>sRGB</code>, legacy PNG chunks and BMP endpoints
       ignored, a reserved coded value refused with its message.</span></li>
-    <li><span class="box"></span><span>A 10- and a 12-bit AVIF reach the canonical photo at their own depth.</span></li>
+    <li><span class="box done"></span><span>A 10- and a 12-bit AVIF reach the canonical photo at their own depth.</span></li>
     <li><span class="box"></span><span>The tone-mapping research: its sources, its candidates, the measurement on the
       owner's PQ and HLG exports and on public samples, and the operator the owner chose.</span></li>
-    <li><span class="box"></span><span>Every dataset photo canonicalizes to the bytes it has today
+    <li><span class="box done"></span><span>Every dataset photo canonicalizes to the bytes it has today
       (<code>scan_dataset.py</code>'s "read today as" against the new rule, then the canonical store's hashes).</span></li>
-    <li><span class="box"></span><span><code>openapi.json</code>, <code>llms.txt</code> and the refusal message say what
+    <li><span class="box done"></span><span><code>openapi.json</code>, <code>llms.txt</code> and the refusal message say what
       is read.</span></li>
     <li><span class="box"></span><span>A darktable linear Rec2020 export gets an answer on the live site.</span></li>
   </ul>
@@ -388,6 +388,9 @@
     <div><div class="when">2026-11-15</div>P1 done, P2's code done (the plan's Activity). The owner decided D30 (a
       PNG's <code>cICP</code> before its ICC profile; ADR 0040 amended), D31 (a large float JPEG XL on the front is
       accepted) and D32 (an animated JPEG XL stays refused).</div>
+    <div><div class="when">2026-11-15</div>P2 done: the standard-range declarations read on <code>bb54b4b</code>,
+      and every dataset photo's canonical bytes, crops and masks unchanged by the store's re-run. The owner gave release
+      A's go-ahead.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

@@ -127,67 +127,67 @@
     (<code>ic.cms_profile</code>), so one builder serves every curve, PQ and HLG included (D20). Nothing calls it yet,
     so no DVC stage moves.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>The readers, in D4's order of precedence: an ICC profile; the coded tag of a
+    <li><span class="box done"></span><span>The readers, in D4's order of precedence: an ICC profile; the coded tag of a
       HEIC's, HEIF's or AVIF's main image (its own <code>colr</code> boxes by item association, the reader of
       <code>analysis/ml29/scan_dataset.py</code> moved here) and of a PNG (<code>cICP</code>, then <code>sRGB</code>);
       a JPEG XL header, with <code>jxl_header._customxy</code> keeping the coordinates (D5); a JPEG's R03 (D8); a BMP's
       embedded ICC profile (D7). "Unspecified" is no declaration; PNG <code>gAMA</code> and <code>cHRM</code> and BMP
       endpoints are not read.</span></li>
-    <li><span class="box"></span><span>The builder: sRGB, BT.709, linear, explicit gamma and DCI curves, any primaries
+    <li><span class="box done"></span><span>The builder: sRGB, BT.709, linear, explicit gamma and DCI curves, any primaries
       and white point. PQ and HLG are recognised and marked HDR; their rendering is P4's and P5's.</span></li>
-    <li><span class="box"></span><span>The test files (D25), in <code>tmp/</code>: the five profiles darktable did not
+    <li><span class="box done"></span><span>The test files (D25), in <code>tmp/</code>: the five profiles darktable did not
       export, and PQ and HLG as AVIF and HEIC, re-encoded from the darktable JPEG XLs' pixels; each read back from its
       bytes and added to <code>analysis/ml29/README.md</code>'s table as made here, not by darktable. Whether
       pillow-heif writes a coded tag is checked; if not, HEIC keeps the owner's six files.</span></li>
-    <li><span class="box"></span><span>Tests, test first, on small files made in code: each declaration kind, the
+    <li><span class="box done"></span><span>Tests, test first, on small files made in code: each declaration kind, the
       precedence (an ICC profile beside a coded tag, a coded tag alone, "unspecified", R03), custom primaries, a
-      reserved coded value as a refusal, the legacy fields ignored.</span></li>
-    <li><span class="box"></span><span>Checks: on the owner's 22 exports and the files made here, the declaration read
+      reserved coded value as a refusal, the legacy fields ignored. <span class="tag">written beside the code, not first</span></span></li>
+    <li><span class="box done"></span><span>Checks: on the owner's 22 exports and the files made here, the declaration read
       equals what <code>analysis/ml29/README.md</code> records; the builder's sRGB and Display P3 profiles convert
       within one 16-bit rounding step of LittleCMS's own sRGB and of the dataset's Display P3 ICC profile (R2); no
-      file under <code>coffeecv/</code> that a DVC stage depends on has changed.</span></li>
+      file under <code>coffeecv/</code> that a DVC stage depends on has changed. <span class="tag">two departures, Activity 2026-11-15: built profiles up to 13 of 65,535 from libjxl's, not one step; <code>jxl_header</code> changed (D5)</span></span></li>
   </ol>
 
   <h2>4. P2 &mdash; standard-range declarations wired into decode</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-14: code, tests and texts done; the store re-run running</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-15: <code>be51eb8</code>, <code>c710123</code>, <code>bb54b4b</code>; the store re-run's <code>dvc.lock</code> with this</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 <span class="tag">Q1, Q2 answered</span></span></div>
   </div>
   <p><code>canonical.decode</code> asks P1's module for the declaration and no longer falls back to sRGB on its own.
     A PQ or HLG declaration is refused in this phase with a message that says so; P5 lifts that. This is the phase that
     re-runs the store (finding 2).</p>
   <ol class="tasks">
-    <li><span class="box"></span><span><code>decode</code> for every format: the declaration by precedence; a
+    <li><span class="box done"></span><span><code>decode</code> for every format: the declaration by precedence; a
       declaration that cannot be converted raises <code>Unreadable</code> naming it (ADR 0040). A photo with a usable
       ICC profile, or with no declaration, takes exactly today's path.</span></li>
-    <li><span class="box"></span><span>JPEG XL: every standard-range header declaration (D5); float samples converted
+    <li><span class="box done"></span><span>JPEG XL: every standard-range header declaration (D5); float samples converted
       unclipped, values above white clipped for now, values outside the gamut clipped after the conversion (D21); an
       embedded ICC profile still refused, with its message (D22).</span></li>
-    <li><span class="box"></span><span>AVIF decoded at its own depth (D9): <code>imagecodecs.avif_decode</code>, after
+    <li><span class="box done"></span><span>AVIF decoded at its own depth (D9): <code>imagecodecs.avif_decode</code>, after
       checking it against Pillow's plugin on an 8-bit AVIF for orientation (<code>irot</code>, <code>imir</code>),
       transparency and the pixels; <code>accepted_formats.csv</code>'s decoder column and ADR 0034's rule kept.</span></li>
-    <li><span class="box"></span><span>The front: Q1's path for a built declaration; a 15 MP linear Rec.2020 upload
+    <li><span class="box done"></span><span>The front: Q1's path for a built declaration; a 15 MP linear Rec.2020 upload
       timed and its memory read against the front's budget.</span></li>
-    <li><span class="box"></span><span>Intake: <code>strip_metadata</code>'s JPEG XL pixel comparison follows the new
+    <li><span class="box done"></span><span>Intake: <code>strip_metadata</code>'s JPEG XL pixel comparison follows the new
       decode (finding 6).</span></li>
-    <li><span class="box"></span><span>The texts: <code>openapi.json</code>, <code>llms.txt</code>, the refusal message
+    <li><span class="box done"></span><span>The texts: <code>openapi.json</code>, <code>llms.txt</code>, the refusal message
       and <code>webapp/README.md</code> say what is read; the tests that hold them updated.
       <code>dvc.yaml</code>'s stages gain the new module as a dependency.</span></li>
-    <li><span class="box"></span><span>Checks: the owner's standard-range exports and the files made in P1 each land
+    <li><span class="box done"></span><span>Checks: the owner's standard-range exports and the files made in P1 each land
       within Q2's tolerance of the 8-bit sRGB export, the three misread today among them; every
       <code>canonicalize</code> and <code>segcrop</code> stage re-run with every output byte-identical
       (<code>docs/agents/dvc.md</code> first); <code>scan_dataset.py</code>'s "read today as" column unchanged under
-      the new rule; <code>scripts/check.sh --full</code> green.</span></li>
+      the new rule; <code>scripts/check.sh --full</code> green. <span class="tag">18 of the 20 standard-range exports within; the Adobe RGB JPEG XL and the q50 linear HEIC outside, Activity 2026-11-15</span></span></li>
   </ol>
 
   <h2>5. P3 &mdash; release A <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P2; the owner's go-ahead to merge, push and deploy <span class="tag">Q3 answered</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the owner's go-ahead given</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P2 done; Q3 answered</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
-      (<code>docs/agents/deploy.md</code>).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
+      (<code>docs/agents/deploy.md</code>). <span class="tag">given 2026-11-15, after P2 and with no errors</span></span></li>
     <li><span class="box"></span><span>Release with <code>--verify</code>; the front's and the inference host's
       <code>imagecodecs</code> at the pinned version.</span></li>
     <li><span class="box"></span><span>Checks, on the live site: the darktable linear Rec2020 JPEG XL, AVIF and HEIC
@@ -343,8 +343,8 @@
 
   <h2>14. Verification</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>P1: the declarations read from the 22 exports equal the recorded ones; no DVC
-      dependency changed.</span></li>
+    <li><span class="box done"></span><span>P1: the declarations read from the 22 exports equal the recorded ones; no DVC
+      dependency changed. <span class="tag"><code>jxl_header</code> excepted (D5)</span></span></li>
     <li><span class="box"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
       within tolerance.</span></li>
     <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files.</span></li>
@@ -404,6 +404,13 @@
       <code>scan_dataset.py</code> follow); the 612 MB float JPEG XL is accepted, the front swaps (D31); an animated
       JPEG XL stays refused (D32). The store re-run, a few minutes into its first stage, was stopped again so it runs
       once on this code; every dataset photo still keeps its profile (<code>dataset_same_profile.py</code>).</div>
+    <div><div class="when">2026-11-15</div>P2 done. The store re-run on <code>bb54b4b</code>: all 42 stages that
+      depend on the changed code (22 <code>canonicalize</code>, 19 <code>segcrop</code>,
+      <code>seg_ml19_predict@xl0_v7r_s123</code>) re-ran, and of the 75 stages in <code>dvc.lock</code> not one
+      output's hash changed; only the dependencies <code>canonical.py</code>, <code>colour_declaration.py</code>,
+      <code>jxl_header.py</code> and <code>accepted_formats.csv</code> did. <code>dvc status</code> clean;
+      <code>scripts/check.sh --full</code> passed. The owner gave P3's go-ahead: release A after P2, if no errors.
+      P1's tests were written beside its code, not first.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
