@@ -1,0 +1,51 @@
+{
+ "graph": "encoder",
+ "cell": "base",
+ "file": "encoder.tflite",
+ "file_sha256": "54a4ef396563140497872d919891d02e66b11d9fc8d8268ebc63565bdd78d76e",
+ "gpu_options": {
+  "enforce_f32": true
+ },
+ "photos": 2,
+ "calls_per_photo": 1,
+ "cold_s": 3.726,
+ "per_photo_s": [
+  1.5876,
+  1.5897
+ ],
+ "median_s": 1.5886,
+ "p90_s": 1.5895,
+ "mem_available_mb": {
+  "before": 6514,
+  "loaded": 4406,
+  "after": 4477
+ },
+ "delegate": {
+  "gpu_environment": true,
+  "refused": [],
+  "gpu_ops": null,
+  "cpu_ops": null,
+  "all_on_gpu": true
+ },
+ "gpu_proof": {
+  "ok": true,
+  "why_not": [],
+  "busy_frac": 0.985,
+  "libraries": [
+   "libLiteRtWebGpuAccelerator.so",
+   "libvulkan_intel.so"
+  ],
+  "render_nodes": [
+   "/dev/dri/renderD128"
+  ]
+ },
+ "nonfinite": 0,
+ "output_sha256": "050169f159e4d52978ade65c263f610ddd44c146841e44c8cf60f727ff33c0cc",
+ "log_lines": [
+  "WARNING: [npu_registry.cc:34] NPU accelerator could not be loaded and registered: kLiteRtStatusErrorNotFound.",
+  "WARNING: [compiler_plugin.cc:312] Failed to load plugin at: /opt/coffee-cv/current/.venv/lib/python3.12/site-packages/ai_edge_litert/vendors/intel_openvino/compiler/libLiteRtCompilerPlugin_IntelOpenvino.so with error: ERROR: [litert/compiler/plugin/compiler_plugin.cc:259]",
+  "WARNING: Logging before InitGoogle() is written to STDERR",
+  "WARNING: [npu_registry.cc:34] NPU accelerator could not be loaded and registered: kLiteRtStatusErrorNotFound."
+ ],
+ "idle_before_load_ms": 150038723
+}
