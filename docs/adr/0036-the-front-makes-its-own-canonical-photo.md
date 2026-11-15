@@ -8,6 +8,8 @@ The front's check service canonicalizes a visitor's photo with its own settings,
 
 The owner chose this for time: with the store's settings a 50 MP photo took about 20 s to canonicalize on the front's 2 vCPU and 18 s to cross to the inference host; with the front's, about 3 s and 4 s, and 2-4 s for every other kind of source (`analysis/ml19/p8/README.md`, `analysis/ops22/README.md`). The alternative, the same settings in the store and a retrain, keeps training and serving on one photo but costs a re-canonicalization of the dataset and a retrain of both models; the owner took the cheaper path knowingly.
 
+Amended 2026-11-14 by [ML-29](../ml-0029_ticket_what_canonicalization_reads.html) D26: a photo whose colour profile is built from a declaration that is not an ICC profile (ADR 0040), and a float JPEG XL, take the float colour path on the front too, since the integer path cannot carry a linear, PQ or HLG source at 8 bits; every other upload keeps the integer one.
+
 ## Consequences
 
 - **Amends [ADR 0033](0033-photos-are-canonicalized-once-at-the-front.md):** training and serving no longer read the same canonical photo. The served photo carries less fine detail (q90 at effort 3 multiplies the error in fine detail by 2 to 7, OPS-22 §2, and a 50 MP photo keeps about 30% of its pixels), so the reported metrics describe the store's photos, not the live site's. This is a recorded departure from `CODING_STANDARDS.md`'s train/inference parity, like [ADR 0019](0019-serving-runs-litert-accelerator-per-host.md)'s precision, and unlike it unmeasured: no check of the models' answers on the front's photos beyond the deploy's examples (OPS-22 D5).

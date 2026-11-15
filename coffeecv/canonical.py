@@ -13,8 +13,11 @@ The canonical photo (D1-D7, D13, D16, D20, D21, D27, D28, D36, D50):
   value as stored;
 - over 60,000,000 pixels: area-averaged (OpenCV INTER_AREA) to at most 50,000,000; at or under 60 MP: as it is;
 - transparent pixels over the segmenter's fill grey;
-- from its own ICC profile, or sRGB when it has none, through LittleCMS on float32, relative colorimetric, into
-  Rec.2020 (D65, BT.709 transfer; the profile libjxl itself generates, coffeecv/data/rec2020_bt709.icc), clipped;
+- from its colour declaration (ML-29, ADR 0040, coffeecv.colour_declaration): its ICC profile, else its coded tag or
+  JPEG XL header enumeration, else a JPEG's R03 (Adobe RGB), else sRGB; a declaration that cannot be converted, PQ
+  and HLG included until a tone-mapping operator is chosen, is refused. Through LittleCMS on float32, relative
+  colorimetric, into Rec.2020 (D65, BT.709 transfer; the profile libjxl itself generates,
+  coffeecv/data/rec2020_bt709.icc), clipped after the conversion (a float JPEG XL's values outside 0-1 included);
 - stored as lossy JPEG XL, quality 95, effort 7, 16 bits, with D7's encoding as an enumeration and nothing else: no
   EXIF, no XMP, no ICC, no orientation, no alpha, bare codestream.
 Read back for the models: decoded at 16 bits, LittleCMS without its lossy optimization to 8-bit sRGB, clipped; on
@@ -23,7 +26,8 @@ every CPU the process may use (ML-21), with the same pixels as on one.
 Those are the store's settings (STORE_SETTINGS), every function's default: the store and training use nothing else.
 The front makes its own, cheaper canonical photo (FRONT_SETTINGS, OPS-22 D1, ADR 0036): kept up to 18,000,000 pixels
 and over that area-averaged to at most 15,000,000; LittleCMS's optimized integer transform from the source's own
-samples (a source with transparency keeps the float path, D4); quality 90, effort 3. Everything else, the format the
+samples (a source with transparency, or whose profile is built from a declaration, keeps the float path: OPS-22 D4,
+ML-29 D26); quality 90, effort 3. Everything else, the format the
 inference host checks included, is the same, and canonicalize() and its pass-through stay the store's.
 
 No torch: the front imports this module (D35). Every library that decodes, converts or encodes a photo is held at one
@@ -36,6 +40,7 @@ import csv
 import hashlib
 import io
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +49,7 @@ import imagecodecs as ic
 import numpy as np
 from PIL import Image
 
+from coffeecv import colour_declaration as cd
 from coffeecv.jxl_encode import encode_rec2020
 from coffeecv.jxl_header import Header, HeaderError, read_header
 
@@ -130,7 +136,7 @@ class AcceptedFormat:
         and EXIF imagecodecs does not read (D4). KeyError for a format Pillow never opens."""
         if self.decoder.startswith("pillow."):
             return self.decoder.removeprefix("pillow.")
-        return {"imagecodecs.jpeg8": "JPEG", "imagecodecs.png": "PNG"}[self.decoder]
+        return {"imagecodecs.jpeg8": "JPEG", "imagecodecs.png": "PNG", "imagecodecs.avif": "AVIF"}[self.decoder]
 
 
 FORMATS_PATH = Path(__file__).resolve().parent / "data" / "accepted_formats.csv"
@@ -217,6 +223,12 @@ def recognise(head: bytes, name: str = "") -> str | None:
     return next((i for i, f in ACCEPTED_FORMATS.items() if not f.is_raw and RULES[i](head)), None)
 
 
+# What the public texts say is read (llms.txt, openapi.json; ML-29 P2), held to them by tests/test_accepted_formats_named.py
+COLOUR_TEXT = ("Colour is read from the file's ICC profile, else its colour tag (HEIC/HEIF and AVIF nclx, PNG cICP) or "
+               "JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR photo (PQ or HLG) and a JPEG XL "
+               "with an embedded ICC profile are refused.")
+
+
 class Unreadable(OSError):
     """A file that is not a photo canonicalization can read. An OSError, like every other decode failure the service
     and training already handle (photo_io.load_rgb_image's RAW errors, /analyze's 400)."""
@@ -234,11 +246,24 @@ class NotCanonical(ValueError):
 # ----- decoding an original -----
 
 class Source:
-    """An original's main image as decoded: `pixels` (H x W x C, C 1-4, or H x W; uint8 or uint16; maybe a turned
-    view), the sample value that means 1.0, its ICC profile (None: untagged, read as sRGB) and its decoder's name."""
+    """An original's main image as decoded: `pixels` (H x W x C, C 1-4, or H x W; uint8, uint16 or a JPEG XL's float32;
+    maybe a turned view), the sample value that means 1.0, the profile it is converted from (None: sRGB), the curve
+    undone before it (`linearize`, for a profile built from its declaration: colour_declaration.SourceColour), and its
+    decoder's name."""
 
-    def __init__(self, pixels: np.ndarray, full: float, profile: bytes | None, decoder: str):
+    def __init__(self, pixels: np.ndarray, full: float, profile: bytes | None, decoder: str,
+                 linearize: Callable[[np.ndarray], None] | None = None):
         self.pixels, self.full, self.profile, self.decoder = pixels, full, profile, decoder
+        self.linearize = linearize
+
+    @classmethod
+    def declared(cls, pixels: np.ndarray, full: float, declaration: cd.Declaration, decoder: str) -> Source:
+        """A source converted as its colour declaration says (ADR 0040); Unreadable if it cannot be."""
+        try:
+            colour = cd.conversion(declaration)
+        except cd.Refused as exc:
+            raise Unreadable(str(exc)) from exc
+        return cls(pixels, full, colour.profile, decoder, colour.linearize)
 
 
 def accepted_format(data: bytes, name: str = "") -> AcceptedFormat:
@@ -292,18 +317,6 @@ def _pillow_metadata(data: bytes, plugin: str) -> tuple[bytes | None, int, str, 
         raise TooLarge(str(exc)) from exc
 
 
-def usable_profile(profile: bytes | None) -> bytes | None:
-    """The photo's ICC profile if LittleCMS can convert from it as RGB; else None, so the photo is read as sRGB, as an
-    untagged one is (D16): a grey or broken profile, which a phone does not write, refuses no photo."""
-    if not profile or profile[16:20] != b"RGB ":
-        return None
-    try:
-        ic.cms_profile_validate(profile)
-    except Exception:   # noqa: BLE001 -- imagecodecs raises its own CmsError, or ValueError on garbage
-        return None
-    return profile
-
-
 def _check_size(width: int, height: int, max_pixels: int | None) -> None:
     if max_pixels is not None and width * height > max_pixels:
         raise TooLarge(f"{width} x {height} is over {max_pixels:,} pixels")
@@ -343,11 +356,12 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None, settings:
             heif = pillow_heif.open_heif(io.BytesIO(data), convert_hdr_to_8bit=False)
             profile, depth = heif.info.get("icc_profile") or None, heif.info.get("bit_depth", 8)
             _check_size(*heif.size, max_pixels)
+            declaration = _declare(data, fmt.id, profile)
             rgb = np.asarray(heif)
             del heif
             # pillow-heif shifts a 10- or 12-bit sample into the top of 16 bits: 10-bit white is 1023 << 6
             full = float((2**depth - 1) << (16 - depth)) if rgb.dtype == np.uint16 else 255.0
-            return Source(_cap(rgb, settings), full, usable_profile(profile), f"heif{depth}")
+            return Source.declared(_cap(rgb, settings), full, declaration, f"heif{depth}")
         if fmt.decoder == "imagecodecs.jpegxl":
             return _decode_jxl(data, max_pixels, settings)
         plugin = fmt.pillow_plugin
@@ -355,58 +369,87 @@ def decode(data: bytes, name: str = "", max_pixels: int | None = None, settings:
         _check_size(*size, max_pixels)
         if mode == "CMYK":
             raise Unreadable("a CMYK photo")
+        declaration = _declare(data, fmt.id, profile)
+        full = None
         if fmt.decoder == "imagecodecs.jpeg8":
             rgb = ic.jpeg8_decode(data)          # the same pixels as Pillow's libjpeg-turbo decode (P1)
         elif fmt.decoder == "imagecodecs.png":
             rgb = ic.png_decode(data)            # keeps 16 bits, which Pillow would cut to 8
+        elif fmt.decoder == "imagecodecs.avif":
+            rgb, full = _decode_avif(data)
         else:
             with Image.open(io.BytesIO(data), formats=(plugin,)) as im:
                 im.seek(0)                       # an animated GIF's first frame (OPS-18 D1)
                 rgb = np.asarray(im.convert("RGBA" if im.has_transparency_data else "RGB"))
-        return Source(orient(_cap(rgb, settings), orientation), float(np.iinfo(rgb.dtype).max), usable_profile(profile),
-                      fmt.id)
+        return Source.declared(orient(_cap(rgb, settings), orientation), full or float(np.iinfo(rgb.dtype).max),
+                               declaration, fmt.id)
     except Unreadable:
         raise
     except (OSError, ValueError, RuntimeError, SyntaxError, EOFError) as exc:
         raise Unreadable(f"unreadable photo ({type(exc).__name__})") from exc
 
 
+def _declare(data: bytes, format_id: str, icc: bytes | None) -> cd.Declaration:
+    try:
+        return cd.declare(data, format_id, icc)
+    except cd.Refused as exc:
+        raise Unreadable(str(exc)) from exc
+
+
+def _decode_avif(data: bytes) -> tuple[np.ndarray, float]:
+    """An AVIF's primary image at its own depth (ML-29 D9): libavif through imagecodecs, which, like Pillow's plugin,
+    leaves the turning (irot, imir) to the orientation Pillow reports. A 10- or 12-bit image comes as a uint16 with
+    white at 1023 or 4095, its depth read from the pixi property."""
+    rgb = ic.avif_decode(data)
+    if rgb.dtype == np.uint8:
+        return rgb, 255.0
+    depth = cd.primary_bit_depth(data)
+    if depth is None or not 8 < depth <= 16:
+        raise Unreadable("an AVIF whose bit depth is not stated")
+    return rgb, float(2**depth - 1)
+
+
 def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Source:
-    """A visitor's JPEG XL that is not canonical: decodable if its colour encoding is sRGB or D7's, as an enumeration.
-    (imagecodecs gives no ICC profile for any other.)"""
+    """A visitor's JPEG XL that is not canonical: its colour declared by its header's enumeration, any of them
+    (ML-29 D5); an embedded ICC profile, which imagecodecs does not return, is refused (D22). Float samples are
+    converted unclipped and clipped after the conversion (D21). Animation and extra channels other than one alpha
+    channel are refused."""
     header = read_header(data)
     _check_size(header.width, header.height, max_pixels)
-    c = header.colour
-    if c.want_icc or c.colour_space != "RGB" or c.white_point != "D65" or header.num_extra_channels > 1:
-        raise Unreadable("a JPEG XL in a colour encoding canonicalization does not read")
-    if (c.primaries, c.transfer) == ("sRGB", "sRGB"):
-        profile = SRGB
-    elif (c.primaries, c.transfer) == ("BT2100", "BT709"):
-        profile = REC2020
-    else:
-        raise Unreadable(f"a JPEG XL in {c.primaries} primaries with the {c.transfer} transfer")
+    if header.num_extra_channels > 1 or header.extra_channel_types not in ([], ["Alpha"]):
+        raise Unreadable("a JPEG XL with extra channels")
+    if header.have_animation:
+        raise Unreadable("an animated JPEG XL")
+    try:
+        declaration = cd.jxl_declaration(header.colour)
+    except cd.Refused as exc:
+        raise Unreadable(str(exc)) from exc
     rgb = ic.jpegxl_decode(data)                 # imagecodecs applies the file's orientation
     if rgb.dtype == np.float32:
-        raise Unreadable("a floating-point JPEG XL")
-    # White is the file's own bit depth, not the dtype's: imagecodecs gives a 10- or 12-bit JPEG XL's samples
-    # unscaled in a uint16 (ticket ML-28: 12-bit ones read as 16 came out about 16 times too dark).
-    white = float(min(2**header.bits_per_sample, np.iinfo(rgb.dtype).max + 1) - 1)
-    return Source(_cap(rgb, settings), white, profile, f"jxl{header.bits_per_sample}")
+        white = 1.0
+    else:
+        # White is the file's own bit depth, not the dtype's: imagecodecs gives a 10- or 12-bit JPEG XL's samples
+        # unscaled in a uint16 (ticket ML-28: 12-bit ones read as 16 came out about 16 times too dark).
+        white = float(min(2**header.bits_per_sample, np.iinfo(rgb.dtype).max + 1) - 1)
+    kind = "f" if header.float_sample else ""
+    return Source.declared(_cap(rgb, settings), white, declaration, f"jxl{header.bits_per_sample}{kind}")
 
 
 # ----- the colour conversion and the encode -----
 
 def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: int = STRIP_ROWS,
-               settings: Settings = STORE_SETTINGS) -> np.ndarray:
-    """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): LittleCMS on float32,
-    clipped to [0, 1], rounded; transparent pixels over the fill (D13). `pixels` may be a turned view, grey (2-D, or 1-2
-    channels) or RGB(A); each strip is copied out of it once and every later step works in place. With
-    settings.colour "integer" (the front's, OPS-22 D4), a source without transparency goes the integer path instead
-    (_to_rec2020_integer); one with transparency stays on this one."""
+               settings: Settings = STORE_SETTINGS, linearize: Callable[[np.ndarray], None] | None = None,
+               ) -> np.ndarray:
+    """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): `linearize` (the curve
+    of a declaration whose profile is built, ML-29 D20) undone in place, then LittleCMS on float32, clipped to [0, 1]
+    after the conversion, rounded; transparent pixels over the fill (D13). `pixels` may be a turned view, grey (2-D, or
+    1-2 channels) or RGB(A), integer or float; each strip is copied out of it once and every later step works in place.
+    With settings.colour "integer" (the front's, OPS-22 D4), an integer source without transparency and without a
+    built profile goes the integer path instead (_to_rec2020_integer); any other stays on this one (D4, ML-29 D26)."""
     h, w = pixels.shape[:2]
     channels = 1 if pixels.ndim == 2 else pixels.shape[2]
     alpha_at = {2: 1, 4: 3}.get(channels)
-    if settings.colour == "integer" and alpha_at is None:
+    if settings.colour == "integer" and alpha_at is None and linearize is None and pixels.dtype.kind == "u":
         return _to_rec2020_integer(pixels, full, profile)
     out = np.empty((h, w, 3), np.uint16)
     colour = 1 if channels <= 2 else 3           # grey is spread over R, G and B by broadcasting
@@ -422,6 +465,8 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
         f = np.empty(part.shape[:2] + (3,), np.float32)
         f[...] = part[..., :colour]
         f /= full
+        if linearize is not None:
+            linearize(f)
         c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
         np.clip(c, 0, 1, out=c)
         if fill is not None:                     # c * alpha + fill * (1 - alpha)
@@ -457,7 +502,8 @@ def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: i
     `settings`' colour path, quality and effort."""
     h, w = source.pixels.shape[:2]
     return encode_rec2020(h, w, lambda y, x, ys, xs: to_rec2020(source.pixels[y:y + ys, x:x + xs], source.full,
-                                                                source.profile, settings=settings),
+                                                                source.profile, settings=settings,
+                                                                linearize=source.linearize),
                           level=settings.quality, effort=settings.effort, numthreads=numthreads)
 
 

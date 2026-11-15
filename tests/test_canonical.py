@@ -599,7 +599,7 @@ def srgb_back(data: bytes) -> np.ndarray:
     it canonicalizes."""
     assert cn.is_canonical(cn.canonicalize(data))
     src = cn.decode(data)
-    rec = cn.to_rec2020(src.pixels, src.full, src.profile)
+    rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize)
     return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
                             outdtype=np.uint8).astype(int)
 
@@ -729,6 +729,163 @@ class Readers(unittest.TestCase):
         Image.new("CMYK", (16, 16), (0, 50, 100, 0)).save(buf, "JPEG")
         with self.assertRaises(cn.Unreadable):
             cn.canonicalize(buf.getvalue())
+
+
+# ----- ML-29: colour declarations (ADR 0040) -----
+
+def linear_rec2020(rgb8) -> np.ndarray:
+    """8-bit sRGB values as linear Rec.2020 light, 0-1, by the colour maths above."""
+    lin = srgb_decode(np.asarray(rgb8, np.float64) / 255)
+    return np.clip(lin @ (np.linalg.inv(rgb_to_xyz("rec2020")) @ rgb_to_xyz("srgb")).T, 0, 1)
+
+
+def nclx_avif(a: np.ndarray, primaries: int, transfer: int, bits: int = 8) -> bytes:
+    """An AVIF with this coded tag and no ICC profile; `a` 0-1 floats, stored at `bits`."""
+    top = 2**bits - 1
+    q = np.round(np.clip(a, 0, 1) * top).astype(np.uint8 if bits == 8 else np.uint16)
+    return ic.avif_encode(q, level=100, bitspersample=bits, primaries=primaries, transfer=transfer, pixelformat="444")
+
+
+class Declarations(unittest.TestCase):
+    """ML-29 P2: what canonicalization reads, by ADR 0040's precedence, against the colour maths written above. Each
+    file declares sRGB's patches some other way; each must read back as those patches."""
+    expected = SRGB_PATCHES
+
+    def assertReadsAsTheSrgbPatches(self, data: bytes, within: float = 1.5):
+        back = centres(srgb_back(data), len(self.expected))
+        self.assertLess(float(np.abs(back - np.array(self.expected)).max()), within)
+
+    def test_linear_rec2020_as_a_coded_tag(self):   # darktable's linear Rec2020 AVIF and HEIC, 65 levels off before
+        self.assertReadsAsTheSrgbPatches(nclx_avif(linear_rec2020(patches(SRGB_PATCHES)), 9, 8, bits=12))
+
+    def test_display_p3_as_a_coded_tag_reads_as_display_p3s_icc_profile(self):
+        p3 = patches(P3_PATCHES)
+        coded = centres(srgb_back(nclx_avif(p3 / 255, 12, 13, bits=10)), len(P3_PATCHES))
+        tagged = centres(srgb_back(png(p3, icc=DISPLAY_P3)), len(P3_PATCHES))
+        self.assertLess(float(np.abs(coded - tagged).max()), 1.0)
+
+    def test_an_srgb_coded_tag_reads_as_an_untagged_photo(self):
+        a = patches(SRGB_PATCHES)
+        src = cn.decode(nclx_avif(a / 255, 1, 13))
+        self.assertEqual((src.profile, src.linearize), (None, None))
+
+    def test_jpeg_xl_enumerations(self):   # D5
+        lin = linear_rec2020(patches(SRGB_PATCHES))
+        files = {
+            "BT2100 linear, 16-bit": ic.jpegxl_encode(np.round(lin * 65535).astype(np.uint16), lossless=True,
+                                                      primaries="BT2100", transfer="LINEAR"),
+            "sRGB primaries, BT.709 curve": ic.jpegxl_encode(
+                np.round(bt709_encode(srgb_decode(patches(SRGB_PATCHES) / 255)) * 65535).astype(np.uint16),
+                lossless=True, primaries="SRGB", transfer="BT709"),
+        }
+        for name, data in files.items():
+            with self.subTest(name):
+                self.assertReadsAsTheSrgbPatches(data)
+
+    def test_a_display_p3_jpeg_xl_reads_as_display_p3s_icc_profile(self):
+        p3 = patches(P3_PATCHES)
+        coded = centres(srgb_back(ic.jpegxl_encode(p3, lossless=True, primaries="P3", transfer="SRGB")),
+                        len(P3_PATCHES))
+        tagged = centres(srgb_back(png(p3, icc=DISPLAY_P3)), len(P3_PATCHES))
+        self.assertLess(float(np.abs(coded - tagged).max()), 1.0)
+
+    def test_a_float_jpeg_xl_is_converted_and_clipped_after(self):   # D21
+        a = patches(SRGB_PATCHES).astype(np.float32) / 255
+        a[:, :PATCH] = 1.25                              # above white: clipped to white for now (P5 tone-maps it)
+        a[:, PATCH:2 * PATCH] = -0.1                     # below black
+        data = ic.jpegxl_encode(a, distance=0.1, primaries="SRGB", transfer="SRGB")   # libjxl writes no lossless float
+        self.assertEqual(read_header(data).float_sample, True)
+        back = centres(srgb_back(data), len(SRGB_PATCHES))
+        want = np.array(SRGB_PATCHES, float)
+        self.assertLess(float(np.abs(back[2:] - want[2:]).max()), 1.5)
+        self.assertEqual(back[0].tolist(), [255, 255, 255])
+        self.assertEqual(back[1].tolist(), [0, 0, 0])
+
+    def test_an_r03_jpeg_is_adobe_rgb(self):   # D8
+        from tests.test_colour_declaration import exif_with_interop
+        adobe = np.array([[0.64, 0.33], [0.21, 0.71], [0.15, 0.06]])
+        xyz = np.array([[x / y, 1.0, (1 - x - y) / y] for x, y in adobe]).T
+        m = xyz * np.linalg.solve(xyz, np.array([0.3127 / 0.329, 1.0, (1 - 0.3127 - 0.329) / 0.329]))
+        lin = srgb_decode(np.array(SRGB_PATCHES[:5] + SRGB_PATCHES[-1:]) / 255)   # inside Adobe RGB's gamut
+        enc = np.round(np.clip(lin @ (np.linalg.inv(m) @ rgb_to_xyz("srgb")).T, 0, 1) ** (256 / 563) * 255)
+        self.expected = SRGB_PATCHES[:5] + SRGB_PATCHES[-1:]
+        buf = io.BytesIO()
+        Image.fromarray(patches(enc.astype(np.uint8))).save(buf, "PNG")
+        a = np.asarray(Image.open(buf))
+        buf = io.BytesIO()
+        Image.fromarray(a).save(buf, "JPEG", quality=100, subsampling=0, exif=exif_with_interop("R03"))
+        self.assertReadsAsTheSrgbPatches(buf.getvalue(), within=2.5)
+
+    def test_refusals_name_the_declaration(self):   # ADR 0040; PQ and HLG until P5
+        from tests.test_colour_declaration import avif, jxl_header_bytes
+        a = patches(SRGB_PATCHES)
+        cases = {"PQ": ic.jpegxl_encode(a, level=95, primaries="BT2100", transfer="PQ"),
+                 "HLG": nclx_avif(a / 255, 9, 18, bits=10),
+                 "nclx 3/13": avif(3, 13),
+                 "embedded ICC profile": jxl_header_bytes(want_icc=True)}
+        for word, data in cases.items():
+            with self.subTest(word), self.assertRaises(cn.Unreadable) as e:
+                cn.canonicalize(data)
+            self.assertIn(word, str(e.exception))
+
+
+class Avif(unittest.TestCase):
+    """ML-29 D9: an AVIF decoded at its own depth by libavif (imagecodecs), turned and laid over the fill as Pillow's
+    plugin had it."""
+
+    def test_10_and_12_bits_are_kept(self):
+        ramp = np.tile(np.linspace(0, 1, 1024)[None, :, None], (8, 1, 3))
+        for bits in (10, 12):
+            with self.subTest(bits=bits):
+                src = cn.decode(nclx_avif(ramp, 1, 13, bits=bits))
+                self.assertEqual((src.pixels.dtype, src.full, src.decoder), (np.dtype(np.uint16), 2.0**bits - 1,
+                                                                            "avif"))
+                rec = cn.to_rec2020(src.pixels, src.full, src.profile)
+                self.assertGreater(len(np.unique(rec[..., 1])), 600)   # 8 bits would give at most 256
+
+    def test_the_same_pixels_turn_and_transparency_as_pillows_plugin(self):
+        a = np.asarray(patches(SRGB_PATCHES))
+        for orientation in (1, 3, 6, 8):
+            im = Image.fromarray(a)
+            exif = im.getexif()
+            exif[0x0112] = orientation
+            buf = io.BytesIO()
+            im.save(buf, "AVIF", quality=100, exif=exif.tobytes())
+            with self.subTest(orientation=orientation), Image.open(io.BytesIO(buf.getvalue())) as p:
+                want = np.asarray(ImageOps.exif_transpose(p).convert("RGB"))
+                src = cn.decode(buf.getvalue())
+                self.assertEqual(src.pixels.shape, want.shape)
+                self.assertEqual(np.asarray(src.pixels).tolist(), want.tolist())
+        rgba = np.dstack([a, np.where(np.arange(a.shape[1]) < PATCH, 0, 255).astype(np.uint8)[None].repeat(32, 0)])
+        buf = io.BytesIO()
+        Image.fromarray(rgba).save(buf, "AVIF", quality=100)
+        back = srgb_back(buf.getvalue())
+        self.assertLessEqual(np.abs(back[8:24, 8:24] - np.array(cn.FILL_SRGB)).max(), 1)
+
+
+class FrontPath(unittest.TestCase):
+    """ML-29 D26: on the front, a photo whose profile is built from its declaration takes the float path; every
+    other keeps the integer one."""
+
+    def test_which_path(self):
+        a = patches(SRGB_PATCHES)
+        cases = {"linear Rec.2020 AVIF": (nclx_avif(linear_rec2020(a), 9, 8, bits=10), False),
+                 "float JPEG XL": (ic.jpegxl_encode(a.astype(np.float32) / 255, distance=0.1), False),
+                 "sRGB AVIF": (nclx_avif(a / 255, 1, 13), True),
+                 "untagged PNG": (png(a), True),
+                 "Display P3 PNG": (png(a, icc=DISPLAY_P3), True)}
+        for name, (data, integer) in cases.items():
+            with self.subTest(name), mock.patch.object(cn, "_to_rec2020_integer",
+                                                       wraps=cn._to_rec2020_integer) as path:
+                made = cn.canonicalize_with(data, settings=cn.FRONT_SETTINGS)
+                self.assertTrue(cn.is_canonical(made.canonical))
+                self.assertEqual(path.called, integer)
+
+    def test_a_built_declaration_converts_alike_on_both(self):   # only the encoder's settings differ
+        src = cn.decode(nclx_avif(linear_rec2020(patches(SRGB_PATCHES)), 9, 8, bits=12))
+        store = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize)
+        front = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize, settings=cn.FRONT_SETTINGS)
+        self.assertEqual(store.tolist(), front.tolist())
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ stages:
       deps:
         - dataset/${item}
         - coffeecv/canonical.py
+        - coffeecv/colour_declaration.py
         - coffeecv/canonicalize_folder.py
         - coffeecv/jxl_encode.py
         - coffeecv/jxl_header.py
@@ -96,6 +97,7 @@ stages:
         # Ticket ML-19 P6 (D18): the session's canonical photos, not the originals; crops as lossless JPEG XL (D32).
         - data/canonical/${item}
         - coffeecv/canonical.py
+        - coffeecv/colour_declaration.py
         - coffeecv/crop_io.py
         - coffeecv/segcrop_session.py
         - coffeecv/segment_beans.py
@@ -550,6 +552,7 @@ stages:
         - coffeecv/segment_beans.py
         - coffeecv/sam_loader.py
         - coffeecv/canonical.py
+        - coffeecv/colour_declaration.py
         - coffeecv/canonical_store.py
         # Ticket ML-26: what a canonical photo's bytes depend on besides its original (the canonicalize stages' deps),
         # so that a photo's mask may be kept by its original's sha256 (coffeecv.incremental).

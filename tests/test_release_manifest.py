@@ -191,7 +191,8 @@ class TestTwoReleases(unittest.TestCase):
         # Since ticket ML-19 P9 the front canonicalizes uploads: coffeecv's canonicalization, and since OPS-3 P3 the
         # timeline's schema, and nothing else of it.
         self.assertEqual({p for p in front["git"] if p.startswith("coffeecv/")},
-                         {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/jxl_encode.py",
+                         {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/colour_declaration.py",
+                          "coffeecv/jxl_encode.py",
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
                           "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py"})
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))

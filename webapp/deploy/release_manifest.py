@@ -49,6 +49,7 @@ FRONT_CODE = [
     # Ticket ML-19 P9 (D35, plan finding 4): the front canonicalizes each upload with the module training uses.
     "coffeecv/__init__.py",
     "coffeecv/canonical.py",
+    "coffeecv/colour_declaration.py",   # ticket ML-29 P2: what canonical reads a photo's colour from
     "coffeecv/jxl_encode.py",
     "coffeecv/jxl_header.py",
     "coffeecv/data/rec2020_bt709.icc",
@@ -59,7 +60,8 @@ FRONT_CODE = [
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
 # weights; the converted model's directory instead.
 LIBRARY = [f"coffeecv/{m}.py" for m in (
-    "__init__", "bean_scale", "canonical", "class_list", "config", "crop_tray", "geometry", "infer", "jxl_encode",
+    "__init__", "bean_scale", "canonical", "class_list", "colour_declaration", "config", "crop_tray", "geometry", "infer",
+    "jxl_encode",
     "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans")] + [
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13).
     "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"]

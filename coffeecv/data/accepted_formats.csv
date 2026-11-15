@@ -10,7 +10,7 @@ jpeg,JPEG,,.jpg .jpeg,image/jpeg,imagecodecs.jpeg8
 png,PNG,,.png,image/png,imagecodecs.png
 webp,WebP,,.webp,image/webp,pillow.WEBP
 heif,HEIC/HEIF,,.heic .heif .hif,image/heic image/heif,pillow_heif
-avif,AVIF,,.avif,image/avif,pillow.AVIF
+avif,AVIF,,.avif,image/avif,imagecodecs.avif
 jxl,JPEG XL,,.jxl,image/jxl,imagecodecs.jpegxl
 gif,GIF,,.gif,image/gif,pillow.GIF
 bmp,BMP,,.bmp,image/bmp,pillow.BMP

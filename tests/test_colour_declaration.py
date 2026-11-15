@@ -358,7 +358,9 @@ class Builder(unittest.TestCase):
 
     def test_linear_rec2020_is_the_raw_paths_profile(self):
         from coffeecv import canonical
-        self.assertEqual(cd.linear_profile(cd.REC2020_PRIMARIES, cd.D65), canonical.LINEAR_REC2020)
+        a, b = cd.linear_profile(cd.REC2020_PRIMARIES, cd.D65), canonical.LINEAR_REC2020
+        # The same profile but for LittleCMS's creation time (bytes 24-36) and the ID it hashes into (84-100)
+        self.assertEqual(a[:24] + a[36:84] + a[100:], b[:24] + b[36:84] + b[100:])
 
     def test_srgb_by_the_builders_own_path_against_littlecms(self):
         """The sRGB declaration itself takes LittleCMS's own profile; the builder's path for it is checked here too,
@@ -380,7 +382,7 @@ class Builder(unittest.TestCase):
 
     def test_linear_rec2020_against_colour_maths_written_here(self):
         d = cd.Declaration("coded", "t", primaries=cd.REC2020_PRIMARIES, white=cd.D65, curve="linear")
-        self.assertIsNone(cd.conversion(d).linearize)
+        self.assertIsNotNone(cd.conversion(d).linearize)       # a no-op, which still sends it down the float path
         out = self.through(d)[0]
         ref = self.samples()[0].astype(np.float64)
         bt709 = np.where(ref < 0.018, 4.5 * ref, 1.099 * ref ** 0.45 - 0.099)

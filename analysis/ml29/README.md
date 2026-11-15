@@ -105,3 +105,115 @@ Ultra HDR formula; HEIC by Apple's published formula, not the ISO item.
 - Outside the region the spread is larger (median 0.51 stops on Google, 0.48 on Apple, 0.38 on Samsung).
 - Applying the maps would brighten each brand by its own amount and leave Sony, the other OnePlus and the raws as
   they are.
+
+## Files made here (D25), not by darktable (`make_test_files.py`)
+
+    python analysis/ml29/make_test_files.py
+
+Ten files in `tmp/ml29_made/` (local, not committed), about 30 s. All are the 16-bit linear Rec.2020 JPEG XL export,
+area-averaged in linear light to a quarter of each side (1746×1164; the bottom 4 rows of 4660 dropped), re-encoded
+lossy at quality 90 with another declaration. Everything in the table was read from the files' bytes:
+`coffeecv.jxl_header` and libjxl's decoder for JPEG XL, the primary item's `colr` and `pixi` boxes (the reader in
+`scan_dataset.py`) for AVIF and HEIC. "Error" is the made file decoded to linear Rec.2020 by the script's own maths,
+from the declaration read back, against what it was meant to hold, in linear light with white 1: the mean per sample,
+then the largest 8×8 block mean. Most of it is the lossy coding; decoded with sRGB primaries instead of BT.2020 the
+PQ AVIF's largest block would be 0.063, as HLG instead of PQ 0.48. The last column is libjxl's own conversion of the
+same file to linear Rec.2020 against the script's maths, at the 99.9th percentile (libjxl's float output keeps the
+codec's overshoot past 0 and 1, which the integer samples clip).
+
+| File | How made | Declaration read back | Bits | Error | Against libjxl |
+|---|---|---|---|---|---|
+| `linear-rec709-16bit.jxl` | `jpegxl_encode(primaries=1, transfer=8)` | sRGB primaries, D65, Linear | 16 | 0.0118; 0.0118 | 7e-06 |
+| `rec709-16bit.jxl` | `jpegxl_encode(primaries=1, transfer=1)` | sRGB primaries, D65, BT709 | 16 | 0.0118; 0.0123 | 1e-05 |
+| `pq-p3-16bit.jxl` | `jpegxl_encode(primaries=11, transfer=16)` | P3, D65, PQ; intensity target 10000 | 16 | 0.0120; 0.0157 | 4e-05 |
+| `hlg-p3-16bit.jxl` | `jpegxl_encode(primaries=11, transfer=18)` | P3, D65, HLG; intensity target 1000 | 16 | 0.0120; 0.0146 | 2e-05 |
+| `linear-prophoto-d50-16bit.jxl` | libjxl's `JxlEncoderSetColorEncoding` over ctypes | Custom primaries R 0.7347,0.2653 G 0.1596,0.8404 B 0.0366,0.0001; Custom white 0.3457,0.3585; Linear | 16 | 0.0118; 0.0123 | 1e-05 |
+| `pq-rec2020-highlights-to-812nits-16bit.jxl` | `jpegxl_encode(primaries=9, transfer=16)` | BT2100, D65, PQ; intensity target 10000 | 16 | 0.0145; 0.0273 | 8e-05 |
+| `pq-rec2020-10bit.avif` | `avif_encode(bitspersample=10, primaries=9, transfer=16, matrix=9)` | coded tag 9/16 (matrix 9, full range) | 10 | 0.0121; 0.0196 | |
+| `hlg-rec2020-10bit.avif` | `avif_encode(bitspersample=10, primaries=9, transfer=18, matrix=9)` | coded tag 9/18 (matrix 9, full range) | 10 | 0.0093; 0.0105 | |
+| `pq-rec2020-12bit.heic` | pillow-heif `encode(bit_depth=12, color_primaries=9, transfer_characteristics=16, matrix_coefficients=9)` | coded tag 9/16 (matrix 9, full range) | 12 | 0.0094; 0.0101 | |
+| `hlg-rec2020-12bit.heic` | the same, `transfer_characteristics=18` | coded tag 9/18 (matrix 9, full range) | 12 | 0.0092; 0.0123 | |
+
+Every JPEG XL is a bare codestream with the colour as a header enumeration, relative intent. Clipped by the change of
+primaries: 0.01% of samples into Rec.709, none into P3 or ProPhoto.
+
+**PQ and HLG.** The standard-range picture is put in as display light with its white at BT.2408's reference,
+203 cd/m².
+- PQ: the BT.2100 (Table 4) inverse EOTF of 203 · L / 10000. White is signal 0.5807.
+- HLG: BT.2100 (Table 5) with nominal peak 1000 cd/m², black 0 and system gamma 1.2. The inverse OOTF,
+  E = (F_D / 1000) · (Y_D / 1000)^((1 − γ) / γ) with F_D = 203 · L and Y_D its luminance (weights from the file's
+  own primaries; for BT.2020 these are BT.2100's 0.2627, 0.6780, 0.0593), then the OETF. White is signal 0.7499,
+  BT.2408's 75%.
+- Highlights file: before the PQ step each pixel is multiplied by 4^t, t = clip((Y − 0.25) / 0.75, 0, 1), Y its
+  Rec.2020 luminance. Below Y 0.25 nothing changes and white goes to 812 cd/m². 1.1% of pixels end above 203 cd/m²,
+  the brightest at 805.
+
+**pillow-heif writes a coded tag.** `encode`/`save` take `color_primaries`, `transfer_characteristics`,
+`matrix_coefficients` and `full_range_flag` and write them as the primary item's `nclx` box. The docstring's
+`transfer_characteristic` (no s) is ignored without a warning, and the file is tagged 9/13 (sRGB transfer). With no
+coded values it writes 1/13 (sRGB, matrix 6); with `save_nclx_profile=False`, no `colr` box. It takes 16-bit samples
+and keeps the top 10 or 12 bits (`bit_depth`), and decodes them back shifted to the top of 16 bits (white 65472 or
+65520). `avif_encode` takes samples at the coded depth (white 1023) and clips larger ones rather than scaling them.
+
+**Read back by `imagecodecs.jpegxl_decode`** (the darktable exports and the files above). It returns the samples in
+the file's declared encoding and converts nothing: linear, P3, PQ, HLG and the custom-primaries files come back as
+coded, and agree with the sRGB export only after the declared curve and primaries are applied. The dtype follows the
+header's depth: `uint8` for 8-bit; `uint16` at the file's own depth for 10, 12 and 16-bit (white 1023, 4095, 65535,
+not scaled to 16 bits); `float32` for the 32-bit float file, unclipped (−0.295 to 1.074, sRGB-coded). Nothing says
+which declaration the samples are in: that comes from the header alone.
+
+**Seen in darktable's exports along the way.**
+- PQ Rec2020: the sRGB export's linear light, decoded through the PQ EOTF with 10000 cd/m² as 1, within 0.2% at every
+  brightness above Y 0.02. darktable writes the standard-range white at PQ's 10000 cd/m², not at 203.
+- HLG Rec2020: through the inverse OETF alone, 3–7% darker than the sRGB export above Y 0.1, 33% darker near Y 0.01.
+  libjxl's own conversion to linear applies the OOTF (intensity target 1000) and gives a median 0.71.
+- Adobe RGB JPEG XL: the header holds Adobe RGB's chromaticities and gamma, but its samples, decoded by them (here, and
+  by libjxl's own conversion, which agree), are not the other exports' photo: mean linear R, G, B 0.39, 0.17, 0.06
+  against 0.32, 0.22, 0.18 from the sRGB export. Good for its declaration, not as a reference for pixels.
+
+## P2: what the models read from each file, against the sRGB export (`exports_tolerance.py`)
+
+    python analysis/ml29/exports_tolerance.py tmp/darktable_exported/*/* tmp/ml29_made/*
+
+2026-11-14, P2's code, the store's settings. Each file canonicalized and read back as 8-bit sRGB; against the
+darktable 8-bit sRGB JPEG XL read the same way; 32×32 block means; "mean" over every block and channel, "worst" the
+largest in any block and channel, in 8-bit levels. D27's bar: mean at most 1.0, worst at most 6.
+
+| File | Mean | Worst | D27 |
+|---|---|---|---|
+| JPEG XL sRGB 10, 12, 16-bit, 32-bit float | 0.06–0.07 | 0.6–0.9 | within |
+| JPEG XL linear Rec2020 8, 16-bit | 0.16, 0.15 | 2.4, 2.2 | within (refused before) |
+| JPEG XL Display P3 | 0.14 | 2.0 | within (refused before) |
+| JPEG XL Adobe RGB | 26.4 | 70.0 | outside: its samples are another rendering (above), the declaration read right |
+| AVIF sRGB 8, 10, 12-bit | 0.53, 0.22, 0.23 | 3.2, 3.0, 3.4 | within (10 and 12-bit now at their own depth) |
+| AVIF Adobe RGB (ICC) | 0.43 | 4.2 | within |
+| AVIF linear Rec2020 | 0.59 | 5.6 | within (64.5 before) |
+| HEIC sRGB 8, 10, 12-bit | 0.38, 0.32, 0.32 | 3.6, 3.8, 3.4 | within |
+| HEIC Adobe RGB (ICC) | 0.41 | 5.4 | within |
+| HEIC Display P3 | 0.32 | 4.1 | within (2.2 before) |
+| HEIC linear Rec2020, q50 | 0.46 | 9.6 | outside on worst only: 59 of 31,610 blocks over 6 |
+| Made here: linear Rec709, Rec709, linear ProPhoto D50 | 0.94 | 5.3–5.5 | within |
+| PQ, HLG: darktable's two JPEG XL, the seven made here | | | refused, naming the curve, until P5 |
+
+The linear Rec2020 HEIC's 59 blocks over 6 are all dark (the reference's 8 to 35 levels), each shifted towards red:
+the same photo as a 16-bit linear JPEG XL reads within the bar (worst 2.2), and darktable's own q50 sRGB HEIC too
+(3.4). It is the file's coding, 4:2:0 chroma at q50 on linear light, which the curve to sRGB magnifies in the
+shadows, not its reading. The made files are a quarter of the size; the reference is area-averaged to it in 8-bit
+sRGB, while they were averaged in linear light, which accounts for most of their 0.94.
+
+**The front's time and memory (D26)**, one process per file, `taskset` to two CPUs as the front has, the front's
+settings and pixel ceiling; each 6984×4660 export area-averaged to 4741×3163 (15 MP):
+
+| File | Colour path | Time | Peak RSS |
+|---|---|---|---|
+| AVIF sRGB 8-bit | integer | 4.0 s | 325 MB |
+| AVIF linear Rec2020 8-bit | float (D26) | 6.5 s | 324 MB |
+| HEIC sRGB 12-bit | integer | 5.7 s | 399 MB |
+| HEIC linear Rec2020 12-bit | float (D26) | 7.6 s | 393 MB |
+| JPEG XL sRGB 8-bit | integer | 3.8 s | 310 MB |
+| JPEG XL linear Rec2020 8-bit | float (D26) | 6.4 s | 310 MB |
+| JPEG XL sRGB 32-bit float | float (D26) | 6.8 s | 612 MB |
+
+The float path costs about 2.5 s at 15 MP and no memory. A float JPEG XL is decoded whole as float32 before the cap,
+12 bytes a pixel: 33 MP peaked at 612 MB, over the front's `MemoryMax` of 600M (swap allowed, ML-19 D38), and a
+60 MP one would need about twice that.

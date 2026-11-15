@@ -160,8 +160,8 @@ def _boxes(d: bytes, s: int, e: int):
         s += n
 
 
-def primary_colr(d: bytes) -> list[bytes]:
-    """The bodies of the colr properties associated with a HEIF's or AVIF's primary item, in association order."""
+def primary_properties(d: bytes) -> list[tuple[bytes, bytes]]:
+    """The properties (type, body) associated with a HEIF's or AVIF's primary item, in association order."""
     meta = next(((a, b) for t, a, b in _boxes(d, 0, len(d)) if t == b"meta"), None)
     if not meta:
         return []
@@ -191,7 +191,19 @@ def primary_colr(d: bytes) -> list[bytes]:
                                 found.append(d[p] & 0x7F)
                                 p += 1
                         assoc[item] = assoc.get(item, []) + found
-    return [props[i - 1][1] for i in assoc.get(primary, []) if 1 <= i <= len(props) and props[i - 1][0] == b"colr"]
+    return [props[i - 1] for i in assoc.get(primary, []) if 1 <= i <= len(props)]
+
+
+def primary_colr(d: bytes) -> list[bytes]:
+    """The bodies of the primary item's colr properties."""
+    return [body for kind, body in primary_properties(d) if kind == b"colr"]
+
+
+def primary_bit_depth(d: bytes) -> int | None:
+    """The primary item's bits per channel, from its pixi property (ISO/IEC 23008-12, 6.5.6), the first channel's;
+    None without one."""
+    body = next((b for kind, b in primary_properties(d) if kind == b"pixi"), b"")
+    return body[5] if len(body) >= 6 and body[4] >= 1 else None
 
 
 def _bmff(data: bytes) -> Declaration:
@@ -289,7 +301,9 @@ def bmp_profile(data: bytes) -> bytes | None:
 @dataclass(frozen=True)
 class SourceColour:
     """What converting a source takes: `linearize`, if not None, undoes the curve in place on float32 samples scaled so
-    1.0 is white; then `profile` (None: LittleCMS's own sRGB) is the source's ICC profile."""
+    1.0 is white; then `profile` (None: LittleCMS's own sRGB) is the source's ICC profile. Every profile the builder
+    makes comes with a `linearize` (a no-op for a linear curve), so `linearize is None` means one of the profiles
+    canonicalization used before ML-29: the front's integer path is for those alone (D26)."""
     profile: bytes | None
     linearize: Callable[[np.ndarray], None] | None = None
 
@@ -310,7 +324,7 @@ def conversion(d: Declaration) -> SourceColour:
         return SourceColour(None)                       # exactly what an untagged photo is read as
     if d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
         return SourceColour(REC2020_PROFILE)            # the canonical photo's own: a canonical JPEG XL's
-    undo = None if d.curve == "linear" else _power(d.gamma) if d.curve == "gamma" else CURVE_DECODERS[d.curve]
+    undo = _power(d.gamma) if d.curve == "gamma" else CURVE_DECODERS[d.curve]
     return SourceColour(linear_profile(d.primaries, d.white), undo)
 
 
@@ -359,6 +373,10 @@ def _dci(a: np.ndarray) -> None:             # SMPTE ST 428-1: E' = (48 L / 52.3
     a *= 52.37 / 48
 
 
+def _linear(a: np.ndarray) -> None:
+    """Nothing to undo; still a curve, so the source takes the float path (D26)."""
+
+
 def _power(gamma: float) -> Callable[[np.ndarray], None]:
     def undo(a: np.ndarray) -> None:
         s = np.sign(a)
@@ -368,7 +386,9 @@ def _power(gamma: float) -> Callable[[np.ndarray], None]:
     return undo
 
 
-CURVE_DECODERS: dict[str, Callable[[np.ndarray], None]] = {"sRGB": _srgb, "BT709": _bt709, "SMPTE240M": _smpte240m, "DCI": _dci}
+CURVE_DECODERS: dict[str, Callable[[np.ndarray], None]] = {"sRGB": _srgb, "BT709": _bt709, "linear": _linear,
+                                                           "SMPTE240M": _smpte240m, "DCI": _dci}
 
 __all__ = ["Declaration", "NONE", "Refused", "SourceColour", "bmp_profile", "conversion", "declare",
-           "jxl_declaration", "linear_profile", "primary_colr", "usable_profile"]
+           "jxl_declaration", "linear_profile", "primary_bit_depth", "primary_colr",
+           "primary_properties", "usable_profile"]

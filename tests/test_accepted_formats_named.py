@@ -73,6 +73,10 @@ class TheTextsNameTheAcceptedFormats(unittest.TestCase):
     def test_llms_txt(self):
         self.assertIn(upload_check.named_formats("and", list_groups=True), LLMS)
         self.assertIn("An animated GIF is read as its first frame.", LLMS)   # D1
+        self.assertIn(cn.COLOUR_TEXT, " ".join(LLMS.split()))                 # ML-29 P2
+
+    def test_what_colour_is_read(self):   # ML-29 P2
+        self.assertIn(cn.COLOUR_TEXT, PHOTO_PART)
 
     def test_openapi_json(self):
         self.assertIn(upload_check.named_formats("or", list_groups=True), PHOTO_PART)

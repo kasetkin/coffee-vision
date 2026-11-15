@@ -25,6 +25,9 @@ curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
 - `photo` (required): the image file. JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP and camera RAW (DNG, CR2,
   CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW); any other format is refused. A RAW file needs its usual extension in the
   filename. An animated GIF is read as its first frame. At most 40 MB and 60 megapixels (a RAW file: 16 megapixels).
+  Colour is read from the file's ICC profile, else its colour tag (HEIC/HEIF and AVIF nclx, PNG cICP) or JPEG XL
+  header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR photo (PQ or HLG) and a JPEG XL with an embedded ICC
+  profile are refused.
 - `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
 
 The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
