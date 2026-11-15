@@ -457,9 +457,9 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
                peak: float | None = None) -> np.ndarray:
     """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): `linearize` (the curve
     of a declaration whose profile is built, ML-29 D20) undone in place, then LittleCMS on float32, clipped to [0, 1]
-    after the conversion, rounded; transparent pixels over the fill (D13). With a `peak` (Source.peak, the whole
-    picture's: ML-29 D33), LittleCMS goes to linear Rec.2020 first, the tone map rolls light above white off there,
-    and a second transform takes it to the canonical profile. `pixels` may be a turned view, grey (2-D, or 1-2
+    after the conversion, rounded; transparent pixels over the fill (D13). With a `peak` above white (Source.peak,
+    the whole picture's: ML-29 D33), LittleCMS goes to linear Rec.2020 first, the tone map rolls light above white
+    off there, and a second transform takes it to the canonical profile. `pixels` may be a turned view, grey (2-D, or 1-2
     channels) or RGB(A), integer or float; each strip is copied out of it once and every later step works in place.
     With settings.colour "integer" (the front's, OPS-22 D4), an integer source without transparency and without a
     built profile goes the integer path instead (_to_rec2020_integer); any other stays on this one (D4, ML-29 D26)."""
@@ -477,7 +477,7 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
                                 outdtype=np.float32)[0, 0]
     for y in range(0, h, strip):
         part, f = _light(pixels[y:y + strip], full, linearize, colour)
-        if peak is None:
+        if peak is None or peak <= 1:            # nothing above white: the conversion every other photo takes
             c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
         else:
             c = ic.cms_transform(f, source_profile, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
@@ -515,14 +515,19 @@ def _light(part: np.ndarray, full: float, linearize: Callable[[np.ndarray], None
 def measure_peak(pixels: np.ndarray, full: float, profile: bytes | None,
                  linearize: Callable[[np.ndarray], None] | None, strip: int = STRIP_ROWS) -> float:
     """ML-29 D33: the picture's mastering peak, relative to white, as tone_map.picture_peak takes it, from max(R, G, B)
-    of its light in linear Rec.2020 (the space the tone map works in); strip by strip, one float32 per pixel kept."""
+    of its light in linear Rec.2020 (the space the tone map works in), weighted by its alpha: light laid over the fill
+    shows only that much of itself. Strip by strip, one float32 per pixel kept."""
     h, w = pixels.shape[:2]
-    colour = 1 if pixels.ndim == 2 or pixels.shape[2] <= 2 else 3
+    channels = 1 if pixels.ndim == 2 else pixels.shape[2]
+    colour, alpha_at = (1 if channels <= 2 else 3), {2: 1, 4: 3}.get(channels)
     maxima = np.empty(h * w, np.float32)
     for y in range(0, h, strip):
-        _, f = _light(pixels[y:y + strip], full, linearize, colour)
+        part, f = _light(pixels[y:y + strip], full, linearize, colour)
         c = ic.cms_transform(f, profile or SRGB, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
-        maxima[y * w:y * w + c.shape[0] * w] = c.max(axis=-1).ravel()
+        top = c.max(axis=-1)
+        if alpha_at is not None:
+            top *= part[..., alpha_at] / np.float32(full)
+        maxima[y * w:y * w + c.shape[0] * w] = top.ravel()
     return tm.picture_peak(maxima)
 
 
@@ -545,9 +550,10 @@ def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: i
     """A decoded original as its canonical JPEG XL, each rectangle libjxl asks for converted when it asks (D52), with
     `settings`' colour path, quality and effort."""
     h, w = source.pixels.shape[:2]
+    peak = source.peak()                         # before libjxl's threads ask for rectangles: measured once
     return encode_rec2020(h, w, lambda y, x, ys, xs: to_rec2020(source.pixels[y:y + ys, x:x + xs], source.full,
                                                                 source.profile, settings=settings,
-                                                                linearize=source.linearize, peak=source.peak()),
+                                                                linearize=source.linearize, peak=peak),
                           level=settings.quality, effort=settings.effort, numthreads=numthreads)
 
 

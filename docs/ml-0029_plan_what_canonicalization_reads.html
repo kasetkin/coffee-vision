@@ -206,23 +206,23 @@
     <code>analysis/ml29/research_tone_mapping.md</code>, a prototype module <code>coffeecv/tone_map.py</code> that
     nothing calls, and a recommendation the owner accepts or changes.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>The primary sources read and cited by section: ITU-R BT.2100 (the PQ and HLG
+    <li><span class="box done"></span><span>The primary sources read and cited by section: ITU-R BT.2100 (the PQ and HLG
       curves, HLG's system gamma), BT.2408 (reference white at 203 nits), BT.2390 (the roll-off for PQ), ISO 21496-1
       and the Ultra HDR and Apple gain-map descriptions (for P7), and what libjxl, libavif and libultrahdr do when
       asked for a standard-range rendering.</span></li>
-    <li><span class="box"></span><span>What darktable did: from the PQ and HLG JPEG XLs against the sRGB one of the
+    <li><span class="box done"></span><span>What darktable did: from the PQ and HLG JPEG XLs against the sRGB one of the
       same photo, the light level its standard white was written at and how much of the picture lies above it.</span></li>
-    <li><span class="box"></span><span>The public samples (finding 5) fetched into <code>tmp/</code>, each file's
+    <li><span class="box done"></span><span>The public samples (finding 5) fetched into <code>tmp/</code>, each file's
       licence line and URL recorded; none committed (Q4).</span></li>
-    <li><span class="box"></span><span>Candidates, each a pure function on linear light: reference white to white with
+    <li><span class="box done"></span><span>Candidates, each a pure function on linear light: reference white to white with
       a clip; a BT.2390-style roll-off; a scale by the peak; one more if the sources name a better one. Each run on
       three sets: the darktable PQ and HLG files (JPEG XL, and the AVIF and HEIC of P1) against the sRGB export; the
       public same-scene HDR and standard-range pairs; a sample of dataset gain-map photos per camera, the map applied
       by a throwaway reader.</span></li>
-    <li><span class="box"></span><span>The report: per candidate and set, the difference from the standard-range
+    <li><span class="box done"></span><span>The report: per candidate and set, the difference from the standard-range
       reference in 8-bit levels (mean, worst block), what happens in the bean region, side-by-side crops; the proposed
       operator and the proposed tolerance for HDR files (Q2).</span></li>
-    <li><span class="box"></span><span>Stop for the owner: the operator and its tolerance, recorded as the ticket's
+    <li><span class="box done"></span><span>Stop for the owner: the operator and its tolerance, recorded as the ticket's
       next D-number.</span></li>
   </ol>
 
@@ -232,12 +232,12 @@
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>A PQ or HLG declaration, in JPEG XL, AVIF, HEIC and PNG, and a float JPEG XL's
+    <li><span class="box done"></span><span>A PQ or HLG declaration, in JPEG XL, AVIF, HEIC and PNG, and a float JPEG XL's
       values above white, go through the chosen operator into the standard-range canonical photo (D2, D11, D21). P2's
       refusal of PQ and HLG is removed.</span></li>
-    <li><span class="box"></span><span>Tests, test first: each curve in each container on files made in code; a
+    <li><span class="box done"></span><span>Tests, test first: each curve in each container on files made in code; a
       standard-range photo's bytes unchanged by the operator's presence.</span></li>
-    <li><span class="box"></span><span>The texts updated again; the front's time for a 15 MP PQ upload measured.</span></li>
+    <li><span class="box done"></span><span>The texts updated again; the front's time for a 15 MP PQ upload measured.</span></li>
     <li><span class="box"></span><span>Checks: the darktable PQ and HLG files within P4's tolerance of the sRGB export;
       the store re-run, every output byte-identical; <code>scripts/check.sh --full</code> green.</span></li>
   </ol>
@@ -445,6 +445,15 @@
       a lookup table for the curve would save about 2.5 s of it, not done. One departure: a float JPEG XL now takes
       the tone map's path, so its light above white is rolled off (D21, D33) and a saturated colour near white beside
       it rolls a few levels too, where P2 clipped.</div>
+    <div><div class="when">2026-11-15</div>P5 reviewed (standards and spec, since <code>c710123</code>). Fixed, with
+      tests: a float JPEG XL with nothing above white changed its bytes from P2's by up to 16/65535 (it now keeps its
+      declared profile, and the two transforms run only above a peak of white); fully transparent light could set the
+      peak (now weighted by alpha); +inf in a float JPEG XL turned black in the EETF (now PQ's top, so white); libjxl's
+      threads could each measure the peak (now once, before the encode). Also: the EETF's PQ points shared by its knee
+      and curve; the peak rule names what it was validated on. Left: the research's other candidates stay in
+      <code>tone_map.py</code> for its measurement script; the pin runs in <code>hdr_pin.py</code> on the files in
+      <code>tmp/</code> (D29), not in the suite; a photo over 18 MP has its peak measured after the front's cap, as its
+      colour is converted after it. The front's 12.7&ndash;13.9 s is within ML-19 D22's 40 s.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

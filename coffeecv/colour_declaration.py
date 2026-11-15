@@ -13,7 +13,7 @@ calibrated endpoints. A BMP's embedded ICC profile is read here, since Pillow do
 
 `icc` is the profile the format's decoder already found (Pillow's or pillow-heif's): this module reads only what
 those leave out. A file with a profile LittleCMS cannot use as RGB is read as sRGB, whatever else it declares (ADR
-0040's consequence of ML-19 D16), unless it is a PNG with a cICP chunk.
+0040's consequence of ML-19 D16), unless it is a PNG whose cICP chunk declares something.
 
 The builder (D20): a declaration that is not an ICC profile becomes a linear RGB profile with its primaries and white
 point (LittleCMS), with its curve undone in numpy first, so one builder serves every curve. Two declarations keep the
@@ -345,9 +345,11 @@ class SourceColour:
 
 def conversion(d: Declaration, float_samples: bool = False) -> SourceColour:
     """D20: a declaration's source profile, and the curve undone first. PQ and HLG, and `float_samples` (a float
-    JPEG XL's, D21) under any curve, are tone-mapped (D33), always with a built profile; a float source without a
-    declaration or with an ICC profile cannot occur (a JPEG XL header always declares; D22 refuses its ICC) and
-    converts as any other."""
+    JPEG XL's, D21) under any curve, are marked for the tone map (D33). A float source keeps the profile it would
+    have as integers: LittleCMS's float transform reads light above white through the curve's own extension, and a
+    picture with none converts as before (canonical.to_rec2020 tone-maps only above a peak of white). A float source
+    without a declaration or with an ICC profile cannot occur (a JPEG XL header always declares; D22 refuses its
+    ICC) and converts as any other."""
     if d.kind == "none":
         return SourceColour(None)
     if d.kind == "icc":
@@ -355,10 +357,10 @@ def conversion(d: Declaration, float_samples: bool = False) -> SourceColour:
     if d.curve not in CURVES:
         raise ValueError(f"no curve {d.curve!r}")
     tone_map = d.is_hdr or float_samples
-    if not tone_map and d.white == D65 and d.primaries == SRGB_PRIMARIES and d.curve == "sRGB":
-        return SourceColour(None)                       # exactly what an untagged photo is read as
-    if not tone_map and d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
-        return SourceColour(REC2020_PROFILE)            # the canonical photo's own: a canonical JPEG XL's
+    if d.white == D65 and d.primaries == SRGB_PRIMARIES and d.curve == "sRGB":
+        return SourceColour(None, None, tone_map)       # exactly what an untagged photo is read as
+    if d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
+        return SourceColour(REC2020_PROFILE, None, tone_map)   # the canonical photo's own: a canonical JPEG XL's
     if d.curve == "gamma":
         undo = _power(d.gamma)
     elif d.curve == "HLG":
@@ -384,8 +386,9 @@ def luminance_weights(primaries: Primaries, white: XY) -> tuple[float, float, fl
     return float(w[0]), float(w[1]), float(w[2])
 
 
-# Curves undone (encoded -> linear, 1.0 white), in place on float32. Values below 0 or above 1 keep their sign and
-# their curve's extension; to_rec2020 clips after the conversion.
+# Curves undone (encoded -> linear, 1.0 white), in place on float32. For the standard-range curves, values below 0 or
+# above 1 (a float JPEG XL's) keep their sign and their curve's extension; to_rec2020 clips after the conversion.
+# PQ's and HLG's signals are read within 0-1, as BT.2100 defines them: their light above white is the signal's own.
 
 def _srgb(a: np.ndarray) -> None:            # IEC 61966-2-1, 4.3
     s = np.sign(a)

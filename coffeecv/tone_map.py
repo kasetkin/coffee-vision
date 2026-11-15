@@ -157,9 +157,17 @@ def eetf_knee(peak: float, white: float = REFERENCE_WHITE) -> float:
     taken back through PQ. 1.0 (no roll-off) when the peak is at or below white."""
     if peak <= 1:
         return 1.0
-    lo, hi = pq_inverse_eotf(0.0), pq_inverse_eotf(peak * white)
-    ks = 1.5 * (pq_inverse_eotf(white) - lo) / (hi - lo) - 0.5
-    return float(pq_eotf(ks * (hi - lo) + lo) / white)
+    lb, span, _, ks = _eetf_points(peak, white)
+    return float(pq_eotf(ks * span + lb) / white)
+
+
+def _eetf_points(peak: float, white: float) -> tuple[float, float, float, float]:
+    """Annex 5's steps 1 and 2 in the PQ domain: the mastering black's signal, the span to the peak's, the target
+    white as a share of it (maxLum) and the knee (KS)."""
+    lb = float(pq_inverse_eotf(0.0))
+    span = float(pq_inverse_eotf(peak * white)) - lb
+    max_lum = (float(pq_inverse_eotf(white)) - lb) / span
+    return lb, span, max_lum, 1.5 * max_lum - 0.5
 
 
 def eetf_bt2408(x: np.ndarray, peak: float, white: float = REFERENCE_WHITE) -> np.ndarray:
@@ -174,11 +182,8 @@ def eetf_bt2408(x: np.ndarray, peak: float, white: float = REFERENCE_WHITE) -> n
 
 def _eetf_curve(peak: float, white: float = REFERENCE_WHITE):
     """eetf_bt2408's curve on relative light, peak above white."""
-    lb = pq_inverse_eotf(0.0)
-    span = pq_inverse_eotf(peak * white) - lb
-    max_lum = (pq_inverse_eotf(white) - lb) / span
+    lb, span, max_lum, ks = _eetf_points(peak, white)
     min_lum = 0.0                                               # target black 0: (1 - E2) ** 4 adds nothing
-    ks = 1.5 * max_lum - 0.5
 
     def curve(m: np.ndarray) -> np.ndarray:
         e1 = np.clip((pq_inverse_eotf(m * white) - lb) / span, 0, 1)                    # step 1
@@ -192,7 +197,10 @@ def _eetf_curve(peak: float, white: float = REFERENCE_WHITE):
     return curve
 
 
-PEAK_PERCENTILE = 99.99                 # D33: a few bright pixels (a specular glint) do not set the peak
+# D33: a few bright pixels (a specular glint) do not set the peak. Validated (P4, P5) on files made from one Canon
+# scene and on two public same-scene pairs; no phone's own HDR capture was among them, and the gain maps' photos were
+# measured only for their boost, so a phone HDR photo's peak under this rule is untested.
+PEAK_PERCENTILE = 99.99
 MAX_PEAK = PQ_PEAK / REFERENCE_WHITE    # 49.3: the EETF works in PQ, whose top is 10,000 cd/m2
 
 
@@ -208,9 +216,10 @@ def eetf_in_place(c: np.ndarray, peak: float) -> None:
     """eetf_bt2408 as canonicalization runs it, in place on float32 linear Rec.2020 (..., 3): a pixel whose
     max(R, G, B) lies above the knee has R, G and B scaled alike by the curve; every other pixel, NaN and the rest
     of the picture with a peak at or below white keep their bits. Negative light is scaled with its pixel and left,
-    as values above white were, to the clip after the conversion."""
+    as values above white were, to the clip after the conversion; +inf (a float JPEG XL's) is MAX_PEAK, so white."""
     if peak <= 1:
         return
+    np.copyto(c, np.float32(MAX_PEAK), where=np.isposinf(c))
     m = c.max(axis=-1)
     above = m > eetf_knee(peak)                          # NaN compares False
     if not above.any():

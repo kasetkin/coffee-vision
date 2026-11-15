@@ -194,3 +194,12 @@ class PicturePeak(unittest.TestCase):
         m = np.full(100_000, 2.0, np.float32)
         m[0], m[1] = np.nan, np.inf
         self.assertAlmostEqual(tm.picture_peak(m), 2.0, places=5)
+
+
+class InPlaceEdges(unittest.TestCase):
+    def test_positive_infinity_is_white_not_black(self):   # a float JPEG XL may hold it; the clip made it white
+        x = np.array([[np.inf, 0.5, 0.2], [0.2, 0.2, 0.2]], np.float32)
+        tm.eetf_in_place(x, 4.0)
+        self.assertTrue(np.isfinite(x).all())
+        self.assertAlmostEqual(float(x[0, 0]), 1.0, places=5)
+        self.assertEqual(x[1].tolist(), np.float32([0.2, 0.2, 0.2]).tolist())

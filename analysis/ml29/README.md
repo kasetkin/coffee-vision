@@ -258,8 +258,14 @@ four times white):
 | HLG 12-bit HEIC | 13.6 s | 398 MB |
 | linear Rec2020 16-bit JPEG XL (32 MP, capped to 15 MP), for comparison | 6.1 s | 350 MB |
 
-An HDR photo costs about 7 s more than a standard-range one on the float path, within the front's memory. Of the
+An HDR photo costs about 7 s more than a standard-range one on the float path, within the front's memory and within
+ML-19 D22's budget of 40 s for canonicalization on the front. Of the
 PQ JPEG XL's 13.4 s (profiled): the PQ curve, run twice in float64 (the peak's pass and the conversion's), 2.8 s;
 the peak pass's LittleCMS transform 1.8 s; the main pass's two transforms (to linear Rec.2020, then to the canonical
 profile) and the rest 4.5 s; the JPEG XL encode 2.4 s. A lookup table for the curve on integer samples would save
 most of the 2.8 s; not done.
+
+After the review (2026-11-15): a float JPEG XL keeps the profile its declaration gives (LittleCMS's own sRGB for
+sRGB), and the tone map's two transforms run only when the picture's peak is above white, so a float picture with
+nothing above white converts to the bytes P2 gave it; transparent light is weighted by its alpha in the peak; +inf is
+read as PQ's top. `hdr_pin.py` and the float export's tolerance unchanged after these (6.99; 39.9, held; 0.07; 0.9).

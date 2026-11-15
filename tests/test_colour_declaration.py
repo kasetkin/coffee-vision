@@ -456,12 +456,12 @@ class Builder(unittest.TestCase):
             out[name] = f
         self.assertGreater(float(np.abs(out["2020"] - out["P3"]).max()), 1e-3)
 
-    def test_float_samples_take_the_built_profile_and_the_tone_map(self):   # D21, D33
+    def test_float_samples_keep_their_profile_and_take_the_tone_map(self):   # D21, D33; P2's bytes under white
         srgb = cd.Declaration("enumeration", "t", primaries=cd.SRGB_PRIMARIES, white=cd.D65, curve="sRGB")
         self.assertEqual(cd.conversion(srgb), cd.SourceColour(None))
-        sc = cd.conversion(srgb, float_samples=True)
-        self.assertTrue(sc.tone_map)
-        self.assertEqual(sc.profile, cd.linear_profile(cd.SRGB_PRIMARIES, cd.D65))
+        self.assertEqual(cd.conversion(srgb, float_samples=True), cd.SourceColour(None, None, True))
+        p3 = cd.Declaration("enumeration", "t", primaries=cd.P3_PRIMARIES, white=cd.D65, curve="sRGB")
+        self.assertEqual(cd.conversion(p3, float_samples=True).profile, cd.linear_profile(cd.P3_PRIMARIES, cd.D65))
         self.assertFalse(cd.conversion(cd.NONE, float_samples=True).tone_map)
 
 

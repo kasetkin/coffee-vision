@@ -911,6 +911,24 @@ class Hdr(unittest.TestCase):
                     ratios = light[6] / light[6].max()
                     self.assertLess(float(np.abs(ratios - (1.0, 0.5, 0.25)).max()), 0.03)   # hue kept
 
+    def test_a_picture_with_nothing_above_white_keeps_its_bytes(self):   # P5: the operator's presence changes nothing
+        a = patches(SRGB_PATCHES).astype(np.float32) / 255 * 0.9   # lossy coding rings past a white patch's 1.0
+        src = cn.decode(ic.jpegxl_encode(a, distance=0.1, primaries="SRGB", transfer="SRGB"))
+        self.assertEqual((src.profile, src.linearize, src.tone_map), (None, None, True))
+        self.assertLessEqual(src.peak(), 1.0)
+        with_map = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize, peak=src.peak())
+        self.assertEqual(with_map.tobytes(), cn.to_rec2020(src.pixels, src.full, src.profile).tobytes())
+
+    def test_transparent_light_does_not_set_the_peak(self):   # it is laid over the fill, never seen
+        lin = linear_rec2020(patches(SRGB_PATCHES[:3]))
+        hi = np.full((PATCH, PATCH, 3), 8.0)
+        sig = hdr_signal(np.concatenate([lin, hi], axis=1), "PQ")
+        a = np.ones(sig.shape[:2] + (1,))
+        a[:, 3 * PATCH:] = 0                                  # the highlight fully transparent
+        rgba = np.round(np.concatenate([sig, a], axis=2) * 65535).astype(np.uint16)
+        src = cn.decode(ic.jpegxl_encode(rgba, lossless=True, primaries="BT2100", transfer="PQ"))
+        self.assertEqual(src.peak(), 1.0)
+
     def test_the_front_takes_the_float_path(self):   # D26
         data = hdr_file(linear_rec2020(patches(SRGB_PATCHES)), "PQ", "avif")
         front = cn.canonicalize_with(data, "x.avif", cn.FRONT_SETTINGS)
