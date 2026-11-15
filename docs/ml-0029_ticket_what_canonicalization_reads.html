@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D35 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -339,6 +339,12 @@
         <td>Proposed: D27's bar for a PQ or HLG file holding a standard-range picture; for light above white, the
           operator's behaviour in tests and a regression pin</td>
         <td>As proposed, 2026-11-15: "as recommended".</td></tr>
+      <tr><td class="id">D36</td><td>A JPEG XL extra channel that is not alpha, which D32 left refused? libjxl returns
+          only the colour and the first alpha, so any other channel is left out of what is read.</td>
+        <td>(a) all refused, as P2 (b) one beside the picture (depth, thermal, a selection mask, an optional one)
+          skipped and the colour read; one the colour needs (black, a spot colour, CFA), a reserved one, or a second
+          alpha refused, naming it (c) every one read as alpha or skipped</td>
+        <td>(b), 2026-11-15: "go with your recommendation for extra channels". Depth stays out of the models (D3).</td></tr>
     </tbody>
   </table></div>
 
@@ -385,7 +391,7 @@
     <li>Depth or disparity as a segmenter hint: 8 photos carry one (D3).</li>
     <li>The DNG local tone map (D18).</li>
     <li>A decoder for a JPEG XL's embedded ICC profile; unblocked when <code>imagecodecs</code> returns it (D22).</li>
-    <li>JPEG XL animation and extra channels.</li>
+    <li>JPEG XL animation; a JPEG XL extra channel the colour needs: black, a spot colour, CFA (D36).</li>
     <li>Capture metadata as a signal (<a href="ml-0030_ticket_capture_metadata.html">ML-30</a>).</li>
     <li>Raising the 16 MP cap on RAW uploads.</li>
   </ul>
@@ -415,6 +421,9 @@
     <div><div class="when">2026-11-15</div>The owner on P4's report, "as recommended": D33 (BT.2408's EETF), D34 (the
       darktable PQ and HLG exports outside, the made files in their place; new exports from a fixed darktable in one
       to two months), D35 (the HDR tolerance). P5 started.</div>
+    <div><div class="when">2026-11-15</div>The owner decided D36: a JPEG XL's extra channel beside the picture
+      (depth, thermal, a selection mask, an optional one) is skipped and the colour read; black, a spot colour, CFA
+      or a second alpha refuses the photo, naming the channel. With P5, so the store re-run covers both.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

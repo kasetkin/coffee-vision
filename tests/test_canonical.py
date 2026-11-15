@@ -839,6 +839,113 @@ class Declarations(unittest.TestCase):
 
 
 
+EXTRA_CHANNEL_TYPES = {"Alpha": 0, "Depth": 1, "SpotColour": 2, "SelectionMask": 3, "Black": 4, "CFA": 5, "Thermal": 6,
+                       "Optional": 16}   # libjxl 0.12.0's JxlExtraChannelType
+
+
+def jxl_with_extra_channels(colour: np.ndarray, extras: list[tuple[str, np.ndarray]]) -> bytes:
+    """A lossless 8-bit sRGB JPEG XL: `colour` (h, w, 3) or (h, w, 1), then each (type, (h, w) uint8) extra channel in
+    order, through libjxl's plain API (imagecodecs' encoder writes no typed extra channels)."""
+    import ctypes as C
+
+    from coffeecv import jxl_encode as je
+    lib, P = je._jxl, C.c_void_p
+    je._sig(lib, "JxlEncoderInitExtraChannelInfo", None, C.c_int, P)
+    je._sig(lib, "JxlEncoderSetExtraChannelInfo", C.c_int, P, C.c_size_t, P)
+    je._sig(lib, "JxlEncoderSetExtraChannelBuffer", C.c_int, P, C.POINTER(je.PixelFormat), P, C.c_size_t, C.c_uint32)
+    je._sig(lib, "JxlEncoderAddImageFrame", C.c_int, P, C.POINTER(je.PixelFormat), P, C.c_size_t)
+    je._sig(lib, "JxlEncoderSetFrameLossless", C.c_int, P, C.c_int)
+    je._sig(lib, "JxlEncoderCloseInput", None, P)
+    je._sig(lib, "JxlEncoderProcessOutput", C.c_int, P, C.POINTER(C.POINTER(C.c_uint8)), C.POINTER(C.c_size_t))
+    je._sig(lib, "JxlColorEncodingSetToSRGB", None, C.POINTER(je.ColorEncoding), C.c_int)
+    h, w, channels = colour.shape
+    enc = lib.JxlEncoderCreate(None)
+    try:
+        info = je.BasicInfo()
+        lib.JxlEncoderInitBasicInfo(C.byref(info))
+        info.xsize, info.ysize, info.bits_per_sample, info.num_color_channels = w, h, 8, channels
+        info.num_extra_channels, info.uses_original_profile = len(extras), 1
+        info.alpha_bits = 8 if any(kind == "Alpha" for kind, _ in extras) else 0
+        assert lib.JxlEncoderSetBasicInfo(enc, C.byref(info)) == 0
+        for i, (kind, _) in enumerate(extras):
+            ec = C.create_string_buffer(256)                 # JxlExtraChannelInfo, laid out by libjxl itself
+            lib.JxlEncoderInitExtraChannelInfo(EXTRA_CHANNEL_TYPES[kind], ec)
+            C.c_uint32.from_buffer(ec, 4).value = 8         # its bits_per_sample
+            assert lib.JxlEncoderSetExtraChannelInfo(enc, i, ec) == 0, kind
+        ce = je.ColorEncoding()
+        lib.JxlColorEncodingSetToSRGB(C.byref(ce), int(channels == 1))
+        assert lib.JxlEncoderSetColorEncoding(enc, C.byref(ce)) == 0
+        frame = lib.JxlEncoderFrameSettingsCreate(enc, None)
+        lib.JxlEncoderSetFrameLossless(frame, 1)
+        buffers = [np.ascontiguousarray(colour, np.uint8)]
+        fmt = je.PixelFormat(channels, 2, 0, 0)            # JXL_TYPE_UINT8
+        assert lib.JxlEncoderAddImageFrame(frame, C.byref(fmt), buffers[0].ctypes.data, buffers[0].nbytes) == 0
+        one = je.PixelFormat(1, 2, 0, 0)
+        for i, (_, plane) in enumerate(extras):
+            buffers.append(np.ascontiguousarray(plane, np.uint8))
+            assert lib.JxlEncoderSetExtraChannelBuffer(frame, C.byref(one), buffers[-1].ctypes.data,
+                                                       buffers[-1].nbytes, i) == 0
+        lib.JxlEncoderCloseInput(enc)
+        out, chunk = bytearray(), (C.c_uint8 * 65536)()
+        while True:
+            at, room = C.cast(chunk, C.POINTER(C.c_uint8)), C.c_size_t(len(chunk))
+            status = lib.JxlEncoderProcessOutput(enc, C.byref(at), C.byref(room))
+            out += bytes(chunk)[:len(chunk) - room.value]
+            if status != 2:                                  # JXL_ENC_NEED_MORE_OUTPUT
+                assert status == 0, status
+                return bytes(out)
+    finally:
+        lib.JxlEncoderDestroy(enc)
+
+
+class ExtraChannels(unittest.TestCase):
+    """A JPEG XL's extra channels (ML-29 D36): one beside the picture (depth, thermal, a selection mask, an optional
+    one) is skipped and the colour read; one the colour needs (black, a spot colour, CFA) refuses the photo, as does a
+    second alpha."""
+
+    def setUp(self):
+        self.rgb = np.asarray(patches(SRGB_PATCHES))
+        h, w = self.rgb.shape[:2]
+        self.plane = (np.arange(h * w) % 251).astype(np.uint8).reshape(h, w)
+        self.alpha = np.full((h, w), 255, np.uint8)
+        self.alpha[: h // 2] = 90
+
+    def test_a_channel_beside_the_picture_is_skipped(self):
+        alone = cn.canonicalize(jxl_with_extra_channels(self.rgb, []))
+        for kind in ("Depth", "Thermal", "SelectionMask", "Optional"):
+            with self.subTest(kind):
+                self.assertEqual(cn.canonicalize(jxl_with_extra_channels(self.rgb, [(kind, self.plane)])), alone)
+        both = jxl_with_extra_channels(self.rgb, [("Depth", self.plane), ("Thermal", self.plane)])
+        self.assertEqual(cn.canonicalize(both), alone)
+
+    def test_alpha_beside_a_skipped_channel_still_lays_the_photo_over_the_fill(self):
+        alone = cn.canonicalize(jxl_with_extra_channels(self.rgb, [("Alpha", self.alpha)]))
+        for extras in ([("Alpha", self.alpha), ("Depth", self.plane)], [("Depth", self.plane), ("Alpha", self.alpha)]):
+            with self.subTest([kind for kind, _ in extras]):
+                self.assertEqual(cn.canonicalize(jxl_with_extra_channels(self.rgb, extras)), alone)
+
+    def test_a_grey_photo_beside_a_skipped_channel_is_its_grey(self):
+        """imagecodecs gives a grey JPEG XL with a non-alpha extra channel and no alpha as planes (1 + n, h, w),
+        the grey first (2026-11-15, imagecodecs 2026.10.10)."""
+        grey = self.rgb[..., :1]
+        for extras, with_alpha in (([("Depth", self.plane)], []), ([("Depth", self.plane), ("Thermal", self.plane)], []),
+                                   ([("Depth", self.plane), ("Alpha", self.alpha)], [("Alpha", self.alpha)])):
+            with self.subTest([kind for kind, _ in extras]):
+                self.assertEqual(cn.canonicalize(jxl_with_extra_channels(grey, extras)),
+                                 cn.canonicalize(jxl_with_extra_channels(grey, with_alpha)))
+
+    def test_a_channel_the_colour_needs_is_refused_by_name(self):
+        for kind, word in (("Black", "black"), ("SpotColour", "spot colour"), ("CFA", "CFA")):
+            with self.subTest(kind), self.assertRaises(cn.Unreadable) as e:
+                cn.canonicalize(jxl_with_extra_channels(self.rgb, [("Depth", self.plane), (kind, self.plane)]))
+            self.assertIn(word, str(e.exception))
+
+    def test_a_second_alpha_is_refused(self):
+        with self.assertRaises(cn.Unreadable) as e:
+            cn.canonicalize(jxl_with_extra_channels(self.rgb, [("Alpha", self.alpha), ("Alpha", self.alpha)]))
+        self.assertIn("alpha", str(e.exception))
+
+
 def hdr_signal(lin: np.ndarray, curve: str) -> np.ndarray:
     """Linear Rec.2020 light, 1.0 reference white, as a PQ or HLG signal 0-1 by BT.2100 and BT.2408 (white at
     203 cd/m2; HLG through the inverse OOTF at 1000 cd/m2)."""

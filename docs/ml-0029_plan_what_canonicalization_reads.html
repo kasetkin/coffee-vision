@@ -454,6 +454,13 @@
       <code>tone_map.py</code> for its measurement script; the pin runs in <code>hdr_pin.py</code> on the files in
       <code>tmp/</code> (D29), not in the suite; a photo over 18 MP has its peak measured after the front's cap, as its
       colour is converted after it. The front's 12.7&ndash;13.9 s is within ML-19 D22's 40 s.</div>
+    <div><div class="when">2026-11-15</div>The ticket's D36, by the owner, added to P5: <code>_decode_jxl</code>
+      skips a JPEG XL's depth, thermal, selection-mask and optional channels and refuses black, spot colour, CFA,
+      reserved types and a second alpha, by name. libjxl returns only the colour and the first alpha, so a skipped
+      channel never arrives; a grey photo with one comes from <code>imagecodecs</code> as planes, the grey first.
+      Tests, test first, on files made through libjxl: each skipped channel gives the same canonical bytes as the
+      photo without it, with and without alpha, RGB and grey. No dataset photo has an extra channel. The store
+      re-run, stopped in its segcrop stages, restarts once on this code.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

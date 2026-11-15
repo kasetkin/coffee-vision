@@ -426,20 +426,40 @@ def _decode_avif(data: bytes) -> tuple[np.ndarray, float]:
     return rgb, float(2**depth - 1)
 
 
+# A JPEG XL's extra channels beside the picture, which do not change how it looks (ML-29 D36); libjxl leaves them out
+# of the colour it returns. Black (CMYK's K), a spot colour and CFA are part of the colour, and libjxl leaves them out
+# too, so a photo with one would read wrong: refused, as is any type the spec reserves or a reader must not ignore.
+SKIPPED_EXTRA_CHANNELS = frozenset({"Depth", "Thermal", "SelectionMask", "Optional"})
+REFUSED_EXTRA_CHANNELS = {"Black": "black (CMYK)", "SpotColour": "spot colour", "CFA": "CFA (raw sensor)"}
+
+
+def _skipped_extra_channels(types: list[str]) -> list[str]:
+    """The extra channels to skip, or Unreadable naming those the colour needs (D36)."""
+    if types.count("Alpha") > 1:
+        raise Unreadable("a JPEG XL with more than one alpha channel")
+    refused = [REFUSED_EXTRA_CHANNELS.get(t, t) for t in types if t != "Alpha" and t not in SKIPPED_EXTRA_CHANNELS]
+    if refused:
+        raise Unreadable(f"a JPEG XL whose colour needs its {', '.join(refused)} extra channel"
+                         f"{'s' if len(refused) > 1 else ''}")
+    return [t for t in types if t in SKIPPED_EXTRA_CHANNELS]
+
+
 def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Source:
     """A visitor's JPEG XL that is not canonical: its colour declared by its header's enumeration, any of them
     (ML-29 D5); an embedded ICC profile, which imagecodecs does not return, is refused (D22). Float samples are
-    converted unclipped and clipped after the conversion (D21). Animation and extra channels other than one alpha
-    channel are refused."""
+    converted unclipped and clipped after the conversion (D21). Animation is refused. Of the extra channels, one
+    alpha is laid over the fill; one beside the picture is skipped; one the colour needs, or a second alpha, refuses
+    the photo (D36, _skipped_extra_channels)."""
     header = read_header(data)
     _check_size(header.width, header.height, max_pixels)
-    if header.num_extra_channels > 1 or header.extra_channel_types not in ([], ["Alpha"]):
-        raise Unreadable("a JPEG XL with extra channels")
+    skipped = _skipped_extra_channels(header.extra_channel_types)
     if header.have_animation:
         raise Unreadable("an animated JPEG XL")
     with _refusal():
         declaration = cd.jxl_declaration(header.colour)
     rgb = ic.jpegxl_decode(data)                 # imagecodecs applies the file's orientation
+    if skipped and "Alpha" not in header.extra_channel_types and header.colour.colour_space == "Grey":
+        rgb = rgb[0]   # imagecodecs gives grey and its skipped channels as planes (1 + n, h, w); libjxl drops them for RGB
     if rgb.dtype == np.float32:
         white = 1.0
     else:
