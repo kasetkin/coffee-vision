@@ -194,7 +194,7 @@ class TestTwoReleases(unittest.TestCase):
                          {"coffeecv/__init__.py", "coffeecv/canonical.py", "coffeecv/colour_declaration.py",
                           "coffeecv/jxl_encode.py",
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
-                          "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py"})
+                          "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py", "coffeecv/tone_map.py"})
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):

@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D32 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D35 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -321,6 +321,24 @@
           refuses (before, one such channel was read as alpha)?</td>
         <td>(a) refused (b) read as before</td>
         <td>(a), 2026-11-15: "refuse animated image &mdash; okay".</td></tr>
+      <tr><td class="id">D33</td><td>The tone-mapping operator (D11; the plan's P4,
+          <code>analysis/ml29/research_tone_mapping.md</code>)?</td>
+        <td>(a) clip at white (b) BT.2408-8 Annex 5's EETF on max(R, G, B) (c) scale by the peak (d) libultrahdr's
+          Reinhard on max(R, G, B)</td>
+        <td>(b), 2026-11-15: "as recommended". Mastering peak the picture's own (the 99.99th percentile of max(R, G, B),
+          at least white), target white BT.2408's reference white: PQ's 203 cd/m&sup2;, HLG's 75% through the OOTF at
+          1000 cd/m&sup2;. The same for PQ, HLG, a float JPEG XL's values above white and an applied gain map.</td></tr>
+      <tr><td class="id">D34</td><td>The owner's darktable PQ and HLG exports, which no standard reading puts within
+          tolerance (darktable &le; 5.6.2 wrote PQ white at 10,000 cd/m&sup2; and HLG with a curve of its own, its bug
+          #20562)?</td>
+        <td>(a) read as the standard says; they are recorded as outside, and the files made here (D25) take their
+          place in D11's check (b) guess PQ's white from the pixels</td>
+        <td>(a), 2026-11-15: "as recommended". The owner will update darktable in one to two months and export again,
+          so the fixed curves are checked then.</td></tr>
+      <tr><td class="id">D35</td><td>The tolerance for HDR files (D27 left it to P4)?</td>
+        <td>Proposed: D27's bar for a PQ or HLG file holding a standard-range picture; for light above white, the
+          operator's behaviour in tests and a regression pin</td>
+        <td>As proposed, 2026-11-15: "as recommended".</td></tr>
     </tbody>
   </table></div>
 
@@ -394,6 +412,9 @@
     <div><div class="when">2026-11-15</div>Release A live (P3): <code>20261115T0847Z-2807d2a</code>. The darktable
       linear Rec2020 JPEG XL, AVIF and HEIC answer Brazil on the live site, as the sRGB export does; a PQ export is
       refused naming its curve.</div>
+    <div><div class="when">2026-11-15</div>The owner on P4's report, "as recommended": D33 (BT.2408's EETF), D34 (the
+      darktable PQ and HLG exports outside, the made files in their place; new exports from a fixed darktable in one
+      to two months), D35 (the HDR tolerance). P5 started.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

@@ -599,7 +599,7 @@ def srgb_back(data: bytes) -> np.ndarray:
     it canonicalizes."""
     assert cn.is_canonical(cn.canonicalize(data))
     src = cn.decode(data)
-    rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize)
+    rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize, peak=src.peak())
     return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
                             outdtype=np.uint8).astype(int)
 
@@ -789,15 +789,20 @@ class Declarations(unittest.TestCase):
         tagged = centres(srgb_back(png(p3, icc=DISPLAY_P3)), len(P3_PATCHES))
         self.assertLess(float(np.abs(coded - tagged).max()), 1.0)
 
-    def test_a_float_jpeg_xl_is_converted_and_clipped_after(self):   # D21
+    def test_a_float_jpeg_xl_is_converted_and_clipped_after(self):   # D21, D33
         a = patches(SRGB_PATCHES).astype(np.float32) / 255
-        a[:, :PATCH] = 1.25                              # above white: clipped to white for now (P5 tone-maps it)
+        a[:, :PATCH] = 1.25                              # above white: the picture's peak, tone-mapped to white
         a[:, PATCH:2 * PATCH] = -0.1                     # below black
         data = ic.jpegxl_encode(a, distance=0.1, primaries="SRGB", transfer="SRGB")   # libjxl writes no lossless float
         self.assertEqual(read_header(data).float_sample, True)
         back = centres(srgb_back(data), len(SRGB_PATCHES))
         want = np.array(SRGB_PATCHES, float)
-        self.assertLess(float(np.abs(back[2:] - want[2:]).max()), 1.5)
+        # 1.25 sRGB-coded is light 1.71: the peak 1.67 puts the knee at 0.78 of white, below the sRGB green and blue
+        # patches (0.92 and 0.90 in linear Rec.2020), which roll off a few levels; every other patch is below it
+        below = [2, 3, 4, 5, 8]
+        self.assertLess(float(np.abs(back[below] - want[below]).max()), 1.5)
+        for i in (6, 7):
+            self.assertTrue(np.all(back[i] <= want[i] + 0.5) and np.all(back[i] >= want[i] - 6), back[i])
         self.assertEqual(back[0].tolist(), [255, 255, 255])
         self.assertEqual(back[1].tolist(), [0, 0, 0])
 
@@ -823,18 +828,93 @@ class Declarations(unittest.TestCase):
         Image.fromarray(a).save(buf, "JPEG", quality=100, subsampling=0, exif=exif_with_interop("R03"))
         self.assertReadsAsTheSrgbPatches(buf.getvalue(), within=2.5)
 
-    def test_refusals_name_the_declaration(self):   # ADR 0040; PQ and HLG until P5
+    def test_refusals_name_the_declaration(self):   # ADR 0040
         from tests.test_colour_declaration import avif, jxl_header_bytes
-        a = patches(SRGB_PATCHES)
-        cases = {"PQ": ic.jpegxl_encode(a, level=95, primaries="BT2100", transfer="PQ"),
-                 "HLG": nclx_avif(a / 255, 9, 18, bits=10),
-                 "nclx 3/13": avif(3, 13),
+        cases = {"nclx 3/13": avif(3, 13),
                  "embedded ICC profile": jxl_header_bytes(want_icc=True)}
         for word, data in cases.items():
             with self.subTest(word), self.assertRaises(cn.Unreadable) as e:
                 cn.canonicalize(data)
             self.assertIn(word, str(e.exception))
 
+
+
+def hdr_signal(lin: np.ndarray, curve: str) -> np.ndarray:
+    """Linear Rec.2020 light, 1.0 reference white, as a PQ or HLG signal 0-1 by BT.2100 and BT.2408 (white at
+    203 cd/m2; HLG through the inverse OOTF at 1000 cd/m2)."""
+    from coffeecv import tone_map as tm
+    nits = np.asarray(lin, np.float64) * tm.REFERENCE_WHITE
+    return tm.pq_inverse_eotf(nits) if curve == "PQ" else tm.hlg_oetf(tm.hlg_inverse_ootf(nits))
+
+
+def hdr_file(lin: np.ndarray, curve: str, container: str) -> bytes:
+    """`lin` (linear Rec.2020, 1.0 white) as an HDR file: JPEG XL 16-bit lossless, AVIF 12-bit, HEIC 12-bit, PNG 16-bit
+    with cICP; Rec.2020 primaries."""
+    sig = hdr_signal(lin, curve)
+    code = {"PQ": 16, "HLG": 18}[curve]
+    if container == "avif":
+        return nclx_avif(sig, 9, code, bits=12)
+    if container == "heic":
+        import pillow_heif
+        q = np.round(sig * 4095).astype(np.uint16)
+        buf = io.BytesIO()
+        pillow_heif.encode("RGB;16", (q.shape[1], q.shape[0]), (q << 4).astype("<u2").tobytes(), buf, quality=100,
+                           bit_depth=12, color_primaries=9, transfer_characteristics=code, matrix_coefficients=0,
+                           full_range_flag=1, tile_size=0)
+        return buf.getvalue()
+    q = np.round(sig * 65535).astype(np.uint16)
+    if container == "jxl":
+        return ic.jpegxl_encode(q, lossless=True, primaries="BT2100", transfer=curve)
+    from tests.test_colour_declaration import png_chunk
+    data = ic.png_encode(q)
+    end = 8 + 12 + 13                                    # after IHDR
+    return data[:end] + png_chunk(b"cICP", bytes([9, code, 0, 1])) + data[end:]
+
+
+def bt709_decode(v: np.ndarray) -> np.ndarray:
+    return np.where(v < 0.081, v / 4.5, ((v + 0.099) / 1.099) ** (1 / 0.45))
+
+
+class Hdr(unittest.TestCase):
+    """ML-29 P5: PQ and HLG main images, in each container, through D33's operator into the standard-range canonical
+    photo; light at or below white read as it is (BT.2408's reference white), light above it rolled off."""
+    containers = ("jxl", "avif", "heic", "png")
+
+    def test_a_standard_range_picture_in_hdr_reads_as_itself(self):   # D35: nothing above white, D27's bar
+        lin = linear_rec2020(patches(SRGB_PATCHES))
+        for curve in ("PQ", "HLG"):
+            for container in self.containers:
+                with self.subTest(curve=curve, container=container):
+                    data = hdr_file(lin, curve, container)
+                    self.assertTrue(cn.decode(data).tone_map)
+                    back = centres(srgb_back(data), len(SRGB_PATCHES))
+                    self.assertLess(float(np.abs(back - np.array(SRGB_PATCHES)).max()), 2.5)
+
+    def test_light_above_white_is_rolled_off_and_keeps_its_hue(self):   # D33
+        lin = linear_rec2020(patches(SRGB_PATCHES[:5]))  # white, black, three greys
+        hi = np.zeros((PATCH, 2 * PATCH, 3))
+        hi[:, :PATCH] = 4.0                                   # a grey highlight, four times white
+        hi[:, PATCH:] = (4.0, 2.0, 1.0)                       # a coloured one
+        lin = np.concatenate([lin, hi], axis=1)
+        for curve in ("PQ", "HLG"):
+            for container in self.containers:
+                with self.subTest(curve=curve, container=container):
+                    src = cn.decode(hdr_file(lin, curve, container))
+                    rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize,
+                                        peak=src.peak())
+                    light = bt709_decode(centres(rec.astype(np.float64) / 65535, 7))
+                    want = np.asarray(linear_rec2020(np.array(SRGB_PATCHES[:5])))
+                    self.assertLess(float(np.abs(light[1:5] - want[1:5]).max()), 0.01)   # below the knee: as is
+                    self.assertGreater(light[5].min(), 0.97)                   # the peak to white
+                    self.assertLess(light[0].max(), light[5].min())            # white below the peak, as ordered
+                    self.assertGreater(light[0].min(), 0.4)
+                    ratios = light[6] / light[6].max()
+                    self.assertLess(float(np.abs(ratios - (1.0, 0.5, 0.25)).max()), 0.03)   # hue kept
+
+    def test_the_front_takes_the_float_path(self):   # D26
+        data = hdr_file(linear_rec2020(patches(SRGB_PATCHES)), "PQ", "avif")
+        front = cn.canonicalize_with(data, "x.avif", cn.FRONT_SETTINGS)
+        self.assertTrue(cn.is_canonical(front.canonical))
 
 class Avif(unittest.TestCase):
     """ML-29 D9: an AVIF decoded at its own depth by libavif (imagecodecs), turned and laid over the fill as Pillow's

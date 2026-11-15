@@ -217,3 +217,49 @@ settings and pixel ceiling; each 6984×4660 export area-averaged to 4741×3163 (
 The float path costs about 2.5 s at 15 MP and no memory. A float JPEG XL is decoded whole as float32 before the cap,
 12 bytes a pixel: 33 MP peaked at 612 MB, over the front's `MemoryMax` of 600M (swap allowed, ML-19 D38), and a
 60 MP one would need about twice that.
+
+## P5: HDR main images through the tone map (`hdr_pin.py`, `exports_tolerance.py`)
+
+D33's operator wired (2026-11-15): BT.2408-8 Annex 5's EETF on max(R, G, B) in linear Rec.2020, the picture's peak
+measured once (the 99.99th percentile of max(R, G, B), `tone_map.picture_peak`), BT.2408's reference white.
+
+**Production against P4's research** (`hdr_pin.py`, store settings, 32×32 block means of what the models read): the
+canonical photo against the research's own rendering of the chosen operator differs by a mean of 0.04–0.05 and at
+most 0.6 levels on every made HDR file: the two code paths' rounding. Against the research's reference (the 8-bit
+sRGB export at a quarter):
+
+| File (made here, D25) | Peak | Mean; worst |
+|---|---|---|
+| PQ P3 16-bit JPEG XL | 1.00 | 0.11; 0.8 |
+| PQ Rec2020 10-bit AVIF | 1.00 | 0.19; 1.2 |
+| PQ Rec2020 12-bit HEIC | 1.00 | 0.15; 1.1 |
+| HLG P3 16-bit JPEG XL | 1.00 | 0.11; 0.9 |
+| HLG Rec2020 10-bit AVIF | 1.00 | 0.11; 0.8 |
+| HLG Rec2020 12-bit HEIC | 1.00 | 0.10; 1.0 |
+| PQ Rec2020 with highlights to 812 cd/m² | 2.17 | 6.99; 39.9 (D35's pin, P4's 6.99; 39.8: held) |
+
+**Against the full-size sRGB export** (`exports_tolerance.py`, the reference area-averaged to each file's size), store
+and front settings alike: every made PQ and HLG file within D27 (mean 0.86–0.94, worst 5.3–5.8, as the made
+standard-range Rec709 file, 0.93–0.94; 5.5–5.6); the float sRGB JPEG XL 0.06–0.07; 0.9–1.0 and the linear Rec2020
+JPEG XL 0.15–0.27; 1.6–2.2, both still within. The owner's darktable PQ and HLG exports are outside, as D34 records:
+92.8; 172.8 and 60.7; 91.9 (store), darktable ≤ 5.6.2's own encoding.
+
+**The front's time and memory** (D26's method: one process per file, `taskset` to two CPUs, the front's settings), on
+15 MP files made from the darktable linear Rec2020 16-bit JPEG XL (4741×3163, white at 203 cd/m², a 300-row band at
+four times white):
+
+| File | Time | Peak RSS |
+|---|---|---|
+| PQ 16-bit JPEG XL | 13.3 s | 370 MB |
+| PQ 12-bit AVIF | 13.3 s | 372 MB |
+| PQ 12-bit HEIC | 13.9 s | 414 MB |
+| HLG 16-bit JPEG XL | 12.7 s | 370 MB |
+| HLG 12-bit AVIF | 12.7 s | 376 MB |
+| HLG 12-bit HEIC | 13.6 s | 398 MB |
+| linear Rec2020 16-bit JPEG XL (32 MP, capped to 15 MP), for comparison | 6.1 s | 350 MB |
+
+An HDR photo costs about 7 s more than a standard-range one on the float path, within the front's memory. Of the
+PQ JPEG XL's 13.4 s (profiled): the PQ curve, run twice in float64 (the peak's pass and the conversion's), 2.8 s;
+the peak pass's LittleCMS transform 1.8 s; the main pass's two transforms (to linear Rec.2020, then to the canonical
+profile) and the rest 4.5 s; the JPEG XL encode 2.4 s. A lookup table for the curve on integer samples would save
+most of the 2.8 s; not done.

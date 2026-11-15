@@ -18,9 +18,11 @@ those leave out. A file with a profile LittleCMS cannot use as RGB is read as sR
 The builder (D20): a declaration that is not an ICC profile becomes a linear RGB profile with its primaries and white
 point (LittleCMS), with its curve undone in numpy first, so one builder serves every curve. Two declarations keep the
 exact profile canonicalization used for them before this module, so those photos keep their bytes: sRGB (LittleCMS's
-own sRGB) and Rec.2020 with the BT.709 curve (the canonical photo's committed profile, ML-19 D46). PQ and HLG are
-recognised and marked HDR (Declaration.is_hdr); conversion() refuses them until a tone-mapping operator is chosen
-(the plan's P4, P5).
+own sRGB) and Rec.2020 with the BT.709 curve (the canonical photo's committed profile, ML-19 D46). PQ and HLG
+(Declaration.is_hdr), and a float JPEG XL's samples, may hold light above white: their conversion is marked to go
+through the tone map (SourceColour.tone_map; coffeecv/tone_map.py, D33), and their curves are undone to BT.2408's
+reference white as 1.0 (PQ's 203 cd/m2; HLG's 75% through BT.2100's OOTF at 1000 cd/m2, with the file's own
+luminance).
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ from pathlib import Path
 import imagecodecs as ic
 import numpy as np
 
+from coffeecv import tone_map as tm
 from coffeecv.jxl_header import ColourEncoding
 
 Primaries = tuple[float, float, float, float, float, float]   # red x, y; green x, y; blue x, y
@@ -333,35 +336,52 @@ class SourceColour:
     """What converting a source takes: `linearize`, if not None, undoes the curve in place on float32 samples scaled so
     1.0 is white; then `profile` (None: LittleCMS's own sRGB) is the source's ICC profile. Every profile the builder
     makes comes with a `linearize` (a no-op for a linear curve), so `linearize is None` means one of the profiles
-    canonicalization used before ML-29: the front's integer path is for those alone (D26)."""
+    canonicalization used before ML-29: the front's integer path is for those alone (D26). `tone_map`: light may lie
+    above white, so the conversion goes through D33's operator in linear Rec.2020 (canonical.to_rec2020)."""
     profile: bytes | None
     linearize: Callable[[np.ndarray], None] | None = None
+    tone_map: bool = False
 
 
-def conversion(d: Declaration) -> SourceColour:
-    """D20: a declaration's source profile, and the curve undone first. Refused for PQ and HLG, whose rendering into
-    the standard range waits for the tone-mapping operator (P4, P5)."""
+def conversion(d: Declaration, float_samples: bool = False) -> SourceColour:
+    """D20: a declaration's source profile, and the curve undone first. PQ and HLG, and `float_samples` (a float
+    JPEG XL's, D21) under any curve, are tone-mapped (D33), always with a built profile; a float source without a
+    declaration or with an ICC profile cannot occur (a JPEG XL header always declares; D22 refuses its ICC) and
+    converts as any other."""
     if d.kind == "none":
         return SourceColour(None)
     if d.kind == "icc":
         return SourceColour(d.icc)
-    if d.is_hdr:
-        raise Refused(f"an HDR photo ({d.curve}, {d.source}), which canonicalization does not read yet: export it "
-                      "in a standard-range colour space such as sRGB or Display P3")
     if d.curve not in CURVES:
         raise ValueError(f"no curve {d.curve!r}")
-    if d.white == D65 and d.primaries == SRGB_PRIMARIES and d.curve == "sRGB":
+    tone_map = d.is_hdr or float_samples
+    if not tone_map and d.white == D65 and d.primaries == SRGB_PRIMARIES and d.curve == "sRGB":
         return SourceColour(None)                       # exactly what an untagged photo is read as
-    if d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
+    if not tone_map and d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
         return SourceColour(REC2020_PROFILE)            # the canonical photo's own: a canonical JPEG XL's
-    undo = _power(d.gamma) if d.curve == "gamma" else CURVE_DECODERS[d.curve]
-    return SourceColour(linear_profile(d.primaries, d.white), undo)
+    if d.curve == "gamma":
+        undo = _power(d.gamma)
+    elif d.curve == "HLG":
+        undo = _hlg(luminance_weights(d.primaries, d.white))
+    else:
+        undo = CURVE_DECODERS[d.curve]
+    return SourceColour(linear_profile(d.primaries, d.white), undo, tone_map)
 
 
 @lru_cache(maxsize=32)
 def linear_profile(primaries: Primaries, white: XY) -> bytes:
     """A linear-light RGB ICC profile with these primaries and white point (LittleCMS adapts it to D50, Bradford)."""
     return ic.cms_profile("rgb", whitepoint=white, primaries=primaries, gamma=1.0)
+
+
+def luminance_weights(primaries: Primaries, white: XY) -> tuple[float, float, float]:
+    """Y of R, G and B at full scale, white's Y being 1 (SMPTE RP 177): HLG's OOTF takes the file's own (BT.2100
+    Table 5 gives BT.2020's, 0.2627, 0.6780, 0.0593)."""
+    def xyz(x: float, y: float) -> np.ndarray:
+        return np.array([x / y, 1.0, (1 - x - y) / y])
+    m = np.array([xyz(*primaries[i:i + 2]) for i in (0, 2, 4)]).T
+    w = np.linalg.solve(m, xyz(*white))               # each primary's share; its row of Y is the share itself
+    return float(w[0]), float(w[1]), float(w[2])
 
 
 # Curves undone (encoded -> linear, 1.0 white), in place on float32. Values below 0 or above 1 keep their sign and
@@ -407,6 +427,16 @@ def _linear(a: np.ndarray) -> None:
     """Nothing to undo; still a curve, so the source takes the float path (D26)."""
 
 
+def _pq(a: np.ndarray) -> None:              # BT.2100 Table 4; 203 cd/m2 (BT.2408) is 1.0, PQ's top 49.3
+    a[...] = tm.pq_to_relative(a.astype(np.float64))
+
+
+def _hlg(weights: tuple[float, float, float]) -> Callable[[np.ndarray], None]:
+    def undo(a: np.ndarray) -> None:         # BT.2100 Table 5: the OOTF at 1000 cd/m2, 75% HLG (203 cd/m2) is 1.0
+        a[...] = tm.hlg_to_relative(a, weights=weights)
+    return undo
+
+
 def _power(gamma: float) -> Callable[[np.ndarray], None]:
     def undo(a: np.ndarray) -> None:
         s = np.sign(a)
@@ -417,8 +447,8 @@ def _power(gamma: float) -> Callable[[np.ndarray], None]:
 
 
 CURVE_DECODERS: dict[str, Callable[[np.ndarray], None]] = {"sRGB": _srgb, "BT709": _bt709, "linear": _linear,
-                                                           "SMPTE240M": _smpte240m, "DCI": _dci}
+                                                           "SMPTE240M": _smpte240m, "DCI": _dci, "PQ": _pq}
 
 __all__ = ["Declaration", "NONE", "Refused", "SourceColour", "bmp_profile", "conversion", "declare",
-           "jxl_declaration", "linear_profile", "primary_bit_depth", "primary_colr",
+           "jxl_declaration", "linear_profile", "luminance_weights", "primary_bit_depth", "primary_colr",
            "primary_properties", "usable_profile"]

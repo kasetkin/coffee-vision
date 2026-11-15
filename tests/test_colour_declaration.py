@@ -426,11 +426,43 @@ class Builder(unittest.TestCase):
         bt709 = np.where(rec < 0.018, 4.5 * rec, 1.099 * rec ** 0.45 - 0.099)
         self.assertLess(float(np.abs(np.clip(out, 0, 1) - bt709).max()), 20 / 65535)   # 16 measured: two matrices
 
-    def test_hdr_is_refused_until_the_operator_is_chosen(self):   # P2; P5 lifts it
+    def test_hdr_is_converted_and_tone_mapped(self):   # P5, D33
         for t in ("PQ", "HLG"):
-            with self.subTest(t=t), self.assertRaises(cd.Refused) as e:
-                cd.conversion(cd.declare(ic.jpegxl_encode(PIXELS, level=90, primaries="BT2100", transfer=t), "jxl"))
-            self.assertIn(t, str(e.exception))
+            with self.subTest(t=t):
+                sc = cd.conversion(cd.declare(ic.jpegxl_encode(PIXELS, level=90, primaries="BT2100", transfer=t),
+                                              "jxl"))
+                self.assertTrue(sc.tone_map)
+                self.assertEqual(sc.profile, cd.linear_profile(cd.REC2020_PRIMARIES, cd.D65))
+
+    def test_reference_white_is_one(self):   # BT.2408: PQ's 203 cd/m2, HLG's 75% through the OOTF at 1000 cd/m2
+        from coffeecv import tone_map as tm
+        # 75% HLG is 203.15 cd/m2 through the OOTF (0.26496 ** 1.2 x 1000): BT.2408's 203 is that, rounded
+        for curve, white, within in (("PQ", float(tm.pq_inverse_eotf(203.0)), 1e-5), ("HLG", 0.75, 1e-3)):
+            for primaries in (cd.REC2020_PRIMARIES, cd.P3_PRIMARIES):
+                with self.subTest(curve=curve, primaries=primaries):
+                    d = cd.Declaration("coded", "t", primaries=primaries, white=cd.D65, curve=curve)
+                    f = np.full((1, 2, 3), white, np.float32)
+                    f[0, 1] = 0.0
+                    cd.conversion(d).linearize(f)
+                    self.assertLess(float(np.abs(f[0, 0] - 1.0).max()), within)
+                    self.assertEqual(f[0, 1].tolist(), [0.0, 0.0, 0.0])
+
+    def test_hlgs_ootf_takes_the_files_own_luminance(self):   # BT.2100 Table 5's Y_S, from the declared primaries
+        rgb = np.array([[[0.75, 0.2, 0.2]]], np.float32)
+        out = {}
+        for name, primaries in (("2020", cd.REC2020_PRIMARIES), ("P3", cd.P3_PRIMARIES)):
+            f = rgb.copy()
+            cd.conversion(cd.Declaration("coded", "t", primaries=primaries, white=cd.D65, curve="HLG")).linearize(f)
+            out[name] = f
+        self.assertGreater(float(np.abs(out["2020"] - out["P3"]).max()), 1e-3)
+
+    def test_float_samples_take_the_built_profile_and_the_tone_map(self):   # D21, D33
+        srgb = cd.Declaration("enumeration", "t", primaries=cd.SRGB_PRIMARIES, white=cd.D65, curve="sRGB")
+        self.assertEqual(cd.conversion(srgb), cd.SourceColour(None))
+        sc = cd.conversion(srgb, float_samples=True)
+        self.assertTrue(sc.tone_map)
+        self.assertEqual(sc.profile, cd.linear_profile(cd.SRGB_PRIMARIES, cd.D65))
+        self.assertFalse(cd.conversion(cd.NONE, float_samples=True).tone_map)
 
 
 class Curves(unittest.TestCase):

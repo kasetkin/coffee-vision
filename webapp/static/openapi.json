@@ -28,7 +28,7 @@
                   "photo": {
                     "type": "string",
                     "contentMediaType": "application/octet-stream",
-                    "description": "The image file, at most 40 MB and 60 megapixels (camera RAW: 16 megapixels): JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. An animated GIF is read as its first frame. Colour is read from the file's ICC profile (a PNG's cICP colour tag comes first), else its colour tag (HEIC/HEIF and AVIF nclx) or JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR photo (PQ or HLG) and a JPEG XL with an embedded ICC profile are refused. Best: a handful of whole beans filling most of the frame."
+                    "description": "The image file, at most 40 MB and 60 megapixels (camera RAW: 16 megapixels): JPEG, PNG, WebP, HEIC/HEIF, AVIF, JPEG XL, GIF, BMP or camera RAW (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2, PEF, SRW). A RAW file needs its usual extension in the filename. An animated GIF is read as its first frame. Colour is read from the file's ICC profile (a PNG's cICP colour tag comes first), else its colour tag (HEIC/HEIF and AVIF nclx) or JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR photo (PQ or HLG) is tone-mapped into standard range; a JPEG XL with an embedded ICC profile is refused. Best: a handful of whole beans filling most of the frame."
                   },
                   "skip_crop": {
                     "type": "string",

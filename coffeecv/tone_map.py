@@ -1,9 +1,12 @@
-"""Tone mapping: an HDR main image's light into the canonical photo's standard range (ticket ML-29, P4; D2, D11, D21).
-A prototype for the owner's pick: nothing imports it, no DVC stage depends on it, and P5 wires the operator chosen.
+"""Tone mapping: an HDR main image's light into the canonical photo's standard range (ticket ML-29; D2, D11, D21).
+The owner chose eetf_bt2408 (D33, from P4's research); canonicalization runs it as eetf_in_place, with the peak from
+picture_peak (P5). The other candidates stay for analysis/ml29/tone_map_measure.py, the research's record.
 
     pq_to_relative(signal, white)          -> linear light, 1.0 = reference white
     hlg_to_relative(signal, ootf, ...)     -> the same for HLG
     clip_at_white / eetf_bt2408 / scale_by_peak / reinhard_max_rgb (x, peak) -> linear light in [0, 1]
+    picture_peak(maxima)                   -> D33's peak: the 99.99th percentile of max(R, G, B)
+    eetf_in_place(c, peak)                 -> eetf_bt2408 on float32 strips, in place
 
 The curves are written from ITU-R BT.2100-3 (02/2025): PQ from Table 4, HLG from Table 5 and its notes 5f and 5i; no
 library. Every operator is a pure function on linear Rec.2020 light, shape (..., 3), 1.0 the reference white
@@ -166,6 +169,11 @@ def eetf_bt2408(x: np.ndarray, peak: float, white: float = REFERENCE_WHITE) -> n
     With the peak at or below white it is clip_at_white."""
     if peak <= 1:
         return clip_at_white(x)
+    return _by_max_rgb(x, _eetf_curve(peak, white))
+
+
+def _eetf_curve(peak: float, white: float = REFERENCE_WHITE):
+    """eetf_bt2408's curve on relative light, peak above white."""
     lb = pq_inverse_eotf(0.0)
     span = pq_inverse_eotf(peak * white) - lb
     max_lum = (pq_inverse_eotf(white) - lb) / span
@@ -181,7 +189,34 @@ def eetf_bt2408(x: np.ndarray, peak: float, white: float = REFERENCE_WHITE) -> n
         e3 = e2 + min_lum * (1 - e2) ** 4
         return pq_eotf(e3 * span + lb) / white                                         # step 5
 
-    return _by_max_rgb(x, curve)
+    return curve
+
+
+PEAK_PERCENTILE = 99.99                 # D33: a few bright pixels (a specular glint) do not set the peak
+MAX_PEAK = PQ_PEAK / REFERENCE_WHITE    # 49.3: the EETF works in PQ, whose top is 10,000 cd/m2
+
+
+def picture_peak(maxima: np.ndarray) -> float:
+    """D33's mastering peak, relative to white: the PEAK_PERCENTILE of a picture's max(R, G, B) in linear Rec.2020,
+    at least white and at most MAX_PEAK (a float JPEG XL may hold any value). NaN counts as black. `maxima` (float32,
+    one per pixel) is overwritten."""
+    np.nan_to_num(maxima, copy=False, nan=0.0, posinf=MAX_PEAK, neginf=0.0)
+    return float(min(max(np.percentile(maxima, PEAK_PERCENTILE, overwrite_input=True), 1.0), MAX_PEAK))
+
+
+def eetf_in_place(c: np.ndarray, peak: float) -> None:
+    """eetf_bt2408 as canonicalization runs it, in place on float32 linear Rec.2020 (..., 3): a pixel whose
+    max(R, G, B) lies above the knee has R, G and B scaled alike by the curve; every other pixel, NaN and the rest
+    of the picture with a peak at or below white keep their bits. Negative light is scaled with its pixel and left,
+    as values above white were, to the clip after the conversion."""
+    if peak <= 1:
+        return
+    m = c.max(axis=-1)
+    above = m > eetf_knee(peak)                          # NaN compares False
+    if not above.any():
+        return
+    top = m[above].astype(np.float64)
+    c[above] *= (_eetf_curve(peak)(np.minimum(top, peak)) / top).astype(np.float32)[:, None]
 
 
 def scale_by_peak(x: np.ndarray, peak: float) -> np.ndarray:
@@ -199,7 +234,7 @@ def reinhard_max_rgb(x: np.ndarray, peak: float) -> np.ndarray:
 
 OPERATORS = {"clip": clip_at_white, "eetf": eetf_bt2408, "scale": scale_by_peak, "reinhard": reinhard_max_rgb}
 
-__all__ = ["BT2100_LUMINANCE", "HLG_NOMINAL_PEAK", "HLG_REFERENCE_SIGNAL", "OPERATORS", "PQ_PEAK", "REFERENCE_WHITE",
-           "clip_at_white", "eetf_bt2408", "eetf_knee", "hlg_eotf", "hlg_inverse_oetf", "hlg_inverse_ootf",
+__all__ = ["BT2100_LUMINANCE", "HLG_NOMINAL_PEAK", "HLG_REFERENCE_SIGNAL", "MAX_PEAK", "OPERATORS", "PEAK_PERCENTILE",
+           "PQ_PEAK", "REFERENCE_WHITE", "clip_at_white", "eetf_bt2408", "eetf_in_place", "eetf_knee", "hlg_eotf", "hlg_inverse_oetf", "hlg_inverse_ootf",
            "hlg_oetf", "hlg_ootf", "hlg_peak", "hlg_system_gamma", "hlg_to_relative", "measured_pq_white",
-           "pq_eotf", "pq_inverse_eotf", "pq_to_relative", "reinhard_max_rgb", "scale_by_peak"]
+           "picture_peak", "pq_eotf", "pq_inverse_eotf", "pq_to_relative", "reinhard_max_rgb", "scale_by_peak"]

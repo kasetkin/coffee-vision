@@ -51,6 +51,7 @@ import numpy as np
 from PIL import Image
 
 from coffeecv import colour_declaration as cd
+from coffeecv import tone_map as tm
 from coffeecv.jxl_encode import encode_rec2020
 from coffeecv.jxl_header import Header, HeaderError, read_header
 
@@ -227,7 +228,8 @@ def recognise(head: bytes, name: str = "") -> str | None:
 # What the public texts say is read (llms.txt, openapi.json; ML-29 P2), held to them by tests/test_accepted_formats_named.py
 COLOUR_TEXT = ("Colour is read from the file's ICC profile (a PNG's cICP colour tag comes first), else its colour tag "
                "(HEIC/HEIF and AVIF nclx) or JPEG XL header, else a JPEG's Adobe RGB EXIF tag, else as sRGB; an HDR "
-               "photo (PQ or HLG) and a JPEG XL with an embedded ICC profile are refused.")
+               "photo (PQ or HLG) is tone-mapped into standard range; a JPEG XL with an embedded ICC profile is "
+               "refused.")
 
 
 class Unreadable(OSError):
@@ -249,20 +251,28 @@ class NotCanonical(ValueError):
 class Source:
     """An original's main image as decoded: `pixels` (H x W x C, C 1-4, or H x W; uint8, uint16 or a JPEG XL's float32;
     maybe a turned view), the sample value that means 1.0, the profile it is converted from (None: sRGB), the curve
-    undone before it (`linearize`, for a profile built from its declaration: colour_declaration.SourceColour), and its
-    decoder's name."""
+    undone before it (`linearize`, for a profile built from its declaration: colour_declaration.SourceColour), whether
+    light above white is tone-mapped (`tone_map`, ML-29 D33), and its decoder's name."""
 
     def __init__(self, pixels: np.ndarray, full: float, profile: bytes | None, decoder: str,
-                 linearize: Callable[[np.ndarray], None] | None = None):
+                 linearize: Callable[[np.ndarray], None] | None = None, tone_map: bool = False):
         self.pixels, self.full, self.profile, self.decoder = pixels, full, profile, decoder
-        self.linearize = linearize
+        self.linearize, self.tone_map = linearize, tone_map
+        self._peak: float | None = None
 
     @classmethod
     def declared(cls, pixels: np.ndarray, full: float, declaration: cd.Declaration, decoder: str) -> Source:
         """A source converted as its colour declaration says (ADR 0040); Unreadable if it cannot be."""
         with _refusal():
-            colour = cd.conversion(declaration)
-        return cls(pixels, full, colour.profile, decoder, colour.linearize)
+            colour = cd.conversion(declaration, float_samples=pixels.dtype.kind == "f")
+        return cls(pixels, full, colour.profile, decoder, colour.linearize, colour.tone_map)
+
+    def peak(self) -> float | None:
+        """D33's mastering peak of the whole picture, relative to white, for a tone-mapped source (measured once:
+        libjxl asks for the picture in rectangles, and every one must take the same curve); None for any other."""
+        if self.tone_map and self._peak is None:
+            self._peak = measure_peak(self.pixels, self.full, self.profile, self.linearize)
+        return self._peak
 
 
 @contextmanager
@@ -444,11 +454,13 @@ def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Sour
 
 def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: int = STRIP_ROWS,
                settings: Settings = STORE_SETTINGS, linearize: Callable[[np.ndarray], None] | None = None,
-               ) -> np.ndarray:
+               peak: float | None = None) -> np.ndarray:
     """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): `linearize` (the curve
     of a declaration whose profile is built, ML-29 D20) undone in place, then LittleCMS on float32, clipped to [0, 1]
-    after the conversion, rounded; transparent pixels over the fill (D13). `pixels` may be a turned view, grey (2-D, or
-    1-2 channels) or RGB(A), integer or float; each strip is copied out of it once and every later step works in place.
+    after the conversion, rounded; transparent pixels over the fill (D13). With a `peak` (Source.peak, the whole
+    picture's: ML-29 D33), LittleCMS goes to linear Rec.2020 first, the tone map rolls light above white off there,
+    and a second transform takes it to the canonical profile. `pixels` may be a turned view, grey (2-D, or 1-2
+    channels) or RGB(A), integer or float; each strip is copied out of it once and every later step works in place.
     With settings.colour "integer" (the front's, OPS-22 D4), an integer source without transparency and without a
     built profile goes the integer path instead (_to_rec2020_integer); any other stays on this one (D4, ML-29 D26)."""
     h, w = pixels.shape[:2]
@@ -464,15 +476,13 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
         fill = ic.cms_transform(np.array([[FILL_SRGB]], np.float32) / 255, SRGB, REC2020, intent=RELATIVE,
                                 outdtype=np.float32)[0, 0]
     for y in range(0, h, strip):
-        part = pixels[y:y + strip]
-        if part.ndim == 2:
-            part = part[..., None]
-        f = np.empty(part.shape[:2] + (3,), np.float32)
-        f[...] = part[..., :colour]
-        f /= full
-        if linearize is not None:
-            linearize(f)
-        c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
+        part, f = _light(pixels[y:y + strip], full, linearize, colour)
+        if peak is None:
+            c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
+        else:
+            c = ic.cms_transform(f, source_profile, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
+            tm.eetf_in_place(c, peak)
+            c = ic.cms_transform(c, LINEAR_REC2020, REC2020, intent=RELATIVE, outdtype=np.float32)
         if part.dtype.kind == "f":               # a float JPEG XL's NaN, which no clip removes, is black
             np.nan_to_num(c, copy=False, nan=0.0)
         np.clip(c, 0, 1, out=c)
@@ -487,6 +497,33 @@ def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: in
         np.rint(c, out=c)
         out[y:y + strip] = c
     return out
+
+
+def _light(part: np.ndarray, full: float, linearize: Callable[[np.ndarray], None] | None,
+           colour: int) -> tuple[np.ndarray, np.ndarray]:
+    """A strip of source pixels (as 3-D) and its colour as float32, 1.0 white, its curve undone if `linearize`."""
+    if part.ndim == 2:
+        part = part[..., None]
+    f = np.empty(part.shape[:2] + (3,), np.float32)
+    f[...] = part[..., :colour]
+    f /= full
+    if linearize is not None:
+        linearize(f)
+    return part, f
+
+
+def measure_peak(pixels: np.ndarray, full: float, profile: bytes | None,
+                 linearize: Callable[[np.ndarray], None] | None, strip: int = STRIP_ROWS) -> float:
+    """ML-29 D33: the picture's mastering peak, relative to white, as tone_map.picture_peak takes it, from max(R, G, B)
+    of its light in linear Rec.2020 (the space the tone map works in); strip by strip, one float32 per pixel kept."""
+    h, w = pixels.shape[:2]
+    colour = 1 if pixels.ndim == 2 or pixels.shape[2] <= 2 else 3
+    maxima = np.empty(h * w, np.float32)
+    for y in range(0, h, strip):
+        _, f = _light(pixels[y:y + strip], full, linearize, colour)
+        c = ic.cms_transform(f, profile or SRGB, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
+        maxima[y * w:y * w + c.shape[0] * w] = c.max(axis=-1).ravel()
+    return tm.picture_peak(maxima)
 
 
 def _to_rec2020_integer(pixels: np.ndarray, full: float, profile: bytes | None) -> np.ndarray:
@@ -510,7 +547,7 @@ def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: i
     h, w = source.pixels.shape[:2]
     return encode_rec2020(h, w, lambda y, x, ys, xs: to_rec2020(source.pixels[y:y + ys, x:x + xs], source.full,
                                                                 source.profile, settings=settings,
-                                                                linearize=source.linearize),
+                                                                linearize=source.linearize, peak=source.peak()),
                           level=settings.quality, effort=settings.effort, numthreads=numthreads)
 
 

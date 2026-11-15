@@ -199,7 +199,7 @@
 
   <h2>6. P4 &mdash; tone-mapping research; the owner picks the operator <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the report written; the owner's pick open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-15: <code>9793ee5</code>; the owner's pick D33&ndash;D35</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1 <span class="tag">Q4 answered; can run beside P2 and P3</span></span></div>
   </div>
   <p>D11 as a measurement, with the data in hand (D25). The result is a research note,
@@ -228,7 +228,7 @@
 
   <h2>7. P5 &mdash; HDR main images wired</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: code, tests, texts and measurements done; the store re-run to come</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
@@ -430,6 +430,21 @@
       of tolerance (darktable &le; 5.6.2's own bug, #20562), the files made here taking their place; D27's bar for HDR
       files with nothing above white. The agent stopped before its hand-back; its files were checked here (ruff, its 21
       tests). The owner's pick is open: P5 and P7 wait on it.</div>
+    <div><div class="when">2026-11-15</div>P4 done: the owner chose as recommended, D33 to D35 (the ticket). The
+      owner will export again from a fixed darktable in one to two months.</div>
+    <div><div class="when">2026-11-15</div>P5's code: PQ and HLG, in JPEG XL, AVIF, HEIC and PNG, and a float JPEG XL,
+      go through D33's operator; P2's refusal removed. <code>conversion</code> marks them (<code>tone_map</code>),
+      with a built profile always; <code>Source.peak</code> measures the whole picture's peak once (libjxl asks for
+      rectangles, and every one must take the same curve); <code>to_rec2020</code> goes to linear Rec.2020, runs
+      <code>tone_map.eetf_in_place</code> (pixels below the knee keep their bits) and then to the canonical profile.
+      HLG's OOTF takes the file's own luminance weights. Tests first: each curve in each container, light above white
+      rolled off with its hue kept, the front's float path. Measured (<code>analysis/ml29/README.md</code>, "P5"):
+      production within 0.6 level of the research's rendering on every made file; D35's pin held (6.99; 39.9); every
+      made HDR file within D27 at store and front settings; the owner's two outside, as D34 records. The front: a
+      15 MP PQ or HLG photo 12.7&ndash;13.9 s and at most 414 MB on two CPUs, about 7 s over a standard-range one;
+      a lookup table for the curve would save about 2.5 s of it, not done. One departure: a float JPEG XL now takes
+      the tone map's path, so its light above white is rolled off (D21, D33) and a saturated colour near white beside
+      it rolls a few levels too, where P2 clipped.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

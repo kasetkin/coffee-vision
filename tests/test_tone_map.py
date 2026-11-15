@@ -145,3 +145,52 @@ class Operators(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InPlace(unittest.TestCase):
+    """ML-29 P5 (D33): the chosen operator as canonicalization runs it, in place on float32 linear Rec.2020 strips."""
+
+    def test_the_same_as_the_prototype_on_light_at_or_above_zero(self):
+        for peak in (1.5, 4.93, 20.0, 49.0):
+            with self.subTest(peak=peak):
+                x = np.concatenate([RAMP, COLOURS]).astype(np.float32)
+                want = tm.eetf_bt2408(x, peak)
+                tm.eetf_in_place(x, peak)
+                self.assertLess(float(np.abs(x - want).max()), 1e-5)
+
+    def test_below_the_knee_untouched_to_the_bit(self):
+        x = (np.random.default_rng(0).random((1000, 3)) * 0.48).astype(np.float32)   # below a peak of 4's knee, 0.485
+        before = x.copy()
+        tm.eetf_in_place(x, 4.0)
+        self.assertEqual(x.tobytes(), before.tobytes())
+
+    def test_a_peak_at_or_below_white_changes_nothing(self):
+        x = np.concatenate([RAMP, COLOURS]).astype(np.float32)
+        before = x.copy()
+        tm.eetf_in_place(x, 1.0)
+        self.assertEqual(x.tobytes(), before.tobytes())
+
+    def test_nan_and_negative_light_kept_for_the_clip_after(self):
+        x = np.array([[np.nan, 0.5, 0.5], [-0.1, 3.0, 0.2]], np.float32)
+        tm.eetf_in_place(x, 4.0)
+        self.assertTrue(np.isnan(x[0, 0]))
+        self.assertLess(float(x[1, 0]), 0)                   # scaled with its pixel, clipped after the conversion
+        self.assertLessEqual(float(x[1, 1]), 1.0)
+
+
+class PicturePeak(unittest.TestCase):
+    def test_the_9999th_percentile_of_max_rgb(self):
+        m = np.ones(100_000, np.float32)
+        m[:5] = 30.0                                         # 0.005% of the picture: above the percentile
+        self.assertAlmostEqual(tm.picture_peak(m.copy()), 1.0)
+        m[:50] = 30.0                                        # 0.05%: the percentile is theirs
+        self.assertAlmostEqual(tm.picture_peak(m.copy()), 30.0)
+
+    def test_at_least_white_and_at_most_pqs_top(self):
+        self.assertEqual(tm.picture_peak(np.full(10, 0.3, np.float32)), 1.0)
+        self.assertEqual(tm.picture_peak(np.full(10, 1e6, np.float32)), tm.PQ_PEAK / tm.REFERENCE_WHITE)
+
+    def test_nan_and_infinity_do_not_make_the_peak(self):
+        m = np.full(100_000, 2.0, np.float32)
+        m[0], m[1] = np.nan, np.inf
+        self.assertAlmostEqual(tm.picture_peak(m), 2.0, places=5)
