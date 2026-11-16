@@ -228,7 +228,7 @@
 
   <h2>7. P5 &mdash; HDR main images wired</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: code, tests, texts and measurements done; the store re-run to come</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-16: the store re-run on <code>c6d046f</code>, 39 of 42 stages, every output byte-identical; the three that read <code>random_date_raccoon</code> wait for its 20 new photos (ML-31)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
@@ -472,6 +472,14 @@
       libultrahdr within 0.006 to 0.014 stops on 60 Ultra HDR JPEGs, unbiased and unclipped; the public samples
       read, the map down included. Left: the setting in <code>canonical.py</code> and its check that the store's bytes
       do not move, after the store's stages settle (ML-31's new photos).</div>
+    <div><div class="when">2026-11-16</div>P5's store re-run, on <code>c6d046f</code> (P5 and D36): 39 of the 42
+      stages, every output byte-identical to <code>dvc.lock</code> at <code>88f9eab</code>, only their deps moved.
+      The owner had added 20 photos to <code>random_date_raccoon</code> (15 JPEGs, 5 DNGs from one phone) before the
+      run; LibRaw cannot open the DNGs (DNG 1.7, JPEG XL-compressed LinearRaw), so its canonicalize stage would fail,
+      and was stopped. <code>canonicalize@random_date_raccoon</code>, <code>segcrop@random_date_raccoon</code> and
+      <code>seg_ml19_predict</code> (all of <code>data/canonical</code>) wait for the photos' intake, ML-31.
+      <code>scripts/check.sh --full</code>: 1,204 tests, 22 failing, all on those photos (not yet in the segmenter
+      dataset or the folder's <code>.dvc</code>) and the three stages' lock entries; none on code.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
