@@ -320,3 +320,32 @@ again; it stays the check. libavif's gain-map API is not exposed by imagecodecs.
 The two AVIFs carry the same map (to one level), but the PQ one is not that map applied: its light reaches 3.73, the
 map's headroom is 1.3 stops (2.46). They are renditions made apart, which is what the 0.09 to 0.10 stops are, and
 the same up and down; the median ratio up is 1.002. The JPEG, which libultrahdr refuses, reads as its AVIF does.
+
+## P8: the scratch store and the pixel report (`p8_scratch.py`)
+
+    python analysis/ml29/p8_scratch.py canonicalize [--jobs 2] [--limit N]   # resumable
+    python analysis/ml29/p8_scratch.py report [--jobs 2]
+    python analysis/ml29/p8_scratch.py page [--per-camera 4] [--largest 12]
+    python analysis/ml29/p8_scratch.py check [--per-camera 2]
+
+D12's step 1. Every gain-map photo the scan finds under a folder the store canonicalizes, through
+`coffeecv.canonical` with the store's settings and `Settings.gain_maps` on, into `outputs/ml29_p8/canonical/`
+(gitignored; outside `data/canonical` and DVC). `report` reads each against today's canonical photo as the models
+read them (`load_canonical`, 8-bit sRGB) and gives the change in levels over the photo, in the bean region (the test
+split's masks, `data/seg_masks_ml19/xl0_v7r_s123`) and outside it, per camera; `page` makes the owner's side-by-side
+page (`outputs/ml29_p8/review/index.html`), full-resolution crops around the bean region; `check` runs the plan's two
+checks. Tests: `tests/test_ml29_p8.py`.
+
+The photos, from a fresh scan (2026-11-16, `tmp/ml29_p8/scan/files.csv`; the plan's 1,731 was 2026-11-14's): 1,741
+with a gain map (ML-31 added 10), 1,687 under the store's folders, 54 elsewhere (`classes_labels_only` 40,
+`2026-08-06__box_pictures` 10, `example_photos` 4), which have no canonical photo to compare with. 155 are over
+20 MP, 8 over 60 MP (Fold8 Ultra, 84 and 200 MP, capped to 50 MP by the store's settings).
+
+The toy run (2026-11-16, 7 photos, one per map form and with and without a mask, through the commands that will run):
+about 22 s a 12 MP photo on one job beside the store re-run, three times today's canonicalization: the libjxl encode,
+LittleCMS's float transforms, the tone map's peak and the map applied, all the store's own code, so not made faster
+here. 1,687 photos: about 5 hours at 2 jobs, about 2 at 4 with the machine to itself; a 50 MP photo takes about
+3 GB, so the run waits for the store re-run's memory. Three iPhone 13 HEICs carry an Apple map in its older form,
+whose headroom is in Apple's maker notes: the strip removes maker notes (ML-3 D13), so no map is read and they stay
+as today; `check` counts them apart. The toy photos changed by +15 to +37 levels on average (brighter), the bean
+region by +16 to +25; the crops, opened at full size, show an even brightening without artefacts.
