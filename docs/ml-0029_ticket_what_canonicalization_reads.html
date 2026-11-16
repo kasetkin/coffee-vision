@@ -345,6 +345,16 @@
           skipped and the colour read; one the colour needs (black, a spot colour, CFA), a reserved one, or a second
           alpha refused, naming it (c) every one read as alpha or skipped</td>
         <td>(b), 2026-11-15: "go with your recommendation for extra channels". Depth stays out of the models (D3).</td></tr>
+      <tr><td class="id">D37</td><td>Who reads and applies the gain maps? P7 planned the bundled library first (libultrahdr,
+          libavif), kept only if it gives the unclipped linear result. libultrahdr does and agrees (0.006&ndash;0.014
+          stops on 60 dataset JPEGs), but refuses the per-channel <code>hdrgm</code> form, reads no HEIF or AVIF and
+          stops at 8192 &times; 8192; imagecodecs exposes no libavif gain-map call.</td>
+        <td>(a) this repo's own code (<code>coffeecv/gain_map.py</code>) for every form, libultrahdr the check (b)
+          libultrahdr for the JPEGs it takes, our code for the rest</td>
+        <td>(a), 2026-11-16: "okay, but make it noticeable, so if we ever have a problem related to this we will
+          know where to look first". So: <code>gain_map.py</code>'s docstring opens with where to look first (the
+          libultrahdr comparison, then the functions in order); a canonical photo made with a map names the map in
+          its decoder; P11's ADR, if adopted, carries this decision.</td></tr>
     </tbody>
   </table></div>
 
@@ -431,6 +441,8 @@
       Brazil as the sRGB export does, and so do the float JPEG XL (now tone-mapped) and a Fold8 Ultra DNG (ML-31).
       The front canonicalized them in 13.9, 13.1, 13.9 and 7.8 s (the sRGB export 2.9 s). Part 1 is done; Part 2 is
       at P8.</div>
+    <div><div class="when">2026-11-16</div>The owner decided D37: the gain maps stay this repo's own code, libultrahdr
+      the check, made noticeable where a problem would be looked for.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

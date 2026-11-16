@@ -307,7 +307,9 @@ photos, 16320×12240 (Fold8 Ultra, 200 MP), are beyond this libultrahdr's 8192×
 
 Why this module and not libultrahdr: libultrahdr refuses Adobe's per-channel `hdrgm` form ("could not find attribute
 hdrgm:GainMapMax", the public JPEG sample), does not read HEIF or AVIF, stops at 8192×8192, and decodes the main image
-again; it stays the check. libavif's gain-map API is not exposed by imagecodecs.
+again; it stays the check. libavif's gain-map API is not exposed by imagecodecs. The owner accepted this as D37
+(2026-11-16), asking that it be noticeable: `coffeecv/gain_map.py`'s docstring opens with where to look first when a
+gain-map photo comes out wrong.
 
 **The public samples** (libavif's test files, D29: in `tmp/`, not committed):
 

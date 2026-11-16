@@ -1,5 +1,15 @@
 """A photo's gain map, read from its bytes, and applied to its main image's linear light (ML-29 P7; D10, D14).
 
+WHERE TO LOOK FIRST (ML-29 D37, the owner, 2026-11-16): every gain map is read and applied by this module's own
+code, not by a library. libultrahdr (in imagecodecs) is only the check on it. So a gain-map photo that comes out
+wrong (too bright or too dark, a colour cast, banding, the map turned or stretched wrong) is most likely this file's:
+  1. compare with libultrahdr on the same JPEG: `python analysis/ml29/gain_map_check.py --sections 2` (it agreed
+     within 0.006-0.014 stops on 60 dataset JPEGs, 2026-11-16) and tests.test_gain_map.Jpeg;
+  2. then read, in this order: parse_iso / parse_hdrgm (the numbers), apply (the formula, its weight and offsets),
+     _stretched (the map's upsampling), _map_item / _heic_aux / _apple (which image is the map), and canonical's
+     _with_gain_map (the map turned as the main image was, the light in linear Rec.2020).
+A canonical photo made with a map names it in its Source.decoder ("jpeg+Ultra HDR", "heif8+ISO 21496-1").
+
 Behind canonical.Settings.gain_maps, off in the store's and the front's settings: canonicalization ignores gain maps
 (ML-29 D3, D10) until the experiment adopts them (D12, D15).
 
@@ -20,7 +30,8 @@ weight 1 for a map that leads up from a standard-range main image, -1 for one th
 is relative to standard-range white, 1.0 at 203 cd/m2 (BT.2408), as the tone map (D33) reads it.
 
 libultrahdr (in imagecodecs) applies Ultra HDR and ISO maps to a JPEG itself; it is the check on this arithmetic
-(analysis/ml29/gain_map_check.py), not the reader: it refuses the per-channel hdrgm form, and reads no HEIF or AVIF.
+(analysis/ml29/gain_map_check.py), not the reader (D37): it refuses the per-channel hdrgm form, reads no HEIF or AVIF,
+stops at 8192 x 8192, and imagecodecs exposes no libavif gain-map call.
 """
 from __future__ import annotations
 
