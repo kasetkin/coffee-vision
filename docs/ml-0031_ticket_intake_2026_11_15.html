@@ -13,7 +13,7 @@
     <code>dataset/</code> changed yet; D1 open.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader to write</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review next; not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -138,7 +138,7 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The 20 files analysed: formats, metadata, gain maps, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>The JPEGs and the DNGs (D1) stripped, every check passing, with their manifest rows.</span></li>
-    <li><span class="box"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
+    <li><span class="box done"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split (done 2026-11-16); the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
   </ul>
@@ -177,6 +177,14 @@
       this ticket and ML-29's P5 and P7). The segmenter dataset built: 20 added (1,815 photos), each twin pair in one
       group and one split on its own (one clock: no split unit needed); <code>test_seg_dataset</code>'s pinned pool
       count 861.</div>
+    <div><div class="when">2026-11-16</div>The store re-run done (41 stages, 06:39&ndash;10:40 UTC), then
+      <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>. Against <code>dvc.lock</code> at
+      <code>58f7f8f</code>: every output byte-identical but <code>random_date_raccoon</code>'s, and there, listing by
+      listing, only the 20 photos added: canonical 493 &rarr; 513 files, segcropped 987 &rarr; 1,027 (a crop and a
+      mask each), the masks 453 &rarr; 460 (7 new photos in the test split), the pool 1,743 &rarr; 1,763 crops (55
+      excluded, as before); nothing else changed but the reports and manifests that count them. The owner's crop
+      review items: <code>outputs/intake_2026-11-15/review/items.csv</code>, 20 new, no fallback, each mask checked
+      against the stage's hash; 11 masks cover the whole frame (area 0.9996&ndash;1.0) and one 3.6%. Not pushed.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),
