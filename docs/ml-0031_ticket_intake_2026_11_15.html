@@ -137,7 +137,7 @@
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The 20 files analysed: formats, metadata, gain maps, the strip's dry run, the duplicate check.</span></li>
-    <li><span class="box"></span><span>The JPEGs (done 2026-11-16) and the DNGs, by D1, stripped, every check passing, with their manifest rows.</span></li>
+    <li><span class="box done"></span><span>The JPEGs and the DNGs (D1) stripped, every check passing, with their manifest rows.</span></li>
     <li><span class="box"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split; the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
@@ -163,6 +163,16 @@
       twins renamed (<code>20261115_174805-jpg_…</code> and four more). The 15 JPEGs stripped: every check passing,
       15 manifest rows; GPS, Samsung's maker notes, the thumbnail and the SEF trailer gone (none left by a second look),
       the 10 gain maps kept. <code>dataset/random_date_raccoon</code> dvc-added: 508 files. Not pushed yet.</div>
+    <div><div class="when">2026-11-16</div>D1 in code, test first (<code>e79f5d4</code>):
+      <code>coffeecv/linear_dng.py</code> reads a JPEG XL LinearRaw DNG and develops it by LibRaw's steps for a linear
+      DNG; canonicalization, <code>photo_io</code> and the strip's checks use it, every other RAW stays LibRaw's. The
+      strip's first dry run on the DNGs found two gaps, fixed test first: their SEF trailer (<code>MCCData</code>,
+      time stamps) was cut from JPEGs only, now from a DNG too, never into its image data
+      (<code>linear_dng.data_end</code>); <code>PreviewJXLStart</code>, exiftool's name for a JPEG XL image's strip
+      offsets, is a layout tag. The DNGs back in the folder and stripped: every check passing, 5 manifest rows, no
+      trailer left, the RAW preview kept (2026-10-05). The duplicate check: each DNG a copy of its own JPEG twin only
+      (0.993&ndash;0.996; D2 keeps both), and each pair canonicalizes upright alike. The folder dvc-added again: 513
+      files.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),

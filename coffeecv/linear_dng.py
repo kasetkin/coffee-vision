@@ -139,6 +139,25 @@ def _ifd(d: bytes, end: str, at: int) -> dict[int, tuple]:
     return tags
 
 
+def data_end(data: bytes) -> int:
+    """Where the image data of a TIFF (a DNG) ends: the end of the last strip or tile of IFD0 and its SubIFDs (the
+    main image and the previews), or 0 for a file that is not a TIFF. What a trailer cut must not reach into
+    (strip_metadata, ML-31)."""
+    try:
+        if data[:4] not in (b"II*\0", b"MM\0*"):
+            return 0
+        end = "<" if data[:2] == b"II" else ">"
+        ifd0 = _ifd(data, end, struct.unpack(end + "I", data[4:8])[0])
+        last = 0
+        for ifd in [ifd0] + [_ifd(data, end, o) for o in ifd0.get(330, ())]:
+            for offsets, counts in ((273, 279), (324, 325), (513, 514)):
+                for o, n in zip(ifd.get(offsets, ()), ifd.get(counts, ())):
+                    last = max(last, o + n)
+        return last
+    except (struct.error, IndexError, ValueError):
+        return len(data)                         # unreadable: nothing may be cut
+
+
 def _parse(d: bytes) -> LinearDng | None:
     if d[:4] not in (b"II*\0", b"MM\0*"):
         return None

@@ -196,6 +196,34 @@ class TestStrip(unittest.TestCase):
         self.assertTrue(any("Samsung trailer" in p for p in row["problems"]), row["problems"])
         self.assertEqual(sm.sha256_file(path), sha)
 
+    def test_samsung_trailer_is_cut_from_a_jpeg_xl_dng(self):
+        """ML-31: the Fold8 Ultra's DNGs (JPEG XL LinearRaw) end with the same SEF trailer, after the main image's
+        data; it is cut, and the photo before it reads as before (coffeecv.linear_dng)."""
+        from coffeecv import linear_dng
+        from tests.test_linear_dng import dng, ramp
+        path = self.tmp / "a.dng"
+        path.write_bytes(dng(ramp()) + samsung_trailer(SAMSUNG))
+        self.assertIn("MakerNotes:Samsung:MCCData", sm.read_tags(path))
+        digest = sm.pixel_digest(path)
+        row = sm.strip_one(path, dry_run=False)
+        self.assertEqual(row["problems"], [])
+        data = path.read_bytes()
+        self.assertIsNone(sm.samsung_trailer_start(data))
+        self.assertNotIn("MakerNotes:Samsung:MCCData", sm.read_tags(path))
+        self.assertEqual(sm.pixel_digest(path), digest)
+        info = linear_dng.parse(data)
+        self.assertEqual(linear_dng.data_end(data), max(o + n for o, n, _, _ in info.pieces))
+
+    def test_a_trailer_cut_into_a_dngs_data_fails(self):
+        from tests.test_linear_dng import dng, ramp
+        path = self.tmp / "a.dng"
+        path.write_bytes(dng(ramp()) + samsung_trailer(SAMSUNG))
+        sha = sm.sha256_file(path)
+        with mock.patch.object(sm, "samsung_trailer_start", return_value=100):
+            row = sm.strip_one(path, dry_run=False)
+        self.assertTrue(any("inside the file's image data" in p for p in row["problems"]), row["problems"])
+        self.assertEqual(sm.sha256_file(path), sha)
+
     def check_fails_untouched(self, path: Path, expect: str, **patches):
         sha = sm.sha256_file(path)
         with mock.patch.multiple(sm, **patches):

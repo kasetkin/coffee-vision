@@ -5,8 +5,8 @@
 
 D13.1 as a deny list: GPS (EXIF, XMP and any GPS* tag), maker notes (Sony face info, Apple, Google HDR+
 maker note), C2PA/JUMBF (its signing certificate carries a device-stable id), extended XMP, embedded
-thumbnails and previews, device and lens serial numbers, owner/artist fields, and a Samsung JPEG's SEF
-trailer (MCC_Data, the network's country; Image_UTC_Data), cut from the file's end as exiftool cannot
+thumbnails and previews, device and lens serial numbers, owner/artist fields, and a Samsung JPEG's (or
+JPEG XL DNG's, ML-31) SEF trailer (MCC_Data, the network's country; Image_UTC_Data), cut from the file's end as exiftool cannot
 delete it (samsung_trailer_start, 2026-10-23). Everything else stays,
 Orientation and the ICC profile included: they are not private and they describe the photo. A RAW file's
 preview and a HEIF's thumbnail item are image data exiftool cannot remove; the owner keeps them (2026-10-05).
@@ -143,10 +143,11 @@ VOLATILE_GROUPS = {"System", "ExifTool", "Composite"}
 # mdat box, which holds the Exif item as well as the images; the images are compared decoded instead (or by
 # their stored bytes, an auxiliary image pillow-heif cannot decode).
 # exiftool also keeps EXIF and IPTC well-formed on its own: YCbCrPositioning goes with an IFD0 left with
-# nothing else, and EnvelopeRecordVersion and the IPTC digests come with rewritten IPTC.
+# nothing else, and EnvelopeRecordVersion and the IPTC digests come with rewritten IPTC. PreviewJXLStart is exiftool's
+# name for a JPEG XL-compressed image's strip offsets, a DNG's main image too (ML-31).
 LAYOUT_TAGS = {"MPImageStart", "MPImageLength", "FileSize", "ExifByteOrder", "XMPToolkit",
                "CurrentIFDPosition", "MediaDataOffset", "MediaDataSize", "MediaData", "TileOffsets",
-               "StripOffsets", "ChunkOffset", "ChunkOffset64", "YCbCrPositioning", "EnvelopeRecordVersion", "CurrentIPTCDigest", "IPTCDigest"}
+               "StripOffsets", "ChunkOffset", "ChunkOffset64", "PreviewJXLStart", "YCbCrPositioning", "EnvelopeRecordVersion", "CurrentIPTCDigest", "IPTCDigest"}
 
 MANIFEST_FIELDS = ["path", "sha256_before", "sha256_after", "pixel_sha256", "removed"]
 
@@ -473,12 +474,15 @@ def strip_one(path: Path, dry_run: bool, row: dict | None = None) -> dict:
         if proc.returncode != 0 or not tmp.exists():
             row["problems"].append(f"exiftool failed: {(proc.stderr or proc.stdout).strip()}")
             return row
-        if path.suffix.lower() in {".jpg", ".jpeg"}:
+        if path.suffix.lower() in {".jpg", ".jpeg", ".dng"}:      # a Fold8 Ultra's DNG has one too (ML-31)
             data = tmp.read_bytes()
             try:
                 cut = samsung_trailer_start(data)
             except ValueError as e:
                 row["problems"].append(f"Samsung trailer: {e}")
+                return row
+            if cut is not None and path.suffix.lower() == ".dng" and cut < linear_dng.data_end(data):
+                row["problems"].append("Samsung trailer: it starts inside the file's image data")
                 return row
             if cut is not None:
                 tmp.write_bytes(data[:cut])
