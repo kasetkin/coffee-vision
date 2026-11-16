@@ -16,14 +16,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -92,14 +88,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -168,14 +160,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -244,14 +232,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -320,14 +304,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -396,14 +376,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -472,14 +448,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -548,14 +520,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -624,14 +592,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -700,14 +664,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -776,14 +736,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -852,14 +808,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -928,14 +880,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -1004,14 +952,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -1080,14 +1024,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -1156,14 +1096,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -1616,14 +1552,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -3645,10 +3577,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3659,8 +3587,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3699,10 +3627,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3713,8 +3637,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3753,10 +3677,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3767,8 +3687,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3807,10 +3727,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3821,8 +3737,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3861,10 +3777,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3875,8 +3787,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3915,10 +3827,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3929,8 +3837,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -3969,10 +3877,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -3983,8 +3887,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4023,10 +3927,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4037,8 +3937,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4077,10 +3977,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4091,8 +3987,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4131,10 +4027,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4145,8 +4037,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4185,10 +4077,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4199,8 +4087,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4239,10 +4127,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4253,8 +4137,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4294,10 +4178,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4308,8 +4188,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4348,10 +4228,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4362,8 +4238,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4402,10 +4278,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4416,8 +4288,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4456,10 +4328,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4470,8 +4338,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4511,10 +4379,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4525,8 +4389,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4565,10 +4429,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4579,8 +4439,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4619,10 +4479,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4633,8 +4489,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -4673,10 +4529,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -4687,8 +4539,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -5188,10 +5040,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -5202,8 +5050,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -5324,10 +5172,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -5338,8 +5182,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -5378,10 +5222,6 @@ stages:
       hash: md5
       md5: 7015ab7a67fa33e20399cfdf84c7ff4f
       size: 536
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/jxl_encode.py
       hash: md5
       md5: a7295467d3eccc4c4c11493555e4a2ee
@@ -5392,8 +5232,8 @@ stages:
       size: 9063
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/tone_map.py
       hash: md5
       md5: 69165330a2ab02d5c93f42769d5243e4
@@ -5424,14 +5264,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21
@@ -5499,14 +5335,10 @@ stages:
       hash: md5
       md5: f6c678461124f4f350d89b112ef2c50d
       size: 2142
-    - path: coffeecv/gain_map.py
-      hash: md5
-      md5: 4cec888d0bbaf43f3194fa481f4de01c
-      size: 17178
     - path: coffeecv/linear_dng.py
       hash: md5
-      md5: 242fc5a9aa6896fdf4a027ff10619ac2
-      size: 11026
+      md5: 8ec3e9f073adb6d87064ba5125249d91
+      size: 11630
     - path: coffeecv/sam_loader.py
       hash: md5
       md5: e8615df752d8acadfae306946fdc6d21

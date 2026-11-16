@@ -228,7 +228,7 @@
 
   <h2>7. P5 &mdash; HDR main images wired</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-16: the store re-run on <code>c6d046f</code>, 39 of 42 stages, every output byte-identical; then all 41 with ML-31's 20 new photos and P7's setting, off: every output byte-identical but those photos' additions; <code>scripts/check.sh --full</code> to run</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-16: the store re-run on <code>c6d046f</code>, then on <code>136acda</code> and <code>73b75f1</code>, every output byte-identical but ML-31's 20 new photos' additions; <code>scripts/check.sh --full</code> green</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P2, P4</span></div>
   </div>
   <ol class="tasks">
@@ -238,8 +238,10 @@
     <li><span class="box done"></span><span>Tests, test first: each curve in each container on files made in code; a
       standard-range photo's bytes unchanged by the operator's presence.</span></li>
     <li><span class="box done"></span><span>The texts updated again; the front's time for a 15 MP PQ upload measured.</span></li>
-    <li><span class="box"></span><span>Checks: the darktable PQ and HLG files within P4's tolerance of the sRGB export;
-      the store re-run, every output byte-identical; <code>scripts/check.sh --full</code> green.</span></li>
+    <li><span class="box done"></span><span>Checks: the darktable PQ and HLG files within P4's tolerance of the sRGB export;
+      the store re-run, every output byte-identical; <code>scripts/check.sh --full</code> green. <span class="tag">every
+      made HDR file within D27, the owner's two darktable exports outside as D34 records; the store re-run twice, Activity
+      2026-11-16</span></span></li>
   </ol>
 
   <h2>8. P6 &mdash; release B <span class="pill sm open">stop</span></h2>
@@ -256,7 +258,7 @@
 
   <h2>9. P7 &mdash; the gain-map reader, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-16: the reader (<code>33f73b5</code>) and the setting, off (<code>e79f5d4</code>); the store re-run with it, unchanged; <code>scripts/check.sh --full</code> to run</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-16: the reader (<code>33f73b5</code>) and the setting, off (<code>e79f5d4</code>); the store re-run with it, unchanged; <code>scripts/check.sh --full</code> green; the departure in its first box for the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>A new module, <code>coffeecv/gain_map.py</code>: a file's bytes in, its gain map and what it means out (the map,
@@ -275,7 +277,7 @@
     <li><span class="box done"></span><span>Tests, test first, on files made in code with <code>ultrahdr_encode</code> and
       on synthetic maps: a flat map is a pure brightness change; a zero map changes nothing; orientation follows the
       main image.</span></li>
-    <li><span class="box"></span><span>Checks: on the 208 dataset files that carry both forms, the ISO result against
+    <li><span class="box done"></span><span>Checks: on the 208 dataset files that carry both forms, the ISO result against
       the vendor map's, the differences reported (R5); the public samples read; the setting off, the store's bytes
       and the suite unchanged.</span></li>
   </ol>
@@ -349,12 +351,13 @@
   <ul class="checks">
     <li><span class="box done"></span><span>P1: the declarations read from the 22 exports equal the recorded ones; no DVC
       dependency changed. <span class="tag"><code>jxl_header</code> excepted (D5)</span></span></li>
-    <li><span class="box"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
-      within tolerance.</span></li>
+    <li><span class="box done"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
+      within tolerance. <span class="tag">but the four D34 records (P2's Adobe RGB JPEG XL and q50 linear HEIC, P5's
+      darktable PQ and HLG)</span></span></li>
     <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files. <span class="tag">P3's
       done 2026-11-15; P6's to come</span></span></li>
     <li><span class="box"></span><span>P4: the operator and tolerance chosen by the owner, in the ticket.</span></li>
-    <li><span class="box"></span><span>P7: ISO against vendor on 208 files; the setting off changes nothing.</span></li>
+    <li><span class="box done"></span><span>P7: ISO against vendor on 208 files; the setting off changes nothing.</span></li>
     <li><span class="box"></span><span>P8 to P10: each report in <code>analysis/ml29/</code>, per camera.</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
@@ -517,6 +520,10 @@
       Apple map has no headroom in the file (it was in the maker notes the strip removes): they stay as today, and
       <code>check</code> counts them apart. About 22 s a 12 MP photo; up to 3 GB for a 50 MP one, so the full run
       (about 2 hours at 4 jobs) follows the store re-run. Details: <code>analysis/ml29/README.md</code>, P8.</div>
+    <div><div class="when">2026-11-16</div>The store re-run on <code>73b75f1</code> (the review's DNG fix,
+      <code>gain_map.py</code> out of the stages' dependencies): all 41 canonicalize and segcrop stages,
+      <code>seg_ml19_predict</code> and <code>merge_segpool</code>, every output byte-identical to <code>4a8f6a2</code>'s
+      lock. <code>scripts/check.sh --full</code> green: 1,245 tests, 3 skipped. P5 and P7 done.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
